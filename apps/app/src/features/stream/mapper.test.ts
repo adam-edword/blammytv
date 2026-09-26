@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  groupSources,
   mapSeasons,
   mapStreams,
   metaPreviewToVod,
@@ -82,11 +83,121 @@ describe("mapStreams", () => {
   });
 });
 
+describe("the three-way cache status (plan 019, Sources)", () => {
+  const status = (streams: Parameters<typeof mapStreams>[0]) =>
+    mapStreams(streams).map((s) => s.cache);
+
+  it("takes AIOStreams' service.cached either way, over any text", () => {
+    expect(
+      status([
+        { name: "RD 1080p", url: "http://h/a.mp4", streamData: { service: { id: "realdebrid", cached: true } } },
+        { name: "⚡ decorative", url: "http://h/b.mp4", streamData: { service: { id: "torbox", cached: false } } },
+        // Usenet goes through a service too; the flag means the same.
+        { name: "NZB 4K ⏳", url: "http://h/c.mp4", streamData: { type: "usenet", service: { id: "torbox", cached: true } } },
+      ]),
+    ).toEqual(["cached", "uncached", "cached"]);
+  });
+
+  it("reads cached from the ⚡ and the [RD+] family, as auto-play does", () => {
+    const out = mapStreams([
+      { name: "⚡ 4K", url: "http://h/a.mp4" },
+      { name: "4K", description: "Movie\n8.2GB ⚡", url: "http://h/b.mp4" },
+      { name: "[AD+] Movie 1080p", url: "http://h/c.mp4" },
+    ]);
+    expect(out.map((s) => s.cache)).toEqual(["cached", "cached", "cached"]);
+    // The boolean and the status never disagree.
+    expect(out.every((s) => s.cached)).toBe(true);
+  });
+
+  it("reads not cached from AIOStreams' ⏳ and Torrentio's [RD download]", () => {
+    const out = mapStreams([
+      // AIOStreams' GDrive formatter: "[RD⏳]" after the service.
+      { name: "[RD⏳] AIOStreams 1080p", url: "http://h/a.mp4" },
+      { name: "1080p", description: "Movie\n[TB⏳] 2.1GB", url: "http://h/b.mp4" },
+      { name: "[RD download] Torrentio\n1080p", url: "http://h/c.mp4" },
+    ]);
+    expect(out.map((s) => s.cache)).toEqual(["uncached", "uncached", "uncached"]);
+    expect(out.some((s) => s.cached)).toBe(false);
+  });
+
+  it("says unknown, not 'not cached', when nothing says either", () => {
+    expect(
+      status([
+        // A direct link: no service to be cached on.
+        { name: "Direct 1080p", url: "http://h/a.mp4", streamData: { type: "http" } },
+        // An addon that marks nothing.
+        { name: "Some Addon 720p", description: "Movie.720p.mkv", url: "http://h/b.mp4" },
+      ]),
+    ).toEqual(["unknown", "unknown"]);
+  });
+
+  it("keeps every line, from `title` when an older addon sends it there", () => {
+    const [s] = mapStreams([
+      { name: "Torrentio\n4k", title: "Movie.2160p.mkv\n👤 12 💾 5 GB\n🇬🇧 / 🇫🇷", url: "http://h/a.mp4" },
+    ]);
+    expect(s.lines).toEqual(["Movie.2160p.mkv", "👤 12 💾 5 GB", "🇬🇧 / 🇫🇷"]);
+  });
+});
+
+describe("groupSources", () => {
+  const at = (id: string, cache: "cached" | "uncached" | "unknown") => ({
+    id,
+    quality: "1080p",
+    cached: cache === "cached",
+    cache,
+    lines: [],
+    streamUrl: `http://h/${id}`,
+  });
+
+  it("puts cached first, then the unknowns, then not cached, each labelled", () => {
+    const groups = groupSources([at("a", "uncached"), at("b", "unknown"), at("c", "cached")]);
+    expect(groups.map((g) => [g.label, g.sources.map((s) => s.id)])).toEqual([
+      ["Cached", ["c"]],
+      ["Other sources", ["b"]],
+      ["Not cached", ["a"]],
+    ]);
+  });
+
+  it("keeps the addon's order inside each group", () => {
+    const groups = groupSources([
+      at("u1", "uncached"),
+      at("c1", "cached"),
+      at("u2", "uncached"),
+      at("c2", "cached"),
+      at("c3", "cached"),
+    ]);
+    expect(groups.map((g) => g.sources.map((s) => s.id))).toEqual([
+      ["c1", "c2", "c3"],
+      ["u1", "u2"],
+    ]);
+  });
+
+  it("drops a group with nothing in it", () => {
+    expect(groupSources([at("a", "cached"), at("b", "uncached")]).map((g) => g.label)).toEqual([
+      "Cached",
+      "Not cached",
+    ]);
+    expect(groupSources([at("a", "cached"), at("b", "cached")]).map((g) => g.label)).toEqual(["Cached"]);
+  });
+
+  it("draws no labels at all when no source's status is known", () => {
+    const groups = groupSources([at("a", "unknown"), at("b", "unknown")]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBeNull();
+    expect(groups[0].sources.map((s) => s.id)).toEqual(["a", "b"]);
+  });
+
+  it("is empty for an empty list", () => {
+    expect(groupSources([])).toEqual([]);
+  });
+});
+
 describe("pickCachedIndex", () => {
   const src = (id: string, cached: boolean, group?: string) => ({
     id,
     quality: "1080p",
     cached,
+    cache: cached ? ("cached" as const) : ("unknown" as const),
     lines: [],
     streamUrl: `http://h/${id}`,
     ...(group ? { bingeGroup: group } : {}),

@@ -1,3 +1,5 @@
+import { EYEBROW } from "./eyebrow";
+
 /**
  * shadcn's sidebar geometry, as utility strings both sidebars share.
  *
@@ -28,6 +30,10 @@
  *   menu          gap-1 between items
  *   group         p-2
  *
+ * Since plan 019 (K10) a row is multi-view's picker row instead: 36px, the
+ * picture's 10px corner rather than Button's pill, and a text tint for the
+ * chosen one. The widths and paddings above are unchanged.
+ *
  * `has-[>svg]:px-2` IS NOT REDUNDANT. Button's own base carries
  * `has-[>svg]:px-3`, a conditional variant that tailwind-merge does not
  * cancel against a plain `px-2` — they are different keys. So a row whose
@@ -48,16 +54,19 @@
  * the active one readable without a fill doing all the work.
  */
 export const SIDEBAR_ITEM =
-  "h-8 w-full justify-start gap-2 px-2 has-[>svg]:px-2 text-left font-normal";
+  "h-9 w-full justify-start gap-2 px-2 has-[>svg]:px-2 rounded-(--radius) text-left font-normal";
 
-/** The active row: shadcn's `data-[active=true]` pair. */
-export const SIDEBAR_ITEM_ACTIVE =
-  "bg-sidebar-accent text-sidebar-accent-foreground font-medium";
+/** The active row: multi-view's selection, a 16% tint of the text colour
+ * rather than a fill of its own (plan 019 rule 5), with shadcn's
+ * `font-medium` for the active one. */
+export const SIDEBAR_ITEM_ACTIVE = "bg-tint-on text-foreground font-medium hover:bg-tint-on";
 
 /**
- * A group header. Same 32px box as a row so the two line up, but 12px and
- * dimmed — a label is not a destination, and shadcn leans on size and
- * opacity rather than a rule or a caps treatment to say so.
+ * A group header. Same 32px box as a row so the two line up, and the type
+ * is the eyebrow (plan 019, K9): multi-view's section label, small, caps
+ * and muted by colour. A label is not a destination. It was shadcn's
+ * SidebarGroupLabel (12px, medium, foreground at 70%), which said so with
+ * size and opacity; the eyebrow says it the way every other group label in
+ * the app now does.
  */
-export const SIDEBAR_LABEL =
-  "h-8 w-full justify-start gap-2 px-2 has-[>svg]:px-2 text-left text-xs font-medium text-sidebar-foreground/70";
+export const SIDEBAR_LABEL = `h-9 w-full justify-start gap-2 px-2 has-[>svg]:px-2 rounded-(--radius) text-left ${EYEBROW}`;

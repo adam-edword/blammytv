@@ -8,6 +8,7 @@ import { AioStreamsTab } from "./AioStreamsTab";
 import { savePlaylists } from "./playlists";
 import { saveAioUrl, saveHeroSources } from "./aiostreams";
 import { requestOnboardingReplay } from "../../app/onboardingGate";
+import { EYEBROW } from "../../ui/eyebrow";
 
 /**
  * General: where content comes from, and how the app is managed. Anything
@@ -59,7 +60,7 @@ export function GeneralTab() {
     <>
       {/* Where content comes from. The two source screens are unchanged;
         * they just sit behind a pill here instead of behind a tab. */}
-      <h3 className="settings__group">Sources</h3>
+      <h3 className={`settings__group ${EYEBROW}`}>Sources</h3>
       <div className="customize-rail">
         <Segmented role="tabs" label="Sources" options={SOURCE_TABS} value={source} onChange={setSource} />
       </div>
@@ -67,7 +68,7 @@ export function GeneralTab() {
 
       {/* Same shape as Customize: a group heading, then ONE section holding
         * every setting in it as a row. */}
-      <h3 className="settings__group">App</h3>
+      <h3 className={`settings__group ${EYEBROW}`}>App</h3>
       <section className="settings-section">
         <UpdatesSection />
 

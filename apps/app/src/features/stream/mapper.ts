@@ -5,7 +5,13 @@ import {
   type StremioStream,
   type StremioVideo,
 } from "../../data/stremio";
-import type { Episode, Season, StreamSource, VodItem } from "./model";
+import type {
+  CacheStatus,
+  Episode,
+  Season,
+  StreamSource,
+  VodItem,
+} from "./model";
 
 /**
  * Stremio JSON → the Stream tab's domain model. Ported from the old build's
@@ -27,10 +33,12 @@ export function mapStreams(streams: StremioStream[]): StreamSource[] {
 function mapStream(s: StremioStream): StreamSource {
   const name = (s.name ?? "").trim();
   const binge = s.behaviorHints?.bingeGroup ?? "";
+  const cached = isCached(s, name);
   return {
     id: hash(s.url ?? s.behaviorHints?.filename ?? name),
     quality: resolutionOf(binge) ?? qualityLabel(name),
-    cached: isCached(s, name),
+    cached,
+    cache: cacheStatus(s, name, cached),
     lines: sourceLines(s),
     streamUrl: s.url as string,
     ...(binge ? { bingeGroup: binge } : {}),
@@ -75,9 +83,71 @@ function isCached(s: StremioStream, name: string): boolean {
   );
 }
 
-/** Display lines straight from the addon's formatter (its `description`). */
+/** Torrentio's uncached tag, the other half of "[RD+]": "[RD download]". */
+const SERVICE_DOWNLOAD_RX = /\[[A-Z]{2,3} download\]/i;
+
+/** The three-way answer beside `cached` (plan 019, Sources), most trusted
+ * first:
+ *  1. AIOStreams' `streamData.service.cached`, either way, for any
+ *    formatter and any service.
+ *  2. The text. Cached is exactly what `isCached` recognises, so the
+ *    boolean auto-play trusts and this never disagree. Not cached is the
+ *    ⏳ AIOStreams' own formatters put on an uncached stream (the GDrive
+ *    one writes `⚡]` or `⏳]` after the service) and Torrentio's
+ *    "[RD download]".
+ *  3. Neither: unknown. A direct link has no service to be cached on, and
+ *    an addon that marks nothing has said nothing. */
+function cacheStatus(
+  s: StremioStream,
+  name: string,
+  cached: boolean,
+): CacheStatus {
+  const svc = s.streamData?.service;
+  if (typeof svc?.cached === "boolean")
+    return svc.cached ? "cached" : "uncached";
+  if (cached) return "cached";
+  const text = `${name}\n${s.description ?? s.title ?? ""}`;
+  if (/⏳/u.test(text) || SERVICE_DOWNLOAD_RX.test(text)) return "uncached";
+  return "unknown";
+}
+
+/** The source list's groups, in the order they show (plan 019, Sources).
+ * Only a group with a source in it shows. */
+const CACHE_GROUPS: { status: CacheStatus; label: string }[] = [
+  { status: "cached", label: "Cached" },
+  { status: "unknown", label: "Other sources" },
+  { status: "uncached", label: "Not cached" },
+];
+
+export interface SourceGroup {
+  status: CacheStatus;
+  /** Null when nothing about any source's cache is known: one list with
+   * no label, as a setup without debrid gets. */
+  label: string | null;
+  sources: StreamSource[];
+}
+
+/** Cached, then the unknowns, then not cached. The addon's order holds
+ * INSIDE each group: AIOStreams ranks and this app never re-sorts, so the
+ * grouping only moves a group ahead of another (and AIOStreams' default
+ * config sorts cached first anyway). */
+export function groupSources(sources: StreamSource[]): SourceGroup[] {
+  if (sources.length === 0) return [];
+  if (sources.every((s) => s.cache === "unknown"))
+    return [{ status: "unknown", label: null, sources }];
+  return CACHE_GROUPS.map((g) => ({
+    status: g.status,
+    label: g.label,
+    sources: sources.filter((s) => s.cache === g.status),
+  })).filter((g) => g.sources.length > 0);
+}
+
+/** Display lines straight from the addon's formatter: its `description`,
+ * or `title` from an addon old enough to still send it there (Stremio's
+ * name for the same field before `description`, which Torrentio still
+ * uses). Every line, as it came. */
 function sourceLines(s: StremioStream): string[] {
-  return (s.description ?? "")
+  return (s.description ?? s.title ?? "")
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);

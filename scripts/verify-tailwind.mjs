@@ -650,15 +650,17 @@ check(
 // Read live off a real chrome card rather than off the stylesheet, because
 // the thing that matters is what paints.
 //
-// The probe is `.vod-source`, a source row on the title screen. It was
+// The probe is `.leaguetile`, a league in the Sports picker. It was
 // `.episode-card` until v0.9.67, when the episode row became a shadcn
-// <Item> and its CSS paint went away with it — the probe then read a bare
-// div and this check would have started asserting against nothing. Any
-// class this points at has to be one that still paints from CSS; a control
-// that has been converted to a shadcn component never is.
+// <Item> and its CSS paint went away with it, then `.vod-source` until
+// v0.10.7, when a source became multi-view's flat row (plan 019, K10) —
+// each time the probe would have read a bare div and this check started
+// asserting against nothing. Any class this points at has to be one that
+// still paints from CSS as a card; a control that has been converted to a
+// shadcn component, or to a row, never is.
 const card = await page.evaluate(() => {
   const el = document.createElement("div");
-  el.className = "vod-source";
+  el.className = "leaguetile";
   document.body.appendChild(el);
   const s = getComputedStyle(el);
   const out = {

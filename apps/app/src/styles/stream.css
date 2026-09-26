@@ -474,12 +474,9 @@
  * GRID COLUMN (0.93W - 480px), not the page — so text x = 32px +
  * 0.07(0.93W - 480) = 6.51vw - 1.6px. The shelf spans the page, so it
  * reproduces that expression directly. */
+/* The type is the eyebrow over artwork (ui/eyebrow.ts, plan 019 K9). */
 .vod-more__title {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 14px;
   margin: 0 0 4px calc(6.51% - 1.6px);
-  color: color-mix(in srgb, var(--on-image) 80%, transparent);
 }
 .vod-more .media-row__viewport {
   margin: 0;
@@ -557,13 +554,29 @@
   aspect-ratio: 2 / 3;
   object-fit: cover;
 }
-.vod-more__name {
+/* The caption: the name, then the year, muted, on one line. */
+.vod-more__cap {
+  display: flex;
+  gap: 7px;
+  min-width: 0;
   font-size: 13px;
-  font-weight: 600;
-  color: color-mix(in srgb, var(--on-image) 85%, transparent);
   white-space: nowrap;
+}
+.vod-more__name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--on-image) 85%, transparent);
+}
+.vod-more__year {
+  flex: none;
+  color: color-mix(in srgb, var(--on-image) 60%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+.vod-more__year::before {
+  content: "·";
+  margin-right: 7px;
 }
 
 /* Save control on the detail screens. Two `<Button variant="outline">`
@@ -786,24 +799,43 @@
  * are `<Button variant="outline" size="sm">` since v0.9.55; the glass pill
  * they used to be is gone with the rest of the hand-written button paint. */
 
-/* ---- source rail ---- */
+/* ---- source column (plan 019, "Sources") ----
+ * One glass column from under the header to the window's bottom edge, the
+ * list scrolling inside it with the group labels sticking to its top, and
+ * the keys and the count along the bottom. A short list ends where it
+ * ends; the column still runs down (Adam: "i still want it to extend all
+ * the way down when possible"). The glass is the dark one a chip on a
+ * picture takes: what is behind it is the title's art. */
 .vod-sources {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   min-width: 0;
-  /* Rail-only scrolling: the grid row is viewport-bounded (body overflow
-   * hidden), the overflow lives here. */
+  min-height: 0;
+  margin-top: calc(var(--header-h, 76px) + 12px);
+  border: 1px solid var(--chip-edge);
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  background: var(--chip-bg);
+  backdrop-filter: blur(18px) saturate(1.4);
+  overflow: hidden;
+  color: var(--on-image);
+}
+.vod-sources > .state {
+  flex: 1;
+}
+
+/* The list itself, here and in the player's panel (SourceList.tsx). */
+.srclist {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.srclist__body {
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* Content padding, not container position: at rest the rail starts
-   * below the header exactly as before, but scrolled cards bleed past
-   * it to the viewport top (and off the bottom). */
-  padding-top: calc(var(--header-h, 76px) + 12px);
-  /* Breathing room between the cards and the scrollbar; a dab at the
-   * bottom so the last card isn't flush when scrolled to the end. */
-  padding-right: 12px;
-  padding-bottom: 16px;
+  padding: 0 8px 8px;
   /* Hidden-until-hover via standard scrollbar-color — unlike the
    * ::-webkit-scrollbar pseudos, which WebView2 won't repaint on ancestor
    * hover or on a custom-property change (verified on a real install: only
@@ -812,71 +844,112 @@
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
-.vod-sources:hover {
-  scrollbar-color: color-mix(in srgb, var(--text) 28%, transparent) transparent;
+.srclist__body:hover {
+  scrollbar-color: color-mix(in srgb, var(--on-image) 28%, transparent) transparent;
 }
-.vod-sources h3 {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 21px;
-  margin: 0;
+/* A group's label sticks to the column's top as its rows pass under it.
+ * Only once it IS stuck does it take a ground of its own, to keep the rows
+ * from reading through the words: at rest a ground over the glass drew a
+ * darker band across the column. A scroll-state query, which WebView2's
+ * Chromium has; without it the label just stays clear. */
+.srclist__sec {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0 -8px;
+  container-type: scroll-state;
 }
-/* Figma 133-721 source card: a glass slab with the quality in its own
- * raised block left, the addon's meta lines beside it, play glyph right. */
+.srclist__sec > span {
+  display: flex;
+  gap: 8px;
+  padding: 14px 18px 6px;
+}
+@container scroll-state(stuck: top) {
+  .srclist__sec > span {
+    background: rgb(20 20 20 / 0.72);
+    backdrop-filter: blur(18px);
+  }
+}
+.srclist__sec b {
+  font-weight: 650;
+  color: color-mix(in srgb, var(--on-image) 45%, transparent);
+}
+.srclist__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 42px;
+  padding: 0 18px;
+  border-top: 1px solid var(--chip-edge);
+  font-size: 12px;
+  color: color-mix(in srgb, var(--on-image) 65%, transparent);
+}
+.srclist__foot > span {
+  display: inline-flex;
+  align-items: center;
+}
+.srclist__count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A source: the picker's row (ui.css `.row`), in the ink a picture takes.
+ * The quality in a small glass tile, top left; every line the addon wrote,
+ * the first in the text colour at 600 and the rest muted; the play glyph,
+ * brighter under the pointer. */
 .vod-source {
-  display: flex;
-  gap: 0px;
-  align-items: center;
-  padding: 16px 16px 16px 10px;
-  /* shadcn Card: `rounded-xl border bg-card shadow-sm`. Was a 1000px glass
-   * slab; a source row is a card with a play affordance, and shadcn has no
-   * stadium-shaped card. */
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--dur-hover) ease,
-    transform 160ms var(--ease-out);
+  align-items: flex-start;
+  padding: 10px;
 }
-.vod-source:hover { background: var(--surface-raised); }
+.srclist .row:hover,
+.srclist .row:focus-visible {
+  background: color-mix(in srgb, var(--on-image) 9%, transparent);
+}
 .vod-source__quality {
-  flex-shrink: 0;
-  align-self: stretch;
-  min-width: 104px;
-  padding: 0 16px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 21px;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 54px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--on-image) 10%, transparent);
+  font-size: 12.5px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-image);
 }
-.vod-source__zap { color: #ffe57f; }
 .vod-source__lines {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.45;
-  color: color-mix(in srgb, var(--on-image) 75%, transparent);
+  color: color-mix(in srgb, var(--on-image) 65%, transparent);
 }
 .vod-source__lines span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.vod-source__play {
-  flex-shrink: 0;
-  opacity: 0.7;
-  transition: opacity var(--dur-hover) ease;
+.vod-source__lines span:first-child {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--on-image);
 }
-.vod-source:hover .vod-source__play { opacity: 1; }
+.vod-source__play {
+  flex: none;
+  margin-top: 7px;
+  color: color-mix(in srgb, var(--on-image) 45%, transparent);
+  transition: color var(--dur-hover) ease;
+}
+.vod-source:hover .vod-source__play,
+.vod-source:focus-visible .vod-source__play {
+  color: var(--on-image);
+}
 
 /* ---- episodes ---- */
 /* The seasons are the segmented control (plan 019, K2). A long-running
@@ -1214,25 +1287,20 @@
   font-weight: 700;
   font-size: 21px;
 }
+/* The list scrolls itself (SourceList); this only hands it the height. */
 .vod-panel__list {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-right: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  margin: 0 -10px -18px;
+  color: var(--on-image);
 }
-.vod-panel__list:hover {
-  scrollbar-color: color-mix(in srgb, var(--text) 28%, transparent) transparent;
-}
-/* The one that's playing right now: accent ring, like the app's active
- * chips. */
+/* The one that's playing right now keeps its ring (multi-view's sound
+ * tile's, inside the row since the list clips at its edges). */
 .vod-source--current {
-  border: 1px solid var(--accent);
-  background: var(--accent-surface);
+  background: color-mix(in srgb, var(--on-image) 16%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
 }
 
 /* ---- fullscreen VOD stage ---- */

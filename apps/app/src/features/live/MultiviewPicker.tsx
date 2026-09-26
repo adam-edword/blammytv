@@ -17,6 +17,7 @@ import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import type { Channel, LiveData } from "./model";
 import type { Fixture } from "../sports/model";
+import { EYEBROW } from "../../ui/eyebrow";
 
 /**
  * The channel picker (plan 017, P3; decision M3): a search-first palette
@@ -281,7 +282,7 @@ export function MultiviewPicker({
             <Autocomplete.List>
               {(section: Section) => (
                 <Autocomplete.Group key={section.value} items={section.items} className="mvpick__group">
-                  <Autocomplete.GroupLabel className="mvpick__sec">{section.value}</Autocomplete.GroupLabel>
+                  <Autocomplete.GroupLabel className={`mvpick__sec ${EYEBROW}`}>{section.value}</Autocomplete.GroupLabel>
                   <Autocomplete.Collection>
                     {(row: Row) => {
                       const taken = inGrid.has(row.channelId);

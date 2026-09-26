@@ -18,6 +18,8 @@ import {
   WarnIcon,
 } from "../../ui/icons";
 import { StateCard } from "../../ui/StateCard";
+import { EYEBROW_ON_IMAGE } from "../../ui/eyebrow";
+import { SourceList } from "./SourceList";
 import { Button } from "../../components/ui/button";
 import { Segmented } from "../../ui/Segmented";
 import Tilt from "react-parallax-tilt";
@@ -1494,36 +1496,17 @@ export function StreamScreen() {
                 {Array.isArray(panelSources) && panelSources.length === 0 && (
                   <StateCard size="tile" onImage icon={<PlayIcon size={22} />} title="No sources available" />
                 )}
-                {Array.isArray(panelSources) &&
-                  panelSources.map((src) => (
-                    <button
-                      key={src.id}
-                      type="button"
-                      className={
-                        "vod-source" +
-                        (src.streamUrl === playing.url
-                          ? " vod-source--current"
-                          : "")
-                      }
-                      onClick={() => pickPanelSource(src, panelSources)}
-                    >
-                      <span className="vod-source__quality">
-                        {src.quality}
-                        {src.cached && <span className="vod-source__zap">⚡</span>}
-                      </span>
-                      {/* Ellipsized release lines get the full text back
-                        * as a tooltip — it's what the user picks BY. All of
-                        * them: the row has no fixed height and grows. */}
-                      <span
-                        className="vod-source__lines"
-                        title={src.lines.join("\n")}
-                      >
-                        {src.lines.map((l, i) => (
-                          <span key={i}>{l}</span>
-                        ))}
-                      </span>
-                    </button>
-                  ))}
+                {Array.isArray(panelSources) && panelSources.length > 0 && (
+                  // The film page's rows (plan 019, K10), the one playing
+                  // keeping its ring. The panel's head names it, so the
+                  // one-list case needs no label of its own.
+                  <SourceList
+                    sources={panelSources}
+                    currentUrl={playing.url}
+                    fallbackLabel={null}
+                    onPick={(src) => pickPanelSource(src, panelSources)}
+                  />
+                )}
               </div>
               </div>
             </>,
@@ -2825,8 +2808,10 @@ function Detail({
           <SaveButton key={item.id} item={item} />
           <GenrePills genres={item.genres} />
         </div>
-        <div className="vod-sources">
-          <h3>Sources</h3>
+        {/* One glass column from under the header to the window's bottom
+          * edge, scrolling inside (plan 019, "Sources"): Adam, "i still want
+          * it to extend all the way down when possible". */}
+        <div className="vod-sources" aria-label="Sources">
           {/* The column's states are the StateCard (plan 019, K8). */}
           {sources === null && (
             <StateCard size="tile" onImage role="status" busy title="Finding sources…" />
@@ -2858,31 +2843,12 @@ function Detail({
               sub="Your addons came back with nothing playable for this one."
             />
           )}
-          {Array.isArray(sources) &&
-            sources.map((s, i) => (
-              <button
-                key={s.id}
-                type="button"
-                className="vod-source"
-                onClick={() => onPlaySource(s, sources.slice(i + 1))}
-              >
-                <span className="vod-source__quality">
-                  {s.quality}
-                  {s.cached && <span className="vod-source__zap">⚡</span>}
-                </span>
-                {/* EVERY line. The row is a flex box with no fixed height,
-                  * so it grows for a fourth the same way it shrinks for a
-                  * second, and these lines are what the source is picked
-                  * BY: a truncated one hides the audio track or the size
-                  * that made it the right choice. */}
-                <span className="vod-source__lines" title={s.lines.join("\n")}>
-                  {s.lines.map((l, i) => (
-                    <span key={i}>{l}</span>
-                  ))}
-                </span>
-                <PlayIcon className="vod-source__play" />
-              </button>
-            ))}
+          {Array.isArray(sources) && sources.length > 0 && (
+            <SourceList
+              sources={sources}
+              onPick={(s, queue) => onPlaySource(s, queue)}
+            />
+          )}
         </div>
       </div>
       {/* Full-width band BELOW the body — the info column clipped it
@@ -2891,7 +2857,7 @@ function Detail({
         * viewport edge (no left fade), fade on the right only. */}
       {more.length > 0 && (
         <div className="vod-more">
-          <h4 className="vod-more__title">More Like This</h4>
+          <h4 className={`vod-more__title ${EYEBROW_ON_IMAGE}`}>More like this</h4>
           <RowScroller>
             {more.map((v) => (
               <button
@@ -2926,7 +2892,10 @@ function Detail({
                 </Tilt>
                 {/* A poster has its caption under it everywhere (plan 019,
                   * K7); this row was the one without. */}
-                <span className="vod-more__name">{v.title}</span>
+                <span className="vod-more__cap">
+                  <span className="vod-more__name">{v.title}</span>
+                  {v.year && <span className="vod-more__year">{v.year}</span>}
+                </span>
               </button>
             ))}
           </RowScroller>

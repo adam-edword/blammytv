@@ -26,6 +26,8 @@ import { isAdultCategory } from "../live/adult";
 import { onLiveRefreshed, peekLive } from "../live/source";
 import { LineMeter } from "../../ui/LineMeter";
 import { useConnections } from "../live/connections";
+import { EYEBROW } from "../../ui/eyebrow";
+import { ChannelLogo } from "../../ui/ChannelLogo";
 
 type Categories =
   | { status: "loading" }
@@ -199,7 +201,7 @@ export function PlaylistsTab() {
       </section>
 
       <section className="settings-section">
-        <h3 className="settings-section__list-title">Your Playlists</h3>
+        <h3 className={`settings-section__list-title ${EYEBROW}`}>Your playlists</h3>
         {playlists.length === 0 ? (
           <p className="settings__section-note settings__section-note--dim">
             Nothing here yet. Add your first playlist above.
@@ -207,11 +209,15 @@ export function PlaylistsTab() {
         ) : (
           playlists.map((p) => (
             <div key={p.id} className="playlist-item">
+              {/* A row (plan 019, K10 and frame G): its logo tile, its
+                * name and where it comes from, its meter, the toggle, and a
+                * glass X. */}
               <div className="playlist-row">
+                <ChannelLogo name={p.name} size={34} className="playlist-row__logo" />
                 <div className="playlist-row__text">
                   <span className="playlist-row__name">{p.name}</span>
                   <span className="playlist-row__source">
-                    {playlistSource(p)}
+                    {playlistSource(p)} · {KIND_LABELS[p.kind]}
                   </span>
                   {(() => {
                     const g = liveGroups.find((x) => x.id === p.id);
@@ -267,7 +273,7 @@ export function PlaylistsTab() {
                     // spilled out of it. Destructive once armed, the danger
                     // voice the `--armed` rule gave it before v0.9.56's
                     // prune parked that rule.
-                    variant={armedDeleteId === p.id ? "destructive" : "ghost"}
+                    variant={armedDeleteId === p.id ? "destructive" : "secondary"}
                     size={armedDeleteId === p.id ? "sm" : "icon-sm"}
                     type="button"
                     className="playlist-row__delete"

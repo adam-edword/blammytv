@@ -190,11 +190,9 @@
 /* A run heading inside the dialog. shadcn has no component for this, so it
  * takes the next step down its scale: `text-base font-semibold`. It cannot
  * be bigger than the dialog's own title, which is what 32px made it. */
+/* A run of settings: the eyebrow (ui/eyebrow.ts, plan 019 K9). */
 .settings__group {
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 16px;
-  margin: 24px 0 0;
+  margin: 28px 0 0;
 }
 .settings__group:first-child {
   margin-top: 0;
@@ -616,44 +614,44 @@
   transform: rotate(180deg);
 }
 
+/* A playlist is a row (plan 019, K10 and frame G): a 5% tint of the text
+ * rather than a bordered card, its logo tile leading. */
 .playlist-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border-input);
-  border-radius: var(--radius-card);
-  padding: 11px 20px;
+  min-height: 60px;
+  padding: 10px 10px 10px 12px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border-radius: var(--radius);
 }
 
 .playlist-row__text {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
 .playlist-row__name {
-  font-family: var(--font-headline);
-  font-weight: 400;
-  font-size: 15px;
+  font-size: 13.5px;
+  font-weight: 600;
 }
 
 .playlist-row__source {
-  font-family: var(--font-headline);
-  font-weight: 400;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .playlist-row__actions {
   display: flex;
   align-items: center;
-  gap: 19px;
+  gap: 12px;
 }
 
 .playlist-row__delete {

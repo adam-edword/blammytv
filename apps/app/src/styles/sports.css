@@ -2370,20 +2370,17 @@
   z-index: 2;
   /* Shrink to the text. A block-level h4 would span the column and be a
    * band again whatever colour it took. */
-  /* shadcn's SidebarGroupLabel, which is what this is: 12px, medium,
-   * foreground/70, no chip and no caps. It was a 10.5px uppercase pill in
-   * --surface-raised — the loudest quiet thing in the panel, and the only
-   * label in the app still shouting. Matches .live-group in the Guide
-   * sidebar exactly, which is the point: they are the same object. */
+  /* The type is the eyebrow (ui/eyebrow.ts, plan 019 K9), the same as
+   * .live-group in the Guide sidebar, which is the point: they are the same
+   * object. It was a 10.5px uppercase pill in --surface-raised, then
+   * shadcn's sentence-case SidebarGroupLabel; the eyebrow keeps that one's
+   * lesson (no chip, nothing behind it) and takes multi-view's caps. */
   align-self: stretch;
   margin: 6px 0 2px;
   padding: 0 8px;
   display: flex;
   align-items: center;
   height: 32px;
-  font-size: 12px;
-  font-weight: 500;
-  color: color-mix(in srgb, var(--text) 70%, transparent);
 }
 
 .leaguepick__group {

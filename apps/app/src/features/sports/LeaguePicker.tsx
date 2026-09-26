@@ -12,6 +12,7 @@ import {
 import { ALL_LEAGUES, SPORTS, league as byPath, searchLeagues } from "./leagues";
 import { toggleLeague, type Follows } from "./follows";
 import type { CatalogLeague } from "./leagues";
+import { EYEBROW } from "../../ui/eyebrow";
 
 /**
  * The Leagues tab: what you follow, and the 151 you could (plan 010 #2).
@@ -214,7 +215,7 @@ export function LeaguePicker({
             <div className="leaguepick__group" key={sport.key}>
               {/* Sticky, so the sport you are inside is still named when
                 * you are forty rows into it. Soccer is 107 of them. */}
-              <h4 className="leaguepick__sport">{sport.name}</h4>
+              <h4 className={`leaguepick__sport ${EYEBROW}`}>{sport.name}</h4>
               {leagues.map((l) => (
                 <span className="live-folder-row leaguepick__row" key={l.path}>
                   {/* The row NARROWS the board to this league; the star

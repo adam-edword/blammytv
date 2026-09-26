@@ -7,12 +7,21 @@
 
 /** One resolved playable source. AIOStreams pre-ranks these — the app
  * renders them in the given order and never re-sorts or re-filters. */
+export type CacheStatus = "cached" | "uncached" | "unknown";
+
 export interface StreamSource {
   id: string;
   /** Prominent left label, e.g. "1080p" / "2160p". */
   quality: string;
-  /** Instant-play (cached on debrid) — the ⚡ marker. */
+  /** Cached on the debrid service: the flag auto-play trusts, and the only
+   * sources it will play. `cache` below is the same fact with its third
+   * answer kept. */
   cached: boolean;
+  /** What is known about the source's cache (plan 019, Sources): "cached",
+   * "uncached", or "unknown" when neither the addon's data nor its text
+   * says (a direct link, an addon that marks nothing). Unknown is NOT
+   * "not cached". The source list groups by it. */
+  cache: CacheStatus;
   /** Pre-formatted meta lines straight from the addon's formatter
    * (provider, languages, size, …) — formatter-agnostic, like Stremio. */
   lines: string[];

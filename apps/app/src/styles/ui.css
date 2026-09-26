@@ -158,6 +158,10 @@
   gap: 9px;
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
+  /* It sits beside a label (the Guide's group header is an eyebrow) and
+   * says a count, not a name: none of the label's caps or tracking. */
+  text-transform: none;
+  letter-spacing: normal;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -394,6 +398,50 @@ button.place:focus-visible {
 .place__sub {
   font-size: 12.5px;
   color: var(--text-muted);
+}
+
+/* ---- The row (plan 019, K10): multi-view's picker row. Flat, as tall as
+ * what it carries, a 9% tint under the pointer or the keyboard and a 16%
+ * one when it is the chosen one. No card, no border, no shadow: a list of
+ * these is one surface, not a stack of them. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) var(--ease-out);
+}
+.row:hover,
+.row:focus-visible {
+  background: var(--tint-hover);
+}
+.row.is-on {
+  background: var(--tint-on);
+}
+
+/* ---- A key (plan 019, K12): multi-view's <kbd> chip, ui/Kbd.tsx. */
+.kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin: 0 3px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Switch, at shadcn's exact geometry.

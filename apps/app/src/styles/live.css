@@ -88,7 +88,6 @@
 .live-group {
   overflow: hidden;
   mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
-  font-family: var(--font-headline);
 }
 
 .live-group__caret {
@@ -106,6 +105,9 @@
 .live-conns {
   margin-left: auto;
   padding-right: 2px;
+  /* The header it sits in is an eyebrow at 650; a count beside it is the
+   * weight it was under the old label. */
+  font-weight: 500;
 }
 
 .live-group__caret--closed {

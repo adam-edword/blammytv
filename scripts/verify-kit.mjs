@@ -342,6 +342,8 @@ const dimmedText = () =>
           const s = getComputedStyle(b);
           const radius = Math.max(...["TopLeft", "TopRight", "BottomRight", "BottomLeft"].map((c) => parseFloat(s[`border${c}Radius`]) || 0));
           return {
+            // A row (K10) is multi-view's picker row, 10px, not a pill.
+            row: b.matches(".live-folder, .live-group"),
             v: b.dataset.variant,
             name: (b.getAttribute("aria-label") || b.textContent || "").trim().slice(0, 24),
             h: r.height,
@@ -350,7 +352,7 @@ const dimmedText = () =>
             bg: s.backgroundColor,
           };
         })
-        .filter((b) => b.seen),
+        .filter((b) => b.seen && !b.row),
     );
   const square = [];
   const whites = {};
@@ -798,6 +800,121 @@ const dimmedText = () =>
   };
   scan(SRC);
   check("  and none of the nine old layouts' classes is left", old.length === 0, old.slice(0, 5).join(" "));
+}
+
+// ================================================================= K9, K10
+// Eyebrows, rows, and a title's sources as multi-view's picker lists
+// channels.
+{
+  const eyebrowOf = (sel, pg = page) =>
+    pg.evaluate((q) => {
+      const el = document.querySelector(q);
+      if (!el) return null;
+      const s = getComputedStyle(el);
+      return { size: s.fontSize, weight: s.fontWeight, caps: s.textTransform, track: s.letterSpacing, ink: s.color, text: el.textContent.trim().slice(0, 30) };
+    }, sel);
+  const muted = await token("--text-muted", "color");
+  const isEyebrow = (e, ink = muted) => e && e.size === "11px" && e.weight === "650" && e.caps === "uppercase" && e.track === "0.66px" && (ink === null || e.ink === ink);
+
+  await goTo(page, "guide");
+  await page.waitForTimeout(800);
+  const group = await eyebrowOf(".live-group");
+  check("the Guide's playlist label is an eyebrow: 11px, 650, caps, 0.06em, muted", isEyebrow(group), JSON.stringify(group));
+  const meterCase = await page.evaluate(() => getComputedStyle(document.querySelector(".live-group .meter")).textTransform);
+  check("  and the count beside it keeps its own case", meterCase === "none", meterCase);
+
+  // The folders are rows: 36px, the 10px corner, the chosen one a 16% tint.
+  const tintOn = await token("--tint-on");
+  const folders = await page.evaluate(() =>
+    [...document.querySelectorAll(".live-folder")].map((f) => {
+      const s = getComputedStyle(f);
+      return { h: f.getBoundingClientRect().height, r: s.borderTopLeftRadius, bg: s.backgroundColor, on: f.getAttribute("aria-current") === "true" || f.dataset.active === "true" };
+    }),
+  );
+  check(
+    "the Guide's folders are rows: 36px, the 10px corner",
+    folders.length > 0 && folders.every((f) => f.h === 36 && f.r === "10px"),
+    JSON.stringify(folders.slice(0, 2)),
+  );
+  await page.locator(".live-folder").nth(1).click();
+  await page.mouse.move(W - 4, H - 4);
+  await page.waitForTimeout(400);
+  const chosen = await page.locator(".live-folder").nth(1).evaluate((f) => getComputedStyle(f).backgroundColor);
+  check("  and the chosen one is the 16% tint, not a fill of its own", chosen === tintOn, `${chosen} vs ${tintOn}`);
+
+  await page.locator(".header__right button").last().click();
+  await page.locator(".settings").waitFor();
+  await page.getByRole("tab", { name: "General", exact: true }).click();
+  const sec = await eyebrowOf(".settings__group");
+  check("Settings' section labels are eyebrows", isEyebrow(sec) && sec.text === "Sources", JSON.stringify(sec));
+  const pl = await page.evaluate(() => {
+    const r = document.querySelector(".playlist-row");
+    if (!r) return null;
+    const s = getComputedStyle(r);
+    return { logo: !!r.querySelector(".chlogo"), border: s.borderTopWidth, r: s.borderTopLeftRadius, x: r.querySelector(".playlist-row__delete")?.dataset.variant };
+  });
+  check("  a playlist is a row: its logo tile, no border, the 10px corner, a glass X", pl?.logo && pl.border === "0px" && pl.r === "10px" && pl.x === "secondary", JSON.stringify(pl));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+
+  await goTo(page, "sports");
+  await page.locator(".leaguepick__sport").first().waitFor({ timeout: 15_000 }).catch(() => {});
+  const sport = await eyebrowOf(".leaguepick__sport");
+  check("Sports' sidebar labels are the same eyebrow", isEyebrow(sport), JSON.stringify(sport));
+
+  // A film's sources.
+  await goTo(page, "home");
+  await page.waitForTimeout(1500);
+  await page.mouse.wheel(0, 700);
+  await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
+  await page.locator(".vod-source").first().waitFor({ timeout: 15_000 });
+  await page.waitForTimeout(500);
+  const more = await eyebrowOf(".vod-more__title");
+  const secLabel = await eyebrowOf(".srclist__sec > span", page);
+  check("  More like this is an eyebrow, in the on-image ink", isEyebrow(more, null) && more.text === "More like this", JSON.stringify(more));
+  const col = await page.evaluate(() => {
+    const c = document.querySelector(".vod-sources").getBoundingClientRect();
+    const hdr = document.querySelector(".navcap, .header")?.getBoundingClientRect();
+    const labels = [...document.querySelectorAll(".srclist__sec")].map((l) => l.textContent.trim());
+    const rows = [...document.querySelectorAll(".vod-source")].map((b) => {
+      const s = getComputedStyle(b);
+      const lines = [...b.querySelectorAll(".vod-source__lines span")].map((l) => ({ w: getComputedStyle(l).fontWeight, ink: getComputedStyle(l).color }));
+      return { r: s.borderTopLeftRadius, border: s.borderTopWidth, shadow: s.boxShadow, bg: s.backgroundColor, tab: b.tabIndex, cache: b.dataset.cache, lines };
+    });
+    return { bottom: c.bottom, top: c.top, hdrBottom: hdr?.bottom, labels, rows, foot: document.querySelector(".srclist__foot")?.textContent.replace(/\s+/g, " ").trim() };
+  });
+  check(
+    "the sources run to the window's bottom edge, in one glass column",
+    Math.abs(col.bottom - H) <= 1 && col.top > (col.hdrBottom ?? 0),
+    `top ${col.top}, bottom ${col.bottom} of ${H}`,
+  );
+  check(
+    "  grouped by what is known about the cache, each group with its count",
+    JSON.stringify(col.labels) === JSON.stringify(["Cached1", "Other sources1"]) && col.rows.map((r) => r.cache).join() === "cached,unknown",
+    JSON.stringify(col.labels),
+  );
+  check("  and those labels are eyebrows too", isEyebrow(secLabel, null), JSON.stringify(secLabel));
+  check(
+    "  each source is the picker's row: flat, the 10px corner, no border or shadow",
+    col.rows.every((r) => r.r === "10px" && r.border === "0px" && r.shadow === "none" && r.bg === "rgba(0, 0, 0, 0)"),
+    JSON.stringify(col.rows.map((r) => [r.r, r.border, r.bg])),
+  );
+  check(
+    "  every line shown, the first at 600 in the text colour and the rest quieter",
+    col.rows.every((r) => r.lines.length >= 2 && r.lines[0].w === "600" && r.lines.slice(1).every((l) => l.w !== "600" && l.ink !== r.lines[0].ink)),
+    JSON.stringify(col.rows[0].lines),
+  );
+  check("  and the keys and the count along the bottom", /move.*play.*2 sources/.test(col.foot ?? ""), String(col.foot));
+  // One tab stop; the arrows move through it.
+  check("the list is one tab stop", col.rows.filter((r) => r.tab === 0).length === 1, col.rows.map((r) => r.tab).join());
+  await page.locator(".vod-source").first().focus();
+  await page.keyboard.press("ArrowDown");
+  const moved = await page.evaluate(() => [...document.querySelectorAll(".vod-source")].indexOf(document.activeElement));
+  await page.keyboard.press("Home");
+  const home = await page.evaluate(() => [...document.querySelectorAll(".vod-source")].indexOf(document.activeElement));
+  check("  and ↓ moves to the next source, Home back to the first", moved === 1 && home === 0, `after ↓ ${moved}, after Home ${home}`);
+  await page.locator(".vod-back").click();
+  await page.waitForTimeout(500);
 }
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));

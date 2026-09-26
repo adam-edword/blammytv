@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
+import { EYEBROW } from "../../ui/eyebrow";
 import { Segmented } from "../../ui/Segmented";
 import { Combobox, type ComboboxOption } from "../../ui/Combobox";
 import { Toggle } from "../../ui/Toggle";
@@ -236,7 +237,7 @@ export function CustomizeTab() {
       {/* Applies everywhere, whichever side of the app you are on. Named
         * Interface rather than General so it does not collide with the
         * General TAB one level up. */}
-      <h3 className="settings__group">Interface</h3>
+      <h3 className={`settings__group ${EYEBROW}`}>Interface</h3>
       <section className="settings-section">
         {/* Stacked, not a row: nine swatches do not fit beside a label. */}
         <div className="customize-stack">
@@ -287,7 +288,7 @@ export function CustomizeTab() {
       </section>
 
       {/* Per-world look, behind the same pill General's Sources uses. */}
-      <h3 className="settings__group">Media</h3>
+      <h3 className={`settings__group ${EYEBROW}`}>Media</h3>
       <div className="customize-rail">
         <Segmented role="tabs" label="Media" options={WORLD_TABS} value={world} onChange={setWorld} />
       </div>
