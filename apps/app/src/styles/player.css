@@ -1892,6 +1892,25 @@
   flex: none;
   font-size: 12px;
 }
+/* Back to the list, from a game's feeds (v0.10.3): in the search icon's
+ * place, the same size, so the input does not move. */
+.mvpick__back {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 -5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.mvpick__back:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
+}
 .mvpick__body {
   max-height: min(520px, calc(100vh - 260px));
   overflow-y: auto;
@@ -1980,6 +1999,15 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--text) 12%, transparent);
   color: var(--text);
+}
+/* The rail's first feed for a game, which Fill would have taken. */
+.mvpick__best {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 .mvpick__ingrid {
   flex: none;
