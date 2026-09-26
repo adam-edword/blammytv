@@ -301,6 +301,143 @@ async function open(pos) {
   await ctx.close();
 }
 
+// ---- THE SIDE COLUMN'S WIDTH (Adam's, v0.9.127) ---------------------
+//
+// Dragged by its edge, as the Guide's channel column is. Asserted on what
+// is DRAWN (the column and the picture, measured, and the rect handed to
+// mpv), because a width that only reached the setting would pass a check
+// on the setting.
+{
+  const { page, ctx } = await open(82);
+  const widths = () =>
+    page.evaluate(() => {
+      const w = (s) => Math.round(document.querySelector(s)?.getBoundingClientRect().width ?? 0);
+      return { side: w(".sportstheater__side"), slot: w(".sportstheater__slot") };
+    });
+  const edge = page.locator(".sportstheater__edge");
+  const calls = (cmd) =>
+    page.evaluate((c) => window.__tauriCalls.filter((x) => x[0] === c).map((x) => x[1]), cmd);
+  /** Press on the edge's middle and move `dx` in steps, as a hand does. */
+  const drag = async (dx) => {
+    const b = await edge.boundingBox();
+    const x = b.x + b.width / 2;
+    const y = b.y + b.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) await page.mouse.move(x + (dx * i) / 6, y);
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+  };
+
+  const before = await widths();
+  const eb = await edge.boundingBox();
+  const sb = await page.locator(".sportstheater__slot").boundingBox();
+  check(
+    "the column has a drag edge, in the gap and clear of the picture, at 360 to begin with",
+    (await edge.getAttribute("role")) === "separator" && !!eb && eb.x + eb.width <= sb.x && before.side === 360,
+    JSON.stringify({ before, edge: eb && [Math.round(eb.x), Math.round(eb.width)], slotX: Math.round(sb.x) }),
+  );
+
+  await drag(120);
+  const dragged = await widths();
+  const rects = (await calls("inv_set_rect")).map((r) => r.w);
+  check(
+    "dragging the edge widens the column, and the picture gives up the same width",
+    dragged.side === 480 && before.slot - dragged.slot === 120,
+    JSON.stringify({ before, dragged }),
+  );
+  check(
+    "and mpv is moved to the new picture",
+    rects.length > 0 && Math.abs(rects[rects.length - 1] - dragged.slot) <= 2,
+    JSON.stringify(rects.slice(-3)),
+  );
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".theater-overlay", { timeout: 30_000 });
+  check("the width is remembered", (await widths()).side === 480, JSON.stringify(await widths()));
+
+  // The keyboard, and the player not taking the same key: an arrow on the
+  // edge used to seek the stream too (the overlay listens on the document).
+  const seeks = (await calls("mpv_seek")).length;
+  await edge.focus();
+  await page.keyboard.press("ArrowLeft");
+  await page.waitForTimeout(200);
+  const nudged = (await widths()).side;
+  await page.keyboard.press("Home");
+  await page.waitForTimeout(200);
+  const home = (await widths()).side;
+  await page.keyboard.press("End");
+  await page.waitForTimeout(200);
+  const end = (await widths()).side;
+  check(
+    "arrows nudge it 24px, Home and End go to 280 and 560",
+    nudged === 456 && home === 280 && end === 560,
+    JSON.stringify({ nudged, home, end }),
+  );
+  check(
+    "and an arrow on the edge doesn't seek the stream",
+    (await calls("mpv_seek")).length === seeks,
+    `${(await calls("mpv_seek")).length - seeks} seeks`,
+  );
+
+  await edge.dblclick();
+  await page.waitForTimeout(300);
+  const reset = (await widths()).side;
+  await drag(-400);
+  const floor = (await widths()).side;
+  await drag(600);
+  const ceiling = (await widths()).side;
+  check(
+    "a double-click puts it back to 360, and a drag stops at 280 and 560",
+    reset === 360 && floor === 280 && ceiling === 560,
+    JSON.stringify({ reset, floor, ceiling }),
+  );
+
+  // A narrower window: the column is held to 40% of the theater, and a drag
+  // starts from where the edge is drawn, not from the 560 still asked for.
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.waitForTimeout(400);
+  const capped = await widths();
+  await drag(-30);
+  const fromCap = (await widths()).side;
+  check(
+    "in a narrow window it's held to 40%, and dragging moves it from there",
+    Math.abs(capped.side - 0.4 * (1000 - 56)) <= 1 && fromCap === capped.side - 30,
+    JSON.stringify({ capped, fromCap }),
+  );
+
+  // The UI-scale setting zooms the page: a drag still follows the pointer.
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await edge.dblclick();
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "1.25";
+  });
+  await page.waitForTimeout(400);
+  const z0 = (await widths()).side;
+  await drag(100);
+  const z1 = (await widths()).side;
+  check(
+    "at 125% UI scale the edge stays under the pointer",
+    Math.abs(z1 - z0 - 100) <= 2,
+    `${z0}px -> ${z1}px on screen for a 100px drag`,
+  );
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = "";
+  });
+
+  await page.getByLabel("Collapse channels").click();
+  await page.waitForTimeout(300);
+  const foldedEdges = await edge.count();
+  await page.getByLabel("Expand channels").click();
+  await page.waitForTimeout(300);
+  check(
+    "folded, there is no edge to drag, and it's back on unfolding",
+    foldedEdges === 0 && (await edge.count()) === 1,
+    JSON.stringify({ foldedEdges }),
+  );
+  await ctx.close();
+}
+
 await browser.close();
 console.log(fail ? `${fail} FAILURES` : "ALL PASS");
 process.exit(fail ? 1 : 0);

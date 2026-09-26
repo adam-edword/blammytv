@@ -219,7 +219,8 @@ never be a deterrent to building anything." So:
    menu and the player's Watch in multi-view send a channel into the grid
    you left, with the sound, and a full grid asks which tile it replaces.
    The game card's way in became an experiment, the Sports theater growing
-   into multi-view: mocked up, not built. The Sports channel pairing
+   into multi-view: mocked up, and approved by Adam on 2026-09-26 with
+   one change, the side column's width his to set. The Sports channel pairing
    (Adam, 2026-09-25: wrong channels, missed ones, junk in the rail, bad
    feeds and bad confidence scores) started in v0.9.122 with the evidence:
    the theater logs every feed and why, a rail row can be marked wrong,
@@ -239,7 +240,9 @@ never be a deterrent to building anything." So:
    failed one lets go of its connection. v0.9.126 is H2: a failed poll or
    playlist no longer costs the grid its count or its tiles, an add on a
    full line asks which tile to replace, and a game tile goes back to its
-   channel once the game is long over.
+   channel once the game is long over. v0.9.127: the Sports theater's
+   side column is dragged to the width you want, the first piece of the
+   approved merge.
 7. Merge the multi-view branch into `main` (Adam's step: default branch).
 
 ### M2: finish the primitives (plan 014 L1 and L2)

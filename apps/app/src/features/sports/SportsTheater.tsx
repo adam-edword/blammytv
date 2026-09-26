@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
-import type { ReactNode } from "react";
+import type {
+  CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import Tilt from "react-parallax-tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
@@ -9,6 +14,15 @@ import {
   loadTheaterFolded,
   saveTheaterFolded,
 } from "../settings/theaterFolded";
+import {
+  clampSide,
+  loadTheaterSide,
+  saveTheaterSide,
+  SIDE_DEFAULT,
+  SIDE_MAX,
+  SIDE_MIN,
+} from "../settings/theaterSide";
+import { currentZoom } from "../settings/uiScale";
 import { useMouseNav } from "../../lib/mouseNav";
 import { isModalOpen } from "../../lib/modalOpen";
 import {
@@ -154,6 +168,60 @@ export function SportsTheater({
       return !on;
     });
   }, []);
+
+  /**
+   * The side column's width, dragged by its edge (Adam's), remembered as
+   * the fold is. The Guide's channel column is the model: drag, arrows,
+   * Home and End, a double-click for the default.
+   *
+   * The picture follows the drag live. InvertedPlayer already re-measures
+   * the slot every frame and moves mpv to it, which is what resizing the
+   * window has always done.
+   *
+   * Saved when a drag ends, not on every move of it.
+   */
+  const [sideW, setSideW] = useState(loadTheaterSide);
+  const [resizing, setResizing] = useState(false);
+  const sideRef = useRef<HTMLElement>(null);
+  const dragRef = useRef<{ x: number; w: number } | null>(null);
+  useEffect(() => {
+    if (!resizing) saveTheaterSide(sideW);
+  }, [sideW, resizing]);
+  /** What the column is drawn at, which the stylesheet's 40% cap can hold
+   * under what was asked for. Moves start from here, so the edge never
+   * lags the pointer while the setting unwinds from above the cap. */
+  const shownSide = () => {
+    const el = sideRef.current;
+    return el ? el.getBoundingClientRect().width / currentZoom() : sideW;
+  };
+  const onEdgeDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    dragRef.current = { x: e.clientX, w: shownSide() };
+    setResizing(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onEdgeMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    // clientX rides the UI-scale zoom; the width is plain CSS px.
+    setSideW(clampSide(d.w + (e.clientX - d.x) / currentZoom()));
+  };
+  const onEdgeEnd = () => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setResizing(false);
+  };
+  const onEdgeKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const w = shownSide();
+    let next: number;
+    if (e.key === "ArrowLeft") next = w;
+    else if (e.key === "ArrowRight") next = w + 24;
+    else if (e.key === "Home") next = SIDE_MIN;
+    else if (e.key === "End") next = SIDE_MAX;
+    else return;
+    e.preventDefault();
+    setSideW(clampSide(next));
+  };
 
   /**
    * Tune a rail row.
@@ -542,9 +610,15 @@ export function SportsTheater({
 
   return (
     <div
-      className={"sportstheater" + (fullscreen ? " sportstheater--full" : "")}
+      className={
+        "sportstheater" +
+        (fullscreen ? " sportstheater--full" : "") +
+        (resizing ? " sportstheater--resizing" : "")
+      }
+      style={{ "--side-w": `${sideW}px` } as CSSProperties}
     >
       <aside
+        ref={sideRef}
         className={
           "sportstheater__side" + (folded ? " sportstheater__side--folded" : "")
         }
@@ -679,6 +753,32 @@ export function SportsTheater({
        * id and follows it every frame, so the slot needs no wiring beyond
        * existing: it is an empty slate until a channel is chosen. */}
       <div className="sportstheater__stage">
+        {/* The column's edge, in the gap beside the picture and never over
+          * it: the picture is a native window a page element can't cover.
+          * Gone when folded or fullscreen, where there is no edge to drag. */}
+        {!folded && !fullscreen && (
+          <Hint label="Drag to resize · double-click to reset" side="right">
+            <div
+              className={
+                "sportstheater__edge" + (resizing ? " sportstheater__edge--active" : "")
+              }
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize channels"
+              aria-valuemin={SIDE_MIN}
+              aria-valuemax={SIDE_MAX}
+              aria-valuenow={sideW}
+              tabIndex={0}
+              onPointerDown={onEdgeDown}
+              onPointerMove={onEdgeMove}
+              onPointerUp={onEdgeEnd}
+              onPointerCancel={onEdgeEnd}
+              onLostPointerCapture={onEdgeEnd}
+              onKeyDown={onEdgeKey}
+              onDoubleClick={() => setSideW(SIDE_DEFAULT)}
+            />
+          </Hint>
+        )}
         <div id="player-slot" className="sportstheater__slot" />
       </div>
 

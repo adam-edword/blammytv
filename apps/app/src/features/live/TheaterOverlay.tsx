@@ -1382,6 +1382,14 @@ export function TheaterOverlay({
         (e.key === " " || e.key === "Enter" || e.key.startsWith("Arrow"))
       )
         return;
+      // So does a column's resize handle (the Guide's channel column, the
+      // Sports theater's side column): left and right move the edge there,
+      // and used to seek the stream as well.
+      if (
+        el?.getAttribute("role") === "separator" &&
+        (e.key === "ArrowLeft" || e.key === "ArrowRight")
+      )
+        return;
       if (handleKey(e.key)) e.preventDefault();
     };
     document.addEventListener("keydown", onDocKey);

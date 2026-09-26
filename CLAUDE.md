@@ -131,6 +131,28 @@ lint and unit tests; `pnpm verify` (the board above); and on
 That Windows job is the only place the Rust tests run at all. A push that
 turns it red is yours to fix before the next one.
 
+## What to run before a push
+
+Not the whole board. CI runs all of it on every push, so a full local run
+before each one doubled every version's wait and bought nothing CI doesn't
+(Adam, v0.9.127: "feels like these are taking the longest by far").
+
+- **Always:** `pnpm typecheck`, `pnpm lint`, `pnpm test`. About two minutes.
+- **The harnesses the change touches:** `pnpm verify <name>`, new checks
+  included.
+- **A native change:** `node scripts/check-rust.mjs`, clippy, and the host
+  crate's tests, as above.
+- **Mutations only where a check could pass vacuously:** a negative
+  assertion ("the arrow doesn't seek"), or a check on something that might
+  never have happened (verify-mvline's failed playlist passed on an empty
+  page). One or two per change. A check that measures a real result (a
+  width, a count, a rect sent to mpv) doesn't need one.
+- **The full board locally** only for changes that reach across the app (a
+  shared component, App-level wiring) and before a merge to main.
+
+Then push, and read CI's board when it lands. Red is still yours before
+the next push.
+
 ## Confusion Protocol
 
 On high-stakes ambiguity: two plausible architectures, a request that
