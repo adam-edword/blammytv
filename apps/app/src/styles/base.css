@@ -232,6 +232,17 @@ button {
   );
   /* The gradient must not eat clicks below the nav's actual controls. */
   pointer-events: none;
+  transition: opacity var(--dur-hover) var(--ease-out);
+}
+
+/* A theater with the pointer resting (plan 019, K13): the header at
+ * multi-view's quiet level, 0.35, the one Adam picked off screenshots for
+ * multi-view (player.css). Dimmed, not gone, and still clickable: the nav
+ * is how you leave. lib/useIdle sets the flag for the Guide's theater and
+ * the Sports theater; multi-view keeps its own, which dims its bar too. */
+:root[data-header-quiet] .header {
+  opacity: 0.35;
+  transition-duration: var(--dur-enter);
 }
 .header > * {
   pointer-events: auto;

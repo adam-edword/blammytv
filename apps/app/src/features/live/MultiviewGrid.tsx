@@ -23,6 +23,7 @@ import type { Fixture } from "../sports/model";
 import type { Programme } from "./model";
 import { MuteIcon, PlusIcon, VolumeIcon } from "../../ui/icons";
 import type { XtreamConnections } from "../../data/xtream";
+import { Kbd } from "../../ui/Kbd";
 
 /**
  * The multi-view stage (plans 013 and 017): up to four live tiles, one with
@@ -558,7 +559,7 @@ export function MultiviewGrid({
               </span>
               <span className="place__title">Add a channel</span>
               <span className="place__sub">
-                A live game or any channel. Or press <kbd>A</kbd>
+                A live game or any channel. Or press <Kbd>A</Kbd>
               </span>
             </button>
           ))}

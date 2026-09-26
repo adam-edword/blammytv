@@ -1606,21 +1606,8 @@
     border-color var(--dur-hover) var(--ease-out),
     background-color var(--dur-hover) var(--ease-out);
 }
-.place__sub kbd,
-.mvpick__foot kbd {
-  display: inline-grid;
-  place-items: center;
-  min-width: 20px;
-  height: 20px;
-  margin: 0 3px;
-  padding: 0 5px;
-  border-radius: 5px;
-  background: rgb(255 255 255 / 0.1);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
+/* The keys in the Add tile and the picker's footer are the app's Kbd
+ * (ui.css .kbd, plan 019 K12), which came from here. */
 
 /* The picker (plan 017, M3): a search-first palette over the dimmed grid.
  * The Dialog's frame is its own (Tailwind, in the utilities layer, which

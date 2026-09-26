@@ -544,25 +544,24 @@ button.place:focus-visible {
  *
  * `:focus-visible` on its own reaches everything focusable, including
  * whatever gets built next, so the rot is not fixable-by-discipline any
- * more. It is fixed by construction.
+ * more. It is fixed by construction. Button and Item used to paint
+ * shadcn's own ring over it with utilities; since plan 019 (K12) they
+ * don't, so this reaches them too.
  *
- * SHADCN'S GEOMETRY, which is 3px of --ring at 50% rather than the 2px
- * solid this app used. Adam's call, and it is the more modern read: a
- * half-opacity halo hugging the control instead of a hard line held off it.
+ * MULTI-VIEW'S RING (plan 019, K12): the text colour at full strength, held
+ * off the control so the page shows between the two, which is the double
+ * ring its tiles draw (player.css, `.mvtile:focus-visible`, with a shadow
+ * there because a tile's outline is the sound's). It replaced shadcn's 3px
+ * of --ring at 50%, which read as a glow on the near-white brand and did
+ * not reach 016 3.1's 3:1; this one measures well over it on --bg and
+ * --surface in both themes (verify-tailwind reads the contrast).
  *
- * DELIVERED AS AN OUTLINE, NOT A RING, and that part is engineering rather
- * than taste. shadcn's `ring-[3px]` compiles to a box-shadow, which works
- * there because Tailwind composes it with the component's own shadow
- * (`--tw-shadow` and `--tw-ring-shadow` are separate slots in one
- * property). A blanket CSS rule has no such composition: `box-shadow` here
- * would erase the shadow on every card, panel and floating surface that
- * has one the moment it took focus. `outline` does not participate in
- * box-shadow at all, follows border-radius in every engine this ships to,
- * and cannot be clobbered by a component's own styling.
- *
- * The other half of shadcn's rule, `focus-visible:border-ring`, stays
- * per-component: it recolours a border this rule knows nothing about, so
- * it arrives with each component as it migrates.
+ * DELIVERED AS AN OUTLINE, NOT A SHADOW, and that part is engineering
+ * rather than taste: a blanket box-shadow would erase the shadow on every
+ * card, panel and floating surface that has one the moment it took focus.
+ * `outline` does not participate in box-shadow at all, follows
+ * border-radius in every engine this ships to, and cannot be clobbered by
+ * a component's own styling. The offset is the gap.
  *
  * TEXT INPUTS OPT OUT, and it is deliberate rather than an omission.
  * Browsers grant an input :focus-visible on MOUSE focus too, so a blanket
@@ -570,13 +569,14 @@ button.place:focus-visible {
  * it. They carry their own focus styling instead (settings-input:focus,
  * onb-input:focus, rec__input:focus-visible). The same trap is written up
  * at discover.css:38. */
-/* `--ring`, not `--accent`. v0.9.53 put the ring in the brand colour because
- * that is where this app had always put it. v0.9.57 made the brand a
- * near-white, and a near-white halo at 50% reads as a glow rather than as
- * focus. shadcn names a separate neutral for exactly this. */
 :focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--ring) 50%, transparent);
-  outline-offset: 0;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+/* A row sits in a list that scrolls, which would clip a ring held off it:
+ * the ring goes inside, over the row's own tint. */
+.row:focus-visible {
+  outline-offset: -2px;
 }
 
 /* Not a SLIDER: a range input is a control, and Tab onto multi-view's

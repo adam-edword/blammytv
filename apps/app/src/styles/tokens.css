@@ -165,6 +165,10 @@
    * comes later in the cascade than ui.css's `.place`. */
   --place-edge: color-mix(in srgb, var(--text) 16%, transparent);
   --place-edge-hover: color-mix(in srgb, var(--text) 32%, transparent);
+  /* Keyboard focus (plan 019, K12): multi-view's ring, the text colour at
+   * full strength, so it clears 3:1 on the page and on a surface in both
+   * themes (016 3.1). */
+  --focus-ring: var(--text);
   /* A chip on a picture: darker glass than --glass, because what is behind
    * it is video, not the page, and a hairline so it holds its edge on a
    * bright frame. */

@@ -376,38 +376,72 @@ check(
 // without joining anything.
 //
 // The check is that an element NOBODY listed gets the ring, which is
-// exactly what the list could never promise.
+// exactly what the list could never promise. And, since plan 019 (K12),
+// that a real Button gets the same one: Button used to paint shadcn's
+// halo over it with utilities.
 const ring = await page.evaluate(() => {
   const el = document.createElement("button");
   el.className = "no-such-class-anywhere";
   document.body.appendChild(el);
   el.focus();
   const s = getComputedStyle(el);
-  const out = { style: s.outlineStyle, width: s.outlineWidth, color: s.outlineColor };
+  const out = { style: s.outlineStyle, width: s.outlineWidth, color: s.outlineColor, offset: s.outlineOffset };
   el.remove();
   return out;
 });
 check(
   "an unlisted control gets the focus ring, because the list is gone",
-  ring.style === "solid" && ring.width === "3px",
-  `${ring.width} ${ring.style} ${ring.color}`,
+  ring.style === "solid" && ring.width === "2px" && ring.offset === "2px",
+  `${ring.width} ${ring.style} ${ring.color}, offset ${ring.offset}`,
 );
-// shadcn's geometry is 3px of --ring at 50%, so the colour must be
-// translucent. A solid ring here means the accent got baked in flat and the
-// half-opacity halo shadcn asks for was lost.
-// PARSE THE ALPHA rather than pattern-match the string. Chromium serialises
-// a color-mix() result as `color(srgb r g b / a)`, not `rgba(...)`, and a
-// regex written for one of those quietly fails on the other while the ring
-// is perfectly correct on screen. The claim is "not fully opaque", so read
-// the number.
-const alpha = Number(
-  (ring.color.match(/\/\s*([\d.]+)\s*\)/) ??
-    ring.color.match(/,\s*([\d.]+)\s*\)$/) ?? ["", "1"])[1],
-);
+// 016 3.1: the ring measures 3:1 or better against --bg and --surface.
+// Measured, not asserted from the token's name: each colour is painted on a
+// canvas and read back as sRGB, which works for oklch and color-mix alike.
+const contrast = await page.evaluate((ringColor) => {
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 1;
+  const cx = cv.getContext("2d", { willReadFrequently: true });
+  const rgb = (c) => {
+    cx.clearRect(0, 0, 1, 1);
+    cx.fillStyle = "#000";
+    cx.fillStyle = c;
+    cx.fillRect(0, 0, 1, 1);
+    return [...cx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+  };
+  const lum = ([r, g, b]) =>
+    [r, g, b]
+      .map((v) => v / 255)
+      .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+      .reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const ratio = (a, b) => {
+    const [hi, lo] = [lum(rgb(a)), lum(rgb(b))].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const tok = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  return { bg: ratio(ringColor, tok("--bg")), surface: ratio(ringColor, tok("--surface")) };
+}, ring.color);
 check(
-  "  and it is shadcn's translucent ring, not a flat line",
-  alpha > 0 && alpha < 1,
-  `alpha ${alpha} from ${ring.color}`,
+  "  and it clears 3:1 against the page and a surface (016 3.1)",
+  contrast.bg >= 3 && contrast.surface >= 3,
+  `${contrast.bg.toFixed(1)}:1 on --bg, ${contrast.surface.toFixed(1)}:1 on --surface`,
+);
+// Read after the ring has landed: Button's `transition-all` draws it in
+// over --dur-hover, so the first frame reads 0px.
+await page.keyboard.press("Tab");
+await page.evaluate(() => document.querySelector("button[data-variant]")?.focus());
+await page.waitForTimeout(400);
+const btnRing = await page.evaluate(() => {
+  const b = document.querySelector("button[data-variant]");
+  if (!b) return null;
+  const s = getComputedStyle(b);
+  const out = { focused: b.matches(":focus-visible"), style: s.outlineStyle, width: s.outlineWidth, shadow: s.boxShadow };
+  b.blur();
+  return out;
+});
+check(
+  "  and a real Button wears the same ring, not shadcn's halo",
+  btnRing && btnRing.focused && btnRing.style === "solid" && btnRing.width === "2px",
+  JSON.stringify(btnRing),
 );
 // Text inputs opt out on purpose: browsers hand them :focus-visible on
 // MOUSE focus too, so a blanket ring sits on the search field the whole
@@ -562,10 +596,12 @@ check(
   // wolf four times out of six is a check nobody reads. The variant-painted
   // half is covered live below instead, where the real element can be
   // measured rather than guessed at.
+  // Not `outline`: since plan 019 (K12) Button paints no focus of its own,
+  // and the app's one :focus-visible rule is what draws it.
   const OWNED = new Set([
     "display", "flex-shrink", "align-items", "justify-content", "gap",
     "border-radius", "font-size", "font-weight", "white-space", "transition",
-    "outline", "height", "padding", "padding-left", "padding-right",
+    "height", "padding", "padding-left", "padding-right",
     "padding-top", "padding-bottom",
   ]);
 
@@ -810,22 +846,23 @@ const type = await page.evaluate(() => {
   };
   return {
     dialogTitle: read("settings__title", "h2"),
-    group: read("settings__group", "h3"),
     label: read("settings-field__label"),
     row: read("media-row__title", "h2"),
   };
 });
+// A settings group is an eyebrow since plan 019 (K9): 11px caps, set apart
+// by case, weight and tracking rather than by size, so it sits outside the
+// size ladder. Its type lives in utilities (ui/eyebrow.ts), which is why
+// the bare probe above reads the browser's h3.
 check(
-  "the type scale descends: row title > dialog title > group > label",
-  type.row > type.dialogTitle &&
-    type.dialogTitle > type.group &&
-    type.group > type.label,
-  `row ${type.row} > dialog ${type.dialogTitle} > group ${type.group} > label ${type.label}`,
+  "the type scale descends: row title > dialog title > label",
+  type.row > type.dialogTitle && type.dialogTitle > type.label,
+  `row ${type.row} > dialog ${type.dialogTitle} > label ${type.label}`,
 );
 check(
   "  and nothing in the chrome is over 24px, shadcn's largest",
-  Math.max(type.row, type.dialogTitle, type.group, type.label) <= 24,
-  `largest is ${Math.max(type.row, type.dialogTitle, type.group, type.label)}px`,
+  Math.max(type.row, type.dialogTitle, type.label) <= 24,
+  `largest is ${Math.max(type.row, type.dialogTitle, type.label)}px`,
 );
 
 // 9e. EVERY REF HANDED TO A PRIMITIVE LANDS SOMEWHERE. Source check, not a

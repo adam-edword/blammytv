@@ -26,6 +26,7 @@ import {
 import { Segmented, type SegOption } from "../../ui/Segmented";
 import { LineMeter } from "../../ui/LineMeter";
 import { StateCard } from "../../ui/StateCard";
+import { useQuietHeader } from "../../lib/useIdle";
 import {
   isTauri,
   onPopoutClosed,
@@ -424,6 +425,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // geometry is CSS (classes below), the rAF follows.
   const [theater, setTheater] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  // The header goes quiet over the theater when the pointer rests, as it
+  // does over multi-view (plan 019, K13). Fullscreen covers it anyway.
+  useQuietHeader(theater && !fullscreen);
   /** Hover preview from the guide: the hero shows whatever the cursor is
    * over (channel or exact programme) without changing the selection. */
   const [preview, setPreview] = useState<{

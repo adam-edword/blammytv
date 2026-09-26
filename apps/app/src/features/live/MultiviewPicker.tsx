@@ -18,6 +18,7 @@ import { loadClockFormat } from "../settings/clockFormat";
 import type { Channel, LiveData } from "./model";
 import type { Fixture } from "../sports/model";
 import { EYEBROW } from "../../ui/eyebrow";
+import { Kbd } from "../../ui/Kbd";
 
 /**
  * The channel picker (plan 017, P3; decision M3): a search-first palette
@@ -323,16 +324,16 @@ export function MultiviewPicker({
 
           <div className="mvpick__foot">
             <span>
-              <kbd>↑</kbd>
-              <kbd>↓</kbd>
+              <Kbd>↑</Kbd>
+              <Kbd>↓</Kbd>
               move
             </span>
             <span>
-              <kbd>↵</kbd>
+              <Kbd>↵</Kbd>
               {mode.kind === "replace" ? "replace" : "add"}
             </span>
             <span>
-              <kbd>esc</kbd>
+              <Kbd>esc</Kbd>
               close
             </span>
             <span className="mvpick__left">

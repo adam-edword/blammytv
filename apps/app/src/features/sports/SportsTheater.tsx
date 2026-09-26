@@ -59,6 +59,7 @@ import type { Catalog, Match } from "./matcher";
 import type { Fixture, Game } from "./model";
 import { BackButton } from "../../ui/BackButton";
 import { ChannelLogo } from "../../ui/ChannelLogo";
+import { useQuietHeader } from "../../lib/useIdle";
 
 /** CSS corner radius of .sportstheater__slot. Two things round by it and
  * they must agree: the stylesheet below, and the rect InvertedPlayer cuts
@@ -146,6 +147,9 @@ export function SportsTheater({
   const tunedRef = useRef<Tuned | null>(null);
   tunedRef.current = tuned;
   const [fullscreen, setFullscreen] = useState(false);
+  // The header goes quiet over the theater when the pointer rests, as it
+  // does over multi-view (plan 019, K13). Fullscreen covers it anyway.
+  useQuietHeader(!fullscreen);
   /** Read by `stop` and by the unmount cleanup, both of which are stable
    * callbacks that must not close over a stale flag. Declared here, beside
    * the state, because both readers sit above where it used to live. */

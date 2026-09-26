@@ -24,14 +24,14 @@ import { Slot } from "radix-ui"
  * reveal's fade), and an app rule cannot set `transition` on a Button.
  */
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-(--dur-hover) ease-out outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-(--dur-hover) ease-out disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
           "bg-foreground text-background font-[650] hover:bg-foreground/90 aria-disabled:cursor-not-allowed aria-disabled:bg-glass aria-disabled:text-muted-foreground aria-disabled:hover:bg-glass",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
+          "bg-destructive text-white hover:bg-destructive/90 dark:bg-destructive/60",
         outline:
           "bg-glass text-foreground [backdrop-filter:var(--glass-fx)] hover:bg-tint-on aria-pressed:bg-tint-on aria-[pressed=false]:text-muted-foreground aria-[pressed=false]:hover:text-foreground",
         secondary:

@@ -917,6 +917,104 @@ const dimmedText = () =>
   await page.waitForTimeout(500);
 }
 
+// ================================================================ K12, K13
+// Focus is multi-view's ring everywhere; keys are one chip; the header goes
+// quiet over a theater as it does over multi-view.
+{
+  const text = await token("--text", "outlineColor");
+  const ringOn = (sel) =>
+    page.evaluate((q) => {
+      const el = document.querySelector(q);
+      if (!el) return null;
+      el.focus();
+      return new Promise((res) =>
+        setTimeout(() => {
+          const s = getComputedStyle(el);
+          res({ fv: el.matches(":focus-visible"), w: s.outlineWidth, st: s.outlineStyle, c: s.outlineColor, off: s.outlineOffset });
+        }, 400),
+      );
+    }, sel);
+  await goTo(page, "guide");
+  await page.keyboard.press("Tab");
+  const gear = await ringOn(".header__action");
+  const seg = await ringOn(".live-sidebar .seg__opt");
+  const ok = (r, off = "2px") => r && r.fv && r.w === "2px" && r.st === "solid" && r.c === text && r.off === off;
+  check("keyboard focus is multi-view's ring: 2px of the text colour, held 2px off (a Button)", ok(gear), JSON.stringify(gear));
+  check("  and the same on a segmented option", ok(seg), JSON.stringify(seg));
+  await goTo(page, "home");
+  await page.waitForTimeout(1200);
+  await page.mouse.wheel(0, 700);
+  await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
+  await page.locator(".vod-source").first().waitFor({ timeout: 15_000 });
+  await page.keyboard.press("Tab");
+  const row = await ringOn(".vod-source");
+  check("  and inside a row, where a list that scrolls would clip it", ok(row, "-2px"), JSON.stringify(row));
+  const keys = await page.evaluate(() => [...document.querySelectorAll(".srclist__foot .kbd")].map((k) => k.textContent));
+  const rawKbd = ["features/live/MultiviewPicker.tsx", "features/live/MultiviewGrid.tsx"].filter((f) =>
+    /<kbd>[^<]{1,3}<\/kbd>(?![^\n]*to reset)/.test(readFileSync(join(SRC, f), "utf8")),
+  );
+  check("keys are one chip: the source column's footer and multi-view's", keys.join(" ") === "↑ ↓ ↵" && rawKbd.length === 0, `${keys.join(" ")} ${rawKbd.join(" ")}`);
+  await page.locator(".vod-back").click();
+  await page.waitForTimeout(500);
+
+  // The Guide's theater: rest, and the header drops to 0.35; move, and it's back.
+  const headerOpacity = () => page.evaluate(() => +getComputedStyle(document.querySelector(".header")).opacity);
+  await goTo(page, "guide");
+  await page.waitForTimeout(1200);
+  // Tune a channel: the theater is the player's, and nothing plays until
+  // one is picked.
+  await page.locator(".guide__card").first().click();
+  await page.waitForTimeout(1500);
+  await page.keyboard.press("t");
+  let inTheater = await page.waitForFunction(() => !!document.querySelector(".live--theater"), null, { timeout: 4000 }).then(() => true, () => false);
+  if (!inTheater) {
+    await page.locator(".mini-overlay, .hero__preview").first().click({ force: true }).catch(() => {});
+    inTheater = await page.waitForFunction(() => !!document.querySelector(".live--theater"), null, { timeout: 4000 }).then(() => true, () => false);
+  }
+  await page.mouse.move(W / 2, H / 2);
+  await page.waitForTimeout(2800);
+  const restG = await headerOpacity();
+  await page.mouse.move(W / 2 + 40, H / 2 + 40);
+  await page.waitForTimeout(500);
+  const wokeG = await headerOpacity();
+  check(
+    "over the Guide's theater the header goes quiet at rest (0.35) and comes back on the pointer",
+    inTheater && Math.abs(restG - 0.35) < 0.01 && wokeG === 1,
+    `theater ${inTheater}, rest ${restG}, moved ${wokeG}`,
+  );
+  await page.keyboard.press("t");
+  await page.waitForTimeout(600);
+  if (await page.evaluate(() => !!document.querySelector(".live--theater"))) {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(600);
+  }
+  const outOfTheater = await page.evaluate(() => !document.querySelector(".live--theater"));
+  await page.mouse.move(W / 2, H / 2);
+  await page.waitForTimeout(2800);
+  const restMini = await headerOpacity();
+  check("  and not over the Guide itself", outOfTheater && restMini === 1, `out ${outOfTheater}, rest ${restMini}`);
+
+  // The Sports theater.
+  await goTo(page, "sports");
+  const card = page.locator(".gamecard").first();
+  await card.waitFor({ timeout: 15_000 }).catch(() => {});
+  await card.click().catch(() => {});
+  const inSports = await page.waitForFunction(() => !!document.querySelector(".sportstheater"), null, { timeout: 6000 }).then(() => true, () => false);
+  await page.mouse.move(W / 2, H / 2);
+  await page.waitForTimeout(2800);
+  const restS = await headerOpacity();
+  await page.mouse.move(W / 2 + 40, H / 2 + 40);
+  await page.waitForTimeout(500);
+  const wokeS = await headerOpacity();
+  check(
+    "  and the same over the Sports theater",
+    inSports && Math.abs(restS - 0.35) < 0.01 && wokeS === 1,
+    `theater ${inSports}, rest ${restS}, moved ${wokeS}`,
+  );
+  await page.locator(".sportstheater .vod-back, .sportstheater__back").first().click().catch(() => {});
+  await page.waitForTimeout(600);
+}
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
 console.log(fail ? `\n${fail} FAILED` : "\nALL PASS");

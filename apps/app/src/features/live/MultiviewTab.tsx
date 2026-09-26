@@ -8,6 +8,7 @@ import {
   type ReactElement,
   type RefObject,
 } from "react";
+import { useIdle } from "../../lib/useIdle";
 import { MultiviewGrid, type GridStream } from "./MultiviewGrid";
 import { MultiviewPicker, type PickerMode } from "./MultiviewPicker";
 import {
@@ -102,53 +103,9 @@ import { LineMeter } from "../../ui/LineMeter";
  * SHORTCUT, not the source, and either way a pick resolves to a channel id.
  */
 
-/** How long the pointer has to rest before the bar goes (plan 017). */
-const IDLE_MS = 2000;
-
-/**
- * Idle after IDLE_MS without the pointer or a key, but never while the
- * pointer rests on the bar or the capsule, keyboard focus is in them, or
- * the picker is open: a bar that dims under your hand reads as one about
- * to go away.
- *
- * Checked when the timer fires rather than tracked with enter/leave: the
- * header's children take the pointer while the header itself does not, and
- * `:hover` already knows the answer for every case at the moment it matters.
- */
-function useIdle(): boolean {
-  const [idle, setIdle] = useState(false);
-  useEffect(() => {
-    let t = 0;
-    const arm = () => {
-      window.clearTimeout(t);
-      t = window.setTimeout(() => {
-        const busy = document.querySelector(
-          ".header:hover, .mvbar:hover, .header :focus-visible, .mvbar :focus-visible, [data-slot='dialog-content']",
-        );
-        if (busy) arm();
-        else setIdle(true);
-      }, IDLE_MS);
-    };
-    const wake = () => {
-      setIdle(false);
-      arm();
-    };
-    arm();
-    window.addEventListener("pointermove", wake);
-    window.addEventListener("pointerdown", wake);
-    window.addEventListener("keydown", wake);
-    // The wheel too: turning the volume over a tile should show the slider.
-    window.addEventListener("wheel", wake, { passive: true });
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener("pointermove", wake);
-      window.removeEventListener("pointerdown", wake);
-      window.removeEventListener("keydown", wake);
-      window.removeEventListener("wheel", wake);
-    };
-  }, []);
-  return idle;
-}
+/** The bar's own hover and focus keep it awake, as the header's do. The
+ * timer is lib/useIdle's, shared with the theaters since plan 019 (K13). */
+const MV_BUSY = ".mvbar:hover, .mvbar :focus-visible";
 
 /** A control that has dropped its words to fit says them on hover. */
 function wordless(compact: boolean, label: string, el: ReactElement): ReactElement {
@@ -681,7 +638,7 @@ export function MultiviewTab() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [choosing]);
 
-  const idle = useIdle();
+  const idle = useIdle(true, MV_BUSY);
   const [fullscreen, toggleFullscreen] = useWindowFullscreen();
 
   // The bar's keys from plan 017's table: A adds, M mutes, ↑ and ↓ are the
