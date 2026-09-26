@@ -58,6 +58,7 @@ import { logPairing } from "./pairingLog";
 import type { Catalog, Match } from "./matcher";
 import type { Fixture, Game } from "./model";
 import { BackButton } from "../../ui/BackButton";
+import { ChannelLogo } from "../../ui/ChannelLogo";
 
 /** CSS corner radius of .sportstheater__slot. Two things round by it and
  * they must agree: the stylesheet below, and the rect InvertedPlayer cuts
@@ -842,14 +843,7 @@ function Rail({
       onClick={() => onPlay(channel)}
     >
       <Lean className="sportsrail__tilt">
-        {channel.logo && (
-          <img
-            className="sportsrail__logo"
-            src={channel.logo}
-            alt=""
-            loading="lazy"
-          />
-        )}
+        <ChannelLogo name={channel.name} logo={channel.logo} size={34} lazy className="sportsrail__logo" />
         <span className="sportsrail__name">{channel.name}</span>
         {wrong && <span className="sportsrail__wrong">Marked wrong</span>}
         {channel.quality && (

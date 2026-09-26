@@ -23,6 +23,7 @@ import {
   TvIcon,
 } from "../../ui/icons";
 import { Segmented, type SegOption } from "../../ui/Segmented";
+import { LineMeter } from "../../ui/LineMeter";
 import {
   isTauri,
   onPopoutClosed,
@@ -138,17 +139,18 @@ const SidebarSources = memo(function SidebarSources({
                 }
               />
               {g.name}
-              {/* Connection usage (Xtream only) — accent at the cap,
-               * when the number is the reason a stream won't open. */}
+              {/* Connection usage (Xtream only): multi-view's meter (plan
+               * 019, K5), a dash a stream, so the line being full is
+               * something you see. */}
               {c && !collapsed && (
-                <span
-                  className={
-                    "live-conns" + (c.active >= c.max ? " live-conns--full" : "")
-                  }
-                  title={`${c.active} of ${c.max} connections in use`}
-                >
-                  {c.active}/{c.max}
-                </span>
+                <LineMeter
+                  size="sm"
+                  className={"live-conns" + (c.active >= c.max ? " live-conns--full" : "")}
+                  max={c.max}
+                  used={c.active}
+                  text={`${c.active} of ${c.max}`}
+                  label={`${c.active} of ${c.max} streams in use`}
+                />
               )}
             </Button>
             {g.error && !collapsed && (

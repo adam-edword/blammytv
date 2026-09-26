@@ -454,6 +454,59 @@ const dimmedText = () =>
   check("  and the bar's Add is the white pill", add.v === "default" && add.bg === (await token("--text")) && add.h === 40, JSON.stringify(add));
 }
 
+// ================================================================= K4 to K6
+// LIVE, the line's count and a channel's logo, each drawn one way.
+{
+  await goTo(page, "guide");
+  await page.waitForTimeout(1500);
+  const accent = await token("--accent");
+  const white = "rgb(255, 255, 255)";
+  const g = await page.evaluate(() => {
+    const pill = document.querySelector(".hero .live-pill");
+    const cards = [...document.querySelectorAll(".guide__card")];
+    const tiles = cards.map((c) => c.querySelector(".chlogo"));
+    const meter = document.querySelector(".live-conns");
+    return {
+      pill: pill ? { text: pill.textContent.trim(), dot: getComputedStyle(pill, "::before").backgroundColor } : null,
+      oldLive: document.querySelectorAll(".hero__live").length,
+      cards: cards.length,
+      tiles: tiles.filter(Boolean).map((t) => ({ bg: getComputedStyle(t).backgroundColor, w: t.getBoundingClientRect().width, img: !!t.querySelector("img"), letter: t.textContent.trim() })),
+      meter: meter ? { isMeter: meter.classList.contains("meter"), on: meter.querySelectorAll(".meter__dashes i.is-on").length, all: meter.querySelectorAll(".meter__dashes i").length, label: meter.getAttribute("aria-label") } : null,
+    };
+  });
+  check(
+    "the Guide's LIVE is the one pill, its dot the accent",
+    g.pill && g.pill.text === "LIVE" && g.pill.dot === accent && g.oldLive === 0,
+    JSON.stringify(g.pill),
+  );
+  check(
+    "every Guide channel has its logo on a 40px white tile, a lettermark on the same tile",
+    g.cards > 0 && g.tiles.length === g.cards && g.tiles.every((t) => t.bg === white && t.w === 40) && g.tiles.some((t) => !t.img && t.letter.length === 1),
+    `${g.cards} cards, ${JSON.stringify(g.tiles.slice(0, 3))}`,
+  );
+  check(
+    "the Guide's line count is the meter: a dash a stream, filled for the ones in use",
+    g.meter && g.meter.isMeter && g.meter.all === 3 && g.meter.on === 3 && g.meter.label === "3 of 3 streams in use",
+    JSON.stringify(g.meter),
+  );
+  await page.locator(".header__right button").last().click();
+  await page.locator(".settings").waitFor();
+  await page.getByRole("tab", { name: "General", exact: true }).click();
+  const rowMeter = await page
+    .locator(".playlist-row .meter")
+    .first()
+    .getAttribute("aria-label", { timeout: 8000 })
+    .catch(() => null);
+  check("  and the playlist's row in Settings carries the same meter", rowMeter === "3 of 3 streams in use", String(rowMeter));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+  // Sports says live in the accent too (D5): it was the only red one.
+  await goTo(page, "sports");
+  await page.locator(".gamepip").first().waitFor({ timeout: 15_000 }).catch(() => {});
+  const pips = await page.evaluate(() => [...document.querySelectorAll(".gamepip, .gamecard__dot")].map((p) => getComputedStyle(p).backgroundColor));
+  check("  and Sports' live dots are the accent, not red", pips.length > 0 && pips.every((c) => c === accent), `${pips.length}: ${[...new Set(pips)].join(" ")}`);
+}
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
 console.log(fail ? `\n${fail} FAILED` : "\nALL PASS");

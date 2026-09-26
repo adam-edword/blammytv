@@ -1072,7 +1072,7 @@
 /* A narrow window: the words go, the icons and dashes stay. See
  * useCompactSide for why this is measured rather than a media query. */
 .mvbar__side.is-compact .seg__word,
-.mvbar__side.is-compact .mvmeter__text {
+.mvbar__side.is-compact .mvmeter .meter__text {
   display: none;
 }
 .mvbar__side.is-compact .seg__opt {
@@ -1155,44 +1155,16 @@
   transform: scale(0.95);
 }
 
-/* The connection meter (plan 017, "Source limits"): one dash per stream
- * the line allows, filled for this grid's, hatched for streams elsewhere,
- * so the cap is something you see rather than find out. */
+/* The connection meter (plan 017, "Source limits") is ui/LineMeter (plan
+ * 019, K5), its dashes and words in ui.css. Here, only the bar's glass
+ * pill around it. */
 .mvmeter {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
   height: 40px;
   padding: 0 14px;
   border-radius: var(--radius-pill);
   background: var(--glass);
   backdrop-filter: var(--glass-fx);
-  font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-  white-space: nowrap;
 }
-.mvmeter__dashes {
-  display: inline-flex;
-  gap: 3px;
-}
-.mvmeter__dashes i {
-  width: 14px;
-  height: 4px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--text) 20%, transparent);
-}
-.mvmeter__dashes i.is-on {
-  background: var(--text);
-}
-.mvmeter__dashes i.is-elsewhere {
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--text-muted) 0 2px,
-    transparent 2px 4px
-  );
-}
-
 
 .mvgrid {
   position: absolute;
@@ -1602,35 +1574,8 @@
   border-radius: 2px;
   background: var(--on-image);
 }
-.mvtile__live {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--on-image) 14%, transparent);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-/* The house live dot: the theater's, in the accent. */
-.mvtile__live::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent, #6c8cff);
-}
-.mvtile__live.is-behind {
-  font-weight: 600;
-  letter-spacing: 0;
-}
-.mvtile__live.is-behind::before {
-  background: color-mix(in srgb, var(--on-image) 50%, transparent);
-}
+/* LIVE, and "Behind live", are ui/LivePill (plan 019, K4); its ink here
+ * is the tile's white. */
 
 /* A small tile (Focus's stack, a 2x2 on a small window): the title and
  * the badge stay, the progress line and the logo go. */
@@ -1641,7 +1586,7 @@
     bottom: 9px;
     gap: 8px;
   }
-  .mvtile__info .mvlogo,
+  .mvtile__info .chlogo,
   .mvtile__prog {
     display: none;
   }
@@ -1791,7 +1736,7 @@
 .mvpick__row[data-disabled] .mvpick__sub {
   color: var(--text-dim);
 }
-.mvpick__row[data-disabled] .mvlogo {
+.mvpick__row[data-disabled] .chlogo {
   filter: grayscale(1);
   opacity: 0.6;
 }
@@ -1870,25 +1815,6 @@
 }
 .mvpick__left {
   margin-left: auto;
-}
-
-/* A channel's logo, or its initial. White ground, because provider logos
- * are drawn for either and most of them read on white. */
-.mvlogo {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  border-radius: 22%;
-  background: #fff;
-  color: #111;
-  font-weight: 800;
-  overflow: hidden;
-}
-.mvlogo img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 8%;
 }
 
 /* The caption, UNDER the picture (Adam, on M4: "as long as it doesn't

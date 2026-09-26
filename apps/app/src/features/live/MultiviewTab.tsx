@@ -71,6 +71,7 @@ import {
 import { Button } from "../../components/ui/button";
 import { Hint } from "../../ui/Hint";
 import { Segmented } from "../../ui/Segmented";
+import { LineMeter } from "../../ui/LineMeter";
 
 /**
  * THE MULTI-VIEW TAB (plan 017): several streams at once, as a place you
@@ -784,23 +785,14 @@ export function MultiviewTab() {
             wordless(
               compact,
               meterLine(room),
-            <span className="mvmeter" role="img" aria-label={meterLine(room)}>
-              {dashes > 0 && (
-                <span className="mvmeter__dashes" aria-hidden>
-                  {Array.from({ length: dashes }, (_, i) => (
-                    <i
-                      key={i}
-                      className={
-                        i < room.used ? "is-on" : i < room.used + room.elsewhere ? "is-elsewhere" : undefined
-                      }
-                    />
-                  ))}
-                </span>
-              )}
-              <span className="mvmeter__text" aria-hidden>
-                {meterLine(room)}
-              </span>
-            </span>,
+            <LineMeter
+              className="mvmeter"
+              max={dashes || null}
+              maxDashes={8}
+              used={room.used}
+              elsewhere={room.elsewhere}
+              text={meterLine(room)}
+            />,
             )}
           {kindsFor(picks.length).length > 1 && !choosing && (
             <Segmented<MvKind>

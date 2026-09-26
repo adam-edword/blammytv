@@ -100,23 +100,26 @@
 }
 
 /* The live pip, wherever "on now" is being claimed: the section heading,
- * and beside the clock on a game that is actually running.
- *
- * Fixed red rather than the accent: "live" is a state of the world, not a
- * themeable decoration, and it reads the same on every pack. One class for
+ * and beside the clock on a game that is actually running. One class for
  * all three places, so the claim looks identical wherever it is made.
  *
- * --danger since v0.9.60, not a hand-mixed #ff4b4b. It is the only
- * chromatic token shadcn names, and this is the last colour in the app that
- * was ours rather than theirs. A grey live dot would say nothing, which is
- * why this one thing stays red while everything around it went neutral. */
+ * The ACCENT, not red (plan 019, D5, Adam 2026-09-26). It was --danger
+ * (v0.9.60) on the argument that live is a state of the world and a grey
+ * dot says nothing; the app settled the other way: the accent is the one
+ * colour that means live, in the theater, multi-view and the Guide, and a
+ * red dot here was the only place saying it differently. With the default
+ * accent it is near-white, which is what the rest of the app's live dots
+ * are too. */
 .gamepip {
   flex: 0 0 auto;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--danger);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--danger) 75%, transparent);
+  /* The accent, the app's one LIVE colour (plan 019, D5): the theater,
+   * multi-view and the Guide already said live with it, and this dot said
+   * it in red. */
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 75%, transparent);
 }
 
 /* The shared row pads 18px top / 10px bottom, which is tuned for a poster's
@@ -1195,7 +1198,7 @@
   width: 7.1px;
   height: 7.1px;
   border-radius: 50%;
-  background: #ff4b4b;
+  background: var(--accent);
 }
 .gamecard__more {
   font-size: calc(var(--sports-meta) * 1.25);
@@ -2088,12 +2091,8 @@
  * Three bands, not a gradient: the number is derived from a handful of
  * discrete match reasons (see SCORE in matcher.ts), so a continuous ramp
  * would imply a precision it does not have. */
-.sportsrail__logo {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  flex: 0 0 auto;
-}
+/* .sportsrail__logo is ui/ChannelLogo now (plan 019, K6): the logo on a
+ * white tile, the initial where there is none, sized inline. */
 .sportsrail__badge {
   padding: 2px 7px;
   border-radius: 100px;

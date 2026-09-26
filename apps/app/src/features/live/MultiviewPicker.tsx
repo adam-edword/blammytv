@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
-import { MvLogo } from "./MultiviewTile";
+import { ChannelLogo } from "../../ui/ChannelLogo";
 import { EASE_OUT, lastInputWasKey } from "./mvMotion";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { airing } from "./mvTile";
@@ -363,7 +363,7 @@ function ChannelRow({
   ].filter(Boolean);
   return (
     <>
-      <MvLogo channel={channel} size={34} />
+      <ChannelLogo name={channel.name} logo={channel.logo} size={34} />
       <span className="mvpick__meta">
         <span className="mvpick__name">
           <span className="mvpick__nametext">{channel.name}</span>

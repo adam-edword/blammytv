@@ -24,6 +24,8 @@ import {
 import { loadShowAdult, saveShowAdult } from "./adultFilter";
 import { isAdultCategory } from "../live/adult";
 import { onLiveRefreshed, peekLive } from "../live/source";
+import { LineMeter } from "../../ui/LineMeter";
+import { useConnections } from "../live/connections";
 
 type Categories =
   | { status: "loading" }
@@ -45,6 +47,9 @@ export function PlaylistsTab() {
   const [form, setForm] = useState<PlaylistFormState>(EMPTY_FORM);
   const [playlists, setPlaylists] = useState<Playlist[]>(loadPlaylists);
   const [showAdult, setShowAdult] = useState<boolean>(loadShowAdult);
+  // Each Xtream line's count, for its row's meter (plan 019, K5): the same
+  // readings the Guide's sidebar draws.
+  const conns = useConnections(null);
   // Per-playlist load/guide status off the last catalog load — this is how
   // an installed user (no console) reads WHY the guide is empty. Re-read
   // when a background refresh lands.
@@ -226,6 +231,19 @@ export function PlaylistsTab() {
                   })()}
                 </div>
                 <div className="playlist-row__actions">
+                  {(() => {
+                    const c = conns.get(p.id);
+                    return c ? (
+                      <LineMeter
+                        size="sm"
+                        className="playlist-row__meter"
+                        max={c.max}
+                        used={c.active}
+                        text={`${c.active} of ${c.max}`}
+                        label={`${c.active} of ${c.max} streams in use`}
+                      />
+                    ) : null;
+                  })()}
                   <Toggle
                     on={p.enabled}
                     onChange={() => update(togglePlaylist(playlists, p.id))}

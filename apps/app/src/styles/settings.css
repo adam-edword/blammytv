@@ -850,3 +850,8 @@
     transition: opacity 150ms var(--ease-out);
   }
 }
+
+/* A line's count on its row, the Guide's meter (plan 019, K5). */
+.playlist-row__meter {
+  margin-right: 6px;
+}

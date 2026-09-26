@@ -116,6 +116,99 @@
   }
 }
 
+/* ---- LIVE (plan 019, K4; ui/LivePill.tsx): multi-view's tile pill. The
+ * dot is the accent, the app's signal for live; the fill is a tint of the
+ * ink it sits in, so it reads on a picture and on the page. */
+.live-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.live-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, #6c8cff);
+}
+.live-pill.is-behind {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.live-pill.is-behind::before {
+  background: color-mix(in srgb, currentColor 50%, transparent);
+}
+
+/* ---- The line meter (plan 019, K5; ui/LineMeter.tsx): one dash per
+ * stream the line allows, filled for this app's, hatched for streams in
+ * use elsewhere, so the cap is something you see rather than find out. */
+.meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.meter__dashes {
+  display: inline-flex;
+  gap: 3px;
+}
+.meter__dashes i {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+.meter__dashes i.is-on {
+  background: var(--text);
+}
+.meter__dashes i.is-elsewhere {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--text-muted) 0 2px,
+    transparent 2px 4px
+  );
+}
+.meter--sm {
+  gap: 7px;
+  font-size: 11.5px;
+}
+.meter--sm .meter__dashes i {
+  width: 11px;
+  height: 3px;
+}
+
+/* ---- A channel's logo (plan 019, K6; ui/ChannelLogo.tsx): on a white
+ * tile, or its initial on the same tile. White, because provider logos
+ * are drawn for either ground and most of them read on white. The box is
+ * sized inline, so a stylesheet that is late cannot unsize it. */
+.chlogo {
+  place-items: center;
+  flex: none;
+  border-radius: 22%;
+  background: #fff;
+  color: #111;
+  font-weight: 800;
+}
+.chlogo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 8%;
+}
+
 /* Switch, at shadcn's exact geometry.
  *
  * Adam: "ours seems rather large compared to the docs." Measured rather than

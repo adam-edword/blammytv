@@ -10,6 +10,8 @@ import {
 } from "../settings/channelNumber";
 import { progress as epgProgress } from "./epg";
 import type { Channel, Programme } from "./model";
+import { ChannelLogo } from "../../ui/ChannelLogo";
+import { LivePill } from "../../ui/LivePill";
 
 /** The Live tab's hero (Figma 133:479): the mpv preview slot beside the
  * now-playing programme details. The preview keeps a stable element id so
@@ -65,18 +67,14 @@ export function Hero({
       <div className="hero__preview" id="player-slot" />
 
       <div className="hero__details">
-        {/* Only airing programmes wear the badge — a hover-previewed
-         * future show shouldn't claim to be live. */}
-        {live && (
-          <span className="hero__live">
-            <i className="hero__live-dot" />
-            LIVE
-          </span>
-        )}
+        {/* The channel as multi-view's tiles say it (plan 019, frame B):
+          * its logo on a white tile and its name as an eyebrow, not the
+          * accent, which is for live. */}
         <span className="hero__channel">
-          {channel.name}
+          <ChannelLogo name={channel.name} logo={channel.logo} size={40} />
+          <span className="hero__channel-name">{channel.name}</span>
           {showNumber && channel.number != null && (
-            <span className="hero__number">#{channel.number}</span>
+            <span className="hero__number">{channel.number}</span>
           )}
         </span>
         <div className="hero__title-wrap">
@@ -90,6 +88,9 @@ export function Hero({
             : "This channel has no programme data right now."}
         </p>
         <div className="hero__meta">
+          {/* Only airing programmes wear LIVE: a hover-previewed future
+           * show shouldn't claim to be live. */}
+          {live && <LivePill />}
           {current && (
             <span className="hero__time">
               {formatClock(current.start, clockFmt)} –{" "}

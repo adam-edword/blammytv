@@ -35,6 +35,8 @@ import { loadClockFormat } from "../settings/clockFormat";
 import { CloseIcon, PlayIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
 import { Button, buttonVariants } from "../../components/ui/button";
 import { Hint } from "../../ui/Hint";
+import { ChannelLogo } from "../../ui/ChannelLogo";
+import { LivePill } from "../../ui/LivePill";
 
 /**
  * One tile of the multi-view grid: a `<video>` with a demuxer bolted to it.
@@ -112,45 +114,6 @@ const FLASH_MS = 3000;
  * 90 seconds, so this is three looks missed. */
 const SCORE_STALE_MS = 5 * 60_000;
 
-/**
- * The channel's logo, or its first letter when there is none or it broke.
- *
- * SIZED WITHOUT THE STYLESHEET. Provider logos come at their own size, and
- * Cartoon Network's is several hundred pixels: on Adam's first run of
- * v0.9.107 the page came back from a mid-pull reload with the new markup
- * and the old CSS, and each caption drew one at full size across the grid.
- * The box and the image carry their size themselves now, so a stylesheet
- * that is late, stale or missing cannot do that again.
- */
-export function MvLogo({ channel, size }: { channel: TileChannel; size: number }) {
-  const [broken, setBroken] = useState(false);
-  return (
-    <span
-      className="mvlogo"
-      style={{
-        display: "inline-grid",
-        overflow: "hidden",
-        width: size,
-        height: size,
-        fontSize: Math.round(size * 0.45),
-      }}
-      aria-hidden
-    >
-      {channel.logo && !broken ? (
-        <img
-          src={channel.logo}
-          alt=""
-          width={size}
-          height={size}
-          draggable={false}
-          onError={() => setBroken(true)}
-        />
-      ) : (
-        channel.name.trim()[0]
-      )}
-    </span>
-  );
-}
 
 /** A button inside the tile: it acts, and does not also move the sound. */
 const own =
@@ -825,7 +788,7 @@ export function MultiviewTile({
         </div>
         {playing && !failure && !recovering && (
           <div className="mvtile__info">
-            <MvLogo channel={channel} size={40} />
+            <ChannelLogo name={channel.name} logo={channel.logo} size={40} />
             <div className="mvtile__meta">
               <div className="mvtile__chan">{chanLine}</div>
               <div className="mvtile__title">
@@ -855,7 +818,7 @@ export function MultiviewTile({
                 </div>
               )}
             </div>
-            <span className={"mvtile__live" + (behind ? " is-behind" : "")}>{behind ?? "LIVE"}</span>
+            <LivePill behind={behind} className="mvtile__live" />
           </div>
         )}
       </div>

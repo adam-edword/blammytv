@@ -390,7 +390,7 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   await page.waitForTimeout(27_000);
   const meter = await page.locator(".mvmeter").getAttribute("aria-label");
   const addOff = await page.locator(".mvbar__add").getAttribute("aria-disabled");
-  const hatched = await page.locator(".mvmeter__dashes i.is-elsewhere").count();
+  const hatched = await page.locator(".mvmeter .meter__dashes i.is-elsewhere").count();
   await page.locator(".mvbar__add").hover();
   const tip = await page.locator("[role='tooltip']").first().textContent({ timeout: 3000 }).catch(() => "");
   check(
@@ -402,15 +402,16 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
       tip.includes("Your line allows 3, and 1 is in use elsewhere"),
     JSON.stringify({ early, meter, hatched, addOff, tip }),
   );
-  // The same panel count, read by the Guide: its sidebar pill is "3/3", and
-  // the meter's total is that number, not just this grid's two.
+  // The same panel count, read by the Guide: its sidebar meter says "3 of 3"
+  // (plan 019 made it the same meter), and multi-view's total is that
+  // number, not just this grid's two.
   const total = Number(meter.match(/^(\d+) of/)?.[1]);
   await page.locator('[data-dest="guide"]').click();
   const pill = await page.locator(".live-conns").first().textContent({ timeout: 15_000 }).catch(() => "");
   check(
-    "the meter's total is the number the Guide's pill shows",
-    pill === "3/3" && total === 3,
-    `meter total ${total}, Guide pill "${pill}"`,
+    "the meter's total is the number the Guide's meter shows",
+    pill === "3 of 3" && total === 3,
+    `meter total ${total}, Guide meter "${pill}"`,
   );
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();

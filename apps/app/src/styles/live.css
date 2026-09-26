@@ -100,22 +100,12 @@
 
 /* Connection usage pill ("2/5") on a source header. Quiet by default;
  * accent when every connection is in use — the moment it matters. */
+/* The line's count is ui/LineMeter (plan 019, K5). Pushed to the row's
+ * far end; at the cap the dashes are all filled, which is the signal, so
+ * --full paints nothing of its own (the accent is for live). */
 .live-conns {
-  flex-shrink: 0;
-  margin-left: 2px;
-  padding: 1px 7px;
-  border-radius: 1000px;
-  background: #00000050;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.live-conns--full {
-  background: var(--accent-surface);
-  color: var(--accent);
+  margin-left: auto;
+  padding-right: 2px;
 }
 
 .live-group__caret--closed {
@@ -408,8 +398,8 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 12px 0 5px;
+  gap: 11px;
+  padding: 0 12px 0 10px;
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -422,30 +412,9 @@
  * mini-player) already shows the selection; a ring here read as noise.
  * The --selected class stays on the element if a designed cue lands. */
 
-/* Mock logo slot: portrait tile with the channel initial until real
- * channel art lands. */
-/* Free-floating logo, no chrome — real channel art carries its own shape
- * (user-tuned 44x64). */
-.guide__logo {
-  flex-shrink: 0;
-  width: 44px;
-  height: 64px;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--text);
-  overflow: hidden;
-}
-
-/* Real playlists bring stream_icon art of every shape; contain it. */
-.guide__logo-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 2px;
-}
+/* The channel's logo on a white tile, a lettermark on the same tile
+ * (ui/ChannelLogo, plan 019 K6; plan 016 4.3 asked for 40px tiles). It
+ * was free-floating in a 44 by 64 box, the initial bare. */
 
 .guide__card-meta {
   /* Fills the card so percentage widths on the name resolve against a
@@ -736,60 +705,42 @@
   padding-top: 6px;
 }
 
-.hero__live {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  background: var(--accent-surface);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-card);
-  font-family: var(--font-text);
-  font-weight: 700;
-  font-size: 17px;
-  color: var(--text);
-}
-
-.hero__live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
-}
-
 /* One line under a right-edge fade, like the title — real provider names
  * run long, and a wrapped channel line stole a synopsis line's worth of
  * the hero's pinned height. The box stretches to the details' full width
  * so the fade zone sits at the container edge: names that don't reach it
- * render untouched (a shrink-to-fit box always "overflows" its own mask). */
+ * render untouched (a shrink-to-fit box always "overflows" its own mask).
+ *
+ * Multi-view's language (plan 019, frame B): the logo on a white tile and
+ * the name as an eyebrow. It was 21px in the accent; the accent is for
+ * live, and LIVE sits with the programme's time now. */
 .hero__channel {
-  margin-top: 16px;
   align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   white-space: nowrap;
   overflow: hidden;
   mask-image: linear-gradient(to right, #000 calc(100% - 100px), transparent);
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 21px;
-  letter-spacing: 1.26px;
-  color: var(--accent);
+}
+.hero__channel-name {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
-/* Provider channel number: a quiet dark chip after the name (Adam's mock —
- * "#137", gray on black, never fighting the accent-colored name). */
+/* Provider channel number: a quiet chip after the name (Adam's mock:
+ * "#137", never fighting the name). In the capsule's glass now. */
 .hero__number {
-  display: inline-block;
-  margin-left: 12px;
-  padding: 1px 10px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  font-size: 15px;
-  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--glass);
+  font-size: 11px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
-  vertical-align: 2px;
 }
 
 /* Long titles run under a right-edge fade instead of wrapping. A MASK,
@@ -835,35 +786,37 @@
   overflow: hidden;
 }
 
+/* LIVE, the programme's time and its progress on one line, the way a
+ * multi-view tile says them: the 3px white track, tabular times. */
 .hero__meta {
   align-self: stretch;
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin-top: 20px;
+  gap: 12px;
+  margin-top: 22px;
 }
 
 .hero__time {
-  font-family: var(--font-headline);
+  font-size: 12px;
   font-weight: 500;
-  font-size: 14px;
-  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
 .hero__bar {
   flex: 1;
   min-width: 0;
-  height: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  max-width: 560px;
+  height: 3px;
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .hero__bar-fill {
   height: 100%;
-  background: var(--accent);
+  background: var(--text);
 }
 /* The resize separator is a hairline strip; inset the ring so it stays on it. */
 .guide-resize:focus-visible {

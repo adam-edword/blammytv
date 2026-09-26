@@ -32,6 +32,7 @@ import {
   loadClockFormat,
   onClockFormatChange,
 } from "../settings/clockFormat";
+import { ChannelLogo } from "../../ui/ChannelLogo";
 import { QualityBadge } from "../../ui/QualityBadge";
 import {
   GUIDE_HOURS,
@@ -150,28 +151,6 @@ interface Block {
   key: string;
 }
 
-/** Channel logo with a lettermark fallback: real playlists carry
- * stream_icon URLs of wildly varying health, so a broken image swaps back
- * to the initial. */
-function CardLogo({ channel }: { channel: Channel }) {
-  const [broken, setBroken] = useState(false);
-  return (
-    <span className="guide__logo" aria-hidden>
-      {channel.logo && !broken ? (
-        <img
-          className="guide__logo-img"
-          src={channel.logo}
-          alt=""
-          loading="lazy"
-          draggable={false}
-          onError={() => setBroken(true)}
-        />
-      ) : (
-        channel.name[0]
-      )}
-    </span>
-  );
-}
 
 /* memo: hover previews re-render LiveScreen constantly while the cursor
  * crosses cells; the guide's own props stay stable, so it must not be
@@ -585,7 +564,7 @@ export const Guide = memo(function Guide({
                   }
                   onClick={() => onSelect(channel.id)}
                 >
-                  <CardLogo key={channel.logo ?? ""} channel={channel} />
+                  <ChannelLogo name={channel.name} logo={channel.logo} size={40} lazy className="guide__logo" />
                   <span className="guide__card-meta">
                     <span className="guide__card-name">{channel.name}</span>
                     {channel.quality && (

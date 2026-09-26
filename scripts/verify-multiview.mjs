@@ -252,7 +252,7 @@ check(
 check(
   "the meter says so",
   (await page.locator(".mvmeter").getAttribute("aria-label")) === "3 of 3 streams in use" &&
-    (await page.locator(".mvmeter__dashes i.is-on").count()) === 3,
+    (await page.locator(".mvmeter .meter__dashes i.is-on").count()) === 3,
 );
 await page.waitForFunction(() => document.querySelectorAll("video.mvtile__video").length === 3, null, {
   timeout: 10_000,

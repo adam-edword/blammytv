@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { MultiviewTile, MvLogo, type TileChannel } from "./MultiviewTile";
+import { MultiviewTile, type TileChannel } from "./MultiviewTile";
+import { ChannelLogo } from "../../ui/ChannelLogo";
 import { MultiviewNotice } from "./MultiviewNotice";
 import { multiviewNoticeSeen } from "./multiviewAck";
 import {
@@ -521,7 +522,7 @@ export function MultiviewGrid({
                 style={fill === s.id && fillRect ? under(fillRect) : fill ? { ...under(r), visibility: "hidden" } : under(r)}
                 data-mv={`cap:${s.id}`}
               >
-                <MvLogo channel={s.channel} size={20} />
+                <ChannelLogo name={s.channel.name} logo={s.channel.logo} size={20} />
                 <span className="mvcap__name">{s.name}</span>
                 {on && (
                   <span className="mvcap__sound" aria-hidden>

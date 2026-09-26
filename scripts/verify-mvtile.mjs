@@ -309,7 +309,7 @@ const NEWS = "Fake News Channel";
       caps.some((c) => c.trim().endsWith(NEWS)),
     JSON.stringify(caps),
   );
-  const logos = await page.locator(".mvcap .mvlogo").evaluateAll((els) =>
+  const logos = await page.locator(".mvcap .chlogo").evaluateAll((els) =>
     els.map((e) => (e.querySelector("img") ? "img" : e.textContent)),
   );
   check(
@@ -332,12 +332,12 @@ const NEWS = "Fake News Channel";
         for (let i = list.length - 1; i >= 0; i--) {
           const r = list[i];
           if (r.cssRules) strip(r.cssRules);
-          if (r.selectorText?.includes("mvlogo")) (r.parentRule ?? r.parentStyleSheet).deleteRule(i);
+          if (r.selectorText?.includes("chlogo")) (r.parentRule ?? r.parentStyleSheet).deleteRule(i);
         }
       };
       strip(rules);
     }
-    const img = document.querySelector(".mvcap .mvlogo img").getBoundingClientRect();
+    const img = document.querySelector(".mvcap .chlogo img").getBoundingClientRect();
     return [Math.round(img.width), Math.round(img.height)];
   });
   check("and with no stylesheet for it, the logo still keeps to its 20px box", bare[0] <= 20 && bare[1] <= 20, JSON.stringify(bare));
