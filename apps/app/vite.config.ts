@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
@@ -59,5 +60,14 @@ export default defineConfig({
     watch: {
       ignored: ["**/src-tauri/**"],
     },
+  },
+  // THE UNIT TESTS RUN WEST OF UTC, on purpose. CI's clock is UTC, the one
+  // zone where a calendar date sent as an instant (lib/time's calendarDay)
+  // reads right by accident: golf's range and an episode's air date passed
+  // CI a day early for anyone in the Americas. Honolulu is west of every US
+  // zone, so each encoding the feeds use shows the wrong day there, and it
+  // keeps no daylight saving, so no test can hang on the time of year.
+  test: {
+    env: { TZ: "Pacific/Honolulu" },
   },
 });

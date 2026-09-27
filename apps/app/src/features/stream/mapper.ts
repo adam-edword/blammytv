@@ -5,6 +5,7 @@ import {
   type StremioStream,
   type StremioVideo,
 } from "../../data/stremio";
+import { calendarDay } from "../../lib/time";
 import type {
   CacheStatus,
   Episode,
@@ -327,12 +328,14 @@ function castNames(
     .slice(0, 20);
 }
 
-/** ISO date → "Jan 21, 2008". */
+/** ISO date → "Jan 21, 2008". A day, not a moment (calendarDay): Cinemeta
+ * sends the Breaking Bad pilot as `2008-01-21T05:00:00.000Z`, which as an
+ * instant read "Jan 20, 2008" anywhere west of UTC-5. */
 function formatAirDate(released?: string | null): string | undefined {
   if (!released) return undefined;
-  const t = Date.parse(released);
-  if (Number.isNaN(t)) return undefined;
-  return new Date(t).toLocaleDateString("en-US", {
+  const day = calendarDay(released);
+  if (Number.isNaN(day.getTime())) return undefined;
+  return day.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

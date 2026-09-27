@@ -240,7 +240,16 @@ describe("mapSeasons", () => {
     ]);
     expect(seasons[1].episodes.map((e) => e.number)).toEqual([1, 2]);
     expect(seasons[2].episodes).toHaveLength(1); // unavailable dropped
-    expect(seasons[1].episodes[0].airDate).toMatch(/2024/);
+    expect(seasons[1].episodes[0].airDate).toBe("Jan 1, 2024");
+  });
+
+  it("gives the air date the addon means, wherever it is read", () => {
+    // Cinemeta's own encoding: the Breaking Bad pilot, sent as 05:00 UTC.
+    // As an instant that was the evening of the 20th west of UTC-5.
+    const [season] = mapSeasons([
+      { id: "tt0903747:1:1", season: 1, episode: 1, name: "Pilot", released: "2008-01-21T05:00:00.000Z" },
+    ]);
+    expect(season.episodes[0].airDate).toBe("Jan 21, 2008");
   });
 });
 

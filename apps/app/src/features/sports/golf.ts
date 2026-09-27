@@ -30,6 +30,7 @@
  *                  derivable. See `thruHoles`.
  */
 
+import { calendarDay } from "../../lib/time";
 import type { Entrant, Field, GameState } from "./model";
 
 /** How deep a card could ever want. The real field is 57 to 147. */
@@ -142,6 +143,7 @@ function toLeaderboard(
   league: string,
 ): Field | null {
   if (!event.id || !event.date) return null;
+  const start = calendarDay(event.date);
   const comp = event.competitions?.[0];
   const raw = comp?.competitors ?? [];
   const status = comp?.status?.type ?? event.status?.type;
@@ -182,16 +184,20 @@ function toLeaderboard(
     league,
     leagueKey: path,
     state,
-    start: new Date(event.date),
+    // DAYS, not moments: ESPN sends each as midnight US Eastern, and read
+    // as an instant that is the day before anywhere west of it (Chicago
+    // had the Wyndham on AUG 5-8, filed under the Wednesday). calendarDay
+    // makes it local midnight of ESPN's date, for the card and the board.
+    start,
     // Thursday to Sunday. The upcoming card leads with the range, because
     // before anyone tees off that is the whole of what is known.
-    end: event.endDate ? new Date(event.endDate) : undefined,
+    end: event.endDate ? calendarDay(event.endDate) : undefined,
     // ESPN's own words once it is running or done. Before that the DATE
     // rather than a clock: a tournament starts on a Thursday and runs to a
     // Sunday, so a tee time is the wrong grain.
     status:
       state === "pre"
-        ? new Date(event.date).toLocaleDateString(undefined, {
+        ? start.toLocaleDateString(undefined, {
             month: "short",
             day: "numeric",
           })
@@ -220,7 +226,8 @@ function toLeaderboard(
  *
  * The one thing an upcoming golf card can say that is worth the room. Both
  * dates are the source's; the formatting is ours, and it renders in LOCAL
- * time from the absolute instants like everything else on the board.
+ * time, from the local midnights toLeaderboard makes of ESPN's dates
+ * (calendarDay). Handed ESPN's raw instants, it is a day early in Chicago.
  *
  * Falls back to the single day when there is no end date, rather than
  * inventing one — a range with a guessed end is worse than a start.
