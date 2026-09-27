@@ -1679,6 +1679,39 @@ const dimmedText = () =>
     JSON.stringify({ ...rule, hair }),
   );
 
+  // The Switch wears the rest of shadcn's surface (v0.10.32) and keeps its
+  // thumb: the off track is `dark:bg-input/80` (15% white at 80%, so 12%),
+  // the track carries `shadow-xs`, and the thumb still slides on its own
+  // 260ms spring (Adam, 2026-09-06: take the surface, keep the thumb).
+  await goTo(page, "guide");
+  await page.waitForTimeout(600);
+  await page.locator(".header__action[aria-label='Settings']").click();
+  await page.locator(".settings").waitFor();
+  await page.getByRole("tab", { name: "Customize", exact: true }).click();
+  await page.getByRole("tablist", { name: "Media" }).getByRole("tab", { name: "Stream", exact: true }).click();
+  await page.waitForTimeout(600);
+  const sw = await page.evaluate(() => {
+    const read = (label) => {
+      const el = document.querySelector(`.settings [role=switch][aria-label='${label}']`);
+      if (!el) return null;
+      const s = getComputedStyle(el);
+      const t = getComputedStyle(el.querySelector(".toggle__thumb"));
+      const r = el.getBoundingClientRect();
+      return { on: el.getAttribute("aria-checked"), bg: s.backgroundColor, shadow: s.boxShadow, size: `${r.width}x${Math.round(r.height * 10) / 10}`, thumb: t.transition };
+    };
+    return { off: read("One-click play"), on: read("Featured carousel") };
+  });
+  const accent = await token("--accent");
+  check(
+    "M2. the Switch's track is shadcn's: input at 80% off, the accent on, shadow-xs, 32 by 18.4",
+    sw.off?.on === "false" && /^oklab\(1 0 0 \/ 0\.12\)$/.test(sw.off.bg) && sw.on?.on === "true" && sw.on.bg === accent &&
+      [sw.off, sw.on].every((s) => s.shadow === "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px" && s.size === "32x18.4"),
+    JSON.stringify({ ...sw, accent }),
+  );
+  check("  and its thumb still slides on the 260ms spring", /^transform 0\.26s linear\(/.test(sw.off?.thumb ?? ""), sw.off?.thumb);
+  await page.keyboard.press("Escape");
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+
   // RowScroller and Card live in ui/ (v0.10.31), and ContinueCard in its own
   // file: a screen that exports primitives is why "redo one screen" kept
   // touching three. So no file imports a screen's file but App, which mounts

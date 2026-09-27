@@ -485,15 +485,33 @@ button.place:focus-visible {
  * The COLOURS are shadcn's too, and the checked thumb going DARK is not a
  * bug: their dark rule is `bg-primary-foreground`, and with primary a
  * near-white the ink on it has to be near-black. Off-track is `bg-input`,
- * on-track `bg-primary`, off-thumb `bg-foreground` in dark. */
+ * on-track `bg-primary`, off-thumb `bg-foreground` in dark.
+ *
+ * THE LAST OF THE SURFACE (ROADMAP M2, v0.10.32), checked against the
+ * current registry (base-vega and new-york-v4 agree on the track). v0.9.58
+ * took the geometry and the thumb's colours and left two values: the off
+ * track in dark is `dark:bg-input/80`, not the full `bg-input` (15% white
+ * at 80% is 12%), and the track carries `shadow-xs`. The thumb, its 260ms
+ * spring and its press dip are ours and stay (Adam, 2026-09-06: take the
+ * surface, keep the thumb); so do the track's colour timing and the app's
+ * focus ring. Not taken: base-vega's `after:-inset-x-3 -inset-y-2` hit
+ * area, which is behaviour rather than surface, and 24px wider in the
+ * folder list's rows of small switches. */
 .toggle {
   position: relative;
   width: 32px;
   height: 1.15rem;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--border-input);
+  /* `bg-input/80`, spelled the way Tailwind compiles it. */
+  background: color-mix(in oklab, var(--border-input) 80%, transparent);
+  box-shadow: var(--shadow-xs);
   transition: background 220ms ease;
+}
+/* `dark:` is the variant, so light keeps the full `bg-input`. Not on the
+ * checked track, which the accent paints in both themes. */
+:root[data-theme="light"] .toggle:not(.toggle--on) {
+  background: var(--border-input);
 }
 
 .toggle__thumb {
