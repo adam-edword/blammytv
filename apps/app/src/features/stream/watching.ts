@@ -32,6 +32,9 @@ export interface WatchEntry {
    * Powers resume-from-position and the card's progress bar. */
   posSec?: number;
   durSec?: number;
+  /** Trakt's id for this paused position (plan 015, T4), so clearing the
+   * card clears it on Trakt too. Only on entries Trakt has seen paused. */
+  trakt?: number;
   at: number;
 }
 
