@@ -33,8 +33,8 @@ v0.9.78. "Where we are" refreshed 2026-09-27.
 
 | | State |
 |---|---|
-| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player. M2, the primitives' leftovers, is being worked in the background from 2026-09-27. M3's leftovers (the glass tiers, reduced transparency, the light pass) have not started, and light mode is forced off at boot. |
-| **Trakt** (M4) | Planned and decided, `plans/015-trakt.md` (2026-09-27). Waiting on Adam to register the Trakt app, and on a go. |
+| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player. M2 is done (v0.10.29 to v0.10.34) but for one call of Adam's, the segmented control's surface (below). M3's leftovers (the glass tiers, reduced transparency, the light pass) have not started, and light mode is forced off at boot. |
+| **Trakt** (M4) | Built, v0.10.27 to v0.10.36, `plans/015-trakt.md`: sign-in, scrobbling, sync and the Trakt Watchlist. Waiting on Adam to register the Trakt app and put its keys in `.env.local` for a first real run. |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
 | **The Guide going black on a folder** | "Maximum update depth" in Guide.tsx, Adam, 2026-09-27. Not reproduced at his catalog's size (8,516 channels, 246 folders). v0.10.24 removed UI Scale's fractional zoom, the suspected cause, unconfirmed. If it comes back: a guard on the row window and a log line. |
 | **Themes** | Parked. They return after 1.0 with new looks (decision 1). |
@@ -235,15 +235,27 @@ never be a deterrent to building anything." So:
 
 ### M2: finish the primitives (plan 014 L1 and L2)
 
-- Adopt or delete the seven generated components nobody imports. A
-  component with no consumer is a promise nobody is keeping.
-- Settings modal onto Dialog, which should let `lib/modalOpen.ts` shrink
-  or go (plan 014 phase 1).
-- Switch and ChipTabs take shadcn's surface **and keep their thumb**. Adam's
-  constraint, 2026-09-06.
-- L2: header, nav capsule, app shell. **Move `RowScroller` and `Card` out
-  of `StreamScreen.tsx` into `ui/`.** A screen that exports primitives is
-  why "redo one screen" keeps touching three.
+**Done, v0.10.29 to v0.10.34 (2026-09-27), in the background**, but for
+one call of Adam's (the segmented control, below).
+
+- ~~Adopt or delete the generated components nobody imports~~ v0.10.29:
+  Separator adopted (the league picker's rule), Badge, Card, Skeleton and
+  Textarea deleted, InputGroup kept (the Combobox draws through it).
+- ~~Settings modal onto Dialog~~ v0.10.33, measured identical. It cannot
+  let `lib/modalOpen.ts` go: mouse Back and Multi-view's capture-phase
+  Escape still need it.
+- Switch and ChipTabs take shadcn's surface **and keep their thumb**.
+  Adam's constraint, 2026-09-06. The Switch did in v0.10.32. **The
+  segmented control (ChipTabs) is Adam's call**: its glass track and
+  sliding tint are his plan 019 decisions (D2, D3) from after this line
+  was written. A, keep 019's look and retire this line (recommended); B,
+  shadcn's tabs as they are, which reverses D2 and D3; C, keep the glass
+  track and give only the sliding tab shadcn's border and shadow.
+- ~~L2~~ v0.10.34: the capsule centres itself with no live source. **The
+  clock is off the header's centreline** (44 against the capsule's 59.5),
+  and which should sit on the line is Adam's call. ~~Move `RowScroller`
+  and `Card` out of `StreamScreen.tsx`~~ v0.10.31, to `ui/`, and
+  ContinueCard to its own file.
 
 ### M3: the screens and the glass, then release (plan 014 L3)
 

@@ -863,3 +863,19 @@ input.rowcap__value--edit:focus-visible {
 .playlist-row__meter {
   margin-right: 6px;
 }
+
+/* Trakt's sign-in (plan 015, B2): the code to type at trakt.tv/activate,
+ * big enough to read from across the room, and the row's two buttons. */
+.trakt-row__code {
+  margin: 6px 0 4px;
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--text);
+}
+.trakt-row__actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}

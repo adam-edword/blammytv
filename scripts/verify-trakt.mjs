@@ -96,6 +96,7 @@ const trakt = http.createServer((rq, rs) => {
       ]);
     }
     if (path === "/sync/watched/movies") return json(rs, 200, []);
+    if (path === "/users/settings") return json(rs, 200, { user: { username: "adam", name: "Adam" } });
     if (path === "/sync/history" && rq.method === "POST") {
       for (const sh of body.shows ?? [])
         for (const se of sh.seasons) for (const ep of se.episodes) state.watched.add(`${sh.ids.imdb}:${se.number}:${ep.number}`);
@@ -281,6 +282,14 @@ check("  leaving it sends a stop past 80%", stopped && stop?.progress >= 80, JSO
 const marked = await waitFor(async () => !!(await store("trakt"))?.movies?.tt100002, 5000);
 check("  and Trakt's scrobble answer marks the film watched here", marked, JSON.stringify((await store("trakt"))?.movies));
 
+// The film's page says so (D6).
+await goTo(page, "discover");
+await page.locator('[data-hint="Fake Movie Two"]').first().click({ timeout: 15_000 });
+await page.locator(".vod-detail__meta").first().waitFor({ timeout: 10_000 });
+const meta = await page.locator(".vod-detail__meta").first().innerText();
+check("  and its page says Watched, with the day", /Watched [A-Z][a-z]{2} \d{1,2}/.test(meta), meta);
+await page.locator(".vod-back").first().click({ timeout: 5000 });
+
 // ------------------------------------------------------------ clearing
 await goTo(page, "mylist");
 // Library comes back into the list you left (the Trakt Watchlist): out to
@@ -298,6 +307,111 @@ check(
 );
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+await page.close();
+
+// ------------------------------------------------------------ connecting
+// Settings → General → Accounts, from signed out: the code, Trakt opened,
+// approved on the second poll, then the account and a first sync.
+const connectStub = ({ port, configured }) => {
+  window.__calls = [];
+  window.__connected = false;
+  let polls = 0;
+  let cb = 0;
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: (f) => {
+      const id = ++cb;
+      window["_" + id] = f;
+      return id;
+    },
+    convertFileSrc: (p) => p,
+    metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main", windowLabel: "main" } },
+    invoke: (cmd, args) => {
+      window.__calls.push([cmd, args]);
+      if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
+      if (cmd === "trakt_status") return Promise.resolve({ configured, connected: window.__connected });
+      if (cmd === "trakt_device_start")
+        return Promise.resolve({ user_code: "ABCD1234", verification_url: "https://trakt.tv/activate", expires_in: 600, interval: 1 });
+      if (cmd === "trakt_device_poll") {
+        if (++polls < 2) return Promise.resolve("pending");
+        window.__connected = true;
+        return Promise.resolve("approved");
+      }
+      if (cmd === "trakt_disconnect") {
+        window.__connected = false;
+        return Promise.resolve();
+      }
+      if (cmd === "trakt_request")
+        return fetch(`http://127.0.0.1:${port}${args.path}`, {
+          method: args.method,
+          headers: { "content-type": "application/json" },
+          ...(args.body != null ? { body: args.body } : {}),
+        }).then(async (r) => ({ status: r.status, body: await r.text(), retry_after: null, account_limit: null, upgrade_url: null }));
+      return Promise.resolve(undefined);
+    },
+  };
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+  localStorage.setItem("btv:onboarded", "1");
+  sessionStorage.setItem("btv:welcome-played", "1");
+  localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "stream" }));
+  localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
+};
+const openSettings = async (p) => {
+  await p.getByRole("button", { name: "Settings", exact: true }).first().click({ timeout: 15_000 });
+  await p.locator(".trakt-row").first().waitFor({ timeout: 10_000 });
+};
+{
+  const keyless = await ctx.newPage();
+  await keyless.addInitScript(connectStub, { port: PORT, configured: false });
+  await keyless.goto(APP, { waitUntil: "domcontentloaded" });
+  await openSettings(keyless);
+  const row = await keyless.locator(".trakt-row").first().innerText();
+  check(
+    "a build without Trakt keys says so, and offers no Connect",
+    /no Trakt keys/.test(row) && (await keyless.locator(".trakt-row button").count()) === 0,
+    row.replace(/\n/g, " | "),
+  );
+  await keyless.close();
+
+  const p2 = await ctx.newPage();
+  p2.on("pageerror", (e) => errors.push(String(e)));
+  await p2.addInitScript(connectStub, { port: PORT, configured: true });
+  await p2.goto(APP, { waitUntil: "domcontentloaded" });
+  await openSettings(p2);
+  const before = calls.length;
+  await p2.locator(".trakt-row").getByRole("button", { name: "Connect" }).click();
+  const code = await p2.locator(".trakt-row__code").innerText({ timeout: 5000 }).catch(() => "");
+  check("Connect shows Trakt's code to enter", code === "ABCD1234", code);
+  if (process.env.SHOT_DIR) await p2.locator(".trakt-row").first().screenshot({ path: `${process.env.SHOT_DIR}/trakt-code.png` });
+  await p2.locator(".trakt-row").getByRole("button", { name: "Open Trakt" }).click();
+  const opened = await p2.evaluate(() => window.__calls.filter(([c]) => c === "open_external").map(([, a]) => a.url));
+  check("  and Open Trakt takes you to the activation page", opened[0] === "https://trakt.tv/activate", JSON.stringify(opened));
+  const on = await p2
+    .locator(".trakt-row .customize-row__title", { hasText: "Trakt: Adam" })
+    .waitFor({ timeout: 8000 })
+    .then(() => true, () => false);
+  const synced = calls.slice(before).some((c) => c.path === "/sync/last_activities");
+  const buttons = await p2.locator(".trakt-row button").allInnerTexts();
+  if (process.env.SHOT_DIR) await p2.locator(".settings-section", { has: p2.locator(".trakt-row") }).first().screenshot({ path: `${process.env.SHOT_DIR}/trakt-connected.png` });
+  check(
+    "  approved, it names the account, syncs, and offers Sync now and Disconnect",
+    on && synced && buttons.includes("Sync now") && buttons.includes("Disconnect"),
+    JSON.stringify({ on, synced, buttons }),
+  );
+  await p2.locator(".trakt-row").getByRole("button", { name: "Disconnect" }).click();
+  await p2.locator(".trakt-row").getByRole("button", { name: /Click again to confirm/ }).click();
+  const off = await p2.locator(".trakt-row").getByRole("button", { name: "Connect" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  const after = await p2.evaluate(() => ({
+    disconnect: window.__calls.some(([c]) => c === "trakt_disconnect"),
+    list: (JSON.parse(localStorage.getItem("blammytv.lists") ?? "null")?.data ?? []).some((l) => l.id === "__trakt"),
+  }));
+  check(
+    "Disconnect signs out and takes the Trakt Watchlist with it",
+    off && after.disconnect && !after.list,
+    JSON.stringify({ off, ...after }),
+  );
+  await p2.close();
+}
+check("no page errors in Settings", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
 trakt.close();
 process.exit(fail ? 1 : 0);

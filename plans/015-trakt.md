@@ -1,7 +1,19 @@
 # Plan 015: Trakt
 
-**Status: DECIDED (2026-09-27), not started.** ROADMAP M4's first half.
-MAL is the second half and gets its own plan after this ships.
+**Status: BUILT, v0.10.27 to v0.10.36 (2026-09-27), not yet run against
+the real Trakt.** B1 to B5 and D6 are in: the native side (v0.10.27), the
+rules as pure functions (v0.10.28), scrobbling, sync and the Trakt
+Watchlist (v0.10.35), and the Settings row and the film page's mark
+(v0.10.36). What is left is Adam's: register the Trakt app, put its keys
+in `.env.local`, rebuild, and connect. ROADMAP M4's first half. MAL is the
+second half and gets its own plan after this ships.
+
+**Unchecked against the real Trakt**, because the build box cannot reach
+it: an episode's history entry dated `"unknown"` (the docs allow it, the
+contract's schema says datetime), a film scrobble with `title` and `year`
+beside the IMDb id, the redirect URI a refresh sends, and whether the
+access token lives 7 days or 24 hours. Each is one line to change if the
+first real run says otherwise.
 
 **Adam's picks, 2026-09-27:** D2 (b), a "Trakt Watchlist" list of its own;
 D3, both sides count (the three-way merge); D4 (a), the secret in the app

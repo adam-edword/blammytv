@@ -103,7 +103,7 @@ import {
 } from "../../lib/tauri";
 import { BackButton } from "../../ui/BackButton";
 import { useTraktScrobble } from "../trakt/scrobble";
-import { TRAKT_SYNCED } from "../trakt/store";
+import { loadTrakt, TRAKT_SYNCED } from "../trakt/store";
 import { Hint } from "../../ui/Hint";
 import { Card } from "../../ui/Card";
 import { RowScroller } from "../../ui/RowScroller";
@@ -2283,6 +2283,17 @@ function GenrePills({ genres }: { genres: string[] }) {
 /** Detail page: backdrop + info left, the addon's pre-ranked sources right.
  * For an episode, `episodeId` scopes the source resolve. Sources re-resolve
  * on every open — debrid links can be short-lived. */
+/** "Watched Sep 12" for a film Trakt has as watched, or null. The year
+ * too when it was not this year. */
+function watchedOn(id: string): string | null {
+  const at = loadTrakt().movies?.[id];
+  if (at == null) return null;
+  if (!at) return "Watched";
+  const d = new Date(at);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return `Watched ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) })}`;
+}
+
 function Detail({
   item,
   episodeId,
@@ -2379,6 +2390,9 @@ function Detail({
               item.year,
               item.runtimeMin ? `${item.runtimeMin} min` : null,
               item.rating ? `★ ${item.rating.toFixed(1)}` : null,
+              // A film watched, from Trakt (plan 015, D6): anywhere, this
+              // app included once connected.
+              item.kind === "movie" ? watchedOn(item.id) : null,
             ]
               .filter(Boolean)
               .join(" · ")}
