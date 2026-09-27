@@ -68,7 +68,7 @@ import {
   takeOpenRequest,
   takeResumeRequest,
 } from "./openRequest";
-import { loadWatched, markWatched } from "./watched";
+import { filmWatched, loadWatched, markWatched } from "./watched";
 import { loadAioUrl } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
@@ -1144,7 +1144,7 @@ export function StreamScreen() {
               setUpNext({ item: p.item, ...nxt });
               return; // stage stays; the Up Next card takes over
             }
-          }
+          } else if (p.item.kind === "movie") filmWatched(p.item.id);
         }
         stop();
       },
@@ -1348,8 +1348,8 @@ export function StreamScreen() {
       : null,
   );
 
-  // MyAnimeList (plan 021): what an episode tick needs to find the title on
-  // MAL (whether it is anime, and its seasons).
+  // MyAnimeList (plan 021): what a tick needs to find the title on MAL
+  // (whether it is anime, and a series' seasons).
   const playingItem = playing?.item;
   useEffect(() => {
     if (playingItem) rememberForMal(playingItem);
@@ -1361,6 +1361,7 @@ export function StreamScreen() {
     if (!playing || playing.popped || !isTauri()) return;
     const itemId = playing.item.id;
     const episodeId = playing.episodeId;
+    const film = playing.item.kind === "movie";
     const id = window.setInterval(() => {
       tauriMpvStatus()
         .then((st) => {
@@ -1370,15 +1371,12 @@ export function StreamScreen() {
             );
           // 90% through = watched, same threshold resumePoint treats as
           // finished — credits-skippers and next-episode jumps get their
-          // checkmarks without reaching hard EOF (markWatched dedupes).
-          if (
-            episodeId &&
-            st.pos != null &&
-            st.dur != null &&
-            st.dur > 0 &&
-            st.pos >= st.dur * 0.9
-          )
-            markWatched(itemId, episodeId);
+          // checkmarks without reaching hard EOF (markWatched dedupes). A
+          // film has no checkmark, but MAL hears of it (plan 021).
+          const done =
+            st.pos != null && st.dur != null && st.dur > 0 && st.pos >= st.dur * 0.9;
+          if (done && episodeId) markWatched(itemId, episodeId);
+          else if (done && film) filmWatched(itemId);
         })
         .catch(() => {});
     }, 5000);

@@ -5,6 +5,7 @@ import {
   buildKitsuIndex,
   looksAnime,
   malEpisodeOf,
+  malFilmOf,
   malWatchedEpisodes,
   resolveMal,
   type AnimeIndexes,
@@ -275,5 +276,29 @@ describe("malWatchedEpisodes", () => {
       "kitsu:1376:1",
       "kitsu:1376:2",
     ]);
+  });
+});
+
+describe("malFilmOf", () => {
+  const films = buildIndex([
+    { imdb_id: "tt5311514", mal_id: 32281, type: "MOVIE" },
+    { imdb_id: "tt5311514", mal_id: 34000, type: "SPECIAL" },
+    { imdb_id: "tt0000002", mal_id: 1, type: "MOVIE" },
+    { imdb_id: "tt0000002", mal_id: 2, type: "MOVIE" },
+  ]);
+  const idx: AnimeIndexes = { imdb: films, kitsu: { 1376: 1535 } };
+
+  it("takes a film's one MOVIE entry, episode 1, beside other kinds", () => {
+    expect(malFilmOf("tt5311514", idx)).toEqual({ mal: 32281, ep: 1 });
+  });
+
+  it("places nothing when two entries are films, or none is known", () => {
+    expect(malFilmOf("tt0000002", idx)).toBeNull();
+    expect(malFilmOf("tt9999999", idx)).toBeNull();
+    expect(malFilmOf("kitsu:9", idx)).toBeNull();
+  });
+
+  it("takes a Kitsu film straight across", () => {
+    expect(malFilmOf("kitsu:1376", idx)).toEqual({ mal: 1535, ep: 1 });
   });
 });

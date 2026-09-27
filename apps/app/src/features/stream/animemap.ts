@@ -233,6 +233,21 @@ export function malEpisodeOf(
 }
 
 /**
+ * Where a film lands on MAL, for a write: a Kitsu-keyed one straight
+ * across, an IMDb-keyed one only when exactly one of its rows is a MOVIE
+ * (D5, as for episodes). Always episode 1; a film's entry has one.
+ */
+export function malFilmOf(filmId: string, idx: AnimeIndexes): { mal: number; ep: number } | null {
+  const kitsu = /^kitsu:(\d+)$/.exec(filmId);
+  if (kitsu) {
+    const mal = idx.kitsu?.[kitsu[1]];
+    return mal ? { mal, ep: 1 } : null;
+  }
+  const rows = idx.imdb?.[filmId];
+  return rows?.length ? resolveMal(rows, null, null, null, [], true) : null;
+}
+
+/**
  * The episodes of a series that MAL counts as watched (plan 021, D2 b):
  * every episode whose MAL entry's count reaches it. The same mapping as a
  * write, run backwards, so what goes out and what comes back agree.

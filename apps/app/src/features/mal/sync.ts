@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { ensureIndex, ensureKitsuIndex, looksAnime, malEpisodeOf } from "../stream/animemap";
+import { ensureIndex, ensureKitsuIndex, looksAnime, malEpisodeOf, malFilmOf } from "../stream/animemap";
 import type { VodItem } from "../stream/model";
-import { EPISODE_WATCHED } from "../stream/watched";
+import { EPISODE_WATCHED, FILM_WATCHED } from "../stream/watched";
 import { describe, malJson, malRequest, malStatus } from "./client";
 import { loadMal, MAL_SYNCED, saveMal } from "./store";
 
@@ -9,7 +9,8 @@ import { loadMal, MAL_SYNCED, saveMal } from "./store";
  * MyAnimeList, both ways (plan 021):
  * - Out (D1): when an anime episode counts as watched here, its MAL entry's
  *   episode count goes up to it, "watching", or "completed" at the last
- *   episode. Never down.
+ *   episode. Never down. An anime film the same way: its entry has one
+ *   episode, so finishing it marks it completed (Adam, v0.10.44).
  * - In (D2 b): your list's counts, read at launch and on coming back after
  *   a while; a series page turns them into ticks (ticks.ts).
  * Nothing runs until MAL is connected.
@@ -25,13 +26,14 @@ interface AnimeStatus {
   my_list_status?: { num_episodes_watched?: number };
 }
 
-/** Series seen playing here this run, for what a tick needs to be placed:
- * whether it is anime, and its seasons (One Piece-style numbering counts
- * across them). */
+/** Titles seen playing here this run, for what a tick needs to be placed:
+ * whether it is anime, and a series' seasons (One Piece-style numbering
+ * counts across them). */
 const seen = new Map<string, Pick<VodItem, "genres" | "seasons">>();
 
-export function rememberForMal(item: Pick<VodItem, "id" | "genres" | "seasons">): void {
-  if (item.seasons.length) seen.set(item.id, { genres: item.genres, seasons: item.seasons });
+export function rememberForMal(item: Pick<VodItem, "id" | "kind" | "genres" | "seasons">): void {
+  // A series without its seasons yet is the light copy: keep the full one.
+  if (item.kind === "movie" || item.seasons.length) seen.set(item.id, { genres: item.genres, seasons: item.seasons });
 }
 
 const isKitsu = (id: string) => id.startsWith("kitsu:");
@@ -108,6 +110,16 @@ export async function onEpisodeWatched(seriesId: string, episodeId: string): Pro
   if (hit) await pushProgress(hit.mal, hit.ep);
 }
 
+export async function onFilmWatched(filmId: string): Promise<void> {
+  const key = `${filmId}|film`;
+  if (handled.has(key)) return;
+  handled.add(key);
+  if (!(await malStatus()).connected) return;
+  const idx = await indexesFor(filmId, seen.get(filmId));
+  const hit = idx && malFilmOf(filmId, idx);
+  if (hit) await pushProgress(hit.mal, hit.ep);
+}
+
 let running: Promise<void> | null = null;
 
 /** One sync at a time: what waits goes first, then the list is read. */
@@ -154,7 +166,7 @@ export function syncMal(): Promise<void> {
 const AWAY_MS = 15 * 60_000;
 
 /** Sync at launch and when the window comes back after a while, and send
- * each episode watched here. Mounted once, at the root. */
+ * each episode and film watched here. Mounted once, at the root. */
 export function useMalSync(): void {
   useEffect(() => {
     void syncMal();
@@ -165,11 +177,17 @@ export function useMalSync(): void {
       const d = (e as CustomEvent<{ seriesId: string; episodeId: string }>).detail;
       if (d) void onEpisodeWatched(d.seriesId, d.episodeId).catch(() => {});
     };
+    const onFilm = (e: Event) => {
+      const d = (e as CustomEvent<{ filmId: string }>).detail;
+      if (d) void onFilmWatched(d.filmId).catch(() => {});
+    };
     window.addEventListener("focus", onFocus);
     window.addEventListener(EPISODE_WATCHED, onWatched);
+    window.addEventListener(FILM_WATCHED, onFilm);
     return () => {
       window.removeEventListener("focus", onFocus);
       window.removeEventListener(EPISODE_WATCHED, onWatched);
+      window.removeEventListener(FILM_WATCHED, onFilm);
     };
   }, []);
 }

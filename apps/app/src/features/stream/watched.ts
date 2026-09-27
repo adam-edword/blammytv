@@ -56,6 +56,16 @@ export function replaceLedger(fromTrakt: WatchedMap): void {
   save(KEY, VERSION, { ...kept, ...fromTrakt });
 }
 
+/** Said whenever a film counts as watched here, with `{ filmId }`: 90%
+ * through, at its end, or when Trakt counts it. Films have no ledger of
+ * their own; this is for MyAnimeList (plan 021). Every time, a repeat
+ * included; a listener dedupes. */
+export const FILM_WATCHED = "blammytv:film-watched";
+
+export function filmWatched(filmId: string): void {
+  window.dispatchEvent(new CustomEvent(FILM_WATCHED, { detail: { filmId } }));
+}
+
 export function markWatched(seriesId: string, episodeId: string): void {
   const map = load<WatchedMap>(KEY, VERSION, {});
   const list = map[seriesId] ?? [];

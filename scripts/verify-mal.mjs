@@ -8,6 +8,7 @@
 // - Finishing an episode here moves its MAL entry's count up to it (D1),
 //   "completed" at the entry's last episode, and never down.
 // - Where two entries share a season, the TV one is written (D5).
+// - An anime film finished here marks its entry completed.
 // - Progress MAL can't take right now waits, and goes at the next sync.
 // - Settings → General → Accounts: Connect opens MAL in the browser and
 //   notices the approval; a decline says so; Disconnect forgets the
@@ -39,8 +40,10 @@ const DATASET = [
   { imdb_id: "tt200001", mal_id: 5001, type: "TV", season: { tvdb: 1 } },
   { imdb_id: "tt200001", mal_id: 5099, type: "OVA", season: { tvdb: 2 } },
   { imdb_id: "tt200001", mal_id: 5002, type: "TV", season: { tvdb: 2 } },
+  // Fake Movie One is an anime film here: one MOVIE entry.
+  { imdb_id: "tt100001", mal_id: 7001, type: "MOVIE" },
 ];
-const EPISODES = { 5001: 12, 5002: 1, 5099: 2 };
+const EPISODES = { 5001: 12, 5002: 1, 5099: 2, 7001: 1 };
 const state = { counts: new Map([[5001, 2]]), down: false };
 const calls = [];
 const json = (res, status, body) => {
@@ -153,7 +156,7 @@ await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => 
 await ctx.route(/raw\.githubusercontent\.com\/Fribb\/anime-lists\//, (r) =>
   r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(DATASET) }),
 );
-await ctx.route(/localhost:8084\/meta\/series\/tt200001\.json/, async (r) => {
+await ctx.route(/localhost:8084\/meta\/(series\/tt200001|movie\/tt100001)\.json/, async (r) => {
   const res = await r.fetch();
   const body = await res.json();
   body.meta.genres = [...(body.meta.genres ?? []), "Animation"];
@@ -245,15 +248,35 @@ const queued = await waitFor(async () => (await store(page, "mal"))?.pending?.[5
 check("progress MAL can't take right now waits", queued, JSON.stringify((await store(page, "mal"))?.pending));
 state.down = false;
 
-// ------------------------------------------------------------ Settings
-// Out of the player and the page, then Settings: the row names the
-// account, and Sync now sends what waited.
-const ov = await page.locator(".theater-overlay").first().boundingBox();
-if (ov) {
+// ------------------------------------------------------------ a film
+// Out of the episode, to an anime film (Fake Movie One here), played past
+// 90%: its MAL entry is completed.
+const leavePlayer = async () => {
+  const ov = await page.locator(".theater-overlay").first().boundingBox();
+  if (!ov) return;
   await page.mouse.move(ov.x + ov.width / 2, ov.y + ov.height / 2);
   await page.mouse.move(ov.x + ov.width / 2 + 20, ov.y + ov.height / 2 + 10);
   await page.getByRole("button", { name: "Back", exact: true }).first().click({ timeout: 5000 }).catch(() => {});
-}
+};
+await leavePlayer();
+await page.locator(".vod-back").first().click({ timeout: 5000 }).catch(() => {});
+await goTo(page, "discover");
+await page.locator('[data-hint="Fake Movie One"]').first().click({ timeout: 15_000 });
+await page.evaluate(() => (window.__pos = 100));
+await page.locator(".vod-source").first().click({ timeout: 15_000 });
+await page.evaluate(() => (window.__pos = 950));
+const filmSent = await waitFor(() => patches().some((c) => c.path === "/anime/7001/my_list_status"), 20_000);
+const pf = patches().find((c) => c.path === "/anime/7001/my_list_status");
+check(
+  "finishing an anime film marks its MAL entry completed, 1 of 1",
+  filmSent && pf.form.status === "completed" && pf.form.num_watched_episodes === "1",
+  JSON.stringify(pf ?? patches().map((c) => c.path)),
+);
+
+// ------------------------------------------------------------ Settings
+// Out of the player, then Settings: the row names the account, and Sync
+// now sends what waited.
+await leavePlayer();
 await page.getByRole("button", { name: "Settings", exact: true }).first().click({ timeout: 15_000 });
 const title = await page
   .locator(".mal-row .customize-row__title", { hasText: "MyAnimeList: adam" })

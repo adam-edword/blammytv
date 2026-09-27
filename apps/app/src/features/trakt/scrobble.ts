@@ -17,7 +17,7 @@
 
 import { useEffect, useRef } from "react";
 import { tauriMpvStatus } from "../../lib/tauri";
-import { markWatched } from "../stream/watched";
+import { filmWatched, markWatched } from "../stream/watched";
 import { loadWatching } from "../stream/watching";
 import { traktJson, traktStatus } from "./client";
 import type { HistoryBody } from "./history";
@@ -163,8 +163,11 @@ export function useTraktScrobble(t: ScrobbleTarget | null): void {
   }, [key]);
 }
 
-/** Trakt counted it as watched: so does the app. */
+/** Trakt counted it as watched: so does the app (and MAL hears of it). */
 function counted(t: ScrobbleTarget): void {
   if (t.kind === "series" && t.episodeId) markWatched(t.itemId, t.episodeId);
-  else if (imdbOf(t.itemId)) saveTrakt({ movies: { ...(loadTrakt().movies ?? {}), [t.itemId]: Date.now() } });
+  else if (imdbOf(t.itemId)) {
+    saveTrakt({ movies: { ...(loadTrakt().movies ?? {}), [t.itemId]: Date.now() } });
+    if (t.kind === "movie") filmWatched(t.itemId);
+  }
 }
