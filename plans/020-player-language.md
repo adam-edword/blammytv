@@ -39,8 +39,18 @@ same sides as today.
 **P2. Play is the white circle.** The kit's one primary is the white pill
 (019); here it is the one control you reach for, so it takes it.
 
-**P3. States by the kit's tint.** An open menu, Stats on: `--tint-on`,
-replacing the hand-picked `bg-white/15`.
+**P3. States by a tint, in the on-image ink.** Hover, an open menu, Stats
+on: white at 12% and 16% (`IN_CAPSULE` in TheaterOverlay). Not the page's
+`--tint-on`, which the plan first said: that one follows the theme and is
+dark in the light theme, where it vanished on a dark capsule. The player is
+over a picture in either theme, as the chips are.
+
+**P7. A tooltip on every button** (Adam, while this was being built: "make
+sure every button on the player has a tooltip", then the whole app, in the
+app's dark glass on Radix). The kit's `Hint`, never the browser's `title`.
+Audio and Subtitles grey out by `aria-disabled` rather than `disabled`, as
+the seek buttons already did, so their tooltips can say why ("Only one
+audio track", "No subtitles"): a disabled button gets no pointer events.
 
 **P4. Times and LIVE as eyebrows.** 11px, 650, uppercase, tabular, the
 on-image ink at 65% (`EYEBROW_ON_IMAGE`). The LIVE pill's word takes the

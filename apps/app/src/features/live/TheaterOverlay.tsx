@@ -27,6 +27,8 @@ import {
 } from "../settings/skipBehavior";
 import { useLogoInk } from "../../lib/logoInk";
 import { VodLoading } from "./VodLoading";
+import { Hint } from "../../ui/Hint";
+import { EYEBROW_ON_IMAGE } from "../../ui/eyebrow";
 import { StatsOverlay } from "./StatsOverlay";
 import { livePctFor } from "./liveEdge";
 import { CLOCK_TICK_MS, projectPos } from "./clock";
@@ -1421,32 +1423,34 @@ export function TheaterOverlay({
         {loading && (
           <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} compact />
         )}
-        <Button variant="chip" size="icon"
-          type="button"
-          // A chip on the picture, whatever the app theme (plan 019, K3).
-          className="overlay__btn overlay__play"
-          aria-label={paused ? "Play" : "Pause"}
-          title={paused ? "Play" : "Pause"}
-          onClick={(e) => {
-            e.stopPropagation();
-            togglePlay();
-          }}
-        >
-          {paused ? <PlayIcon className="size-4.5" /> : <PauseIcon className="size-4.5" />}
-        </Button>
-        <Button variant="chip" size="icon"
-          type="button"
-          // A chip on the picture, whatever the app theme (plan 019, K3).
-          className="overlay__btn mini-overlay__close"
-          aria-label="Stop"
-          title="Stop"
-          onClick={(e) => {
-            e.stopPropagation();
-            api()?.close();
-          }}
-        >
-          <CloseIcon className="size-4.5" />
-        </Button>
+        <Hint label={paused ? "Play" : "Pause"}>
+          <Button variant="chip" size="icon"
+            type="button"
+            // A chip on the picture, whatever the app theme (plan 019, K3).
+            className="overlay__btn overlay__play"
+            aria-label={paused ? "Play" : "Pause"}
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePlay();
+            }}
+          >
+            {paused ? <PlayIcon className="size-4.5" /> : <PauseIcon className="size-4.5" />}
+          </Button>
+        </Hint>
+        <Hint label="Stop">
+          <Button variant="chip" size="icon"
+            type="button"
+            // A chip on the picture, whatever the app theme (plan 019, K3).
+            className="overlay__btn mini-overlay__close"
+            aria-label="Stop"
+            onClick={(e) => {
+              e.stopPropagation();
+              api()?.close();
+            }}
+          >
+            <CloseIcon className="size-4.5" />
+          </Button>
+        </Hint>
       </div>
     );
   }
@@ -1491,29 +1495,31 @@ export function TheaterOverlay({
           * this is a screen you came to from somewhere, and the somewhere
           * is what you want. Same action either way: fullscreen steps back
           * to the theater, the theater steps back to where you were. */}
-        <Button variant="chip" size="icon"
-          type="button"
-          className="player__btn"
-          aria-label={fs ? "Exit fullscreen" : "Back"}
-          title={fs ? "Exit fullscreen" : "Back"}
-          onClick={() => (fs ? api()?.exitFullscreen?.() : api()?.collapse?.())}
-        >
-          <BackArrowIcon className="size-5" />
-        </Button>
+        <Hint label={fs ? "Exit fullscreen" : "Back"}>
+          <Button variant="chip" size="icon"
+            type="button"
+            className="player__btn"
+            aria-label={fs ? "Exit fullscreen" : "Back"}
+            onClick={() => (fs ? api()?.exitFullscreen?.() : api()?.collapse?.())}
+          >
+            <BackArrowIcon className="size-5" />
+          </Button>
+        </Hint>
         {/* VOD: no favorites — the star is live-only chrome. (The
           * fullscreen toggle applies to both: VOD theater ↔ OS
           * fullscreen.) */}
         {!vod && (
-          <Button variant="chip" size="icon"
-            type="button"
-            className={"player__btn" + (fav ? " is-fav" : "")}
-            aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-          title={fav ? "Remove from favorites" : "Add to favorites"}
-            aria-pressed={fav}
-            onClick={toggleFav}
-          >
-            {fav ? <RainbowStarIcon className="size-5" /> : <StarIcon className="size-5" />}
-          </Button>
+          <Hint label={fav ? "Remove from favorites" : "Add to favorites"}>
+            <Button variant="chip" size="icon"
+              type="button"
+              className={"player__btn" + (fav ? " is-fav" : "")}
+              aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+              aria-pressed={fav}
+              onClick={toggleFav}
+            >
+              {fav ? <RainbowStarIcon className="size-5" /> : <StarIcon className="size-5" />}
+            </Button>
+          </Hint>
         )}
       </div>
 
@@ -1522,34 +1528,37 @@ export function TheaterOverlay({
           * grid and takes the sound (plan 017, P6b). The player stops as
           * its screen is left, which frees the connection for the grid. */}
         {!vod && api()?.multiview && (
+          <Hint label="Watch in multi-view">
+            <Button variant="chip" size="icon"
+              type="button"
+              className="player__btn"
+              aria-label="Watch in multi-view"
+              onClick={() => api()?.multiview?.()}
+            >
+              <MultiviewIcon size={20} />
+            </Button>
+          </Hint>
+        )}
+        <Hint label="Pop out">
           <Button variant="chip" size="icon"
             type="button"
             className="player__btn"
-            aria-label="Watch in multi-view"
-            title="Watch in multi-view"
-            onClick={() => api()?.multiview?.()}
+            aria-label="Pop out"
+            onClick={() => api()?.popout?.()}
           >
-            <MultiviewIcon size={20} />
+            <PopoutIcon className="size-5" />
           </Button>
-        )}
-        <Button variant="chip" size="icon"
-          type="button"
-          className="player__btn"
-          aria-label="Pop out"
-          title="Pop out"
-          onClick={() => api()?.popout?.()}
-        >
-          <PopoutIcon className="size-5" />
-        </Button>
-        <Button variant="chip" size="icon"
-          type="button"
-          className="player__btn"
-          aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
-          title={fs ? "Exit fullscreen" : "Fullscreen"}
-          onClick={toggleFullscreen}
-        >
-          {fs ? <ExitFullscreenIcon className="size-5" /> : <FullscreenIcon className="size-5" />}
-        </Button>
+        </Hint>
+        <Hint label={fs ? "Exit fullscreen" : "Fullscreen"}>
+          <Button variant="chip" size="icon"
+            type="button"
+            className="player__btn"
+            aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
+            onClick={toggleFullscreen}
+          >
+            {fs ? <ExitFullscreenIcon className="size-5" /> : <FullscreenIcon className="size-5" />}
+          </Button>
+        </Hint>
       </div>
 
       {skip && !mini && (
@@ -1634,12 +1643,14 @@ export function TheaterOverlay({
         <div className="theater-seek" data-interactive>
           {vod ? (
             <>
+              {/* Says so only while it is locked: a tooltip over the rail
+                * you are scrubbing would sit on the picture for nothing. */}
+              <Hint side="top" label="This source can't be seeked" off={seekable}>
               <div
                 className={
                   "theater-seek__track theater-seek__track--vod" +
                   (seekable ? "" : " theater-seek__track--locked")
                 }
-                title={seekable ? undefined : "This source can't be seeked"}
                 style={{ "--pct": vodPct / 100 } as React.CSSProperties}
                 ref={seekTrackRef}
                 onPointerDown={(e) => {
@@ -1688,7 +1699,8 @@ export function TheaterOverlay({
                   <span className="theater-seek__knob" />
                 </span>
               </div>
-              <div className="theater-seek__labels">
+              </Hint>
+              <div className={"theater-seek__labels " + EYEBROW_ON_IMAGE}>
                 <span ref={labelRef}>
                   {time
                     ? fmtClock(scrub !== null ? scrub * time.dur : time.pos)
@@ -1754,7 +1766,7 @@ export function TheaterOverlay({
                   <span className="theater-seek__knob" />
                 </span>
               </div>
-              <div className="theater-seek__labels">
+              <div className={"theater-seek__labels " + EYEBROW_ON_IMAGE}>
                 {/* How far back you can go, which is the thing worth knowing
                     before pressing rewind. The programme start time it
                     replaces is already in the title block above. */}
@@ -1777,114 +1789,117 @@ export function TheaterOverlay({
 
         <div className="theater-controls" data-interactive>
           <div className="theater-controls__group">
-            <Button variant="ghost" size="icon"
-              type="button"
-              className="player__btn aria-disabled:cursor-not-allowed aria-disabled:opacity-30"
-              aria-label="Back 10 seconds"
-              title={
-                vod && !seekable
-                  ? "This source can't be seeked"
-                  : "Back 10 seconds"
-              }
-              // aria-disabled, NOT disabled: Chromium suppresses the
-              // tooltip on a disabled control, so the explanation never
-              // reached the person who needed it. doSeek already refuses
-              // the click, so the button is inert either way.
-              aria-disabled={vod && !seekable}
-              onClick={() => doSeek(-10)}
-            >
-              <SkipBackIcon className="size-5.5" />
-            </Button>
-            <Button variant="ghost" size="icon"
-              type="button"
-              className="player__btn player__btn--play"
-              aria-label={paused ? "Play" : "Pause"}
-          title={paused ? "Play" : "Pause"}
-              onClick={togglePlay}
-            >
-              {paused ? <PlayIcon className="size-6" /> : <PauseIcon className="size-6" />}
-            </Button>
-            <Button variant="ghost" size="icon"
-              type="button"
-              className="player__btn aria-disabled:cursor-not-allowed aria-disabled:opacity-30"
-              aria-label="Forward 10 seconds"
-              title={
-                vod && !seekable
-                  ? "This source can't be seeked"
-                  : "Forward 10 seconds"
-              }
-              // aria-disabled, NOT disabled: Chromium suppresses the
-              // tooltip on a disabled control, so the explanation never
-              // reached the person who needed it. doSeek already refuses
-              // the click, so the button is inert either way.
-              aria-disabled={vod && !seekable}
-              onClick={() => doSeek(10)}
-            >
-              <SkipFwdIcon className="size-5.5" />
-            </Button>
-            {vod && meta?.vod?.hasNext && (
+            <Hint side="top" label={vod && !seekable ? "This source can't be seeked" : "Back 10 seconds"}>
               <Button variant="ghost" size="icon"
                 type="button"
-                className="player__btn"
-                aria-label="Next episode"
-          title="Next episode"
-                onClick={() => api()?.nextEpisode?.()}
+                className={"player__btn " + IN_CAPSULE}
+                aria-label="Back 10 seconds"
+                // aria-disabled, NOT disabled: Chromium suppresses the
+                // tooltip on a disabled control, so the explanation never
+                // reached the person who needed it. doSeek already refuses
+                // the click, so the button is inert either way.
+                aria-disabled={vod && !seekable}
+                onClick={() => doSeek(-10)}
               >
-                <NextEpisodeIcon className="size-5.5" />
+                <SkipBackIcon className="size-5.5" />
               </Button>
+            </Hint>
+            <Hint side="top" label={paused ? "Play" : "Pause"}>
+              {/* The white circle: the kit's one primary (plan 020, P2). */}
+              <Button variant="ghost" size="icon"
+                type="button"
+                className="player__btn player__btn--play rounded-full bg-on-image text-black hover:bg-on-image/90 hover:text-black"
+                aria-label={paused ? "Play" : "Pause"}
+                onClick={togglePlay}
+              >
+                {paused ? <PlayIcon className="size-6" /> : <PauseIcon className="size-6" />}
+              </Button>
+            </Hint>
+            <Hint side="top" label={vod && !seekable ? "This source can't be seeked" : "Forward 10 seconds"}>
+              <Button variant="ghost" size="icon"
+                type="button"
+                className={"player__btn " + IN_CAPSULE}
+                aria-label="Forward 10 seconds"
+                aria-disabled={vod && !seekable}
+                onClick={() => doSeek(10)}
+              >
+                <SkipFwdIcon className="size-5.5" />
+              </Button>
+            </Hint>
+            {vod && meta?.vod?.hasNext && (
+              <Hint side="top" label="Next episode">
+                <Button variant="ghost" size="icon"
+                  type="button"
+                  className={"player__btn " + IN_CAPSULE}
+                  aria-label="Next episode"
+                  onClick={() => api()?.nextEpisode?.()}
+                >
+                  <NextEpisodeIcon className="size-5.5" />
+                </Button>
+              </Hint>
             )}
             {!vod && (
-              <Button variant="secondary" size="sm"
-                type="button"
-                className={"theater-live" + (atLive ? " is-live" : "")}
-                aria-label="Jump to live"
-          title="Jump to live"
-                onClick={jumpLive}
-              >
-                <span className="theater-live__dot" />
-                LIVE
-              </Button>
+              <Hint side="top" label="Jump to live">
+                {/* A pill inside the capsule, its word an eyebrow (plan 020, P4). */}
+                <Button variant="secondary" size="sm"
+                  type="button"
+                  className={
+                    "theater-live h-10 rounded-full bg-on-image/12 px-3.5 text-on-image hover:bg-on-image/16 " +
+                    EYEBROW_ON_IMAGE +
+                    " text-on-image" +
+                    (atLive ? " is-live" : "")
+                  }
+                  aria-label="Jump to live"
+                  onClick={jumpLive}
+                >
+                  <span className="theater-live__dot" />
+                  LIVE
+                </Button>
+              </Hint>
             )}
           </div>
 
           <div className="theater-controls__group">
             {/* In-playback source switcher — VOD only. */}
             {vod && (
-              <Button variant="ghost" size="icon"
-                type="button"
-                className="player__btn"
-                aria-label="Sources"
-          title="Sources"
-                onClick={() => api()?.sourcePanel?.()}
-              >
-                <PanelIcon className="size-5" />
-              </Button>
+              <Hint side="top" label="Sources">
+                <Button variant="ghost" size="icon"
+                  type="button"
+                  className={"player__btn " + IN_CAPSULE}
+                  aria-label="Sources"
+                  onClick={() => api()?.sourcePanel?.()}
+                >
+                  <PanelIcon className="size-5" />
+                </Button>
+              </Hint>
             )}
             {/* Playback speed — VOD only (live has no rate to bend). */}
             {vod && (
               <div className="theater-tracks">
-                <Button variant="ghost" size="icon"
-                  type="button"
-                  className="player__btn player__btn--speed aria-expanded:bg-white/15"
-                  aria-label="Playback speed"
-                  aria-haspopup="menu"
-                  aria-expanded={menu === "speed"}
-                  onClick={() =>
-                    setMenu((m) => (m === "speed" ? null : "speed"))
-                  }
-                >
-                  {speed === 1 ? "1×" : `${speed}×`}
-                </Button>
+                <Hint side="top" label="Playback speed" off={menu === "speed"}>
+                  <Button variant="ghost" size="icon"
+                    type="button"
+                    className={"player__btn player__btn--speed " + IN_CAPSULE}
+                    aria-label="Playback speed"
+                    aria-haspopup="menu"
+                    aria-expanded={menu === "speed"}
+                    onClick={() =>
+                      setMenu((m) => (m === "speed" ? null : "speed"))
+                    }
+                  >
+                    {speed === 1 ? "1×" : `${speed}×`}
+                  </Button>
+                </Hint>
                 {menu === "speed" && (
                   <div className="track-menu" role="menu" aria-label="Speed">
-                    <p className="track-menu__head">Speed</p>
+                    <p className={"track-menu__head " + EYEBROW_ON_IMAGE}>Speed</p>
                     {[0.5, 0.75, 1, 1.25, 1.5, 2].map((sp) => (
                       <Button variant="ghost" size="sm"
                         key={sp}
                         type="button"
                         role="menuitemradio"
                         aria-checked={speed === sp}
-                        className="track-menu__item justify-between text-white/85 hover:text-white aria-checked:text-white"
+                        className="track-menu__item justify-between rounded-[12px] text-white/85 hover:bg-on-image/8 hover:text-white aria-checked:bg-on-image/12 aria-checked:text-white"
                         onClick={() => pickSpeed(sp)}
                       >
                         {sp}×
@@ -1898,43 +1913,56 @@ export function TheaterOverlay({
             {/* Stats for nerds (theater/fullscreen only; needs the shell for
               * the mpv_stats command). Toggles the top-left telemetry panel. */}
             {isTauri() && (
-              <Button variant="ghost" size="icon"
-                type="button"
-                className="player__btn aria-pressed:bg-white/15"
-                aria-label="Stats for nerds"
-          title="Stats for nerds"
-                aria-pressed={showStats}
-                onClick={() => setShowStats((v) => !v)}
-              >
-                <StatsIcon className="size-5" />
-              </Button>
+              <Hint side="top" label="Stats for nerds">
+                <Button variant="ghost" size="icon"
+                  type="button"
+                  className={"player__btn " + IN_CAPSULE}
+                  aria-label="Stats for nerds"
+                  aria-pressed={showStats}
+                  onClick={() => setShowStats((v) => !v)}
+                >
+                  <StatsIcon className="size-5" />
+                </Button>
+              </Hint>
             )}
             {/* Always visible, grayed out when there's nothing to choose:
               * audio needs ≥2 tracks (one track = no choice), subs need ≥1
-              * (off/on is a real choice even with one track). A disabled
-              * button can't open its menu. */}
+              * (off/on is a real choice even with one track). Greyed out
+              * by aria-disabled rather than disabled, as the seek buttons
+              * are, so the tooltip can still say why (a disabled button
+              * gets no pointer events and so no tooltip); the click is
+              * refused here instead. */}
             <div className="theater-tracks">
-              <Button variant="ghost" size="icon"
-                type="button"
-                className="player__btn aria-expanded:bg-white/15"
-                aria-label="Audio track"
-                aria-haspopup="menu"
-                aria-expanded={menu === "audio"}
-                disabled={(tracks?.audio.length ?? 0) < 2}
-                onClick={() => setMenu((m) => (m === "audio" ? null : "audio"))}
+              <Hint
+                side="top"
+                label={(tracks?.audio.length ?? 0) < 2 ? "Only one audio track" : "Audio track"}
+                off={menu === "audio"}
               >
-                <LanguageIcon className="size-5" />
-              </Button>
+                <Button variant="ghost" size="icon"
+                  type="button"
+                  className={"player__btn " + IN_CAPSULE}
+                  aria-label="Audio track"
+                  aria-haspopup="menu"
+                  aria-expanded={menu === "audio"}
+                  aria-disabled={(tracks?.audio.length ?? 0) < 2}
+                  onClick={() => {
+                    if ((tracks?.audio.length ?? 0) < 2) return;
+                    setMenu((m) => (m === "audio" ? null : "audio"));
+                  }}
+                >
+                  <LanguageIcon className="size-5" />
+                </Button>
+              </Hint>
               {menu === "audio" && tracks && tracks.audio.length >= 2 && (
                 <div className="track-menu" role="menu" aria-label="Audio tracks">
-                  <p className="track-menu__head">Audio</p>
+                  <p className={"track-menu__head " + EYEBROW_ON_IMAGE}>Audio</p>
                   {tracks.audio.map((t) => (
                     <Button variant="ghost" size="sm"
                       key={t.id}
                       type="button"
                       role="menuitemradio"
                       aria-checked={t.selected}
-                      className="track-menu__item justify-between text-white/85 hover:text-white aria-checked:text-white"
+                      className="track-menu__item justify-between rounded-[12px] text-white/85 hover:bg-on-image/8 hover:text-white aria-checked:bg-on-image/12 aria-checked:text-white"
                       onClick={() => chooseAudio(t.id)}
                     >
                       <span className="track-menu__label">{t.label}</span>
@@ -1945,25 +1973,34 @@ export function TheaterOverlay({
               )}
             </div>
             <div className="theater-tracks">
-              <Button variant="ghost" size="icon"
-                type="button"
-                className="player__btn aria-expanded:bg-white/15"
-                aria-label="Subtitles"
-                aria-haspopup="menu"
-                aria-expanded={menu === "subs"}
-                disabled={(tracks?.subs.length ?? 0) < 1}
-                onClick={() => setMenu((m) => (m === "subs" ? null : "subs"))}
+              <Hint
+                side="top"
+                label={(tracks?.subs.length ?? 0) < 1 ? "No subtitles" : "Subtitles"}
+                off={menu === "subs"}
               >
-                <CcIcon className="size-5" />
-              </Button>
+                <Button variant="ghost" size="icon"
+                  type="button"
+                  className={"player__btn " + IN_CAPSULE}
+                  aria-label="Subtitles"
+                  aria-haspopup="menu"
+                  aria-expanded={menu === "subs"}
+                  aria-disabled={(tracks?.subs.length ?? 0) < 1}
+                  onClick={() => {
+                    if ((tracks?.subs.length ?? 0) < 1) return;
+                    setMenu((m) => (m === "subs" ? null : "subs"));
+                  }}
+                >
+                  <CcIcon className="size-5" />
+                </Button>
+              </Hint>
               {menu === "subs" && tracks && tracks.subs.length >= 1 && (
                 <div className="track-menu" role="menu" aria-label="Subtitles">
-                  <p className="track-menu__head">Subtitles</p>
+                  <p className={"track-menu__head " + EYEBROW_ON_IMAGE}>Subtitles</p>
                   <Button variant="ghost" size="sm"
                     type="button"
                     role="menuitemradio"
                     aria-checked={!tracks.subs.some((t) => t.selected)}
-                    className="track-menu__item justify-between text-white/85 hover:text-white aria-checked:text-white"
+                    className="track-menu__item justify-between rounded-[12px] text-white/85 hover:bg-on-image/8 hover:text-white aria-checked:bg-on-image/12 aria-checked:text-white"
                     onClick={() => chooseSub(null)}
                   >
                     <span className="track-menu__label">Off</span>
@@ -1977,7 +2014,7 @@ export function TheaterOverlay({
                       type="button"
                       role="menuitemradio"
                       aria-checked={t.selected}
-                      className="track-menu__item justify-between text-white/85 hover:text-white aria-checked:text-white"
+                      className="track-menu__item justify-between rounded-[12px] text-white/85 hover:bg-on-image/8 hover:text-white aria-checked:bg-on-image/12 aria-checked:text-white"
                       onClick={() => chooseSub(t.id)}
                     >
                       <span className="track-menu__label">{t.label}</span>
@@ -1988,19 +2025,20 @@ export function TheaterOverlay({
               )}
             </div>
             <div className="theater-vol">
-              <Button variant="ghost" size="icon"
-                type="button"
-                className="player__btn"
-                aria-label={muted ? "Unmute" : "Mute"}
-          title={muted ? "Unmute" : "Mute"}
-                onClick={() => setMuted((m) => !m)}
-              >
-                {muted || volPct === 0 ? (
-                  <MuteIcon className="size-5" />
-                ) : (
-                  <VolumeIcon className="size-5" />
-                )}
-              </Button>
+              <Hint side="top" label={muted ? "Unmute" : "Mute"}>
+                <Button variant="ghost" size="icon"
+                  type="button"
+                  className={"player__btn " + IN_CAPSULE}
+                  aria-label={muted ? "Unmute" : "Mute"}
+                  onClick={() => setMuted((m) => !m)}
+                >
+                  {muted || volPct === 0 ? (
+                    <MuteIcon className="size-5" />
+                  ) : (
+                    <VolumeIcon className="size-5" />
+                  )}
+                </Button>
+              </Hint>
               <input
                 className="player__volume theater-vol__slider"
                 type="range"
@@ -2022,6 +2060,18 @@ export function TheaterOverlay({
     </div>
   );
 }
+
+/** A control inside one of the bar's two capsules (plan 020, P1 and P3):
+ * round, in the on-image ink, tinted on hover and while its menu is open or
+ * its toggle is on. The ON-IMAGE tints and not the page's: the player is
+ * always over a picture, and the page's tint is dark in the light theme,
+ * which vanished on a dark capsule. A seek that can't happen stays
+ * focusable and hoverable (aria-disabled), so its tooltip can say why. */
+const IN_CAPSULE =
+  "rounded-full text-on-image/85 hover:bg-on-image/12 hover:text-on-image " +
+  "aria-expanded:bg-on-image/16 aria-expanded:text-on-image " +
+  "aria-pressed:bg-on-image/16 aria-pressed:text-on-image " +
+  "aria-disabled:cursor-not-allowed aria-disabled:opacity-30 aria-disabled:hover:bg-transparent";
 
 /** The tune-in surface: a branded ident (logo + channel + programme) instead
  * of a bare pulse over black, with the watchdog's escalation — quiet loading,

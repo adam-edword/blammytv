@@ -541,11 +541,13 @@
   gap: 7px;
 }
 
+/* 4px at white 20% (plan 020, P5): a hair lighter than the 5px it was, next
+ * to capsules that now carry the weight. */
 .theater-seek__track {
   position: relative;
-  height: 5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.22);
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.2);
 }
 
 /* Both driven by --pct (0..1) on the track, so a drag frame writes ONE
@@ -561,7 +563,7 @@
 .theater-seek__clip {
   position: absolute;
   inset: 0;
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
   pointer-events: none;
 }
@@ -600,8 +602,8 @@
   pointer-events: auto;
   left: 0;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #fff;
   transform: translate(-50%, -50%);
@@ -622,17 +624,13 @@
   bottom: -9px;
 }
 
+/* The type is the eyebrow's (EYEBROW_ON_IMAGE, plan 020 P4), tabular
+ * figures included: the elapsed label ticks every second (v0.8.195's
+ * projected clock) and the DVR depth continuously, and proportional digits
+ * visibly wobble. */
 .theater-seek__labels {
   display: flex;
   justify-content: space-between;
-  /* The elapsed label now ticks every second (v0.8.195's projected clock) and
-     the DVR depth label ticks continuously, so proportional digits visibly
-     wobble. Seventeen other rules in this file already do this. */
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.72);
 }
 
 .theater-seek__live {
@@ -645,17 +643,29 @@
   justify-content: space-between;
 }
 
+/* The two capsules (plan 020, P1): the nav's shape in the chip's paint.
+ * Glass can't blur the video under it (mpv is a native window below the
+ * page), so over a picture it is the chip fill and hairline the top corners
+ * already wear. The buttons inside are bare and round (IN_CAPSULE). */
 .theater-controls__group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+  padding: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-edge);
+  backdrop-filter: var(--chip-fx);
+}
+/* Play, the white circle, a little apart from its neighbours. */
+.player__btn--play {
+  margin: 0 4px;
 }
 
 /* Jump-to-live pill. The dot glows red at the live edge and dims when the
  * indicator says we've fallen behind (a rewind/skip-back). */
 .theater-live {
-  margin-left: 10px;
-  font-family: var(--font-headline);
+  margin-left: 2px;
 }
 
 .theater-live__dot {
@@ -705,16 +715,22 @@
   }
 }
 
+/* The menus take the capsules' paint, a shade denser so the words hold over
+ * a bright frame (plan 020, P6). The stats panel keeps the recipe above. */
 .track-menu {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 10px);
+  /* Clear of the capsule: its 6px padding and hairline, and a gap. */
+  bottom: calc(100% + 16px);
   z-index: 5;
   min-width: 190px;
   max-width: 300px;
   max-height: 300px;
   overflow-y: auto;
   padding: 6px;
+  border-radius: 18px;
+  border-color: var(--chip-edge);
+  background: rgb(20 20 20 / 0.78);
   /* Entrance rides the shared glass rule above; only the origin is ours
    * (grows upward from its button). */
   transform-origin: bottom right;
@@ -726,13 +742,9 @@
   }
 }
 
+/* An eyebrow (EYEBROW_ON_IMAGE); only its room is set here. */
 .track-menu__head {
-  margin: 4px 10px 6px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.8px;
-  color: rgba(255, 255, 255, 0.55);
+  margin: 8px 10px 8px;
 }
 
 .track-menu__item {
@@ -750,11 +762,13 @@
 .theater-vol {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
+  /* The slider's end clear of the capsule's round edge. */
+  padding-right: 12px;
 }
 
 .theater-vol__slider {
-  width: 96px;
+  width: 88px;
 }
 
 /* ---- Stats-for-nerds overlay: a compact glass telemetry panel pinned
