@@ -107,7 +107,10 @@ Three things this turned up that the rest of the plan must respect:
   CSP work happen without reading this.**
 - **Dev mode never exercises this path.** `is_dev()` serves from `devUrl`,
   so assets are only consulted in release builds. Testing the hot channel
-  requires a real `pnpm tauri build`, not `tauri dev`.
+  requires a real `pnpm tauri build`, not `tauri dev`. Since v0.10.19 a dev
+  run skips the channel entirely (resolve, ready, status, check): it shares
+  the installed app's data dir, and a dev page that never mounted once
+  quarantined a good release there.
 - `get` returns `Cow<'_, [u8]>` borrowed from `&self`; file reads are owned
   data, so `Cow::Owned` is the return, which is fine. Reading from disk per
   request is acceptable for a handful of files (OS page cache), and can be

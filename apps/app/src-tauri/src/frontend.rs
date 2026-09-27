@@ -36,6 +36,19 @@
 //! must call `frontend_ready` to clear it. A sentinel still present at the
 //! next startup means the last boot did not survive, and that version is
 //! quarantined and rolled back automatically.
+//!
+//! ## Dev runs leave it alone
+//!
+//! A `pnpm tauri dev` run loads its page from the dev server and never
+//! serves a staged bundle, but it resolves the same data dir as the
+//! installed app. So it used to arm and clear the INSTALLED app's boot
+//! sentinel, and its launch-time check staged releases there. A dev run
+//! whose page never mounted (v0.10.6, a Windows-only black screen) left the
+//! sentinel armed, and the next dev launch quarantined 0.10.3 in the
+//! installed app, which then fell back to 0.10.0's frontend and refused to
+//! download 0.10.3 again. Now every entry point returns before touching the
+//! folder when `tauri::is_dev()`: the same switch Tauri loads the dev server
+//! by (no `custom-protocol` feature, which `tauri build` turns on).
 
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
@@ -122,6 +135,11 @@ static SERVING: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 /// Returns the directory to serve from, or `None` for the embedded assets.
 /// Called once at startup, before the window exists.
 pub fn resolve() -> Option<PathBuf> {
+    // A dev run serves the dev server; see "Dev runs leave it alone".
+    if tauri::is_dev() {
+        let _ = SERVING.set(String::new());
+        return None;
+    }
     let root = root()?;
     let mut active = read_active(&root);
     let sentinel = root.join(SENTINEL);
@@ -201,6 +219,10 @@ pub fn resolve() -> Option<PathBuf> {
 /// one. Called from a `useEffect` at the React root.
 #[tauri::command]
 pub fn frontend_ready() {
+    // The sentinel there, if any, is the installed app's boot, not ours.
+    if tauri::is_dev() {
+        return;
+    }
     let Some(root) = root() else { return };
     let sentinel = root.join(SENTINEL);
     if !sentinel.exists() {
@@ -470,6 +492,10 @@ pub struct Status {
 
 #[tauri::command]
 pub fn frontend_status() -> Status {
+    // Whatever is waiting there is waiting for the installed app.
+    if tauri::is_dev() {
+        return Status::default();
+    }
     let serving = SERVING.get().cloned().unwrap_or_default();
     let Some(root) = root() else {
         return Status { serving, pending: String::new() };
@@ -547,6 +573,11 @@ fn should_stage(m: &Manifest, native: &str, serving: &str, pending: &str) -> boo
 /// replaces it.
 #[tauri::command]
 pub async fn frontend_check(app: tauri::AppHandle) -> Result<String, String> {
+    // Nothing a dev run staged would ever be served to it, and the folder
+    // is the installed app's.
+    if tauri::is_dev() {
+        return Ok(String::new());
+    }
     let (manifest_url, pubkey) = channel_config(&app)?;
     let native_version = env!("CARGO_PKG_VERSION").to_string();
     let client = crate::http_client();
@@ -753,6 +784,41 @@ mod tests {
         for bad in ["", "latest.json", "https://host/", "no-slashes"] {
             assert!(manifest_url_from(bad).is_none(), "accepted {bad:?}");
         }
+    }
+
+    /// A dev run must leave the installed app's channel exactly as it found
+    /// it. A test build IS a dev build (no `custom-protocol`), so this runs
+    /// the real entry points against a data dir set up the way 0.10.3's was:
+    /// a staged bundle, and a boot the installed app has not confirmed yet.
+    /// Without the gate, resolve() reads that sentinel as a failed boot,
+    /// quarantines the bundle and rewrites the record.
+    #[test]
+    fn a_dev_run_leaves_the_installed_apps_channel_alone() {
+        assert!(tauri::is_dev(), "a test build should be a dev build");
+        let data = tmpdir("devrun");
+        let root = data.join("com.blammytv.app").join(DIR);
+        std::fs::create_dir_all(root.join("0.8.3")).unwrap();
+        std::fs::write(root.join("0.8.3").join("index.html"), "<html>").unwrap();
+        let record = format!(
+            r#"{{"version":"0.8.3","previous":"0.8.2","quarantined":[],"native":"{}"}}"#,
+            env!("CARGO_PKG_VERSION")
+        );
+        std::fs::write(root.join(ACTIVE), &record).unwrap();
+        std::fs::write(root.join(SENTINEL), "0.8.3").unwrap();
+        // dirs_data() reads APPDATA on Windows and XDG_DATA_HOME elsewhere.
+        std::env::set_var("APPDATA", &data);
+        std::env::set_var("XDG_DATA_HOME", &data);
+
+        assert!(resolve().is_none());
+        frontend_ready();
+        let s = frontend_status();
+        assert!(s.serving.is_empty() && s.pending.is_empty());
+        assert!(
+            root.join(SENTINEL).is_file(),
+            "the installed app's sentinel was cleared"
+        );
+        assert_eq!(std::fs::read_to_string(root.join(ACTIVE)).unwrap(), record);
+        std::fs::remove_dir_all(&data).ok();
     }
 
     /// Corrupt signatures must be rejected before anything is unpacked.
