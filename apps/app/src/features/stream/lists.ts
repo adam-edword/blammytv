@@ -77,7 +77,51 @@ export function createList(name: string, cover?: string): UserList {
   return list;
 }
 
+/**
+ * The Trakt Watchlist (plan 015, D2 b): a list of its own, kept in step
+ * with the Trakt watchlist both ways while Trakt is connected. Its id is
+ * reserved (generated ids are `l`-prefixed), so it can never collide, and
+ * it is never the default a plain Save lands in: My List stays yours and
+ * is never sent anywhere. It is renamed and deleted by connecting and
+ * disconnecting, not by hand.
+ */
+export const TRAKT_LIST = "__trakt";
+const TRAKT_NAME = "Trakt Watchlist";
+/** Said when a title is saved to or taken off the Trakt Watchlist here, so
+ * the sync sends it soon rather than at the next launch. */
+export const TRAKT_LIST_CHANGED = "blammytv:trakt-list";
+const traktListChanged = (id: string) => {
+  if (id === TRAKT_LIST && typeof window !== "undefined") window.dispatchEvent(new Event(TRAKT_LIST_CHANGED));
+};
+
+/** Make the Trakt Watchlist exist, at the end. Returns its id. */
+export function ensureTraktList(): string {
+  const lists = loadLists();
+  if (!lists.some((l) => l.id === TRAKT_LIST))
+    write([...lists, { id: TRAKT_LIST, name: TRAKT_NAME, at: Date.now(), entries: [] }]);
+  return TRAKT_LIST;
+}
+
+/** Disconnecting: the list goes, its titles stay on Trakt. */
+export function dropTraktList(): void {
+  write(loadLists().filter((l) => l.id !== TRAKT_LIST));
+}
+
+/** Titles Trakt added, as they came (no art yet: Trakt sends a title and a
+ * year). Already-present ids are left as they are. */
+export function addEntries(listId: string, entries: ListEntry[]): void {
+  write(
+    loadLists().map((l) => {
+      if (l.id !== listId) return l;
+      const have = new Set(l.entries.map((e) => e.id));
+      const fresh = entries.filter((e) => !have.has(e.id));
+      return fresh.length ? { ...l, entries: [...fresh, ...l.entries] } : l;
+    }),
+  );
+}
+
 export function renameList(id: string, name: string): void {
+  if (id === TRAKT_LIST) return;
   write(
     loadLists().map((l) =>
       l.id === id ? { ...l, name: name.trim() || l.name } : l,
@@ -86,6 +130,7 @@ export function renameList(id: string, name: string): void {
 }
 
 export function deleteList(id: string): void {
+  if (id === TRAKT_LIST) return;
   write(loadLists().filter((l) => l.id !== id));
 }
 
@@ -106,7 +151,7 @@ export function setCover(id: string, cover: string | undefined): void {
 
 /** The list a plain save targets: the first one, or a fresh default. */
 function defaultListId(lists: UserList[]): string | null {
-  return lists[0]?.id ?? null;
+  return lists.find((l) => l.id !== TRAKT_LIST)?.id ?? null;
 }
 
 const toEntry = (item: VodItem): ListEntry => ({
@@ -142,6 +187,7 @@ export function addToList(listId: string | null, item: VodItem): string {
         : { ...l, entries: [toEntry(item), ...l.entries] },
     ),
   );
+  traktListChanged(target);
   return target;
 }
 
@@ -153,6 +199,7 @@ export function removeFromList(listId: string, itemId: string): void {
         : l,
     ),
   );
+  traktListChanged(listId);
 }
 
 /** Every list holding this title. Drives the save button's label. */

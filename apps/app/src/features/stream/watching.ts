@@ -56,16 +56,37 @@ export function recordWatching(entry: WatchEntry): WatchEntry[] {
   return list;
 }
 
+/** Replace the whole list (a Trakt sync's merge, plan 015). Capped, as a
+ * record is. */
+export function replaceWatching(list: WatchEntry[]): WatchEntry[] {
+  const capped = list.slice(0, CAP);
+  save(KEY, VERSION, capped);
+  return capped;
+}
+
+/** Told what a clear removed. Trakt listens (plan 015, T4): a card cleared
+ * here clears its paused position there, or the next sync brings it back. */
+type Cleared = (gone: WatchEntry[]) => void;
+const cleared = new Set<Cleared>();
+export function onWatchingCleared(fn: Cleared): () => void {
+  cleared.add(fn);
+  return () => cleared.delete(fn);
+}
+
 /** Forget everything watched. Returns the (empty) list so callers set
  * state from the same value the store now holds, as clearWatching does. */
 export function clearAllWatching(): WatchEntry[] {
+  const gone = loadWatching();
   save(KEY, VERSION, []);
+  cleared.forEach((fn) => fn(gone));
   return [];
 }
 
 export function clearWatching(id: string): WatchEntry[] {
-  const list = loadWatching().filter((e) => e.id !== id);
+  const all = loadWatching();
+  const list = all.filter((e) => e.id !== id);
   save(KEY, VERSION, list);
+  cleared.forEach((fn) => fn(all.filter((e) => e.id === id)));
   return list;
 }
 

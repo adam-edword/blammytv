@@ -102,6 +102,8 @@ import {
   tauriPopoutStop,
 } from "../../lib/tauri";
 import { BackButton } from "../../ui/BackButton";
+import { useTraktScrobble } from "../trakt/scrobble";
+import { TRAKT_SYNCED } from "../trakt/store";
 import { Hint } from "../../ui/Hint";
 import { Card } from "../../ui/Card";
 import { RowScroller } from "../../ui/RowScroller";
@@ -161,6 +163,12 @@ export function StreamScreen() {
     popped?: boolean;
   } | null>(null);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
+  // A Trakt sync can move Continue Watching (plan 015, T4).
+  useEffect(() => {
+    const reread = () => setWatching(loadWatching());
+    window.addEventListener(TRAKT_SYNCED, reread);
+    return () => window.removeEventListener(TRAKT_SYNCED, reread);
+  }, []);
   const {
     view,
     scrollRef,
@@ -1321,6 +1329,21 @@ export function StreamScreen() {
       if (playingRef.current?.popped) void tauriPopoutStop().catch(() => {});
     },
     [],
+  );
+
+  // Trakt (plan 015, T2): what plays here is scrobbled, start to stop. Does
+  // nothing until Trakt is connected.
+  useTraktScrobble(
+    playing
+      ? {
+          itemId: playing.item.id,
+          kind: playing.item.kind,
+          title: playing.item.title,
+          year: playing.item.year,
+          episodeId: playing.episodeId,
+          popped: playing.popped,
+        }
+      : null,
   );
 
   // Progress tick: every 5s while playing, mirror pos/dur into the watch

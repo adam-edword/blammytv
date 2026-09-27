@@ -15,6 +15,21 @@ export function loadWatched(seriesId: string): Set<string> {
   return new Set(map[seriesId] ?? []);
 }
 
+/** The whole ledger, series id → watched episode ids. */
+export function loadLedger(): WatchedMap {
+  return load<WatchedMap>(KEY, VERSION, {});
+}
+
+/** Trakt is the ledger once connected (plan 015, D3): its answer replaces
+ * every IMDb-keyed series here. Series keyed by anything else (Kitsu) are
+ * not on Trakt at all, so their ticks stay as they are. */
+export function replaceLedger(fromTrakt: WatchedMap): void {
+  const kept = Object.fromEntries(
+    Object.entries(loadLedger()).filter(([id]) => !/^tt\d+$/.test(id)),
+  );
+  save(KEY, VERSION, { ...kept, ...fromTrakt });
+}
+
 export function markWatched(seriesId: string, episodeId: string): void {
   const map = load<WatchedMap>(KEY, VERSION, {});
   const list = map[seriesId] ?? [];
