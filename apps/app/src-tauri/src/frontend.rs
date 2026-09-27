@@ -87,6 +87,52 @@ pub struct Active {
     /// falling back to the embedded frontend is always safe.
     #[serde(default)]
     pub native: String,
+    /// Boots in a row of `version` that never reported in. A version that
+    /// has booted here before is only quarantined at two (plan 016 N1).
+    #[serde(default)]
+    pub strikes: u32,
+}
+
+/// A boot of `version` never reported in. Decide what that costs it.
+///
+/// A version that has not booted here yet is quarantined at once: a bundle
+/// that throws before React mounts must roll back on the next launch. A
+/// version that HAS (frontend_ready made it the fallback) gets a second
+/// chance first (plan 016 N1, finding F19): the sentinel is armed on every
+/// boot, so closing the app in the second before the UI mounts, a crash
+/// somewhere else, or losing power used to quarantine a perfectly good
+/// version and leave that user on the old interface until the next release.
+/// Two in a row is a broken bundle; one is bad luck.
+///
+/// Returns true when the version was quarantined and the record now points
+/// one step back.
+fn after_unreported_boot(active: &mut Active) -> bool {
+    let failed = active.version.clone();
+    let known_good = !failed.is_empty() && active.previous == failed;
+    active.strikes += 1;
+    if known_good && active.strikes < 2 {
+        return false;
+    }
+    if !failed.is_empty() && !active.quarantined.contains(&failed) {
+        active.quarantined.push(failed);
+    }
+    active.version = std::mem::take(&mut active.previous);
+    active.strikes = 0;
+    true
+}
+
+/// A version string becomes a DIRECTORY NAME under the data dir, so it is
+/// path input (plan 016 N2, finding F8). Letters, digits and `-` in
+/// dot-separated parts, none of them empty, at least one digit: `0.10.37`
+/// and `0.11.0-rc1` pass, while `..`, `.`, `1..2` and `a/b` do not. `..`
+/// used to pass the character check, and staging it would have pointed the
+/// swap at the data dir's parent and deleted it.
+fn valid_version(v: &str) -> bool {
+    v.len() <= 64
+        && v.bytes().any(|b| b.is_ascii_digit())
+        && v.split('.').all(|part| {
+            !part.is_empty() && part.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        })
 }
 
 /// Where staged frontends live. Resolved WITHOUT an AppHandle, because the
@@ -150,13 +196,21 @@ pub fn resolve() -> Option<PathBuf> {
     // way down to the embedded assets, which ship in the binary and are
     // therefore always present and always known-good for this build.
     if sentinel.exists() {
-        let failed = std::mem::take(&mut active.version);
-        if !failed.is_empty() && !active.quarantined.contains(&failed) {
-            eprintln!("[frontend] {failed} did not survive its first boot; rolling back");
-            active.quarantined.push(failed);
+        let failed = active.version.clone();
+        if after_unreported_boot(&mut active) {
+            eprintln!("[frontend] {failed} did not finish booting; rolling back");
+        } else {
+            eprintln!("[frontend] {failed} did not finish booting once; trying it again");
         }
-        active.version = std::mem::take(&mut active.previous);
         let _ = std::fs::remove_file(&sentinel);
+        write_active(&root, &active);
+    }
+
+    // A record edited by hand, or written before N2, is checked again here:
+    // its version is about to become a path.
+    if !active.version.is_empty() && !valid_version(&active.version) {
+        eprintln!("[frontend] ignoring an unreasonable staged version");
+        active.version.clear();
         write_active(&root, &active);
     }
 
@@ -230,6 +284,7 @@ pub fn frontend_ready() {
     }
     let mut active = read_active(&root);
     active.previous = active.version.clone();
+    active.strikes = 0;
     write_active(&root, &active);
     let _ = std::fs::remove_file(&sentinel);
 }
@@ -367,12 +422,20 @@ fn unpack(bytes: &[u8], dir: &Path) -> Result<(), String> {
     let entries = archive.entries().map_err(|e| e.to_string())?;
     for entry in entries {
         let mut entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path().map_err(|e| e.to_string())?.into_owned();
-        if path
-            .components()
-            .any(|c| !matches!(c, std::path::Component::Normal(_)))
-        {
-            return Err(format!("archive entry escapes its directory: {path:?}"));
+        let raw = entry.path().map_err(|e| e.to_string())?.into_owned();
+        // `./index.html` is how `tar -C dist .` names things (plan 016 N3,
+        // behind the archive fix in Track 0.1): a `.` is dropped, and
+        // anything else that is not a plain name refuses the whole bundle.
+        let mut path = PathBuf::new();
+        for c in raw.components() {
+            match c {
+                std::path::Component::Normal(part) => path.push(part),
+                std::path::Component::CurDir => {}
+                _ => return Err(format!("archive entry escapes its directory: {raw:?}")),
+            }
+        }
+        if path.as_os_str().is_empty() {
+            continue; // the archive's own `./`
         }
         let out = dir.join(&path);
         if let Some(parent) = out.parent() {
@@ -396,10 +459,7 @@ pub fn stage(
     sig_b64: &str,
     bytes: &[u8],
 ) -> Result<(), String> {
-    if version.is_empty()
-        || version
-            .contains(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-')
-    {
+    if !valid_version(version) {
         return Err("refusing an unreasonable version string".into());
     }
     let root = root().ok_or_else(|| "no data directory".to_string())?;
@@ -712,12 +772,58 @@ mod tests {
     /// A version string becomes a DIRECTORY NAME, so it is path input.
     #[test]
     fn refuses_a_version_that_is_not_a_version() {
-        for bad in ["", "../evil", "a/b", "1.0;rm", "..\\evil"] {
+        for bad in ["", "../evil", "a/b", "1.0;rm", "..\\evil", "..", ".", "...", "1..2", ".1", "1.", "abc", "-."] {
             assert!(
                 stage(bad, "0.8.0", "x", "y", b"z").is_err(),
                 "accepted a bad version: {bad:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_version_is_digits_letters_and_dashes_between_dots() {
+        for good in ["0.10.37", "0.11.0-rc1", "1", "2026.9.27"] {
+            assert!(valid_version(good), "refused a good version: {good:?}");
+        }
+    }
+
+    /// Plan 016 N1: one boot that never reported in is bad luck for a
+    /// version that has booted here before, and a broken bundle for one
+    /// that has not.
+    #[test]
+    fn a_new_version_that_never_reports_in_is_quarantined_at_once() {
+        let mut a = Active { version: "0.8.2".into(), previous: "0.8.1".into(), ..Default::default() };
+        assert!(after_unreported_boot(&mut a));
+        assert_eq!(a.quarantined, vec!["0.8.2".to_string()]);
+        assert_eq!(a.version, "0.8.1", "falls back one step");
+        assert_eq!(a.strikes, 0);
+    }
+
+    #[test]
+    fn a_version_that_has_booted_here_gets_a_second_chance() {
+        let mut a = Active { version: "0.8.2".into(), previous: "0.8.2".into(), ..Default::default() };
+        assert!(!after_unreported_boot(&mut a), "one interrupted boot is not a broken bundle");
+        assert_eq!(a.version, "0.8.2");
+        assert!(a.quarantined.is_empty());
+        assert_eq!(a.strikes, 1);
+        assert!(after_unreported_boot(&mut a), "two in a row is");
+        assert_eq!(a.quarantined, vec!["0.8.2".to_string()]);
+        // Its fallback was itself, now quarantined: resolve() serves the
+        // embedded frontend.
+        assert!(a.quarantined.contains(&a.version));
+    }
+
+    /// Plan 016 N3: `tar -C dist .` names every entry `./…`.
+    #[test]
+    fn unpacks_entries_named_with_a_leading_dot() {
+        let dir = tmpdir("curdir");
+        let gz = targz_named("./index.html", b"<html>");
+        unpack(&gz, &dir).unwrap();
+        assert!(dir.join("index.html").is_file());
+        std::fs::remove_dir_all(&dir).ok();
+        let dir = tmpdir("curdir-escape");
+        assert!(unpack(&targz_named("./../escape", b"no"), &dir).is_err());
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     fn manifest(version: &str, native: &str) -> Manifest {
@@ -760,6 +866,7 @@ mod tests {
             previous: "0.8.1".into(),
             quarantined: vec![],
             native: "0.8.0".into(),
+            strikes: 0,
         };
         assert!(stale.native != "0.9.0", "the case resolve() must catch");
         // An older record predates the field entirely. Unknown pairing is

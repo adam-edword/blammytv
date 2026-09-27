@@ -499,6 +499,15 @@ sweep commit.
 
 ## Track N: the next native release (0.10.0, now the freeze is lifted)
 
+**Status, v0.10.38 (2026-09-27): N1 to N5 and N7 are in**, for the next
+installer release (Adam: "native hardening", with Trakt, MAL and the
+player's re-render fix). N1 went in as "a version that has booted here
+gets a second chance, a new one does not". N2 is the strict version check;
+carrying the version inside the signed tarball is left, since the check
+already refuses every path-shaped name. N6 is moot: `open_external` is
+Trakt's Open Trakt now, and the frontend still calls `mpv_blur` and
+`mpv_snapshot`. N8 was not needed: multi-view plays under the current CSP.
+
 In order of how much each protects users. None of these can reach anyone
 before a native release. They waited for one after M3; since v0.9.101,
 0.10.0 is one, so they can ship in it. N1 in it also retires D6's risk.

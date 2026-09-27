@@ -224,8 +224,61 @@ fn mpv_track(kind: String, id: String) {
 /// actually holds is the difference between "I set it" and "it took".
 #[tauri::command]
 fn mpv_set(key: String, value: String) -> String {
+    if !(cfg!(debug_assertions) || tunable(&key)) {
+        return "<refused: not a tuning option in a release build>".into();
+    }
     mpv::set_prop_pub(&key, &value);
     mpv::get_prop_pub(&key).unwrap_or_else(|| "<unset>".into())
+}
+
+/// What `mpv_set` may touch in a release build (plan 016 N5, finding F15).
+///
+/// It is a tuning probe (`mpvSet()` in the console), so a release build
+/// keeps the families tuning is about: the cache and demuxer, the network,
+/// decoding, frame timing and the renderer. Not a property that names a
+/// file or a directory, loads a script or a shader, or writes a log or a
+/// recording: mpv has several (`log-file`, `stream-record`, `cache-dir`,
+/// `scripts`), and a page that could reach this command would otherwise
+/// reach them. A dev build (debug) keeps the whole of mpv, as before.
+fn tunable(key: &str) -> bool {
+    const FAMILIES: &[&str] = &[
+        "cache",
+        "demuxer",
+        "network-timeout",
+        "stream-buffer-size",
+        "hwdec",
+        "vd-lavc",
+        "video-sync",
+        "interpolation",
+        "framedrop",
+        "hr-seek",
+        "audio-buffer",
+        "untimed",
+        "video-latency-hacks",
+        "gpu-",
+        "d3d11",
+        "tone-mapping",
+        "target-",
+        "hdr-",
+        "deband",
+        "scale",
+        "dscale",
+        "cscale",
+    ];
+    const NEVER: &[&str] = &[
+        "dir",
+        "file",
+        "path",
+        "script",
+        "conf",
+        "include",
+        "log",
+        "record",
+        "dump",
+        "screenshot",
+        "shader",
+    ];
+    FAMILIES.iter().any(|f| key.starts_with(f)) && !NEVER.iter().any(|n| key.contains(n))
 }
 
 /// DIAGNOSTIC: read one mpv property. The other half of `mpv_set`, and
@@ -1092,4 +1145,48 @@ fn context() -> tauri::Context<tauri::Wry> {
         ctx.set_assets(Box::new(frontend::StagedAssets::new(Some(dir), embedded)));
     }
     ctx
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tunable;
+
+    /// Plan 016 N5: a release build's `mpv_set` reaches the tuning
+    /// families and none of mpv's properties that touch files or code.
+    #[test]
+    fn a_release_build_tunes_but_never_touches_files_or_scripts() {
+        for ok in [
+            "cache-secs",
+            "cache-pause-wait",
+            "demuxer-max-bytes",
+            "demuxer-readahead-secs",
+            "hwdec",
+            "video-sync",
+            "tone-mapping",
+            "target-peak",
+            "network-timeout",
+        ] {
+            assert!(tunable(ok), "refused a tuning option: {ok}");
+        }
+        for no in [
+            "log-file",
+            "stream-record",
+            "cache-dir",
+            "demuxer-cache-dir",
+            "scripts",
+            "script-opts",
+            "glsl-shaders",
+            "gpu-shader-cache-dir",
+            "input-conf",
+            "include",
+            "screenshot-directory",
+            "vf",
+            "af",
+            "external-files",
+            "sub-files",
+            "profile",
+        ] {
+            assert!(!tunable(no), "let through: {no}");
+        }
+    }
 }
