@@ -22,7 +22,6 @@ import {
   SIDE_MAX,
   SIDE_MIN,
 } from "../settings/theaterSide";
-import { currentZoom } from "../settings/uiScale";
 import { useMouseNav } from "../../lib/mouseNav";
 import { isModalOpen } from "../../lib/modalOpen";
 import {
@@ -198,7 +197,7 @@ export function SportsTheater({
    * lags the pointer while the setting unwinds from above the cap. */
   const shownSide = () => {
     const el = sideRef.current;
-    return el ? el.getBoundingClientRect().width / currentZoom() : sideW;
+    return el ? el.getBoundingClientRect().width : sideW;
   };
   const onEdgeDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -209,8 +208,7 @@ export function SportsTheater({
   const onEdgeMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (!d) return;
-    // clientX rides the UI-scale zoom; the width is plain CSS px.
-    setSideW(clampSide(d.w + (e.clientX - d.x) / currentZoom()));
+    setSideW(clampSide(d.w + (e.clientX - d.x)));
   };
   const onEdgeEnd = () => {
     if (!dragRef.current) return;

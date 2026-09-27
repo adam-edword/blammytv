@@ -62,7 +62,6 @@ It involves a server, so here's what it does:
 ## Other appearance settings
 
 - **Accent colour**, presets, independent of the theme pack
-- **UI scale**, for large or small displays
 - **Corner style**, the squircle profile the interface uses
 - **Clock format**, 12- or 24-hour
 

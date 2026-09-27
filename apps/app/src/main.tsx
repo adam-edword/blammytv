@@ -21,7 +21,6 @@ import { installSportsProbe } from "./features/sports/probe";
 import { installPlayerProbes } from "./features/live/probe";
 import { applyAccent, loadAccent } from "./features/settings/accent";
 import { applyTheme } from "./features/settings/theme";
-import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 
 // Apply saved appearance before first paint so nothing flashes.
 //
@@ -49,7 +48,14 @@ if (accent) applyAccent(accent);
 // with its control in M3's light pass. The stored value is left alone, so
 // nobody's choice is lost in the meantime.
 applyTheme("dark");
-applyUiScale(loadUiScale());
+// UI Scale is gone (v0.10.24, Adam: "remove it entirely"): it zoomed the
+// whole page, and every screen that measures itself carried arithmetic to
+// undo it. Its stored notch goes with it.
+try {
+  localStorage.removeItem("blammytv.uiScale");
+} catch {
+  /* storage unavailable: nothing was stored either */
+}
 // Paid theme CSS, purely from cache — see license.ts's fail-open comment.
 
 // `playerPerf(seconds)` in the devtools console — the player perf probe

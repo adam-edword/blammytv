@@ -23,10 +23,7 @@ const PLAYED_KEY = "btv:welcome-played";
  * depends on the window: compute the per-axis factors that land the
  * viewport-sized elements on the fixed lockup geometry. --s carries the
  * mock's cover factor so the lockup itself sizes like the design.
- * SHARED by both boot surfaces — geometry must never drift.
- * UI scale: both hosts counter-zoom the root's zoom (they are exempt
- * from UI scale, v0.4.43), so 1 local px = 1 true px in them and the
- * innerWidth-based math here is correct at every scale notch. */
+ * SHARED by both boot surfaces — geometry must never drift. */
 const DESIGN_W = 1920;
 const DESIGN_H = 1167;
 const TILE = 76; // final frame tile (square) — splash .onb-mark size

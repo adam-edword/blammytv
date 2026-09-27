@@ -420,24 +420,10 @@ async function open(pos) {
     JSON.stringify({ capped, fromCap }),
   );
 
-  // The UI-scale setting zooms the page: a drag still follows the pointer.
+  // Back to the full window and the default width for what follows.
   await page.setViewportSize({ width: 1600, height: 900 });
   await edge.dblclick();
-  await page.evaluate(() => {
-    document.documentElement.style.zoom = "1.25";
-  });
   await page.waitForTimeout(400);
-  const z0 = (await widths()).side;
-  await drag(100);
-  const z1 = (await widths()).side;
-  check(
-    "at 125% UI scale the edge stays under the pointer",
-    Math.abs(z1 - z0 - 100) <= 2,
-    `${z0}px -> ${z1}px on screen for a 100px drag`,
-  );
-  await page.evaluate(() => {
-    document.documentElement.style.zoom = "";
-  });
 
   await page.getByLabel("Collapse channels").click();
   await page.waitForTimeout(300);

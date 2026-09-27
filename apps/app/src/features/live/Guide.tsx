@@ -48,15 +48,12 @@ import { Hint } from "../../ui/Hint";
 /** Pointer spotlight on programme cells: writes the cursor's cell-local
  * position into CSS vars; the ::after light circle rides them via
  * transform (compositor-side — no repaint per move, per the WebView2
- * guardrails). clientX and the rect share the zoomed visual space while
- * the vars are consumed in element-local CSS px, so unscale (the
- * folded-rail tooltip's pattern). Reduced motion hides the light in CSS. */
+ * guardrails). Reduced motion hides the light in CSS. */
 function shineMove(e: React.MouseEvent<HTMLElement>) {
   const el = e.currentTarget;
   const r = el.getBoundingClientRect();
-  const zoom = Number(document.documentElement.style.zoom || 1);
-  el.style.setProperty("--mx", `${(e.clientX - r.left) / zoom}px`);
-  el.style.setProperty("--my", `${(e.clientY - r.top) / zoom}px`);
+  el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+  el.style.setProperty("--my", `${e.clientY - r.top}px`);
 }
 
 /* Grid geometry (Figma 133:500): 189px channel cards, 8px gutters, 60px
@@ -228,11 +225,7 @@ export const Guide = memo(function Guide({
   };
   const onResizeMove = (e: ReactPointerEvent) => {
     if (!resizing) return;
-    // clientX rides the document `zoom` (the UI-scale setting), but the
-    // column width is plain CSS px — divide the drag delta back out so the
-    // handle tracks the cursor 1:1 at any scale.
-    const zoom = Number(document.documentElement.style.zoom || 1);
-    const next = dragRef.current.w + (e.clientX - dragRef.current.x) / zoom;
+    const next = dragRef.current.w + (e.clientX - dragRef.current.x);
     setCardW(Math.min(CARD_MAX, Math.max(CARD_MIN, next)));
   };
   const onResizeUp = (e: ReactPointerEvent) => {

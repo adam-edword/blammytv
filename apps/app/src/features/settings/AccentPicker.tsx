@@ -56,11 +56,10 @@ const ON_RING = "ring-2 ring-ring ring-offset-2 ring-offset-background";
 export function AccentPicker({
   portalContainer,
 }: {
-  /** Where the Custom popover portals. Onboarding passes its own root,
-   * because that overlay counter-zooms the UI scale and <body> does not:
-   * on a replay at scale 1.2, a popover on <body> measured 190px right of
-   * its chip, 101px low and 20% too big. Inside the overlay it shares the
-   * overlay's zoom. */
+  /** Where the Custom popover portals. Onboarding passes its own root:
+   * that overlay sits on the boot layer, above every popover, so one on
+   * <body> would open behind it. (It also used to counter-zoom the UI
+   * scale, removed in v0.10.24.) */
   portalContainer?: HTMLElement | null;
 } = {}) {
   const [accent, setAccent] = useState(loadAccent);

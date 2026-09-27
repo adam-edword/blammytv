@@ -195,18 +195,14 @@ const SidebarSources = memo(function SidebarSources({
                         onContextMenu={(e) => {
                           e.preventDefault();
                           onTip(null);
-                          // Fixed-position coords live in the zoomed space
-                          // (the tooltip's pattern). Keyboard menu key sends
-                          // 0,0 — anchor on the row instead.
-                          const zoom = Number(
-                            document.documentElement.style.zoom || 1,
-                          );
+                          // The keyboard's menu key sends 0,0: anchor on
+                          // the row instead.
                           const r = e.currentTarget.getBoundingClientRect();
                           const cx = e.clientX || r.right - 8;
                           const cy = e.clientY || r.top + r.height / 2;
                           onFolderMenu({
-                            x: cx / zoom,
-                            y: cy / zoom,
+                            x: cx,
+                            y: cy,
                             groupId: g.id,
                             folderId: f.id,
                             name: label,
@@ -215,16 +211,10 @@ const SidebarSources = memo(function SidebarSources({
                         onMouseEnter={(e) => {
                           if (!collapsed) return;
                           const r = e.currentTarget.getBoundingClientRect();
-                          // Fixed positioning lives in the zoomed
-                          // coordinate space (see the settings
-                          // dropdown), so unscale.
-                          const zoom = Number(
-                            document.documentElement.style.zoom || 1,
-                          );
                           onTip({
                             label,
-                            x: r.right / zoom + 12,
-                            y: (r.top + r.height / 2) / zoom,
+                            x: r.right + 12,
+                            y: r.top + r.height / 2,
                           });
                         }}
                         onMouseLeave={() => onTip(null)}
@@ -383,11 +373,10 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       folderId: string;
       name: string;
     }) => {
-      const zoom = Number(document.documentElement.style.zoom || 1);
       setFolderMenu({
         ...m,
-        x: Math.min(m.x, window.innerWidth / zoom - 300),
-        y: Math.min(m.y, window.innerHeight / zoom - 96),
+        x: Math.min(m.x, window.innerWidth - 300),
+        y: Math.min(m.y, window.innerHeight - 96),
       });
     },
     [],

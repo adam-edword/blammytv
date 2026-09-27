@@ -197,8 +197,8 @@ function useWindowFullscreen(): [boolean, () => void] {
  * open "Multi-view" label sits in its left half, so its left edge is about
  * 291px short of the midline at 100% scale. The side with words is 293px.
  * Below a window of roughly 1260 they would meet, and the window goes down
- * to 1000. The number moves with the UI scale and the font, so it is
- * measured rather than written into a media query.
+ * to 1000. The number moves with the font, so it is measured rather than
+ * written into a media query.
  */
 function useCompactSide(
   ref: RefObject<HTMLElement | null>,

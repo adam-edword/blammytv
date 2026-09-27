@@ -51,13 +51,6 @@ import {
 } from "./accent";
 import { applyTheme, saveTheme, type Theme } from "./theme";
 import {
-  UI_SCALES,
-  applyUiScale,
-  loadUiScale,
-  saveUiScale,
-  type UiScale,
-} from "./uiScale";
-import {
   CLOCK_TABS,
   loadClockFormat,
   saveClockFormat,
@@ -68,11 +61,6 @@ import {
   saveShowChannelNumber,
 } from "./channelNumber";
 import { Hint } from "../../ui/Hint";
-
-const SCALE_TABS = UI_SCALES.map((s) => ({
-  key: String(s),
-  label: `${Math.round(s * 100)}%`,
-}));
 
 // CLOCK_TABS lives in clockFormat.ts — one list shared with onboarding.
 
@@ -128,13 +116,6 @@ export function CustomizeTab() {
 
   // Ephemeral, like General's Sources: always opens on Stream.
   const [world, setWorld] = useState<"stream" | "live">("stream");
-
-  const [scale, setScale] = useState<UiScale>(loadUiScale);
-  const pickScale = (next: UiScale) => {
-    setScale(next);
-    saveUiScale(next);
-    applyUiScale(next);
-  };
 
   const [clock, setClock] = useState<ClockFormat>(loadClockFormat);
   const pickClock = (next: ClockFormat) => {
@@ -223,7 +204,6 @@ export function CustomizeTab() {
     saveCustomAccent("");
     setAccentKey((k) => k + 1);
     pickTheme("dark");
-    pickScale(1);
     pickClock("12h");
     setChanNum(true);
     saveShowChannelNumber(true);
@@ -271,20 +251,6 @@ export function CustomizeTab() {
           <Segmented label="Clock format" options={CLOCK_TABS} value={clock} onChange={pickClock} />
         </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">UI Scale</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Make everything bigger or smaller.
-            </p>
-          </div>
-          <Segmented
-            label="UI scale"
-            options={SCALE_TABS}
-            value={String(scale)}
-            onChange={(key) => pickScale(Number(key) as UiScale)}
-          />
-        </div>
 
       </section>
 
