@@ -459,69 +459,25 @@ impl Trakt {
 }
 
 /// The tokens in Windows Credential Manager, as one generic credential
-/// holding the JSON above. Per user, on this machine only.
+/// holding the JSON above (credman.rs). Per user, on this machine only.
 #[cfg(windows)]
 pub struct WindowsVault {
     pub target: String,
 }
 
 #[cfg(windows)]
-impl WindowsVault {
-    fn target_w(&self) -> Vec<u16> {
-        self.target
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect()
-    }
-}
-
-#[cfg(windows)]
 impl Vault for WindowsVault {
     fn load(&self) -> Option<Tokens> {
-        use windows::core::PCWSTR;
-        use windows::Win32::Security::Credentials::{
-            CredFree, CredReadW, CREDENTIALW, CRED_TYPE_GENERIC,
-        };
-        let target = self.target_w();
-        let mut cred: *mut CREDENTIALW = std::ptr::null_mut();
-        unsafe {
-            CredReadW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None, &mut cred).ok()?;
-            let c = &*cred;
-            let blob = std::slice::from_raw_parts(c.CredentialBlob, c.CredentialBlobSize as usize)
-                .to_vec();
-            CredFree(cred as *const _);
-            serde_json::from_slice(&blob).ok()
-        }
+        serde_json::from_slice(&crate::credman::read(&self.target)?).ok()
     }
 
     fn save(&self, t: &Tokens) -> Result<(), String> {
-        use windows::core::PWSTR;
-        use windows::Win32::Security::Credentials::{
-            CredWriteW, CREDENTIALW, CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
-        };
-        let mut blob = serde_json::to_vec(t).map_err(|e| e.to_string())?;
-        let mut target = self.target_w();
-        let mut user: Vec<u16> = "BlammyTV"
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect();
-        let cred = CREDENTIALW {
-            Type: CRED_TYPE_GENERIC,
-            TargetName: PWSTR(target.as_mut_ptr()),
-            CredentialBlobSize: blob.len() as u32,
-            CredentialBlob: blob.as_mut_ptr(),
-            Persist: CRED_PERSIST_LOCAL_MACHINE,
-            UserName: PWSTR(user.as_mut_ptr()),
-            ..Default::default()
-        };
-        unsafe { CredWriteW(&cred, 0) }.map_err(|e| e.to_string())
+        let blob = serde_json::to_vec(t).map_err(|e| e.to_string())?;
+        crate::credman::write(&self.target, &blob)
     }
 
     fn clear(&self) {
-        use windows::core::PCWSTR;
-        use windows::Win32::Security::Credentials::{CredDeleteW, CRED_TYPE_GENERIC};
-        let target = self.target_w();
-        let _ = unsafe { CredDeleteW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None) };
+        crate::credman::delete(&self.target)
     }
 }
 

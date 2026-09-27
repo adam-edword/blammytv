@@ -64,7 +64,7 @@ anything about libmpv's runtime behaviour.
 
 **The stream proxy's tests run here for real** (mvproxy.rs and
 mvconvert.rs, HEVC conversion through an actual ffmpeg included), and so
-do Trakt's (trakt.rs, against a fake Trakt), from a host crate that
+do Trakt's and MAL's (trakt.rs and mal.rs, against fakes), from a host crate that
 includes the files as they are:
 
 ```
@@ -72,7 +72,7 @@ curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 46 tests (v0.10.27): 33 for the proxy, 13 for Trakt. On CI the Windows job runs the same tests with the
+Baseline 62 tests (v0.10.39): 33 for the proxy, 13 for Trakt, 16 for MAL. On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 

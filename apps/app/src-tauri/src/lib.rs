@@ -1,9 +1,12 @@
 mod frontend;
+mod mal;
 mod mpv;
 mod mvconvert;
 mod mvproxy;
 mod trakt;
 
+#[cfg(windows)]
+mod credman;
 #[cfg(windows)]
 mod inv;
 
@@ -907,6 +910,80 @@ async fn trakt_disconnect() {
     trakt_client().disconnect().await
 }
 
+/// MyAnimeList (plan 021): one client for the run, the same shape as
+/// Trakt's. Its client id is compiled in by build.rs from apps/app/.env.local
+/// (MAL_CLIENT_ID); an app of type "other" has no secret. The redirect is
+/// http://localhost:47391/, registered with MAL exactly. A dev run keeps
+/// its session under its own name, as Trakt's does.
+fn mal_client() -> &'static std::sync::Arc<mal::Mal> {
+    static CLIENT: OnceLock<std::sync::Arc<mal::Mal>> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        let cfg = mal::Config {
+            client_id: option_env!("BLAMMYTV_MAL_ID").unwrap_or("").to_string(),
+            api_base: "https://api.myanimelist.net/v2".into(),
+            auth_base: "https://myanimelist.net/v1/oauth2".into(),
+            redirect_port: 47391,
+            sign_in_for: std::time::Duration::from_secs(600),
+            user_agent: format!("BlammyTV/{}", env!("CARGO_PKG_VERSION")),
+        };
+        #[cfg(windows)]
+        let vault: Box<dyn trakt::Vault> = Box::new(mal::WindowsVault {
+            target: if tauri::is_dev() {
+                "BlammyTV/mal-dev"
+            } else {
+                "BlammyTV/mal"
+            }
+            .into(),
+        });
+        #[cfg(not(windows))]
+        let vault: Box<dyn trakt::Vault> = Box::new(trakt::MemoryVault::default());
+        mal::Mal::new(cfg, http_client().clone(), vault)
+    })
+}
+
+/// Whether this build can reach MAL, and whether a session is kept.
+#[tauri::command]
+async fn mal_status() -> trakt::Status {
+    mal_client().status().await
+}
+
+/// Start signing in: listen for MAL's redirect, and return the link for
+/// the page to open in the browser.
+#[tauri::command]
+async fn mal_sign_in_start() -> Result<String, String> {
+    mal_client().sign_in_start().await
+}
+
+/// Where the sign-in is: waiting, approved, denied, expired or failed.
+#[tauri::command]
+fn mal_sign_in_poll() -> mal::SignIn {
+    mal_client().sign_in_poll()
+}
+
+/// Stop waiting for the browser and give the port back.
+#[tauri::command]
+async fn mal_sign_in_cancel() {
+    mal_client().sign_in_cancel().await
+}
+
+/// A MAL API call by path (`/users/@me/animelist`), with the session's
+/// token added here. `form` is the query on a GET and the form body on
+/// anything else. The answer comes back as data, a 4xx included.
+#[tauri::command]
+async fn mal_request(
+    method: String,
+    path: String,
+    form: Option<std::collections::BTreeMap<String, String>>,
+) -> Result<mal::Reply, String> {
+    mal_client().request(&method, &path, form).await
+}
+
+/// Sign out of MAL here. MAL has no revoke.
+#[tauri::command]
+async fn mal_disconnect() {
+    mal_client().disconnect().await
+}
+
 /// Forensic GET for the settings Connection Test. Unlike `http_get`, a
 /// non-2xx status is DATA here, not an error: the point is to answer "WHO
 /// rejected this request" from a tester's screenshot — a WAF in front of
@@ -1121,6 +1198,12 @@ pub fn run() {
             trakt_device_poll,
             trakt_request,
             trakt_disconnect,
+            mal_status,
+            mal_sign_in_start,
+            mal_sign_in_poll,
+            mal_sign_in_cancel,
+            mal_request,
+            mal_disconnect,
             check_update,
             install_update,
             frontend::frontend_ready,
