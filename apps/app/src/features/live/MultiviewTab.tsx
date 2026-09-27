@@ -893,12 +893,20 @@ export function MultiviewTab() {
             <Hint label={scores.on ? "Hide live scores (S)" : "Live scores (S)"}>
               {/* The bar's own Button, like Mute and Full screen beside it: a
                 * plain <button> lost its chip when plan 019 moved the bar
-                * onto Button (v0.10.15). Pressed is the kit's own look. */}
+                * onto Button (v0.10.15). Pressed is the kit's own look.
+                *
+                * Gone at the tight step, with the volume slider: plan 019's
+                * Search sat down beside Settings (64px) and this became a
+                * 40px chip, and at 1000px the side ran 14px into the capsule
+                * with the slider already gone (v0.10.16, measured). It is a
+                * set-once switch, remembered, and S still flips it; mute and
+                * full screen are reached for while watching. A utility, not
+                * app CSS: Button's own display outranks the app layer. */}
               <Button
                 variant="secondary"
                 size="icon"
                 type="button"
-                className="mvbar__icon"
+                className={"mvbar__icon mvbar__scores" + (rightLevel === 2 ? " hidden" : "")}
                 aria-label="Live scores"
                 aria-pressed={scores.on}
                 onClick={toggleScores}

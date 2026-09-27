@@ -849,7 +849,10 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 8px 8px;
+  /* Room under the last row, so the end of the list reads as an end and
+   * not as a row cut by the footer (Adam, v0.10.16: "some padding on the
+   * bottom"). */
+  padding: 0 8px 16px;
   /* Hidden-until-hover via standard scrollbar-color — unlike the
    * ::-webkit-scrollbar pseudos, which WebView2 won't repaint on ancestor
    * hover or on a custom-property change (verified on a real install: only
@@ -893,10 +896,13 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  height: 42px;
-  padding: 0 18px;
+  /* Off the window's edge: the column runs to the bottom (Adam's call),
+   * and its last 42px sat flush against it. The extra is under the keys,
+   * so they read as the column's foot and not as the window's. */
+  height: 54px;
+  padding: 0 18px 8px;
   border-top: 1px solid var(--chip-edge);
-  font-size: 12px;
+  font-size: 12.5px;
   color: color-mix(in srgb, var(--on-image) 65%, transparent);
 }
 .srclist__foot > span {
@@ -912,9 +918,14 @@
  * The quality in a small glass tile, top left; every line the addon wrote,
  * the first in the text colour at 600 and the rest muted; the play glyph,
  * brighter under the pointer. */
+/* The chip and the arrow on the row's middle, whatever its line count
+ * (Adam, v0.10.16: "centering the resolution chip and arrow on each row").
+ * Top-aligned, they hung off the first line, and rows of two to four
+ * lines put them at four different heights down the column. */
 .vod-source {
-  align-items: flex-start;
-  padding: 10px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 10px;
 }
 .srclist .row:hover,
 .srclist .row:focus-visible {
@@ -924,12 +935,12 @@
   flex: none;
   display: grid;
   place-items: center;
-  min-width: 54px;
-  height: 30px;
-  padding: 0 8px;
-  border-radius: 8px;
+  min-width: 60px;
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 9px;
   background: color-mix(in srgb, var(--on-image) 10%, transparent);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
   color: var(--on-image);
@@ -938,10 +949,12 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
-  font-size: 12px;
-  line-height: 1.45;
+  /* A size up from 12 and 13 ("bigger text"): these are what a source is
+   * picked by, read from a couch as often as a desk. */
+  font-size: 13.5px;
+  line-height: 1.4;
   color: color-mix(in srgb, var(--on-image) 65%, transparent);
 }
 .vod-source__lines span {
@@ -950,13 +963,12 @@
   text-overflow: ellipsis;
 }
 .vod-source__lines span:first-child {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--on-image);
 }
 .vod-source__play {
   flex: none;
-  margin-top: 7px;
   color: color-mix(in srgb, var(--on-image) 45%, transparent);
   transition: color var(--dur-hover) ease;
 }

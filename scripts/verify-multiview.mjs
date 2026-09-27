@@ -585,6 +585,8 @@ check(
   const volN = await page.evaluate(() => ({
     slider: getComputedStyle(document.querySelector(".mvvol__slider")).display,
     mute: (document.querySelector(".mvvol button")?.getBoundingClientRect().width ?? 0) > 0,
+    // The Live Scores switch goes too at this width (v0.10.16); S still works.
+    scores: getComputedStyle(document.querySelector('.mvbar button[aria-label="Live scores"]')).display,
   }));
   // The right side's steps held too, compact and then tight.
   const flipsR = await page.evaluate(async () => {
@@ -597,15 +599,17 @@ check(
     return seen.size;
   });
   check(
-    "and at 1000 the right side fits between the capsule and Settings: the slider goes, mute stays, and it holds",
-    rightN.x > capN.x + capN.w && clearN.onTop && clearN.gap >= 8 && volN.slider === "none" && volN.mute && flipsR === 1,
+    "and at 1000 the right side fits between the capsule and Settings: the slider and the scores switch go, mute stays, and it holds",
+    rightN.x > capN.x + capN.w && clearN.onTop && clearN.gap >= 8 && volN.slider === "none" && volN.scores === "none" && volN.mute && flipsR === 1,
     JSON.stringify({ rightStarts: Math.round(rightN.x), capEnds: Math.round(capN.x + capN.w), ...clearN, ...volN, flipsR }),
   );
   await page.setViewportSize({ width: W, height: H });
   await page.waitForTimeout(700);
   check(
-    "and gets them back when there is room again, the volume slider too",
-    (await page.locator(".mvseg .seg__word").first().isVisible()) && (await page.locator(".mvvol__slider").isVisible()),
+    "and gets them back when there is room again, the volume slider and the scores switch too",
+    (await page.locator(".mvseg .seg__word").first().isVisible()) &&
+      (await page.locator(".mvvol__slider").isVisible()) &&
+      (await page.locator('.mvbar button[aria-label="Live scores"]').isVisible()),
   );
 }
 
