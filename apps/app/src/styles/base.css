@@ -467,6 +467,14 @@ button {
   align-items: center;
   gap: 16px;
   justify-self: end;
+  /* On the capsule's centre line (Adam, v0.10.15: "make sure these align
+   * in multiview ... adjusting the settings/search to line up across the
+   * app"). The header's padding puts this row's 44px at 27px, centre 49;
+   * the capsule's first row is centred at 27 + 11 + 43/2 = 59.5, and so is
+   * everything on Multi-view's bar. Measured, every tab: 10.5px high.
+   * Moved by transform, not margin: the header's height is --header-h,
+   * which every screen hangs from, and this must not move a screen. */
+  transform: translateY(10.5px);
 }
 
 /* The sweep angle, registered so the ring's spin interpolates. */

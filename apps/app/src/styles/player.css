@@ -1177,13 +1177,6 @@
   backdrop-filter: var(--glass-fx);
 }
 
-/* The Live Scores switch while the row shows: ringed, not filled, since Add
- * is the one bright thing on the bar. */
-.mvbar__icon.is-on {
-  background: color-mix(in srgb, var(--text) 20%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent);
-}
-
 /* ---------------------------------------------------------------------------
  * Live Scores (v0.10.6): the Sports theater's score tracker as one row under
  * the grid. The stage gives up the row's height and keeps its width, and

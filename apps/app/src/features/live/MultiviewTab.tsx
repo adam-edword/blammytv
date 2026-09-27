@@ -891,15 +891,20 @@ export function MultiviewTab() {
           )}
           {!blocked && (
             <Hint label={scores.on ? "Hide live scores (S)" : "Live scores (S)"}>
-              <button
+              {/* The bar's own Button, like Mute and Full screen beside it: a
+                * plain <button> lost its chip when plan 019 moved the bar
+                * onto Button (v0.10.15). Pressed is the kit's own look. */}
+              <Button
+                variant="secondary"
+                size="icon"
                 type="button"
-                className={"mvbar__icon" + (scores.on ? " is-on" : "")}
+                className="mvbar__icon"
                 aria-label="Live scores"
                 aria-pressed={scores.on}
                 onClick={toggleScores}
               >
-                <SportsIcon size={18} />
-              </button>
+                <SportsIcon size={18} className="size-[18px]" />
+              </Button>
             </Hint>
           )}
           {!blocked && (
