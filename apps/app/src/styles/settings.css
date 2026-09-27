@@ -874,7 +874,9 @@ input.rowcap__value--edit:focus-visible {
   letter-spacing: 0.18em;
   color: var(--text);
 }
-.trakt-row__actions {
+/* MyAnimeList's row (plan 021) keeps the same pair. */
+.trakt-row__actions,
+.mal-row__actions {
   display: flex;
   flex: none;
   gap: 8px;

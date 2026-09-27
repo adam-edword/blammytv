@@ -1,4 +1,4 @@
-import { load, save } from "../../lib/storage";
+import { load, remove, save } from "../../lib/storage";
 
 /** Per-series watched-episode ledger — powers the checkmarks in the
  * episode grid. An episode is marked when it plays to its natural end.
@@ -7,13 +7,39 @@ import { load, save } from "../../lib/storage";
 const KEY = "watchedEpisodes";
 const VERSION = 1;
 const CAP_PER_SERIES = 600;
+/** Episodes MyAnimeList counts as watched (plan 021, D2 b), kept apart from
+ * the ledger: Trakt replaces the ledger's IMDb series on every sync, and
+ * MAL's ticks must survive that (D3, a tick from either counts). */
+const MAL_KEY = "malWatched";
 
 type WatchedMap = Record<string, string[]>;
 
 export function loadWatched(seriesId: string): Set<string> {
   const map = load<WatchedMap>(KEY, VERSION, {});
-  return new Set(map[seriesId] ?? []);
+  const mal = load<WatchedMap>(MAL_KEY, VERSION, {});
+  return new Set([...(map[seriesId] ?? []), ...(mal[seriesId] ?? [])]);
 }
+
+/** MAL's ticks for one series. True when they changed. */
+export function setMalWatched(seriesId: string, episodeIds: string[]): boolean {
+  const map = load<WatchedMap>(MAL_KEY, VERSION, {});
+  const before = map[seriesId] ?? [];
+  if (before.length === episodeIds.length && before.every((id, i) => id === episodeIds[i])) return false;
+  if (episodeIds.length) map[seriesId] = episodeIds;
+  else delete map[seriesId];
+  save(MAL_KEY, VERSION, map);
+  return true;
+}
+
+/** MAL disconnected: its ticks go with it. */
+export function forgetMalWatched(): void {
+  remove(MAL_KEY);
+}
+
+/** Said whenever an episode counts as watched here, with
+ * `{ seriesId, episodeId }`: at its end, 90% through, or when Trakt counts
+ * it. Every time, a repeat included; a listener dedupes. */
+export const EPISODE_WATCHED = "blammytv:episode-watched";
 
 /** The whole ledger, series id → watched episode ids. */
 export function loadLedger(): WatchedMap {
@@ -37,4 +63,5 @@ export function markWatched(seriesId: string, episodeId: string): void {
     map[seriesId] = [...list, episodeId].slice(-CAP_PER_SERIES);
     save(KEY, VERSION, map);
   }
+  window.dispatchEvent(new CustomEvent(EPISODE_WATCHED, { detail: { seriesId, episodeId } }));
 }

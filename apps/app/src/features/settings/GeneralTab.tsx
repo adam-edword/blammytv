@@ -3,7 +3,9 @@ import { Button } from "../../components/ui/button";
 import { remove as removeStored } from "../../lib/storage";
 import { Segmented } from "../../ui/Segmented";
 import { UpdatesSection } from "./UpdatesSection";
+import { MalSection } from "./MalSection";
 import { TraktSection } from "./TraktSection";
+import { signOutOfMal } from "../mal/account";
 import { signOutOfTrakt } from "../trakt/account";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
@@ -56,8 +58,10 @@ export function GeneralTab() {
     // The catalog mirror embeds the manifest URL (a credential) in its
     // key — an explicit credential clear must take it too.
     removeStored("vodCache");
-    // And the Trakt sign-in (plan 015), which is a login like the others.
+    // And the Trakt and MyAnimeList sign-ins (plans 015, 021), which are
+    // logins like the others.
     void signOutOfTrakt();
+    void signOutOfMal();
   };
 
   return (
@@ -70,10 +74,11 @@ export function GeneralTab() {
       </div>
       {source === "live" ? <PlaylistsTab /> : <AioStreamsTab />}
 
-      {/* Accounts elsewhere that follow what you watch (plan 015). */}
+      {/* Accounts elsewhere that follow what you watch (plans 015, 021). */}
       <h3 className={`settings__group ${EYEBROW}`}>Accounts</h3>
       <section className="settings-section">
         <TraktSection />
+        <MalSection />
       </section>
 
       {/* Same shape as Customize: a group heading, then ONE section holding
@@ -108,7 +113,7 @@ export function GeneralTab() {
               <h4 className="customize-row__title">Clear All Login Info</h4>
               <p className="settings__section-note settings__section-note--dim">
                 Removes every playlist, your AIOStreams manifest and your Trakt
-                sign-in from this device.
+                and MyAnimeList sign-ins from this device.
               </p>
             </div>
             <Button

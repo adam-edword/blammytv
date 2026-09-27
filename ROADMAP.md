@@ -35,6 +35,7 @@ v0.9.78. "Where we are" refreshed 2026-09-27.
 |---|---|
 | **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player. M2 is done (v0.10.29 to v0.10.37), both of its calls taken. M3's leftovers (the glass tiers, reduced transparency, the light pass) have not started, and light mode is forced off at boot. |
 | **Trakt** (M4) | Built, v0.10.27 to v0.10.36, `plans/015-trakt.md`: sign-in, scrobbling, sync and the Trakt Watchlist. Waiting on Adam to register the Trakt app and put its keys in `.env.local` for a first real run. |
+| **MAL** (M4) | Built, v0.10.39 to v0.10.41, `plans/021-mal.md`: sign-in in the browser, finished anime episodes counted on MAL, MAL's counts ticking episodes here. Waiting on Adam to register the MAL app and put its client id in `.env.local`. Ships in the same installer release as Trakt. |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
 | **The Guide going black on a folder** | "Maximum update depth" in Guide.tsx, Adam, 2026-09-27. Not reproduced at his catalog's size (8,516 channels, 246 folders). v0.10.24 removed UI Scale's fractional zoom, the suspected cause, unconfirmed. If it comes back: a guard on the row window and a log line. |
 | **Themes** | Parked. They return after 1.0 with new looks (decision 1). |
@@ -289,7 +290,8 @@ two calls taken by Adam the same day (below).
 - A token is a credential. Where it is stored gets the same scrutiny as
   playlist passwords.
 - MAL after, for the anime lists. The IMDb to MAL mapping is already in the
-  tree for aniskip.
+  tree for aniskip. **Planned and built** (`plans/021`, v0.10.39 to
+  v0.10.41), not yet run against the real MAL.
 - Built on the M2 primitives, so its UI never needs converting.
 
 ### M5: 1.0

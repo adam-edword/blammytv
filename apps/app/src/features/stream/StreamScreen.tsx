@@ -103,6 +103,8 @@ import {
 } from "../../lib/tauri";
 import { BackButton } from "../../ui/BackButton";
 import { useTraktScrobble } from "../trakt/scrobble";
+import { rememberForMal } from "../mal/sync";
+import { useMalTicks } from "../mal/ticks";
 import { loadTrakt, TRAKT_SYNCED } from "../trakt/store";
 import { Hint } from "../../ui/Hint";
 import { Card } from "../../ui/Card";
@@ -1346,6 +1348,13 @@ export function StreamScreen() {
       : null,
   );
 
+  // MyAnimeList (plan 021): what an episode tick needs to find the title on
+  // MAL (whether it is anime, and its seasons).
+  const playingItem = playing?.item;
+  useEffect(() => {
+    if (playingItem) rememberForMal(playingItem);
+  }, [playingItem]);
+
   // Progress tick: every 5s while playing, mirror pos/dur into the watch
   // entry — powers resume and the Continue Watching progress bar.
   useEffect(() => {
@@ -2534,7 +2543,11 @@ function Episodes({
 }) {
   // Watched ledger (checkmarks). Re-read per mount — playback marks land
   // between visits to this screen.
-  const watched = useMemo(() => loadWatched(item.id), [item.id]);
+  // MAL's counts tick episodes too (plan 021, D2 b). The hook's number
+  // moves when it has written new ones for loadWatched to read.
+  const malTicks = useMalTicks(item);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const watched = useMemo(() => loadWatched(item.id), [item.id, malTicks]);
   // Next up: the episode after the last one watched/played (the CW entry
   // knows exactly where you are; the ledger covers checkmark-only state).
   const entry = useMemo(
