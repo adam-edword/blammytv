@@ -32,7 +32,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [018](018-multiview-hardening.md) | Multi-view, hardened: tiles that recover, the line's count, what the tab costs, the keyboard | HIGH | PLANNED (2026-09-25, from five audits of v0.9.122; H1 waits on one test on Adam's line) |
 | [019](019-multiview-language.md) | Multi-view's look, on every tab: its controls, tiles, states and picker as the whole app's primitives | MEDIUM | BUILT on claude/multiview, v0.10.1 to v0.10.11 (2026-09-26); not merged; four items left, reasons in the plan |
 | [020](020-player-language.md) | The player in the redesign's language: its controls in two capsules like the nav, Play the white circle, times as eyebrows, menus on the chip fill | LOW | BUILT v0.10.22 (2026-09-27), option B, with a tooltip on every player button |
-| [021](021-mal.md) | MyAnimeList: sign in, your finished anime episodes counted on MAL, your MAL counts ticking episodes here | MEDIUM | PROPOSED (2026-09-27; ROADMAP M4's second half; six decisions for Adam) |
+| [021](021-mal.md) | MyAnimeList: sign in, your finished anime episodes counted on MAL, your MAL counts ticking episodes here | MEDIUM | DECIDED (2026-09-27; Adam took every recommendation); building |
 
 ## Recommended execution order & dependencies
 
