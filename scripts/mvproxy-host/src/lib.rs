@@ -3,3 +3,5 @@
 pub mod mvproxy;
 #[path = "../../../apps/app/src-tauri/src/mvconvert.rs"]
 pub mod mvconvert;
+#[path = "../../../apps/app/src-tauri/src/trakt.rs"]
+pub mod trakt;

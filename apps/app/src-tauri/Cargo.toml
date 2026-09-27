@@ -74,4 +74,7 @@ flate2 = "1"
 windows = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
+    # trakt.rs keeps the Trakt session in Credential Manager (plan 015, D4).
+    "Win32_Security",
+    "Win32_Security_Credentials",
 ] }

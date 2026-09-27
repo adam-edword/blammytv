@@ -2,6 +2,8 @@ mod frontend;
 mod mpv;
 mod mvconvert;
 mod mvproxy;
+mod trakt;
+
 #[cfg(windows)]
 mod inv;
 
@@ -781,6 +783,77 @@ fn mv_proxy_close(local: String) {
     mvproxy::close(&local)
 }
 
+/// Trakt (plan 015): one client for the run. Its keys are compiled in by
+/// build.rs from apps/app/.env.local (TRAKT_CLIENT_ID, TRAKT_CLIENT_SECRET)
+/// and are empty in a build without them, which then says "not
+/// configured". A dev run keeps its session under its own name, so it never
+/// spends the installed app's single-use refresh token (the lesson of
+/// v0.10.19, where dev runs reached into the installed app's hot channel).
+fn trakt_client() -> &'static std::sync::Arc<trakt::Trakt> {
+    static CLIENT: OnceLock<std::sync::Arc<trakt::Trakt>> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        let cfg = trakt::Config {
+            client_id: option_env!("BLAMMYTV_TRAKT_ID").unwrap_or("").to_string(),
+            client_secret: option_env!("BLAMMYTV_TRAKT_SECRET")
+                .unwrap_or("")
+                .to_string(),
+            redirect_uri: option_env!("BLAMMYTV_TRAKT_REDIRECT")
+                .unwrap_or("urn:ietf:wg:oauth:2.0:oob")
+                .to_string(),
+            api_base: "https://api.trakt.tv".into(),
+            auth_base: "https://auth.trakt.tv".into(),
+            user_agent: format!("BlammyTV/{}", env!("CARGO_PKG_VERSION")),
+        };
+        #[cfg(windows)]
+        let vault: Box<dyn trakt::Vault> = Box::new(trakt::WindowsVault {
+            target: if tauri::is_dev() {
+                "BlammyTV/trakt-dev"
+            } else {
+                "BlammyTV/trakt"
+            }
+            .into(),
+        });
+        #[cfg(not(windows))]
+        let vault: Box<dyn trakt::Vault> = Box::new(trakt::MemoryVault::default());
+        trakt::Trakt::new(cfg, http_client().clone(), vault)
+    })
+}
+
+/// Whether this build can reach Trakt, and whether a session is kept.
+#[tauri::command]
+async fn trakt_status() -> trakt::Status {
+    trakt_client().status().await
+}
+
+/// Start signing in: the code to show and where to enter it.
+#[tauri::command]
+async fn trakt_device_start() -> Result<trakt::DeviceCode, String> {
+    trakt_client().device_start().await
+}
+
+/// One poll of the sign-in, at the interval `trakt_device_start` gave.
+#[tauri::command]
+async fn trakt_device_poll() -> Result<trakt::Poll, String> {
+    trakt_client().device_poll().await
+}
+
+/// A Trakt API call by path (`/sync/history`), with the session's token
+/// added here. The answer comes back as data, a 4xx included.
+#[tauri::command]
+async fn trakt_request(
+    method: String,
+    path: String,
+    body: Option<String>,
+) -> Result<trakt::Reply, String> {
+    trakt_client().request(&method, &path, body).await
+}
+
+/// Sign out of Trakt, here and there.
+#[tauri::command]
+async fn trakt_disconnect() {
+    trakt_client().disconnect().await
+}
+
 /// Forensic GET for the settings Connection Test. Unlike `http_get`, a
 /// non-2xx status is DATA here, not an error: the point is to answer "WHO
 /// rejected this request" from a tester's screenshot — a WAF in front of
@@ -990,6 +1063,11 @@ pub fn run() {
             mv_proxy_open,
             mv_proxy_close,
             mv_convert_warm,
+            trakt_status,
+            trakt_device_start,
+            trakt_device_poll,
+            trakt_request,
+            trakt_disconnect,
             check_update,
             install_update,
             frontend::frontend_ready,
