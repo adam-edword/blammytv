@@ -1454,6 +1454,25 @@ const dimmedText = () =>
   await p6.waitForTimeout(500);
   const mb = await p6.evaluate(() => ({ palette: !!document.querySelector(".palette"), draw: !!document.querySelector(".tourndraw") }));
   check("  and the mouse's Back closes the palette, not the draw under it", !mb.palette && mb.draw, JSON.stringify(mb));
+  // The same two for Settings (M2, v0.10.33). The draw's Escape no longer
+  // asks lib/modalOpen: it reads the mark Radix puts on the Escape it takes.
+  const settingsOver = async (how) => {
+    await p6.locator(".header__action[aria-label='Settings']").click();
+    const opened = await p6.locator(".settings").waitFor({ timeout: 4000 }).then(() => true, () => false);
+    await p6.waitForTimeout(400);
+    if (how === "escape") await p6.keyboard.press("Escape");
+    else
+      await p6.evaluate(() => {
+        for (const t of ["mousedown", "mouseup"]) window.dispatchEvent(new MouseEvent(t, { button: 3, bubbles: true, cancelable: true }));
+      });
+    const closed = await p6.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).then(() => true, () => false);
+    await p6.waitForTimeout(400);
+    return { opened, closed, draw: await p6.evaluate(() => !!document.querySelector(".tourndraw")) };
+  };
+  const byEsc = await settingsOver("escape");
+  check("  Escape in Settings over the draw closes Settings, not the draw too", byEsc.opened && byEsc.closed && byEsc.draw, JSON.stringify(byEsc));
+  const byBack = await settingsOver("back");
+  check("  and the mouse's Back closes Settings, not the draw under it", byBack.opened && byBack.closed && byBack.draw, JSON.stringify(byBack));
   await ctx6.close();
 }
 
@@ -1744,6 +1763,143 @@ const dimmedText = () =>
     "  and Stream, Discover, Library and Sports still draw their rows: posters, Continue Watching, the board's row",
     rows.home.rows > 1 && rows.home.posters > 0 && rows.home.cw === 3 && rows.discover.rows > 0 && rows.discover.posters > 0 && rows.mylist.cw === 3 && rows.sports.rows > 0,
     JSON.stringify(rows),
+  );
+
+  // Settings on Radix's Dialog (v0.10.33, plan 014 phase 1), behind its own
+  // markup. A modal now: focus goes in and stays in. The card is where it
+  // was, top right, 88 down and 48 in.
+  const gearSel = ".header__action[aria-label='Settings']";
+  await goTo(page, "guide");
+  await page.waitForTimeout(800);
+  await page.locator(gearSel).click();
+  await page.locator(".settings").waitFor();
+  await page.waitForTimeout(700);
+  const modal = await page.evaluate(() => {
+    const s = document.querySelector(".settings");
+    const r = s.getBoundingClientRect();
+    return { inside: !!document.activeElement?.closest(".settings"), top: r.top, right: innerWidth - r.right, parent: s.parentElement?.className };
+  });
+  const stops = new Set();
+  for (let i = 0; i < 40; i++) {
+    await page.keyboard.press("Tab");
+    stops.add(await page.evaluate(() => (document.activeElement?.closest(".settings") ? "in" : document.activeElement?.tagName)));
+  }
+  check(
+    "M2. Settings is a modal on Radix's Dialog: focus goes in, Tab stays in, the card where it was",
+    modal.inside && [...stops].join() === "in" && modal.top === 88 && modal.right === 48 && modal.parent === "modal-backdrop",
+    JSON.stringify({ ...modal, stops: [...stops] }),
+  );
+  // Out by the X, not Escape. Tabbing past controls with tooltips can leave
+  // a closed tooltip still mounted, and a mounted tooltip is the top Radix
+  // layer, so it takes the next Escape (it did before v0.10.33 as well).
+  await page.locator("button[aria-label='Close settings']").click();
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  // Escape hands focus back to the gear. Focus after a key rings, and a
+  // ringing gear opened its "Settings" tooltip every time: it mustn't.
+  await page.locator(gearSel).click();
+  await page.locator(".settings").waitFor();
+  await page.waitForTimeout(700);
+  await page.keyboard.press("Escape");
+  const shut = await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).then(() => true, () => false);
+  await page.waitForTimeout(500);
+  const back = await page.evaluate(() => ({
+    focus: document.activeElement?.getAttribute("aria-label"),
+    bubbles: [...document.querySelectorAll("[data-slot=tooltip-content]:not([data-state=closed])")].map((t) => t.textContent),
+  }));
+  check("  and Escape gives focus back to the gear, without popping its tooltip", shut && back.focus === "Settings" && back.bubbles.length === 0, JSON.stringify(back));
+  if (!shut) await page.locator("button[aria-label='Close settings']").click().catch(() => {});
+  // The Combobox's list portals to <body>, and a Radix modal takes pointer
+  // events off <body>: the list stopped taking clicks or the wheel, and a
+  // click on an option landed on the backdrop.
+  await page.mouse.move(W / 2, H - 4);
+  await page.locator(gearSel).click();
+  await page.locator(".settings").waitFor();
+  await page.getByRole("tab", { name: "Customize", exact: true }).click();
+  await page.getByRole("tablist", { name: "Media" }).getByRole("tab", { name: "Stream", exact: true }).click();
+  await page.waitForTimeout(500);
+  const sub = page.getByRole("combobox", { name: "Preferred subtitle language" });
+  await sub.scrollIntoViewIfNeeded();
+  const had = await sub.inputValue().catch(() => null);
+  await sub.click();
+  const list = page.locator("[data-slot=combobox-list]");
+  await list.waitFor({ timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  const lb = await list.boundingBox();
+  await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2);
+  await page.mouse.wheel(0, 200);
+  await page.waitForTimeout(400);
+  const wheeled = await list.evaluate((e) => e.scrollTop);
+  const opt = page.locator("[data-slot=combobox-item]").nth(2);
+  const want = (await opt.textContent())?.trim();
+  await opt.click({ timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  const took = { had, want, value: await sub.inputValue().catch(() => null), wheeled, settings: await page.evaluate(() => !!document.querySelector(".settings")) };
+  check(
+    "  and a Combobox inside it still scrolls and takes a pick, with Settings staying up",
+    took.value === want && want !== had && took.wheeled > 0 && took.settings,
+    JSON.stringify(took),
+  );
+  await page.keyboard.press("Escape");
+  await page.locator("button[aria-label='Close settings']").click().catch(() => {});
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+
+  // Keys pressed in Settings stay in Settings. S is Multi-view's Live
+  // scores row; on a button in Settings it used to toggle the row under it.
+  await goTo(page, "multiview");
+  await page.waitForTimeout(1200);
+  const scores = () => page.evaluate(() => document.querySelector("[aria-label='Live scores']")?.getAttribute("aria-pressed") ?? null);
+  const s0 = await scores();
+  await page.keyboard.press("s");
+  await page.waitForTimeout(300);
+  const s1 = await scores();
+  await page.keyboard.press("s");
+  await page.waitForTimeout(300);
+  await page.locator(gearSel).click();
+  await page.locator(".settings").waitFor();
+  await page.waitForTimeout(400);
+  await page.keyboard.press("s");
+  await page.waitForTimeout(300);
+  const s2 = await scores();
+  await page.keyboard.press("Escape");
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+  check(
+    "  and a key pressed in Settings doesn't reach Multi-view under it (S, the scores row)",
+    s0 === "false" && s1 === "true" && s2 === "false",
+    JSON.stringify({ before: s0, withoutSettings: s1, underSettings: s2 }),
+  );
+
+  // Over the Sports theater, the other screen whose Escape stopped asking
+  // lib/modalOpen: Escape and the mouse's Back close Settings and leave the
+  // theater, and an Escape with Settings shut still leaves it (so the
+  // theater was listening all along).
+  await goTo(page, "sports");
+  await page.locator(".gamecard").first().waitFor({ timeout: 15_000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  await page.locator(".gamecard").first().click();
+  const inTheater = await page.locator(".sportstheater").waitFor({ timeout: 8000 }).then(() => true, () => false);
+  await page.waitForTimeout(600);
+  const over = {};
+  for (const how of ["escape", "back"]) {
+    await page.locator(gearSel).click({ force: true });
+    const opened = await page.locator(".settings").waitFor({ timeout: 4000 }).then(() => true, () => false);
+    await page.waitForTimeout(400);
+    if (how === "escape") await page.keyboard.press("Escape");
+    else
+      await page.evaluate(() => {
+        for (const t of ["mousedown", "mouseup"]) window.dispatchEvent(new MouseEvent(t, { button: 3, bubbles: true, cancelable: true }));
+      });
+    const closed = await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).then(() => true, () => false);
+    await page.waitForTimeout(500);
+    over[how] = opened && closed && (await page.evaluate(() => !!document.querySelector(".sportstheater")));
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(600);
+  over.leavesAlone = await page.evaluate(() => !document.querySelector(".sportstheater"));
+  check(
+    "  and over the Sports theater, Escape and Back close Settings and leave the theater, which still hears its own Escape",
+    inTheater && over.escape && over.back && over.leavesAlone,
+    JSON.stringify({ inTheater, ...over }),
   );
 }
 

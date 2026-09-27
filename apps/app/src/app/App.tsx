@@ -123,6 +123,9 @@ export function App() {
    */
   const [sportsHome, setSportsHome] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Where Settings hands focus back when the palette opened it: the element
+  // the palette was opened from. From the gear, Settings finds its own.
+  const [settingsFrom, setSettingsFrom] = useState<HTMLElement | null>(null);
   // The app palette (plan 019, K11): Ctrl+K anywhere, or the search button
   // beside Settings. Not over onboarding, and not over Settings, which is
   // its own modal (Ctrl+K there closes Settings' way first).
@@ -322,7 +325,9 @@ export function App() {
       if (e.key !== "Escape") return;
       // A dialog took it (Radix dismisses on Escape and marks the event):
       // one press closes the multi-view picker, not the picker AND full
-      // screen (plan 017: Esc closes the picker, then full screen).
+      // screen (plan 017: Esc closes the picker, then full screen). Settings
+      // too, since v0.10.33: it used to close and leave full screen on the
+      // same press.
       if (e.defaultPrevented) return;
       // The VOD player owns Escape (theater↔fullscreen toggle through its
       // own state machine) — exiting OS fullscreen from here would desync
@@ -463,7 +468,10 @@ export function App() {
           if (t === "sports") setSportsHome((n) => n + 1);
           setLiveTab(t);
         }}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => {
+          setSettingsFrom(null);
+          setSettingsOpen(true);
+        }}
         onOpenSearch={() => setPaletteOpen(true)}
       />
       <main className="app-main" ref={mainRef}>
@@ -481,7 +489,9 @@ export function App() {
           <StreamScreen />
         )}
       </main>
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsModal returnTo={settingsFrom} onClose={() => setSettingsOpen(false)} />
+      )}
       <Palette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
@@ -494,7 +504,7 @@ export function App() {
         onTitle={(item) =>
           requestOpenInStream(item, dest === "discover" || dest === "mylist" ? dest : "home")
         }
-        onGo={(to: GoTarget) => {
+        onGo={(to: GoTarget, from) => {
           if (to.kind === "live") {
             setSection("live");
             setLiveTab(to.tab);
@@ -503,6 +513,7 @@ export function App() {
             setStreamTab(to.tab);
           } else {
             saveSettingsTab(to.tab);
+            setSettingsFrom(from);
             setSettingsOpen(true);
           }
         }}

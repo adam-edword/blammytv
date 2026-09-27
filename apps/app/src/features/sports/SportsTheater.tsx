@@ -23,7 +23,6 @@ import {
   SIDE_MIN,
 } from "../settings/theaterSide";
 import { useMouseNav } from "../../lib/mouseNav";
-import { isModalOpen } from "../../lib/modalOpen";
 import {
   isTauri,
   tauriIsFullscreen,
@@ -580,10 +579,12 @@ export function SportsTheater({
      */
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      // Settings or Themes is over this screen and owns the key.
-      if (isModalOpen()) return;
-      // So does a menu: the rail's right-click menu, dismissed with Escape,
-      // used to leave the theater too. Radix marks the Escape it takes.
+      // Something over this screen took it: Settings or the palette (both
+      // Radix dialogs, Settings since v0.10.33), or the rail's right-click
+      // menu, which used to leave the theater too when Escape shut it.
+      // Radix marks the Escape it takes, on the document, before this
+      // window listener hears it. This asked lib/modalOpen first while
+      // Settings was hand-rolled.
       if (e.defaultPrevented) return;
       if (!isTauri()) {
         onClose();

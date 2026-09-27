@@ -115,7 +115,13 @@ function ComboboxContent({
         // comboboxes live inside Settings — at 50 the popup portals to
         // <body> and paints BEHIND the sheet, which looks exactly like a
         // control that does nothing. tokens.css holds the scale.
-        className="isolate z-(--z-popover)"
+        //
+        // pointer-events-auto because Settings is a Radix modal (v0.10.33),
+        // which sets `pointer-events: none` on <body> while it is open and
+        // gives it back only to its own layers. This popup portals to
+        // <body> and inherited the none: the list could not be clicked or
+        // wheeled, and a click on an option fell through to the backdrop.
+        className="isolate z-(--z-popover) pointer-events-auto"
       >
         <ComboboxPrimitive.Popup
           data-slot="combobox-content"

@@ -37,6 +37,11 @@ import {
  * Only a focus the browser would ring, `:focus-visible`, opens it now: Tab
  * does, a script's focus after a click doesn't.
  *
+ * NOR DOES FOCUS HANDED BACK BY A MODAL (lib/returnFocus). Closing Settings
+ * with Escape returns focus to the gear, and focus after a key rings, so it
+ * popped "Settings" under the gear every time. returnFocus marks the element
+ * with `data-focus-return` for the length of its focus call.
+ *
  * `off` KEEPS THE WRAPPER and just stays shut, for a control whose words are
  * sometimes showing (Segmented's chosen option). Adding and dropping the
  * wrapper instead changes the element React sees, so it remounts the button
@@ -66,7 +71,8 @@ export function Hint({
         asChild
         // Radix skips its own open when this marks the event.
         onFocus={(e) => {
-          if (!e.currentTarget.matches(":focus-visible")) e.preventDefault();
+          const el = e.currentTarget;
+          if (!el.matches(":focus-visible") || el.hasAttribute("data-focus-return")) e.preventDefault();
         }}
       >
         {children}

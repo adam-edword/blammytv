@@ -86,7 +86,10 @@ export function Palette({
   hasStream: boolean;
   onChannel: (channelId: string) => void;
   onTitle: (item: VodItem) => void;
-  onGo: (to: GoTarget) => void;
+  /** `from` is where focus was when the palette opened. A place that opens
+   * Settings hands it on, because Settings takes focus as the palette goes
+   * and would otherwise give it back to the palette's field, which is gone. */
+  onGo: (to: GoTarget, from: HTMLElement | null) => void;
 }) {
   const [query, setQuery] = useState("");
   // Mounted for the app's life, so it hears a change rather than reading
@@ -263,7 +266,7 @@ export function Palette({
     onOpenChange(false);
     if (row.kind === "channel" || row.kind === "later") onChannel(row.channel.id);
     else if (row.kind === "title") onTitle(row.item);
-    else onGo(row.to);
+    else onGo(row.to, opener.current);
   };
 
   const now = new Date();

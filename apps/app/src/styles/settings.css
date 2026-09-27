@@ -51,6 +51,13 @@
     opacity 240ms var(--ease-out),
     transform 460ms var(--ease-drawer);
 }
+/* The card takes focus itself when it opens (SettingsModal, v0.10.33), so
+ * Tab starts inside it. The app's one :focus-visible ring (ui.css) would
+ * outline the whole card when it was opened from the keyboard; the card is
+ * not a control, and nothing drew a ring there before. */
+.settings:focus-visible {
+  outline: none;
+}
 @starting-style {
   .settings {
     opacity: 0;
