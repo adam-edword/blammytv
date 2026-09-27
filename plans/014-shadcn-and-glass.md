@@ -3,6 +3,17 @@
 - **Status**: **DECIDED AGAINST THIS PLAN'S OWN RECOMMENDATION, and the
   foundation shipped in v0.9.49.** Tailwind v4, shadcn's CLI and five
   generated components are in. The glass is still to do.
+- **L1 and L2 (ROADMAP M2), 2026-09-27**: every generated component has a
+  consumer (v0.10.29: Separator adopted for the league picker's rule;
+  Badge, Card, Skeleton and Textarea deleted; verify-tailwind 9f keeps it
+  so). RowScroller and Card are in `ui/` (v0.10.31). The Switch has the
+  rest of shadcn's surface and its own thumb (v0.10.32). Settings is on
+  Radix's Dialog behind its own markup (v0.10.33, phase 1 below), and
+  `lib/modalOpen` is down to the two readers the Escape mark cannot reach.
+  With no live source the capsule centres itself (v0.10.34). Open, and
+  Adam's: whether ChipTabs (Segmented since plan 019) should take shadcn's
+  tabs surface over 019's glass, and whether the clock joins the header's
+  centreline.
 - **Severity**: LOW (nothing is broken)
 - **Category**: app-wide / design system
 - **Origin**: Adam, 2026-09-06: "id like to adopt shadcn's ui library for our

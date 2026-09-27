@@ -355,7 +355,10 @@ export function AppHeader({
   /**
    * Lay out ONE row: park its thumb under the open item, set every label's
    * clip width, and report where the app mark's midpoint landed (row 2 has
-   * no mark, so null).
+   * no mark, so null) and how wide the row will be once its labels have
+   * opened and shut. The width is the TARGET, from the same walk, for the
+   * reason at the top of this block: read off the DOM it is the animating
+   * width.
    *
    * THE WALK IS IN ROW COORDINATES, starting at 0. The thumb is absolutely
    * positioned inside the ROW, so that is the box its `left` resolves
@@ -376,10 +379,10 @@ export function AppHeader({
       row: HTMLElement | null,
       thumb: HTMLElement | null,
       openKey: string,
-    ): number | null => {
+    ): { markMid: number | null; width: number } => {
     const nav = navRef.current;
     const mark = markRef.current;
-    if (!nav || !row || !thumb) return null;
+    if (!nav || !row || !thumb) return { markMid: null, width: 0 };
     const cs = getComputedStyle(row);
     const gap = parseFloat(cs.columnGap || cs.gap || "0") || 0;
 
@@ -430,7 +433,8 @@ export function AppHeader({
       thumb.style.width = `${pillW}px`;
       thumb.style.opacity = "1";
     } else thumb.style.opacity = "0";
-    return markMid;
+    // `x` ends one gap past the last item.
+    return { markMid, width: x > 0 ? x - gap : 0 };
     },
     [],
   );
@@ -445,17 +449,32 @@ export function AppHeader({
     const border = parseFloat(cs.borderLeftWidth) || 0;
     const from = pad + border;
 
-    const markMid = layoutRow(rowNavRef.current, pillRef.current, active);
+    const row1 = layoutRow(rowNavRef.current, pillRef.current, active);
+    const markMid = row1.markMid;
     /* ONE thumb for the whole row, REC included. The type chips and REC are
      * mutually exclusive on screen — opening the recommender replaces the
      * grid — so exactly one of them is what you are looking at, and the
      * thumb sits on that one. */
-    layoutRow(
+    const row2 = layoutRow(
       rowSubRef.current,
       subPillRef.current,
       recOpen ? "rec" : filter,
     );
-    if (markMid === null) return;
+    /* NO LIVE SOURCE, NO MARK: the mark divides the live tabs from the
+     * rest, so without a playlist there is nothing for it to divide and
+     * nothing to hold the midline. The capsule centres itself instead (plan
+     * 016 3.5, v0.10.34). It used to stop here, with `left: 50%` and no
+     * margin, so its LEFT EDGE sat on the midline: 117.5px right of centre
+     * on Stream at 1600px, 189px on Discover.
+     *
+     * Its width is max(row 1, row 2 when open), the rule base.css states
+     * for .navcap--open, from the same target widths, so it holds centre
+     * through the unfold on the same clock. */
+    if (markMid === null) {
+      const width = Math.max(row1.width, subOpen ? row2.width : 0) + 2 * from;
+      nav.style.marginLeft = `${-width / 2}px`;
+      return;
+    }
     /* The mark holds the midline; the capsule breathes around it.
      *
      * ONE CLOCK. These used to travel on `transform`, which the browser
@@ -477,7 +496,7 @@ export function AppHeader({
      * so its margin moves only itself.
      */
     nav.style.marginLeft = `${-(markMid + from)}px`;
-  }, [active, filter, recOpen, layoutRow]);
+  }, [active, filter, recOpen, subOpen, layoutRow]);
 
   // A button's own width does not change when you click a DIFFERENT one, so
   // measuring is keyed on the destination set alone. It runs first because
