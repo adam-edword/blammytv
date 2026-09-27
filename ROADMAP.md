@@ -6,65 +6,42 @@ and it goes stale on purpose: read it for reasons, not for status.
 
 Rewritten 2026-09-24 against the tree rather than against the old version of
 this file, which still said "v0.1.109" at the top while the app was on
-v0.9.78.
+v0.9.78. "Where we are" refreshed 2026-09-27.
 
-## Where we are (v0.9.79, 2026-09-24)
+## Where we are (v0.10.26, 2026-09-27)
 
-- **Released:** v0.9.0, the Sports tab, on 2026-08-23. That is what users run.
-- **Since then: 90 commits and no release, for 32 days.** The longest gap
-  before this one was 12 days (0.8.202 to 0.9.0). From June to August a
-  release went out every few days.
-- **`main` is at v0.9.73.** The redesign's first stretch (plan 014, below)
-  landed there on 2026-09-13.
-- **`claude/nice-heisenberg-67k4uk` is at v0.9.79 and not in `main`.** It
-  carries the sports matcher fixes, the two console probes and multi-view.
-  It fast-forwards onto `main` with no conflicts.
-- **No open GitHub issues.** The backlog lives in this file and `plans/`.
+- **Released: 0.10.14**, "Multi-view's look everywhere, and live scores",
+  on 2026-09-26. Three releases went out that day: 0.10.0 (Multi-view,
+  through the installer), then 0.10.3 and 0.10.14, both frontend-only on
+  the hot channel (plan 008): they download by themselves and apply on the
+  next launch.
+- **`main` is at v0.10.14**, tagged.
+- **`claude/nice-heisenberg-67k4uk` is 12 versions ahead, v0.10.15 to
+  v0.10.26, and not released.** Adam, 2026-09-27: "i dont wanna ship" yet.
+  It carries the player in the redesign's language (plan 020), the VOD
+  loading screen with the title's art and a stage bar, a tooltip on every
+  control, drag-to-scroll rows, UI Scale's removal, and both pickers as
+  shadcn's stock Command. Its one native commit (v0.10.19) only changes
+  what a dev run does; a release build behaves the same without it, so the
+  branch can still go out on the hot channel.
+- **No open GitHub issues.** The backlog is this file and `plans/`.
 - **Version numbers 0.9.47 to 0.9.51 exist twice** in history, once on each
   side of the 2026-09-13 merge. Anything that quotes one of those five
-  numbers (a changelog, a bug report) needs the commit hash to mean anything.
+  numbers needs the commit hash to mean anything.
 
 ### What is in flight
 
 | | State |
 |---|---|
-| **Redesign** (plan 014) | L0 done. L1 partly: Button is in 25 files, Combobox, DropdownMenu, Tooltip and Item are in use, and the accent picker (v0.9.79) is the first consumer of Input and Popover. **Card, Dialog, Badge, Separator, Textarea, Skeleton and InputGroup were generated and have zero consumers.** L2, L3 and the glass have not started. |
-| **Multi-view** (plan 013) | Built and reachable off the Sports board. **Never played a frame.** Everything below the demuxer is unit-tested; the demuxer itself is untested until someone opens it against a real stream. |
-| **Themes** | Parked at v0.9.58 because a pack outranks the base palette. **The current looks are being removed and the concept returns after 1.0 with new ones.** The accent picker is back on its own in v0.9.79 (decision 1 below). |
-| **Sports matcher** | Probed against the real 26,621-channel catalog on 2026-09-13 and fixed from that data. ACCNX, SECN+ and ESPNEWS still miss. |
+| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player. M2, the primitives' leftovers, is being worked in the background from 2026-09-27. M3's leftovers (the glass tiers, reduced transparency, the light pass) have not started, and light mode is forced off at boot. |
+| **Trakt** (M4) | Being planned, `plans/015-trakt.md`, before any code. |
+| **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
+| **The Guide going black on a folder** | "Maximum update depth" in Guide.tsx, Adam, 2026-09-27. Not reproduced at his catalog's size (8,516 channels, 246 folders). v0.10.24 removed UI Scale's fractional zoom, the suspected cause, unconfirmed. If it comes back: a guard on the row window and a log line. |
+| **Themes** | Parked. They return after 1.0 with new looks (decision 1). |
 
-### Debt from the multi-view work
-
-- **Multi-view's UI is hand-written.** v0.9.76 to 0.9.78 added about eight
-  plain `<button>`s, a hand-rolled dialog and a plain `<input>`, after
-  v0.9.54 made shadcn's Button the rule for every standalone button. It
-  works, and it is exactly the drift plan 014 exists to stop.
-- **The native slot refactor is dead weight, and it is the ONLY native
-  change since 0.9.0.** v0.9.48 on the multi-view branch turned mpv's one
-  player into four, for a native multi-view that became a web one.
-  `PLAYERS[4]` only ever holds slot 0, and no native grid was ever built on
-  top of it, so it is not a fallback either. `tileRects` and `holesClip`
-  are unused for the same reason. Measured 2026-09-24:
-  `git diff v0.9.0 origin/main -- apps/app/src-tauri` is empty. The whole
-  redesign is frontend. Those three files (`inv.rs`, `lib.rs`, `mpv.rs`) are the one
-  thing standing between the next release and a frontend-only one, which
-  matters for M3 below.
-- **The 2026-09-24 audit: [`docs/audit-0.9.79.md`](docs/audit-0.9.79.md),
-  and the plan that works it: [`plans/016-audit-work.md`](plans/016-audit-work.md).**
-  Its P0 (the documented hot-channel `tar` command builds a bundle every
-  installed copy refuses, and CI runs none of the gate) is Track 0 and has
-  to land before M3 ships. Track 1 is the user-visible breakage (Sports
-  tuning dies after 30 minutes, the Guide star is invisible, every icon in
-  a Button renders at 16px) and belongs in M1. Tracks 3 to 5 are M2 and
-  M3's work list; Track N waits for the first native release after M3.
-  **Eight decisions come first (D1 to D8), each with a recommendation.**
-  Also, M1 step 5's file list below is partly stale: `packs.css`,
-  `themePacks.ts`, `verify-intense-themes.mjs` and the rest already sit in
-  `old/themes/`; what is left is Aurora in `accent.ts`, `tokens.css`,
-  `ui.css`, `onboarding.css` and verify-tailwind's check 8.
-- ~~Docs that disagree with the tree~~ Fixed with this rewrite: HANDOFF's
-  `"csp": null` line (the CSP shipped in v0.8.115), and `plans/README.md`
-  now marks 010 shipped and has a row for 014.
+The multi-view debt this section used to list is paid: plan 017 rebuilt
+multi-view on the primitives, the native slot refactor was reverted in
+v0.9.94, and plan 016's release-path and breakage tracks are done.
 
 ## Decisions, taken by Adam on 2026-09-24
 
@@ -137,12 +114,14 @@ chose.
    whether the M3 release is signed, and there is no cost before then.
 4. **Release: HOLD for the finished redesign.** Recommended the other way
    (release after M1). The next release is the M3 "new look" release; M1
-   and M2 end green but do not ship.
+   and M2 end green but do not ship. **Done: 0.10.0 shipped 2026-09-26**,
+   ahead of M2, and the hot channel has carried two releases since.
 
 ## The plan to 1.0
 
 Milestones, not version numbers. Each one ends green. Only M3 and M5
-ship, per decision 4.
+ship, per decision 4. (Overtaken once 0.10.0 was out: fixes and looks now
+go out between milestones, on the hot channel, when Adam says so.)
 
 **The native freeze is lifted (2026-09-24, v0.9.101).** It was here to
 keep 0.10.0 frontend-only, so it could be the hot channel's first run.
@@ -275,9 +254,10 @@ never be a deterrent to building anything." So:
   surface, which cannot be composited with.
 - `prefers-reduced-transparency` and a light-mode contrast pass, together,
   with a `verify-glass` harness.
-- **Release it: the new look, 0.10.0.** A native release through the
-  installer (the stream proxy is native). Signed, if decision 3 says so;
-  this is the first build where signing would buy anything.
+- ~~**Release it: the new look, 0.10.0.**~~ **Shipped 2026-09-26**, unsigned
+  (decision 3 is still open). A native release through the installer (the
+  stream proxy is native). The glass and the light pass above did not make
+  it and are still open.
 - **Themes, in the same release's words.** 0.10.0 is the first release
   without packs, and 0.9.0 users who picked one lose it (a picked accent
   colour is not lost; the picker is back from M1). The changelog says
