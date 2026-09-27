@@ -94,12 +94,37 @@
 .tune--vod {
   background: #000;
 }
+/* The art and its glow, one on the other, breathing as one: the animation
+ * is the pair's, so they can never drift out of step. */
+.tune__vodart {
+  display: grid;
+  place-items: center;
+  animation: tune-breathe 2.8s ease-in-out infinite;
+}
+.tune__vodart > img {
+  grid-area: 1 / 1;
+}
 .tune__vodlogo {
   width: clamp(260px, 40vw, 560px);
   max-height: 40vh;
   object-fit: contain;
+  /* With the glow behind it, the dark edge keeps a white logo from
+   * dissolving into a white glow. */
   filter: drop-shadow(0 6px 28px rgba(0, 0, 0, 0.6));
-  animation: tune-breathe 2.8s ease-in-out infinite;
+}
+/* The logo again, four times the size and blurred to a haze in its own
+ * colours (v0.10.20; Adam: "the image itself needs to be huge"). Saturated so
+ * a red emblem glows red rather than pink; a white logo gets a soft white
+ * light. The blur is applied before the scale, so the 24px here spreads to
+ * about 96px on screen. Picked side by side: at 1.8x it was a halo around
+ * the logo, and at 5.5x a white centre turned the middle of the glow grey. */
+.tune__vodglow {
+  width: clamp(260px, 40vw, 560px);
+  max-height: 40vh;
+  object-fit: contain;
+  scale: 4;
+  filter: blur(24px) saturate(2.4);
+  opacity: 0.9;
 }
 .tune__vodtitle {
   font-family: var(--font-headline);
@@ -121,7 +146,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tune__vodlogo,
+  .tune__vodart,
   .tune__vodtitle {
     animation: none;
     opacity: 0.85;
@@ -404,6 +429,20 @@
   max-width: 320px;
   object-fit: contain;
   object-position: left center;
+  /* Held back until its ink is measured (lib/logoInk, at most 1.5s), so a
+   * padded logo never shows at its file's edge and then jumps left. */
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.theater-bar__logo[data-ready] {
+  opacity: 1;
+}
+/* Cropped to its ink across the width, so the mark starts where the title
+ * under it starts (Adam, v0.10.20: "left justify the logo over the episode
+ * title"). A crop, not a shift: the box shrinks with it, and the height and
+ * so the logo's size stay as they were. */
+.theater-bar__logo[data-trim] {
+  object-view-box: inset(0 var(--ink-r) 0 var(--ink-l));
 }
 
 .theater-bar__text {

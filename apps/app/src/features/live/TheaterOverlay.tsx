@@ -25,6 +25,7 @@ import {
   onSkipBehaviorChange,
   type SkipBehavior,
 } from "../settings/skipBehavior";
+import { useLogoInk } from "../../lib/logoInk";
 import { StatsOverlay } from "./StatsOverlay";
 import { livePctFor } from "./liveEdge";
 import { CLOCK_TICK_MS, projectPos } from "./clock";
@@ -213,6 +214,8 @@ export function TheaterOverlay({
   vod?: boolean;
 } = {}) {
   const [meta, setMeta] = useState<TheaterMeta | null>(null);
+  // The title logo lines up with the text under it by its ink (lib/logoInk).
+  const logoInk = useLogoInk(meta?.logo);
   const metaRefForDead = useRef<TheaterMeta | null>(null);
   metaRefForDead.current = meta;
   const [loading, setLoading] = useState(() => api()?.getLoading() ?? true);
@@ -1566,6 +1569,16 @@ export function TheaterOverlay({
                 src={meta.logo}
                 alt=""
                 aria-hidden
+                data-ready={logoInk.ready || undefined}
+                data-trim={logoInk.span ? "" : undefined}
+                style={
+                  logoInk.span
+                    ? ({
+                        "--ink-l": `${(logoInk.span.left * 100).toFixed(2)}%`,
+                        "--ink-r": `${(logoInk.span.right * 100).toFixed(2)}%`,
+                      } as React.CSSProperties)
+                    : undefined
+                }
               />
             )}
             <div className="theater-bar__text">
@@ -2025,7 +2038,14 @@ function TuneCard({
     return (
       <div className="tune tune--vod" aria-live="polite">
         {meta?.logo ? (
-          <img className="tune__vodlogo" src={meta.logo} alt="" aria-hidden />
+          // The same art twice: a blown-up, blurred copy behind the logo,
+          // so it glows in its own colours while the video loads (Adam,
+          // v0.10.20: "scale a new show logo over the black vod, super
+          // blurred"). The pair breathes together.
+          <div className="tune__vodart">
+            <img className="tune__vodglow" src={meta.logo} alt="" aria-hidden />
+            <img className="tune__vodlogo" src={meta.logo} alt="" aria-hidden />
+          </div>
         ) : (
           <span className="tune__vodtitle">{meta?.channelName ?? ""}</span>
         )}
