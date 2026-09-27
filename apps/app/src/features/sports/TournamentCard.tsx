@@ -43,7 +43,7 @@ function TournamentCardImpl({
       }
       data-game={event.id}
       onClick={() => onOpen?.(event)}
-      title={`${event.title}${event.venue ? ` · ${event.venue}` : ""}\n${count} ${
+      data-hint={`${event.title}${event.venue ? ` · ${event.venue}` : ""}\n${count} ${
         count === 1 ? "match" : "matches"
       }`}
     >

@@ -107,6 +107,7 @@ import {
   tauriPopoutStop,
 } from "../../lib/tauri";
 import { BackButton } from "../../ui/BackButton";
+import { Hint } from "../../ui/Hint";
 
 /**
  * The Stream tab: AIOStreams-powered movies + series. A featured hero, then
@@ -2382,7 +2383,7 @@ export const Card = memo(function Card({
     <button
       type="button"
       className="stream-card"
-      title={item.title}
+      data-hint={item.title}
       onClick={() => onOpen(item)}
     >
       <Tilt
@@ -2623,16 +2624,16 @@ function GenrePills({ genres }: { genres: string[] }) {
   return (
     <div className="vod-detail__pills">
       {genres.slice(0, 5).map((g) => (
+        <Hint key={g} label={`Browse ${g} in Discover`}>
         <Button
           variant="outline"
           size="sm"
-          key={g}
           type="button"
-          title={`Browse ${g} in Discover`}
           onClick={() => requestDiscoverGenre(g)}
         >
           {g}
         </Button>
+        </Hint>
       ))}
     </div>
   );
@@ -2817,7 +2818,7 @@ function Detail({
                 key={v.id}
                 type="button"
                 className="vod-more__card"
-                title={v.title}
+                data-hint={v.title}
                 onClick={() => onOpenItem?.(v)}
               >
                 {/* Same lean and glare as every other poster in the app.

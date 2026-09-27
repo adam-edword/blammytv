@@ -106,7 +106,7 @@ export function SourceList({
                   className={"row vod-source" + (current ? " vod-source--current" : "")}
                   data-cache={s.cache}
                   aria-current={current || undefined}
-                  title={s.lines.join("\n").replace(HALF_STARS, "½")}
+                  data-hint={s.lines.join("\n").replace(HALF_STARS, "½")}
                   onFocus={() => setActive(n)}
                   onClick={() => onPick(s, sources.slice(sources.indexOf(s) + 1))}
                 >
@@ -146,8 +146,8 @@ export function SourceList({
 /** The half stars an addon rates with, U+2BE8 to U+2BEB: left half, right
  * half, and the same two inside a ☆'s outline. No font Windows ships has
  * any of them (Unicode 11), so a line like "★⯪☆☆☆" drew a box. Each is
- * drawn from ☆ and ★ instead (stream.css `.halfstar`); the hover title,
- * which is the system's and can't draw that, says "½". */
+ * drawn from ☆ and ★ instead (stream.css `.halfstar`); the hover hint,
+ * which is plain text and can't draw that, says "½". */
 const HALF_STARS = /[\u2BE8-\u2BEB]/g;
 
 function Line({ text }: { text: string }) {

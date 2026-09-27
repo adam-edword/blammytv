@@ -180,10 +180,11 @@ const SidebarSources = memo(function SidebarSources({
                         type="button"
                         aria-label={label}
                         aria-current={active ? "true" : undefined}
-                        // Expanded, long names fade at the edge — a native
-                        // tooltip makes the full name recoverable. Folded,
-                        // the custom .live-tip owns that, so skip it.
-                        title={collapsed ? undefined : label}
+                        // Expanded, long names fade at the edge, and the
+                        // hint (ui/Hint's HintLayer) makes the full name
+                        // recoverable. Folded, the custom .live-tip owns
+                        // that, so skip it.
+                        data-hint={collapsed ? undefined : label}
                         className={
                           `live-folder ${SIDEBAR_ITEM}` +
                           (active
@@ -245,7 +246,7 @@ const SidebarSources = memo(function SidebarSources({
                           type="button"
                           className="live-folder__hide"
                           aria-label={`Hide ${label}`}
-                          title={`Hide ${label}`}
+                          data-hint={`Hide ${label}`}
                           onClick={() => onHideFolder(g.id, f.id, label)}
                         >
                           <EyeOffIcon />

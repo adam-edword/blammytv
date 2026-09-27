@@ -91,7 +91,7 @@ function WideRaceCardImpl({ race }: { race: Field }) {
        * for the same reason: nothing is wired up to open a session yet.
        * Becomes a button when racing reaches the theater (plan 010 #5). */
       data-game={race.id}
-      title={`${race.place} ${race.session}`}
+      data-hint={`${race.place} ${race.session}`}
     >
       {/* GameCard's lean and glare exactly. Degrees are not the unit that
         * matters: a 780px card sweeps far more pixels at its corners than

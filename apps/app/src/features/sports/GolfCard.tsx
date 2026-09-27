@@ -45,7 +45,7 @@ export const GolfCard = memo(function GolfCard({ round }: { round: Field }) {
       className={
         "golfcard" + (round.state === "final" ? " golfcard--final" : "")
       }
-      title={`${round.place}${round.session ? ` · ${round.session}` : ""}`}
+      data-hint={`${round.place}${round.session ? ` · ${round.session}` : ""}`}
     >
       <Tilt
         className="golfcard__tilt"

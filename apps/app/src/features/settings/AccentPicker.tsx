@@ -20,6 +20,7 @@ import {
   saveAccentPairedBy,
   saveCustomAccent,
 } from "./accent";
+import { Hint } from "../../ui/Hint";
 
 /**
  * The accent picker, back from old/themes on its own (ROADMAP decision 1).
@@ -109,13 +110,13 @@ export function AccentPicker({
 
   return (
     <div className="flex flex-wrap items-center gap-2.5" role="group" aria-label="Accent color">
+      <Hint label="Default">
       <Button
         variant="outline"
         size="icon"
         type="button"
         aria-pressed={accent === ""}
         aria-label="Default, follows light and dark"
-        title="Default"
         className={
           "size-8 rounded-full hover:opacity-90" + (accent === "" ? ` ${ON_RING}` : "")
         }
@@ -138,18 +139,18 @@ export function AccentPicker({
           </span>
         )}
       </Button>
+      </Hint>
 
       {ACCENT_PRESETS.map((p) => {
         const on = accent === p.hex;
         return (
+          <Hint key={p.hex} label={p.name}>
           <Button
-            key={p.hex}
             variant="outline"
             size="icon"
             type="button"
             aria-pressed={on}
             aria-label={p.name}
-            title={p.name}
             className={"size-8 rounded-full hover:opacity-90" + (on ? ` ${ON_RING}` : "")}
             // Inline, so the outline variant's own hover fill and text colour
             // cannot repaint the swatch: an inline value outranks every
@@ -164,6 +165,7 @@ export function AccentPicker({
           >
             {on && <CheckIcon className="size-3.5" />}
           </Button>
+          </Hint>
         );
       })}
 
@@ -210,12 +212,12 @@ export function AccentPicker({
            * left an empty strip down its right side. */}
           <div className="mt-3 flex w-[220px] items-center gap-2">
             {eyeDropper && (
+              <Hint label="Pick from screen">
               <Button
                 variant="outline"
                 size="icon"
                 type="button"
                 aria-label="Pick a color from the screen"
-                title="Pick from screen"
                 onClick={async () => {
                   try {
                     const { sRGBHex } = await new eyeDropper().open();
@@ -227,6 +229,7 @@ export function AccentPicker({
               >
                 <EyeDropperIcon />
               </Button>
+              </Hint>
             )}
             <div className="relative min-w-0 flex-1">
               <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">

@@ -614,6 +614,9 @@ export function AppHeader({
                   </b>
                 </button>
               )}
+              {/* The name, for the tabs that show only their icon; the
+                * current one says it in its pill already. */}
+              <Hint label={d.label} off={on}>
               <button
                 type="button"
                 data-dest={d.key}
@@ -621,7 +624,6 @@ export function AppHeader({
                 className="navcap__item"
                 aria-current={on ? "page" : undefined}
                 aria-label={d.beta ? `${d.label} (beta)` : d.label}
-                title={d.label}
                 ref={(el) => {
                   if (el) itemRefs.current.set(d.key, el);
                   else itemRefs.current.delete(d.key);
@@ -640,6 +642,7 @@ export function AppHeader({
                   </i>
                 </span>
               </button>
+              </Hint>
             </Fragment>
           );
         })}

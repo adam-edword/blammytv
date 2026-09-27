@@ -478,7 +478,7 @@ function ListCard({
     <button
       type="button"
       className="stream-card library__card"
-      title={name}
+      data-hint={name}
       onClick={onOpen}
     >
       {/* A poster card in every respect, lean and glare included: the grid

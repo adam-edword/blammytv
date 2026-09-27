@@ -57,7 +57,7 @@ function RaceCardImpl({ race }: { race: Field }) {
         "racecard racecard--flat" +
         (race.state === "final" ? " racecard--final" : "")
       }
-      title={`${race.place} ${race.session}`}
+      data-hint={`${race.place} ${race.session}`}
     >
       {/* The small card's lean and glare, to its own numbers. This sits in
         * the same grid as the small card and is the same size, so it leans

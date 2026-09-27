@@ -43,6 +43,7 @@ import {
   xForTime,
 } from "./epg";
 import type { Channel, Programme } from "./model";
+import { Hint } from "../../ui/Hint";
 
 /** Pointer spotlight on programme cells: writes the cursor's cell-local
  * position into CSS vars; the ::after light circle rides them via
@@ -555,7 +556,7 @@ export const Guide = memo(function Guide({
                 <button
                   type="button"
                   className="guide__card"
-                  title={channel.name}
+                  data-hint={channel.name}
                   aria-current={selected ? "true" : undefined}
                   aria-label={
                     channel.quality
@@ -634,7 +635,7 @@ export const Guide = memo(function Guide({
                       data-width={b.width}
                       className={cellClass(b)}
                       style={{ left: b.left, width: b.width }}
-                      title={b.p.title}
+                      data-hint={b.p.title}
                       aria-label={`${channel.name}, ${b.p.title}, ${range(b.p.start, b.p.end)}${b.live ? ", on now" : ""}`}
                       onClick={() => onSelect(channel.id)}
                       onMouseEnter={() =>
@@ -683,6 +684,7 @@ export const Guide = memo(function Guide({
 
       {/* Drag the channel-card column wider/narrower; double-click resets it
        * to the default width. */}
+      <Hint label="Drag to resize · double-click to reset">
       <div
         className={"guide-resize" + (resizing ? " guide-resize--active" : "")}
         role="separator"
@@ -692,13 +694,13 @@ export const Guide = memo(function Guide({
         aria-valuemax={CARD_MAX}
         aria-valuenow={Math.round(cardW)}
         tabIndex={0}
-        title="Drag to resize · double-click to reset"
         onPointerDown={onResizeDown}
         onPointerMove={onResizeMove}
         onPointerUp={onResizeUp}
         onKeyDown={onResizeKey}
         onDoubleClick={() => setCardW(CARD_MIN)}
       />
+      </Hint>
     </div>
   );
 });

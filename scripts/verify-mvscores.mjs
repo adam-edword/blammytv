@@ -215,7 +215,7 @@ const rowCards = () =>
       c.classList.contains("mvscores__league")
         ? { league: c.textContent }
         : {
-            game: c.querySelector(".compactcard")?.getAttribute("title") ?? "",
+            game: c.querySelector(".compactcard")?.getAttribute("data-hint") ?? "",
             on: c.classList.contains("is-on"),
             off: c.classList.contains("is-off"),
           },
@@ -324,7 +324,7 @@ await scroller.evaluate((el) => (el.scrollLeft = 0));
 // And a drag (v0.10.18: "add click/drag to the score bar"), started on a
 // card a click would open: the row follows the pointer 1:1, and the picker
 // stays shut. Toward whichever side has the room.
-const chiefs = page.locator('.mvscores .compactcard[title*="Chiefs"]');
+const chiefs = page.locator('.mvscores .compactcard[data-hint*="Chiefs"]');
 await chiefs.scrollIntoViewIfNeeded();
 const s0 = await scroller.evaluate((el) => el.scrollLeft);
 const cb = await chiefs.boundingBox();
@@ -344,7 +344,7 @@ await scroller.evaluate((el) => (el.scrollLeft = 0));
 
 // A baseball game: none of the panel's channels carry it.
 const mlb = page.locator(".mvscores__game.is-off").first();
-const mlbTitle = await mlb.getAttribute("title").catch(() => "");
+const mlbTitle = await mlb.getAttribute("data-hint").catch(() => "");
 await mlb.scrollIntoViewIfNeeded();
 const mlbBox = await mlb.boundingBox();
 await page.mouse.click(mlbBox.x + mlbBox.width / 2, mlbBox.y + mlbBox.height / 2);
@@ -363,8 +363,8 @@ check(
 
 // The Bills: on the panel's ESPN.
 await scroller.evaluate((el) => (el.scrollLeft = 0));
-await page.locator('.mvscores .compactcard[title*="Chiefs"]').scrollIntoViewIfNeeded();
-await page.locator('.mvscores .compactcard[title*="Chiefs"]').click();
+await page.locator('.mvscores .compactcard[data-hint*="Chiefs"]').scrollIntoViewIfNeeded();
+await page.locator('.mvscores .compactcard[data-hint*="Chiefs"]').click();
 await page.locator(".mvpick__input").waitFor({ timeout: 5000 }).catch(() => {});
 await page.waitForTimeout(250);
 const feedRows = (await page.locator(".mvpick__row").allInnerTexts()).map((r) => r.replace(/\n/g, " | "));

@@ -72,7 +72,7 @@ function GameCardImpl({
       // The wire's own line about the fixture. 60 to 80 characters, which
       // is a sentence rather than a label, so it goes where a sentence can
       // be chosen rather than onto the card face.
-      title={
+      data-hint={
         game.headline
           ? `${home.name} vs ${away.name}\n${game.headline}`
           : `${home.name} vs ${away.name}`

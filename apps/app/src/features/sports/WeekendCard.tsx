@@ -32,7 +32,7 @@ function WeekendCardImpl({ weekend }: { weekend: Weekend }) {
      * still takes keyboard focus and still promises something, so this is
      * not one — see the cursor in the stylesheet. It keeps the lean and the
      * glare, which are about the card being a card. */
-    <div className="racecard racecard--flat" title={`${weekend.place} weekend`}>
+    <div className="racecard racecard--flat" data-hint={`${weekend.place} weekend`}>
       {/* The session card's lean and glare, to the value. Same grid, same
         * size, same object: a weekend that tilted differently from the
         * sessions it becomes would read as a different kind of thing. */}
@@ -69,7 +69,7 @@ function WeekendCardImpl({ weekend }: { weekend: Weekend }) {
               // The source ships an abbreviation and no expansion at all,
               // so SS and SR would otherwise be unreadable to anyone who
               // does not already follow the sport.
-              title={s.full}
+              data-hint={s.full}
             >
               <span className="weekend__label">{s.label}</span>
               <span className="weekend__when">

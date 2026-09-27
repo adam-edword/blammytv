@@ -231,7 +231,7 @@ export function LeaguePicker({
                         ? ` live-folder--active ${SIDEBAR_ITEM_ACTIVE}`
                         : "")
                     }
-                    title={l.name}
+                    data-hint={l.name}
                     aria-pressed={picked.includes(l.path)}
                     aria-label={`Show only ${l.label}`}
                     onClick={() => onPick(l.path)}
@@ -246,7 +246,7 @@ export function LeaguePicker({
                     type="button"
                     className="live-folder__hide leaguepick__fav"
                     aria-label={`Add ${l.label} to favourites`}
-                    title={`Add ${l.label} to favourites`}
+                    data-hint={`Add ${l.label} to favourites`}
                     onClick={() => toggle(l.path)}
                   >
                     {/* The guide's own star and its own swap: the ghost

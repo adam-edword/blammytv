@@ -10,6 +10,7 @@ import {
   tauriInstallUpdate,
 } from "../../lib/tauri";
 import { isPlaying } from "../../lib/playingNow";
+import { Hint } from "../../ui/Hint";
 
 /**
  * Settings → Updates: the manual sibling of the header's UpdateChip. Shows
@@ -113,6 +114,13 @@ export function UpdatesSection() {
         // that costs nothing — the update lands on the next launch either
         // way. Read at click time, so starting playback after Settings
         // opened still counts.
+        // Greyed by aria-disabled, not disabled: a disabled button gets no
+        // pointer and so no hint, and the hint is the reason it is grey.
+        // The click is refused in the handler either way.
+        <Hint
+          label="Finish watching first. It applies on its own next launch."
+          off={!isPlaying()}
+        >
         <Button
           // `default` IS the accent state. `.settings-button--accent` used
           // to mix 22% accent into the neutral face; since v0.9.54 that
@@ -126,15 +134,11 @@ export function UpdatesSection() {
             if (isPlaying()) return;
             void tauriFrontendApply().catch(() => {});
           }}
-          disabled={isPlaying()}
-          title={
-            isPlaying()
-              ? "Finish watching first — this applies on its own next launch"
-              : undefined
-          }
+          aria-disabled={isPlaying()}
         >
           Restart now
         </Button>
+        </Hint>
       ) : phase.at === "found" || phase.at === "installing" ? (
         <Button
           variant="default"

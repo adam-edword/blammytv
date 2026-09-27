@@ -1,5 +1,6 @@
 import React from "react";
 import { TooltipProvider } from "../components/ui/tooltip";
+import { HintLayer } from "../ui/Hint";
 
 /**
  * Every render path, wrapped in the one thing all of them need.
@@ -25,6 +26,8 @@ export function Root({ children }: { children: React.ReactNode }) {
     <React.StrictMode>
       <TooltipProvider delayDuration={400} skipDelayDuration={300}>
         {children}
+        {/* The shared tooltip every list's `data-hint` shows (ui/Hint). */}
+        <HintLayer />
       </TooltipProvider>
     </React.StrictMode>
   );

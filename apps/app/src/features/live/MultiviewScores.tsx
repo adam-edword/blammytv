@@ -85,11 +85,11 @@ export function MvScoresRow({
               <Fragment key={g.id}>
                 {first && <span className="mvscores__league">{g.league}</span>}
                 {/* The reason a game does nothing, on the wrapper: the card
-                  * has its own title (the teams), and an idle card lets the
+                  * has its own hint (the teams), and an idle card lets the
                   * pointer through to this one (player.css). */}
                 <div
                   className={"mvscores__game" + (on ? " is-on" : "") + (can ? "" : " is-off")}
-                  title={can ? undefined : "None of your channels carry it"}
+                  data-hint={can ? undefined : "None of your channels carry it"}
                 >
                   <CompactCard game={g} onOpen={can ? () => onOpen(g) : undefined} />
                 </div>

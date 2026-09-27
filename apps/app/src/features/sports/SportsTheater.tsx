@@ -839,7 +839,7 @@ function Rail({
     <button
       type="button"
       className={"sportsrail" + (on ? " is-on" : "") + (wrong ? " is-wrong" : "")}
-      title={channel.name}
+      data-hint={channel.name}
       // Which row is playing was carried by a CSS class alone, so the
       // accessible name was identical playing or not. Same shape the
       // sidebar already uses on its own toggles.

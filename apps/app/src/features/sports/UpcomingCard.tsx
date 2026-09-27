@@ -87,7 +87,7 @@ function UpcomingCardImpl({
       // The wire's own line about the fixture, where there is one. It is 60
       // to 80 characters, which no card face here has room for, and a
       // tooltip is exactly the place for a sentence you can choose to read.
-      title={
+      data-hint={
         game.headline
           ? `${home.name} vs ${away.name}\n${game.headline}`
           : `${home.name} vs ${away.name}`

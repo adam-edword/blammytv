@@ -630,7 +630,7 @@ const dimmedText = () =>
   await page.locator(".vod-more__card").first().waitFor({ timeout: 15_000 });
   const more = await page.evaluate(() =>
     [...document.querySelectorAll(".vod-more__card")].map((c) => ({
-      title: c.getAttribute("title"),
+      title: c.getAttribute("data-hint"),
       cap: c.querySelector(".vod-more__name")?.textContent,
       r: getComputedStyle(c.querySelector(".vod-more__tilt")).borderTopLeftRadius,
     })),
@@ -871,11 +871,42 @@ const dimmedText = () =>
   const sport = await eyebrowOf(".leaguepick__sport");
   check("Sports' sidebar labels are the same eyebrow", isEyebrow(sport), JSON.stringify(sport));
 
-  // A film's sources.
+  // Tooltips (v0.10.23; Adam: shadcn's, in the app's dark glass, "across
+  // the entire app"). No element anywhere uses the browser's title. A
+  // control's comes from Hint, one Radix tooltip each; a card's comes from
+  // the one shared HintLayer, by data-hint, because a Radix tooltip per
+  // card cost 154ms per 400 in the dev build. Both are the same bubble.
   await goTo(page, "home");
   await page.waitForTimeout(1500);
   await page.mouse.wheel(0, 700);
-  await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
+  await page.waitForTimeout(400);
+  const openTip = () =>
+    page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])').first().textContent({ timeout: 3000 }).catch(() => null);
+  const hoverSlow = async (loc) => {
+    await page.mouse.move(W / 2, H - 20, { steps: 4 });
+    await page.waitForTimeout(200);
+    const b = await loc.boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+  };
+  const card = page.locator(".stream-card", { hasText: "Fake Movie One" }).first();
+  await card.scrollIntoViewIfNeeded();
+  await hoverSlow(card);
+  const cardTip = await openTip();
+  const cardHint = await card.getAttribute("data-hint");
+  const tab = page.locator(".navcap__item:not([aria-current])").first();
+  await hoverSlow(tab);
+  const tabTip = await openTip();
+  const tabName = (await tab.getAttribute("aria-label"))?.replace(/ \(beta\)$/, "");
+  const titled = await page.evaluate(() => [...document.querySelectorAll("[title]")].map((e) => e.outerHTML.slice(0, 80)));
+  check(
+    "a tooltip is the kit's everywhere: a card's from the shared layer, a tab's from Hint, and nothing uses the browser's",
+    cardHint === "Fake Movie One" && cardTip === "Fake Movie One" && !!tabName && tabTip === tabName && titled.length === 0,
+    JSON.stringify({ cardTip, tabTip, tabName, titled: titled.slice(0, 3) }),
+  );
+  await page.mouse.move(W / 2, H - 20);
+
+  // A film's sources.
+  await card.click();
   await page.locator(".vod-source").first().waitFor({ timeout: 15_000 });
   await page.waitForTimeout(500);
   const more = await eyebrowOf(".vod-more__title");

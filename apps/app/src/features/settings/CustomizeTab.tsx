@@ -67,6 +67,7 @@ import {
   loadShowChannelNumber,
   saveShowChannelNumber,
 } from "./channelNumber";
+import { Hint } from "../../ui/Hint";
 
 const SCALE_TABS = UI_SCALES.map((s) => ({
   key: String(s),
@@ -438,6 +439,7 @@ export function CustomizeTab() {
                   }}
                 />
               ) : (
+                <Hint label="Click to type an exact value">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -446,11 +448,11 @@ export function CustomizeTab() {
                   // INPUT beside it, which is not a Button and still needs
                   // its own type. The button half takes shadcn's instead.
                   className="rowcap__value--btn"
-                  title="Click to type an exact value"
                   onClick={() => setCapDraft(String(rowCap))}
                 >
                   {rowCap}
                 </Button>
+                </Hint>
               )}
             </div>
           </div>
