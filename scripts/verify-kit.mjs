@@ -668,8 +668,14 @@ const dimmedText = () =>
 // and so is every screen's; its dashed Add tile is the empty place, and so
 // are Library's New list and the Guide's lanes with no listings.
 {
-  const readState = (sel) =>
-    page.evaluate((s) => {
+  // After the screen's entrance: App fades a new screen in on .app-main
+  // (0 to 1), and a read taken inside that counted every line as faded. A
+  // loaded board got there first (v0.10.13's merge onto main).
+  const readState = async (sel) => {
+    await page
+      .waitForFunction(() => !document.querySelector(".app-main")?.getAnimations().some((a) => a.playState === "running"), null, { timeout: 3000 })
+      .catch(() => {});
+    return page.evaluate((s) => {
       const el = document.querySelector(s);
       if (!el) return null;
       const t = el.querySelector(".state__title");
@@ -688,6 +694,7 @@ const dimmedText = () =>
         }).length,
       };
     }, sel);
+  };
   const text = await token("--text", "color");
   const muted = await token("--text-muted", "color");
 

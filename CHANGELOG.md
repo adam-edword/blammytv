@@ -2,10 +2,39 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
-## 0.10.11: Live scores in Multi-view (2026-09-26)
+## 0.10.14: Multi-view's look everywhere, and live scores (2026-09-26)
 
 An update to the app's screens, like 0.10.3: it downloads by itself and
 applies the next time you open BlammyTV.
+
+### Multi-view's look, on every tab
+
+- **One set of controls.** Settings' tabs, the Guide's and Sports' mode
+  switches, a show's seasons and a tournament's draws are one control now,
+  Multi-view's, with a pill that slides to the one you pick. Buttons, key
+  hints and the LIVE mark are drawn one way everywhere too.
+- **Search everything with Ctrl+K.** From any tab: your channels and
+  what's on later, films and series, and places in the app, like
+  Settings → Customize. The round button beside Settings opens it too.
+  Ctrl+K used to jump to Discover's search; `/` and Ctrl+F still do.
+- **A title's sources, grouped.** Cached first, then Other sources, then
+  Not cached, each with its count. One list on a film's page and in the
+  player's Sources panel: ↑ and ↓ move, Enter plays.
+- **Continue Watching and episodes are tiles.** Every picture 16:9 with
+  its progress under it, and the episode up next ringed.
+- **Empty and error screens say it one way:** what happened, why, and a
+  way on.
+- **One focus ring.** Tab shows Multi-view's ring on every button, row
+  and tile.
+- **The header steps back over a theater.** In the Guide's and Sports'
+  theaters it dims after two seconds at rest, as Multi-view's does, and
+  comes back with the pointer, a key or the wheel.
+- **A long show's seasons scroll.** The season bar keeps its height and
+  scrolls sideways, with the mouse wheel too.
+- **Fixed:** Ctrl+K no longer pauses what's playing, and the Library's
+  history no longer stacks cards over each other.
+
+### Live scores, and the rest
 
 - **Live scores in Multi-view.** Press S, or the new button on the bar,
   for a row of live scores under your channels, the same cards as the
