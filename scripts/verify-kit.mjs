@@ -887,15 +887,45 @@ const dimmedText = () =>
     const labels = [...document.querySelectorAll(".srclist__sec")].map((l) => l.textContent.trim());
     const rows = [...document.querySelectorAll(".vod-source")].map((b) => {
       const s = getComputedStyle(b);
-      const lines = [...b.querySelectorAll(".vod-source__lines span")].map((l) => ({ w: getComputedStyle(l).fontWeight, ink: getComputedStyle(l).color }));
+      const lines = [...b.querySelectorAll(".vod-source__lines > span")].map((l) => ({ w: getComputedStyle(l).fontWeight, ink: getComputedStyle(l).color }));
       return { r: s.borderTopLeftRadius, border: s.borderTopWidth, shadow: s.boxShadow, bg: s.backgroundColor, tab: b.tabIndex, cache: b.dataset.cache, lines };
     });
-    return { bottom: c.bottom, top: c.top, hdrBottom: hdr?.bottom, labels, rows, foot: document.querySelector(".srclist__foot")?.textContent.replace(/\s+/g, " ").trim() };
+    const cs = getComputedStyle(document.querySelector(".vod-sources"));
+    const half = document.querySelector(".halfstar");
+    const star = (ch) => {
+      const t = document.createElement("span");
+      t.textContent = ch;
+      half.parentElement.append(t);
+      const w = t.getBoundingClientRect().width;
+      t.remove();
+      return w;
+    };
+    const stars = half && {
+      text: [...document.querySelectorAll(".vod-source__lines")].map((l) => l.textContent).join("|"),
+      w: half.getBoundingClientRect().width,
+      outline: star("\u2606"),
+      fill: getComputedStyle(half.firstElementChild).clipPath,
+      overlay: half.firstElementChild.textContent,
+    };
+    return { stars, radius: cs.borderBottomLeftRadius, edge: cs.borderBottomWidth, bottom: c.bottom, top: c.top, hdrBottom: hdr?.bottom, labels, rows, foot: document.querySelector(".srclist__foot")?.textContent.replace(/\s+/g, " ").trim() };
   });
+  // Down the window, but stopping 32px short of its edge with its corners
+  // rounded (Adam, v0.10.17: "can the bottom of the panel not go to the
+  // edge of the window?").
   check(
-    "the sources run to the window's bottom edge, in one glass column",
-    Math.abs(col.bottom - H) <= 1 && col.top > (col.hdrBottom ?? 0),
-    `top ${col.top}, bottom ${col.bottom} of ${H}`,
+    "the sources run down the window to 32px short of its edge, in one glass column",
+    Math.abs(col.bottom - (H - 32)) <= 1 && col.top > (col.hdrBottom ?? 0) && col.radius === "16px" && col.edge === "1px",
+    `top ${col.top}, bottom ${col.bottom} of ${H}, corner ${col.radius}, edge ${col.edge}`,
+  );
+  // The fixture's "★⯪☆☆☆": the half star is drawn from ☆ and ★, since no
+  // Windows font has U+2BEA. Measured here as the text the line holds and
+  // the drawn star's width against a ☆'s, not by eye: this container's
+  // fonts may well draw the real character.
+  check(
+    "  a half star in a source's line is drawn from ☆ and a ★ clipped to its left half, not the character",
+    !!col.stars && !/[\u2BE8-\u2BEB]/.test(col.stars.text) && col.stars.text.includes("★☆★☆☆☆") &&
+      Math.abs(col.stars.w - col.stars.outline) < 0.5 && col.stars.overlay === "★" && col.stars.fill === "inset(0px 50% 0px 0px)",
+    JSON.stringify(col.stars),
   );
   check(
     "  grouped by what is known about the cache, each group with its count",

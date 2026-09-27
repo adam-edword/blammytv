@@ -814,21 +814,23 @@
  * they used to be is gone with the rest of the hand-written button paint. */
 
 /* ---- source column (plan 019, "Sources") ----
- * One glass column from under the header to the window's bottom edge, the
- * list scrolling inside it with the group labels sticking to its top, and
- * the keys and the count along the bottom. A short list ends where it
+ * One glass column from under the header to 32px above the window's bottom,
+ * the list scrolling inside it with the group labels sticking to its top,
+ * and the keys and the count along the bottom. A short list ends where it
  * ends; the column still runs down (Adam: "i still want it to extend all
- * the way down when possible"). The glass is the dark one a chip on a
- * picture takes: what is behind it is the title's art. */
+ * the way down when possible"), but not onto the window's edge (v0.10.17:
+ * "can the bottom of the panel not go to the edge of the window?"). 32px
+ * is the bottom the episodes page keeps. The glass is the dark one a chip
+ * on a picture takes: what is behind it is the title's art. */
 .vod-sources {
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   margin-top: calc(var(--header-h, 76px) + 12px);
+  margin-bottom: 32px;
   border: 1px solid var(--chip-edge);
-  border-bottom: 0;
-  border-radius: 16px 16px 0 0;
+  border-radius: 16px;
   background: var(--chip-bg);
   backdrop-filter: blur(18px) saturate(1.4);
   overflow: hidden;
@@ -896,11 +898,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  /* Off the window's edge: the column runs to the bottom (Adam's call),
-   * and its last 42px sat flush against it. The extra is under the keys,
-   * so they read as the column's foot and not as the window's. */
-  height: 54px;
-  padding: 0 18px 8px;
+  height: 48px;
+  padding: 0 18px;
   border-top: 1px solid var(--chip-edge);
   font-size: 12.5px;
   color: color-mix(in srgb, var(--on-image) 65%, transparent);
@@ -957,15 +956,38 @@
   line-height: 1.4;
   color: color-mix(in srgb, var(--on-image) 65%, transparent);
 }
-.vod-source__lines span {
+.vod-source__lines > span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.vod-source__lines span:first-child {
+.vod-source__lines > span:first-child {
   font-size: 15px;
   font-weight: 600;
   color: var(--on-image);
+}
+/* The half stars an addon rates with (U+2BE8 to U+2BEB, "★⯪☆☆☆"): no font
+ * Windows ships has them, so each came out a box (Adam, v0.10.17). Drawn
+ * instead from ☆ and ★, which the rest of the rating already uses: the
+ * outline is a real ☆, and a ★ sits on it clipped to the half the character
+ * names. The two with no outline keep the ☆'s width and hide it. */
+.halfstar {
+  position: relative;
+  display: inline-block;
+}
+.halfstar > span {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 50% 0 0);
+}
+.halfstar--right > span {
+  clip-path: inset(0 0 0 50%);
+}
+.halfstar--bare {
+  visibility: hidden;
+}
+.halfstar--bare > span {
+  visibility: visible;
 }
 .vod-source__play {
   flex: none;

@@ -210,7 +210,9 @@ function streams(id) {
     },
     {
       name: "1080p | Debrid",
-      description: "Fake 1080p\n2.1GB",
+      // A rating line as Adam's addon writes one, with the half star no
+      // Windows font has (v0.10.17; verify-kit checks it is drawn).
+      description: "Fake 1080p\n2.1GB\n★⯪☆☆☆",
       url: `http://localhost:${PORT}/video/${id}-1080.mp4`,
       behaviorHints: { bingeGroup: "fake|1080p" },
     },
