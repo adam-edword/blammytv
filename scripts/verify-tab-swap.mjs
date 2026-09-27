@@ -94,18 +94,34 @@ const sample = async (p, dest) => {
   );
 
   // Every property in flight must be one the compositor can own alone.
-  const props = await p.evaluate(async () => {
+  //
+  // WHEN to look is the hard part. The entrance starts after the settle
+  // window AND the transition's render, and the render is what moves under
+  // load. This used to take one sample at 250ms and failed 2 of 4 runs at
+  // v0.10.28 with "0 animations": the entrance had not started yet. Logged
+  // every frame, it starts 213-220ms after the click unthrottled, 345-391ms
+  // at 4x CPU throttling and 590-720ms at 6x, and it was there every time.
+  // So watch every frame from the click and read the first entrance that
+  // appears. An empty list still proves nothing, so no entrance by the
+  // deadline is a failure, not a pass.
+  const props = await p.evaluate(() => new Promise((resolve) => {
     const m = document.querySelector(".app-main");
+    // Anything already running is not this click's entrance.
+    const before = new Set(m.getAnimations());
+    const t0 = performance.now();
     document.querySelector('[data-dest="discover"]').click();
-    // The entrance only starts after the settle window, so sample INSIDE
-    // it -- an empty list here would prove nothing at all.
-    await new Promise((r) => setTimeout(r, 250));
-    const running = m.getAnimations();
-    return { n: running.length, keys: [...new Set(running.flatMap((a) =>
-      a.effect.getKeyframes().flatMap((k) => Object.keys(k)))
-      .filter((k) => !["offset", "computedOffset", "easing", "composite"].includes(k)))] };
-  });
-  check("the entrance is actually running when sampled", props.n > 0, `${props.n} animations`);
+    const tick = () => {
+      const t = Math.round(performance.now() - t0);
+      const running = m.getAnimations().filter((a) => !before.has(a));
+      if (!running.length && t < 1500) return requestAnimationFrame(tick);
+      resolve({ n: running.length, t, keys: [...new Set(running.flatMap((a) =>
+        a.effect.getKeyframes().flatMap((k) => Object.keys(k)))
+        .filter((k) => !["offset", "computedOffset", "easing", "composite"].includes(k)))] });
+    };
+    requestAnimationFrame(tick);
+  }));
+  check("the entrance runs after the click", props.n > 0,
+    props.n ? `${props.n} animations, first seen ${props.t}ms after the click` : `none by ${props.t}ms`);
   check("compositor-only properties",
     props.keys.length > 0 && props.keys.every((k) => k === "opacity" || k === "transform"),
     JSON.stringify(props.keys));
