@@ -48,6 +48,9 @@ export interface CompRect {
 export interface TheaterMeta {
   channelName: string;
   logo?: string;
+  /** VOD: the title's wide art, blurred into the loading screen behind the
+   * logo (VodLoading). */
+  backdrop?: string;
   title?: string;
   description?: string;
   /** CONTENT TYPE: true = live TV, false = VOD. The overlay derives its

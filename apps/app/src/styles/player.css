@@ -94,37 +94,12 @@
 .tune--vod {
   background: #000;
 }
-/* The art and its glow, one on the other, breathing as one: the animation
- * is the pair's, so they can never drift out of step. */
-.tune__vodart {
-  display: grid;
-  place-items: center;
-  animation: tune-breathe 2.8s ease-in-out infinite;
-}
-.tune__vodart > img {
-  grid-area: 1 / 1;
-}
 .tune__vodlogo {
   width: clamp(260px, 40vw, 560px);
   max-height: 40vh;
   object-fit: contain;
-  /* With the glow behind it, the dark edge keeps a white logo from
-   * dissolving into a white glow. */
   filter: drop-shadow(0 6px 28px rgba(0, 0, 0, 0.6));
-}
-/* The logo again, four times the size and blurred to a haze in its own
- * colours (v0.10.20; Adam: "the image itself needs to be huge"). Saturated so
- * a red emblem glows red rather than pink; a white logo gets a soft white
- * light. The blur is applied before the scale, so the 24px here spreads to
- * about 96px on screen. Picked side by side: at 1.8x it was a halo around
- * the logo, and at 5.5x a white centre turned the middle of the glow grey. */
-.tune__vodglow {
-  width: clamp(260px, 40vw, 560px);
-  max-height: 40vh;
-  object-fit: contain;
-  scale: 4;
-  filter: blur(24px) saturate(2.4);
-  opacity: 0.9;
+  animation: tune-breathe 2.8s ease-in-out infinite;
 }
 .tune__vodtitle {
   font-family: var(--font-headline);
@@ -146,10 +121,78 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tune__vodart,
+  .tune__vodlogo,
   .tune__vodtitle {
     animation: none;
     opacity: 0.85;
+  }
+}
+
+/* A title's loading screen (VodLoading.tsx, v0.10.21): its backdrop blurred
+ * into a dark wash, the logo in the middle, a stage bar along the bottom.
+ * Taken from Adam's reference, measured off his screenshot: about rgb 45 in
+ * the middle, black by the edges and corners. */
+.vodload {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+  overflow: hidden;
+}
+.vodload__bg {
+  position: absolute;
+  inset: 0;
+}
+/* Static on purpose: nothing animates the blurred layer, so it is drawn
+ * once. The logo breathes on its own layer above it. */
+.vodload__bg > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(64px) brightness(0.42) saturate(1.25);
+}
+/* Black at the edges and corners, where the blur also thins out. */
+.vodload__bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 72% 68% at 50% 50%, transparent 30%, #000 100%);
+}
+.vodload__art {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+.vodload__bar {
+  position: absolute;
+  left: max(32px, 17%);
+  right: max(32px, 17%);
+  bottom: 56px;
+}
+.vodload__track {
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.16);
+  overflow: hidden;
+}
+/* Moves when a stage changes, never on a timer (VodLoading.tsx). */
+.vodload__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(255 255 255 / 0.9);
+  transform-origin: left;
+  transform: scaleX(var(--at));
+  transition: transform 700ms var(--ease-out, ease-out);
+}
+.vodload__label {
+  margin: 12px 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vodload__fill {
+    transition: none;
   }
 }
 

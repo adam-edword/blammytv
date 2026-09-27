@@ -47,6 +47,7 @@ import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
 import { setOverlayApiOverride } from "../live/overlayApi";
 import { InvertedPlayer } from "../live/InvertedPlayer";
+import { VodLoading } from "../live/VodLoading";
 import { TheaterOverlay } from "../live/TheaterOverlay";
 import { useDirectOverlay } from "../live/useDirectOverlay";
 import type { Episode, Season, StreamSource, VodData, VodItem } from "./model";
@@ -195,6 +196,7 @@ export function StreamScreen() {
   const [slowResolve, setSlowResolve] = useState(false);
   const [resolving, setResolving] = useState<{
     art?: string;
+    backdrop?: string;
     title: string;
   } | null>(null);
   /**
@@ -221,7 +223,7 @@ export function StreamScreen() {
    * common one.
    */
   const resolveGen = useRef(0);
-  const armResolve = useCallback((r: { art?: string; title: string }) => {
+  const armResolve = useCallback((r: { art?: string; backdrop?: string; title: string }) => {
     setResolving(r);
     return ++resolveGen.current;
   }, []);
@@ -474,7 +476,11 @@ export function StreamScreen() {
       // The resolving screen unmounts this tree too — same reason as
       // setPlaying, same fix.
       captureScroll();
-      const gen = armResolve({ art: item.logo ?? item.poster, title: item.title });
+      const gen = armResolve({
+        art: item.logo ?? item.poster,
+        backdrop: item.backdrop ?? item.poster,
+        title: item.title,
+      });
       try {
         const sources = await resolveVodSources("movie", item.id);
         if (gen !== resolveGen.current) return; // cancelled while we waited
@@ -600,7 +606,11 @@ export function StreamScreen() {
        * playingRef, which is what we are about to clear.
        */
       setPlaying(null);
-      const gen = armResolve({ art: item.logo ?? item.poster, title: item.title });
+      const gen = armResolve({
+        art: item.logo ?? item.poster,
+        backdrop: item.backdrop ?? item.poster,
+        title: item.title,
+      });
       const label = `S${season.number} · E${episode.number}: ${episode.title}`;
       const info = {
         season: season.number,
@@ -748,6 +758,8 @@ export function StreamScreen() {
       captureScroll();
       const gen = armResolve({
         art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
+        // entry.art is the landscape art when there is one (watching.ts).
+        backdrop: known?.backdrop ?? entry.art ?? known?.poster,
         title: entry.title,
       });
       /**
@@ -869,6 +881,8 @@ export function StreamScreen() {
       captureScroll();
       const gen = armResolve({
         art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
+        // entry.art is the landscape art when there is one (watching.ts).
+        backdrop: known?.backdrop ?? entry.art ?? known?.poster,
         title: entry.title,
       });
       let item = known;
@@ -1036,6 +1050,7 @@ export function StreamScreen() {
         ? {
             channelName: playing.item.title,
             logo: playing.item.logo ?? playing.item.poster,
+            backdrop: playing.item.backdrop ?? playing.item.poster,
             title: playing.label ?? playing.item.title,
             description: playing.item.synopsis,
             live: false,
@@ -1373,17 +1388,15 @@ export function StreamScreen() {
   if (resolving && !playing && isTauri()) {
     return (
       <div className="vod-stage vod-stage--popped">
-        <div className="vod-pip">
-          {resolving.art ? (
-            <img
-              className="tune__vodlogo"
-              src={resolving.art}
-              alt=""
-              aria-hidden
-            />
-          ) : (
-            <span className="tune__vodtitle">{resolving.title}</span>
-          )}
+        {/* The first half of the loading screen the player finishes
+          * (VodLoading): same wash, same logo, the bar at its first stage. */}
+        <VodLoading
+          art={resolving.art}
+          backdrop={resolving.backdrop}
+          title={resolving.title}
+          stage="finding"
+          slow={slowResolve}
+        >
           {/* A WAY OUT, and a reason to wait.
             *
             * Resolving is one or two addon requests and they inherit the
@@ -1393,11 +1406,8 @@ export function StreamScreen() {
             * out while a .vod-stage exists, so Escape did nothing either.
             * There was no control on the screen at all.
             *
-            * The line appears only once the wait stops looking normal, so
-            * a fast resolve never flashes it. */}
-          {slowResolve && (
-            <p className="tune__vodslow">Still looking for a source…</p>
-          )}
+            * The bar's label turns to "Still looking for a source" once the
+            * wait stops looking normal, so a fast resolve never flashes it. */}
           <Button
             variant="secondary"
             size="sm"
@@ -1407,7 +1417,7 @@ export function StreamScreen() {
           >
             Cancel
           </Button>
-        </div>
+        </VodLoading>
       </div>
     );
   }

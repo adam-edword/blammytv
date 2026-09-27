@@ -144,6 +144,17 @@ const opened = (page) =>
 {
   const page = await toResolving();
   check("the resolving screen appears while sources are fetched", true);
+  // v0.10.21: the first half of the loading screen the player finishes, so
+  // it starts with the same bar at its first stage, the Cancel under the art.
+  const stage = await page.evaluate(() => ({
+    label: document.querySelector(".vodload__label")?.textContent,
+    cancelInside: !!document.querySelector(".vodload .tune__vodcancel"),
+  }));
+  check(
+    "  it is the loading screen at its first stage, Finding a source, with Cancel on it",
+    stage.label === "Finding a source…" && stage.cancelInside,
+    JSON.stringify(stage),
+  );
   check("nothing is playing yet", (await opened(page)) === false);
   await page.waitForFunction(
     () => window.__tauriCalls.some((c) => c[0] === "inv_open"),

@@ -26,6 +26,7 @@ import {
   type SkipBehavior,
 } from "../settings/skipBehavior";
 import { useLogoInk } from "../../lib/logoInk";
+import { VodLoading } from "./VodLoading";
 import { StatsOverlay } from "./StatsOverlay";
 import { livePctFor } from "./liveEdge";
 import { CLOCK_TICK_MS, projectPos } from "./clock";
@@ -1468,7 +1469,9 @@ export function TheaterOverlay({
         }
       }}
     >
-      {loading && <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} />}
+      {loading && (
+        <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} opened={time != null} />
+      )}
       {/* Only once a picture is up: while `loading` the TuneCard already
           owns the screen, and two spinners for one wait is worse than none. */}
       {!loading && buffering && (
@@ -1560,6 +1563,11 @@ export function TheaterOverlay({
         </Button>
       )}
 
+      {/* Not while a VOD loads: the loading screen has the logo in the
+        * middle and its own bar along the bottom, and this one put a second
+        * logo and a dead scrubber under it (Adam, v0.10.21: "that way when
+        * loading there aren't 2 visible logos"). */}
+      {!(vod && loading) && (
       <div className="theater-bar">
         {meta && (
           <div className="theater-bar__meta">
@@ -2010,6 +2018,7 @@ export function TheaterOverlay({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -2024,11 +2033,15 @@ function TuneCard({
   onRetry,
   compact = false,
   vod = false,
+  opened = false,
 }: {
   meta: TheaterMeta | null;
   phase: "waiting" | "retrying" | "dead";
   onRetry: () => void;
   compact?: boolean;
+  /** VOD: mpv has opened the file (a position and a duration are in), so
+   * the loading bar reads Buffering rather than Opening. */
+  opened?: boolean;
   /** VOD variant: solid black, just the title art breathing — no text,
    * no status. The dead card still shows (over black) so a broken
    * source stays diagnosable. */
@@ -2036,19 +2049,13 @@ function TuneCard({
 }) {
   if (vod && phase !== "dead") {
     return (
-      <div className="tune tune--vod" aria-live="polite">
-        {meta?.logo ? (
-          // The same art twice: a blown-up, blurred copy behind the logo,
-          // so it glows in its own colours while the video loads (Adam,
-          // v0.10.20: "scale a new show logo over the black vod, super
-          // blurred"). The pair breathes together.
-          <div className="tune__vodart">
-            <img className="tune__vodglow" src={meta.logo} alt="" aria-hidden />
-            <img className="tune__vodlogo" src={meta.logo} alt="" aria-hidden />
-          </div>
-        ) : (
-          <span className="tune__vodtitle">{meta?.channelName ?? ""}</span>
-        )}
+      <div className="tune tune--vod">
+        <VodLoading
+          art={meta?.logo}
+          backdrop={meta?.backdrop}
+          title={meta?.channelName ?? ""}
+          stage={opened ? "buffering" : "opening"}
+        />
       </div>
     );
   }

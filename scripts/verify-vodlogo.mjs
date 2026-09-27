@@ -1,18 +1,23 @@
-// Headless verify: a show's logo in the player (v0.10.20).
+// Headless verify: a title's loading screen and its logo in the player
+// (v0.10.20, v0.10.21).
 //
 // Adam, on a Demon Slayer episode: "can you left justify the logo over the
-// episode title?", and for the black loading screen, "scale a new show logo
-// over the black vod, super blurred, to give it a sorta glowing effect".
-// Show logos often arrive as wide transparent PNGs with the mark in the
-// middle, so the file's edge sat flush with the title and the mark did not.
+// episode title?". Show logos often arrive as wide transparent PNGs with the
+// mark in the middle, so the file's edge sat flush with the title and the
+// mark did not. Then, for the black loading screen, pointing at another
+// app's: the backdrop blurred into a wash, and "a similar loading bar like
+// they did? that way when loading there aren't 2 visible logos".
 // What this proves, on the `?overlay=1` seam with a mocked overlayApi (as
-// verify-overlay-tracks) and a logo drawn here with lopsided padding:
-// - loading, a blurred copy of the logo sits behind it, bigger, on the same
-//   centre, and it paints in the logo's own colour outside the logo's box;
-// - played, the title logo is cropped to its ink across the width, and the
-//   ink starts where the title starts, at the logo's own height;
-// - a logo whose pixels can't be read (no CORS here, as a host that sends
-//   none) shows exactly as before rather than not at all.
+// verify-overlay-tracks), a logo drawn here with lopsided padding and a warm
+// backdrop:
+// - loading, one logo on screen, over the backdrop blurred and darkened to
+//   a wash that is warm in the middle and black in the corners;
+// - the bar reads Opening the stream, then Buffering once mpv reports the
+//   file's position and duration, and moves forward when it does;
+// - played, the loading screen is gone and the title logo is cropped to its
+//   ink across the width, the ink starting where the title starts;
+// - a logo whose pixels can't be read (its host sends no CORS) shows
+//   exactly as before rather than not at all.
 //
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-vodlogo.mjs
 //   (vite on :4173; pnpm verify runs it with everything else)
@@ -48,11 +53,27 @@ const png = await scratch.evaluate(() => {
   g.fill();
   return c.toDataURL("image/png").split(",")[1];
 });
+// The backdrop: 1280x720, warm on the left and grey on the right, the way a
+// show's key art tends to be. Only its tone matters here.
+const wide = await scratch.evaluate(() => {
+  const c = document.createElement("canvas");
+  c.width = 1280;
+  c.height = 720;
+  const g = c.getContext("2d");
+  const grad = g.createLinearGradient(0, 0, 1280, 0);
+  grad.addColorStop(0, "#c46a2e");
+  grad.addColorStop(0.5, "#8a5a44");
+  grad.addColorStop(1, "#6e6a6a");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 1280, 720);
+  return c.toDataURL("image/png").split(",")[1];
+});
 await scratch.close();
 const body = Buffer.from(png, "base64");
+const backdrop = Buffer.from(wide, "base64");
 
-// Reduced motion: the pair's breathing stops at a steady 0.85, so the glow's
-// colour can be read at a known strength rather than wherever the cycle is.
+// Reduced motion: the logo stops breathing and the bar stops easing, so both
+// can be read at once rather than wherever a cycle or a transition is.
 const ctx = await browser.newContext({
   viewport: { width: 1600, height: 900 },
   screen: { width: 1920, height: 1080 },
@@ -67,18 +88,22 @@ await ctx.route(
     if (u.hostname !== "logos.test") return r.abort();
     // Playwright adds an allow-origin of its own to a fulfilled CORS request
     // that names none, so the unreadable one names somebody else's origin.
-    const cors = { "access-control-allow-origin": u.pathname === "/cors.png" ? "*" : "http://elsewhere.test" };
-    return r.fulfill({ status: 200, contentType: "image/png", headers: cors, body });
+    const cors = { "access-control-allow-origin": u.pathname === "/nocors.png" ? "http://elsewhere.test" : "*" };
+    const img = u.pathname === "/backdrop.png" ? backdrop : body;
+    return r.fulfill({ status: 200, contentType: "image/png", headers: cors, body: img });
   },
 );
 
 const mockBridge = (logo) => {
   let loading = true;
   let loadingCbs = [];
+  let timeCbs = [];
   window.__setLoading = (v) => {
     loading = v;
     loadingCbs.slice().forEach((cb) => cb(v));
   };
+  // What the status poll pushes once mpv has opened the file.
+  window.__pushTime = (t) => timeCbs.slice().forEach((cb) => cb(t));
   const unsub = () => () => {};
   window.overlayApi = {
     close() {}, setPause() {}, setMute() {}, setVolume() {}, seek() {},
@@ -90,12 +115,17 @@ const mockBridge = (logo) => {
         channelName: "Demon Slayer",
         live: false,
         logo,
+        backdrop: "http://logos.test/backdrop.png",
         title: "I Even Ate Demons...",
         description: "It is the Taisho Period in Japan.",
         vod: { season: 5, episode: 5, title: "I Even Ate Demons..." },
       });
     },
-    onMeta: unsub, onKey: unsub, onTime: unsub,
+    onMeta: unsub, onKey: unsub,
+    onTime(cb) {
+      timeCbs.push(cb);
+      return () => { timeCbs = timeCbs.filter((x) => x !== cb); };
+    },
     onLoading(cb) {
       loadingCbs.push(cb);
       return () => { loadingCbs = loadingCbs.filter((x) => x !== cb); };
@@ -145,54 +175,66 @@ const wake = async (page) => {
 // ---------------------------------------------------------------- loading
 {
   const page = await open("http://logos.test/cors.png");
-  await page.locator(".tune__vodglow").waitFor({ timeout: 10_000 }).catch(() => {});
-  await page.waitForFunction(
-    () => [...document.querySelectorAll(".tune__vodart img")].every((i) => i.complete && i.naturalWidth > 0),
-    null,
-    { timeout: 10_000 },
-  ).catch(() => {});
-  const art = await page.evaluate(() => {
-    const glow = document.querySelector(".tune__vodglow");
-    const logo = document.querySelector(".tune__vodlogo");
-    if (!glow || !logo) return null;
-    const r = (e) => e.getBoundingClientRect();
-    const g = r(glow);
-    const l = r(logo);
+  await page.locator(".vodload__bg img[data-loaded]").waitFor({ timeout: 10_000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  const screen = await page.evaluate(() => {
+    const bg = document.querySelector(".vodload__bg img");
+    const r = bg?.getBoundingClientRect();
+    const visibleLogos = [...document.querySelectorAll("img.tune__vodlogo, img.theater-bar__logo")].filter(
+      (i) => i.getBoundingClientRect().width > 0,
+    );
     return {
-      same: glow.getAttribute("src") === logo.getAttribute("src"),
-      behind: glow.compareDocumentPosition(logo) === Node.DOCUMENT_POSITION_FOLLOWING,
-      filter: getComputedStyle(glow).filter,
-      glow: { w: g.width, h: g.height, cx: g.left + g.width / 2, cy: g.top + g.height / 2 },
-      logo: { x: l.left, y: l.top, w: l.width, h: l.height, cx: l.left + l.width / 2, cy: l.top + l.height / 2 },
+      bg: bg && { src: bg.getAttribute("src"), filter: getComputedStyle(bg).filter, box: [r.left, r.top, r.width, r.height] },
+      logos: visibleLogos.map((i) => i.className),
+      playerBar: !!document.querySelector(".theater-bar"),
     };
   });
   check(
-    "loading: the logo has a blurred copy of itself behind it, four times the size and on the same centre",
-    !!art &&
-      art.same &&
-      art.behind &&
-      /blur\(24px\)/.test(art.filter) &&
-      art.glow.w > art.logo.w * 3.9 &&
-      Math.abs(art.glow.cx - art.logo.cx) < 1 &&
-      Math.abs(art.glow.cy - art.logo.cy) < 1,
-    JSON.stringify(art),
+    "loading: one logo on screen, over the backdrop blurred and darkened across the whole window",
+    !!screen.bg &&
+      screen.bg.src === "http://logos.test/backdrop.png" &&
+      /blur\(64px\)/.test(screen.bg.filter) &&
+      /brightness\(0\.42\)/.test(screen.bg.filter) &&
+      JSON.stringify(screen.bg.box) === JSON.stringify([0, 0, 1600, 900]) &&
+      JSON.stringify(screen.logos) === JSON.stringify(["tune__vodlogo"]) &&
+      !screen.playerBar,
+    JSON.stringify(screen),
   );
-
-  // The disc is drawn at 30-50% of the file, centred at 40%, so in the
-  // logo's 3:1 box its centre sits at 40% of the box's width. Read above the
-  // logo's box on that line, clear of the logo itself: only the glow can put
-  // anything there. And a corner of the window, which nothing should reach.
-  const x = art.logo.x + art.logo.w * 0.4;
-  const [above, corner] = await pixels(page, [
-    [x, art.logo.y - 24],
-    [20, 20],
+  // Warm and dark in the middle band (the reference measured about rgb 45
+  // there), black by the corners.
+  const [mid, corner] = await pixels(page, [
+    [400, 450],
+    [12, 12],
   ]);
+  const lum = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
   check(
-    "  and it glows in the logo's own colour outside the logo, and nowhere near the corners",
-    red(above) && Math.max(...corner) < 8,
-    JSON.stringify({ above, corner }),
+    "  a wash in the backdrop's colours, warm and dark in the middle and black in the corners",
+    lum(mid) > 15 && lum(mid) < 90 && mid[0] > mid[2] + 8 && Math.max(...corner) < 10,
+    JSON.stringify({ mid, corner }),
   );
   await page.screenshot({ path: (process.env.SHOT_DIR ?? "/tmp") + "/vodlogo-loading.png" });
+
+  const readBar = () =>
+    page.evaluate(() => {
+      const t = document.querySelector(".vodload__track")?.getBoundingClientRect();
+      const f = document.querySelector(".vodload__fill")?.getBoundingClientRect();
+      return {
+        label: document.querySelector(".vodload__label")?.textContent,
+        fill: t && f ? +(f.width / t.width).toFixed(2) : null,
+      };
+    });
+  const opening = await readBar();
+  await page.evaluate(() => window.__pushTime({ pos: 0, dur: 1420 }));
+  await page.waitForTimeout(300);
+  const buffering = await readBar();
+  check(
+    "  the bar reads Opening the stream, then Buffering once mpv has the file, and moves forward",
+    opening.label === "Opening the stream…" &&
+      buffering.label === "Buffering…" &&
+      opening.fill === 0.55 &&
+      buffering.fill === 0.85,
+    JSON.stringify({ opening, buffering }),
+  );
 
   // ------------------------------------------------------------- played
   await page.evaluate(() => window.__setLoading(false));
@@ -211,7 +253,7 @@ const wake = async (page) => {
       opacity: getComputedStyle(logo).opacity,
       logo: { x: l.left, y: l.top, w: l.width, h: l.height },
       titleX: title.getBoundingClientRect().left,
-      tune: !!document.querySelector(".tune"),
+      tune: !!document.querySelector(".tune, .vodload"),
     };
   });
   // The ink is 20% of a 600x200 file at 112px tall: 120 x 112/200 = 67px,
