@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import Tilt from "react-parallax-tilt";
-import { Card, ContinueCard, RowScroller } from "./StreamScreen";
+import { Card } from "../../ui/Card";
+import { RowScroller } from "../../ui/RowScroller";
+import { ContinueCard } from "./ContinueCard";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
 import { useViewStack } from "../../lib/viewStack";

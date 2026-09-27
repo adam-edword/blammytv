@@ -1678,6 +1678,40 @@ const dimmedText = () =>
     rule?.slot === "separator" && rule.role === "separator" && rule.h === 1 && rule.w === rule.box && rule.bg === hair && rule.m === "2px 2px",
     JSON.stringify({ ...rule, hair }),
   );
+
+  // RowScroller and Card live in ui/ (v0.10.31), and ContinueCard in its own
+  // file: a screen that exports primitives is why "redo one screen" kept
+  // touching three. So no file imports a screen's file but App, which mounts
+  // them. Read from the source, so a new cross-screen import fails here.
+  const crossed = [];
+  const scan = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) scan(p);
+      else if (/\.tsx?$/.test(e.name) && !p.endsWith(join("app", "App.tsx")))
+        for (const m of readFileSync(p, "utf8").matchAll(/from\s+"([^"]*\/\w+Screen)"/g))
+          crossed.push(`${p.slice(SRC.length + 1)} <- ${m[1]}`);
+    }
+  };
+  scan(SRC);
+  check("M2. no screen imports another screen's file: the rows and cards are in ui/", crossed.length === 0, crossed.join(" | ") || "only App mounts screens");
+  // And every screen that draws rows still draws them, cards and all.
+  const rows = {};
+  for (const dest of ["home", "discover", "mylist", "sports"]) {
+    await goTo(page, dest);
+    await page.locator(".media-row__viewport").first().waitFor({ timeout: 15_000 }).catch(() => {});
+    await page.waitForTimeout(600);
+    rows[dest] = await page.evaluate(() => ({
+      rows: document.querySelectorAll(".media-row__viewport").length,
+      posters: document.querySelectorAll(".stream-card").length,
+      cw: document.querySelectorAll(".media-row__viewport .continue-card").length,
+    }));
+  }
+  check(
+    "  and Stream, Discover, Library and Sports still draw their rows: posters, Continue Watching, the board's row",
+    rows.home.rows > 1 && rows.home.posters > 0 && rows.home.cw === 3 && rows.discover.rows > 0 && rows.discover.posters > 0 && rows.mylist.cw === 3 && rows.sports.rows > 0,
+    JSON.stringify(rows),
+  );
 }
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
