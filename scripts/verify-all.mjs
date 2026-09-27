@@ -180,7 +180,18 @@ for (const n of all) {
   // throw leaves a stack in the output; a failure leaves FAIL lines. A
   // non-zero exit with neither also counts as CRASH: something died
   // without saying so, which is worse, not better.
-  const threw = /^\s+at\s.+:\d+:\d+\)?\s*$/m.test(r.out);
+  //
+  // A throw wins over a FAIL line. A harness that fails a check and then
+  // dies has also skipped every check after the throw, so it is the
+  // dangerous shape, not the loud one.
+  //
+  // Any `at <path>:<line>:<col>` frame counts, whatever follows it. The
+  // regex used to insist the line END at the column number, and Playwright's
+  // TimeoutError doesn't: it prints one frame, `at …/verify-kit.mjs:1806:31 {`,
+  // with the error's own props after the brace. So verify-kit failed a
+  // check, threw, and read FAILED 114✓ 1✗, the six checks after the throw
+  // gone without a trace (v0.10.34 work).
+  const threw = /^\s+at\s.+:\d+:\d+/m.test(r.out);
   const status =
     r.signal === "SIGKILL"
       ? "TIMEOUT"
@@ -214,13 +225,17 @@ if (bad.length) {
   // WHICH check, not just how many. From a CI log there is no rerunning
   // the one harness by hand, and "59✓ 1✗" says nothing about what broke.
   // A FAILED row gets its FAIL lines; a CRASH or TIMEOUT gets the tail of
-  // its output, which is where the stack is.
+  // its output, which is where the stack is, and any FAIL lines from before
+  // it died. A Playwright call log can run past fifteen lines on its own.
   for (const r of bad) {
     const lines = r.out.split("\n");
+    const failed = lines.filter((l) => /^\s*(FAIL|✗)/.test(l)).slice(0, 12);
+    const tail = lines.filter((l) => l.trim()).slice(-15);
+    const above = failed.filter((l) => !tail.includes(l));
     const shown =
       r.status === "FAILED"
-        ? lines.filter((l) => /^\s*(FAIL|✗)/.test(l)).slice(0, 12)
-        : lines.filter((l) => l.trim()).slice(-15);
+        ? failed
+        : [...above, ...(above.length ? ["…"] : []), ...tail];
     console.log(`\n── ${r.n} (${r.status})`);
     for (const l of shown) console.log(`   ${l}`);
   }
