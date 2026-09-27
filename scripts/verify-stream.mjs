@@ -72,6 +72,40 @@ const stillHere = await page.evaluate(() => {
 check("autoplay holds while focus is in the hero", stillHere);
 await page.evaluate(() => document.activeElement?.blur());
 
+// Click-and-drag on a shelf (lib/useDragScroll since v0.10.18, shared with
+// multi-view's scores row): the row follows the pointer 1:1, and the card
+// the drag started on stays shut.
+const probed = await page.evaluate(() => {
+  const el = [...document.querySelectorAll(".media-row__scroller")].find((s) => s.scrollWidth > s.clientWidth + 200);
+  if (!el) return false;
+  el.scrollLeft = 0;
+  el.dataset.dragProbe = "1";
+  return true;
+});
+const shelf = page.locator("[data-drag-probe]");
+let shelfDrag = { probed };
+if (probed) {
+  const card = shelf.locator(".stream-card").nth(1);
+  await card.scrollIntoViewIfNeeded();
+  const b = await card.boundingBox();
+  const from = await shelf.evaluate((el) => el.scrollLeft);
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 - 200, b.y + b.height / 2, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  shelfDrag = { probed, from, to: await shelf.evaluate((el) => el.scrollLeft).catch(() => null), detail: await page.locator(".vod-detail").count() };
+  // A drag that opened the card left the shelf behind: back out, so the
+  // rest of the run reads as it would have and this reads as a FAIL.
+  if (shelfDrag.detail) await page.locator(".vod-back").click();
+  await shelf.evaluate((el) => (el.scrollLeft = 0), null, { timeout: 5000 }).catch(() => {});
+}
+check(
+  "a shelf drags sideways under the mouse, and the card it started on stays shut",
+  probed && Math.abs(shelfDrag.to - shelfDrag.from - 200) <= 2 && shelfDrag.detail === 0,
+  JSON.stringify(shelfDrag),
+);
+
 // Movie detail + sources
 await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
 await page.waitForFunction(() => document.body.innerText.includes("Sources"), null, { timeout: 15_000 }).catch(() => {});

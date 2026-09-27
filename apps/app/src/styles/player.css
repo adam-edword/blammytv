@@ -1228,8 +1228,8 @@
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent);
 }
 
-/* One line. The wheel scrolls it sideways (MultiviewScores); the bar is hidden
- * because the cards cut off at the edge say there is more. */
+/* One line. The wheel or a drag scrolls it sideways (MultiviewScores); the
+ * bar is hidden because the cards cut off at the edge say there is more. */
 .mvscores__row {
   flex: 1;
   min-width: 0;
@@ -1244,6 +1244,15 @@
 }
 .mvscores__row::-webkit-scrollbar {
   display: none;
+}
+/* Mid-drag (lib/useDragScroll), as a Stream shelf: the row is grabbed, and
+ * no card under the pointer lights up as it passes. */
+.mvscores__row.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.mvscores__row.is-dragging * {
+  pointer-events: none;
 }
 
 /* The league, said once before its games, as the theater says it over them. */

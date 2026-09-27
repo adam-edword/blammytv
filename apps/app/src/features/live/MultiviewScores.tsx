@@ -3,6 +3,7 @@ import { CompactCard } from "../sports/CompactCard";
 import type { Fixture } from "../sports/model";
 import { LeaguesIcon } from "../../ui/icons";
 import { Hint } from "../../ui/Hint";
+import { useDragScroll } from "../../lib/useDragScroll";
 
 /**
  * Multi-view's Live Scores row (Adam, v0.10.6: "at the bottom in one
@@ -48,6 +49,9 @@ export function MvScoresRow({
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+  // And a mouse drags it, as a Stream shelf drags (Adam, v0.10.18: "add
+  // click/drag to the score bar"). A drag never opens the card it ends on.
+  const dragScroll = useDragScroll(row);
 
   let league = "";
   return (
@@ -62,7 +66,7 @@ export function MvScoresRow({
           <LeaguesIcon size={18} />
         </button>
       </Hint>
-      <div className="mvscores__row" ref={row}>
+      <div className="mvscores__row" ref={row} {...dragScroll}>
         {games.length === 0 ? (
           <p className="mvscores__empty">
             {!looked

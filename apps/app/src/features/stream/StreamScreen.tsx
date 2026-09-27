@@ -27,6 +27,7 @@ import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { artLoaded } from "../../lib/artIn";
 import { wantsEpisodeList } from "./backTarget";
 import { useMouseNav } from "../../lib/mouseNav";
+import { useDragScroll } from "../../lib/useDragScroll";
 import { useViewStack } from "../../lib/viewStack";
 
 // Fixed-at-mount OS motion preference (the Onboarding pattern): read ONCE at
@@ -2002,95 +2003,17 @@ export function RowScroller({ children }: { children: ReactNode }) {
         ? "auto"
         : "smooth",
     });
-  // Click-and-drag scrolling: pointer deltas map 1:1 onto scrollLeft (no
-  // physics — native feel only). Past a small slop the gesture is a DRAG:
-  // capture the pointer and swallow the next click so the card under the
-  // cursor doesn't open. Serves every row: Stream home, Continue
-  // Watching, and Discover's genre rail all render through here.
-  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(
-    null,
-  );
-  // Set when a drag ends; the gesture's trailing click (which fires AFTER
-  // pointerup) checks-and-clears it in the capture phase, before any
-  // card's own onClick can open something.
-  const justDragged = useRef(false);
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || e.pointerType !== "mouse") return; // touch scrolls natively
-    const el = ref.current;
-    if (!el) return;
-    justDragged.current = false;
-    drag.current = { x: e.clientX, left: el.scrollLeft, moved: false };
-  };
-  /** Drop a gesture whose end we never saw. Deliberately does NOT arm the
-   * click latch: there is no trailing click to swallow. */
-  const abandonDrag = () => {
-    drag.current = null;
-    ref.current?.classList.remove("is-dragging");
-  };
-  // Losing the window mid-drag is the common way an up event goes missing,
-  // and `lostpointercapture` covers the OS releasing capture on its own.
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    window.addEventListener("blur", abandonDrag);
-    el.addEventListener("lostpointercapture", abandonDrag);
-    return () => {
-      window.removeEventListener("blur", abandonDrag);
-      el.removeEventListener("lostpointercapture", abandonDrag);
-    };
-  }, []);
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    const el = ref.current;
-    if (!d || !el) return;
-    // This fires on plain HOVER too, not only mid-drag. If the terminating
-    // pointerup never arrived — alt-tab away with the button down and the
-    // OS can drop pointer capture without one — `drag` stays armed, and
-    // the next hover starts a phantom drag whose .is-dragging sets
-    // pointer-events:none on the whole row. Hover then looks broken until
-    // some later drag happens to end cleanly. No buttons down means the
-    // gesture is over, whatever events did or did not arrive.
-    if (e.buttons === 0) return abandonDrag();
-    const dx = e.clientX - d.x;
-    if (!d.moved && Math.abs(dx) < 6) return; // click slop
-    if (!d.moved) {
-      d.moved = true;
-      el.setPointerCapture(e.pointerId);
-      el.classList.add("is-dragging");
-    }
-    el.scrollLeft = d.left - dx;
-  };
-  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    const el = ref.current;
-    drag.current = null;
-    if (!d?.moved || !el) return;
-    justDragged.current = true;
-    // Self-heal: if the trailing click never arrives (capture-release
-    // edge cases), don't leave the latch armed to eat a later real click.
-    window.setTimeout(() => {
-      justDragged.current = false;
-    }, 250);
-    el.releasePointerCapture(e.pointerId);
-    el.classList.remove("is-dragging");
-  };
-  const swallowDragClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!justDragged.current) return;
-    justDragged.current = false;
-    e.preventDefault();
-    e.stopPropagation();
-  };
+  // Click-and-drag scrolling (lib/useDragScroll). Serves every row: Stream
+  // home, Continue Watching, and Discover's genre rail all render through
+  // here.
+  const dragScroll = useDragScroll(ref);
   return (
     <div className="media-row__viewport">
       <div
         className="media-row__scroller"
         ref={ref}
         onKeyDown={onKeyDown}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onClickCapture={swallowDragClick}
+        {...dragScroll}
       >
         {children}
       </div>
