@@ -296,8 +296,12 @@ two calls taken by Adam the same day (below).
 
 ### M5: 1.0
 
-- TheaterOverlay's clock: it re-renders the whole 1,400-line overlay ten
-  times a second during VOD. Measure render counts before and after.
+- ~~TheaterOverlay's clock: it re-renders the whole 1,400-line overlay ten
+  times a second during VOD.~~ **Measured and done (v0.10.42).** The clock
+  stopped re-rendering at v0.9.0 (it writes its text to the node); what was
+  left was the 500ms position poll, 2 commits a second playing and paused
+  alike. Paused is 0 now; playing stays at 2, which the scrubber needs.
+  `verify-overlay-renders` holds it.
 - Every harness green, no generated component without a consumer, docs
   that match the tree.
 - Signed, with the reputation M3's installs have built, if decision 3

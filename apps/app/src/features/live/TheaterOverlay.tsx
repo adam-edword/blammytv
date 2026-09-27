@@ -409,8 +409,24 @@ export function TheaterOverlay({
   const [time, setTime] = useState<TimeInfo | null>(
     () => api()?.getTime?.() ?? null,
   );
+  const timeRef = useRef(time);
+  timeRef.current = time;
   useEffect(() => {
-    const off = api()?.onTime?.(setTime);
+    const off = api()?.onTime?.((t) => {
+      // The poll runs twice a second whether anything moved or not, and
+      // every answer was a new object, so a paused film re-rendered this
+      // whole chrome twice a second to draw the same frame (measured: 2
+      // commits a second paused, the same as playing). A repeat changes
+      // nothing on screen; it only re-anchors the projected clock, as every
+      // poll always has, so a stall the chrome does not know about still
+      // snaps the clock back.
+      const prev = timeRef.current;
+      if (prev && t && prev.pos === t.pos && prev.dur === t.dur) {
+        clockAnchor.current = { pos: t.pos, at: performance.now() };
+        return;
+      }
+      setTime(t);
+    });
     return () => off?.();
   }, []);
   // Skip chip behavior (Settings → Skip Behavior) — flips live.
