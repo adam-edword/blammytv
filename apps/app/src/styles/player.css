@@ -1911,45 +1911,62 @@
     border-color var(--dur-hover) var(--ease-out),
     background-color var(--dur-hover) var(--ease-out);
 }
-/* The keys in the Add tile and the picker's footer are the app's Kbd
- * (ui.css .kbd, plan 019 K12), which came from here. */
+/* The keys in the Add tile are the app's Kbd (ui.css .kbd, plan 019
+ * K12), which came from here. */
 
-/* The picker (plan 017, M3): a search-first palette over the dimmed grid.
- * The Dialog's frame is its own (Tailwind, in the utilities layer, which
- * outranks this one); what is inside is styled here. */
+/* The pickers: Multi-view's (plan 017, M3) and the app's palette (plan
+ * 019, K11), which is the same object grown to the whole app. Both wear
+ * shadcn's stock Command (base-vega; the palette in v0.10.25, Multi-view's
+ * in v0.10.26, Adam: "make the multiview ctrlk similar looking"). The
+ * numbers are the component's utilities: an `h-8 rounded-lg` field,
+ * `max-h-72` of list, headings `text-xs font-medium text-muted-foreground`,
+ * items `px-2 py-1.5 text-sm rounded-lg` on `bg-muted` when highlighted.
+ * The Dialog's frame is Tailwind on each component (the utilities layer,
+ * which outranks this one); what is inside is styled here. */
 .mvpick__head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 58px;
-  padding: 0 18px;
-  border-bottom: 1px solid var(--border);
+  gap: 6px;
+  height: 32px;
+  margin: 4px 4px 0;
+  padding: 0 8px;
+  border: 1px solid color-mix(in oklab, var(--border-input) 30%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--border-input) 30%, transparent);
   color: var(--text-muted);
 }
 .mvpick__input {
   flex: 1;
   min-width: 0;
   height: 100%;
+  padding-right: 8px;
   border: 0;
   outline: none;
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 16px;
+  font-size: 14px;
 }
-.mvpick__target {
+/* What the field is for, on its right: the tile a Replace takes the place
+ * of, or how many more fit on your line (the old footer's, v0.10.26). */
+.mvpick__target,
+.mvpick__room {
   flex: none;
   font-size: 12px;
+  white-space: nowrap;
+}
+.mvpick__target:empty {
+  display: none;
 }
 /* Back to the list, from a game's feeds (v0.10.3): in the search icon's
- * place, the same size, so the input does not move. */
+ * place, so the input does not move. */
 .mvpick__back {
   flex: none;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  margin: 0 -5px;
+  width: 22px;
+  height: 22px;
+  margin: 0 -3px;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -1962,28 +1979,40 @@
   color: var(--text);
 }
 .mvpick__body {
-  max-height: min(520px, calc(100vh - 260px));
+  max-height: 288px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 6px 8px 8px;
+  scroll-padding-block: 4px;
+  scrollbar-width: none;
 }
-/* The type is the eyebrow (ui/eyebrow.ts, plan 019 K9), which came from
- * here. */
+.mvpick__group {
+  padding: 4px;
+}
 .mvpick__sec {
-  padding: 12px 10px 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 .mvpick__row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 52px;
-  padding: 8px 10px;
-  border-radius: var(--radius);
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 20px;
   cursor: pointer;
-  scroll-margin-block: 8px;
 }
+/* `data-selected:bg-muted`. The light theme's muted is the grey track: its
+ * `--surface-raised` is white, which is the popover's own ground. */
 .mvpick__row[data-highlighted] {
-  background: var(--tint-hover);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+:root[data-theme="light"] .mvpick__row[data-highlighted] {
+  background: var(--surface-track);
 }
 /* Muted by colour, not opacity: faded text is the app's own "no" (2.9:1
  * here), and the quieter tiers are what the rest of it uses (plan 018,
@@ -1998,24 +2027,26 @@
 .mvpick__row[data-disabled] .mvpick__sub {
   color: var(--text-dim);
 }
-.mvpick__row[data-disabled] .chlogo {
+.mvpick__row[data-disabled] .chlogo,
+.mvpick__row[data-disabled] .gamebadge {
   filter: grayscale(1);
   opacity: 0.6;
 }
+/* One line, as a Command item is: the name, then what a shortcut would be
+ * on the right. */
 .mvpick__meta {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 8px;
 }
 .mvpick__name {
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  font-size: 13.5px;
-  font-weight: 600;
 }
 .mvpick__nametext {
   overflow: hidden;
@@ -2023,33 +2054,40 @@
   white-space: nowrap;
 }
 .mvpick__sub {
+  flex: 0 4 auto;
+  min-width: 0;
+  margin-left: auto;
   font-size: 12px;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mvpick__game {
-  flex: 1;
-  min-width: 0;
+.mvpick__row[data-highlighted]:not([data-disabled]) .mvpick__sub {
+  color: var(--text);
 }
-.mvpick__gamechan {
+/* The leading column is 20px on every row, so the names line up: a
+ * channel's logo, an icon, a title's poster. */
+.mvpick__fillicon {
+  display: grid;
+  place-items: center;
   flex: none;
-  max-width: 40%;
+  width: 20px;
+  height: 20px;
 }
-/* The app palette (plan 019, K11) is this picker grown to the whole app,
- * and wears these same classes. Its one row of its own: a title's poster,
- * 2:3 on the picture's ground, as tall as a channel row's logo tile. */
+/* The palette's one row of its own: a title's poster, cropped square to
+ * the column. */
 .palette__poster {
   flex: none;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 51px;
-  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
   overflow: hidden;
   background: var(--pic);
   color: var(--text-muted);
+  font-size: 11px;
   font-weight: 700;
 }
 .palette__poster img {
@@ -2057,23 +2095,43 @@
   height: 100%;
   object-fit: cover;
 }
-.mvpick__fillicon {
-  display: grid;
-  place-items: center;
+/* A live game keeps the Sports matchup (crests, abbreviations, the
+ * headline names face to face), at about two thirds of the board's size so
+ * it sits in a Command list: a 28px crest where the board's is 45. */
+.mvpick__game {
+  flex: 1;
+  min-width: 0;
+}
+.mvpick__game .matchup {
+  gap: 12px;
+  padding: 0;
+}
+.mvpick__game .matchup__team {
+  gap: 8px;
+}
+.mvpick__game .gamebadge {
+  width: 28px;
+  max-height: 28px;
+}
+.mvpick__game .matchup__abbr {
+  font-size: 10px;
+  line-height: 12px;
+}
+.mvpick__game .matchup__name {
+  font-size: 15px;
+  line-height: 18px;
+}
+.mvpick__gamechan {
   flex: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--text) 12%, transparent);
-  color: var(--text);
 }
 /* The rail's first feed for a game, which Fill would have taken. */
 .mvpick__best {
   flex: none;
-  padding: 2px 8px;
+  padding: 0 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
   font-size: 11px;
+  line-height: 18px;
   color: var(--text-muted);
 }
 .mvpick__ingrid {
@@ -2086,117 +2144,6 @@
 }
 .mvpick__empty {
   margin: 0;
-  padding: 28px 10px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.mvpick__foot {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  height: 44px;
-  padding: 0 18px;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.mvpick__foot > span {
-  display: inline-flex;
-  align-items: center;
-}
-.mvpick__left {
-  margin-left: auto;
-}
-
-/* The app palette's look is shadcn's stock Command (base-vega, v0.10.25),
- * over the picker's classes. Scoped to `.palette`, so Multi-view's picker
- * keeps the look above. The numbers are the component's utilities:
- * `h-8 rounded-lg`, `px-2 py-1.5 text-sm`, `max-h-72`, `text-xs
- * font-medium text-muted-foreground`. */
-.palette .mvpick__head {
-  gap: 6px;
-  height: 32px;
-  margin: 4px 4px 0;
-  padding: 0 8px;
-  border: 1px solid color-mix(in oklab, var(--border-input) 30%, transparent);
-  border-radius: var(--radius-lg);
-  background: color-mix(in oklab, var(--border-input) 30%, transparent);
-}
-.palette .mvpick__input {
-  padding-right: 8px;
-  font-size: 14px;
-}
-.palette .mvpick__body {
-  max-height: 288px;
-  padding: 0;
-  scroll-padding-block: 4px;
-  scrollbar-width: none;
-}
-.palette .mvpick__group {
-  padding: 4px;
-}
-.palette .mvpick__sec {
-  padding: 6px 8px;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-.palette .mvpick__row {
-  gap: 8px;
-  min-height: 0;
-  padding: 6px 8px;
-  border-radius: var(--radius-lg);
-  font-size: 14px;
-  line-height: 20px;
-  scroll-margin-block: 0;
-}
-/* `data-selected:bg-muted`. The light theme's muted is the grey track: its
- * `--surface-raised` is white, which is the popover's own ground. */
-.palette .mvpick__row[data-highlighted] {
-  background: var(--surface-raised);
-  color: var(--text);
-}
-:root[data-theme="light"] .palette .mvpick__row[data-highlighted] {
-  background: var(--surface-track);
-}
-/* One line, as a Command item is: the name, then what a shortcut would be
- * on the right. */
-.palette .mvpick__meta {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-}
-.palette .mvpick__name {
-  flex: 0 1 auto;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 400;
-}
-.palette .mvpick__sub {
-  flex: 0 4 auto;
-  min-width: 0;
-  margin-left: auto;
-}
-.palette .mvpick__row[data-highlighted] .mvpick__sub {
-  color: var(--text);
-}
-/* The leading column is 20px on every row, so the names line up: the
- * channel's logo, a place's 16px icon, a title's poster. */
-.palette .mvpick__fillicon {
-  width: 20px;
-  height: 20px;
-  border-radius: 0;
-  background: none;
-  color: inherit;
-}
-.palette .palette__poster {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  font-size: 11px;
-}
-.palette .mvpick__empty {
   padding: 24px 0;
   font-size: 14px;
   text-align: center;

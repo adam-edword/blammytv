@@ -38,9 +38,9 @@ import { lastInputWasKey } from "../live/mvMotion";
  * Built exactly as the picker is: Base UI's Autocomplete rendered `inline
  * open` inside the app's Radix Dialog, so the list, its keyboard (arrows
  * move, Enter takes, Escape closes) and its screen-reader wiring are the
- * library's. It wears the picker's own classes, and since v0.10.25 its
- * look is shadcn's stock Command over them (Adam: "i do want it to look
- * like shadcn's stock look"), scoped to `.palette` in player.css.
+ * library's. It wears the picker's own classes, and so its look: shadcn's
+ * stock Command since v0.10.25 (Adam: "i do want it to look like shadcn's
+ * stock look"), Multi-view's picker since v0.10.26.
  *
  * It reads what the app already has in hand (the last live load, the last
  * catalog, your lists) and fetches nothing: a palette that waits on the
@@ -275,7 +275,7 @@ export function Palette({
         // shadcn's stock Command in its dialog (base-vega, v0.10.25): a third
         // of the way down, rounded-xl on the popover ground, a 4px inset,
         // 448px wide, no shadow. The rest of the look is player.css
-        // `.palette`, and Multi-view's picker keeps its own.
+        // `.mvpick__*`, which Multi-view's picker wears too.
         className="mvpick palette top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl bg-popover p-1 text-popover-foreground shadow-none sm:max-w-md"
         style={instant ? { animation: "none" } : undefined}
         onCloseAutoFocus={closed}
