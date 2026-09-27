@@ -2108,6 +2108,101 @@
   margin-left: auto;
 }
 
+/* The app palette's look is shadcn's stock Command (base-vega, v0.10.25),
+ * over the picker's classes. Scoped to `.palette`, so Multi-view's picker
+ * keeps the look above. The numbers are the component's utilities:
+ * `h-8 rounded-lg`, `px-2 py-1.5 text-sm`, `max-h-72`, `text-xs
+ * font-medium text-muted-foreground`. */
+.palette .mvpick__head {
+  gap: 6px;
+  height: 32px;
+  margin: 4px 4px 0;
+  padding: 0 8px;
+  border: 1px solid color-mix(in oklab, var(--border-input) 30%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--border-input) 30%, transparent);
+}
+.palette .mvpick__input {
+  padding-right: 8px;
+  font-size: 14px;
+}
+.palette .mvpick__body {
+  max-height: 288px;
+  padding: 0;
+  scroll-padding-block: 4px;
+  scrollbar-width: none;
+}
+.palette .mvpick__group {
+  padding: 4px;
+}
+.palette .mvpick__sec {
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.palette .mvpick__row {
+  gap: 8px;
+  min-height: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 20px;
+  scroll-margin-block: 0;
+}
+/* `data-selected:bg-muted`. The light theme's muted is the grey track: its
+ * `--surface-raised` is white, which is the popover's own ground. */
+.palette .mvpick__row[data-highlighted] {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+:root[data-theme="light"] .palette .mvpick__row[data-highlighted] {
+  background: var(--surface-track);
+}
+/* One line, as a Command item is: the name, then what a shortcut would be
+ * on the right. */
+.palette .mvpick__meta {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.palette .mvpick__name {
+  flex: 0 1 auto;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 400;
+}
+.palette .mvpick__sub {
+  flex: 0 4 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+.palette .mvpick__row[data-highlighted] .mvpick__sub {
+  color: var(--text);
+}
+/* The leading column is 20px on every row, so the names line up: the
+ * channel's logo, a place's 16px icon, a title's poster. */
+.palette .mvpick__fillicon {
+  width: 20px;
+  height: 20px;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+}
+.palette .palette__poster {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.palette .mvpick__empty {
+  padding: 24px 0;
+  font-size: 14px;
+  text-align: center;
+  color: var(--text);
+}
+
 /* The caption, UNDER the picture (Adam, on M4: "as long as it doesn't
  * cover the content"): logo, name, and what is on. */
 .mvcap {

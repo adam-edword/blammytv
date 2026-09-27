@@ -2,8 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
 import { ChannelLogo } from "../../ui/ChannelLogo";
-import { EYEBROW } from "../../ui/eyebrow";
-import { Kbd } from "../../ui/Kbd";
 import { QualityBadge } from "../../ui/QualityBadge";
 import {
   DiscoverIcon,
@@ -40,7 +38,9 @@ import { lastInputWasKey } from "../live/mvMotion";
  * Built exactly as the picker is: Base UI's Autocomplete rendered `inline
  * open` inside the app's Radix Dialog, so the list, its keyboard (arrows
  * move, Enter takes, Escape closes) and its screen-reader wiring are the
- * library's. It wears the picker's own classes, so it is the same object.
+ * library's. It wears the picker's own classes, and since v0.10.25 its
+ * look is shadcn's stock Command over them (Adam: "i do want it to look
+ * like shadcn's stock look"), scoped to `.palette` in player.css.
  *
  * It reads what the app already has in hand (the last live load, the last
  * catalog, your lists) and fetches nothing: a palette that waits on the
@@ -272,7 +272,11 @@ export function Palette({
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
-        className="mvpick palette top-[96px] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
+        // shadcn's stock Command in its dialog (base-vega, v0.10.25): a third
+        // of the way down, rounded-xl on the popover ground, a 4px inset,
+        // 448px wide, no shadow. The rest of the look is player.css
+        // `.palette`, and Multi-view's picker keeps its own.
+        className="mvpick palette top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl bg-popover p-1 text-popover-foreground shadow-none sm:max-w-md"
         style={instant ? { animation: "none" } : undefined}
         onCloseAutoFocus={closed}
       >
@@ -289,13 +293,12 @@ export function Palette({
           keepHighlight
         >
           <div className="mvpick__head">
-            <SearchIcon size={19} aria-hidden />
+            <SearchIcon size={16} className="shrink-0 opacity-50" aria-hidden />
             <Autocomplete.Input
               className="mvpick__input"
               placeholder="Channels, films and series, places"
               aria-label="Search BlammyTV"
             />
-            <span className="mvpick__target">Everything</span>
           </div>
 
           <div className="mvpick__body">
@@ -305,7 +308,7 @@ export function Palette({
             <Autocomplete.List>
               {(section: Section) => (
                 <Autocomplete.Group key={section.value} items={section.items} className="mvpick__group">
-                  <Autocomplete.GroupLabel className={`mvpick__sec ${EYEBROW}`}>{section.value}</Autocomplete.GroupLabel>
+                  <Autocomplete.GroupLabel className="mvpick__sec">{section.value}</Autocomplete.GroupLabel>
                   <Autocomplete.Collection>
                     {(row: Row) => (
                       <Autocomplete.Item
@@ -322,27 +325,6 @@ export function Palette({
                 </Autocomplete.Group>
               )}
             </Autocomplete.List>
-          </div>
-
-          <div className="mvpick__foot">
-            <span>
-              <Kbd>↑</Kbd>
-              <Kbd>↓</Kbd>
-              move
-            </span>
-            <span>
-              <Kbd>↵</Kbd>
-              open
-            </span>
-            <span>
-              <Kbd>esc</Kbd>
-              close
-            </span>
-            <span className="mvpick__left">
-              <Kbd>Ctrl</Kbd>
-              <Kbd>K</Kbd>
-              anywhere
-            </span>
           </div>
         </Autocomplete.Root>
       </DialogContent>
@@ -369,7 +351,7 @@ function PaletteRow({
     ].filter(Boolean);
     return (
       <>
-        <ChannelLogo name={c.name} logo={c.logo} size={34} />
+        <ChannelLogo name={c.name} logo={c.logo} size={20} />
         <span className="mvpick__meta">
           <span className="mvpick__name">
             <span className="mvpick__nametext">{c.name}</span>

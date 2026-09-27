@@ -1109,7 +1109,39 @@ const dimmedText = () =>
   await page.keyboard.type("espn");
   await page.waitForTimeout(400);
   const secs = await page.evaluate(() => [...document.querySelectorAll(".palette .mvpick__sec")].map((e) => e.textContent));
-  check("  it finds channels and what is on later, under eyebrows", secs.includes("Channels") && secs.includes("On later"), secs.join(", "));
+  check("  it finds channels and what is on later, under their headings", secs.includes("Channels") && secs.includes("On later"), secs.join(", "));
+  // shadcn's stock Command (v0.10.25; Adam: "i do want it to look like
+  // shadcn's stock look"): the dialog rounded-xl on the popover, 448 wide;
+  // the field h-8 rounded-lg; headings text-xs font-medium muted, not an
+  // eyebrow; every row one 32px line, the highlighted one on muted.
+  const popover = await token("--float-bg");
+  const muted = await token("--surface-raised");
+  const stock = await page.evaluate(() => {
+    const px = (el, p) => parseFloat(getComputedStyle(el)[p]);
+    const box = document.querySelector(".palette");
+    const head = document.querySelector(".palette .mvpick__head");
+    const sec = document.querySelector(".palette .mvpick__sec");
+    const rows = [...document.querySelectorAll(".palette [role=option]")];
+    const hi = document.querySelector(".palette [role=option][data-highlighted]");
+    return {
+      w: Math.round(box.getBoundingClientRect().width),
+      radius: px(box, "borderTopLeftRadius"),
+      bg: getComputedStyle(box).backgroundColor,
+      field: [Math.round(head.getBoundingClientRect().height), px(head, "borderTopLeftRadius")],
+      sec: [px(sec, "fontSize"), getComputedStyle(sec).fontWeight, getComputedStyle(sec).textTransform],
+      rows: [...new Set(rows.map((r) => Math.round(r.getBoundingClientRect().height)))],
+      hi: hi && getComputedStyle(hi).backgroundColor,
+      foot: !!document.querySelector(".palette .mvpick__foot"),
+    };
+  });
+  check(
+    "  it wears shadcn's stock Command: 448 by rounded-xl on the popover, an h-8 field, 32px rows, muted highlight",
+    stock.w === 448 && stock.radius === 14 && stock.bg === popover &&
+      stock.field[0] === 32 && stock.field[1] === 10 &&
+      stock.sec[0] === 12 && stock.sec[1] === "500" && stock.sec[2] === "none" &&
+      stock.rows.length === 1 && stock.rows[0] === 32 && stock.hi === muted && !stock.foot,
+    JSON.stringify(stock),
+  );
   await page.keyboard.press("Enter");
   await page.waitForTimeout(1200);
   const tuned = await page.evaluate(() => ({
