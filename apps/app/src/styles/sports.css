@@ -2354,14 +2354,12 @@ div.sports__bar:not(.sports__head *) {
   padding: 7px 12px;
   font-size: 13px;
 }
-/* The line between "what you watch" and "what exists". */
+/* The line between "what you watch" and "what exists". It is shadcn's
+ * Separator since v0.10.29, whose utilities draw the 1px of --border, the
+ * full width and the no-shrink; an app rule setting those would be dead
+ * (utilities outrank app). Only the spacing is ours. */
 .leaguepick__rule {
-  flex: 0 0 auto;
-  width: 100%;
-  height: 1px;
   margin: 2px 0;
-  border: 0;
-  background: var(--border);
 }
 /* The tile grid gives up its flex:1 here: with a column under it, two
  * boxes both claiming the slack leaves neither able to scroll. */

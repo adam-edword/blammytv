@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
+import { Separator } from "../../components/ui/separator";
 import {
   SIDEBAR_ITEM,
   SIDEBAR_ITEM_ACTIVE,
@@ -206,8 +207,9 @@ export function LeaguePicker({
 
       {/* The rule between the two shapes, which is the whole of the
         * layout's argument: above it is what you watch, below it is what
-        * exists. */}
-      <hr className="leaguepick__rule" />
+        * exists. shadcn's Separator (v0.10.29), not decorative, so it is
+        * still the separator the <hr> it replaced was to a screen reader. */}
+      <Separator decorative={false} className="leaguepick__rule" />
 
       <div className="live-sidebar__folders leaguepick__all">
         {groups.length > 0 ? (

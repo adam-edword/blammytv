@@ -1647,6 +1647,39 @@ const dimmedText = () =>
   await p3.close();
 }
 
+// ======================================================================= M2
+// ROADMAP M2, finishing plan 014's primitives: one block per step.
+{
+  // The league picker's rule is shadcn's Separator (v0.10.29), the one place
+  // a hand-drawn line did its job. It has to be the same line: 1px of the
+  // hairline colour, the picker's full width, 2px clear of either side, and
+  // still a separator to a screen reader, as the <hr> was.
+  await goTo(page, "sports");
+  await page.locator(".leaguepick__rule").waitFor({ timeout: 15_000 }).catch(() => {});
+  const rule = await page.evaluate(() => {
+    const el = document.querySelector(".leaguepick__rule");
+    if (!el) return null;
+    const s = getComputedStyle(el);
+    const p = getComputedStyle(el.parentElement);
+    const inner = el.parentElement.clientWidth - parseFloat(p.paddingLeft) - parseFloat(p.paddingRight);
+    return {
+      slot: el.dataset.slot,
+      role: el.getAttribute("role"),
+      h: el.getBoundingClientRect().height,
+      w: Math.round(el.getBoundingClientRect().width),
+      box: Math.round(inner),
+      bg: s.backgroundColor,
+      m: `${s.marginTop} ${s.marginBottom}`,
+    };
+  });
+  const hair = await token("--border");
+  check(
+    "M2. the league picker's rule is the Separator: 1px of the hairline, full width, 2px clear",
+    rule?.slot === "separator" && rule.role === "separator" && rule.h === 1 && rule.w === rule.box && rule.bg === hair && rule.m === "2px 2px",
+    JSON.stringify({ ...rule, hair }),
+  );
+}
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
 console.log(fail ? `\n${fail} FAILED` : "\nALL PASS");

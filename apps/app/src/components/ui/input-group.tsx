@@ -6,7 +6,10 @@ import { cn } from "cn"
 
 import { Button } from "./button"
 import { Input } from "./input"
-import { Textarea } from "./textarea"
+// InputGroupTextarea went with textarea.tsx in v0.10.29: nothing in the app
+// draws a multi-line field. `shadcn add textarea` restores that file; the
+// wrapper comes back by hand, forwardRef and all, because re-adding
+// input-group would overwrite the React 18 refs below.
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -148,28 +151,10 @@ const InputGroupInput = React.forwardRef<
   )
 })
 
-const InputGroupTextarea = React.forwardRef<
-  HTMLTextAreaElement,
-  React.ComponentProps<"textarea">
->(function InputGroupTextarea({ className, ...props }, ref) {
-  return (
-    <Textarea
-      ref={ref}
-      data-slot="input-group-control"
-      className={cn(
-        "flex-1 resize-none rounded-none border-0 bg-transparent py-3 shadow-none focus-visible:ring-0 dark:bg-transparent",
-        className
-      )}
-      {...props}
-    />
-  )
-})
-
 export {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupText,
   InputGroupInput,
-  InputGroupTextarea,
 }
