@@ -87,7 +87,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **48/48 harnesses clean, 941 or 942 checks** (v0.10.42). The
+Baseline is **48/48 harnesses clean, 942 or 943 checks** (v0.10.43). The
 one-check wobble is verify-cw-sources' last check, which only runs when the
 catalog is still loading at the click; the script says so and it is not a
 failure. verify-kit (plan 019) is the forty-second: one section per shared

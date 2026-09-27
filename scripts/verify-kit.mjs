@@ -1789,10 +1789,32 @@ const dimmedText = () =>
     modal.inside && [...stops].join() === "in" && modal.top === 88 && modal.right === 48 && modal.parent === "modal-backdrop",
     JSON.stringify({ ...modal, stops: [...stops] }),
   );
-  // Out by the X, not Escape. Tabbing past controls with tooltips can leave
-  // a closed tooltip still mounted, and a mounted tooltip is the top Radix
-  // layer, so it takes the next Escape (it did before v0.10.33 as well).
-  await page.locator("button[aria-label='Close settings']").click();
+  // And out by one Escape, pressed just after Tab leaves a control whose
+  // tooltip was showing (v0.10.43). A closing tooltip stayed mounted for its
+  // 150ms exit, and a mounted TooltipContent is the top Radix layer, so it
+  // took the Escape and Settings stayed up (before v0.10.33 as well). Tab
+  // on until the last stop had a tooltip open and this one has none, then
+  // Escape 80ms later: inside the old exit, and clear of the ~10ms Radix
+  // takes to give Escape back to the dialog once a layer goes.
+  const openTip = () => page.evaluate(() => document.querySelector("[data-slot=tooltip-content]:not([data-state=closed])")?.textContent ?? null);
+  let tipWas = await openTip();
+  let tabbedOff = null;
+  for (let i = 0; i < 60 && !tabbedOff; i++) {
+    await page.keyboard.press("Tab");
+    const tip = await openTip();
+    if (tipWas && !tip) tabbedOff = tipWas;
+    tipWas = tip;
+  }
+  await page.waitForTimeout(80);
+  const mounted = await page.evaluate(() => [...document.querySelectorAll("[data-slot=tooltip-content]")].map((t) => `${t.textContent} (${t.dataset.state})`));
+  await page.keyboard.press("Escape");
+  const escShut = await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).then(() => true, () => false);
+  check(
+    "  and after the walk one Escape closes it: the tooltip Tab just left is already gone",
+    Boolean(tabbedOff) && mounted.length === 0 && escShut,
+    JSON.stringify({ tabbedOff, mounted, shut: escShut }),
+  );
+  if (!escShut) await page.locator("button[aria-label='Close settings']").click().catch(() => {});
   await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
   await page.waitForTimeout(400);
   // Escape hands focus back to the gear. Focus after a key rings, and a
