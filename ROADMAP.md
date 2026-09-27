@@ -34,7 +34,7 @@ v0.9.78. "Where we are" refreshed 2026-09-27.
 | | State |
 |---|---|
 | **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player. M2, the primitives' leftovers, is being worked in the background from 2026-09-27. M3's leftovers (the glass tiers, reduced transparency, the light pass) have not started, and light mode is forced off at boot. |
-| **Trakt** (M4) | Being planned, `plans/015-trakt.md`, before any code. |
+| **Trakt** (M4) | Planned and decided, `plans/015-trakt.md` (2026-09-27). Waiting on Adam to register the Trakt app, and on a go. |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
 | **The Guide going black on a folder** | "Maximum update depth" in Guide.tsx, Adam, 2026-09-27. Not reproduced at his catalog's size (8,516 channels, 246 folders). v0.10.24 removed UI Scale's fractional zoom, the suspected cause, unconfirmed. If it comes back: a guard on the row window and a log line. |
 | **Themes** | Parked. They return after 1.0 with new looks (decision 1). |

@@ -1,7 +1,14 @@
 # Plan 015: Trakt
 
-**Status: PROPOSED (2026-09-27).** ROADMAP M4's first half. MAL is the
-second half and gets its own plan after this ships.
+**Status: DECIDED (2026-09-27), not started.** ROADMAP M4's first half.
+MAL is the second half and gets its own plan after this ships.
+
+**Adam's picks, 2026-09-27:** D2 (b), a "Trakt Watchlist" list of its own;
+D3, both sides count (the three-way merge); D4 (a), the secret in the app
+and the tokens in Windows Credential Manager; D6 (b), a "Watched" mark on
+the film's page. All four as recommended. D1 (T1 to T5) and D5 (skip
+titles with no IMDb id) were not put to him separately and follow the
+recommendation; D7 is his to keep in mind, no code.
 
 Adam, 2026-09-27: "then we can plan out Trakt". Trakt has been a 1.0 gate
 since July (ROADMAP decision 2), with one condition: a plan before any
