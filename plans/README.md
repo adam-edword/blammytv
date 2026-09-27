@@ -30,6 +30,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [017](017-multiview-design.md) | Multi-view, designed: an immersive mode, 16:9 tiles with info and controls, a search-first picker | HIGH | IN PROGRESS (decided 2026-09-24; P1, the tab and its layouts, in v0.9.105; P2, the tile, in v0.9.107; P3a, the picker and limits, in v0.9.109; P3b, live games, in v0.9.111; P4, sound and keys, next) |
 | [018](018-multiview-hardening.md) | Multi-view, hardened: tiles that recover, the line's count, what the tab costs, the keyboard | HIGH | PLANNED (2026-09-25, from five audits of v0.9.122; H1 waits on one test on Adam's line) |
 | [019](019-multiview-language.md) | Multi-view's look, on every tab: its controls, tiles, states and picker as the whole app's primitives | MEDIUM | BUILT on claude/multiview, v0.10.1 to v0.10.11 (2026-09-26); not merged; four items left, reasons in the plan |
+| [020](020-player-language.md) | The player in the redesign's language: its controls in two capsules like the nav, Play the white circle, times as eyebrows, menus on the chip fill | LOW | PROPOSED 2026-09-27, mockups in the chat; waiting on D1 |
 
 ## Recommended execution order & dependencies
 
