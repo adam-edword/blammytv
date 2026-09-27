@@ -33,7 +33,7 @@ v0.9.78. "Where we are" refreshed 2026-09-27.
 
 | | State |
 |---|---|
-| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player. M2 is done (v0.10.29 to v0.10.34) but for one call of Adam's, the segmented control's surface (below). M3's leftovers (the glass tiers, reduced transparency, the light pass) have not started, and light mode is forced off at boot. |
+| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player. M2 is done (v0.10.29 to v0.10.37), both of its calls taken. M3's leftovers (the glass tiers, reduced transparency, the light pass) have not started, and light mode is forced off at boot. |
 | **Trakt** (M4) | Built, v0.10.27 to v0.10.36, `plans/015-trakt.md`: sign-in, scrobbling, sync and the Trakt Watchlist. Waiting on Adam to register the Trakt app and put its keys in `.env.local` for a first real run. |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
 | **The Guide going black on a folder** | "Maximum update depth" in Guide.tsx, Adam, 2026-09-27. Not reproduced at his catalog's size (8,516 channels, 246 folders). v0.10.24 removed UI Scale's fractional zoom, the suspected cause, unconfirmed. If it comes back: a guard on the row window and a log line. |
@@ -235,8 +235,8 @@ never be a deterrent to building anything." So:
 
 ### M2: finish the primitives (plan 014 L1 and L2)
 
-**Done, v0.10.29 to v0.10.34 (2026-09-27), in the background**, but for
-one call of Adam's (the segmented control, below).
+**Done, v0.10.29 to v0.10.34 (2026-09-27), in the background**, and its
+two calls taken by Adam the same day (below).
 
 - ~~Adopt or delete the generated components nobody imports~~ v0.10.29:
   Separator adopted (the league picker's rule), Badge, Card, Skeleton and
@@ -245,15 +245,13 @@ one call of Adam's (the segmented control, below).
   let `lib/modalOpen.ts` go: mouse Back and Multi-view's capture-phase
   Escape still need it.
 - Switch and ChipTabs take shadcn's surface **and keep their thumb**.
-  Adam's constraint, 2026-09-06. The Switch did in v0.10.32. **The
-  segmented control (ChipTabs) is Adam's call**: its glass track and
-  sliding tint are his plan 019 decisions (D2, D3) from after this line
-  was written. A, keep 019's look and retire this line (recommended); B,
-  shadcn's tabs as they are, which reverses D2 and D3; C, keep the glass
-  track and give only the sliding tab shadcn's border and shadow.
-- ~~L2~~ v0.10.34: the capsule centres itself with no live source. **The
-  clock is off the header's centreline** (44 against the capsule's 59.5),
-  and which should sit on the line is Adam's call. ~~Move `RowScroller`
+  Adam's constraint, 2026-09-06. The Switch did in v0.10.32. ~~The
+  segmented control~~ **keeps plan 019's look** (Adam, 2026-09-27, over
+  shadcn's tabs or a hybrid): its glass track and sliding tint are his 019
+  decisions D2 and D3, made after this line was written, which retires it.
+- ~~L2~~ v0.10.34: the capsule centres itself with no live source.
+  v0.10.37: the clock and its version sit on the capsule's centre line
+  with the gear and Search (Adam: the clock moves, not the capsule). ~~Move `RowScroller`
   and `Card` out of `StreamScreen.tsx`~~ v0.10.31, to `ui/`, and
   ContinueCard to its own file.
 

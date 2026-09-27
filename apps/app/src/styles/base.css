@@ -357,6 +357,12 @@ button {
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
+  /* On the capsule's centre line too (Adam, v0.10.37: "clock onto the
+   * line"), as the right-hand group is. The clock and the version make a
+   * block 34 + 1 + 14 = 49 tall from the header's 27, centre 51.5; the
+   * capsule's first row is centred at 59.5. By transform, as .header__right
+   * is, so the header's height (--header-h) does not move a screen. */
+  transform: translateY(8px);
 }
 
 /* Out of flow so the brand block stays one 34px line — the nav's shared

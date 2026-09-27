@@ -1930,6 +1930,22 @@ const dimmedText = () =>
     JSON.stringify(centre),
   );
   await ctx7.close();
+
+  // The clock and its version, on the capsule's centre line with the gear
+  // and Search (v0.10.37, Adam: "clock onto the line"). It sat 8px high.
+  const line = await page.evaluate(() => {
+    const mid = (s) => {
+      const r = document.querySelector(s).getBoundingClientRect();
+      return Math.round((r.top + r.height / 2) * 10) / 10;
+    };
+    const cap = document.querySelector(".navcap").getBoundingClientRect();
+    return { clock: mid(".header__brand"), gear: mid(".header__right button[aria-label='Settings']"), capsuleRow1: Math.round((cap.top + 11 + 43 / 2) * 10) / 10 };
+  });
+  check(
+    "  the clock block sits on the capsule's line, with the gear",
+    Math.abs(line.clock - line.capsuleRow1) <= 0.5 && Math.abs(line.gear - line.capsuleRow1) <= 0.5,
+    JSON.stringify(line),
+  );
 }
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
