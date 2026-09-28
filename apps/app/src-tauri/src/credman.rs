@@ -19,8 +19,13 @@ pub fn read(target: &str) -> Option<Vec<u8>> {
     unsafe {
         CredReadW(PCWSTR(target.as_ptr()), CRED_TYPE_GENERIC, None, &mut cred).ok()?;
         let c = &*cred;
-        let blob =
-            std::slice::from_raw_parts(c.CredentialBlob, c.CredentialBlobSize as usize).to_vec();
+        // An empty credential has a null blob, and a slice from a null
+        // pointer is undefined behaviour even at length 0.
+        let blob = if c.CredentialBlob.is_null() || c.CredentialBlobSize == 0 {
+            Vec::new()
+        } else {
+            std::slice::from_raw_parts(c.CredentialBlob, c.CredentialBlobSize as usize).to_vec()
+        };
         CredFree(cred as *const _);
         Some(blob)
     }

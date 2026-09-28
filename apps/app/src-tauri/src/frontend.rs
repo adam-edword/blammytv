@@ -384,7 +384,15 @@ impl<R: Runtime> Assets<R> for StagedAssets<R> {
 /// minisign public-key FILE, so it carries an untrusted-comment line that
 /// has to be skipped). `sig_b64` is the .sig file's contents, same shape as
 /// the ones the release drill already verifies by hand.
-fn verify(pubkey_b64: &str, sig_b64: &str, bytes: &[u8]) -> Result<(), String> {
+///
+/// `file` is the name the signature must carry. frontend.json is not
+/// signed, only the bundle is, so without this an old signed bundle could
+/// be published under any version label: rolled back to, or renamed past
+/// its own quarantine (finding F8 of the v0.9.79 audit, the half that
+/// v0.10.38 left). `tauri signer sign` writes `file:<name>` into minisign's
+/// trusted comment, which the global signature covers, and the release
+/// check (verify-release.mjs) already insists on the same thing.
+fn verify(pubkey_b64: &str, sig_b64: &str, bytes: &[u8], file: &str) -> Result<(), String> {
     use base64::Engine;
     let b64 = base64::engine::general_purpose::STANDARD;
     let key_file = b64
@@ -409,7 +417,40 @@ fn verify(pubkey_b64: &str, sig_b64: &str, bytes: &[u8]) -> Result<(), String> {
         .map_err(|e| format!("bad signature: {e}"))?;
 
     pk.verify(bytes, &sig, false)
-        .map_err(|_| "signature does not match this bundle".to_string())
+        .map_err(|_| "signature does not match this bundle".to_string())?;
+    // Authentic from here: verify() checked the global signature over it.
+    let named = sig
+        .trusted_comment()
+        .split('\t')
+        .find_map(|part| part.trim().strip_prefix("file:"));
+    if named.map(str::trim) != Some(file) {
+        return Err(format!(
+            "the signature is for {}, not {file}",
+            named.unwrap_or("an unnamed file")
+        ));
+    }
+    Ok(())
+}
+
+/// The numbers of a version, part by part: "0.10.14" is [0, 10, 14]. A
+/// part's leading digits count and anything after them does not.
+fn version_parts(v: &str) -> Vec<u64> {
+    v.split('.')
+        .map(|p| {
+            let digits: String = p.chars().take_while(|c| c.is_ascii_digit()).collect();
+            digits.parse().unwrap_or(0)
+        })
+        .collect()
+}
+
+/// Whether `a` is a later version than `b`. Missing trailing parts are 0,
+/// so "0.10" and "0.10.0" are the same version.
+fn newer(a: &str, b: &str) -> bool {
+    let (mut x, mut y) = (version_parts(a), version_parts(b));
+    let n = x.len().max(y.len());
+    x.resize(n, 0);
+    y.resize(n, 0);
+    x > y
 }
 
 /// Unpack a verified tar.gz into `dir`, refusing any entry that escapes it.
@@ -468,7 +509,9 @@ pub fn stage(
         return Err(format!("{version} previously failed to boot"));
     }
 
-    verify(pubkey_b64, sig_b64, bytes)?;
+    // The signature must be for this version's bundle by name.
+    let file = format!("frontend-{version}.tar.gz");
+    verify(pubkey_b64, sig_b64, bytes, &file)?;
 
     // Assemble beside the target, then swap in. A half-unpacked directory
     // must never be reachable by resolve().
@@ -616,8 +659,15 @@ fn manifest_url_from(endpoint: &str) -> Option<String> {
 /// every fresh install. They would each download a byte-for-byte copy of
 /// the frontend already inside their binary and then serve it through the
 /// staged path, for nothing.
+///
+/// Only ever FORWARD: newer than what is serving and than what is already
+/// staged. The manifest is unsigned, so an older bundle offered as an
+/// update is a rollback, and there is no honest reason to publish one: a
+/// bad hot release is replaced by a newer one.
 fn should_stage(m: &Manifest, native: &str, serving: &str, pending: &str) -> bool {
-    m.native_version == native && m.version != serving && m.version != pending
+    m.native_version == native
+        && newer(&m.version, serving)
+        && (pending.is_empty() || newer(&m.version, pending))
 }
 
 /// Check the hot channel and stage a newer frontend if there is one.
@@ -931,7 +981,79 @@ mod tests {
     /// Corrupt signatures must be rejected before anything is unpacked.
     #[test]
     fn rejects_a_bundle_whose_signature_does_not_verify() {
-        let err = verify("bm90LWEta2V5", "bm90LWEtc2ln", b"payload").unwrap_err();
+        let err = verify("bm90LWEta2V5", "bm90LWEtc2ln", b"payload", "f").unwrap_err();
         assert!(!err.is_empty());
+    }
+
+    /// A throwaway key and two real signatures over b"payload", in the
+    /// shapes `tauri signer` writes (made with node's Ed25519 and
+    /// blake2b-512; the private key was never kept). One names
+    /// frontend-0.10.50.tar.gz in its trusted comment, the other
+    /// frontend-0.10.20.tar.gz.
+    const TEST_PUB: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkgdGVzdApSV1NLajZnangremljc2c2YUxlZkZUM29MWlQ1cmw1ckNoa2dxZ2xRdUZmeXUrcnJ1NmFmQzF4eQo=";
+    const SIG_0_10_50: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2o2Z2p4K3ppY3JqVzJvZ0V1OWZyUVRPS0pJd0VubEFTS1dYb1NaK1RCa01IU1FyMVUwc2ZKS1hSNnZ3Njd6Y2JVR2diOE93V1dqb0pKNW9jd3kxclEvSjFuV25BakFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzAwMDAwMDAwCWZpbGU6ZnJvbnRlbmQtMC4xMC41MC50YXIuZ3oKWlA5ZFQ2RFU4SFZzc0ZjN2tiQjdad2NLUWlWaG5Bclg1RUVRNFQwRll1QWdxTXRzbEJoYm5TMHZTdWphZDg3cXltR3JWTmg1a3QzWFNMS0Z6Y2dXQ2c9PQo=";
+    const SIG_0_10_20: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2o2Z2p4K3ppY3JqVzJvZ0V1OWZyUVRPS0pJd0VubEFTS1dYb1NaK1RCa01IU1FyMVUwc2ZKS1hSNnZ3Njd6Y2JVR2diOE93V1dqb0pKNW9jd3kxclEvSjFuV25BakFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzAwMDAwMDAwCWZpbGU6ZnJvbnRlbmQtMC4xMC4yMC50YXIuZ3oKbGdsL2NzVkE1aXorMFhESUtnc3lJb3pYbFh5WHVSMFQ0Qk5MQUhPa1B3WXVsOWxSVGo0Y3hvL1BCM1dXbjcyb1pHSWJ2MVV2OHBOMnAyNDllcEhEQUE9PQo=";
+
+    #[test]
+    fn a_signature_counts_only_for_the_file_it_names() {
+        assert_eq!(
+            verify(TEST_PUB, SIG_0_10_50, b"payload", "frontend-0.10.50.tar.gz"),
+            Ok(())
+        );
+        // The same signed bytes, offered as another version: an old bundle
+        // relabelled in frontend.json.
+        let err = verify(TEST_PUB, SIG_0_10_20, b"payload", "frontend-0.10.50.tar.gz").unwrap_err();
+        assert!(err.contains("frontend-0.10.20.tar.gz"), "{err}");
+        // And the name does not rescue bytes that were not signed.
+        assert!(verify(
+            TEST_PUB,
+            SIG_0_10_50,
+            b"tampered",
+            "frontend-0.10.50.tar.gz"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn versions_compare_by_number() {
+        assert!(newer("0.10.14", "0.10.3"));
+        assert!(newer("0.10.0", "0.9.132"));
+        assert!(newer("1.0", "0.99.99"));
+        assert!(!newer("0.10.3", "0.10.14"));
+        assert!(!newer("0.10", "0.10.0"));
+        assert!(!newer("0.10.3", "0.10.3"));
+        assert!(newer("0.10.3", ""));
+    }
+
+    /// Only forward (the rollback half of F8): an older signed bundle
+    /// offered as an update is refused, against what is serving and what is
+    /// already staged.
+    #[test]
+    fn an_older_bundle_is_never_staged() {
+        assert!(!should_stage(
+            &manifest("0.10.20", "0.10.0"),
+            "0.10.0",
+            "0.10.30",
+            ""
+        ));
+        assert!(!should_stage(
+            &manifest("0.10.28", "0.10.0"),
+            "0.10.0",
+            "0.10.14",
+            "0.10.30"
+        ));
+        assert!(should_stage(
+            &manifest("0.10.31", "0.10.0"),
+            "0.10.0",
+            "0.10.14",
+            "0.10.30"
+        ));
+        // A first hot release over the embedded frontend (serving = native).
+        assert!(should_stage(
+            &manifest("0.10.3", "0.10.0"),
+            "0.10.0",
+            "0.10.0",
+            ""
+        ));
     }
 }
