@@ -98,10 +98,10 @@ export function UpdatesSection() {
       <div>
         <h4 className="customize-row__title">BlammyTV v{APP_VERSION}</h4>
         <p className="settings__section-note settings__section-note--dim">
-          {pending
-            ? `Version ${pending} is ready. It applies the next time you open BlammyTV.`
-            : phase.at === "found"
+          {phase.at === "found"
             ? `Version ${phase.version} is ready to install.`
+            : pending
+            ? `Version ${pending} is ready. It applies the next time you open BlammyTV.`
             : phase.at === "installing"
               ? "Downloading and installing. The app restarts by itself."
               : phase.at === "error"
@@ -109,7 +109,33 @@ export function UpdatesSection() {
                 : "Updates install themselves with one click and keep your playlists."}
         </p>
       </div>
-      {pending ? (
+      {/* An installer found beats a waiting bundle (plan 016 F20): it
+        * carries a frontend of its own, and a native update is the one a
+        * bundle can't bring. It used to hide behind "Restart now". */}
+      {phase.at === "found" || phase.at === "installing" ? (
+        // Installing restarts the app, so it waits for playback to finish
+        // like Restart now does (F20).
+        <Hint
+          label="Finish watching first. Then install."
+          off={phase.at === "installing" || !isPlaying()}
+        >
+        <Button
+          variant="default"
+          type="button"
+          className="settings-button settings-button--accent"
+          disabled={phase.at === "installing"}
+          onClick={() => {
+            if (phase.at !== "found" || isPlaying()) return;
+            install(phase.version);
+          }}
+          aria-disabled={phase.at === "found" && isPlaying()}
+        >
+          {phase.at === "installing"
+            ? "Installing…"
+            : `Install v${phase.version}`}
+        </Button>
+        </Hint>
+      ) : pending ? (
         // Restarting mid-playback would kill the stream to save a wait
         // that costs nothing — the update lands on the next launch either
         // way. Read at click time, so starting playback after Settings
@@ -139,18 +165,6 @@ export function UpdatesSection() {
           Restart now
         </Button>
         </Hint>
-      ) : phase.at === "found" || phase.at === "installing" ? (
-        <Button
-          variant="default"
-          type="button"
-          className="settings-button settings-button--accent"
-          disabled={phase.at === "installing"}
-          onClick={() => phase.at === "found" && install(phase.version)}
-        >
-          {phase.at === "installing"
-            ? "Installing…"
-            : `Install v${phase.version}`}
-        </Button>
       ) : (
         <Button
           variant="secondary"

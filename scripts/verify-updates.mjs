@@ -53,7 +53,11 @@ await page.addInitScript(() => {
       }
       // Already staged, so nothing NEW to do: the case that went wrong.
       if (cmd === "frontend_check") return Promise.resolve("");
-      if (cmd === "check_update") return Promise.resolve(null);
+      if (cmd === "check_update") return Promise.resolve(window.__native ?? null);
+      if (cmd === "install_update") {
+        window.__installs = (window.__installs ?? 0) + 1;
+        return new Promise(() => {});
+      }
       return Promise.resolve(undefined);
     },
   };
@@ -99,6 +103,42 @@ check(
   "and offers Restart now",
   (await row.getByRole("button", { name: "Restart now" }).count()) === 1,
 );
+
+// An installer found while a bundle waits: the installer shows, since it
+// carries its own frontend and a native update is what a bundle can't
+// bring (plan 016 F20). It hid behind "Restart now".
+// One Check that finds both: it stages the bundle and the native side
+// answers with an installer. From a fresh Settings with nothing waiting,
+// since a waiting bundle takes the Check button's place.
+await page.evaluate(() => {
+  window.__staged = "";
+});
+await page.keyboard.press("Escape");
+await page.locator("[data-slot='dialog-content']").waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+await row.getByRole("button", { name: /Check for updates|up to date/ }).waitFor({ timeout: 10_000 });
+await page.evaluate(() => {
+  window.__staged = "0.10.9";
+  window.__native = "0.11.0";
+});
+await row.getByRole("button", { name: /Check for updates|up to date/ }).click();
+const installBtn = row.getByRole("button", { name: "Install v0.11.0" });
+const shown = await installBtn.waitFor({ timeout: 5000 }).then(() => true, () => false);
+check("an installer found shows ahead of a waiting bundle", shown, await note());
+// And it waits for playback, like Restart now: a stage in the DOM is what
+// isPlaying reads.
+await page.evaluate(() => {
+  const d = document.createElement("div");
+  d.className = "vod-stage";
+  document.body.appendChild(d);
+});
+if (shown) await installBtn.click();
+await page.waitForTimeout(300);
+check("  and it won't install over something playing", (await page.evaluate(() => window.__installs ?? 0)) === 0);
+await page.evaluate(() => document.querySelector("body > .vod-stage")?.remove());
+if (shown) await installBtn.click();
+await page.waitForTimeout(300);
+check("  and installs once nothing is", (await page.evaluate(() => window.__installs ?? 0)) === 1);
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
