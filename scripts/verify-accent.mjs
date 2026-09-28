@@ -108,6 +108,23 @@ check(
   Math.abs(place.dx) <= 1 && place.gap >= 2 && place.gap <= 6,
   JSON.stringify(place),
 );
+// Dragging the square: the look follows the pointer, and storage is written
+// once, on release (plan 016 F23). Every move used to write three keys.
+const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.accent") ?? "null")?.data ?? null);
+const square = await page.locator(".react-colorful__saturation").boundingBox();
+const before = await stored();
+await page.mouse.move(square.x + square.width * 0.3, square.y + square.height * 0.3);
+await page.mouse.down();
+await page.mouse.move(square.x + square.width * 0.7, square.y + square.height * 0.4, { steps: 6 });
+const mid = { inline: (await root()).inline, stored: await stored() };
+await page.mouse.up();
+await page.waitForTimeout(100);
+const after = { inline: (await root()).inline, stored: await stored() };
+check(
+  "dragging the square applies live and saves once, on release",
+  /^#[0-9a-f]{6}$/.test(mid.inline) && mid.stored === before && after.stored === after.inline && after.inline !== before,
+  JSON.stringify({ before, mid, after }),
+);
 await page.locator("input[aria-label='Hex color']").fill("ff6a00");
 check("typing a full hex applies it", (await root()).inline === "#ff6a00");
 await page.keyboard.press("Escape");

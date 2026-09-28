@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -107,6 +107,24 @@ export function AccentPicker({
     pick(value);
   };
 
+  // While the square is dragged, only the look follows: applied live, and
+  // written to storage once, on release (plan 016 F23). Every pointer move
+  // wrote three keys.
+  const dragged = useRef<string | null>(null);
+  const previewCustom = (hex: string) => {
+    const value = hex.toLowerCase();
+    dragged.current = value;
+    setCustom(value);
+    setDraft(value.slice(1));
+    setAccent(value);
+    applyAccent(value);
+  };
+  const commitDrag = () => {
+    const value = dragged.current;
+    dragged.current = null;
+    if (value) pickCustom(value);
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-2.5" role="group" aria-label="Accent color">
       <Hint label="Default">
@@ -204,7 +222,14 @@ export function AccentPicker({
           container={portalContainer}
           className="accent-picker w-auto p-3"
         >
-          <HexColorPicker color={customShown || "#c22727"} onChange={pickCustom} />
+          {/* Released anywhere, not only over the square: the drag carries
+            * on outside it. Arrow keys move it too, and save on key up. */}
+          <div
+            onPointerDown={() => window.addEventListener("pointerup", commitDrag, { once: true })}
+            onKeyUp={commitDrag}
+          >
+            <HexColorPicker color={customShown || "#c22727"} onChange={previewCustom} />
+          </div>
           {/* The picker's own 220px (vendor.css), so the row lines up with
            * the square above it. Left to size itself, the hex Input's
            * intrinsic width pushed the popover wider than the square and
