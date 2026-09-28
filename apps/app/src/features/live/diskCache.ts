@@ -21,6 +21,9 @@ export interface DiskCached {
   key: string;
   at: number;
   data: LiveData;
+  /** Its programmes were normalized before the write (v0.10.62 on), so a
+   * hydrate needn't do it again. Absent on older records. */
+  normalized?: true;
 }
 
 function openDb(): Promise<IDBDatabase | null> {

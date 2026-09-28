@@ -87,7 +87,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **50/50 harnesses clean, 967 checks** (v0.10.60), or one
+Baseline is **51/51 harnesses clean, 972 checks** (v0.10.62), or one
 fewer: verify-cw-sources' last check only runs when the catalog is still
 loading at the click; the script says so and it is not a failure. verify-kit (plan 019) is the forty-second: one section per shared
 primitive, so a later change that undoes one fails there. If playwright-core is not installed, point `PW_FROM` at somewhere
@@ -98,6 +98,11 @@ refusal is load-bearing: a leftover `vite preview` on 4173 binds first, our
 vite dies on `--strictPort`, and the suite runs green against a stale dist.
 Kill the squatter rather than working around the message. `KEEP=1` is the
 usual way to leave one behind.
+
+Don't edit `apps/app/src` while it runs. It serves the working tree through
+vite's dev server, so an edit reloads whatever page a harness has open:
+v0.10.62's full run read one CRASH and two FAILED from edits mid-run, all
+three clean on a re-run.
 
 Read the board's STATUS column, not just the tick counts. **CRASH is the
 one that matters.** A failing check is loud; a harness that throws at check

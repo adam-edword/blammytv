@@ -103,13 +103,9 @@ function pinnedMetrics(b: Block, scroll: number) {
   };
 }
 
-/** Fade masks only where text actually overflows (measured, not blind). */
-function clipTitle(t: HTMLElement) {
-  t.classList.toggle("is-clipped", t.scrollWidth > t.clientWidth + 1);
-}
-
-/** Batch form: all reads, then all writes — interleaving them forces a
- * reflow per element, which row-window shifts would pay every 68px. */
+/** Fade masks only where text actually overflows (measured, not blind).
+ * All reads, then all writes: interleaving them forces a reflow per
+ * element, which row-window shifts would pay every 68px. */
 function clipTitles(els: Iterable<HTMLElement>) {
   const list = Array.from(els);
   const clipped = list.map((t) => t.scrollWidth > t.clientWidth + 1);
@@ -119,7 +115,11 @@ function clipTitles(els: Iterable<HTMLElement>) {
 /** Restore a cell to its natural place. The true left comes from the
  * React-rendered data-left attribute — never from imperative bookkeeping,
  * which a re-render can poison (React skips style writes when its props
- * are unchanged, so the pinned 197px would masquerade as the original). */
+ * are unchanged, so the pinned 197px would masquerade as the original).
+ *
+ * Writes only. Its title's fade is re-measured by the caller, with every
+ * other read, after every write (see syncPins): a read here, after these
+ * writes, forced a layout per cell. */
 function unpin(el: HTMLElement) {
   el.classList.remove("guide__cell--pinned");
   if (el.dataset.left) el.style.left = `${el.dataset.left}px`;
@@ -127,13 +127,10 @@ function unpin(el: HTMLElement) {
   el.style.clipPath = "";
   el.style.transform = "";
   el.style.opacity = "";
-  delete el.dataset.tw;
   // Defensive: older pin mechanics transformed the body, and imperative
   // styles survive both React renders and HMR module swaps.
   const body = el.querySelector<HTMLElement>(".guide__cell-body");
   if (body) body.style.transform = "";
-  const t = el.querySelector<HTMLElement>(".guide__cell-title");
-  if (t) clipTitle(t);
 }
 
 interface Block {
@@ -337,13 +334,25 @@ export const Guide = memo(function Guide({
    * natural widths are measured once per pin (cached) so the per-frame
    * clip check is pure arithmetic. */
   const syncPins = useCallback(
-    (scroll: number) => {
+    /** `clip`: more titles whose fade to re-measure in the same read pass
+     * (after a render, all of them). */
+    (scroll: number, clip: HTMLElement[] = []) => {
+      // Every write, then every read, then the class writes the reads
+      // decide. A read after a write forces a layout, and doing both per
+      // lane cost one per pinned lane, twice: 60 to 72 layouts on a 3-row
+      // step with 21 lanes pinned (plan 016 5.6, measured on 8,516
+      // channels).
       const next = computePins(scroll);
       const prev = pinsRef.current;
+      const released: HTMLElement[] = [];
       next.forEach((key, i) => {
         const el = pinnedElsRef.current[i];
         if (prev[i] === key && el?.isConnected) return;
-        if (el?.isConnected) unpin(el);
+        if (el?.isConnected) {
+          unpin(el);
+          const t = el.querySelector<HTMLElement>(".guide__cell-title");
+          if (t) released.push(t);
+        }
         const target = key
           ? laneElsRef.current[i]?.querySelector<HTMLElement>(
               `[data-key="${key}"]`,
@@ -357,6 +366,7 @@ export const Guide = memo(function Guide({
       });
       pinsRef.current = next;
 
+      const pinned: { el: HTMLElement; t: HTMLElement; room: number }[] = [];
       lanes.forEach(({ blocks }, i) => {
         const key = next[i];
         const el = pinnedElsRef.current[i];
@@ -368,13 +378,28 @@ export const Guide = memo(function Guide({
         el.style.transform = slide ? `translateX(${slide}px)` : "";
         el.style.opacity = opacity < 1 ? `${opacity}` : "";
         const t = el.querySelector<HTMLElement>(".guide__cell-title");
-        if (!t) return;
-        if (!el.dataset.tw) el.dataset.tw = String(t.scrollWidth);
         // 28 = the cell's horizontal padding.
-        t.classList.toggle(
-          "is-clipped",
-          parseFloat(el.dataset.tw) > width - 28,
-        );
+        if (t) pinned.push({ el, t, room: width - 28 });
+      });
+
+      // Reads. A title's natural width is kept on its cell for as long as
+      // the title is the same text, across pins and renders, so a pinned
+      // lane is measured once, not on every row the window moves.
+      const overflows = (t: HTMLElement) => t.scrollWidth > t.clientWidth + 1;
+      const releasedClipped = released.map(overflows);
+      const clipClipped = clip.map(overflows);
+      const widths = pinned.map(({ el, t }) =>
+        el.dataset.twFor === t.textContent ? Number(el.dataset.tw) : t.scrollWidth,
+      );
+
+      // Writes.
+      released.forEach((t, i) => t.classList.toggle("is-clipped", releasedClipped[i]));
+      clip.forEach((t, i) => t.classList.toggle("is-clipped", clipClipped[i]));
+      // Pinned last: a pinned title's fade is its pin's, not its box's.
+      pinned.forEach(({ el, t, room }, i) => {
+        el.dataset.tw = String(widths[i]);
+        el.dataset.twFor = t.textContent ?? "";
+        t.classList.toggle("is-clipped", widths[i] > room);
       });
     },
     [computePins, lanes, laneX],
@@ -399,12 +424,16 @@ export const Guide = memo(function Guide({
     laneElsRef.current = Array.from(
       scrollRef.current?.querySelectorAll<HTMLElement>(".guide__lane") ?? [],
     );
-    clipTitles(
-      scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ?? [],
-    );
     pinsRef.current = [];
     pinnedElsRef.current = [];
-    syncPins(scrollXRef.current);
+    // Re-pin and re-measure every fade in one pass of reads, after every
+    // write above: one forced layout a render, where there were three.
+    syncPins(
+      scrollXRef.current,
+      Array.from(
+        scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ?? [],
+      ),
+    );
     // Row-window drift check (channels changed, container resized): a
     // corrected window re-renders once; the equality guard stops the loop.
     measureRowWindow();
@@ -412,11 +441,15 @@ export const Guide = memo(function Guide({
   useEffect(() => {
     let alive = true;
     document.fonts?.ready.then(() => {
-      if (alive)
-        clipTitles(
-          scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ??
-            [],
-        );
+      if (!alive) return;
+      // A pinned title measured before the font arrived was measured in
+      // the fallback: forget it, and the next sync measures it again.
+      scrollRef.current
+        ?.querySelectorAll<HTMLElement>("[data-tw-for]")
+        .forEach((el) => delete el.dataset.twFor);
+      clipTitles(
+        scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ?? [],
+      );
     });
     const ro = new ResizeObserver(measureRowWindow);
     if (scrollRef.current) ro.observe(scrollRef.current);

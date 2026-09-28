@@ -432,16 +432,20 @@ the budget is 710KB.
 6. **Runtime, each with a before and after number:**
    - Stamp the disk snapshot with a schema version and skip
      re-normalising when it matches. Don't delete the loop: this clone
-     can't prove every old snapshot has expired.
+     can't prove every old snapshot has expired. *Done v0.10.62
+     (`normalized: true` on the record; 15 to 30ms off a launch at 1,588
+     guides).*
    - Key the sports index on a content fingerprint, so a background
-     refresh with the same channels reuses it.
+     refresh with the same channels reuses it. *Done v0.10.52.*
    - One `Intl.DateTimeFormat` per `matchEvent`.
    - `memo` on TheaterOverlay (check `setOverlayApiOverride` first). The
-     Guide's layout effect reads before it writes.
+     Guide's layout effect reads before it writes. *The Guide's half done
+     v0.10.62: 60 to 72 layouts a row step to 18 to 20, held by
+     verify-guide-pins.*
    - SaveButton parses once. RowScroller writes only changed tabindexes.
      Up Next's countdown state moves into Up Next.
    - Delete the update chip's endless animation of a property nothing
-     reads.
+     reads. *Done v0.10.61.*
    - Reserve boxes for logos and Continue Watching art, so nothing shifts
      on load.
 

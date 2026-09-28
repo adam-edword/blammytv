@@ -1,7 +1,7 @@
 # Draft: the next installer release's changelog
 
 Week of 2026-09-28, item 5. **A draft, not sent.** It covers v0.10.15 to
-v0.10.61, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
+v0.10.62, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
 release: pick the version, move the entry into `CHANGELOG.md` (newest
 first), and trim what you don't want to say. Every line was checked against
 its commit; the version each came from is in the comment after it, for
@@ -112,6 +112,9 @@ the background.
 - **An update never restarts the app over something playing**, Multi-view
   included, and a full update shows ahead of a smaller waiting one.
   <!-- v0.10.59 -->
+- **The Guide scrolls lighter**: a third of the layout work each time the
+  rows move, and opening from the saved guide skips a pass over every
+  programme. <!-- v0.10.62 -->
 - Smaller: Ctrl+K's channel search keeps working past half an hour, the
   mini player's Retry stays mini, Continue Watching keeps its wide art,
   dragging the accent colour saves once, and the Guide only takes back a

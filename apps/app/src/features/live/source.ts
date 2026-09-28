@@ -83,10 +83,12 @@ function announceRefresh() {
 }
 
 /** Persist off the critical path: a structured-clone write of a ~15MB graph
- * costs real main-thread time, so let the first paint settle first. */
+ * costs real main-thread time, so let the first paint settle first. Only
+ * doLoad's finished guide comes here, and every list in it was normalized
+ * (or kept from a cache that was), so the record says so. */
 function scheduleDiskPut(key: string, at: number, data: LiveData) {
   setTimeout(() => {
-    void diskPut({ key, at, data });
+    void diskPut({ key, at, data, normalized: true });
   }, 1500);
 }
 
@@ -222,9 +224,12 @@ export async function loadLive(
       const disk = await diskGet(key).catch(() => null);
       if (disk && Date.now() - disk.at < DISK_MAX_AGE_MS) {
         // Snapshots written before the normalize step existed still carry
-        // overlapping programmes; re-normalizing is cheap and idempotent.
-        for (const [id, list] of disk.data.programmes)
-          disk.data.programmes.set(id, normalizeProgrammes(list));
+        // overlapping programmes. A record that says it was normalized
+        // skips it: 15 to 30ms on the launch path at 1,588 guides
+        // (the Live auditor's shape, plan 016 5.6).
+        if (!disk.normalized)
+          for (const [id, list] of disk.data.programmes)
+            disk.data.programmes.set(id, normalizeProgrammes(list));
         // A snapshot old enough to have run out of schedule renders as a
         // screen of "No Information" — the exact thing a cold load looks
         // like, with nothing to say a refresh is in flight. Say it. A guide
