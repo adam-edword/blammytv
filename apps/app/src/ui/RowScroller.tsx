@@ -75,10 +75,11 @@ export function RowScroller({ children }: { children: ReactNode }) {
   const update = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    setCan({
-      left: el.scrollLeft > 4,
-      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-    });
+    const left = el.scrollLeft > 4;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+    // The same answer is the same object: a new one every scroll event
+    // re-rendered the whole row, cards and all, for nothing.
+    setCan((was) => (was.left === left && was.right === right ? was : { left, right }));
   }, []);
   useEffect(() => {
     const el = ref.current;

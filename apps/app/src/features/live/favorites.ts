@@ -1,4 +1,4 @@
-import { load, save } from "../../lib/storage";
+import { isString, loadList, save } from "../../lib/storage";
 
 /** Starred channels (ids). Channels are favorited, not folders. */
 
@@ -6,7 +6,7 @@ const KEY = "favorites";
 const VERSION = 1;
 
 export function loadFavorites(): string[] {
-  return load<string[]>(KEY, VERSION, []);
+  return loadList(KEY, VERSION, isString);
 }
 
 export function toggleFavorite(list: string[], id: string): string[] {

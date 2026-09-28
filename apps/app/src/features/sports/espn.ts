@@ -475,7 +475,13 @@ export async function fetchLeague(
   let raw: RawScoreboard;
   try {
     raw = await gate(async () => {
-      const res = await fetch(url, { signal });
+      // A request that never answers gives its slot back after 15s. With
+      // none, one hung connection held a slot for good, and six of them
+      // stalled every board until a restart (plan 016, F16). Counted as a
+      // failure below (our own signal isn't the one that fired), so the
+      // path backs off like any other.
+      const timeout = AbortSignal.timeout(15_000);
+      const res = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
       if (!res.ok) throw new Error(`ESPN ${path}: HTTP ${res.status}`);
       return (await res.json()) as RawScoreboard;
     });

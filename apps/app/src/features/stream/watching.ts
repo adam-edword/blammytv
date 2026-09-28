@@ -1,4 +1,4 @@
-import { load, save } from "../../lib/storage";
+import { hasId, loadList, save } from "../../lib/storage";
 
 /**
  * Continue Watching: a recency-ordered record of what was played in the
@@ -43,7 +43,7 @@ const VERSION = 1;
 const CAP = 20;
 
 export function loadWatching(): WatchEntry[] {
-  return load<WatchEntry[]>(KEY, VERSION, []);
+  return loadList(KEY, VERSION, hasId<WatchEntry>);
 }
 
 /** Move-to-front on the title id (an episode replaces its sibling). */

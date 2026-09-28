@@ -530,7 +530,21 @@ export function App() {
         }}
       />
       {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
-      {onboarding && <Onboarding onDone={() => setOnboarding(false)} />}
+      {onboarding && (
+        <Onboarding
+          // Where a launch would open, now that onboarding has set it up.
+          // The section was decided at mount, before a playlist was added
+          // or the startup tab picked, so a first run that chose Live TV
+          // came out on Stream (with no manifest, its empty state). Set as
+          // the finale starts, under the overlay, so the app it fades into
+          // is already the right one.
+          onFinish={() => {
+            setSection(loadStartupTab() === "live" && hasEnabledPlaylist() ? "live" : "stream");
+            setStreamTab(loadStartupTab() === "discover" ? "discover" : "home");
+          }}
+          onDone={() => setOnboarding(false)}
+        />
+      )}
     </div>
   );
 }

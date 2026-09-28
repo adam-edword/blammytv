@@ -1,4 +1,5 @@
 import { Button } from "../components/ui/button";
+import { isModalOpen } from "../lib/modalOpen";
 import { tmdbEnabled } from "../features/discover/tmdb";
 import {
   useCallback,
@@ -217,6 +218,9 @@ export function AppHeader({
       )
         return;
       if (document.getElementById("inv-chrome")) return;
+      // Nor under Settings or the palette: it switched the tab behind the
+      // modal, which stayed up over it.
+      if (isModalOpen()) return;
       e.preventDefault();
       onSection("stream");
       onStreamTab("discover");

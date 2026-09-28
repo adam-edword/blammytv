@@ -1,4 +1,4 @@
-import { load, save } from "../../lib/storage";
+import { isString, loadList, save } from "../../lib/storage";
 
 /** Recently tuned channels (ids, most recent first), capped so the list
  * stays a shortlist rather than a history. */
@@ -8,7 +8,7 @@ const VERSION = 1;
 const MAX = 30;
 
 export function loadRecents(): string[] {
-  return load<string[]>(KEY, VERSION, []);
+  return loadList(KEY, VERSION, isString);
 }
 
 export function recordRecent(list: string[], id: string): string[] {

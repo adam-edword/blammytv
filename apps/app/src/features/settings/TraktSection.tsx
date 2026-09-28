@@ -34,6 +34,12 @@ export function TraktSection() {
   const [armed, setArmed] = useState(false);
   const [, bump] = useState(0);
   const poll = useRef(0);
+  /** The sign-in under way. Cancel, closing Settings and a new Connect
+   * each move it on, and a poll that answers after that stops there. The
+   * answer's await re-armed the timer the cancel had just cleared, so
+   * polling went on with Settings closed, and a code approved on Trakt
+   * afterwards still signed you in. */
+  const attempt = useRef({ n: 0 });
 
   const refresh = useCallback(async () => {
     const s = await traktStatus();
@@ -48,8 +54,10 @@ export function TraktSection() {
     void refresh();
     const onSynced = () => bump((n) => n + 1);
     window.addEventListener(TRAKT_SYNCED, onSynced);
+    const sign = attempt.current;
     return () => {
       window.removeEventListener(TRAKT_SYNCED, onSynced);
+      sign.n++;
       window.clearTimeout(poll.current);
     };
   }, [refresh]);
@@ -57,18 +65,22 @@ export function TraktSection() {
   if (!isTauri() || phase.at === "loading") return null;
 
   const connect = async () => {
+    const mine = ++attempt.current.n;
     let code: DeviceCode;
     try {
       code = await traktDeviceStart();
     } catch (e) {
+      if (mine !== attempt.current.n) return;
       return setPhase({ at: "off", note: `Trakt didn't answer: ${e instanceof Error ? e.message : String(e)}` });
     }
+    if (mine !== attempt.current.n) return;
     setPhase({ at: "code", code });
     let every = code.interval * 1000;
     const deadline = Date.now() + code.expires_in * 1000;
     const tick = async () => {
       if (Date.now() > deadline) return setPhase({ at: "off", note: "The code ran out. Connect again for a new one." });
       const r = await traktDevicePoll().catch(() => "pending" as const);
+      if (mine !== attempt.current.n) return;
       if (r === "approved") {
         setPhase({ at: "on" });
         void refresh();
@@ -87,6 +99,7 @@ export function TraktSection() {
   };
 
   const cancel = () => {
+    attempt.current.n++;
     window.clearTimeout(poll.current);
     setPhase({ at: "off" });
   };

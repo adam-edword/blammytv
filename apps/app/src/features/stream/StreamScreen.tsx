@@ -289,8 +289,11 @@ export function StreamScreen() {
           episodeId: p.episodeId,
           title: p.item.title,
           label: p.label,
-          art: p.item.backdrop ?? p.item.poster,
-          logo: p.item.logo,
+          // What the card already had, before a poster: a resume from
+          // Continue Watching can play the light copy of a film, with no
+          // backdrop or logo, and the card came back as a bare poster.
+          art: p.item.backdrop ?? prev?.art ?? p.item.poster,
+          logo: p.item.logo ?? prev?.logo,
           rating: p.item.rating,
           year: p.item.year,
           runtimeMin: p.item.runtimeMin,
@@ -733,8 +736,16 @@ export function StreamScreen() {
       entry?.posSec && entry.posSec > 10
         ? Math.max(0, entry.posSec - 3)
         : p.resumeAt;
+    // Still the same stream when the answer comes? Leaving the player, or
+    // moving on to another episode or source, while the sources resolved
+    // used to be overruled: the old title started playing again.
+    const same = () => {
+      const now = playingRef.current;
+      return !!now && now.item.id === p.item.id && now.episodeId === p.episodeId && now.url === p.url;
+    };
     void resolveVodSources(p.item.kind, p.episodeId ?? p.item.id).then(
       (list) => {
+        if (!same()) return;
         const pick = list.find((s) => s.cached) ?? list[0];
         if (!pick) {
           void tauriMpvGoLive().catch(() => {});
@@ -749,7 +760,9 @@ export function StreamScreen() {
           reloadTick: (p.reloadTick ?? 0) + 1,
         });
       },
-      () => void tauriMpvGoLive().catch(() => {}),
+      () => {
+        if (same()) void tauriMpvGoLive().catch(() => {});
+      },
     );
   }, []);
 

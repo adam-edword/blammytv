@@ -69,6 +69,36 @@ const TITLES = 6;
 /** What "On later" looks ahead over. */
 const LATER_H = 24;
 
+/**
+ * What "On later" searches: the programmes starting in the next day, their
+ * titles lowercased, soonest first. Built once per catalog and again every
+ * ten minutes, so the window keeps up with the clock. Each keystroke used
+ * to walk every programme in the guide and lowercase each title: 24 to 80ms
+ * a key on a catalog the size of Adam's (the performance audit), where
+ * this is a scan of one flat list that stops at the first few hits.
+ */
+type Upcoming = { t: number; title: string; id: string; channel: Channel; p: Programme };
+const UPCOMING = new WeakMap<LiveData, { at: number; rows: Upcoming[] }>();
+function upcoming(live: LiveData, now: number): Upcoming[] {
+  const hit = UPCOMING.get(live);
+  if (hit && now - hit.at < 10 * 60_000) return hit.rows;
+  const byId = channelIndex(live, false);
+  // An hour past the window, for the ten minutes this copy is used.
+  const until = now + (LATER_H + 1) * 3600_000;
+  const rows: Upcoming[] = [];
+  for (const [id, progs] of live.programmes) {
+    const channel = byId.get(id);
+    if (!channel) continue;
+    for (const p of progs) {
+      const t = p.start.getTime();
+      if (t > now && t <= until) rows.push({ t, title: p.title.toLowerCase(), id, channel, p });
+    }
+  }
+  rows.sort((a, b) => a.t - b.t);
+  UPCOMING.set(live, { at: now, rows });
+  return rows;
+}
+
 export function Palette({
   open,
   onOpenChange,
@@ -192,21 +222,13 @@ export function Palette({
       const now = Date.now();
       const until = now + LATER_H * 3600_000;
       const later: Row[] = [];
-      const byId = channelIndex(live, false);
-      for (const [id, progs] of live.programmes) {
-        const channel = byId.get(id);
-        if (!channel) continue;
-        for (const p of progs) {
-          const t = p.start.getTime();
-          if (t <= now || t > until) continue;
-          if (p.title.toLowerCase().includes(q))
-            later.push({ key: `p:${id}:${t}`, kind: "later", label: p.title, channel, prog: p });
-        }
+      for (const r of upcoming(live, now)) {
+        if (r.t <= now) continue;
+        if (r.t > until || later.length >= LATER) break;
+        if (r.title.includes(q))
+          later.push({ key: `p:${r.id}:${r.t}`, kind: "later", label: r.p.title, channel: r.channel, prog: r.p });
       }
-      later.sort((a, b) =>
-        a.kind === "later" && b.kind === "later" ? a.prog.start.getTime() - b.prog.start.getTime() : 0,
-      );
-      if (later.length) out.push({ value: "On later", items: later.slice(0, LATER) });
+      if (later.length) out.push({ value: "On later", items: later });
     }
 
     if (hasStream) {
@@ -215,7 +237,9 @@ export function Palette({
       const seen = new Set<string>();
       const saved = new Set<string>();
       const pool: VodItem[] = [];
-      for (const l of loadLists())
+      // Read once: it is parsed from storage on every call.
+      const lists = loadLists();
+      for (const l of lists)
         for (const e of l.entries) {
           saved.add(e.id);
         }
@@ -224,7 +248,7 @@ export function Palette({
         seen.add(it.id);
         pool.push(it);
       }
-      for (const l of loadLists())
+      for (const l of lists)
         for (const e of l.entries) {
           if (seen.has(e.id)) continue;
           seen.add(e.id);

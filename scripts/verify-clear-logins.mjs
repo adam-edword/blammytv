@@ -95,6 +95,15 @@ check("the guide's copy is on disk before the clear", cached, JSON.stringify(awa
 await page.getByRole("button", { name: "Settings", exact: true }).first().click();
 const toggle = page.getByRole("switch", { name: "Test enabled" });
 await toggle.waitFor({ timeout: 15_000 });
+
+// `/` (search) under Settings leaves the app where it is. It used to
+// switch to Discover behind the modal.
+const onTab = () =>
+  page.evaluate(() => document.querySelector("[data-dest][aria-current='page']")?.getAttribute("data-dest") ?? "nowhere");
+const before = await onTab();
+await page.keyboard.press("/");
+await page.waitForTimeout(500);
+check("`/` under Settings doesn't switch the tab behind it", (await onTab()) === before, `${before} -> ${await onTab()}`);
 const clear = page.getByRole("button", { name: "Clear…" });
 await clear.click();
 await page.getByRole("button", { name: "Click again to confirm" }).click();
@@ -118,14 +127,14 @@ await page.evaluate((m) => localStorage.setItem("blammytv.aiostreams", JSON.stri
 await page.getByRole("tab", { name: "Live TV" }).click();
 await page.getByRole("tab", { name: "Stream" }).click();
 await manifest.waitFor({ timeout: 5000 });
-const before = await manifest.inputValue();
+const shown = await manifest.inputValue();
 await clear.click();
 await page.getByRole("button", { name: "Click again to confirm" }).click();
 await page.waitForTimeout(500);
 check(
   "the manifest leaves storage and the Stream pane showing it",
-  before === MANIFEST && (await stored("aiostreams")) === "" && (await manifest.inputValue()) === "",
-  JSON.stringify({ before, stored: await stored("aiostreams"), shown: await manifest.inputValue() }),
+  shown === MANIFEST && (await stored("aiostreams")) === "" && (await manifest.inputValue()) === "",
+  JSON.stringify({ before: shown, stored: await stored("aiostreams"), shown: await manifest.inputValue() }),
 );
 
 // And after a restart, nothing is there.

@@ -116,7 +116,7 @@ function raceTimeout<T>(p: Promise<T>, msg: string): Promise<T> {
 
 type VerifyMsg = { ok: boolean; text: string } | null;
 
-export function Onboarding({ onDone }: { onDone: () => void }) {
+export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?: () => void }) {
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<"in" | "out">("in");
   const [finale, setFinale] = useState(false);
@@ -277,6 +277,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   }, []);
 
   const advance = () => {
+    // Any move ends a verified step's dwell. Left armed, it fired after
+    // Enter had already moved on (its `advance` is the one from when the
+    // check landed, and saw the old phase), and skipped the next step.
+    window.clearTimeout(autoTimer.current);
     if (phase === "out" || finale) return;
     think();
     setPhase("out");
@@ -290,8 +294,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const finish = () => {
     // Same in-flight guard as advance: Skip during a swap must not arm
     // a second timer over the first (step-flash + orphaned timeout).
+    window.clearTimeout(autoTimer.current);
     if (phase === "out" || finale) return;
     markOnboarded();
+    onFinish?.();
     think();
     setPhase("out");
     window.clearTimeout(swapTimer.current);
@@ -300,6 +306,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
   /** One step back — no "thinking" burst; that's forward energy. */
   const retreat = () => {
+    window.clearTimeout(autoTimer.current);
     if (phase === "out" || finale || step === 0) return;
     setPhase("out");
     window.clearTimeout(swapTimer.current);

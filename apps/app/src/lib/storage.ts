@@ -25,6 +25,25 @@ export function load<T>(key: string, version: number, fallback: T): T {
   }
 }
 
+/**
+ * A stored LIST, checked for being one. `load`'s type parameter is a
+ * promise nobody keeps: a value edited by hand, or left by a build that
+ * stored a different shape under the same version, came back as whatever
+ * it was, and a `.some` on it at boot (App asks for the playlists before
+ * anything renders) was a blank window with no way back in. Items that
+ * aren't the right shape are dropped; the rest are kept.
+ */
+export function loadList<T>(key: string, version: number, isItem: (x: unknown) => x is T): T[] {
+  const v = load<unknown>(key, version, []);
+  return Array.isArray(v) ? v.filter(isItem) : [];
+}
+
+export const isString = (x: unknown): x is string => typeof x === "string";
+
+/** An object with a string `id`: the least every stored record has. */
+export const hasId = <T,>(x: unknown): x is T =>
+  typeof x === "object" && x !== null && typeof (x as { id?: unknown }).id === "string";
+
 export function save<T>(key: string, version: number, data: T): void {
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify({ v: version, data }));

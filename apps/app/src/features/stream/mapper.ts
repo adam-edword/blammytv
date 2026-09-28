@@ -233,7 +233,7 @@ export function mapSeasons(videos: StremioVideo[]): Season[] {
       id: v.id,
       number: v.episode ?? list.length + 1,
       title: v.title ?? v.name ?? `Episode ${v.episode}`,
-      ...(formatAirDate(v.released) ? { airDate: formatAirDate(v.released) } : {}),
+      ...(airDateOf(v.released)),
       ...(httpUrl(v.thumbnail) ? { still: httpUrl(v.thumbnail) } : {}),
     });
     bySeason.set(season, list);
@@ -335,12 +335,18 @@ function formatAirDate(released?: string | null): string | undefined {
   if (!released) return undefined;
   const day = calendarDay(released);
   if (Number.isNaN(day.getTime())) return undefined;
-  return day.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return AIR_DATE.format(day);
 }
+
+/** One formatter for every episode. toLocaleDateString builds a new one on
+ * each call, and each episode asked twice: 236ms for a 1,100-episode
+ * series in the Stream audit's measurement. */
+const AIR_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+const airDateOf = (released?: string | null): { airDate?: string } => {
+  const airDate = formatAirDate(released);
+  return airDate ? { airDate } : {};
+};
 
 function isHttp(s?: string | null): boolean {
   return httpUrl(s) !== undefined;

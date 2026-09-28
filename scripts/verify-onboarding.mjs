@@ -142,11 +142,14 @@ if (!FAST) {
 
   // Startup tab.
   await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
-  // Scoped: the header's own "Stream" is in the DOM behind the overlay.
+  // Scoped: the header's own tabs are in the DOM behind the overlay. Stream
+  // first, then Live TV: each click saves, and the app has to open on the
+  // last one (checked once the overlay lets go).
   await page.locator(".onb").getByRole("button", { name: "Stream", exact: true }).click();
   const startup = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("blammytv.startupTab") ?? "{}").data);
   check("startup pill saves the choice", startup === "stream", String(startup));
+  await page.locator(".onb").getByRole("button", { name: "Live TV", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
   // Done: the Settings nudge, then the hand-off.
@@ -253,6 +256,12 @@ if (!FAST) {
   const kept = await page.evaluate(() =>
     document.documentElement.style.getPropertyValue("--accent"));
   check("the accent picked on step 3 is still on once the app is up", kept === "#3730ff", kept);
+  // Where it opens: the Guide, as picked, now that a playlist is set up.
+  // The section was decided at mount, before either, and a first run came
+  // out on Stream.
+  const openedOn = await page.evaluate(() =>
+    document.querySelector("[data-dest][aria-current='page']")?.getAttribute("data-dest") ?? "nowhere");
+  check("and it opens where the startup step said, the Guide", openedOn === "guide", openedOn);
   await page.close();
 }
 

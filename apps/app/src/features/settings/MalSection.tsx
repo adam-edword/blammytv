@@ -32,6 +32,11 @@ export function MalSection() {
   const [armed, setArmed] = useState(false);
   const [, bump] = useState(0);
   const poll = useRef(0);
+  /** The sign-in under way, as Trakt's row keeps it. `poll` alone could
+   * not say: it is 0 while a poll is out, so closing Settings then neither
+   * stopped the next one nor gave the sign-in's port back. */
+  const attempt = useRef({ n: 0 });
+  const waiting = useRef(false);
 
   const refresh = useCallback(async () => {
     const s = await malStatus();
@@ -46,10 +51,13 @@ export function MalSection() {
     void refresh();
     const onSynced = () => bump((n) => n + 1);
     window.addEventListener(MAL_SYNCED, onSynced);
+    const sign = attempt.current;
     return () => {
       window.removeEventListener(MAL_SYNCED, onSynced);
       // Settings closed mid sign-in: stop waiting and give the port back.
-      if (poll.current) void malSignInCancel().catch(() => {});
+      sign.n++;
+      if (waiting.current) void malSignInCancel().catch(() => {});
+      waiting.current = false;
       window.clearTimeout(poll.current);
     };
   }, [refresh]);
@@ -57,17 +65,27 @@ export function MalSection() {
   if (!isTauri() || phase.at === "loading") return null;
 
   const connect = async () => {
+    const mine = ++attempt.current.n;
     let url: string;
     try {
       url = await malSignInStart();
     } catch (e) {
+      if (mine !== attempt.current.n) return;
       return setPhase({ at: "off", note: `Couldn't start the sign-in: ${e instanceof Error ? e.message : String(e)}.` });
     }
+    if (mine !== attempt.current.n) {
+      // Gone while it started: nothing will poll it, so free the port now.
+      void malSignInCancel().catch(() => {});
+      return;
+    }
+    waiting.current = true;
     openExternal(url);
     setPhase({ at: "waiting", url });
     const tick = async () => {
       poll.current = 0;
       const s = await malSignInPoll().catch(() => ({ at: "waiting" }) as const);
+      if (mine !== attempt.current.n) return;
+      if (s.at !== "waiting") waiting.current = false;
       if (s.at === "waiting") {
         poll.current = window.setTimeout(() => void tick(), POLL_MS);
         return;
@@ -95,6 +113,8 @@ export function MalSection() {
   };
 
   const cancel = () => {
+    attempt.current.n++;
+    waiting.current = false;
     window.clearTimeout(poll.current);
     poll.current = 0;
     void malSignInCancel().catch(() => {});
