@@ -273,9 +273,26 @@ export const Guide = memo(function Guide({
   }, []);
 
   // Lay the windowed lanes out once; only the pinned cell depends on scroll.
+  /* One key per ROW, which a channel id is not: an Xtream panel can file
+   * one stream under two categories, and Stalker's bulk list does the same,
+   * so a channel can be listed twice. Two rows on one key broke the
+   * window. Each time it moved past the pair, React kept one old row as an
+   * orphan; once Chrome anchored scrolling to an orphan, every shift nudged
+   * scrollTop, the layout effect below shifted the window again, and React
+   * stopped at "Maximum update depth exceeded". A repeat is keyed by its
+   * place among the copies. */
+  const rowKeys = useMemo(() => {
+    const seen = new Map<string, number>();
+    return channels.map(({ channel }) => {
+      const n = seen.get(channel.id) ?? 0;
+      seen.set(channel.id, n + 1);
+      return n === 0 ? channel.id : `${channel.id}~${n}`;
+    });
+  }, [channels]);
+
   const lanes = useMemo(
     () =>
-      channels.slice(renderFrom, renderTo).map(({ channel, programmes }) => {
+      channels.slice(renderFrom, renderTo).map(({ channel, programmes }, row) => {
         const blocks: Block[] = programmes
           .map((p) => ({ p, rect: cellRect(p.start, p.end, start) }))
           .filter((b) => b.rect !== null)
@@ -290,9 +307,9 @@ export const Guide = memo(function Guide({
               key: `${p.start.getTime()}:${i}`,
             };
           });
-        return { channel, blocks };
+        return { channel, blocks, rowKey: rowKeys[renderFrom + row] };
       }),
-    [channels, renderFrom, renderTo, now, start],
+    [channels, rowKeys, renderFrom, renderTo, now, start],
   );
 
   /* Pinning is fully imperative — React never renders it. With 14+ lanes a
@@ -521,7 +538,7 @@ export const Guide = memo(function Guide({
         {/* Off-window rows exist only as scroll height. */}
         {renderFrom > 0 && <div style={{ height: renderFrom * ROW_STEP }} />}
 
-        {lanes.map(({ channel, blocks }) => {
+        {lanes.map(({ channel, blocks, rowKey }) => {
           const selected = channel.id === selectedId;
           const favorite = favorites.includes(channel.id);
           /* Previews attach to the card and the cells themselves — NOT
@@ -533,7 +550,7 @@ export const Guide = memo(function Guide({
            * previous preview. */
           return (
             <div
-              key={channel.id}
+              key={rowKey}
               className="guide__row"
               data-channel={channel.id}
               style={{ height: ROW_H + ROW_GAP }}

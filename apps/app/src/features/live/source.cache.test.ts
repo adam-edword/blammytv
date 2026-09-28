@@ -150,6 +150,22 @@ describe("the live cache's clock", () => {
     expect(lookupLive()?.programmes.size).toBe(1);
   });
 
+  it("a guide refresh that fails keeps the guide that was here, on disk too", async () => {
+    const key = await diskKey();
+    // Relaunch with a guide on disk; the revalidation's XMLTV fails (the
+    // default here: a timeout, an error page).
+    vi.resetModules();
+    disk = { key, at: Date.now(), data: snapshot(Date.now()) };
+    const { loadLive, lookupLive } = await import("./source");
+    await loadLive(new Date());
+    await delay(null, 30); // the channel phase lands, the guide phase fails
+    expect(lookupLive()?.programmes.size).toBe(1);
+    expect(lookupLive()?.groups[0].epgError).toMatch(/guide download failed/);
+    await delay(null, 1600);
+    const written = diskPut.mock.calls.map((c) => (c[0] as { data: LiveData }).data.programmes.size);
+    expect(written.every((n) => n === 1)).toBe(true);
+  });
+
   it("a guide for a config the user has changed does not land (F3)", async () => {
     const { loadLive, lookupLive } = await import("./source");
     let landA!: (v: string) => void;

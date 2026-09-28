@@ -15,6 +15,7 @@ import {
   type Pick,
   countKey,
   lineFor,
+  lineOfChannel,
   settledOn,
   goneFrom,
   gameOver,
@@ -238,6 +239,15 @@ describe("the line's count (plan 018, H2)", () => {
     expect(lineFor(conns, [p("t:1"), p("m:9")])).toBeNull();
     // Two lines answering: none either.
     expect(lineFor(new Map([["t", 1], ["u", 2]]), [p("t:1")])).toBeNull();
+  });
+
+  it("finds one tile's own line, whatever else is in the grid", () => {
+    const conns = new Map([["t", { max: 1, active: 1 }], ["u", { max: 2, active: 0 }]]);
+    expect(lineOfChannel(conns, "t:1")).toEqual({ max: 1, active: 1 });
+    expect(lineOfChannel(conns, "u:7")).toEqual({ max: 2, active: 0 });
+    // A source with no count, and a playlist id that is only a prefix.
+    expect(lineOfChannel(conns, "m:9")).toBeNull();
+    expect(lineOfChannel(conns, "tt:1")).toBeNull();
   });
 
   it("believes 'elsewhere' only from a count taken long enough after the change (L3)", () => {

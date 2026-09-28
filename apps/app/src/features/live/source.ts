@@ -308,10 +308,24 @@ async function doLoad(
           ? { ...b.group, epgError: phases[i].epgError }
           : b.group,
       );
+      // A source whose guide didn't come this time (a timeout, an error
+      // page, a feed that matched nothing) keeps the one it had. A launch
+      // hydrated from disk showed its guide, then a minute in every lane
+      // went to "No Information" and the disk record lost its guide too.
+      // The reason still lands on the group's epgError.
+      const had = cache?.key === key ? cache.data.programmes : null;
       const programmes = new Map<string, Programme[]>();
-      for (const phase of phases)
+      phases.forEach((phase, i) => {
+        if (phase.programmes.size === 0 && had) {
+          for (const c of built[i].channels) {
+            const kept = had.get(c.id);
+            if (kept) programmes.set(c.id, kept);
+          }
+          return;
+        }
         for (const [id, list] of phase.programmes)
           programmes.set(id, normalizeProgrammes(list));
+      });
       const full: LiveData = {
         groups,
         channels: data.channels,

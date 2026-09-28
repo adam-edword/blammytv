@@ -164,6 +164,17 @@ const PNG = Buffer.from(
   "base64",
 );
 
+// username "dups": a line where a stream is filed under two categories,
+// as real panels do, so the same stream_id is listed twice, side by side.
+// Three hundred of them, every other one repeated: what verify-guide-dups
+// scrolls through (the Guide's "Maximum update depth" crash).
+const DUPS = [];
+for (let i = 0; i < 300; i++) {
+  const s = { num: i + 1, name: `Dup Channel ${i + 1}`, stream_type: "live", stream_id: 5000 + i, stream_icon: null, epg_channel_id: null, category_id: "1" };
+  DUPS.push(s);
+  if (i % 2 === 0) DUPS.push({ ...s, category_id: "2" });
+}
+
 http
   .createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -192,7 +203,7 @@ http
       if (action === "get_live_categories")
         return res.end(JSON.stringify(CATEGORIES));
       if (action === "get_live_streams")
-        return res.end(JSON.stringify(STREAMS));
+        return res.end(JSON.stringify(url.searchParams.get("username") === "dups" ? DUPS : STREAMS));
       return res.end("[]");
     }
     if (url.pathname === "/xmltv.php") {

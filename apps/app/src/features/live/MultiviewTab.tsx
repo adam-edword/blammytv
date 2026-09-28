@@ -41,6 +41,7 @@ import {
   gameOver,
   goneFrom,
   lineFor,
+  lineOfChannel,
   meterLine,
   removePick,
   replacePick,
@@ -482,13 +483,18 @@ export function MultiviewTab() {
 
   /** The gate a tile passes before it connects again (mvRecover.passGate):
    * a free slot on the line, its turn, a fresh link. */
-  const lineRef = useRef(line);
-  lineRef.current = line;
+  // Each tile waits on its OWN line. The grid-wide `line` is null whenever
+  // the grid spans two sources, and a null line always has room, so a tile
+  // in a mixed grid reconnected straight into its own ghost connection
+  // (the panel still counts a dropped stream for about 20s), three times,
+  // and settled on a refusal.
+  const connsRef = useRef(conns);
+  connsRef.current = conns;
   const turn = useRef({ last: 0 });
   const gate = useCallback(
     (id: string, waiting: (on: boolean) => void) =>
       passGate({
-        room: () => hasRoom(lineRef.current),
+        room: () => hasRoom(lineOfChannel(connsRef.current, id)),
         waiting: (on) => {
           setWaitingRoom((n) => n + (on ? 1 : -1));
           waiting(on);
@@ -725,7 +731,9 @@ export function MultiviewTab() {
       if (e.key !== "Escape" || e.defaultPrevented) return;
       // The palette over it owns this one. A capture listener on window
       // hears it before the palette can, and taking it kept the palette up.
-      if (isModalOpen()) return;
+      // So does any of the tab's own dialogs (the Scores filter): the pick
+      // was let go behind it, and the filter stayed up for a second Escape.
+      if (isModalOpen() || document.querySelector("[data-slot='dialog-content'][data-state='open']")) return;
       e.preventDefault();
       setChoosing(null);
     };
