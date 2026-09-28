@@ -17,7 +17,6 @@ import {
   loadAccent,
   loadCustomAccent,
   saveAccent,
-  saveAccentPairedBy,
   saveCustomAccent,
 } from "./accent";
 import { Hint } from "../../ui/Hint";
@@ -88,15 +87,12 @@ export function AccentPicker({
     setAccent(value);
     saveAccent(value);
     applyAccent(value);
-    // A pick ends any theme pack's paired accent: the user's choice wins.
-    saveAccentPairedBy("");
   };
 
   const pickDefault = () => {
     setAccent("");
     saveAccent("");
     clearAccent();
-    saveAccentPairedBy("");
   };
 
   const pickCustom = (hex: string) => {

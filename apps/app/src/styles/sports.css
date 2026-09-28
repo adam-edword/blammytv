@@ -1562,19 +1562,6 @@ div.sports__bar:not(.sports__head *) {
   }
 }
 
-/* The hub with nothing on it: loading, unreachable, or a genuinely empty
- * day. One line rather than a designed empty state, which is a later
- * phase. */
-.sports__note {
-  padding: 40px 0;
-  /* The whole loading, error and empty state. It was white on the themed
-   * page: 1.04:1 in the light packs, so the board's only explanation of
-   * itself was invisible in them. */
-  color: var(--text-muted);
-  font-family: var(--font-headline);
-  font-weight: 600;
-}
-
 /* A board with nothing on it, said properly (plan 010 #40): the StateCard
  * (ui.css, plan 019 K8). Not vertically centred in the viewport: the
  * board's own top edge is where the eye already is, and a message that

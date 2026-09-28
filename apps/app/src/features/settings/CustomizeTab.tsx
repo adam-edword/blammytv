@@ -46,7 +46,6 @@ import { AccentPicker } from "./AccentPicker";
 import {
   clearAccent,
   saveAccent,
-  saveAccentPairedBy,
   saveCustomAccent,
 } from "./accent";
 import { applyTheme, saveTheme, type Theme } from "./theme";
@@ -200,7 +199,6 @@ export function CustomizeTab() {
     // put the brand red back on a button labelled "Reset Appearance".
     saveAccent("");
     clearAccent();
-    saveAccentPairedBy("");
     saveCustomAccent("");
     setAccentKey((k) => k + 1);
     pickTheme("dark");

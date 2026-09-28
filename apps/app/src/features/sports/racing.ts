@@ -197,11 +197,6 @@ function toField(
   };
 }
 
-/** The long name for a session abbreviation, for a tooltip. */
-export function sessionName(abbr: string): string | undefined {
-  return SESSION_NAMES[abbr.toUpperCase()];
-}
-
 /**
  * A session's kick-off, as the cards print it: "1:00PM".
  *

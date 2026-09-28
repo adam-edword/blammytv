@@ -6,11 +6,13 @@ Everything under `ui/` is **generated**, by:
 cd apps/app && npx shadcn@latest add button dialog popover dropdown-menu tooltip
 ```
 
-It reads `components.json` at the app root, writes into `src/components/ui/`,
-and imports `cn` from `@/lib/utils`. Both paths are already wired: the `@/*`
-alias is in `vite.config.ts` and `tsconfig.json`, and the runtime packages
-it needs (Radix, `class-variance-authority`, `clsx`, `tailwind-merge`,
-`lucide-react`) are already installed, so `add` will not have to fetch them.
+It reads `components.json` at the app root and writes into
+`src/components/ui/`. The components here import `cn` from the `cn`
+package, shadcn's drop-in for `clsx` + `tailwind-merge` (neither of those
+is installed since v0.10.61). There is no `src/lib/utils.ts` and never has
+been, but `components.json` still names `@/lib/utils`, so check the `cn`
+import in anything `add` writes. The other runtime packages (Radix,
+`class-variance-authority`, `lucide-react`) are installed.
 
 ## Edit them freely, but know what you are giving up
 

@@ -50,7 +50,6 @@ export function isValidHex(value: unknown): boolean {
 
 const KEY = "accent";
 const CUSTOM_KEY = "accent-custom";
-const VERSION = 1;
 
 /**
  * The accent and its custom slot are on envelope v2 since v0.9.80, so a v1
@@ -138,23 +137,4 @@ export function applyAccent(hex: string): void {
   const root = document.documentElement;
   root.style.setProperty("--accent", hex);
   root.style.setProperty("--accent-ink", inkFor(hex));
-}
-
-/**
- * Pack-paired accent bookkeeping (option 3): a theme pack may SUGGEST an
- * accent (ThemePackMeta.pairedAccent). Committing such a pack applies it —
- * but only while the accent is still the default red or a previous pack's
- * pairing; a hand-picked accent is never touched. This key records which
- * pack's pairing is active ("" = none) so committing an unpaired pack can
- * restore the default, and any manual accent pick clears it (the user's
- * choice always wins from then on).
- */
-const PAIRED_KEY = "accent-paired-by";
-
-export function loadAccentPairedBy(): string {
-  return load<string>(PAIRED_KEY, VERSION, "");
-}
-
-export function saveAccentPairedBy(packId: string): void {
-  save(PAIRED_KEY, VERSION, packId);
 }

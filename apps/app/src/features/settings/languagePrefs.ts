@@ -85,7 +85,6 @@ export const SUBS_OFF = "off";
 const AUDIO_KEY = "preferredAudioLang";
 const SUB_KEY = "preferredSubLang";
 const VERSION = 1;
-const EVENT = "blammytv:language-prefs";
 
 /** A stored value that no longer means anything reads as unset, the same
  * way a stale follow key does in sports: a code we cannot match must not be
@@ -104,16 +103,8 @@ export function loadSubLang(): string {
 
 export function saveAudioLang(v: string): void {
   save(AUDIO_KEY, VERSION, cleanAudio(v));
-  window.dispatchEvent(new CustomEvent(EVENT));
 }
 
 export function saveSubLang(v: string): void {
   save(SUB_KEY, VERSION, cleanSub(v));
-  window.dispatchEvent(new CustomEvent(EVENT));
-}
-
-/** For anything that wants to react without a remount. */
-export function onLanguagePrefsChange(cb: () => void): () => void {
-  window.addEventListener(EVENT, cb);
-  return () => window.removeEventListener(EVENT, cb);
 }

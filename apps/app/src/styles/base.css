@@ -483,19 +483,12 @@ button {
   transform: translateY(10.5px);
 }
 
-/* The sweep angle, registered so the ring's spin interpolates. */
-@property --update-ring {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 90deg;
-}
-
-/* A glass pill wearing the brand gradient as a slow-turning 1.5px ring —
- * the boot logo's sweep, reused to mean "something new is here". The inner
- * fill paints over padding-box so the gradient survives only as the rim. */
+/* The update chip. It wore the brand sweep as a slow-turning ring until
+ * v0.9.57 moved the ring to old/; the spin that turned it went in v0.10.61,
+ * since it animated an angle nothing read, a style recalc every frame the
+ * chip was up (docs/audit-0.9.79/perf.md D1). */
 .update-chip {
   font-family: var(--font-headline);
-  animation: update-ring-turn 9s linear infinite;
   transform-origin: top center;
   /* Entrance (motion plan 002). Close stays instant — deliberate. */
   /* ONE declaration — a second transition: in this rule silently killed
@@ -511,7 +504,6 @@ button {
   transform: scale(0.9) translateY(-4px);
 }
 }
-@keyframes update-ring-turn { to { --update-ring: 450deg; } }
 
 /* The pulse dot: same gradient family, breathing while idle, steady spin
  * read while installing (motion = work happening). */
@@ -1119,8 +1111,9 @@ button {
   display: block;
   width: 1143px;
   height: 1143px;
-  /* Composed HERE, not taken from --logo-conic, so that var(--logo-angle)
-   * resolves against this element — the one the spin animates. */
+  /* Composed HERE, not as a finished token on :root, so that
+   * var(--logo-angle) resolves against this element: the one the spin
+   * animates. */
   background: conic-gradient(from var(--logo-angle), var(--logo-stops));
   clip-path: path(evenodd, var(--logo-path));
   transform: scale(0.032371);

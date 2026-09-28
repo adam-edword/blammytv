@@ -100,9 +100,6 @@
   --nav-rowgap: 7px;
   --nav-dur: 380ms;
   --nav-spring: cubic-bezier(0.34, 1.2, 0.42, 1);
-  /* No overshoot. For anything where passing the target and coming back
-   * reads as a fault rather than a flourish — corners, most obviously. */
-  --nav-settle: cubic-bezier(0.22, 1, 0.36, 1);
   --nav-label-in: 50ms;
   --nav-label-out: 400ms;
 
@@ -130,8 +127,6 @@
     #ffe57e 270.33deg,
     #ff9b9b 342.47deg,
     #ff93af 360deg;
-  /* The static gradient, for anything that does not animate it. */
-  --logo-conic: conic-gradient(from 146.36deg, var(--logo-stops));
   --accent-surface: color-mix(in srgb, var(--accent) 16%, var(--mix-base));
   --accent-border: color-mix(in srgb, var(--accent) 36%, transparent);
   --accent-border-hover: color-mix(in srgb, var(--accent) 51%, black);
@@ -467,29 +462,4 @@
   --sidebar-ring: oklch(0.708 0 0);
 
   color-scheme: light;
-}
-
-/* The WEBSITE's smooth brand conic (services/site/index.html): starts and
- * ends on the same stop (#FF9B9B), so the sweep loops with no visible seam —
- * unlike a conic whose start and end differ. background = the 29%-alpha
- * wash for fills over black; stroke = full strength for gradient borders. */
-:root {
-  --rainbow-background: conic-gradient(
-    from 0deg at 50% 50%,
-    #ff9b9b4a 0deg,
-    #ff7bf64a 72deg,
-    #8696ff4a 144deg,
-    #84ffa94a 216deg,
-    #ffe57f4a 288deg,
-    #ff9b9b4a 360deg
-  );
-  --rainbow-stroke: conic-gradient(
-    from 0deg at 50% 50%,
-    #ff9b9b 0deg,
-    #ff7bf6 72deg,
-    #8696ff 144deg,
-    #84ffa9 216deg,
-    #ffe57f 288deg,
-    #ff9b9b 360deg
-  );
 }
