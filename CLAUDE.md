@@ -87,10 +87,9 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **50/50 harnesses clean, 961 or 962 checks** (v0.10.51). The
-one-check wobble is verify-cw-sources' last check, which only runs when the
-catalog is still loading at the click; the script says so and it is not a
-failure. verify-kit (plan 019) is the forty-second: one section per shared
+Baseline is **50/50 harnesses clean, 967 checks** (v0.10.60), or one
+fewer: verify-cw-sources' last check only runs when the catalog is still
+loading at the click; the script says so and it is not a failure. verify-kit (plan 019) is the forty-second: one section per shared
 primitive, so a later change that undoes one fails there. If playwright-core is not installed, point `PW_FROM` at somewhere
 that can require it.
 
@@ -110,6 +109,14 @@ stopped being exercised.
 Watch for checks that pass VACUOUSLY, too. verify-stalker read 2/4 while
 the portal served nothing: the two that "passed" were negative assertions
 ("the adult genre is dropped"), and an empty page drops everything.
+
+**For a change that must not move a pixel** (a token move, a dead-code
+sweep): `node scripts/screens.mjs capture <dir>` before and after, then
+`compare <before> <after>`. Eleven scenes in both themes, byte-identical
+between two runs of one tree, plus every colour the stylesheets declare
+resolved to pixels, which covers hovers, errors and the player. About ten
+minutes a capture; `ONLY=guide,stream` for fewer. It uses the board's
+ports, so not while the board runs.
 
 **Harnesses stay offline.** This container can't reach Cinemeta, ESPN or
 TMDB (each fails in about 250ms), and CI can. So a harness that leaves one

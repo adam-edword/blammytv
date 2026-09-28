@@ -1,5 +1,16 @@
 # 016: Working the v0.9.79 audit
 
+**Status, 2026-09-28 (v0.10.61):** Tracks 0 and 1 done (below). Track 2
+became plan 017, complete. Track 3 is ROADMAP's M2, done in v0.10.29 to
+v0.10.37, with 3.6 (delete what is unused) in v0.10.61. Track 6 is closed
+(v0.10.56 to v0.10.59): F18 stays as the tradeoff its test pins, F22 waits
+on a real late-night game to probe. Track N: N1 to N5 and N7 in v0.10.38.
+Its N6 note below says the frontend still calls `mpv_blur` and
+`mpv_snapshot`; it does not (checked 2026-09-28), and both are kept as
+dormant on purpose, a native removal that is Adam's to call. Open: Track
+4 (each screen once; 4.8 and 4.9, the light pass and the glass, are plan
+022), Track 5 (download size) and Track 7 (hygiene).
+
 **Status (2026-09-24, v0.9.103):** Adam agreed all eight recommendations
 (D1 to D8). **Track 0 and Track 1 are done**, v0.9.82 to v0.9.96, each fix
 with a check that fails without it; so are ROADMAP M1 steps 1 and 5 and

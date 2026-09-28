@@ -6,24 +6,25 @@ and it goes stale on purpose: read it for reasons, not for status.
 
 Rewritten 2026-09-24 against the tree rather than against the old version of
 this file, which still said "v0.1.109" at the top while the app was on
-v0.9.78. "Where we are" refreshed 2026-09-27.
+v0.9.78. "Where we are" refreshed 2026-09-28.
 
-## Where we are (v0.10.26, 2026-09-27)
+## Where we are (v0.10.61, 2026-09-28)
 
 - **Released: 0.10.14**, "Multi-view's look everywhere, and live scores",
-  on 2026-09-26. Three releases went out that day: 0.10.0 (Multi-view,
-  through the installer), then 0.10.3 and 0.10.14, both frontend-only on
-  the hot channel (plan 008): they download by themselves and apply on the
-  next launch.
+  on 2026-09-26, on the hot channel. Three releases went out that day:
+  0.10.0 (Multi-view, through the installer), then 0.10.3 and 0.10.14.
 - **`main` is at v0.10.14**, tagged.
-- **`claude/nice-heisenberg-67k4uk` is 12 versions ahead, v0.10.15 to
-  v0.10.26, and not released.** Adam, 2026-09-27: "i dont wanna ship" yet.
-  It carries the player in the redesign's language (plan 020), the VOD
-  loading screen with the title's art and a stage bar, a tooltip on every
-  control, drag-to-scroll rows, UI Scale's removal, and both pickers as
-  shadcn's stock Command. Its one native commit (v0.10.19) only changes
-  what a dev run does; a release build behaves the same without it, so the
-  branch can still go out on the hot channel.
+- **`claude/nice-heisenberg-67k4uk` is 47 versions ahead, v0.10.15 to
+  v0.10.61, and not released.** Adam, 2026-09-27: "i dont wanna ship" yet.
+  Six of those versions are native (v0.10.19, v0.10.27 Trakt, v0.10.38
+  plan 016's Track N, v0.10.39 MAL, v0.10.46, v0.10.47), so **the next
+  release goes through the installer**, not the hot channel. It carries
+  the player in the redesign's language (plan 020), M2's primitives,
+  Trakt and MAL (M4), and the week of 2026-09-28: a whole-codebase audit's
+  fixes (v0.10.47 to v0.10.59), every colour on a token (v0.10.60) and the
+  dead code gone (v0.10.61).
+- **The week of 2026-09-28**: Adam is away and one session works the 1.0
+  list, logged in `plans/week-2026-09-28.md`. Read that file first.
 - **No open GitHub issues.** The backlog is this file and `plans/`.
 - **Version numbers 0.9.47 to 0.9.51 exist twice** in history, once on each
   side of the 2026-09-13 merge. Anything that quotes one of those five
@@ -33,16 +34,17 @@ v0.9.78. "Where we are" refreshed 2026-09-27.
 
 | | State |
 |---|---|
-| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player. M2 is done (v0.10.29 to v0.10.37), both of its calls taken. M3's leftovers (the glass tiers, reduced transparency, the light pass) have not started, and light mode is forced off at boot. |
+| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player; M2 is done. M3's leftovers (the glass tiers, reduced transparency, the light pass) are plan 022, put to Adam as rendered options before any code. Light mode is forced off at boot until then. |
 | **Trakt** (M4) | Built, v0.10.27 to v0.10.36, `plans/015-trakt.md`: sign-in, scrobbling, sync and the Trakt Watchlist. Waiting on Adam to register the Trakt app and put its keys in `.env.local` for a first real run. |
-| **MAL** (M4) | Built, v0.10.39 to v0.10.41, `plans/021-mal.md`: sign-in in the browser, finished anime episodes counted on MAL, MAL's counts ticking episodes here. Waiting on Adam to register the MAL app and put its client id in `.env.local`. Ships in the same installer release as Trakt. |
+| **MAL** (M4) | Built, v0.10.39 to v0.10.44, `plans/021-mal.md`: sign-in in the browser, finished anime episodes and films counted on MAL, MAL's counts ticking episodes here. Waiting on Adam to register the MAL app and put its client id in `.env.local`. Ships in the same installer release as Trakt. |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
-| **The Guide going black on a folder** | "Maximum update depth" in Guide.tsx, Adam, 2026-09-27. Not reproduced at his catalog's size (8,516 channels, 246 folders). v0.10.24 removed UI Scale's fractional zoom, the suspected cause, unconfirmed. If it comes back: a guard on the row window and a log line. |
-| **Themes** | Parked. They return after 1.0 with new looks (decision 1). |
+| **Themes** | Parked. They return after 1.0 with new looks (decision 1), and since v0.10.60 every colour a pack would change is a token. |
 
-The multi-view debt this section used to list is paid: plan 017 rebuilt
-multi-view on the primitives, the native slot refactor was reverted in
-v0.9.94, and plan 016's release-path and breakage tracks are done.
+The Guide going black on a folder ("Maximum update depth", Adam,
+2026-09-27) was found and fixed in v0.10.50: a channel listed under two
+categories gave two Guide rows one key, and the row window piled up
+orphans until scroll anchoring looped React. Whether Adam's catalog
+repeats ids is one console line, in the week log.
 
 ## Decisions, taken by Adam on 2026-09-24
 
@@ -172,7 +174,8 @@ never be a deterrent to building anything." So:
    Aurora is out of `accent.ts` (the style, its hue, the easter egg),
    `tokens.css` and `ui.css`, both cut by marker with a brace check, and
    verify-tailwind's check 8, which forced it, is retired. The pack-pairing
-   key in `accent.ts` stays with the rest of the theme machinery.
+   key in `accent.ts` stayed with the rest of the theme machinery until
+   v0.10.61 removed it: every accent pick wrote it and nothing read it.
 6. **Plan 016's Tracks 0 and 1** (done), and **plan 017** in place of
    016's Track 2. 017's P1 shipped in v0.9.105: multi-view is its own tab
    between Guide and Sports, with its own auto-hiding bar and every picture
@@ -267,7 +270,9 @@ two calls taken by Adam the same day (below).
   only where there is content behind it to see through. Never over the mpv
   surface, which cannot be composited with.
 - `prefers-reduced-transparency` and a light-mode contrast pass, together,
-  with a `verify-glass` harness.
+  with a `verify-glass` harness. Plan 022 puts these to Adam as rendered
+  options first (week of 2026-09-28, item 6); the light pass starts from
+  the list of white-on-the-page colours in that week's log.
 - ~~**Release it: the new look, 0.10.0.**~~ **Shipped 2026-09-26**, unsigned
   (decision 3 is still open). A native release through the installer (the
   stream proxy is native). The glass and the light pass above did not make
@@ -306,17 +311,19 @@ two calls taken by Adam the same day (below).
   alike. Paused is 0 now; playing stays at 2, which the scrubber needs.
   `verify-overlay-renders` holds it.
 - Every harness green, no generated component without a consumer, docs
-  that match the tree.
+  that match the tree. The second has held since v0.10.29 (verify-tailwind
+  9f fails on one), and the dead code around it went in v0.10.61. The docs
+  were brought to the tree on 2026-09-28; keeping them there is each
+  commit's job.
 - Signed, with the reputation M3's installs have built, if decision 3
   says sign.
 
 ### Alongside, whenever there is room
 
-- **An app-wide command palette** (Adam, 2026-09-24, on plan 017's M3:
-  "bookmark this as a full app feature down the line"). Multi-view's picker
-  is its first shape: search-first, keyboard-complete, rows with logos and
-  what is on. Grown out to channels, films and series, Settings and actions,
-  it is also the Ctrl+K channel search the Live slate ranked first.
+- ~~**An app-wide command palette**~~ **Built in v0.10.9** (plan 019, K11):
+  Ctrl+K anywhere, or the search button beside Settings. Channels with what
+  is on, programmes on later, films and series, and places to go. Actions
+  (play, add to a list) are the part still open.
 - **Sports matcher leftovers.** ACCNX and ESPN+ are carried as per-fixture
   event channels ("Liberty vs. Virginia (ACCNX)"), which is `matchEvent`
   territory. Run `btvSports()` on a college Saturday first; whether those
@@ -372,9 +379,11 @@ Not in 1.0: recording, anything else below.
 - **Styling goes through the design system now.** Tailwind and shadcn since
   v0.9.49: a standalone button is `<Button>`, and plan 014 lists the three
   legal ways to override a variant (`!important` is not one). Colour still
-  comes from tokens, and that is what keeps Themes possible later: a raw
-  colour utility is for a scrim over imagery and nothing else (see
-  decision 1). Icons: coolicons-style strokes in `ui/icons.tsx`.
+  comes from tokens, and that is what keeps Themes possible later: a
+  literal colour is for black (a scrim, a shadow, the letterbox) and the
+  short list in tokens.css's NAMED COLOURS, nothing else (see decision 1).
+  White on a picture is `--on-image`. Icons: coolicons-style strokes in
+  `ui/icons.tsx`.
 
 # History
 
