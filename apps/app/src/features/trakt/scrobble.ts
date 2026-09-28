@@ -10,6 +10,13 @@
  * A finished watch that cannot reach Trakt is queued and sent later as a
  * history entry dated when it happened (sync.ts sends the queue first).
  *
+ * The stop goes out when the watch crosses the app's own watched line
+ * (90%, where the episode ticks), not only when you leave it: closing the
+ * app at the credits runs no cleanup, so a stop left for then never went,
+ * and the next sync, with Trakt as the ledger, took the tick away again.
+ * After that stop the session is over, so leaving later sends nothing
+ * more and nothing counts twice.
+ *
  * Its own 10s look at the player rather than hooks into the overlay's
  * buttons: a pause from the keyboard, the overlay or the pop-out all look
  * the same from here, a position that stopped moving.
@@ -88,6 +95,11 @@ async function episodeTraktId(episodeId: string): Promise<number | null> {
 /** How often the player is looked at. */
 const TICK_MS = 10_000;
 
+/** Where a watch counts here (the episode ticks at 90%, StreamScreen's
+ * progress tick), and where the stop goes out without waiting for you to
+ * leave. */
+const LINE = 90;
+
 export function useTraktScrobble(t: ScrobbleTarget | null): void {
   const key = t ? `${t.itemId}|${t.episodeId ?? ""}` : null;
   // Read live: popping out and back is the same watch, not a new one, so
@@ -99,11 +111,15 @@ export function useTraktScrobble(t: ScrobbleTarget | null): void {
     const target = t;
     let alive = true;
     let item: Record<string, unknown> | null = null;
+    let connected = false;
     let state: "idle" | "playing" | "paused" = "idle";
     let lastPos: number | null = null;
     let lastPct: number | null = null;
+    /** The watch has been reported: nothing more is sent for it. */
+    let done = false;
     const ready: Promise<boolean> = (async () => {
       if (!(await traktStatus()).connected) return false;
+      connected = true;
       const ep = target.kind === "series" && target.episodeId ? await episodeTraktId(target.episodeId) : undefined;
       item = scrobbleItem(target, ep ?? undefined);
       return item != null;
@@ -112,13 +128,47 @@ export function useTraktScrobble(t: ScrobbleTarget | null): void {
     const send = (action: "start" | "pause" | "stop", pct: number) =>
       traktJson<{ action?: string }>("POST", `/scrobble/${action}`, { ...item, progress: Math.round(pct * 100) / 100 });
 
+    /** The end of the watch as Trakt hears it: a stop with the percentage,
+     * or, when that can't be sent, a finished watch queued as history. */
+    const finish = async (pct: number) => {
+      done = true;
+      if (!item) {
+        // Connected, but the scrobble item could not be made (the
+        // episode's Trakt id lookup failed): a finished watch still goes,
+        // as history, which needs no Trakt id.
+        if (connected && pct > 80) {
+          const body = historyFor(target, Date.now());
+          if (body) queueWatch(body);
+          counted(target);
+        }
+        return;
+      }
+      const r = await send("stop", pct).catch(() => null);
+      if (r && r.status < 300) {
+        if (r.data?.action === "scrobble") counted(target);
+        return;
+      }
+      // Trakt could not be reached, or refused for now: a finished watch is
+      // kept and sent later, dated now. A 409 is Trakt saying it already
+      // has this one.
+      if (pct > 80 && (!r || r.status >= 500 || r.status === 429)) {
+        const body = historyFor(target, Date.now());
+        if (body) queueWatch(body);
+        counted(target);
+      }
+    };
+
     const tick = async () => {
-      if (!alive || !(await ready) || popped.current) return;
+      if (!alive || done || popped.current) return;
+      const ok = await ready;
+      if (!connected) return;
       const st = await tauriMpvStatus().catch(() => null);
-      if (!st || st.buffering) return;
+      if (!alive || done || !st || st.buffering) return;
       const pct = percent(st.pos, st.dur);
       if (pct == null) return;
       lastPct = pct;
+      if (pct >= LINE) return void (await finish(pct));
+      if (!ok) return;
       const still = lastPos != null && st.pos != null && Math.abs(st.pos - lastPos) < 0.5;
       lastPos = st.pos;
       if (pct < 1) return;
@@ -136,26 +186,15 @@ export function useTraktScrobble(t: ScrobbleTarget | null): void {
     return () => {
       alive = false;
       window.clearInterval(id);
+      if (done) return;
       // The end of this item: the watch entry has the last position from
       // either player (the in-app tick and the pop-out's both write it),
       // and a natural end sets it to the full duration.
       const e = loadWatching().find((w) => w.id === target.itemId && (w.episodeId ?? "") === (target.episodeId ?? ""));
       const pct = percent(e?.posSec, e?.durSec) ?? lastPct;
-      void ready.then(async (ok) => {
-        if (!ok || pct == null || pct < 1) return;
-        const r = await send("stop", pct).catch(() => null);
-        if (r && r.status < 300) {
-          if (r.data?.action === "scrobble") counted(target);
-          return;
-        }
-        // Trakt could not be reached, or refused for now: a finished
-        // watch is kept and sent later, dated now. A 409 is Trakt saying
-        // it already has this one.
-        if (pct > 80 && (!r || r.status >= 500 || r.status === 429)) {
-          const body = historyFor(target, Date.now());
-          if (body) queueWatch(body);
-          counted(target);
-        }
+      void ready.then(async () => {
+        if (done || !connected || pct == null || pct < 1) return;
+        await finish(pct);
       });
     };
     // One session per title and episode.

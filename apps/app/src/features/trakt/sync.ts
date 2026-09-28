@@ -17,11 +17,11 @@ import type { ListEntry } from "../stream/myList";
 import { loadLedger, replaceLedger } from "../stream/watched";
 import { loadWatching, onWatchingCleared, replaceWatching, retiredFromContinue } from "../stream/watching";
 import { traktJson, traktStatus } from "./client";
-import { historyToPush, ledgerFromTrakt, moviesFromTrakt, type WatchedMovie, type WatchedShow } from "./history";
+import { historyToPush, ledgerFromTrakt, moviesFromTrakt, withQueued, type WatchedMovie, type WatchedShow } from "./history";
 import { imdbOf, type TraktIds } from "./ids";
 import { mergeWatchlist } from "./merge";
 import { mergeProgress, type Playback } from "./progress";
-import { clearQueue, loadQueue, loadTrakt, queueWatch, saveTrakt, TRAKT_SYNCED } from "./store";
+import { dropFromQueue, forgetCount, loadQueue, loadTrakt, saveTrakt, TRAKT_SYNCED } from "./store";
 
 /** `/sync/watchlist/:type`, the fields used. */
 interface WatchlistItem {
@@ -66,22 +66,29 @@ export function syncTrakt(): Promise<SyncResult> {
 async function pass(): Promise<SyncResult> {
   const status = await traktStatus();
   if (!status.connected) return { ok: false, changed: false, problem: "not connected" };
+  // A sign-out while this pass waits on Trakt: stop, and write nothing back
+  // into the store it just cleared (a Trakt Watchlist list would come back
+  // that nothing can remove).
+  const gen = forgetCount();
+  const gone = () => forgetCount() !== gen;
+  const overtaken: SyncResult = { ok: false, changed: false, problem: "signed out" };
   let changed = false;
   try {
     // Watches that finished while Trakt could not be reached go first, so
     // the ledger that comes back includes them.
     const queue = loadQueue();
     if (queue.length) {
-      const left = [];
+      const sent = [];
       for (const body of queue) {
         const r = await traktJson("POST", "/sync/history", body).catch(() => null);
-        if (!r || r.status >= 500 || r.status === 429) left.push(body);
+        if (r && r.status < 500 && r.status !== 429) sent.push(body);
       }
-      clearQueue();
-      for (const b of left) queueWatch(b);
+      if (gone()) return overtaken;
+      dropFromQueue(sent);
     }
 
     const acts = await traktJson<Record<string, unknown>>("GET", "/sync/last_activities");
+    if (gone()) return overtaken;
     if (acts.status === 401 || !acts.data) return fail(acts.status === 401 ? "Signed out of Trakt" : `Trakt answered ${acts.status}`);
     const now = flatten(acts.data);
     const local = loadTrakt();
@@ -107,9 +114,11 @@ async function pass(): Promise<SyncResult> {
           films = await traktJson<WatchedMovie[]>("GET", "/sync/watched/movies");
           if (!shows.data || !films.data) return fail(`Trakt answered ${shows.status}`);
         }
+        if (gone()) return overtaken;
         saveTrakt({ pushedHistory: true });
       }
-      replaceLedger(ledgerFromTrakt(shows.data));
+      if (gone()) return overtaken;
+      replaceLedger(withQueued(ledgerFromTrakt(shows.data), loadQueue()));
       saveTrakt({ movies: moviesFromTrakt(films.data) });
       changed = true;
     }
@@ -117,6 +126,7 @@ async function pass(): Promise<SyncResult> {
     // Where you left off (T4).
     if (moved(before, now, ["movies.paused_at", "episodes.paused_at"])) {
       const pb = await traktJson<Playback[]>("GET", "/sync/playback?extended=full");
+      if (gone()) return overtaken;
       if (pb.data) {
         replaceWatching(mergeProgress(loadWatching(), pb.data));
         changed = true;
@@ -125,7 +135,8 @@ async function pass(): Promise<SyncResult> {
 
     // The watchlist (T5, D2, D3). Run every pass: a change made here has no
     // stamp on Trakt's side, and the merge is cheap when nothing moved.
-    if (await syncWatchlist()) changed = true;
+    if (await syncWatchlist(gone)) changed = true;
+    if (gone()) return overtaken;
 
     saveTrakt({ lastSync: Date.now(), activities: now, problem: undefined });
     if (changed) window.dispatchEvent(new Event(TRAKT_SYNCED));
@@ -135,17 +146,19 @@ async function pass(): Promise<SyncResult> {
   }
 
   function fail(problem: string): SyncResult {
+    if (gone()) return overtaken;
     saveTrakt({ problem });
     if (changed) window.dispatchEvent(new Event(TRAKT_SYNCED));
     return { ok: false, changed, problem };
   }
 }
 
-async function syncWatchlist(): Promise<boolean> {
+async function syncWatchlist(gone: () => boolean): Promise<boolean> {
+  if (gone()) return false;
   ensureTraktList();
   const movies = await traktJson<WatchlistItem[]>("GET", "/sync/watchlist/movies");
   const shows = await traktJson<WatchlistItem[]>("GET", "/sync/watchlist/shows");
-  if (!movies.data || !shows.data) return false;
+  if (gone() || !movies.data || !shows.data) return false;
 
   const remote = new Map<string, number>();
   const remoteInfo = new Map<string, ListEntry>();
@@ -174,6 +187,7 @@ async function syncWatchlist(): Promise<boolean> {
     return { ...(films.length ? { movies: films } : {}), ...(series.length ? { shows: series } : {}) };
   };
   const refused = new Set<string>();
+  const unremoved = new Set<string>();
   if (plan.addRemote.length) {
     const r = await traktJson<{ not_found?: { movies?: { ids: TraktIds }[]; shows?: { ids: TraktIds }[] } }>(
       "POST",
@@ -196,15 +210,20 @@ async function syncWatchlist(): Promise<boolean> {
     // says which they were.
     const films = plan.removeRemote.filter((id) => remoteInfo.get(id)?.kind === "movie").map((id) => ({ ids: { imdb: id } }));
     const series = plan.removeRemote.filter((id) => remoteInfo.get(id)?.kind === "series").map((id) => ({ ids: { imdb: id } }));
-    await traktJson("POST", "/sync/watchlist/remove", {
+    const r = await traktJson("POST", "/sync/watchlist/remove", {
       ...(films.length ? { movies: films } : {}),
       ...(series.length ? { shows: series } : {}),
     });
+    // Not taken: they stay in the agreed copy, so the next pass removes
+    // them again. Left out, a title still on Trakt and gone from the copy
+    // reads as newly added there, and would come back here.
+    if (r.status >= 300) plan.removeRemote.forEach((id) => unremoved.add(id));
   }
+  if (gone()) return false;
   if (plan.addLocal.length) addEntries(TRAKT_LIST, plan.addLocal.map((id) => remoteInfo.get(id)!).filter(Boolean));
   for (const id of plan.removeLocal) removeFromList(TRAKT_LIST, id);
 
-  saveTrakt({ watchlistBase: { ids: plan.final.filter((id) => !refused.has(id)), at: Date.now() } });
+  saveTrakt({ watchlistBase: { ids: [...plan.final.filter((id) => !refused.has(id)), ...unremoved], at: Date.now() } });
   return plan.addLocal.length > 0 || plan.removeLocal.length > 0;
 }
 

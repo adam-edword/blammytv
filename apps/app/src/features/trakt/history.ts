@@ -51,6 +51,23 @@ export function ledgerFromTrakt(shows: readonly WatchedShow[]): Ledger {
   return out;
 }
 
+/** The ledger with the episodes of queued watches added: Trakt has not got
+ * them yet (the queue goes out first, but a send can fail), and taking a
+ * tick away only for it to come back a sync later is wrong twice. */
+export function withQueued(ledger: Ledger, queue: readonly HistoryBody[]): Ledger {
+  const out: Ledger = { ...ledger };
+  for (const body of queue)
+    for (const show of body.shows ?? []) {
+      const id = imdbOf(show.ids.imdb);
+      if (!id) continue;
+      const have = new Set(out[id] ?? []);
+      for (const season of show.seasons)
+        for (const e of season.episodes) have.add(episodeId(id, season.number, e.number));
+      out[id] = [...have];
+    }
+  return out;
+}
+
 /** Trakt's watched films: IMDb id → when last watched (ms), for the mark on
  * a film's page (D6). */
 export function moviesFromTrakt(movies: readonly WatchedMovie[]): Record<string, number> {

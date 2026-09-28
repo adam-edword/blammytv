@@ -43,7 +43,13 @@ export function saveTrakt(patch: Partial<TraktLocal>): TraktLocal {
   return next;
 }
 
+/** Bumped by every sign-out, so a sync already under way can tell it has
+ * been overtaken and write nothing back into the store it just cleared. */
+let forgets = 0;
+export const forgetCount = (): number => forgets;
+
 export function forgetTrakt(): void {
+  forgets++;
   save(KEY, VERSION, {});
   save(QUEUE, VERSION, []);
 }
@@ -58,8 +64,16 @@ export function queueWatch(body: HistoryBody): void {
   save(QUEUE, VERSION, [...loadQueue(), body].slice(-200));
 }
 
-export function clearQueue(): void {
-  save(QUEUE, VERSION, []);
+/** Take out what was sent, one entry for each. Re-read at the time, so a
+ * watch queued while those were on their way stays in. */
+export function dropFromQueue(sent: readonly HistoryBody[]): void {
+  const left = loadQueue();
+  for (const body of sent) {
+    const text = JSON.stringify(body);
+    const at = left.findIndex((b) => JSON.stringify(b) === text);
+    if (at >= 0) left.splice(at, 1);
+  }
+  save(QUEUE, VERSION, left);
 }
 
 /** Said by the sync when it changed anything a screen shows (Continue

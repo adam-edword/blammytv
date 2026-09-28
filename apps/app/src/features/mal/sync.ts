@@ -129,7 +129,10 @@ export function syncMal(): Promise<void> {
     try {
       for (const [mal, ep] of Object.entries(loadMal().pending)) {
         if (await pushProgress(Number(mal), ep)) {
+          // Only what went: a later episode queued while this one was out
+          // stays for the next sync.
           const { pending } = loadMal();
+          if ((pending[mal] ?? 0) > ep) continue;
           delete pending[mal];
           saveMal({ pending });
         }

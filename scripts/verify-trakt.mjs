@@ -266,19 +266,20 @@ check(
   started && start?.movie?.ids?.imdb === "tt100002" && Math.round(start.progress) === 40,
   JSON.stringify(start),
 );
-// Near the end, then leave it: the stop carries the real percentage, and
-// Trakt's "scrobble" answer marks the film watched here.
+// Past the app's watched line (90%) while it still plays: the stop goes
+// out then, not only on leaving, since closing the app at the credits runs
+// no cleanup. Trakt's "scrobble" answer marks the film watched here.
 await page.evaluate(() => (window.__pos = 5700));
-// The 5s progress tick writes the position into the watch entry first.
-await page.waitForTimeout(6000);
-// Wake the chrome and leave by its Back.
+const stopped = await waitFor(() => seen("POST", "/scrobble/stop").length > 0, 15_000);
+const stop = seen("POST", "/scrobble/stop")[0]?.body;
+check("  past 90% the stop goes out while it still plays, with the real percentage", stopped && stop?.progress >= 90, JSON.stringify(stop));
+// Wake the chrome and leave by its Back: the watch is already reported.
 const ov = await page.locator(".theater-overlay").first().boundingBox();
 await page.mouse.move(ov.x + ov.width / 2, ov.y + ov.height / 2);
 await page.mouse.move(ov.x + ov.width / 2 + 20, ov.y + ov.height / 2 + 10);
 await page.getByRole("button", { name: "Back", exact: true }).first().click({ timeout: 5000 });
-const stopped = await waitFor(() => seen("POST", "/scrobble/stop").length > 0, 10_000);
-const stop = seen("POST", "/scrobble/stop")[0]?.body;
-check("  leaving it sends a stop past 80%", stopped && stop?.progress >= 80, JSON.stringify(stop));
+await page.waitForTimeout(1500);
+check("  and leaving afterwards sends no second stop", seen("POST", "/scrobble/stop").length === 1, `${seen("POST", "/scrobble/stop").length} stops`);
 const marked = await waitFor(async () => !!(await store("trakt"))?.movies?.tt100002, 5000);
 check("  and Trakt's scrobble answer marks the film watched here", marked, JSON.stringify((await store("trakt"))?.movies));
 

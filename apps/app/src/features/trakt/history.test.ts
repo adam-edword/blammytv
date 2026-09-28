@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { historyToPush, ledgerFromTrakt, moviesFromTrakt, type WatchedShow } from "./history";
+import { historyToPush, ledgerFromTrakt, moviesFromTrakt, withQueued, type WatchedShow } from "./history";
 
 const show = (imdb: string | undefined, seasons: [number, number[]][]): WatchedShow => ({
   show: { title: "x", ids: imdb ? { imdb } : { trakt: 1 } },
@@ -55,5 +55,17 @@ describe("watched history (plan 015, T3)", () => {
 
   it("episodes not keyed by IMDb never go (D5)", () => {
     expect(historyToPush({ "kitsu:1": ["kitsu:1:1:1"] }, {})).toBeNull();
+  });
+
+  it("a watch still in the queue keeps its tick when Trakt's ledger comes in", () => {
+    const ledger = { tt1: ["tt1:1:1"] };
+    const queue = [
+      { shows: [{ ids: { imdb: "tt1" }, seasons: [{ number: 1, episodes: [{ number: 2, watched_at: "2026-09-28T01:00:00.000Z" }] }] }] },
+      { shows: [{ ids: { imdb: "tt9" }, seasons: [{ number: 3, episodes: [{ number: 4 }] }] }] },
+      { movies: [{ ids: { imdb: "tt5" } }] },
+    ];
+    expect(withQueued(ledger, queue)).toEqual({ tt1: ["tt1:1:1", "tt1:1:2"], tt9: ["tt9:3:4"] });
+    // The ledger passed in is left as it was.
+    expect(ledger).toEqual({ tt1: ["tt1:1:1"] });
   });
 });
