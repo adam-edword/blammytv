@@ -52,7 +52,7 @@ function TooltipContent({
           "sports-tooltip z-(--z-popover) w-fit origin-(--radix-tooltip-content-transform-origin)",
           "rounded-[10px] border border-float-border bg-popover px-2.5 py-1.5",
           "text-xs font-medium text-foreground text-balance",
-          "shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_28px_rgba(0,0,0,0.45)]",
+          "shadow-(--glass-lift)",
           "backdrop-blur-[18px] backdrop-saturate-[1.2]",
           "animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1",
           // NO EXIT ANIMATION, also edited from the default (which fades and

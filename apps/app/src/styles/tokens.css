@@ -6,8 +6,9 @@
  * accent the app has always used — so the brand carries over.
  *
  * Theme: dark is the design's native palette (defaults below); the light
- * override at the bottom swaps every theme-dependent token. Components must
- * only use tokens for themable color — no raw hex for surfaces/text/borders.
+ * override at the bottom swaps every theme-dependent token. Every colour a
+ * theme would change is a token; the few that stay literals, and why, are
+ * under NAMED COLOURS below.
  */
 :root {
   /* Surfaces, and every one of them is shadcn neutral's own value.
@@ -156,6 +157,74 @@
    * the page is, so what sits on it is white in both. */
   --pic: #111;
   --on-image: #fff;
+  /* White on a picture at less than full strength is a mix of it, never a
+   * fresh rgba: `color-mix(in srgb, var(--on-image) 62%, transparent)` is
+   * the same pixels as `rgba(255, 255, 255, 0.62)` and follows the token. */
+
+  /* ----------------------------------------------------- named colours
+   * Week of 2026-09-28, 1.0's "every colour reachable by a future theme".
+   * Each of these was a literal in a component, and each is exactly that
+   * literal here, in both themes: moving them changed no colour, and no
+   * pixel but the quality badges' fills, 1/255 off (ui.css says why).
+   * scripts/screens.mjs is the proof: screenshots, and every colour the
+   * sheets declare.
+   *
+   * What stays a literal, on purpose:
+   * - BLACK, opaque or at an alpha: the letterbox under video, a quality
+   *   badge's ground, the play circle's glyph, every scrim, shadow and
+   *   press shade, and the near-black glass over video (rgb 20 20 20).
+   *   Black is what a picture is dark with, and it reads the same under
+   *   any theme; shadcn's own shadows are black in both of its themes.
+   * - The brand stage: boot and onboarding are light-on-black under every
+   *   theme, the website's look, the way their motion is exempt too. Their
+   *   sweep is the brand ramp below.
+   * - A mask's stops (alpha, not colour) and choices: the accent picker's
+   *   swatches are what you pick from, not how the app looks.
+   * - The light pass's list (plans/week-2026-09-28.md): white fills and ink
+   *   on the page that do not turn with the theme. Their fix changes how
+   *   light looks, so it belongs to that pass, not to this move. */
+
+  /* The brand ramp: the website's sweep from coral round to butter, with a
+   * stop between each pair. The five named hues are what the 4K and HDR
+   * badges and the rainbow icons use; the sweep (boot, onboarding) and the
+   * update dot use the in-between ones too. */
+  --brand-coral: #ff9b9b;
+  --brand-rose: #ff8bc9;
+  --brand-pink: #ff7bf6;
+  --brand-violet: #c388fb;
+  --brand-blue: #8696ff;
+  --brand-teal: #85cbd4;
+  --brand-mint: #84ffa9;
+  --brand-lime: #c1f294;
+  --brand-butter: #ffe57f;
+  /* The quality badges' metals, from the Figma export: FHD is gold, HD is
+   * silver. */
+  --gold-light: #ffe57f;
+  --gold-dark: #b35700;
+  --silver-light: #fff;
+  --silver-dark: #313131;
+  /* A channel's logo sits on a white plate (ui.css .chlogo), with its
+   * initial in near-black when there is no logo. */
+  --plate: #fff;
+  --plate-ink: #111;
+  /* The glass that floats over content, tooltips and the stats panel: a
+   * lit top edge and a soft drop. */
+  --glass-lift: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 28px rgba(0, 0, 0, 0.45);
+  /* The rainbow hollow icons' dark core (ui/icons.tsx). */
+  --hollow-core: #262626;
+  /* A title's star rating, on the Stream hero. */
+  --rating: #ffd166;
+  /* A heads-up, not an error: multi-view's notice. */
+  --caution: #e0ab2b;
+  --caution-bg: rgba(212, 160, 23, 0.16);
+  /* How sure the Sports rail is that a channel is the game, by
+   * SportsTheater's bands: 85 and up, 60 and up, below. */
+  --match-sure: #34d17e;
+  --match-likely: #e8b84b;
+  --match-doubt: #e05c5c;
+  /* The Sports rail row's own ground, which the match number punches
+   * through. Dark in both themes. */
+  --sportsrail-bg: #131316;
   /* A picture's corner (plan 019, K7): posters, tiles, episode stills and
    * the player slots, multi-view's 10px. Cards and panels keep
    * --radius-card; a picture is not a card. */

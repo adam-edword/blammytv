@@ -86,11 +86,14 @@ chose.
      the shadcn layer reaches the app's own tokens through `@theme inline`
      (`--color-background: var(--bg)`), so a pack that redefines `--bg`,
      `--surface` and the rest under `[data-theme-pack]` repaints shadcn
-     components too. Only seven raw colour utilities exist, all scrims over
-     posters or video (`bg-black/50`, `hover:bg-black/60`) or shadcn's white
-     on destructive red, which should look the same in any theme. Keep it
-     at that: new colour goes through a token, and a raw colour utility is
-     for a scrim over imagery and nothing else.
+     components too. The hand-written sheets followed on 2026-09-28 (week
+     item 2): every colour a theme would change is a token now, and no
+     colour changed (`scripts/screens.mjs`). Three raw colour utilities are
+     left: the dialog's `bg-black/50` scrim, the play circle's black glyph,
+     and shadcn's white on destructive red. Keep it at that: new colour goes
+     through a token, and a literal is for black (a scrim, a shadow, the
+     letterbox) and the rest of the short list in tokens.css's NAMED
+     COLOURS.
    - **The base tokens are the default look.** What forced the parking was a
      default PACK pinning `--bg` and friends from a file imported after
      `tokens.css`, so the new palette never showed. When themes return,

@@ -10,10 +10,10 @@
 // What makes it repeatable: Date is fixed (Playwright's setFixedTime; timers
 // still run), Math.random is seeded, every host but localhost is aborted
 // (ESPN gets a small board), the shot waits for the network to go quiet,
-// raster is software, and the screenshot fast-forwards animations. Two
-// captures of one tree are byte-identical but for a pixel or three at one
-// level (see compare). compare checks bytes first, then decodes in the
-// browser only the screens that differ.
+// raster is software, motion is reduced (the Stream hero stops), and the
+// screenshot fast-forwards animations. Two captures of one tree are
+// byte-identical. compare checks bytes first, then decodes in the browser
+// only the screens that differ.
 //
 // Screens cannot show a hover, an error or the player over video, so each
 // capture also writes sheet-<theme>.json: every colour the stylesheets
@@ -108,11 +108,12 @@ if (mode === "compare") {
         console.log(`DIFFER  ${f}: different sizes`);
         shots++;
       } else if (out.n === 0) console.log(`same    ${f} (different bytes, identical pixels)`);
-      // A poster's rounded corner on Stream flips by one level on a pixel
-      // or three between two runs of the same tree, software raster and
-      // all. One level is below what anyone can see and below what a
-      // token change can do without the sheet check above catching it
-      // exactly, so it is reported and not failed.
+      // One level off is reported and not failed: below what anyone can
+      // see, and the sheet check above is the exact half of the proof.
+      // Two captures of one tree come out byte-identical; where this has
+      // shown up is a real render difference too small to matter, e.g. a
+      // gradient whose stops became color-mix() (Chrome draws those
+      // through its float path, 1/255 off on the quality badges' fills).
       else if (out.most <= 1) {
         console.log(`noise   ${f}: ${out.n} pixels off by 1/255, box ${out.box.join(",")}`);
         noise++;
@@ -316,14 +317,36 @@ const sheetColours = () => {
     /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix)\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)|#[0-9a-fA-F]{3,8}\b|\b(?:transparent|white|black)\b/g;
   const flatten = (v) => v.replace(COLOUR, px);
 
+  // Each entry is one rule's declarations as CSS text, with the blocks
+  // nested in it that apply here folded in, in order. Tailwind's optimiser
+  // turns every `color-mix(... var() ...)` into a plain fallback plus a
+  // nested `@supports` block holding the real value, so reading a rule's own
+  // block alone reads the fallback, and missing the nested one misses the
+  // colour.
   const rules = [];
+  const nestedIn = (list, layers, where) => {
+    for (const c of list) {
+      if (c.constructor.name === "CSSNestedDeclarations") layers.push(c.style.cssText);
+      else if (c instanceof CSSSupportsRule && CSS.supports(c.conditionText)) nestedIn(c.cssRules, layers, where);
+      else if (c instanceof CSSStyleRule) walk([c], where);
+      else if (c.cssRules) {
+        // A nested @media or @container: its own entry, keyed by its
+        // condition, so it is checked whether or not it matches here.
+        const head = c.cssText.slice(0, c.cssText.indexOf("{")).trim();
+        const inner = [];
+        nestedIn(c.cssRules, inner, `${where}${head} `);
+        if (inner.length) rules.push({ where: `${where}${head}`, css: inner.join(" ") });
+      }
+    }
+  };
   const walk = (list, where) => {
     for (const r of list) {
       if (r instanceof CSSStyleRule) {
-        rules.push({ where: `${where}${r.selectorText}`, style: r.style });
-        if (r.cssRules?.length) walk(r.cssRules, `${where}${r.selectorText} & `);
+        const layers = [r.style.cssText];
+        if (r.cssRules?.length) nestedIn(r.cssRules, layers, `${where}${r.selectorText} & `);
+        rules.push({ where: `${where}${r.selectorText}`, css: layers.join(" ") });
       } else if (r instanceof CSSKeyframesRule) {
-        for (const k of r.cssRules) rules.push({ where: `${where}@keyframes ${r.name} ${k.keyText}`, style: k.style });
+        for (const k of r.cssRules) rules.push({ where: `${where}@keyframes ${r.name} ${k.keyText}`, css: k.style.cssText });
       } else if (r instanceof CSSImportRule) {
         if (r.styleSheet) walk(r.styleSheet.cssRules, where);
       } else if (r.cssRules) {
@@ -343,21 +366,24 @@ const sheetColours = () => {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const rootish = /^:root(\[[^\]]*\])?$|^html$/;
-  for (const { where, style } of rules) {
+  const scratch = document.createElement("div");
+  for (const { where, css } of rules) {
     if (rootish.test(where)) continue;
-    for (let i = 0; i < style.length; i++) {
-      const p = style[i];
+    scratch.style.cssText = css;
+    for (let i = 0; i < scratch.style.length; i++) {
+      const p = scratch.style[i];
       // Not a token: a local copy of one would stand in for it everywhere.
       if (p.startsWith("--") && !host.style.getPropertyValue(p) && !getComputedStyle(document.documentElement).getPropertyValue(p))
-        host.style.setProperty(p, style.getPropertyValue(p));
+        host.style.setProperty(p, scratch.style.getPropertyValue(p));
     }
   }
 
   const out = {};
   const seen = new Map();
-  for (const { where, style } of rules) {
+  for (const { where, css } of rules) {
+    scratch.style.cssText = css;
     const names = new Set();
-    for (let i = 0; i < style.length; i++) names.add(style[i]);
+    for (let i = 0; i < scratch.style.length; i++) names.add(scratch.style[i]);
     const wanted = [...names].filter((p) => p.startsWith("--") || LONGHANDS.includes(p));
     if (!wanted.length) continue;
     // A fresh probe each time, with transitions and animations off: a rule
@@ -365,7 +391,7 @@ const sheetColours = () => {
     // start of a transition from the previous rule's colour.
     host.replaceChildren();
     const probe = document.createElement("div");
-    probe.style.cssText = style.cssText;
+    probe.style.cssText = css;
     probe.style.setProperty("transition", "none", "important");
     probe.style.setProperty("animation", "none", "important");
     host.appendChild(probe);

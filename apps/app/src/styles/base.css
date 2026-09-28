@@ -519,7 +519,7 @@ button {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: conic-gradient(#ff8bc9, #8696ff, #84ffa9, #ffe57f, #ff8bc9);
+  background: conic-gradient(var(--brand-rose), var(--brand-blue), var(--brand-mint), var(--brand-butter), var(--brand-rose));
   animation: update-dot-pulse 2.4s ease-in-out infinite;
 }
 .update-chip--busy .update-chip__dot { animation: update-dot-spin 900ms linear infinite; }

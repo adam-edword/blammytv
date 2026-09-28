@@ -1915,7 +1915,7 @@ export function TheaterOverlay({
                         type="button"
                         role="menuitemradio"
                         aria-checked={speed === sp}
-                        className="track-menu__item justify-between rounded-[12px] text-white/85 hover:bg-on-image/8 hover:text-white aria-checked:bg-on-image/12 aria-checked:text-white"
+                        className="track-menu__item justify-between rounded-[12px] text-on-image/85 hover:bg-on-image/8 hover:text-on-image aria-checked:bg-on-image/12 aria-checked:text-on-image"
                         onClick={() => pickSpeed(sp)}
                       >
                         {sp}×
@@ -1978,7 +1978,7 @@ export function TheaterOverlay({
                       type="button"
                       role="menuitemradio"
                       aria-checked={t.selected}
-                      className="track-menu__item justify-between rounded-[12px] text-white/85 hover:bg-on-image/8 hover:text-white aria-checked:bg-on-image/12 aria-checked:text-white"
+                      className="track-menu__item justify-between rounded-[12px] text-on-image/85 hover:bg-on-image/8 hover:text-on-image aria-checked:bg-on-image/12 aria-checked:text-on-image"
                       onClick={() => chooseAudio(t.id)}
                     >
                       <span className="track-menu__label">{t.label}</span>
@@ -2016,7 +2016,7 @@ export function TheaterOverlay({
                     type="button"
                     role="menuitemradio"
                     aria-checked={!tracks.subs.some((t) => t.selected)}
-                    className="track-menu__item justify-between rounded-[12px] text-white/85 hover:bg-on-image/8 hover:text-white aria-checked:bg-on-image/12 aria-checked:text-white"
+                    className="track-menu__item justify-between rounded-[12px] text-on-image/85 hover:bg-on-image/8 hover:text-on-image aria-checked:bg-on-image/12 aria-checked:text-on-image"
                     onClick={() => chooseSub(null)}
                   >
                     <span className="track-menu__label">Off</span>
@@ -2030,7 +2030,7 @@ export function TheaterOverlay({
                       type="button"
                       role="menuitemradio"
                       aria-checked={t.selected}
-                      className="track-menu__item justify-between rounded-[12px] text-white/85 hover:bg-on-image/8 hover:text-white aria-checked:bg-on-image/12 aria-checked:text-white"
+                      className="track-menu__item justify-between rounded-[12px] text-on-image/85 hover:bg-on-image/8 hover:text-on-image aria-checked:bg-on-image/12 aria-checked:text-on-image"
                       onClick={() => chooseSub(t.id)}
                     >
                       <span className="track-menu__label">{t.label}</span>

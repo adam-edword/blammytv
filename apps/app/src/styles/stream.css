@@ -192,7 +192,7 @@
   font-variant-numeric: tabular-nums;
   color: color-mix(in srgb, var(--on-image) 60%, transparent);
 }
-.shero__rating { color: #ffd166; }
+.shero__rating { color: var(--rating); }
 .shero__actions { display: flex; gap: 10px; margin-top: 6px; }
 
 /* ---- rows ---- */
@@ -371,7 +371,7 @@
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 14px;
-  color: #fff;
+  color: var(--on-image);
   background: rgba(0, 0, 0, 0.55);
   opacity: 0;
   transition: opacity 250ms ease;
@@ -798,7 +798,7 @@
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 31px;
-  color: #fff;
+  color: var(--on-image);
   margin: 0;
 }
 .vod-detail__meta { color: color-mix(in srgb, var(--on-image) 65%, transparent); font-size: 18px; }
@@ -1028,7 +1028,7 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.75);
+  color: color-mix(in srgb, var(--on-image) 75%, transparent);
   filter: drop-shadow(0 2px 12px rgb(0 0 0 / 0.55));
   opacity: 0;
   transition: opacity var(--dur-hover) ease;
@@ -1233,7 +1233,7 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.75);
+  color: color-mix(in srgb, var(--on-image) 75%, transparent);
   /* The scrim darkens the edges, not the middle, so the cue carries its
    * own shadow on a bright frame. */
   filter: drop-shadow(0 2px 12px rgb(0 0 0 / 0.55));

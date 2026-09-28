@@ -1804,12 +1804,9 @@ div.sports__bar:not(.sports__head *) {
    * column and neither is a rectangle with corners. */
   border-radius: 100px;
   overflow: hidden;
-  /* The row's own surface, named because the confidence number sits ON the
-   * bar and has to punch through it in exactly this colour. Two copies of
-   * one value is how they drift apart later; see the v0.8.1 guide cache
-   * bug, which was a retention window and a cache age in different files
-   * with nothing linking them. */
-  --sportsrail-bg: #131316;
+  /* The row's own surface, a token (tokens.css) because the confidence
+   * number sits ON the bar and has to punch through it in exactly this
+   * colour. */
   background: var(--sportsrail-bg);
   color: rgb(var(--card-ink));
   font-family: var(--font-headline);
@@ -2150,13 +2147,13 @@ div.sports__bar:not(.sports__head *) {
   line-height: 1;
 }
 .sportsrail__score.is-sure {
-  color: #34d17e;
+  color: var(--match-sure);
 }
 .sportsrail__score.is-likely {
-  color: #e8b84b;
+  color: var(--match-likely);
 }
 .sportsrail__score.is-doubt {
-  color: #e05c5c;
+  color: var(--match-doubt);
 }
 
 /* ------------------------------------------------------- board + sidebar */

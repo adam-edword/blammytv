@@ -308,7 +308,7 @@
   font: 400 13px/1.5 var(--font-text);
 }
 .rec__note--bad {
-  color: var(--danger, #ff6b6b);
+  color: var(--danger);
 }
 /* TMDB's attribution: at the foot of the page, over the wall, and quiet. */
 .rec__credit {

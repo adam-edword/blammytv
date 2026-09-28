@@ -150,11 +150,11 @@ function HeartGradient({ id }: { id: string }) {
         y2="11.0"
         gradientUnits="userSpaceOnUse"
       >
-        <stop stopColor="#FF7BF6" />
-        <stop offset="0.259615" stopColor="#8696FF" />
-        <stop offset="0.528846" stopColor="#84FFA9" />
-        <stop offset="0.783654" stopColor="#FFE57F" />
-        <stop offset="1" stopColor="#FF9B9B" />
+        <stop style={{ stopColor: "var(--brand-pink)" }} />
+        <stop offset="0.259615" style={{ stopColor: "var(--brand-blue)" }} />
+        <stop offset="0.528846" style={{ stopColor: "var(--brand-mint)" }} />
+        <stop offset="0.783654" style={{ stopColor: "var(--brand-butter)" }} />
+        <stop offset="1" style={{ stopColor: "var(--brand-coral)" }} />
       </linearGradient>
     </defs>
   );
@@ -191,7 +191,7 @@ export function HeartRainbowHollowIcon({ size = 19, className }: IconProps) {
       className={className}
       aria-hidden="true"
     >
-      <path d={HEART_D} fill="#262626" />
+      <path d={HEART_D} style={{ fill: "var(--hollow-core)" }} />
       <path d={HEART_D} stroke={`url(#${grad})`} strokeWidth={1.4} />
       <HeartGradient id={grad} />
     </svg>
@@ -717,11 +717,11 @@ export function RainbowStarIcon({
           y2="9.52432"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#FF7BF6" />
-          <stop offset="0.259615" stopColor="#8696FF" />
-          <stop offset="0.528846" stopColor="#84FFA9" />
-          <stop offset="0.783654" stopColor="#FFE57F" />
-          <stop offset="1" stopColor="#FF9B9B" />
+          <stop style={{ stopColor: "var(--brand-pink)" }} />
+          <stop offset="0.259615" style={{ stopColor: "var(--brand-blue)" }} />
+          <stop offset="0.528846" style={{ stopColor: "var(--brand-mint)" }} />
+          <stop offset="0.783654" style={{ stopColor: "var(--brand-butter)" }} />
+          <stop offset="1" style={{ stopColor: "var(--brand-coral)" }} />
         </linearGradient>
       </defs>
     </svg>
@@ -766,7 +766,7 @@ export function StarRainbowHollowIcon({ size = 17, className }: IconProps) {
       className={className}
       aria-hidden="true"
     >
-      <path d={d} fill="#262626" />
+      <path d={d} style={{ fill: "var(--hollow-core)" }} />
       <path d={d} stroke={`url(#${grad})`} />
       <defs>
         <linearGradient
@@ -777,11 +777,11 @@ export function StarRainbowHollowIcon({ size = 17, className }: IconProps) {
           y2="7.78823"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#FF7BF6" />
-          <stop offset="0.259615" stopColor="#8696FF" />
-          <stop offset="0.528846" stopColor="#84FFA9" />
-          <stop offset="0.783654" stopColor="#FFE57F" />
-          <stop offset="1" stopColor="#FF9B9B" />
+          <stop style={{ stopColor: "var(--brand-pink)" }} />
+          <stop offset="0.259615" style={{ stopColor: "var(--brand-blue)" }} />
+          <stop offset="0.528846" style={{ stopColor: "var(--brand-mint)" }} />
+          <stop offset="0.783654" style={{ stopColor: "var(--brand-butter)" }} />
+          <stop offset="1" style={{ stopColor: "var(--brand-coral)" }} />
         </linearGradient>
       </defs>
     </svg>
