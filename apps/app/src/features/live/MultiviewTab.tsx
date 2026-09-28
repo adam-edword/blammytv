@@ -443,6 +443,20 @@ export function MultiviewTab() {
   const [urls, setUrls] = useState<Record<string, string | null>>({});
   const looking = useRef(new Set<string>());
   useEffect(() => {
+    // A channel that leaves the grid takes its link with it. A Stalker link
+    // carries a play token that must never be reused, and one kept here
+    // was: closed and added back, the tile opened the dead token and sat
+    // on a 403 until Retry.
+    const inGrid = new Set(picks.map((p) => p.channelId));
+    const gone = Object.keys(urls).filter((id) => !inGrid.has(id));
+    if (gone.length) {
+      setUrls((was) => {
+        const next = { ...was };
+        for (const id of gone) delete next[id];
+        return next;
+      });
+      return;
+    }
     for (const p of picks) {
       const id = p.channelId;
       if (id in urls || looking.current.has(id)) continue;

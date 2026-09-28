@@ -482,7 +482,10 @@ export function App() {
         }}
         onOpenSearch={() => setPaletteOpen(true)}
       />
-      <main className="app-main" ref={mainRef}>
+      {/* data-screen: which screen is mounted, which trails the nav by
+        * NAV_SETTLE_MS. The harnesses' goTo waits on it; a click aimed at
+        * the new screen used to land on the old one still showing. */}
+      <main className="app-main" ref={mainRef} data-screen={dest}>
         {dest === "sports" ? (
           <SportsScreen home={Number(destHome)} />
         ) : dest === "multiview" ? (

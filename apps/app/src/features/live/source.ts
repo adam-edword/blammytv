@@ -161,7 +161,8 @@ export function peekLive(): LiveData | null {
 /**
  * The cached catalog for the CURRENT sources, however old. For looking a
  * channel up by id at play time: Sports' rail, a game's autoplay and
- * failover, multi-view.
+ * failover, multi-view. And for anything else that only reads it: the
+ * palette's channel search went empty half an hour in, off the Live tab.
  *
  * peekLive's half-hour TTL exists to make the Live screen refetch, and
  * nothing on the Sports tab ever reloads the catalog. So with peekLive

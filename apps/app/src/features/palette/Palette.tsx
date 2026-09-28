@@ -16,7 +16,7 @@ import {
 } from "../../ui/icons";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat, onClockFormatChange } from "../settings/clockFormat";
-import { peekLive } from "../live/source";
+import { lookupLive } from "../live/source";
 import { channelIndex, searchChannels } from "../live/mvGrid";
 import { airing } from "../live/mvTile";
 import { loadRecents } from "../live/recents";
@@ -163,7 +163,7 @@ export function Palette({
 
   const sections = useMemo((): Section[] => {
     if (!open) return [];
-    const live: LiveData | null = hasLive ? peekLive() : null;
+    const live: LiveData | null = hasLive ? lookupLive() : null;
     const q = query.trim().toLowerCase();
     const out: Section[] = [];
     if (!q) {
@@ -346,7 +346,7 @@ function PaletteRow({
 }) {
   if (row.kind === "channel") {
     const c = row.channel;
-    const on = airing(peekLive()?.programmes.get(c.id), now).now;
+    const on = airing(lookupLive()?.programmes.get(c.id), now).now;
     const sub = [
       c.number != null ? String(c.number) : null,
       on?.title ?? null,

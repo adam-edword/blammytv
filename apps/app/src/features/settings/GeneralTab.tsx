@@ -11,6 +11,7 @@ import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
 import { savePlaylists } from "./playlists";
 import { saveAioUrl, saveHeroSources } from "./aiostreams";
+import { diskClear } from "../live/diskCache";
 import { requestOnboardingReplay } from "../../app/onboardingGate";
 import { EYEBROW } from "../../ui/eyebrow";
 
@@ -35,6 +36,9 @@ export function GeneralTab() {
   // Ephemeral: Sources always opens on Live TV rather than remembering
   // where you were, the same rule the old Media rail followed.
   const [source, setSource] = useState<"live" | "stream">("live");
+  // Bumped by a clear: the source panes read their lists once, at mount,
+  // and one left holding the old list wrote it all back at its next save.
+  const [clears, setClears] = useState(0);
 
   // Clearing credentials is destructive, so it takes two clicks: arm, then
   // confirm within a few seconds.
@@ -58,10 +62,14 @@ export function GeneralTab() {
     // The catalog mirror embeds the manifest URL (a credential) in its
     // key — an explicit credential clear must take it too.
     removeStored("vodCache");
+    // The guide's copy on disk, the same way (Xtream credentials in its key
+    // and in every stream URL).
+    void diskClear();
     // And the Trakt and MyAnimeList sign-ins (plans 015, 021), which are
     // logins like the others.
     void signOutOfTrakt();
     void signOutOfMal();
+    setClears((n) => n + 1);
   };
 
   return (
@@ -72,7 +80,7 @@ export function GeneralTab() {
       <div className="customize-rail">
         <Segmented role="tabs" label="Sources" options={SOURCE_TABS} value={source} onChange={setSource} />
       </div>
-      {source === "live" ? <PlaylistsTab /> : <AioStreamsTab />}
+      {source === "live" ? <PlaylistsTab key={clears} /> : <AioStreamsTab key={clears} />}
 
       {/* Accounts elsewhere that follow what you watch (plans 015, 021). */}
       <h3 className={`settings__group ${EYEBROW}`}>Accounts</h3>

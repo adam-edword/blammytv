@@ -23,7 +23,7 @@ import {
 } from "./playlists";
 import { loadShowAdult, saveShowAdult } from "./adultFilter";
 import { isAdultCategory } from "../live/adult";
-import { onLiveRefreshed, peekLive } from "../live/source";
+import { lookupLive, onLiveRefreshed } from "../live/source";
 import { LineMeter } from "../../ui/LineMeter";
 import { useConnections } from "../live/connections";
 import { EYEBROW } from "../../ui/eyebrow";
@@ -59,7 +59,7 @@ export function PlaylistsTab() {
   const [liveTick, setLiveTick] = useState(0);
   useEffect(() => onLiveRefreshed(() => setLiveTick((t) => t + 1)), []);
   void liveTick;
-  const liveGroups = peekLive()?.groups ?? [];
+  const liveGroups = lookupLive()?.groups ?? [];
 
   // Per-playlist folder editor: which row is expanded, and each row's
   // fetched category list (kept per id so re-expanding is instant).

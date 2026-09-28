@@ -2152,7 +2152,18 @@ function TuneCard({
               ? "This source isn\u2019t responding. It\u2019s the stream, not you."
               : "This channel isn\u2019t responding. It\u2019s the stream, not you."}
           </p>
-          <Button variant="outline" size="sm" type="button" className="tune__retry" onClick={onRetry}>
+          {/* Neither button bubbles: in the mini player a click anywhere
+            * else expands it, and a retry should leave it where it is. */}
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            className="tune__retry"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRetry();
+            }}
+          >
             Retry
           </Button>
           {/* Offered whenever the HOST has a list to step down, VOD or
@@ -2163,7 +2174,10 @@ function TuneCard({
             <Button variant="outline" size="sm"
               type="button"
               className="tune__retry"
-              onClick={() => api()?.nextSource?.()}
+              onClick={(e) => {
+                e.stopPropagation();
+                api()?.nextSource?.();
+              }}
             >
               Try next available source
             </Button>

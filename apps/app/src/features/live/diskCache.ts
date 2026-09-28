@@ -135,3 +135,26 @@ export async function diskPut(record: DiskCached): Promise<void> {
     }
   });
 }
+
+/** Drop the stored catalog. Its key carries an Xtream server, username and
+ * password, and its channels carry every stream URL with them in it, so
+ * Clear All Login Info takes it too. */
+export async function diskClear(): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  return new Promise((resolve) => {
+    const done = () => {
+      db.close();
+      resolve();
+    };
+    try {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(RECORD);
+      tx.oncomplete = done;
+      tx.onerror = done;
+      tx.onabort = done;
+    } catch {
+      done();
+    }
+  });
+}
