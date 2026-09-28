@@ -2,7 +2,7 @@ import { memo } from "react";
 import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
-import { tooEarly } from "./day";
+import { useTooEarly } from "./useTooEarly";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
@@ -72,7 +72,7 @@ function UpcomingCardImpl({
   const lost = loser(game);
   // Live or finished: there is a score, so the card squares up.
   const scored = game.state !== "pre" || sets;
-  const early = tooEarly(game);
+  const early = useTooEarly(game);
   return (
     <button
       type="button"

@@ -327,6 +327,12 @@ export function useGames(
    */
   const teamKey = [...teams].sort().join(",");
 
+  /** Moved on by every whole-board load, which clears the days "Show
+   * more" and "Show earlier days" added. One of those still out then was
+   * appending to a board it wasn't asked about: change the league filter
+   * while more days load, and the old filter's days landed under the new
+   * one (the Sports audit). */
+  const boardGen = useRef(0);
   useEffect(() => {
     const paths = key ? key.split(",") : [];
     const clubKeys = teamKey ? teamKey.split(",") : [];
@@ -416,6 +422,7 @@ export function useGames(
     const loadAll = async () => {
       const mine = ++gen;
       todayGen++;
+      boardGen.current++;
       boarded = false;
       boarding = true;
       polling = paths;
@@ -696,6 +703,7 @@ export function useGames(
     if (busy.current) return;
     busy.current = true;
     setMoreState("loading");
+    const board = boardGen.current;
     try {
       const paths = key ? key.split(",") : [];
       const leagues = Math.max(1, paths.length);
@@ -741,7 +749,7 @@ export function useGames(
         }
         walked += n;
       }
-      setExtra((prev) => [...prev, ...got]);
+      if (board === boardGen.current) setExtra((prev) => [...prev, ...got]);
       setMoreState("idle");
     } catch {
       setMoreState("error");
@@ -776,6 +784,7 @@ export function useGames(
     if (back > EARLIER_DAYS) return;
     backing.current = true;
     setEarlierState("loading");
+    const board = boardGen.current;
     try {
       const paths = key ? key.split(",") : [];
       const date = new Date();
@@ -786,7 +795,8 @@ export function useGames(
       // board renders it. SportsScreen sorts `allDays` by date anyway, so
       // this is about the array making sense on its own rather than about
       // what ends up on screen.
-      setEarlier((prev) => [{ date, games: onDay(games, date, false) }, ...prev]);
+      if (board === boardGen.current)
+        setEarlier((prev) => [{ date, games: onDay(games, date, false) }, ...prev]);
       setEarlierState("idle");
     } catch {
       setEarlierState("error");

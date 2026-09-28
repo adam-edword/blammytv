@@ -2,7 +2,7 @@ import { Fragment, memo } from "react";
 import Tilt from "react-parallax-tilt";
 import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
-import { tooEarly } from "./day";
+import { useTooEarly } from "./useTooEarly";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
@@ -58,7 +58,7 @@ function GameCardImpl({
   const carriage = carriageUnlinked(game)
     ? `${said ? `${said}, but ` : ""}couldn't link it to any of your channels`
     : said;
-  const early = tooEarly(game);
+  const early = useTooEarly(game);
   return (
     <button
       type="button"
