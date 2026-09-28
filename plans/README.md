@@ -36,6 +36,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [019](019-multiview-language.md) | Multi-view's look, on every tab: its controls, tiles, states and picker as the whole app's primitives | MEDIUM | SHIPPED in 0.10.14 (built v0.10.1 to v0.10.11); three items left on purpose, reasons in the plan |
 | [020](020-player-language.md) | The player in the redesign's language: its controls in two capsules like the nav, Play the white circle, times as eyebrows, menus on the chip fill | LOW | BUILT v0.10.22 (2026-09-27), option B, with a tooltip on every player button |
 | [021](021-mal.md) | MyAnimeList: sign in, your finished anime episodes counted on MAL, your MAL counts ticking episodes here | MEDIUM | BUILT (v0.10.39 to v0.10.44, films included, 2026-09-27); waiting on Adam's MAL app for a real run |
+| [022](022-glass-and-light.md) | The glass in two tiers, and light mode back with its control | MEDIUM | OPTIONS rendered 2026-09-28 (three calls, picks in the plan); waiting on Adam |
 
 ## 001 to 007: execution order & dependencies
 

@@ -34,7 +34,7 @@ v0.9.78. "Where we are" refreshed 2026-09-28.
 
 | | State |
 |---|---|
-| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player; M2 is done. M3's leftovers (the glass tiers, reduced transparency, the light pass) are plan 022, put to Adam as rendered options before any code. Light mode is forced off at boot until then. |
+| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player; M2 is done. M3's leftovers (the glass tiers, reduced transparency, the light pass) are [plan 022](plans/022-glass-and-light.md): three calls rendered as options on 2026-09-28, waiting on Adam. Light mode is forced off at boot until then. |
 | **Trakt** (M4) | Built, v0.10.27 to v0.10.36, `plans/015-trakt.md`: sign-in, scrobbling, sync and the Trakt Watchlist. Waiting on Adam to register the Trakt app and put its keys in `.env.local` for a first real run. |
 | **MAL** (M4) | Built, v0.10.39 to v0.10.44, `plans/021-mal.md`: sign-in in the browser, finished anime episodes and films counted on MAL, MAL's counts ticking episodes here. Waiting on Adam to register the MAL app and put its client id in `.env.local`. Ships in the same installer release as Trakt. |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
