@@ -1,5 +1,5 @@
 import { Fragment, memo } from "react";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useTooEarly } from "./useTooEarly";

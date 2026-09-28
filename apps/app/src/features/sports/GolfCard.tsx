@@ -1,5 +1,5 @@
 import { memo } from "react";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import type { Field } from "./model";
 import { dateRange } from "./golf";

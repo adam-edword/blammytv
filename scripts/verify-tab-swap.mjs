@@ -97,10 +97,17 @@ const sample = async (p, dest) => {
   const props = await p.evaluate(async () => {
     const m = document.querySelector(".app-main");
     document.querySelector('[data-dest="discover"]').click();
-    // The entrance only starts after the settle window, so sample INSIDE
-    // it -- an empty list here would prove nothing at all.
-    await new Promise((r) => setTimeout(r, 250));
-    const running = m.getAnimations();
+    // The entrance starts when the swap commits: after the 190ms settle
+    // window AND a transition render, so not at a fixed time. A fixed 250ms
+    // read 0 once on a full board (v0.10.63) where a slow commit had not
+    // landed yet. Wait for it, frame by frame; an empty list after 800ms
+    // still fails, and an empty list would prove nothing at all.
+    const t0 = performance.now();
+    let running = m.getAnimations();
+    while (!running.length && performance.now() - t0 < 800) {
+      await new Promise((r) => requestAnimationFrame(r));
+      running = m.getAnimations();
+    }
     return { n: running.length, keys: [...new Set(running.flatMap((a) =>
       a.effect.getKeyframes().flatMap((k) => Object.keys(k)))
       .filter((k) => !["offset", "computedOffset", "easing", "composite"].includes(k)))] };

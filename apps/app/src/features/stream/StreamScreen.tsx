@@ -19,7 +19,7 @@ import { EYEBROW_ON_IMAGE } from "../../ui/eyebrow";
 import { SourceList } from "./SourceList";
 import { Button } from "../../components/ui/button";
 import { Segmented } from "../../ui/Segmented";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { artLoaded } from "../../lib/artIn";
 import { wantsEpisodeList } from "./backTarget";

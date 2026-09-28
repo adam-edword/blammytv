@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { Card } from "../../ui/Card";
 import { RowScroller } from "../../ui/RowScroller";
 import { ContinueCard } from "./ContinueCard";

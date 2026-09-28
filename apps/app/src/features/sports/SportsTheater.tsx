@@ -7,7 +7,7 @@ import type {
   ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { PanelIcon } from "../../ui/icons";
 import {

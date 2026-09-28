@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "./Tilt";
 import { REDUCED_MOTION } from "../lib/reducedMotion";
 import { artLoaded } from "../lib/artIn";
 import type { VodItem } from "../features/stream/model";
