@@ -22,6 +22,10 @@ describe("calendarDay", () => {
 });
 
 describe("formatClock", () => {
+  it("says nothing for an invalid date instead of throwing", () => {
+    expect(formatClock(new Date(Number.NaN))).toBe("");
+  });
+
   it("formats 12h like the design header", () => {
     expect(formatClock(new Date(2026, 0, 1, 20, 38))).toBe("8:38 PM");
   });

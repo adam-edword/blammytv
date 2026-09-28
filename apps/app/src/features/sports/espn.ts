@@ -4,6 +4,8 @@ import { toRacing, toWeekends, type RawRacing } from "./racing";
 import { golfPath, toGolf, type RawGolf } from "./golf";
 import { isTournament } from "./model";
 import type { Competitor, Fixture, Game, GameState, Tournament } from "./model";
+import { formatClock } from "../../lib/time";
+import { loadClockFormat } from "../settings/clockFormat";
 
 /**
  * The schedule source (plan 010, phase 1): ESPN's undocumented scoreboard
@@ -958,9 +960,8 @@ function toGame(
 function statusText(state: GameState, start: Date, shortDetail?: string): string {
   if (state === "final") return (shortDetail ?? "").split("/")[0].trim();
   if (state === "live") return (shortDetail ?? "").split(",").pop()?.trim() ?? "";
-  return start
-    .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-    .replace(/\s/g, "");
+  // The clock format Settings names (plan 016 F21), not always 12-hour.
+  return formatClock(start, loadClockFormat()).replace(/\s/g, "");
 }
 
 /**

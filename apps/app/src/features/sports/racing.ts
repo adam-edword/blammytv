@@ -1,5 +1,7 @@
 import { driverCode } from "./driverCode";
 import type { Entrant, Field, GameState, Session, Weekend } from "./model";
+import { formatClock } from "../../lib/time";
+import { loadClockFormat } from "../settings/clockFormat";
 
 /**
  * Racing, as sessions on the board (plan 010 #1).
@@ -208,9 +210,8 @@ export function sessionName(abbr: string): string | undefined {
  * the one between them for which gap the eye reads as the separator.
  */
 export function sessionClock(start: Date): string {
-  return start
-    .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-    .replace(/\s+/g, "");
+  // The clock format Settings names (plan 016 F21), not always 12-hour.
+  return formatClock(start, loadClockFormat()).replace(/\s+/g, "");
 }
 
 /** "SAT". Only the upcoming card shows it; the rest are on the day. */

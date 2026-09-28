@@ -22,6 +22,10 @@ const LOCALES: Record<"12h" | "24h", string> = { "12h": "en-US", "24h": "en-GB" 
 const cache = new Map<string, Intl.DateTimeFormat>();
 
 export function formatClock(date: Date, format: "12h" | "24h" = "12h"): string {
+  // A formatter throws on an invalid date, where toLocaleTimeString said
+  // "Invalid Date". A feed's missing time is dropped further on; it must
+  // not take the whole board down on the way (racing.test.ts has one).
+  if (Number.isNaN(date.getTime())) return "";
   let fmt = cache.get(format);
   if (!fmt) {
     fmt = new Intl.DateTimeFormat(LOCALES[format], FORMATS[format]);

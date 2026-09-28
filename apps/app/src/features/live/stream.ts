@@ -7,6 +7,8 @@ import {
 } from "../settings/playlists";
 import { progress as epgProgress } from "./epg";
 import type { Channel, Programme } from "./model";
+import { formatClock } from "../../lib/time";
+import { loadClockFormat } from "../settings/clockFormat";
 
 /**
  * Rebuild a playable Xtream live URL from a channel id. The new model doesn't
@@ -197,10 +199,9 @@ export function buildMeta(
   let startLabel: string | undefined;
   if (programme) {
     progressPct = epgProgress(programme.start, programme.end, now) * 100;
-    startLabel = programme.start.toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit",
-    });
+    // In the clock format Settings names, like every other time on screen
+    // (plan 016 F21). It was always 12-hour here.
+    startLabel = formatClock(programme.start, loadClockFormat());
   }
   return {
     channelName: channel.name,
