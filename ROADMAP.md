@@ -8,23 +8,24 @@ Rewritten 2026-09-24 against the tree rather than against the old version of
 this file, which still said "v0.1.109" at the top while the app was on
 v0.9.78. "Where we are" refreshed 2026-09-28.
 
-## Where we are (v0.10.61, 2026-09-28)
+## Where we are (v0.10.63, 2026-09-28)
 
 - **Released: 0.10.14**, "Multi-view's look everywhere, and live scores",
   on 2026-09-26, on the hot channel. Three releases went out that day:
   0.10.0 (Multi-view, through the installer), then 0.10.3 and 0.10.14.
 - **`main` is at v0.10.14**, tagged.
-- **`claude/nice-heisenberg-67k4uk` is 47 versions ahead, v0.10.15 to
-  v0.10.61, and not released.** Adam, 2026-09-27: "i dont wanna ship" yet.
+- **`claude/nice-heisenberg-67k4uk` is 49 versions ahead, v0.10.15 to
+  v0.10.63, and not released.** Adam, 2026-09-27: "i dont wanna ship" yet.
   Six of those versions are native (v0.10.19, v0.10.27 Trakt, v0.10.38
   plan 016's Track N, v0.10.39 MAL, v0.10.46, v0.10.47), so **the next
   release goes through the installer**, not the hot channel. It carries
   the player in the redesign's language (plan 020), M2's primitives,
   Trakt and MAL (M4), and the week of 2026-09-28: a whole-codebase audit's
-  fixes (v0.10.47 to v0.10.59), every colour on a token (v0.10.60) and the
-  dead code gone (v0.10.61).
-- **The week of 2026-09-28**: Adam is away and one session works the 1.0
-  list, logged in `plans/week-2026-09-28.md`. Read that file first.
+  fixes (v0.10.47 to v0.10.59), every colour on a token (v0.10.60), the
+  dead code gone (v0.10.61) and three measured performance fixes (v0.10.62
+  and v0.10.63).
+- **The week of 2026-09-28** is done, logged in `plans/week-2026-09-28.md`.
+  Read its summary and "Yours when you're back" first.
 - **No open GitHub issues.** The backlog is this file and `plans/`.
 - **Version numbers 0.9.47 to 0.9.51 exist twice** in history, once on each
   side of the 2026-09-13 merge. Anything that quotes one of those five
