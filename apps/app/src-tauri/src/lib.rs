@@ -280,8 +280,16 @@ fn tunable(key: &str) -> bool {
         "dump",
         "screenshot",
         "shader",
+        // libav passthroughs: `demuxer-lavf-o`, `vd-lavc-o` and their kin
+        // take arbitrary FFmpeg options (a protocol whitelist, a proxy),
+        // and `demuxer-lavf-format` forces a demuxer.
+        "lavf-format",
+        // A colour lookup table read from a file (`target-lut`).
+        "lut",
     ];
-    FAMILIES.iter().any(|f| key.starts_with(f)) && !NEVER.iter().any(|n| key.contains(n))
+    FAMILIES.iter().any(|f| key.starts_with(f))
+        && !key.ends_with("-o")
+        && !NEVER.iter().any(|n| key.contains(n))
 }
 
 /// DIAGNOSTIC: read one mpv property. The other half of `mpv_set`, and
@@ -812,7 +820,9 @@ async fn http_get(
             None => "absent (compressed, or chunked)".to_string(),
         },
     );
-    Ok(tauri::ipc::Response::new(body.to_vec()))
+    // Into the Vec without a copy where the buffer is uniquely held: a
+    // guide can be 95MB, and to_vec() held it twice.
+    Ok(tauri::ipc::Response::new(Vec::from(body)))
 }
 
 /// Multi-view: serve a live stream to the webview through the loopback
@@ -1262,6 +1272,10 @@ mod tests {
             "gpu-shader-cache-dir",
             "input-conf",
             "include",
+            "demuxer-lavf-o",
+            "demuxer-lavf-format",
+            "vd-lavc-o",
+            "target-lut",
             "screenshot-directory",
             "vf",
             "af",

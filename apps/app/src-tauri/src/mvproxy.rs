@@ -149,6 +149,9 @@ async fn serve(listener: std::net::TcpListener, port: u16) {
         .header_read_timeout(HEADER_TIMEOUT);
     loop {
         let Ok((tcp, _)) = listener.accept().await else {
+            // A lasting accept error (out of handles, say) would otherwise
+            // spin this thread flat out.
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
             continue;
         };
         let http = http.clone();

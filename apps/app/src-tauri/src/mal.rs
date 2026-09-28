@@ -165,6 +165,22 @@ fn page(status: u16, title: &str, line: &str) -> Response<Full<Bytes>> {
         .unwrap()
 }
 
+/// Gives a claim back when dropped, unless the attempt has ended (see
+/// `Listening::answer`).
+struct Unclaim<'a> {
+    mal: &'a Mal,
+    id: u64,
+}
+
+impl Drop for Unclaim<'_> {
+    fn drop(&mut self) {
+        let mut a = self.mal.attempt.lock().unwrap();
+        if a.id == self.id && a.state == SignIn::Waiting {
+            a.claimed = false;
+        }
+    }
+}
+
 /// One sign-in's listener: what it checks the redirect against.
 struct Listening {
     mal: Arc<Mal>,
@@ -226,6 +242,14 @@ impl Listening {
                 "This sign-in has already been handled. You can close this tab.",
             );
         }
+        // The browser can go away while MAL trades the code (the tab
+        // closed), and hyper then drops this future mid-await. The claim
+        // goes with it, or the attempt could never expire and a retry of
+        // the redirect would only ever hear "Already done".
+        let _release = Unclaim {
+            mal: &self.mal,
+            id: self.id,
+        };
         match self.mal.exchange(code, &self.verifier).await {
             Ok(tokens) => {
                 if self.mal.keep(self.id, tokens).await {
@@ -488,7 +512,11 @@ impl Mal {
         let body = res.text().await.map_err(|e| e.to_string())?;
         if status == 200 {
             let tokens = tokens_from(&body)?;
-            self.vault.save(&tokens)?;
+            // Held first, then written: a failed write must not drop the
+            // new pair (see trakt.rs's keep).
+            if let Err(e) = self.vault.save(&tokens) {
+                eprintln!("[mal] could not save the session: {e}");
+            }
             *slot = Some(tokens);
             return Ok(());
         }
@@ -685,6 +713,8 @@ mod tests {
     /// A fake MAL: the token route and the API, recording what it was sent.
     #[derive(Default)]
     struct Fake {
+        /// How long the token route takes to answer.
+        slow_token: Option<Duration>,
         /// Every form the token route was sent.
         token_forms: std::sync::Mutex<Vec<BTreeMap<String, String>>>,
         refreshes: AtomicUsize,
@@ -767,6 +797,9 @@ mod tests {
         let body = req.into_body().collect().await.unwrap().to_bytes();
         let body = String::from_utf8_lossy(&body).to_string();
         if path == "/token" {
+            if let Some(wait) = fake.slow_token {
+                tokio::time::sleep(wait).await;
+            }
             let f = form_of(&body);
             fake.token_forms.lock().unwrap().push(f.clone());
             return match f.get("grant_type").map(String::as_str) {
@@ -967,6 +1000,43 @@ mod tests {
                 }
             );
             assert!(!m.status().await.connected);
+        })
+    }
+
+    #[test]
+    fn a_browser_gone_mid_exchange_does_not_leave_the_sign_in_stuck() {
+        run(async {
+            let fake = Arc::new(Fake {
+                slow_token: Some(Duration::from_millis(800)),
+                ..Default::default()
+            });
+            let base = serve(fake.clone()).await;
+            let port = free_port();
+            let m = Mal::new(
+                cfg(&base, port),
+                reqwest::Client::new(),
+                Box::new(MemoryVault::default()),
+            );
+            let url = reqwest::Url::parse(&m.sign_in_start().await.unwrap()).unwrap();
+            let q: BTreeMap<String, String> = url.query_pairs().into_owned().collect();
+            let redirect = format!("http://127.0.0.1:{port}/?code=C1&state={}", q["state"]);
+            // The tab closes while MAL is still trading the code.
+            let gone = reqwest::Client::builder()
+                .timeout(Duration::from_millis(150))
+                .build()
+                .unwrap()
+                .get(&redirect)
+                .send()
+                .await;
+            assert!(gone.is_err());
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            assert_eq!(m.sign_in_poll(), SignIn::Waiting);
+            // The same redirect, loaded again, goes through rather than
+            // hearing "Already done" forever.
+            let (status, html) = browse(port, &format!("/?code=C1&state={}", q["state"])).await;
+            assert_eq!(status, 200);
+            assert!(html.contains("Signed in to MyAnimeList"), "{html}");
+            assert_eq!(m.sign_in_poll(), SignIn::Approved);
         })
     }
 

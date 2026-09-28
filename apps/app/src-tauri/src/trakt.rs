@@ -154,6 +154,17 @@ const WRITE_GAP: Duration = Duration::from_millis(1000);
 /// Refresh this long before the token runs out, not after a failed call.
 const EARLY: u64 = 300;
 
+/// Hold a new session, then write it to the vault. In that order: Trakt's
+/// refresh tokens are single-use, so a new pair dropped because the write
+/// failed left the spent token in hand, and the next refresh signed the
+/// user out. A failed write costs the session at the next launch, not now.
+fn keep(vault: &dyn Vault, slot: &mut Option<Tokens>, tokens: Tokens) {
+    if let Err(e) = vault.save(&tokens) {
+        eprintln!("[trakt] could not save the session: {e}");
+    }
+    *slot = Some(tokens);
+}
+
 fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -269,8 +280,8 @@ impl Trakt {
             refresh_token: t.refresh_token,
             expires_at: t.created_at.unwrap_or_else(now) + t.expires_in,
         };
-        self.vault.save(&tokens)?;
-        *self.tokens.lock().await = Some(tokens);
+        let mut slot = self.tokens.lock().await;
+        keep(&*self.vault, &mut slot, tokens);
         Ok(())
     }
 
@@ -303,11 +314,14 @@ impl Trakt {
                 refresh_token: t.refresh_token,
                 expires_at: t.created_at.unwrap_or_else(now) + t.expires_in,
             };
-            self.vault.save(&tokens)?;
-            *slot = Some(tokens);
+            keep(&*self.vault, slot, tokens);
             return Ok(());
         }
-        if (400..500).contains(&status) {
+        // Refused: the refresh token is spent or revoked, and the only way
+        // back is signing in again. Anything else (a 429, a 403 challenge
+        // in front of auth.trakt.tv, a timeout) says nothing about the
+        // session, which is kept and tried again on the next call.
+        if status == 400 || status == 401 {
             self.vault.clear();
             *slot = None;
             return Err("signed out".into());
@@ -519,6 +533,9 @@ mod tests {
         revoked: std::sync::Mutex<Vec<String>>,
         /// Make the refresh route refuse, as for a revoked token.
         refuse_refresh: bool,
+        /// Make the refresh route answer this instead (a 429, a 403
+        /// challenge): trouble on Trakt's side, not a verdict.
+        refresh_trouble: Option<u16>,
     }
 
     async fn serve(fake: Arc<Fake>) -> String {
@@ -598,6 +615,9 @@ mod tests {
             "/oauth/token" => {
                 fake.refreshes.fetch_add(1, Ordering::SeqCst);
                 assert_eq!(v["grant_type"], "refresh_token");
+                if let Some(code) = fake.refresh_trouble {
+                    return json(code, serde_json::Value::Null);
+                }
                 let mut live = fake.live_refresh.lock().unwrap();
                 if fake.refuse_refresh || v["refresh_token"] != *live {
                     return json(400, serde_json::json!({ "error": "invalid_grant" }));
@@ -838,6 +858,72 @@ mod tests {
             let r = t.request("GET", "/sync/playback", None).await;
             assert_eq!(r.unwrap_err(), "signed out");
             assert!(!t.status().await.connected);
+        })
+    }
+
+    #[test]
+    fn trouble_on_trakts_side_during_a_refresh_keeps_the_session() {
+        run(async {
+            for code in [429, 403, 408, 500] {
+                let fake = Arc::new(Fake {
+                    refresh_trouble: Some(code),
+                    ..Default::default()
+                });
+                let base = serve(fake.clone()).await;
+                let t = signed_in(&fake, &base, now() + 10);
+                assert!(
+                    t.request("GET", "/sync/playback", None).await.is_err(),
+                    "{code}"
+                );
+                assert!(t.status().await.connected, "{code} signed the user out");
+            }
+        })
+    }
+
+    /// A vault whose first write fails.
+    struct FailOnce(std::sync::Mutex<bool>, MemoryVault);
+    impl Vault for FailOnce {
+        fn load(&self) -> Option<Tokens> {
+            self.1.load()
+        }
+        fn save(&self, t: &Tokens) -> Result<(), String> {
+            if std::mem::replace(&mut *self.0.lock().unwrap(), false) {
+                return Err("CredWriteW failed".into());
+            }
+            self.1.save(t)
+        }
+        fn clear(&self) {
+            self.1.clear()
+        }
+    }
+
+    #[test]
+    fn a_failed_vault_write_keeps_the_new_tokens() {
+        run(async {
+            // Refresh tokens are single-use: dropping the new pair because
+            // the write failed would leave the spent one, and the next
+            // refresh would sign the user out.
+            let fake = Arc::new(Fake::default());
+            let base = serve(fake.clone()).await;
+            *fake.live_access.lock().unwrap() = "A0".into();
+            *fake.live_refresh.lock().unwrap() = "R0".into();
+            let inner = MemoryVault::default();
+            inner
+                .save(&Tokens {
+                    access_token: "A0".into(),
+                    refresh_token: "R0".into(),
+                    expires_at: now() + 10,
+                })
+                .unwrap();
+            let vault = FailOnce(std::sync::Mutex::new(true), inner);
+            let t = Trakt::new(cfg(&base), reqwest::Client::new(), Box::new(vault));
+            assert_eq!(t.request("GET", "/a", None).await.unwrap().status, 200);
+            // Trakt now holds R1 as the only live refresh token. Expire the
+            // access token and refresh again with what the app kept.
+            t.tokens.lock().await.as_mut().unwrap().expires_at = now() + 10;
+            assert_eq!(t.request("GET", "/b", None).await.unwrap().status, 200);
+            assert_eq!(fake.refreshes.load(Ordering::SeqCst), 2);
+            assert!(t.status().await.connected);
         })
     }
 

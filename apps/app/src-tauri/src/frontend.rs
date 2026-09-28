@@ -463,6 +463,16 @@ fn unpack(bytes: &[u8], dir: &Path) -> Result<(), String> {
     let entries = archive.entries().map_err(|e| e.to_string())?;
     for entry in entries {
         let mut entry = entry.map_err(|e| e.to_string())?;
+        // Files and directories only. A symlink or hard link entry is
+        // written as given, target and all, which checking the entry's own
+        // path does nothing to stop: it could point outside this directory
+        // or link a user's file in to be served as an asset.
+        let kind = entry.header().entry_type();
+        if !(kind.is_file() || kind.is_dir()) {
+            return Err(format!(
+                "archive entry is not a file or a directory: {kind:?}"
+            ));
+        }
         let raw = entry.path().map_err(|e| e.to_string())?.into_owned();
         // `./index.html` is how `tar -C dist .` names things (plan 016 N3,
         // behind the archive fix in Track 0.1): a `.` is dropped, and
@@ -503,6 +513,13 @@ pub fn stage(
     if !valid_version(version) {
         return Err("refusing an unreasonable version string".into());
     }
+    // One stage at a time. The launch check and a "Check for updates" click
+    // can overlap, and two stages share the staging and target directories
+    // and each sweep what they don't keep: one renamed or swept the
+    // directory the other was still unpacking into, and the next launch
+    // served an index.html whose assets were half there.
+    static STAGING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = STAGING.lock().unwrap_or_else(|e| e.into_inner());
     let root = root().ok_or_else(|| "no data directory".to_string())?;
     let mut active = read_active(&root);
     if active.quarantined.contains(&version.to_string()) {
@@ -605,8 +622,16 @@ pub fn frontend_status() -> Status {
     };
     let active = read_active(&root);
     // active.version is what the NEXT resolve() will serve. Different from
-    // what this run is serving means something was staged since boot.
-    let pending = if active.version != serving { active.version } else { String::new() };
+    // what this run is serving means something was staged since boot,
+    // unless it is quarantined: a known-good version that failed twice is
+    // left as its own fallback, and resolve() serves the embedded frontend
+    // instead. Reported as pending, Settings offered a "Restart now" that
+    // restarted into the same thing, until the next release.
+    let pending = if active.version != serving && !active.quarantined.contains(&active.version) {
+        active.version
+    } else {
+        String::new()
+    };
     Status { serving, pending }
 }
 
@@ -861,6 +886,28 @@ mod tests {
         // Its fallback was itself, now quarantined: resolve() serves the
         // embedded frontend.
         assert!(a.quarantined.contains(&a.version));
+    }
+
+    /// A link in a bundle is refused whole: its target is written as
+    /// given, which the path check on the entry itself cannot catch.
+    #[test]
+    fn refuses_a_bundle_with_a_link_in_it() {
+        for kind in [tar::EntryType::Symlink, tar::EntryType::Link] {
+            let mut tar = tar::Builder::new(Vec::new());
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(kind);
+            h.set_size(0);
+            h.set_mode(0o644);
+            tar.append_link(&mut h, "assets/leak.txt", "/etc/hostname")
+                .unwrap();
+            let raw = tar.into_inner().unwrap();
+            let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+            gz.write_all(&raw).unwrap();
+            let dir = tmpdir("links");
+            let err = unpack(&gz.finish().unwrap(), &dir).unwrap_err();
+            assert!(err.contains("not a file or a directory"), "{err}");
+            std::fs::remove_dir_all(&dir).ok();
+        }
     }
 
     /// Plan 016 N3: `tar -C dist .` names every entry `./…`.
