@@ -118,7 +118,8 @@ const CHANNELS = [
 // Three programmes per channel bracketing "now": one airing (started 30min
 // ago, ends in 30min), one next, one after. Timestamps in UNIX SECONDS.
 function programmes(chId) {
-  const now = Math.floor(Date.now() / 1000);
+  // FAKE_NOW pins the guide to a moment (scripts/screens.mjs).
+  const now = Math.floor((Number(process.env.FAKE_NOW) || Date.now()) / 1000);
   const HOUR = 3600;
   const mk = (i, start, stop, name) => ({
     id: `${chId}-${i}`,

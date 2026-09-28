@@ -36,7 +36,8 @@ const fmt = (ms) =>
   new Date(ms).toISOString().replace(/[-:T]/g, "").slice(0, 14) + " +0000";
 
 function xmltv() {
-  const now = Date.now();
+  // FAKE_NOW pins the guide to a moment (scripts/screens.mjs).
+  const now = Number(process.env.FAKE_NOW) || Date.now();
   const HOUR = 3600_000;
   // Half-hour-aligned blocks so cells land on clean guide slots.
   const base = Math.floor(now / (30 * 60_000)) * 30 * 60_000;
