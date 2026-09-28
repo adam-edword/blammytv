@@ -85,9 +85,14 @@ export interface TheaterMeta {
  * line and is left playing. */
 let livePopout = false;
 let watchingPopout = false;
+/** Which screen opened the popout, when it said. Kept after it closes, so
+ * a screen hearing popout-closed can ask whether the stream was its own. */
+let popoutOwner: string | null = null;
+export const popoutOpenedBy = (): string | null => popoutOwner;
 
-export function tauriPopoutOpen(url: string, live: boolean): Promise<void> {
+export function tauriPopoutOpen(url: string, live: boolean, owner?: string): Promise<void> {
   livePopout = live;
+  popoutOwner = owner ?? null;
   if (!watchingPopout) {
     watchingPopout = true;
     void listen("popout-closed", () => {

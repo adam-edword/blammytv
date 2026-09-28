@@ -30,6 +30,7 @@ import { useQuietHeader } from "../../lib/useIdle";
 import {
   isTauri,
   onPopoutClosed,
+  popoutOpenedBy,
   tauriMpvFrost,
   tauriMpvFrostRect,
   tauriMpvGoLive,
@@ -566,7 +567,10 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   useEffect(() => {
     if (!isTauri()) return;
     return onPopoutClosed(() => {
-      if (heroIdRef.current) setPlaying(true);
+      // Only a popout the Guide opened (plan 016 F11). A game popped out of
+      // Sports, closed while the Guide was up, started the Guide's own
+      // channel in the mini player.
+      if (popoutOpenedBy() === "guide" && heroIdRef.current) setPlaying(true);
     });
   }, []);
 
@@ -741,7 +745,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       // desktop through the still-cut hole. Idempotent with that cleanup.
       const shell = document.querySelector<HTMLElement>(".app-shell");
       if (shell) shell.style.clipPath = "";
-      if (url) void tauriPopoutOpen(url, true).catch(() => {});
+      if (url) void tauriPopoutOpen(url, true, "guide").catch(() => {});
       setPlaying(false);
       setTheater(false);
       leaveFullscreen();
