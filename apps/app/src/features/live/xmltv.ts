@@ -132,13 +132,19 @@ export function parseXmltv(
     }
   if (stats && theirs) stats.guideChannels = theirs.size;
 
+  /** Programmes that came with no stop: they run until the next one on
+   * their channel (XMLTV makes stop optional, and some feeds leave it off),
+   * which is only known once each channel's list is sorted, below. They
+   * used to be dropped. */
+  const open = new Set<Programme>();
+
   for (const prog of tags(xml, "programme")) {
     const a = attrs(prog.head);
     const targets = lookup(a.get("channel") ?? "");
     if (!targets) continue;
     const start = parseXmltvTime(a.get("start"));
     const stop = parseXmltvTime(a.get("stop"));
-    if (start == null || stop == null || stop < from || start > to) continue;
+    if (start == null || start > to || (stop != null && stop < from)) continue;
 
     const body = prog.body();
     const title = child(body, "title")?.trim() ?? "";
@@ -150,18 +156,32 @@ export function parseXmltv(
 
     for (const chId of targets) {
       const list = out.get(chId) ?? [];
-      list.push({
+      const p: Programme = {
         title,
         synopsis,
         start: new Date(start),
-        end: new Date(stop),
-      });
+        end: new Date(stop ?? start),
+      };
+      if (stop == null) open.add(p);
+      list.push(p);
       out.set(chId, list);
     }
   }
 
-  for (const list of out.values())
+  for (const [chId, list] of out) {
     list.sort((a, b) => a.start.getTime() - b.start.getTime());
+    if (!open.size || !list.some((p) => open.has(p))) continue;
+    // An open one ends where the next begins. The last one on its channel
+    // has nothing to end it and is left out, as before.
+    const kept = list.filter((p, i) => {
+      if (!open.has(p)) return true;
+      const next = list[i + 1];
+      if (!next) return false;
+      p.end = new Date(next.start.getTime());
+      return p.end.getTime() >= from;
+    });
+    out.set(chId, kept);
+  }
   if (stats && theirs) {
     stats.recovered = recovered.size;
     // Ours that got nothing: the guide either lacks them or spells them
@@ -274,16 +294,24 @@ function decode(s: string): string {
   });
 }
 
-/** "20260614200000 +0000" → epoch ms (UTC when no offset is given). */
+/**
+ * "20260614200000 +0000" → epoch ms (UTC when no offset is given).
+ *
+ * The spec lets a time be cut short from the right ("202606142000" has no
+ * seconds, "20260614" is midnight) and some feeds do it; those were read
+ * as nothing and their programmes dropped (plan 016, F17). An offset
+ * written "+05:30" was not recognised either and the time read as UTC,
+ * five and a half hours out.
+ */
 export function parseXmltvTime(s?: string | null): number | null {
   if (!s) return null;
   const m =
-    /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\s*([+-]\d{4}))?/.exec(
+    /^(\d{4})(\d{2})(\d{2})(?:(\d{2})(?:(\d{2})(\d{2})?)?)?\s*(?:([+-])(\d{2}):?(\d{2}))?/.exec(
       String(s).trim(),
     );
   if (!m) return null;
-  const [, y, mo, d, h, mi, se, tz] = m;
-  const offset = tz ? `${tz.slice(0, 3)}:${tz.slice(3)}` : "Z";
+  const [, y, mo, d, h = "00", mi = "00", se = "00", sign, oh, om] = m;
+  const offset = sign ? `${sign}${oh}:${om}` : "Z";
   const t = Date.parse(`${y}-${mo}-${d}T${h}:${mi}:${se}${offset}`);
   return Number.isNaN(t) ? null : t;
 }
