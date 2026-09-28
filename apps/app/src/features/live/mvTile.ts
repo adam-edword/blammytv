@@ -42,6 +42,8 @@ export interface FailureFacts {
   codecs?: string;
   /** Whether that can be played here. Null when nobody has looked. */
   playable?: boolean | null;
+  /** The codec that can't be, when that's what stopped it. */
+  refused?: string;
 }
 
 /** A codec string's family, as people know it. */
@@ -73,7 +75,11 @@ export function unplayable(
   supports: (mime: string) => boolean,
 ): string | null {
   if (video && !supports(`video/mp4; codecs="${video}"`)) return video;
-  if (audio && !supports(`audio/mp4; codecs="${audio}"`)) return audio;
+  // MPEG audio (mpegts.js calls MP1, MP2 and MP3 all "mp3") goes to
+  // Chromium as audio/mpeg, not inside MP4: only Firefox takes
+  // codecs="mp3" there (mpegts.js, mp4-remuxer.js). Asked the MP4 way,
+  // every MP3 channel was refused before it could play.
+  if (audio && !supports(audio === "mp3" ? "audio/mpeg" : `audio/mp4; codecs="${audio}"`)) return audio;
   return null;
 }
 
@@ -93,8 +99,11 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
   });
 
   if (f.playable === false) {
+    // The one that was refused. The video's name stood in for it, so an
+    // audio refusal read "It's H.264".
     const [video] = (f.codecs ?? "").split(" + ");
-    const what = video ? codecName(video) : "a format";
+    const codec = f.refused ?? video;
+    const what = codec ? codecName(codec) : "a format";
     return {
       kind: "decode",
       title: "This one needs the main player",

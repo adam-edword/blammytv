@@ -362,6 +362,7 @@ export function MultiviewTile({
       codecs = [videoCodec, audioCodec].filter(Boolean).join(" + ");
       const bad = unplayable(videoCodec, audioCodec, (m) => MediaSource.isTypeSupported(m));
       facts.playable = bad === null;
+      facts.refused = bad ?? undefined;
       if (bad !== null) {
         fail(`this browser cannot play ${bad}`);
         destroy?.();

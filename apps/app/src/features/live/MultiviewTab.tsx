@@ -53,7 +53,7 @@ import {
 import { forMultiview, releaseHeader } from "./mvKeys";
 import { useConnections } from "./connections";
 import { loadPlaylists } from "../settings/playlists";
-import { resolveStreamUrl } from "./stream";
+import { channelStreamUrl, resolveStreamUrl } from "./stream";
 import { useLiveData } from "./useLiveData";
 import { loadRecents, recordRecent } from "./recents";
 import { tunedChannel } from "../sports/catalog";
@@ -462,9 +462,18 @@ export function MultiviewTab() {
       const id = p.channelId;
       if (id in urls || looking.current.has(id)) continue;
       const real = live ? channelIndex(live).get(id) : undefined;
-      // Not in the catalog yet: wait for it (the effect above drops the
-      // pick if it never turns up).
-      if (!real) continue;
+      if (!real) {
+        // Not in the catalog yet: wait for it (the effect above drops the
+        // pick if it never turns up). Unless the catalog is here and its
+        // playlist is the one that failed to load, which is why the pick
+        // was kept: nothing would ever arrive, and the tile said "Tuning"
+        // for good, with no Retry. An Xtream channel plays from its saved
+        // playlist alone; anything else says it found no stream, and can
+        // be retried.
+        const failed = live && !live.groups.some((g) => !g.error && id.startsWith(`${g.id}:`));
+        if (failed) setUrls((was) => (id in was ? was : { ...was, [id]: channelStreamUrl(id) }));
+        continue;
+      }
       looking.current.add(id);
       void resolveStreamUrl(real)
         .then(
