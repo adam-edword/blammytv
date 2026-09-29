@@ -1,9 +1,12 @@
 # 022: The glass, and light mode back
 
-**Status: OPTIONS, waiting on Adam (2026-09-28).** Three calls, each
-rendered in the running app: **https://claude.ai/artifact/Gae4pCKbpZp5qhfp5iFF8G**
-(private; 24 pictures, dark and light). Nothing below is built. Plan 014's
-"liquid glass" half and plan 016's 4.8 and 4.9 are this plan.
+**Status: CALLS TAKEN (2026-09-29), not built yet.** Adam took all three
+picks: glass B, the grey page (2), and the Appearance control. "I agree
+with your picks. Gray looks really good and I like the glass hierarchy."
+Next is the build order at the bottom. The options as rendered:
+**https://claude.ai/artifact/Gae4pCKbpZp5qhfp5iFF8G** (private; 24
+pictures, dark and light). Plan 014's "liquid glass" half and plan 016's
+4.8 and 4.9 are this plan.
 
 *Origin: the week of 2026-09-28, item 6: "the glass and the light pass, as
 plan 022 with rendered options for Adam to pick". How the pictures were
