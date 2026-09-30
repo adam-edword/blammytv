@@ -7,7 +7,12 @@ import {
   type ReactNode,
 } from "react";
 import { scrubbedMessage } from "../../lib/errors";
-import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
+import {
+  isTauri,
+  tauriMvProxyClose,
+  tauriMvProxyOpen,
+  tauriMvProxyOpenHls,
+} from "../../lib/tauri";
 import {
   getMvProfile,
   hlsConfig,
@@ -62,8 +67,8 @@ import { LivePill } from "../../ui/LivePill";
  * real multi-view run every tile died on a 302 with no header, Cartoon
  * Network included. mvproxy.rs fetches on the Rust side, follows the
  * redirect and adds the header, and the tile reads from 127.0.0.1. The
- * .m3u8 path still goes direct: proxying HLS means rewriting every playlist
- * the stream hands back, and his panel serves .ts.
+ * .m3u8 path joined it in v0.10.67: the proxy rewrites every playlist it
+ * serves so each URI in it points back there too.
  *
  * PLACED, NOT FLOWED (plan 017). The grid hands each tile its rect from
  * mvLayout and the tile goes exactly there, so a layout change moves the
@@ -436,6 +441,17 @@ export function MultiviewTile({
             video.src = url;
             return;
           }
+          // Through the proxy too (v0.10.67), for the same CORS header on
+          // the playlist and everything it names. A native build from
+          // before it has no such command; the tile plays it directly.
+          let proxied = "";
+          if (isTauri()) {
+            proxied = await tauriMvProxyOpenHls(url).catch(() => "");
+            if (disposed) {
+              if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
+              return;
+            }
+          }
           const hls = new Hls(hlsConfig());
           hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
             const l = data.levels[0];
@@ -454,12 +470,13 @@ export function MultiviewTile({
                 (data.error ? ` / ${data.error.message}` : ""),
             );
           });
-          hls.loadSource(url);
+          hls.loadSource(proxied || url);
           hls.attachMedia(video);
           const unregister = registerTile({ name: nameRef.current, video, speed: () => undefined });
           destroy = () => {
             unregister();
             hls.destroy();
+            if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
           };
           return;
         }

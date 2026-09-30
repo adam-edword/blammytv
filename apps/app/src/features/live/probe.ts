@@ -1,6 +1,6 @@
 import { peekLive, loadLive } from "./source";
 import { resolveStreamUrl } from "./stream";
-import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
+import { isTauri, tauriMvProxyClose, tauriMvProxyOpen, tauriMvProxyOpenHls } from "../../lib/tauri";
 import {
   findHitches,
   getMvProfile,
@@ -300,7 +300,7 @@ export function installPlayerProbes(): void {
       // THE PATH THE TILES USE. Same rules: headers only, then abort, and the
       // loopback URL is not printed either (it is a token, but a live one).
       if (isTauri()) {
-        const local = await tauriMvProxyOpen(url).catch(() => "");
+        const local = await (ext === "m3u8" ? tauriMvProxyOpenHls(url) : tauriMvProxyOpen(url)).catch(() => "");
         if (!local) {
           console.info("[mv] proxy: not in this build (rebuild with v0.9.101+)");
           return;

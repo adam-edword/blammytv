@@ -1,7 +1,7 @@
 # Draft: the next installer release's changelog
 
 Week of 2026-09-28, item 5. **A draft, not sent.** It covers v0.10.15 to
-v0.10.66, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
+v0.10.67, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
 release: pick the version, move the entry into `CHANGELOG.md` (newest
 first), and trim what you don't want to say. Every line was checked against
 its commit; the version each came from is in the comment after it, for
@@ -93,6 +93,9 @@ the background.
   and Sports' included. <!-- v0.10.56 -->
 - **Multi-view:** drag the live scores row with the mouse, channels with
   MP3 audio play, and the bar fits the smallest window. <!-- v0.10.18, v0.10.54, v0.10.16 -->
+- **Multi-view plays `.m3u8` channels through the app's own connection**,
+  as it has `.ts` since 0.9, so a provider that redirects them or leaves
+  out the browser's permission header no longer stops them. <!-- v0.10.67 -->
 
 ### Fixed
 

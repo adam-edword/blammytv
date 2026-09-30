@@ -36,6 +36,15 @@
 //! a stream is HEVC, and if so ffmpeg turns it into H.264 on the way
 //! through. Still one provider connection per tile.
 //!
+//! HLS TOO, since v0.10.67 (`open_hls`; Adam picked this over an hls.js
+//! loader on a native fetch, which would carry every segment of up to four
+//! tiles across the IPC bridge). hls.js fetches a playlist and then every
+//! URI in it, each needing the same CORS header. A playlist served for an
+//! HLS route has every URI in it (variants, renditions, segments, keys, init
+//! maps) rewritten to `/mv/{token}/{n}`, a child of the same route, minted
+//! here and nowhere else, so the server still never takes a URL from a
+//! request. Segments are finite, so they end cleanly, byte ranges included.
+//!
 //! NEVER LOGS A PATH OR QUERY. Xtream live URLs carry the username and
 //! password in the path; only the origin is printed, as in http_get.
 
@@ -46,7 +55,7 @@ use std::time::Duration;
 
 use futures_util::future::{select, Either};
 use futures_util::{stream, Stream, StreamExt};
-use http_body_util::{combinators::BoxBody, BodyExt, Empty, StreamBody};
+use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full, StreamBody};
 use hyper::body::{Bytes, Frame, Incoming};
 use hyper::header::{self, HeaderValue};
 use hyper::{Method, Request, Response, StatusCode};
@@ -69,6 +78,65 @@ struct Route {
     /// Held here only. `close` drops the route and with it this, which is
     /// what tells every response serving the token to stop (`closed`).
     live: Arc<tokio::sync::watch::Sender<()>>,
+    /// An HLS route's children: every URI its playlists named.
+    hls: Option<Children>,
+}
+
+/// The URIs an HLS route's playlists named, by the number each has in its
+/// loopback URL. A live playlist names new segments every few seconds and
+/// the same ones again on each reload, so a URI keeps its number. Past CAP,
+/// the ones no playlist has named for longest are forgotten, never one the
+/// playlist being served names: a VOD playlist can name thousands at once.
+#[derive(Default)]
+struct Children {
+    by_id: HashMap<u64, String>,
+    /// Each URI's number, and the playlist that last named it.
+    by_url: HashMap<String, (u64, u64)>,
+    next: u64,
+    /// Playlists served so far.
+    served: u64,
+}
+
+impl Children {
+    /// Hours of a live stream's segments; a few hundred bytes each.
+    const CAP: usize = 4096;
+
+    /// A playlist is being served: what `mint` names from here is its.
+    fn begin(&mut self) {
+        self.served += 1;
+    }
+
+    fn mint(&mut self, url: &str) -> u64 {
+        if let Some(e) = self.by_url.get_mut(url) {
+            e.1 = self.served;
+            return e.0;
+        }
+        let id = self.next;
+        self.next += 1;
+        self.by_id.insert(id, url.to_string());
+        self.by_url.insert(url.to_string(), (id, self.served));
+        id
+    }
+
+    /// Back to CAP, oldest first, after a playlist is served.
+    fn trim(&mut self) {
+        let over = self.by_url.len().saturating_sub(Self::CAP);
+        if over == 0 {
+            return;
+        }
+        let mut old: Vec<(u64, u64)> = self
+            .by_url
+            .values()
+            .filter(|&&(_, at)| at < self.served)
+            .map(|&(id, at)| (at, id))
+            .collect();
+        old.sort_unstable();
+        for (_, id) in old.into_iter().take(over) {
+            if let Some(url) = self.by_id.remove(&id) {
+                self.by_url.remove(&url);
+            }
+        }
+    }
 }
 
 static PROXY: OnceLock<Result<Proxy, String>> = OnceLock::new();
@@ -176,6 +244,16 @@ const HEADER_TIMEOUT: Duration = if cfg!(test) {
 /// Register an upstream URL and get the loopback URL that serves it.
 /// `convert_hevc`: the caller cannot play HEVC, so convert it (mvconvert.rs).
 pub fn open(url: &str, convert_hevc: bool) -> Result<String, String> {
+    register(url, convert_hevc, None)
+}
+
+/// Register an HLS playlist URL: the same loopback URL, and every playlist
+/// it serves has its URIs pointed back here.
+pub fn open_hls(url: &str) -> Result<String, String> {
+    register(url, false, Some(Children::default()))
+}
+
+fn register(url: &str, convert_hevc: bool, hls: Option<Children>) -> Result<String, String> {
     let parsed = reqwest::Url::parse(url).map_err(|_| "not a URL".to_string())?;
     if !matches!(parsed.scheme(), "http" | "https") {
         return Err(format!("won't proxy a {}: URL", parsed.scheme()));
@@ -193,6 +271,7 @@ pub fn open(url: &str, convert_hevc: bool) -> Result<String, String> {
                 url: url.to_string(),
                 convert_hevc,
                 live: Arc::new(tokio::sync::watch::channel(()).0),
+                hls,
             },
         );
     Ok(format!("http://127.0.0.1:{}/mv/{}", p.port, token))
@@ -208,7 +287,12 @@ pub fn open(url: &str, convert_hevc: bool) -> Result<String, String> {
 /// R5).
 pub fn close(local: &str) {
     let Some(Ok(p)) = PROXY.get() else { return };
-    if let Some(token) = local.rsplit("/mv/").next() {
+    // A child's URL (`/mv/{token}/{n}`) closes its whole route.
+    if let Some(token) = local
+        .split("/mv/")
+        .nth(1)
+        .map(|t| t.split('/').next().unwrap_or(t))
+    {
         if let Ok(mut routes) = p.routes.lock() {
             routes.remove(token);
         }
@@ -279,29 +363,28 @@ struct Failed {
 /// Adam's event channels 302 from a provider host that was answering to
 /// somewhere that was not (v0.9.101). Every hop stays a GET; a 3xx with no
 /// usable Location is returned as it is, and passed through as a status.
-async fn fetch(url: &str) -> Result<reqwest::Response, Failed> {
+async fn fetch(url: &str, range: Option<&HeaderValue>) -> Result<reqwest::Response, Failed> {
     let mut at = reqwest::Url::parse(url).map_err(|_| Failed {
         at: reqwest::Url::parse("http://invalid/").expect("static URL"),
         kind: "not a URL",
         cause: None,
     })?;
     for _ in 0..=10 {
-        let res = client()
-            .get(at.clone())
-            .header(header::ACCEPT, "*/*")
-            .send()
-            .await
-            .map_err(|e| Failed {
-                at: at.clone(),
-                kind: if e.is_timeout() {
-                    "timed out"
-                } else if e.is_connect() {
-                    "could not connect"
-                } else {
-                    "request failed"
-                },
-                cause: Some(e),
-            })?;
+        let mut get = client().get(at.clone()).header(header::ACCEPT, "*/*");
+        if let Some(r) = range {
+            get = get.header(header::RANGE, r.clone());
+        }
+        let res = get.send().await.map_err(|e| Failed {
+            at: at.clone(),
+            kind: if e.is_timeout() {
+                "timed out"
+            } else if e.is_connect() {
+                "could not connect"
+            } else {
+                "request failed"
+            },
+            cause: Some(e),
+        })?;
         if !res.status().is_redirection() {
             return Ok(res);
         }
@@ -385,14 +468,31 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     if !host_ok {
         return Ok(reply(StatusCode::MISDIRECTED_REQUEST));
     }
-    // The route first: only a live one's replies carry CORS (N4).
-    let upstream = req.uri().path().strip_prefix("/mv/").and_then(|token| {
+    // The route first: only a live one's replies carry CORS (N4). An HLS
+    // route's children are `/mv/{token}/{n}`, and only ever a number the
+    // route minted.
+    let upstream = req.uri().path().strip_prefix("/mv/").and_then(|rest| {
+        let (token, child) = match rest.split_once('/') {
+            Some((t, n)) => (t, Some(n.parse::<u64>().ok()?)),
+            None => (rest, None),
+        };
         let p = proxy().ok()?;
         let routes = p.routes.lock().ok()?;
         let r = routes.get(token)?;
-        Some((r.url.clone(), r.convert_hevc, r.live.subscribe()))
+        let url = match child {
+            Some(n) => r.hls.as_ref()?.by_id.get(&n)?.clone(),
+            None => r.url.clone(),
+        };
+        Some((
+            token.to_string(),
+            url,
+            child.is_some(),
+            r.hls.is_some(),
+            r.convert_hevc,
+            r.live.subscribe(),
+        ))
     });
-    let Some((url, convert_hevc, live)) = upstream else {
+    let Some((token, url, is_child, is_hls, convert_hevc, live)) = upstream else {
         return Ok(reply(StatusCode::NOT_FOUND));
     };
     if req.method() == Method::OPTIONS {
@@ -415,27 +515,14 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     if req.method() != Method::GET {
         return Ok(reply(StatusCode::METHOD_NOT_ALLOWED));
     }
+    if is_hls {
+        let range = req.headers().get(header::RANGE).cloned();
+        return Ok(hls(&token, &url, is_child, range, port).await);
+    }
 
-    let res = match fetch(&url).await {
+    let res = match fetch(&url, None).await {
         Ok(r) => r,
-        Err(f) => {
-            // WHERE it failed (a redirect can move the stream to another
-            // server) and WHY. v0.9.101 said only "could not connect", on a
-            // provider whose own host was answering at the same moment.
-            let route = route_of(&url, &f.at);
-            let cause = f
-                .cause
-                .as_ref()
-                .map(|e| root_cause(e, &url, &f.at))
-                .unwrap_or_default();
-            let why = if cause.is_empty() {
-                format!("{} ({route})", f.kind)
-            } else {
-                format!("{} ({route}): {cause}", f.kind)
-            };
-            println!("[mvproxy] {why}");
-            return Ok(bad_gateway(&why));
-        }
+        Err(f) => return Ok(failed(&url, &f)),
     };
     let status = res.status();
     println!(
@@ -494,6 +581,204 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     out.headers_mut().insert(header::CONTENT_TYPE, content_type);
     cors(&mut out);
     Ok(out)
+}
+
+/// A 502 for a fetch that failed: WHERE (a redirect can move the stream to
+/// another server) and WHY. v0.9.101 said only "could not connect", on a
+/// provider whose own host was answering at the same moment.
+fn failed(url: &str, f: &Failed) -> Response<Body> {
+    let route = route_of(url, &f.at);
+    let cause = f
+        .cause
+        .as_ref()
+        .map(|e| root_cause(e, url, &f.at))
+        .unwrap_or_default();
+    let why = if cause.is_empty() {
+        format!("{} ({route})", f.kind)
+    } else {
+        format!("{} ({route}): {cause}", f.kind)
+    };
+    println!("[mvproxy] {why}");
+    bad_gateway(&why)
+}
+
+/// The most a playlist may be. A live one is a few KB; a long VOD one with
+/// byte ranges runs to hundreds.
+const PLAYLIST_CAP: usize = 8 * 1024 * 1024;
+
+/// An HLS route's request: a playlist, its URIs pointed back here, or
+/// anything one names (a segment, a key, an init map), passed through and
+/// ended cleanly, since each is a file. Only the route's own playlist is
+/// logged; its segments come every few seconds.
+async fn hls(
+    token: &str,
+    url: &str,
+    is_child: bool,
+    range: Option<HeaderValue>,
+    port: u16,
+) -> Response<Body> {
+    let res = match fetch(url, range.as_ref()).await {
+        Ok(r) => r,
+        Err(f) => return failed(url, &f),
+    };
+    let status = res.status();
+    if !is_child || !status.is_success() {
+        println!(
+            "[mvproxy] hls {}: {}",
+            route_of(url, res.url()),
+            status.as_u16()
+        );
+    }
+    if !status.is_success() {
+        return stream_reply(
+            StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY),
+        );
+    }
+    let content_type = res.headers().get(reqwest::header::CONTENT_TYPE).cloned();
+    if says_playlist(content_type.as_ref(), res.url()) {
+        let base = res.url().clone();
+        let mut res = res;
+        let mut body = Vec::new();
+        loop {
+            match res.chunk().await {
+                Ok(Some(b)) if body.len() + b.len() <= PLAYLIST_CAP => body.extend_from_slice(&b),
+                Ok(Some(_)) => return bad_gateway("playlist too large"),
+                Ok(None) => break,
+                Err(_) => return bad_gateway("playlist read failed"),
+            }
+        }
+        let text = std::str::from_utf8(&body).ok().filter(|t| {
+            t.trim_start_matches('\u{feff}')
+                .trim_start()
+                .starts_with("#EXTM3U")
+        });
+        let out = match text {
+            Some(text) => {
+                let Some(p) = proxy().ok() else {
+                    return reply(StatusCode::NOT_FOUND);
+                };
+                let Ok(mut routes) = p.routes.lock() else {
+                    return reply(StatusCode::NOT_FOUND);
+                };
+                // Closed while the playlist was on its way.
+                let Some(children) = routes.get_mut(token).and_then(|r| r.hls.as_mut()) else {
+                    return reply(StatusCode::NOT_FOUND);
+                };
+                children.begin();
+                let text = rewrite_playlist(text, &base, |abs| {
+                    format!("http://127.0.0.1:{port}/mv/{token}/{}", children.mint(abs))
+                });
+                children.trim();
+                Bytes::from(text)
+            }
+            // Said it was a playlist and isn't one: sent on as it came.
+            None => Bytes::from(body),
+        };
+        let mut res = Response::new(
+            Full::new(out)
+                .map_err(|never: Infallible| match never {})
+                .boxed(),
+        );
+        res.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/vnd.apple.mpegurl"),
+        );
+        cors(&mut res);
+        return res;
+    }
+    let content_range = res.headers().get(reqwest::header::CONTENT_RANGE).cloned();
+    let chunks = stream::unfold(Some(res), |state| async move {
+        let mut r = state?;
+        match r.chunk().await {
+            Ok(Some(b)) => Some((Ok(b), Some(r))),
+            Ok(None) => None,
+            Err(_) => Some((Err(std::io::Error::other("upstream read failed")), None)),
+        }
+    });
+    let mut out = Response::new(BodyExt::boxed(StreamBody::new(
+        chunks.map(|chunk| chunk.map(Frame::data)),
+    )));
+    *out.status_mut() = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK);
+    let h = out.headers_mut();
+    h.insert(
+        header::CONTENT_TYPE,
+        content_type.unwrap_or_else(|| HeaderValue::from_static("application/octet-stream")),
+    );
+    if let Some(cr) = content_range {
+        h.insert(header::CONTENT_RANGE, cr);
+        h.insert(
+            header::ACCESS_CONTROL_EXPOSE_HEADERS,
+            HeaderValue::from_static("Content-Range"),
+        );
+    }
+    cors(&mut out);
+    out
+}
+
+/// A playlist by its type, or by its name when the server doesn't say.
+fn says_playlist(content_type: Option<&HeaderValue>, at: &reqwest::Url) -> bool {
+    let by_type = content_type
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|t| t.to_ascii_lowercase().contains("mpegurl"));
+    let path = at.path().to_ascii_lowercase();
+    by_type || path.ends_with(".m3u8") || path.ends_with(".m3u")
+}
+
+/// Every URI a playlist names, through `mint`: the URI lines (variants,
+/// segments) and the URI="…" attribute of any #EXT tag (EXT-X-KEY,
+/// EXT-X-MAP, EXT-X-MEDIA, EXT-X-I-FRAME-STREAM-INF, EXT-X-PART,
+/// EXT-X-PRELOAD-HINT, EXT-X-RENDITION-REPORT, EXT-X-SESSION-KEY and
+/// -DATA). Relative ones resolve against `base`, the URL the playlist came
+/// from after its redirects. A URI that isn't http(s) (a DRM `skd:`) is
+/// left as it is. A byte-order mark goes: read as a URI line, it would be
+/// rewritten and the playlist would no longer start #EXTM3U.
+fn rewrite_playlist(
+    body: &str,
+    base: &reqwest::Url,
+    mut mint: impl FnMut(&str) -> String,
+) -> String {
+    let body = body.strip_prefix('\u{feff}').unwrap_or(body);
+    let absolute = |uri: &str| {
+        base.join(uri)
+            .ok()
+            .filter(|u| matches!(u.scheme(), "http" | "https"))
+            .map(|u| u.to_string())
+    };
+    let mut out = String::with_capacity(body.len() + 512);
+    for line in body.lines() {
+        let t = line.trim();
+        if t.is_empty() {
+            out.push_str(line);
+        } else if t.starts_with("#EXT") {
+            let mut rest = line;
+            while let Some(i) = rest.find("URI=\"") {
+                // An attribute starts the list or follows a comma.
+                let at_start = i > 0 && matches!(rest.as_bytes()[i - 1], b':' | b',');
+                let (head, tail) = rest.split_at(i + 5);
+                out.push_str(head);
+                let Some(end) = tail.find('"') else {
+                    rest = tail;
+                    break;
+                };
+                let value = &tail[..end];
+                match absolute(value).filter(|_| at_start) {
+                    Some(abs) => out.push_str(&mint(&abs)),
+                    None => out.push_str(value),
+                }
+                rest = &tail[end..];
+            }
+            out.push_str(rest);
+        } else if t.starts_with('#') {
+            out.push_str(line);
+        } else {
+            match absolute(t) {
+                Some(abs) => out.push_str(&mint(&abs)),
+                None => out.push_str(line),
+            }
+        }
+        out.push('\n');
+    }
+    out
 }
 
 /// An HEVC stream, through ffmpeg. The tile hears nothing until ffmpeg has
@@ -694,6 +979,16 @@ mod tests {
         method: &str,
         host: Option<&str>,
     ) -> (u16, HashMap<String, String>, BufReader<TcpStream>) {
+        request(local, method, host, "")
+    }
+
+    /// `get` with more header lines, each ending "\r\n".
+    fn request(
+        local: &str,
+        method: &str,
+        host: Option<&str>,
+        extra: &str,
+    ) -> (u16, HashMap<String, String>, BufReader<TcpStream>) {
         let rest = local.strip_prefix("http://").unwrap();
         let (addr, path) = rest.split_at(rest.find('/').unwrap());
         let mut s = TcpStream::connect(addr).unwrap();
@@ -701,7 +996,7 @@ mod tests {
         let host = host.unwrap_or(addr);
         write!(
             s,
-            "{method} {path} HTTP/1.1\r\nHost: {host}\r\nOrigin: http://tauri.localhost\r\n\r\n"
+            "{method} {path} HTTP/1.1\r\nHost: {host}\r\nOrigin: http://tauri.localhost\r\n{extra}\r\n"
         )
         .unwrap();
         let mut r = BufReader::new(s);
@@ -928,6 +1223,294 @@ mod tests {
         // Never a path: the first hop's carries the credentials.
         for secret in ["user", "pass", "secret-token", "/edge/", "/dead/"] {
             assert!(!reason.contains(secret), "{secret} leaked: {reason}");
+        }
+    }
+
+    // ------------------------------------------------ HLS
+
+    #[test]
+    fn a_playlist_rewrite_touches_only_its_uris() {
+        let base = reqwest::Url::parse("https://cdn.example/a/b/index.m3u8?sig=1").unwrap();
+        let body = "\u{feff}#EXTM3U\r\n\
+            #EXT-X-KEY:METHOD=AES-128,URI=\"k.bin\",IV=0x1\r\n\
+            #EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://drm-id\",KEYFORMAT=\"com.apple.streamingkeydelivery\"\r\n\
+            #EXT-X-MAP:URI=\"/init.mp4\",BYTERANGE=\"720@0\"\r\n\
+            #EXT-X-FOO:XURI=\"x.ts\"\r\n\
+            # URI=\"c.ts\" in a comment\r\n\
+            #EXTINF:4,\r\n\
+            seg.ts?n=1\r\n\
+            \r\n  ../up/seg.ts  \r\n\
+            #EXTINF:4,\r\n\
+            https://other.example/s.ts\r\n\
+            seg.ts?n=1\r\n";
+        let mut named = Vec::new();
+        let out = rewrite_playlist(body, &base, |abs| {
+            named.push(abs.to_string());
+            format!("<{abs}>")
+        });
+        assert_eq!(
+            out,
+            "#EXTM3U\n\
+             #EXT-X-KEY:METHOD=AES-128,URI=\"<https://cdn.example/a/b/k.bin>\",IV=0x1\n\
+             #EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://drm-id\",KEYFORMAT=\"com.apple.streamingkeydelivery\"\n\
+             #EXT-X-MAP:URI=\"<https://cdn.example/init.mp4>\",BYTERANGE=\"720@0\"\n\
+             #EXT-X-FOO:XURI=\"x.ts\"\n\
+             # URI=\"c.ts\" in a comment\n\
+             #EXTINF:4,\n\
+             <https://cdn.example/a/b/seg.ts?n=1>\n\
+             \n\
+             <https://cdn.example/a/up/seg.ts>\n\
+             #EXTINF:4,\n\
+             <https://other.example/s.ts>\n\
+             <https://cdn.example/a/b/seg.ts?n=1>\n"
+        );
+        assert_eq!(named.len(), 6, "{named:?}");
+    }
+
+    #[test]
+    fn a_uri_keeps_its_number_and_only_stale_ones_are_forgotten() {
+        let mut c = Children::default();
+        c.begin();
+        let first = c.mint("https://x/first.ts");
+        assert_eq!(c.mint("https://x/first.ts"), first);
+        // One playlist naming more than CAP (a long VOD): every URI in it
+        // stays, the one only the last playlist named goes.
+        c.begin();
+        let big: Vec<u64> = (0..Children::CAP + 100)
+            .map(|i| c.mint(&format!("https://x/{i}.ts")))
+            .collect();
+        c.trim();
+        assert!(!c.by_id.contains_key(&first));
+        assert!(big.iter().all(|id| c.by_id.contains_key(id)));
+        // The next reload names only its window: back to CAP, and the window
+        // (named again, so fresh) keeps its numbers.
+        c.begin();
+        let window: Vec<u64> = (Children::CAP + 90..Children::CAP + 100)
+            .map(|i| c.mint(&format!("https://x/{i}.ts")))
+            .collect();
+        c.trim();
+        assert_eq!(window, big[Children::CAP + 90..]);
+        assert_eq!(c.by_id.len(), Children::CAP);
+        assert_eq!(c.by_url.len(), Children::CAP);
+        assert!(window.iter().all(|id| c.by_id.contains_key(id)));
+        assert!(!c.by_id.contains_key(&big[0]));
+    }
+
+    /// A segment: 1000 bytes, so a range out of it is its own.
+    fn segment() -> Vec<u8> {
+        (0..1000u32).map(|i| (i % 251) as u8).collect()
+    }
+
+    /// A provider's HLS. The master playlist redirects to the CDN's copy,
+    /// so relative URIs resolve against where it landed. The media playlist
+    /// comes as text/plain, the way some servers send it, known by its
+    /// name. A segment answers a byte range with a 206.
+    fn fake_hls() -> String {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", l.local_addr().unwrap());
+        let host = base.clone();
+        std::thread::spawn(move || {
+            for conn in l.incoming() {
+                let Ok(mut conn) = conn else { continue };
+                let host = host.clone();
+                std::thread::spawn(move || {
+                    let mut reader = BufReader::new(conn.try_clone().unwrap());
+                    let mut line = String::new();
+                    reader.read_line(&mut line).unwrap();
+                    let mut range = None;
+                    loop {
+                        let mut h = String::new();
+                        if reader.read_line(&mut h).unwrap() <= 2 {
+                            break;
+                        }
+                        let h = h.trim_end().to_ascii_lowercase();
+                        if let Some(r) = h.strip_prefix("range: bytes=") {
+                            let (a, b) = r.split_once('-').unwrap();
+                            range =
+                                Some((a.parse::<usize>().unwrap(), b.parse::<usize>().unwrap()));
+                        }
+                    }
+                    let path = line.split_whitespace().nth(1).unwrap_or("").to_string();
+                    let mut send = |status: &str, ty: &str, extra: &str, body: &[u8]| {
+                        let _ = write!(
+                            conn,
+                            "HTTP/1.1 {status}\r\nContent-Type: {ty}\r\nContent-Length: {}\r\n{extra}Connection: close\r\n\r\n",
+                            body.len()
+                        );
+                        let _ = conn.write_all(body);
+                    };
+                    let mpegurl = "application/vnd.apple.mpegurl";
+                    match path.as_str() {
+                        "/hls/user/pass/master.m3u8" => send(
+                            "302 Found",
+                            "text/plain",
+                            "Location: /cdn/tok/master.m3u8\r\n",
+                            b"",
+                        ),
+                        "/cdn/tok/master.m3u8" => send(
+                            "200 OK",
+                            mpegurl,
+                            "",
+                            format!(
+                                "#EXTM3U\n\
+                                 #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"aud\",NAME=\"English\",URI=\"audio/en.m3u8\"\n\
+                                 #EXT-X-STREAM-INF:BANDWIDTH=800000,CODECS=\"avc1.4d401f,mp4a.40.2\",AUDIO=\"aud\"\n\
+                                 low/index.m3u8?sig=secret\n\
+                                 #EXT-X-STREAM-INF:BANDWIDTH=3000000,AUDIO=\"aud\"\n\
+                                 {host}/cdn/tok/high/index.m3u8\n"
+                            )
+                            .as_bytes(),
+                        ),
+                        "/cdn/tok/low/index.m3u8?sig=secret" => send(
+                            "200 OK",
+                            "text/plain",
+                            "",
+                            b"#EXTM3U\n\
+                              #EXT-X-TARGETDURATION:4\n\
+                              #EXT-X-KEY:METHOD=AES-128,URI=\"../keys/k1.bin\",IV=0x1\n\
+                              #EXT-X-MAP:URI=\"init.mp4\"\n\
+                              #EXTINF:4.0,\n\
+                              seg1.ts\n\
+                              #EXTINF:4.0,\n\
+                              /cdn/tok/low/seg2.ts\n",
+                        ),
+                        "/cdn/tok/keys/k1.bin" => {
+                            send("200 OK", "application/octet-stream", "", b"KEY1")
+                        }
+                        "/cdn/tok/low/seg1.ts" => match range {
+                            Some((a, b)) => send(
+                                "206 Partial Content",
+                                "video/mp2t",
+                                &format!("Content-Range: bytes {a}-{b}/1000\r\n"),
+                                &segment()[a..=b],
+                            ),
+                            None => send("200 OK", "video/mp2t", "", &segment()),
+                        },
+                        _ => send("403 Forbidden", "text/plain", "", b""),
+                    }
+                });
+            }
+        });
+        base
+    }
+
+    /// A whole body: chunked or by Content-Length.
+    fn whole(headers: &HashMap<String, String>, r: &mut BufReader<TcpStream>) -> Vec<u8> {
+        match headers.get("content-length") {
+            Some(n) => {
+                let mut out = vec![0u8; n.parse().unwrap()];
+                r.read_exact(&mut out).unwrap();
+                out
+            }
+            None => {
+                let (out, finished) = to_end(r);
+                assert!(finished, "a file's body was cut off");
+                out
+            }
+        }
+    }
+
+    #[test]
+    fn an_hls_route_points_every_uri_in_its_playlists_back_here() {
+        let base = fake_hls();
+        let local = open_hls(&format!("{base}/hls/user/pass/master.m3u8")).unwrap();
+        let (code, headers, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200);
+        assert_eq!(
+            headers
+                .get("access-control-allow-origin")
+                .map(String::as_str),
+            Some("*")
+        );
+        assert_eq!(
+            headers.get("content-type").map(String::as_str),
+            Some("application/vnd.apple.mpegurl")
+        );
+        let master = String::from_utf8(whole(&headers, &mut body)).unwrap();
+        // Nothing of the provider's reaches the webview: not its host, not
+        // the path with the line's credentials, not a signed query.
+        let provider = format!("{base}/");
+        for secret in [provider.as_str(), "user", "pass", "secret", "/cdn/", "tok"] {
+            assert!(!master.contains(secret), "{secret} in {master}");
+        }
+        // The tags themselves are untouched.
+        assert!(master.contains(
+            "#EXT-X-STREAM-INF:BANDWIDTH=800000,CODECS=\"avc1.4d401f,mp4a.40.2\",AUDIO=\"aud\"\n"
+        ));
+        let child = format!("{local}/");
+        let uris: Vec<&str> = master.lines().filter(|l| !l.starts_with('#')).collect();
+        assert_eq!(uris.len(), 2, "{master}");
+        assert!(uris.iter().all(|u| u.starts_with(&child)), "{master}");
+        assert!(master.contains(&format!("URI=\"{child}")), "{master}");
+
+        // The variant: a playlist by its name alone, rewritten the same way.
+        let (code, headers, mut body) = get(uris[0], "GET", None);
+        assert_eq!(code, 200);
+        let media = String::from_utf8(whole(&headers, &mut body)).unwrap();
+        assert!(
+            !media.contains(&provider) && !media.contains("seg1"),
+            "{media}"
+        );
+        let key = media
+            .split("URI=\"")
+            .nth(1)
+            .and_then(|s| s.split('"').next())
+            .unwrap()
+            .to_string();
+        let segs: Vec<&str> = media.lines().filter(|l| !l.starts_with('#')).collect();
+        assert_eq!(segs.len(), 2, "{media}");
+
+        // "../keys/k1.bin" resolved against the variant's own URL.
+        let (code, headers, mut body) = get(&key, "GET", None);
+        assert_eq!(code, 200);
+        assert_eq!(whole(&headers, &mut body), b"KEY1");
+
+        // A segment: its bytes as they came, and a clean end.
+        let (code, headers, mut body) = get(segs[0], "GET", None);
+        assert_eq!(code, 200);
+        assert_eq!(
+            headers.get("content-type").map(String::as_str),
+            Some("video/mp2t")
+        );
+        assert_eq!(whole(&headers, &mut body), segment());
+
+        // A byte range: a 206 whose Content-Range the webview may read.
+        let (code, headers, mut body) = request(segs[0], "GET", None, "Range: bytes=100-199\r\n");
+        assert_eq!(code, 206);
+        assert_eq!(
+            headers.get("content-range").map(String::as_str),
+            Some("bytes 100-199/1000")
+        );
+        assert_eq!(
+            headers
+                .get("access-control-expose-headers")
+                .map(String::as_str),
+            Some("Content-Range")
+        );
+        assert_eq!(whole(&headers, &mut body), &segment()[100..200]);
+
+        // A reload names the same segments by the same numbers.
+        let (_, headers, mut body) = get(uris[0], "GET", None);
+        assert_eq!(
+            String::from_utf8(whole(&headers, &mut body)).unwrap(),
+            media
+        );
+
+        // Only numbers the route minted, and only on an HLS route.
+        let (code, headers, _) = get(&format!("{local}/999999"), "GET", None);
+        assert_eq!(code, 404);
+        assert!(!headers.contains_key("access-control-allow-origin"));
+        let (code, _, _) = get(&format!("{local}/../mv"), "GET", None);
+        assert_eq!(code, 404);
+        let plain = open(&format!("{base}/cdn/tok/low/seg1.ts"), false).unwrap();
+        let (code, _, _) = get(&format!("{plain}/0"), "GET", None);
+        assert_eq!(code, 404);
+
+        // Closing by any of its URLs ends the whole route.
+        close(segs[1]);
+        for gone in [local.as_str(), uris[0], segs[0]] {
+            let (code, _, _) = get(gone, "GET", None);
+            assert_eq!(code, 404, "{gone}");
         }
     }
 

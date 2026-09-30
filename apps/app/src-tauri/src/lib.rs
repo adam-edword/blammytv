@@ -835,6 +835,16 @@ fn mv_proxy_open(url: String, convert_hevc: Option<bool>) -> Result<String, Stri
     mvproxy::open(&url, convert_hevc.unwrap_or(false))
 }
 
+/// Multi-view, an HLS (.m3u8) stream: the same loopback URL, and every
+/// playlist it serves has its URIs pointed back through the proxy, so hls.js
+/// reaches the segments with the CORS header too (v0.10.67). Its own command
+/// so a newer frontend on an older native build, whose proxy would not
+/// rewrite playlists, fails the call and plays the stream directly.
+#[tauri::command]
+fn mv_proxy_open_hls(url: String) -> Result<String, String> {
+    mvproxy::open_hls(&url)
+}
+
 /// Multi-view opened on a webview that can't play HEVC: ask now what this
 /// machine's ffmpeg can do, so the first HEVC tile doesn't wait for it
 /// (mvconvert.rs). Asked once per run; later calls return at once.
@@ -1201,6 +1211,7 @@ pub fn run() {
             http_get,
             http_probe,
             mv_proxy_open,
+            mv_proxy_open_hls,
             mv_proxy_close,
             mv_convert_warm,
             trakt_status,
