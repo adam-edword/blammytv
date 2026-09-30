@@ -405,7 +405,7 @@ button {
   margin-left: 5px;
   padding: 1px 4px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--text) 14%, transparent);
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -413,7 +413,7 @@ button {
    * line box instead of growing it: the two rails have to stay the same
    * height, and this chip is the only one with anything but text in it. */
   line-height: 1;
-  color: rgba(255, 255, 255, 0.75);
+  color: color-mix(in srgb, var(--text) 75%, transparent);
 }
 
 .header__actions {

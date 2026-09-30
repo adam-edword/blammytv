@@ -463,3 +463,29 @@
 
   color-scheme: light;
 }
+
+/* ON A PICTURE (plan 022). A picture is dark whatever the page is, so a
+ * control on one (the Stream hero's Watch now and More info) draws with
+ * the dark theme's ink in both themes. In light, Watch now turned black
+ * and More info, a tint of the page's ink, vanished into the art.
+ *
+ * The four values are the dark block's own, repeated: a subtree cannot
+ * reach back to a block the root no longer matches. tokens.test.ts holds
+ * them equal. The tokens built on them are restated so they resolve here,
+ * on the picture, not on the root with the page's ink.
+ *
+ * The header joins while a picture is under it (StreamScreen's hero sets
+ * the flag): its scrim is --bg, so it takes the picture's shade, and its
+ * ink turns with it. */
+.on-picture,
+:root[data-header-over="picture"] .header {
+  --bg: oklch(0.145 0 0);
+  --text: oklch(0.985 0 0);
+  --text-muted: oklch(0.708 0 0);
+  --text-dim: oklch(0.6 0 0);
+  --glass: color-mix(in srgb, var(--text) 10%, transparent);
+  --tint-hover: color-mix(in srgb, var(--text) 9%, transparent);
+  --tint-on: color-mix(in srgb, var(--text) 16%, transparent);
+  --focus-ring: var(--text);
+  color-scheme: dark;
+}

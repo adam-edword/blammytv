@@ -1,9 +1,9 @@
 # 022: The glass, and light mode back
 
-**Status: CALLS TAKEN (2026-09-29), not built yet.** Adam took all three
-picks: glass B, the grey page (2), and the Appearance control. "I agree
-with your picks. Gray looks really good and I like the glass hierarchy."
-Next is the build order at the bottom. The options as rendered:
+**Status: BUILDING (2026-09-30).** Adam took all three picks: glass B,
+the grey page (2), and the Appearance control. "I agree with your picks.
+Gray looks really good and I like the glass hierarchy." Build order step 1
+(the light fixes) landed in v0.10.64; steps 2 and 3 are next. The options as rendered:
 **https://claude.ai/artifact/Gae4pCKbpZp5qhfp5iFF8G** (private; 24
 pictures, dark and light). Plan 014's "liquid glass" half and plan 016's
 4.8 and 4.9 are this plan.
@@ -133,7 +133,14 @@ once fixed. From the renders and the week's colour pass (v0.10.60).
 
 1. The light fixes (above), each checked in light with
    `scripts/screens.mjs` and unchanged in dark (the sheet check proves
-   the dark half).
+   the dark half). **Done, v0.10.64.** A picture's controls take
+   `.on-picture` (tokens.css), the dark theme's ink in both themes, and
+   the header joins it while the Stream hero is under it. The glow is
+   dark only: a third of it still read as a smudge on white. Dark moved
+   in three places, each by 5/255 or less: the BETA chip's ink and the
+   toast's text are the app's text colour now (#fafafa, not #fff), and
+   the detail scrim fades to the page (#0a0a0a, not the old #0b0b0e).
+   Every dark screen is byte-identical but Sports, by the BETA chip.
 2. The page tone (call 2) and the control (call 3), with a harness that
    switches the theme and checks the stored value boots.
 3. The glass tiers as tokens (call 1), `prefers-reduced-transparency`

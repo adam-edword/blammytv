@@ -158,6 +158,54 @@ const openStream = async (p) => {
   await p.getByRole("button", { name: "Stream" }).click();
 };
 
+// On a picture, the dark theme's ink in both themes (plan 022). In light,
+// Watch now turned black and More info vanished into the art; scrolled, the
+// header laid a white haze over the hero. The header takes the picture's
+// ink only while the hero is under it.
+{
+  const ctx = await quietContext();
+  const p = await ctx.newPage();
+  await openStream(p);
+  await p.waitForSelector(".shero__card--active .on-picture button", { timeout: 15_000 });
+  await p.evaluate(() => (document.documentElement.dataset.theme = "light"));
+  const ink = () =>
+    p.evaluate(() => {
+      const [watch, more] = document.querySelectorAll(".shero__card--active .shero__actions button");
+      const header = document.querySelector(".header");
+      return {
+        watch: getComputedStyle(watch).backgroundColor,
+        more: getComputedStyle(more).color,
+        page: getComputedStyle(document.body).color,
+        header: getComputedStyle(header).getPropertyValue("--text").trim(),
+        flag: document.documentElement.dataset.headerOver ?? "",
+      };
+    });
+  const scrollTo = async (y) => {
+    await p.evaluate((y) => (document.querySelector(".stream").scrollTop = y), y);
+    await p.waitForTimeout(250);
+  };
+  const top = await ink();
+  await scrollTo(260); // the hero half under the header
+  const under = await ink();
+  await scrollTo(4000); // rows under the header
+  const rows = await ink();
+  // Light's page ink is near-black (0.145); the picture's is dark's, 0.985.
+  const PIC = "oklch(0.985 0 0)";
+  // Lightness, whichever space it comes back in (a transition reads oklab).
+  const L = (c) => Number(/^okl(?:ch|ab)\(([\d.]+)/.exec(c)?.[1] ?? NaN);
+  check(
+    "in light, the hero's Watch now stays light and More info's words stay light on the art",
+    L(top.watch) === 0.985 && L(top.more) === 0.985 && L(top.page) === 0.145,
+    JSON.stringify({ watch: top.watch, more: top.more, page: top.page }),
+  );
+  check(
+    "the header takes the picture's ink while the hero is under it, and gives it back",
+    top.flag === "" && under.flag === "picture" && under.header === PIC && rows.flag === "" && rows.header === "oklch(0.145 0 0)",
+    JSON.stringify({ top: top.flag, under: [under.flag, under.header], rows: [rows.flag, rows.header] }),
+  );
+  await ctx.close();
+}
+
 // A pick whose details fail, or never come, stays out of the hero, and a
 // build waits on them for 4 seconds at most. Every movie's meta hangs or
 // 404s here, so only the four series can be in it.

@@ -92,6 +92,12 @@
   opacity: 0.3;
   transition: opacity 300ms ease 350ms;
 }
+/* Dark only (plan 022). Light on a light page isn't light: the art's colour
+ * blurred over white read as a smudge round the card, and a third of it
+ * still did. */
+:root[data-theme="light"] .shero__glowbox {
+  display: none;
+}
 .shero__glowbox img.shero__glow--lit {
   opacity: 0.7;
   transition: opacity 300ms ease;
@@ -639,7 +645,7 @@
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--accent);
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
   font-family: var(--font-headline);
   font-weight: 700;
   font-size: 13px;
@@ -671,9 +677,9 @@
   position: absolute;
   inset: 0;
   background: radial-gradient(
-    67.05% 78.72% at 70.13% 43.38%,
-    rgba(11, 11, 14, 0) 0%,
-    rgba(11, 11, 14, 0.8) 100%
+    67.05% 78.72% at 70.13% 43.38% in srgb,
+    transparent 0%,
+    color-mix(in srgb, var(--bg) 80%, transparent) 100%
   );
 }
 .vod-detail__body {

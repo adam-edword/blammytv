@@ -694,7 +694,7 @@ input.rowcap__value--edit:focus-visible {
   padding: 2px 6px;
   border-radius: 8px;
   border: 1px solid var(--accent);
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
   color: inherit;
   outline: none;
 }

@@ -2003,6 +2003,40 @@ function Hero({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // A picture under the header (plan 022). Scrolled, the hero passes under
+  // the header, whose scrim is the page's colour: in light, a white haze
+  // over the art with dark ink on it. While the active card overlaps the
+  // header, the root says so and the header takes the picture's ink
+  // (tokens.css, .on-picture), which is what dark already draws.
+  useEffect(() => {
+    const host = hostRef.current;
+    const scroller = host?.closest<HTMLElement>(".stream");
+    if (!host || !scroller) return;
+    const root = document.documentElement;
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const card = host.querySelector(".shero__card--active")?.getBoundingClientRect();
+      const header = document.querySelector(".header")?.getBoundingClientRect();
+      const under = !!card && !!header && card.height > 0 && card.top < header.bottom && card.bottom > header.top;
+      if (under !== (root.dataset.headerOver === "picture")) {
+        if (under) root.dataset.headerOver = "picture";
+        else delete root.dataset.headerOver;
+      }
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    check();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(raf);
+      scroller.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      delete root.dataset.headerOver;
+    };
+  }, []);
   // Track transitions stay OFF until a frame has painted at the measured
   // geometry — otherwise entering the tab animates the 650ms slide from
   // the width-0 layout ("the slider moves in a bit"). Same guard snaps
@@ -2175,7 +2209,7 @@ function Hero({
                 />
               )}
               <div className="shero__scrim" aria-hidden />
-              <div className="shero__text">
+              <div className="shero__text on-picture">
                 <HeroTitle key={item.logo ?? item.id} item={item} />
                 {item.synopsis && (
                   <p className="shero__synopsis">{item.synopsis}</p>

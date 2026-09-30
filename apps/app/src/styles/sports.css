@@ -1778,6 +1778,10 @@ div.sports__bar:not(.sports__head *) {
   cursor: pointer;
 }
 .sportsrail__tilt {
+  /* Its ground (--sportsrail-bg) is dark in both themes, so its ink is
+   * light in both. It took the card's, which light turns near-black: dark
+   * names on a dark row (plan 022). */
+  --card-ink: 255, 255, 255;
   position: relative;
   display: flex;
   align-items: center;

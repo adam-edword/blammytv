@@ -911,7 +911,7 @@
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 13.5px;
-  color: #fff;
+  color: var(--text);
   max-width: 44ch;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1009,8 +1009,8 @@
   height: 1000px;
   pointer-events: none;
   background: radial-gradient(
-    circle closest-side,
-    rgba(255, 255, 255, 0.07),
+    circle closest-side in srgb,
+    color-mix(in srgb, var(--text) 7%, transparent),
     transparent
   );
   transform: translate(var(--mx, -9999px), var(--my, -9999px));
