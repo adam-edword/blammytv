@@ -44,16 +44,15 @@ function TooltipContent({
           // EDITED FROM THE GENERATED DEFAULT, which was `bg-foreground
           // text-background`: an inverted near-white chip. That is shadcn's
           // look and it is not this app's. Everything that floats over
-          // content here is the dark glass recipe in tokens.css, so the
-          // tooltip is too, down to the bright top edge that makes it read
-          // as material rather than as a rectangle.
+          // content here is the thin glass tier in tokens.css (--float-*,
+          // plan 022), so the tooltip is too, down to the bright top edge
+          // that makes it read as material rather than as a rectangle.
           //
           // `add tooltip` WILL OVERWRITE THIS. See components/README.md.
           "sports-tooltip z-(--z-popover) w-fit origin-(--radix-tooltip-content-transform-origin)",
           "rounded-[10px] border border-float-border bg-popover px-2.5 py-1.5",
           "text-xs font-medium text-foreground text-balance",
-          "shadow-(--glass-lift)",
-          "backdrop-blur-[18px] backdrop-saturate-[1.2]",
+          "shadow-(--float-shadow) [backdrop-filter:var(--float-blur)]",
           "animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1",
           // NO EXIT ANIMATION, also edited from the default (which fades and
           // zooms out). Radix keeps a closing tooltip mounted until its exit

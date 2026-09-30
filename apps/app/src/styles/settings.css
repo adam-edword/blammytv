@@ -17,25 +17,24 @@
   padding: 88px 48px;
 }
 
-/* Glass card: 10% white over 45% black, blurred backdrop. Grows with its
- * content down to near the window bottom; interior lists scroll, the card
- * itself doesn't. */
+/* The Settings sheet, thick glass. Grows with its content down to near the
+ * window bottom; interior lists scroll, the card itself doesn't. */
 .settings {
   width: min(786px, 100%);
   max-height: calc(100vh - 136px);
   display: flex;
   flex-direction: column;
-  /* shadcn's DialogContent: `bg-background p-6 shadow-lg rounded-lg border`.
-   * Solid, not glass, and a shadow that reads as elevation rather than as a
-   * light source below the card. p-6 is 24px; this carried 32/39, which is
-   * a third more inset than anything else in the app. */
-  background: var(--surface);
+  /* The thick glass (plan 022, B): nearly solid, because a form over bright
+   * art needs its ground, blurred behind, with the lit edge and drop the
+   * thin floats wear. shadcn's DialogContent gave the padding: p-6 is 24px;
+   * this carried 32/39, a third more inset than anything else in the app. */
+  background: var(--sheet-bg);
+  -webkit-backdrop-filter: var(--sheet-blur);
+  backdrop-filter: var(--sheet-blur);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   padding: 24px;
-  box-shadow:
-    0 10px 15px -3px rgb(0 0 0 / 0.1),
-    0 4px 6px -4px rgb(0 0 0 / 0.1);
+  box-shadow: var(--glass-lift);
   /* Entrance (motion plan 002, redesigned at the feel-gate — the stock
    * scale+8px hop read as an afterthought). "The gear drops its sheet":
    * the card descends from the gear on the drawer curve with a 4deg
@@ -96,7 +95,8 @@
  * is unreadable, so the card goes solid. LiveScreen stamps data-frost="0"
  * on the root exactly in that case. */
 :root[data-frost="0"] .settings {
-  background: var(--bg);
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 

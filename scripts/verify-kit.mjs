@@ -296,9 +296,15 @@ const dimmedText = () =>
   await general.focus();
   // Sample the thumb every frame from the key press on, in the page, so the
   // reading can't miss the move or land on its overshoot by timing luck.
+  // The sheet's glass blur is off for it (v0.10.66): this Chromium
+  // composites in software and redoes the 40px blur on every frame the
+  // thumb moves, which took the samples in 700ms from 44 to about 30 and
+  // the ones in motion from 6 to between 1 and 3. That is the renderer,
+  // not the slide. WebView2 composites on the GPU where there is one.
   const path = await page.evaluate(
     () =>
       new Promise((done) => {
+        document.documentElement.style.setProperty("--sheet-blur", "none");
         const t = document.querySelector(".settings .seg .seg__thumb");
         const xs = [t.getBoundingClientRect().left];
         document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
@@ -306,7 +312,10 @@ const dimmedText = () =>
         const tick = () => {
           xs.push(t.getBoundingClientRect().left);
           if (performance.now() - t0 < 700) requestAnimationFrame(tick);
-          else done(xs);
+          else {
+            document.documentElement.style.removeProperty("--sheet-blur");
+            done(xs);
+          }
         };
         requestAnimationFrame(tick);
       }),

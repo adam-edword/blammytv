@@ -1,7 +1,7 @@
 # Draft: the next installer release's changelog
 
 Week of 2026-09-28, item 5. **A draft, not sent.** It covers v0.10.15 to
-v0.10.65, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
+v0.10.66, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
 release: pick the version, move the entry into `CHANGELOG.md` (newest
 first), and trim what you don't want to say. Every line was checked against
 its commit; the version each came from is in the comment after it, for
@@ -86,6 +86,9 @@ the background.
   Light, or Match Windows, which follows Windows as it changes. Its page is
   a light grey with white cards on it. Dark stays the default, and if you
   picked light in 0.9, it's back on. <!-- v0.10.64, v0.10.65 -->
+- **Menus, Ctrl+K and tooltips are glass again**, and Settings is a
+  thicker glass that stays easy to read over bright art. Turn off
+  Transparency effects in Windows and they all go solid. <!-- v0.10.66 -->
 - **Every time on screen follows your 12h or 24h setting**, the player's
   and Sports' included. <!-- v0.10.56 -->
 - **Multi-view:** drag the live scores row with the mouse, channels with

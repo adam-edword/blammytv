@@ -46,15 +46,29 @@
    * left alone deliberately, since folding coincidences into one token is
    * how a token stops meaning anything.
    */
-  /* NO LONGER GLASS. shadcn's floating surfaces are opaque `popover` with a
-   * border and a small shadow, so that is what these are now. --float-blur
-   * survives as `none` rather than being deleted, because a dozen rules
-   * apply it and a missing variable would leave them with an invalid
-   * declaration instead of an explicit "no blur". */
-  --float-bg: oklch(0.205 0 0); /* shadcn `popover` */
-  --float-border: oklch(1 0 0 / 10%);
-  --float-blur: none;
-  --float-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  /* GLASS AGAIN, IN TWO TIERS (plan 022, call 1, B; Adam: "I like the
+   * glass hierarchy"). From v0.9.57 these were shadcn's opaque `popover`.
+   *
+   * Thin: the small floats (menus, popovers, Ctrl+K, multi-view's picker,
+   * tooltips, the Live toast and folder menu), worn by the components
+   * (components/README.md) and live.css. Thick, nearly solid: the Settings
+   * sheet, because a form over bright art needs its ground (settings.css).
+   * Both are the theme's card colour, so they turn with it.
+   *
+   * The rules they keep (plan 014): glass only where there is something
+   * behind it to see; never over mpv's video, which is below the page and
+   * cannot be blurred (thin goes solid while a clip hole is cut, below;
+   * Settings has mpv's own frost, LiveScreen's data-frost); solid for
+   * prefers-reduced-transparency. */
+  --float-bg: color-mix(in srgb, var(--surface) 72%, transparent);
+  --float-border: color-mix(in srgb, var(--text) 12%, transparent);
+  --float-blur: blur(30px) saturate(1.6);
+  --float-shadow: var(--glass-lift);
+  --sheet-bg: color-mix(in srgb, var(--surface) 90%, transparent);
+  --sheet-blur: blur(40px) saturate(1.4);
+  /* The dim behind a dialog: light enough that the glass has something to
+   * show (was shadcn's 50% black). */
+  --dim: rgb(0 0 0 / 0.3);
 
   /* shadcn has ONE border colour plus a slightly brighter one for inputs.
    * The app's four all collapse onto those two. */
@@ -434,8 +448,6 @@
   --border-raised: oklch(0.922 0 0);
   --border-input: oklch(0.922 0 0);
 
-  --float-bg: oklch(1 0 0);
-  --float-border: oklch(0.922 0 0);
   --card-glass: linear-gradient(oklch(1 0 0), oklch(1 0 0));
 
   --mix-base: #ffffff;
@@ -500,4 +512,25 @@
 :root:not([data-accent])[data-header-over="picture"] .header {
   --accent: oklch(0.922 0 0);
   --accent-ink: oklch(0.205 0 0);
+}
+
+/* SOLID GLASS. Windows' "Transparency effects" off (Settings → Accessibility
+ * → Visual effects), which WebView2 reports as prefers-reduced-transparency:
+ * every tier is the plain card colour. The theme blocks above declare none
+ * of these, so this later :root wins in both. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --float-bg: var(--surface);
+    --float-blur: none;
+    --sheet-bg: var(--surface);
+    --sheet-blur: none;
+  }
+}
+/* And the thin tier over mpv. The inverted player cuts a hole through the
+ * app shell (InvertedPlayer.tsx) with the video parked below the page, where
+ * no backdrop-filter reaches: a menu or a tooltip there would be a tint over
+ * a raw moving picture. Settings keeps its own path, mpv's frost. */
+:root:has(.app-shell[style*="clip-path"]) {
+  --float-bg: var(--surface);
+  --float-blur: none;
 }

@@ -22,6 +22,13 @@ component that has been edited should either be left alone or copied out
 from under `ui/` first. Prefer passing `className` at the call site over
 editing the generated file: `cn()` is built so a caller's utility wins.
 
+Edited so far, and what a re-`add` would take off: the floating surfaces
+(dropdown-menu, context-menu, popover, combobox, tooltip) carry the thin
+glass tier as `border-float-border`, `shadow-(--float-shadow)` and
+`[backdrop-filter:var(--float-blur)]`, and dialog's overlay is
+`bg-(--dim)` (plan 022). The tokens are in `styles/tokens.css`; utilities
+outrank the app's own stylesheets, so a rule there cannot put them back.
+
 ## They are Tailwind-only on purpose
 
 A generated component uses stock Tailwind classes (`bg-background`,

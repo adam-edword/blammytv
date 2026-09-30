@@ -303,7 +303,7 @@ export function Palette({
         // of the way down, rounded-xl on the popover ground, a 4px inset,
         // 448px wide, no shadow. The rest of the look is player.css
         // `.mvpick__*`, which Multi-view's picker wears too.
-        className="mvpick palette top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl bg-popover p-1 text-popover-foreground shadow-none sm:max-w-md"
+        className="mvpick palette top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl border-float-border bg-popover p-1 text-popover-foreground shadow-(--float-shadow) [backdrop-filter:var(--float-blur)] sm:max-w-md"
         style={instant ? { animation: "none" } : undefined}
         onCloseAutoFocus={closed}
       >

@@ -1,10 +1,10 @@
 # 022: The glass, and light mode back
 
-**Status: BUILDING (2026-09-30).** Adam took all three picks: glass B,
+**Status: DONE (2026-09-30).** Adam took all three picks: glass B,
 the grey page (2), and the Appearance control. "I agree with your picks.
 Gray looks really good and I like the glass hierarchy." Build order step 1
-(the light fixes) landed in v0.10.64 and step 2 (the grey page and the
-Appearance control) in v0.10.65; step 3, the glass, is next. The options as rendered:
+(the light fixes) landed in v0.10.64, step 2 (the grey page and the
+Appearance control) in v0.10.65, and step 3, the glass, in v0.10.66. The options as rendered:
 **https://claude.ai/artifact/Gae4pCKbpZp5qhfp5iFF8G** (private; 24
 pictures, dark and light). Plan 014's "liquid glass" half and plan 016's
 4.8 and 4.9 are this plan.
@@ -153,4 +153,14 @@ once fixed. From the renders and the week's colour pass (v0.10.60).
 3. The glass tiers as tokens (call 1), `prefers-reduced-transparency`
    turning every tier solid, and `verify-glass`: contrast measured over
    each tier in both themes, over the hero and over the plain page, and
-   the reduced-transparency switch.
+   the reduced-transparency switch. **Done, v0.10.66.** `--float-*` is
+   the thin tier and `--sheet-*` the thick one (tokens.css), both mixes
+   of the theme's card colour, so light needed no values of its own. The
+   generated components wear the thin tier as utilities, because a rule
+   in the app's layer loses to them (components/README.md lists the
+   edits). The thin tier also goes solid while the inverted player cuts
+   its hole, since a menu there sits over mpv, which no blur reaches;
+   Settings keeps mpv's own frost for that. Worst 1% of the ground under
+   the text, contrast against it: over the Stream hero, dark 13.2 thin
+   and 15.1 thick, light 11.3 and 16.3; over the plain Guide, 16.7 dark
+   and 10.3 light. AA is 4.5.
