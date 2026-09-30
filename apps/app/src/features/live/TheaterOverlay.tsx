@@ -1432,7 +1432,7 @@ export function TheaterOverlay({
     return (
       <div
         ref={wheelHostRef}
-        className="mini-overlay"
+        className="mini-overlay on-picture"
         data-interactive
         onClick={() => api()?.expand?.()}
       >
@@ -1476,7 +1476,7 @@ export function TheaterOverlay({
     <div
       ref={wheelHostRef}
       className={
-        "theater-overlay" +
+        "theater-overlay on-picture" +
         (active ? " player--active" : "") +
         (fs ? " theater-overlay--fs" : "")
       }

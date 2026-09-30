@@ -16,7 +16,7 @@ import { isFixture } from "../src/features/sports/model";
 import { indexChannels } from "../src/features/sports/matcher";
 import type { Tunable } from "../src/features/sports/matcher";
 import { applyAccent, loadAccent } from "../src/features/settings/accent";
-import { applyTheme, loadTheme } from "../src/features/settings/theme";
+import { applyThemePref, loadThemePref } from "../src/features/settings/theme";
 import channels from "../src/features/sports/fixtures/channels.json";
 import mlb from "./fixtures/mlb.json";
 import nba from "./fixtures/nba.json";
@@ -121,7 +121,7 @@ const games = [
 ].filter(isFixture);
 
 applyAccent(loadAccent());
-applyTheme(loadTheme());
+applyThemePref(loadThemePref());
 
 export function Rig() {
   const [open, setOpen] = React.useState(games[0]);

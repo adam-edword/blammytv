@@ -416,16 +416,18 @@
   initial-value: 146.36deg;
 }
 
-/* Light theme, and it is shadcn neutral's light values, same as the dark
- * block above is its dark ones. Note that `background` and `card` are BOTH
- * pure white there: a card is told apart from the page by its border, not by
- * a fill. That is shadcn's rule and it is a real departure from the old
- * palette, where the page was grey and cards were white. */
+/* Light theme: shadcn neutral's light values, but for the page (plan 022,
+ * Adam's pick: "Gray looks really good"). shadcn makes `background` and
+ * `card` both pure white and tells them apart by a border. The app is
+ * cards (channel rows, game cards, posters), so the page is a light grey
+ * and cards stay white on it, objects at a glance rather than outlines,
+ * as the light palette was before v0.9.57. The tracks go a step darker
+ * than the page so a segmented control still reads on it. */
 :root[data-theme="light"] {
-  --bg: oklch(1 0 0);
+  --bg: oklch(0.965 0 0);
   --surface: oklch(1 0 0);
-  --surface-track: oklch(0.97 0 0); /* `muted` */
-  --surface-puck: oklch(0.97 0 0);
+  --surface-track: oklch(0.93 0 0); /* `muted`, darker than the page */
+  --surface-puck: oklch(0.93 0 0);
   --surface-raised: oklch(1 0 0); /* a white thumb on the muted track */
   --border: oklch(0.922 0 0);
   --border-strong: oklch(0.922 0 0);
@@ -488,4 +490,14 @@
   --tint-on: color-mix(in srgb, var(--text) 16%, transparent);
   --focus-ring: var(--text);
   color-scheme: dark;
+}
+/* ...and the accent, when it is the theme's own. Light's is near-black
+ * (shadcn's primary): the player's seek fill, its LIVE, multi-view's sound
+ * ring would all be dark on video. A picked colour is a colour in both
+ * themes and stays (accent.ts flags it). The values are dark's, held equal
+ * by tokens.test.ts like the four above. */
+:root:not([data-accent]) .on-picture,
+:root:not([data-accent])[data-header-over="picture"] .header {
+  --accent: oklch(0.922 0 0);
+  --accent-ink: oklch(0.205 0 0);
 }

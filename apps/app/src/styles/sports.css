@@ -431,8 +431,9 @@ div.sports__bar:not(.sports__head *) {
 :root[data-theme="light"] .sportstheater,
 :root[data-theme="light"] .mvscores {
   /* The card lifts OFF the page rather than matching it: --surface is pure
-   * white in light and the page is #f3f4f7, so a card at --surface reads as
-   * a raised object the way the dark card does against #050505. */
+   * white in light and the page is a light grey (--bg, plan 022), so a card
+   * at --surface reads as a raised object the way the dark card does
+   * against the dark page. */
   --card-rgb: 255, 255, 255;
   --card-ink: 12, 14, 20;
   --card-veil: 255, 255, 255;

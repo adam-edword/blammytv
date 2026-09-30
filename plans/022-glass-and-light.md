@@ -3,7 +3,8 @@
 **Status: BUILDING (2026-09-30).** Adam took all three picks: glass B,
 the grey page (2), and the Appearance control. "I agree with your picks.
 Gray looks really good and I like the glass hierarchy." Build order step 1
-(the light fixes) landed in v0.10.64; steps 2 and 3 are next. The options as rendered:
+(the light fixes) landed in v0.10.64 and step 2 (the grey page and the
+Appearance control) in v0.10.65; step 3, the glass, is next. The options as rendered:
 **https://claude.ai/artifact/Gae4pCKbpZp5qhfp5iFF8G** (private; 24
 pictures, dark and light). Plan 014's "liquid glass" half and plan 016's
 4.8 and 4.9 are this plan.
@@ -142,7 +143,13 @@ once fixed. From the renders and the week's colour pass (v0.10.60).
    the detail scrim fades to the page (#0a0a0a, not the old #0b0b0e).
    Every dark screen is byte-identical but Sports, by the BETA chip.
 2. The page tone (call 2) and the control (call 3), with a harness that
-   switches the theme and checks the stored value boots.
+   switches the theme and checks the stored value boots. **Done,
+   v0.10.65** (verify-appearance). Turning light on showed one more of
+   step 1's kind: the accent on video. Light's default accent is
+   near-black, so the player's seek fill, its LIVE and multi-view's sound
+   ring went dark on dark. `.on-picture` now also carries dark's accent
+   when none was picked, and the player's overlay, multi-view's tiles and
+   the Sports rail's rows wear it.
 3. The glass tiers as tokens (call 1), `prefers-reduced-transparency`
    turning every tier solid, and `verify-glass`: contrast measured over
    each tier in both themes, over the hero and over the plain page, and

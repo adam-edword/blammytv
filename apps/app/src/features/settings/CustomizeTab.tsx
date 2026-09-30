@@ -48,7 +48,13 @@ import {
   saveAccent,
   saveCustomAccent,
 } from "./accent";
-import { applyTheme, saveTheme, type Theme } from "./theme";
+import {
+  THEME_TABS,
+  applyThemePref,
+  loadThemePref,
+  saveThemePref,
+  type ThemePref,
+} from "./theme";
 import {
   CLOCK_TABS,
   loadClockFormat,
@@ -100,11 +106,12 @@ const SUB_OPTIONS: ComboboxOption[] = [
 // The accent picker lives here again (ROADMAP decision 1). Theme packs and
 // the Themes Pass are parked in old/themes and come back later with new looks.
 export function CustomizeTab() {
-  // Light/dark axis state exists only so reset() can force dark — the user
-  // control (the Theme Style pill) lives in the Themes panel now.
-  const pickTheme = (next: Theme) => {
-    saveTheme(next);
-    applyTheme(next);
+  // Appearance (plan 022): Dark, Light, or Windows' own setting.
+  const [theme, setTheme] = useState<ThemePref>(loadThemePref);
+  const pickTheme = (next: ThemePref) => {
+    setTheme(next);
+    saveThemePref(next);
+    applyThemePref(next);
   };
 
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
@@ -189,7 +196,7 @@ export function CustomizeTab() {
   const [accentKey, setAccentKey] = useState(0);
 
   /** Back to factory appearance: default accent (custom slot cleared),
-   * dark theme, 100% scale, 12h clock, channel numbers shown. Startup Tab is
+   * dark appearance, 12h clock, channel numbers shown. Startup Tab is
    * NOT reset, even though it is displayed on this tab: it decides where the
    * app OPENS, which is behaviour, and this button promises appearance. */
   const reset = () => {
@@ -227,6 +234,16 @@ export function CustomizeTab() {
             </p>
           </div>
           <AccentPicker key={accentKey} />
+        </div>
+
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Appearance</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Light, dark, or whatever Windows is set to.
+            </p>
+          </div>
+          <Segmented label="Appearance" options={THEME_TABS} value={theme} onChange={pickTheme} />
         </div>
 
         <div className="customize-row">
@@ -556,7 +573,7 @@ export function CustomizeTab() {
             <div>
               <h4 className="customize-row__title">Reset Appearance</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Accent, theme, scale, and clock back to defaults.
+                Accent, appearance and clock back to defaults.
               </p>
             </div>
             <Button

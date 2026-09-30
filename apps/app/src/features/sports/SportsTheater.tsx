@@ -845,7 +845,7 @@ function Rail({
       aria-pressed={on}
       onClick={() => onPlay(channel)}
     >
-      <Lean className="sportsrail__tilt">
+      <Lean className="sportsrail__tilt on-picture">
         <ChannelLogo name={channel.name} logo={channel.logo} size={34} lazy className="sportsrail__logo" />
         <span className="sportsrail__name">{channel.name}</span>
         {wrong && <span className="sportsrail__wrong">Marked wrong</span>}

@@ -10,7 +10,7 @@ import "../src/styles/sports.css";
 import { GolfCard } from "../src/features/sports/GolfCard";
 import { toGolf, type RawGolf } from "../src/features/sports/golf";
 import { applyAccent, loadAccent } from "../src/features/settings/accent";
-import { applyTheme, loadTheme } from "../src/features/settings/theme";
+import { applyThemePref, loadThemePref } from "../src/features/settings/theme";
 import done from "../src/features/sports/fixtures/golf-final.json";
 import pre from "../src/features/sports/fixtures/golf-pre.json";
 
@@ -44,7 +44,7 @@ const flagless = {
 };
 
 applyAccent(loadAccent());
-applyTheme(loadTheme());
+applyThemePref(loadThemePref());
 
 const sheet = (
     <div

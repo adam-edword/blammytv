@@ -30,4 +30,13 @@ describe("tokens.css", () => {
       expect(picture.get(name), name).toBe(dark.get(name));
     }
   });
+
+  it("and its accent, when none was picked, is the dark theme's", () => {
+    const dark = block(":root {");
+    const picture = block(":root:not([data-accent]) .on-picture,");
+    for (const name of ["--accent", "--accent-ink"]) {
+      expect(picture.get(name), name).toBeDefined();
+      expect(picture.get(name), name).toBe(dark.get(name));
+    }
+  });
 });

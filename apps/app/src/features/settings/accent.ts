@@ -130,6 +130,7 @@ export function clearAccent(): void {
   const root = document.documentElement;
   root.style.removeProperty("--accent");
   root.style.removeProperty("--accent-ink");
+  delete root.dataset.accent;
 }
 
 /** Push the accent into CSS; every derived shade follows via color-mix. */
@@ -137,4 +138,7 @@ export function applyAccent(hex: string): void {
   const root = document.documentElement;
   root.style.setProperty("--accent", hex);
   root.style.setProperty("--accent-ink", inkFor(hex));
+  // A colour was picked. tokens.css reads it: on a picture, the theme's own
+  // accent (light's is near-black) gives way to dark's, a picked one stays.
+  root.dataset.accent = "picked";
 }

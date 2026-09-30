@@ -722,7 +722,7 @@ export function MultiviewTile({
     <div
       ref={rootRef}
       className={
-        "mvtile" +
+        "mvtile on-picture" +
         (focused ? " is-on" : "") +
         (flash ? " is-flash" : "") +
         (dead ? " is-failed" : "") +
