@@ -6,6 +6,7 @@ import {
   matchGame,
   matchNetwork,
   normalize,
+  railFor,
   tokens,
 } from "./matcher";
 import type { Tunable } from "./matcher";
@@ -610,5 +611,91 @@ describe("matchEvent", () => {
         pair.join(" v "),
       ).toBeGreaterThan(0);
     }
+  });
+});
+
+/**
+ * Adam's board, 2026-10-02: btvPairing over his 26,567 channels and 37
+ * games, plus the theater's log of 92 tunes and marks. Every channel name
+ * here is verbatim from that report.
+ */
+describe("Adam's board (2026-10-02)", () => {
+  const sure = (list: { name: string; confidence: number }[], name: string) =>
+    (list.find((c) => c.name === name)?.confidence ?? 0) >= CARD_CONFIDENCE;
+
+  it("does not take a college's place for its nickname", () => {
+    // ESPN's short name is the place for a college: "Washington", "Mississippi
+    // St". Taken as a nickname, both of these scored 85, sure enough for a card.
+    const uw = clubsOf([
+      { name: "USC Trojans", shortName: "USC" },
+      { name: "Washington Huskies", shortName: "Washington" },
+    ]);
+    const nbc = [chan("US: NBC 4K (EVENT ONLY)", "4K"), chan("US: NBC Sports Washington")];
+    const got = matchNetwork("NBC", nbc, uw);
+    expect(sure(got, "US: NBC 4K (EVENT ONLY)")).toBe(true);
+    expect(sure(got, "US: NBC Sports Washington")).toBe(false);
+
+    const msst = clubsOf([
+      { name: "Mississippi State Bulldogs", shortName: "Mississippi St" },
+      { name: "Alabama Crimson Tide", shortName: "Alabama" },
+    ]);
+    const abc = [chan("US: ABC East"), chan("MO | St. Joseph | ABC KQTV")];
+    const on = matchNetwork("ABC", abc, msst);
+    expect(sure(on, "US: ABC East")).toBe(true);
+    expect(sure(on, "MO | St. Joseph | ABC KQTV")).toBe(false);
+  });
+
+  it("still knows a club by its own name, pro or college", () => {
+    const dodgers = clubsOf([
+      { name: "Los Angeles Dodgers", shortName: "Dodgers" },
+      { name: "Atlanta Braves", shortName: "Braves" },
+    ]);
+    expect(sure(matchNetwork("Sportsnet LA", [chan("US: Spectrum SportsNet LA Dodgers")], dodgers),
+      "US: Spectrum SportsNet LA Dodgers")).toBe(true);
+    // A college's nickname is the rest of its name ("Crimson Tide" after
+    // "Alabama"), among other words too; "St" is "State" for the matching.
+    const bama = clubsOf([
+      { name: "Alabama Crimson Tide", shortName: "Alabama" },
+      { name: "Mississippi State Bulldogs", shortName: "Mississippi St" },
+    ]);
+    expect(sure(matchNetwork("ABC", [chan("ABC Crimson Tide Birmingham")], bama),
+      "ABC Crimson Tide Birmingham")).toBe(true);
+    expect(sure(matchNetwork("ABC", [chan("ABC Bulldogs Starkville")], bama), "ABC Bulldogs Starkville")).toBe(true);
+    // Only whole: "Crimson" among other words is not the club.
+    expect(sure(matchNetwork("ABC", [chan("ABC Crimson Birmingham")], bama), "ABC Crimson Birmingham")).toBe(false);
+  });
+
+  it("finds CBSSN, the one game that day with no channel", () => {
+    const got = matchNetwork("CBSSN", [chan("US: CBS Sports Network"), chan("US: CBS Sports Golazo Network")]);
+    expect(sure(got, "US: CBS Sports Network")).toBe(true);
+    // Its sibling is a guess at most, never on the card.
+    expect(sure(got, "US: CBS Sports Golazo Network")).toBe(false);
+    expect(got[0].name).toBe("US: CBS Sports Network");
+  });
+
+  it("finds FS1 under both of the names it is sold as", () => {
+    const list = [chan("FS1 4K (Event Only)", "4K"), chan("US: FOX Sports 1 FHD", "FHD"), chan("US: FOX Sports 2 FHD", "FHD")];
+    const got = matchNetwork("FS1", list);
+    expect(got.map((c) => c.name)).toEqual(["FS1 4K (Event Only)", "US: FOX Sports 1 FHD"]);
+    expect(got.every((c) => c.confidence >= CARD_CONFIDENCE)).toBe(true);
+    // Equally sure (our spelling costs what an alias costs), so the
+    // better picture leads.
+    expect(got[0].quality).toBe("4K");
+  });
+
+  it("offers a league's channel for a game on its service only when nothing else carries it", () => {
+    // Marked wrong three times in two games, each beside the game's own feeds.
+    const game = {
+      home: { name: "Detroit Tigers", shortName: "Tigers" },
+      away: { name: "Pittsburgh Pirates", shortName: "Pirates" },
+      start: new Date("2026-09-25T22:40:00Z"),
+    };
+    const own = "MLB 09 | Pittsburgh Pirates at Detroit Tigers AWAY @ 25 Sep 06:40 PM ET";
+    const league = [chan("US: MLB Network"), chan("US: MLB Strike Zone"), chan("US: The MLB Channel")];
+    const withFeed = railFor(["MLB.TV"], [chan(own), ...league], game);
+    expect(withFeed.map((c) => c.name)).toEqual([own]);
+    // With nothing else, the guess is still offered: something to try.
+    const alone = railFor(["MLB.TV"], league, game);
+    expect(alone.map((c) => c.name).sort()).toEqual(league.map((c) => c.name).sort());
   });
 });

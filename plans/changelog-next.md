@@ -1,7 +1,7 @@
 # Draft: the next installer release's changelog
 
 Week of 2026-09-28, item 5. **A draft, not sent.** It covers v0.10.15 to
-v0.10.67, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
+v0.10.70, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
 release: pick the version, move the entry into `CHANGELOG.md` (newest
 first), and trim what you don't want to say. Every line was checked against
 its commit; the version each came from is in the comment after it, for
@@ -112,6 +112,10 @@ the background.
 - **Sports:** a game's card opens once the game is near, "Show more"
   can't add another filter's days, and the board can't get stuck loading.
   <!-- v0.10.51, v0.10.55 -->
+- **Sports finds the right channel more often:** CBS Sports Network and
+  FOX Sports 1 under the names ESPN uses, no college town mistaken for a
+  team's channel, and MLB Network no longer offered beside a game's own
+  feeds. <!-- v0.10.70 -->
 - **Onboarding** opens on the tab you picked, and Enter during a check no
   longer skips a step. <!-- v0.10.51 -->
 - **Multi-view:** holding Delete closes one tile, not the grid; a tile

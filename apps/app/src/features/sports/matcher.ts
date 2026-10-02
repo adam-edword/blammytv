@@ -102,6 +102,20 @@ const BRANDS: Record<string, string> = {
   mnmt: "monumental sports network",
 };
 
+/**
+ * A second spelling to try BESIDE the schedule's own, where a provider sells
+ * the channel under both. Unlike BRANDS, the name as written still matches:
+ * Adam's catalog (2026-10-02) has "FS1 4K (Event Only)" AND "US: FOX Sports
+ * 1 FHD", and ESPN's "FS1" reached only the first. "CBSSN" reached nothing
+ * at all, the one game of 37 that day with no channel, while the catalog
+ * had "US: CBS Sports Network". Keys are normalized ("fs 1": see normalize).
+ */
+const ALSO: Record<string, string> = {
+  "fs 1": "fox sports 1",
+  "fs 2": "fox sports 2",
+  cbssn: "cbs sports network",
+};
+
 /** Everything both sides get put through before they are compared. */
 export function normalize(name: string): string {
   return name
@@ -273,9 +287,10 @@ const SCORE = {
    * Low on purpose, because it is usually the wrong channel and we know
    * why. MLB.TV is the out-of-market package and MLB Network is a national
    * cable channel; a schedule naming the former is telling you the game is
-   * NOT on the latter. But when the right feed dies mid-innings, the same
-   * league's channel is the best of the remaining guesses, and a rail is
-   * the place to offer a guess with its odds written on it.
+   * NOT on the latter. So it is offered only when NOTHING else carries the
+   * game (railFor): beside the game's own feeds Adam marked it wrong three
+   * times in two games (2026-09-25), and with nothing else it is still the
+   * one thing to try.
    */
   stem: 30,
 };
@@ -359,7 +374,7 @@ function carries(
   if (
     clubs &&
     (extras.every((w) => NOISE.has(w) || clubs.words.has(w)) ||
-      extras.some((w) => clubs.nicknames.has(w)))
+      clubs.nicknames.some((n) => n.every((w) => extras.includes(w))))
   )
     return SCORE.team;
   return SCORE.loose;
@@ -369,23 +384,50 @@ function carries(
  * The clubs in a game, as the words a channel might name them by.
  *
  * `words` is everything in both full names ("texas", "rangers"); an extra
- * made only of these is the club. `nicknames` is the short names alone
- * ("dodgers"), which are specific enough to count among other words; a
- * city is not ("los angeles" is two clubs in every league).
+ * made only of these is the club. `nicknames` are the clubs' own names
+ * ("dodgers", "crimson tide"), each counted only whole, which are specific
+ * enough to count among other words; a city is not ("los angeles" is two
+ * clubs in every league).
  */
 export interface Clubs {
   words: Set<string>;
-  nicknames: Set<string>;
+  nicknames: string[][];
 }
 
 export function clubsOf(teams: { name: string; shortName?: string }[]): Clubs {
   const words = new Set<string>();
-  const nicknames = new Set<string>();
+  const nicknames: string[][] = [];
   for (const t of teams) {
     for (const w of tokens(t.name)) words.add(w);
-    if (t.shortName) for (const w of tokens(t.shortName)) nicknames.add(w);
+    const own = nicknameOf(t.name, t.shortName);
+    if (own.length > 0) nicknames.push(own);
   }
   return { words, nicknames };
+}
+
+/**
+ * A club's own name, never its place.
+ *
+ * ESPN's short name is the nickname for a pro club ("Seattle Seahawks",
+ * "Seahawks") and the PLACE for a college one ("Washington Huskies",
+ * "Washington"; "Mississippi State Bulldogs", "Mississippi St"). Taken as
+ * a nickname, the place made other channels sure: on Adam's board
+ * (2026-10-02) "US: NBC Sports Washington" scored 85 for USC at Washington
+ * on NBC, and "MO | St. Joseph | ABC KQTV" 85 for Alabama at Mississippi St
+ * on ABC, through "st". So the nickname is the short name only when it
+ * ENDS the full one, and the rest of the full name when the short one
+ * STARTS it. Neither (a country, "Man City"): no nickname.
+ */
+function nicknameOf(name: string, short?: string): string[] {
+  if (!short) return [];
+  // "St" and "State" are one word here: ESPN shortens the one to the other.
+  const words = (s: string) => [...tokens(s)].map((w) => (w === "st" ? "state" : w));
+  const full = words(name);
+  const own = words(short);
+  if (own.length === 0 || own.length >= full.length) return [];
+  if (own.every((w, i) => full[full.length - own.length + i] === w)) return own;
+  if (own.every((w, i) => full[i] === w)) return full.slice(own.length);
+  return [];
 }
 
 /**
@@ -487,6 +529,30 @@ export function matchNetwork(
   source: Tunable[] | Catalog,
   /** The game's clubs, when there is a game: see SCORE.team. */
   clubs?: Clubs,
+  /** Whether a service's brand may stand in for it (SCORE.stem). */
+  stems = true,
+): Match[] {
+  const also = ALSO[normalize(network)];
+  const found = matchOne(network, source, clubs, stems);
+  if (!also) return found;
+  // The second spelling is ours, so it costs what any alias costs.
+  const best = new Map(found.map((c) => [c.id, c]));
+  for (const c of matchOne(also, source, clubs, stems)) {
+    const confidence = Math.max(0, c.confidence + SCORE.aliased);
+    if (confidence < MIN_CONFIDENCE) continue;
+    const had = best.get(c.id);
+    if (!had || had.confidence < confidence) best.set(c.id, { ...c, confidence });
+  }
+  return [...best.values()].sort(
+    (a, b) => b.confidence - a.confidence || rank(a.quality) - rank(b.quality),
+  );
+}
+
+function matchOne(
+  network: string,
+  source: Tunable[] | Catalog,
+  clubs: Clubs | undefined,
+  stems: boolean,
 ): Match[] {
   const want = tokens(network);
   if (want.size === 0) return [];
@@ -525,7 +591,7 @@ export function matchNetwork(
   // broadcaster is a streaming product. Capped at the stem score however
   // cleanly the shortened name happens to fit: the doubt is in having
   // dropped a word, not in what is left.
-  const brand = stem(want);
+  const brand = stems ? stem(want) : null;
   if (brand) {
     for (const { channel, ids } of narrow(catalog, brand) ?? []) {
       if (seen.has(channel.id)) continue;
@@ -722,10 +788,18 @@ export function railFor(
     : [];
   const seen = new Set(named.map((c) => c.id));
   const clubs = fixture ? clubsOf([fixture.home, fixture.away]) : undefined;
-  return preferVisible([
-    ...named,
-    ...matchGame(broadcasts, catalog, clubs).filter((c) => !seen.has(c.id)),
-  ]);
+  const rail = (stems: boolean) =>
+    preferVisible([
+      ...named,
+      ...matchGame(broadcasts, catalog, clubs, stems).filter((c) => !seen.has(c.id)),
+    ]);
+  // A league's channel for a game listed on its service (SCORE.stem) only
+  // when nothing else carries the game. Adam marked "US: MLB Network" and
+  // "US: The MLB Channel" wrong three times in two games (2026-09-25), each
+  // time beside the game's own MLB feeds; where nothing else carries a game
+  // it is still the one thing to try.
+  const sure = rail(false);
+  return sure.length > 0 ? sure : rail(true);
 }
 
 export function matchGame(
@@ -733,13 +807,15 @@ export function matchGame(
   source: Tunable[] | Catalog,
   /** The game's clubs, so a club's own channel counts as sure. */
   clubs?: Clubs,
+  /** Whether a service's brand may stand in for it (SCORE.stem). */
+  stems = true,
 ): Match[] {
   const catalog = asCatalog(source);
   const seen = new Set<string>();
   const visible: Match[] = [];
   const hidden: Match[] = [];
   for (const network of networks) {
-    for (const c of matchNetwork(network, catalog, clubs)) {
+    for (const c of matchNetwork(network, catalog, clubs, stems)) {
       if (seen.has(c.id)) continue;
       seen.add(c.id);
       (c.hidden ? hidden : visible).push(c);
