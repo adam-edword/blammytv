@@ -38,6 +38,13 @@ export interface Tunable {
 export interface Match extends Tunable {
   /** 0-100. See SCORE for where each number comes from. */
   confidence: number;
+  /**
+   * Sure because it names one of this game's clubs (SCORE.team): a team's
+   * own channel, like "NFL Teams: CBS Patriots (WBZ) Boston MA". Comes
+   * through from a hidden folder too (preferVisible), and ahead of the bare
+   * network at the same score (byConfidence).
+   */
+  club?: boolean;
 }
 
 /**
@@ -516,6 +523,17 @@ const QUALITY_RANK: Record<string, number> = { "4K": 0, HDR: 1, FHD: 2, HD: 3 };
 const rank = (q: string | null) => (q ? (QUALITY_RANK[q] ?? 4) : 5);
 
 /**
+ * Surest first; at the same score a club's own channel before the bare
+ * network, then the better picture. A club's channel shows THIS game in its
+ * market; "CBS 4K UHD (Event Only)" matches every CBS game of a Sunday and
+ * carries one of them (Adam's board, 2026-10-02: four at noon).
+ */
+const byConfidence = (a: Match, b: Match) =>
+  b.confidence - a.confidence ||
+  Number(!!b.club) - Number(!!a.club) ||
+  rank(a.quality) - rank(b.quality);
+
+/**
  * The channels carrying ONE network name, best first.
  *
  * Channels whose name says exactly what the schedule said come before ones
@@ -543,9 +561,7 @@ export function matchNetwork(
     const had = best.get(c.id);
     if (!had || had.confidence < confidence) best.set(c.id, { ...c, confidence });
   }
-  return [...best.values()].sort(
-    (a, b) => b.confidence - a.confidence || rank(a.quality) - rank(b.quality),
-  );
+  return [...best.values()].sort(byConfidence);
 }
 
 function matchOne(
@@ -577,14 +593,17 @@ function matchOne(
   for (const { channel, ids, raw: own } of candidates ?? []) {
     if (generic && !raw.every((w) => own.has(w))) continue;
     let best = 0;
+    let plain = 0;
     ids.forEach((id, i) => {
       best = Math.max(best, carries(want, id, i > 0, clubs));
+      if (clubs) plain = Math.max(plain, carries(want, id, i > 0));
     });
     if (best === 0) continue;
     const confidence = Math.max(0, best + (aliased ? SCORE.aliased : 0));
     if (confidence < MIN_CONFIDENCE) continue;
     seen.add(channel.id);
-    out.push({ ...channel, confidence });
+    // The club rule is what made it this sure.
+    out.push(clubs && best > plain ? { ...channel, confidence, club: true } : { ...channel, confidence });
   }
 
   // Second pass on the brand alone, for the games whose only listed
@@ -600,10 +619,7 @@ function matchOne(
       out.push({ ...channel, confidence: SCORE.stem });
     }
   }
-  // Surest first; a better picture breaks the tie.
-  return out.sort(
-    (a, b) => b.confidence - a.confidence || rank(a.quality) - rank(b.quality),
-  );
+  return out.sort(byConfidence);
 }
 
 /**
@@ -736,7 +752,14 @@ export function preferVisible(matches: Match[]): Match[] {
   if (hidden.length === 0 || visible.length === 0) return matches;
   const carries = (list: Match[]) =>
     list.some((c) => c.confidence >= CARD_CONFIDENCE);
-  if (carries(visible)) return visible;
+  // THE ONE EXCEPTION (Adam, 2026-10-02): a hidden channel that names this
+  // game's club. His "NFL Teams" folder (39 market stations, all hidden)
+  // never reached a Sunday rail, because "CBS 4K UHD (Event Only)" is
+  // visible and matched every CBS game, while it carries one of the four
+  // at noon. A channel naming the game's own team is no clutter. It keeps
+  // its place in the order (byConfidence), ahead of the bare network.
+  if (carries(visible))
+    return matches.filter((c) => !c.hidden || (c.club && c.confidence >= CARD_CONFIDENCE));
   if (carries(hidden)) return [...hidden, ...visible];
   return visible;
 }
@@ -812,16 +835,16 @@ export function matchGame(
 ): Match[] {
   const catalog = asCatalog(source);
   const seen = new Set<string>();
-  const visible: Match[] = [];
-  const hidden: Match[] = [];
+  const all: Match[] = [];
   for (const network of networks) {
     for (const c of matchNetwork(network, catalog, clubs, stems)) {
       if (seen.has(c.id)) continue;
       seen.add(c.id);
-      (c.hidden ? hidden : visible).push(c);
+      all.push(c);
     }
   }
-  const out = preferVisible([...visible, ...hidden]);
+  // In the schedule's order: preferVisible decides what stays.
+  const out = preferVisible(all);
   // NOT sorted by confidence outright. The order the networks arrived in is
   // the schedule's own priority, national feed before regional, and that is
   // better information about what someone wants to watch than a naming
@@ -834,8 +857,6 @@ export function matchGame(
     ...out.filter((c) => c.confidence >= CARD_CONFIDENCE),
     // Below the card's bar the schedule's ordering has stopped meaning
     // much: these are all guesses, so the best guess goes first.
-    ...out
-      .filter((c) => c.confidence < CARD_CONFIDENCE)
-      .sort((a, b) => b.confidence - a.confidence || rank(a.quality) - rank(b.quality)),
+    ...out.filter((c) => c.confidence < CARD_CONFIDENCE).sort(byConfidence),
   ];
 }

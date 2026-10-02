@@ -699,3 +699,49 @@ describe("Adam's board (2026-10-02)", () => {
     expect(alone.map((c) => c.name).sort()).toEqual(league.map((c) => c.name).sort());
   });
 });
+
+/**
+ * A hidden channel that names the game's team (Adam, 2026-10-02). His "NFL
+ * Teams" folder is 39 market stations, all hidden; "CBS 4K UHD (Event
+ * Only)" is visible and matched every CBS game, so none of them ever
+ * reached a Sunday rail. Names verbatim from btvChannels("nfl teams").
+ */
+describe("a hidden channel that names the game's team", () => {
+  const hide = (t: Tunable): Tunable => ({ ...t, hidden: true });
+  const bills = {
+    home: { name: "New England Patriots", shortName: "Patriots" },
+    away: { name: "Buffalo Bills", shortName: "Bills" },
+    start: new Date("2026-10-04T17:00:00Z"),
+  };
+  const fourK = chan("CBS 4K UHD (Event Only)", "4K");
+  const wbz = hide(chan("NFL Teams: CBS Patriots (WBZ) Boston MA"));
+  const wcbs = hide(chan("NFL Teams: CBS Bills Giants Jets (WCBS) New York NY"));
+  const wbbm = hide(chan("NFL Teams: CBS Bears (WBBM) Chicago IL"));
+  const plainCbs = hide(chan("US: CBS"));
+
+  it("comes through from a hidden folder, ahead of the bare network", () => {
+    const rail = railFor(["CBS"], [fourK, wbz, wcbs, wbbm, plainCbs], bills).map((c) => c.name);
+    expect(rail.slice(0, 2).sort()).toEqual([wbz.name, wcbs.name].sort());
+    expect(rail[2]).toBe(fourK.name);
+  });
+
+  it("and only those: the rest of the hidden folder stays hidden", () => {
+    const rail = railFor(["CBS"], [fourK, wbz, wcbs, wbbm, plainCbs], bills).map((c) => c.name);
+    // Another club's station, and the bare network, exactly named.
+    expect(rail).not.toContain(wbbm.name);
+    expect(rail).not.toContain(plainCbs.name);
+  });
+
+  it("puts a visible club channel ahead of the bare network too", () => {
+    const rail = railFor(["CBS"], [fourK, { ...wbz, hidden: false }], bills);
+    expect(rail.map((c) => c.name)).toEqual([wbz.name, fourK.name]);
+    expect(rail[0].club).toBe(true);
+    expect(rail[1].club).toBeUndefined();
+  });
+
+  it("lets a game's own feed lead all of it", () => {
+    const own = chan("NFL Game Pass 04: Buffalo Bills vs New England Patriots @ Oct 04 01:00 PM ET");
+    const rail = railFor(["CBS"], [fourK, wbz, own], bills).map((c) => c.name);
+    expect(rail[0]).toBe(own.name);
+  });
+});
