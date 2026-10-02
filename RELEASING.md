@@ -231,7 +231,8 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    without it and REC ships hidden, with nothing to say so.
 
    **And Trakt's and MyAnimeList's keys**, from the same `.env.local`:
-   `TRAKT_CLIENT_ID`, `TRAKT_CLIENT_SECRET` and `MAL_CLIENT_ID`. These are
+   `TRAKT_CLIENT_ID` and `MAL_CLIENT_ID` (Trakt no longer issues a secret,
+   and the app sends none). These are
    read by the native build (`src-tauri/build.rs`), not Vite, so they only
    reach an installer release. Build without them and Settings → General →
    Accounts says this build has no keys and offers no Connect, for everyone

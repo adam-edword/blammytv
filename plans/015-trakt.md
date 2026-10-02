@@ -38,8 +38,12 @@ build box), not from memory:
   `auth.trakt.tv/oauth/device/code` for a short code, shows it with
   `trakt.tv/activate`, and polls until you approve it in a browser. No
   redirect, no local web server.
-- **The client secret is required** to finish the sign-in, to refresh and
-  to sign out. There is no secret-free flow.
+- ~~The client secret is required to finish the sign-in, to refresh and
+  to sign out.~~ **Changed by 2026-10-02:** Trakt no longer issues a
+  secret (a new app's page says "Not issued"; it moved to PKCE), and its
+  API source marks `client_secret` optional and deprecated on every
+  `/oauth` body, never to be sent from a desktop app. The device sign-in
+  takes the code and the client id. The app sends no secret since v0.10.68.
 - **Tokens:** the device guide says an access token lasts 7 days; Trakt's
   March 2025 announcement says 24 hours. The code reads `expires_in` and
   never assumes either. **Refresh tokens are single-use:** each refresh
@@ -175,8 +179,9 @@ promotes none, and the site and the app's copy should keep it that way.
    out-of-band `urn:ietf:wg:oauth:2.0:oob` (the device flow never
    redirects, but a refresh sends back whatever is registered); no CORS
    origins, since the calls come from Rust.
-2. Put its Client ID and Client Secret in `apps/app/.env.local` as
-   `TRAKT_CLIENT_ID` and `TRAKT_CLIENT_SECRET`. Never paste them in chat.
+2. Put its Client ID in `apps/app/.env.local` as `TRAKT_CLIENT_ID`. Never
+   paste it in chat. (There is no secret any more: the app page says "Not
+   issued".)
 
 ## Build order
 

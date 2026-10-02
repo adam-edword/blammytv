@@ -859,10 +859,10 @@ fn mv_proxy_close(local: String) {
     mvproxy::close(&local)
 }
 
-/// Trakt (plan 015): one client for the run. Its keys are compiled in by
-/// build.rs from apps/app/.env.local (TRAKT_CLIENT_ID, TRAKT_CLIENT_SECRET)
-/// and are empty in a build without them, which then says "not
-/// configured". A dev run keeps its session under its own name, so it never
+/// Trakt (plan 015): one client for the run. Its client id is compiled in
+/// by build.rs from apps/app/.env.local (TRAKT_CLIENT_ID; Trakt no longer
+/// issues a secret) and is empty in a build without it, which then says
+/// "not configured". A dev run keeps its session under its own name, so it never
 /// spends the installed app's single-use refresh token (the lesson of
 /// v0.10.19, where dev runs reached into the installed app's hot channel).
 fn trakt_client() -> &'static std::sync::Arc<trakt::Trakt> {
@@ -870,9 +870,6 @@ fn trakt_client() -> &'static std::sync::Arc<trakt::Trakt> {
     CLIENT.get_or_init(|| {
         let cfg = trakt::Config {
             client_id: option_env!("BLAMMYTV_TRAKT_ID").unwrap_or("").to_string(),
-            client_secret: option_env!("BLAMMYTV_TRAKT_SECRET")
-                .unwrap_or("")
-                .to_string(),
             redirect_uri: option_env!("BLAMMYTV_TRAKT_REDIRECT")
                 .unwrap_or("urn:ietf:wg:oauth:2.0:oob")
                 .to_string(),

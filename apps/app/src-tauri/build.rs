@@ -7,11 +7,11 @@ fn main() {
   tauri_build::build()
 }
 
-/// The Trakt app's keys (plan 015, D4 a), compiled into the binary so no
-/// token exchange needs a server. Read from the environment, else from
-/// apps/app/.env.local, which is gitignored and holds the TMDB key the same
-/// way. NOT prefixed VITE_: Vite only hands `VITE_` variables to the page,
-/// and the secret must never reach it. A build without them has Trakt
+/// The Trakt app's client id (plan 015, D4 a), compiled into the binary.
+/// Trakt no longer issues a secret (trakt.rs). Read from the environment,
+/// else from apps/app/.env.local, which is gitignored and holds the TMDB key
+/// the same way. NOT prefixed VITE_: Vite only hands `VITE_` variables to
+/// the page, and the page makes no Trakt call. A build without it has Trakt
 /// switched off ("not configured"), which is every CI build. Nothing here
 /// prints a value. MyAnimeList's client id (plan 021) comes the same way.
 fn trakt_keys() {
@@ -25,7 +25,6 @@ fn trakt_keys() {
   };
   for (key, out) in [
     ("TRAKT_CLIENT_ID", "BLAMMYTV_TRAKT_ID"),
-    ("TRAKT_CLIENT_SECRET", "BLAMMYTV_TRAKT_SECRET"),
     ("TRAKT_REDIRECT_URI", "BLAMMYTV_TRAKT_REDIRECT"),
     // MyAnimeList (plan 021): a client id only, no secret for type "other".
     ("MAL_CLIENT_ID", "BLAMMYTV_MAL_ID"),

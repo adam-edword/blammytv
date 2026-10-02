@@ -6,11 +6,16 @@
 //! (scripts/mvproxy-host) includes it as it is and runs its tests against a
 //! fake Trakt on Linux, where the app crate itself will not build.
 //!
-//! What Trakt's own API source says, and this follows (read 2026-09-27):
+//! What Trakt's own API source says, and this follows (read 2026-09-27,
+//! the secret 2026-10-02):
 //! - Every OAuth call goes to auth.trakt.tv, the API to api.trakt.tv.
-//! - The client secret is required to finish the sign-in, to refresh and to
-//!   revoke. It is compiled in (build.rs, from apps/app/.env.local), never
-//!   committed and never sent to the page.
+//! - NO CLIENT SECRET. Trakt stopped issuing one (an app made on
+//!   2026-10-02 shows "Not issued"), and its API source marks
+//!   `client_secret` optional and deprecated on every /oauth body, to be
+//!   sent from a server only, "never from a website, mobile app, or
+//!   desktop app". The device sign-in takes the code and the client id;
+//!   refresh and revoke take the client id. Only the client id is compiled
+//!   in (build.rs, from apps/app/.env.local), never committed.
 //! - REFRESH TOKENS ARE SINGLE-USE: a refresh returns a new one and kills
 //!   the old. Two refreshes at once would sign the user out, so a refresh
 //!   only ever happens under the token lock, and a request that got a 401
@@ -29,7 +34,6 @@ use tokio::sync::Mutex;
 #[derive(Clone)]
 pub struct Config {
     pub client_id: String,
-    pub client_secret: String,
     pub redirect_uri: String,
     pub api_base: String,
     pub auth_base: String,
@@ -186,7 +190,7 @@ impl Trakt {
     }
 
     fn configured(&self) -> bool {
-        !self.cfg.client_id.is_empty() && !self.cfg.client_secret.is_empty()
+        !self.cfg.client_id.is_empty()
     }
 
     pub async fn status(&self) -> Status {
@@ -249,7 +253,6 @@ impl Trakt {
                 serde_json::json!({
                     "code": code,
                     "client_id": self.cfg.client_id,
-                    "client_secret": self.cfg.client_secret,
                 }),
             )
             .await?;
@@ -299,7 +302,6 @@ impl Trakt {
                 serde_json::json!({
                     "refresh_token": cur.refresh_token,
                     "client_id": self.cfg.client_id,
-                    "client_secret": self.cfg.client_secret,
                     "redirect_uri": self.cfg.redirect_uri,
                     "grant_type": "refresh_token",
                 }),
@@ -464,7 +466,6 @@ impl Trakt {
                     serde_json::json!({
                         "token": t.access_token,
                         "client_id": self.cfg.client_id,
-                        "client_secret": self.cfg.client_secret,
                     }),
                 )
                 .await;
@@ -583,6 +584,11 @@ mod tests {
         let version = header("trakt-api-version");
         let body = req.into_body().collect().await.unwrap().to_bytes();
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap_or(serde_json::Value::Null);
+        // Trakt no longer issues a secret, and a desktop app must not send one.
+        assert!(
+            v.get("client_secret").is_none(),
+            "{path} sent a client_secret"
+        );
         match path.as_str() {
             "/oauth/device/code" => json(
                 200,
@@ -594,7 +600,7 @@ mod tests {
             ),
             "/oauth/device/token" => {
                 assert_eq!(v["code"], "DEV");
-                assert_eq!(v["client_secret"], "SECRET");
+                assert_eq!(v["client_id"], "ID");
                 let n = fake.polls.fetch_add(1, Ordering::SeqCst);
                 if n < fake.pending_for {
                     return json(400, serde_json::Value::Null);
@@ -665,7 +671,6 @@ mod tests {
     fn cfg(base: &str) -> Config {
         Config {
             client_id: "ID".into(),
-            client_secret: "SECRET".into(),
             redirect_uri: "urn:ietf:wg:oauth:2.0:oob".into(),
             api_base: base.into(),
             auth_base: base.into(),
