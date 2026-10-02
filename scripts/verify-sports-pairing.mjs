@@ -184,6 +184,15 @@ const row = (page, name) => page.locator(".sportsrail", { hasText: name });
       "FOX" in report.affiliates,
     JSON.stringify({ log: report.log.length, catalog: report.catalog.channels }),
   );
+  // v0.10.71: what the guide says each game is on, measured before the
+  // matcher reads it. fake-m3u's guide names no clubs, so the list is empty
+  // here; guideMatch.test.ts has the matching itself.
+  check(
+    "and how much of the catalog has a guide, and what it says each game is on",
+    report.guide?.withGuide > 0 && report.guide.channels === report.catalog.channels &&
+      Array.isArray(g?.guide) && typeof g?.guideMore === "number",
+    JSON.stringify({ guide: report.guide, game: g?.guide }),
+  );
   check("and no stream URL anywhere in it", !/https?:\/\/|localhost:8082/.test(flat), flat.match(/https?:\/\/\S{0,40}/)?.[0] ?? "");
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();

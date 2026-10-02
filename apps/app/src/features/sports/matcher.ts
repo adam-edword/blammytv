@@ -418,7 +418,7 @@ export function clubsOf(teams: { name: string; shortName?: string }[]): Clubs {
  * ENDS the full one, and the rest of the full name when the short one
  * STARTS it. Neither (a country, "Man City"): no nickname.
  */
-function nicknameOf(name: string, short?: string): string[] {
+export function nicknameOf(name: string, short?: string): string[] {
   if (!short) return [];
   // "St" and "State" are one word here: ESPN shortens the one to the other.
   const words = (s: string) => [...tokens(s)].map((w) => (w === "st" ? "state" : w));

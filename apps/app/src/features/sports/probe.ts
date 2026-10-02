@@ -12,6 +12,7 @@ import {
   type Catalog,
   type Tunable,
 } from "./matcher";
+import { airing, showsIn } from "./guideMatch";
 import { loadPairingLog } from "./pairingLog";
 import { APP_VERSION } from "../../lib/version";
 
@@ -226,6 +227,29 @@ export function installSportsProbe(): void {
       affiliates[net] = { n: got.length, names: got.slice(0, 60).map((c) => c.name) };
     }
 
+    // THE GUIDE, measured before it is used (Adam, 2026-10-02: "does the
+    // pairer try to match with current channel description?"). It does not:
+    // the matcher reads channel names only. This is what reading the guide
+    // would add: for each game, the channels whose guide has a programme on
+    // at kick-off, or starting within half an hour of it, that names BOTH
+    // clubs in its title or description.
+    const live = peekLive();
+    const programmes = live?.programmes ?? new Map();
+    const byId = new Map(all.map((c) => [c.id, c]));
+    let withGuide = 0;
+    let hiddenWithGuide = 0;
+    for (const [id, list] of programmes) {
+      if (!list.length) continue;
+      withGuide++;
+      if (byId.get(id)?.hidden) hiddenWithGuide++;
+    }
+    // Every programme in the board's span (guideMatch.ts).
+    const starts = games.filter(isFixture).map((g) => g.start.getTime());
+    const shows =
+      starts.length > 0
+        ? showsIn(programmes, Math.min(...starts) - 3 * 3600e3, Math.max(...starts) + 3600e3)
+        : [];
+
     const report = {
       v: 1,
       at: new Date().toISOString(),
@@ -239,9 +263,12 @@ export function installSportsProbe(): void {
           .map(([p, { n, eg }]) => ({ p, n, eg })),
       },
       affiliates,
+      guide: { channels: all.length, withGuide, hiddenWithGuide, programmes: shows.length },
       games: games.map((g) => {
         const rail = railFor(g.broadcasts, catalog, isFixture(g) ? g : undefined);
         const card = rail.filter((c) => c.confidence >= CARD_CONFIDENCE).length;
+        const inRail = new Set(rail.map((c) => c.id));
+        const aired = isFixture(g) ? airing(shows, g) : [];
         return {
           league: g.leagueKey,
           state: g.state,
@@ -260,15 +287,32 @@ export function installSportsProbe(): void {
           card,
           // Nothing sure: what the catalog has that shares a word.
           near: card === 0 ? g.broadcasts.map((b) => [b, nearby(all, b)]) : undefined,
+          // [channel, hidden, in the rail already, the programme, its start]:
+          // what the guide says is airing this game.
+          guide: aired.slice(0, 12).map((s) => [
+            byId.get(s.id)?.name ?? s.id,
+            byId.get(s.id)?.hidden ? 1 : 0,
+            inRail.has(s.id) ? 1 : 0,
+            s.title,
+            new Date(s.start).toISOString(),
+          ]),
+          guideMore: Math.max(0, aired.length - 12),
         };
       }),
       log: loadPairingLog(),
     };
     const carded = report.games.filter((g) => g.card > 0).length;
+    const guided = report.games.filter((g) => g.guide.length > 0).length;
+    const added = report.games.filter((g) => g.guide.some((r) => r[2] === 0)).length;
     console.info(
       `[sports] ${report.games.length} games: ${carded} with a channel on the card, ` +
         `${report.games.length - carded} without. ${report.log.length} logged events. ` +
         `copy(await btvPairing()) puts all of it on the clipboard.`,
+    );
+    console.info(
+      `[sports] the guide: ${withGuide} of ${all.length} channels have one ` +
+        `(${hiddenWithGuide} of them hidden). It names ${guided} of the games at ` +
+        `kick-off, ${added} of them on a channel the rail doesn't have.`,
     );
     return report;
   };
