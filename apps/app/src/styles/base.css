@@ -357,6 +357,12 @@ button {
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
+  /* On the capsule's centre line too (Adam, v0.10.37: "clock onto the
+   * line"), as the right-hand group is. The clock and the version make a
+   * block 34 + 1 + 14 = 49 tall from the header's 27, centre 51.5; the
+   * capsule's first row is centred at 59.5. By transform, as .header__right
+   * is, so the header's height (--header-h) does not move a screen. */
+  transform: translateY(8px);
 }
 
 /* Out of flow so the brand block stays one 34px line — the nav's shared
@@ -399,7 +405,7 @@ button {
   margin-left: 5px;
   padding: 1px 4px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--text) 14%, transparent);
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -407,7 +413,7 @@ button {
    * line box instead of growing it: the two rails have to stay the same
    * height, and this chip is the only one with anything but text in it. */
   line-height: 1;
-  color: rgba(255, 255, 255, 0.75);
+  color: color-mix(in srgb, var(--text) 75%, transparent);
 }
 
 .header__actions {
@@ -467,21 +473,22 @@ button {
   align-items: center;
   gap: 16px;
   justify-self: end;
+  /* On the capsule's centre line (Adam, v0.10.15: "make sure these align
+   * in multiview ... adjusting the settings/search to line up across the
+   * app"). The header's padding puts this row's 44px at 27px, centre 49;
+   * the capsule's first row is centred at 27 + 11 + 43/2 = 59.5, and so is
+   * everything on Multi-view's bar. Measured, every tab: 10.5px high.
+   * Moved by transform, not margin: the header's height is --header-h,
+   * which every screen hangs from, and this must not move a screen. */
+  transform: translateY(10.5px);
 }
 
-/* The sweep angle, registered so the ring's spin interpolates. */
-@property --update-ring {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 90deg;
-}
-
-/* A glass pill wearing the brand gradient as a slow-turning 1.5px ring —
- * the boot logo's sweep, reused to mean "something new is here". The inner
- * fill paints over padding-box so the gradient survives only as the rim. */
+/* The update chip. It wore the brand sweep as a slow-turning ring until
+ * v0.9.57 moved the ring to old/; the spin that turned it went in v0.10.61,
+ * since it animated an angle nothing read, a style recalc every frame the
+ * chip was up (docs/audit-0.9.79/perf.md D1). */
 .update-chip {
   font-family: var(--font-headline);
-  animation: update-ring-turn 9s linear infinite;
   transform-origin: top center;
   /* Entrance (motion plan 002). Close stays instant — deliberate. */
   /* ONE declaration — a second transition: in this rule silently killed
@@ -497,7 +504,6 @@ button {
   transform: scale(0.9) translateY(-4px);
 }
 }
-@keyframes update-ring-turn { to { --update-ring: 450deg; } }
 
 /* The pulse dot: same gradient family, breathing while idle, steady spin
  * read while installing (motion = work happening). */
@@ -505,7 +511,7 @@ button {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: conic-gradient(#ff8bc9, #8696ff, #84ffa9, #ffe57f, #ff8bc9);
+  background: conic-gradient(var(--brand-rose), var(--brand-blue), var(--brand-mint), var(--brand-butter), var(--brand-rose));
   animation: update-dot-pulse 2.4s ease-in-out infinite;
 }
 .update-chip--busy .update-chip__dot { animation: update-dot-spin 900ms linear infinite; }
@@ -1105,8 +1111,9 @@ button {
   display: block;
   width: 1143px;
   height: 1143px;
-  /* Composed HERE, not taken from --logo-conic, so that var(--logo-angle)
-   * resolves against this element — the one the spin animates. */
+  /* Composed HERE, not as a finished token on :root, so that
+   * var(--logo-angle) resolves against this element: the one the spin
+   * animates. */
   background: conic-gradient(from var(--logo-angle), var(--logo-stops));
   clip-path: path(evenodd, var(--logo-path));
   transform: scale(0.032371);

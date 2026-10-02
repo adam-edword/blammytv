@@ -30,6 +30,7 @@ import { useQuietHeader } from "../../lib/useIdle";
 import {
   isTauri,
   onPopoutClosed,
+  popoutOpenedBy,
   tauriMpvFrost,
   tauriMpvFrostRect,
   tauriMpvGoLive,
@@ -180,10 +181,11 @@ const SidebarSources = memo(function SidebarSources({
                         type="button"
                         aria-label={label}
                         aria-current={active ? "true" : undefined}
-                        // Expanded, long names fade at the edge — a native
-                        // tooltip makes the full name recoverable. Folded,
-                        // the custom .live-tip owns that, so skip it.
-                        title={collapsed ? undefined : label}
+                        // Expanded, long names fade at the edge, and the
+                        // hint (ui/Hint's HintLayer) makes the full name
+                        // recoverable. Folded, the custom .live-tip owns
+                        // that, so skip it.
+                        data-hint={collapsed ? undefined : label}
                         className={
                           `live-folder ${SIDEBAR_ITEM}` +
                           (active
@@ -194,18 +196,14 @@ const SidebarSources = memo(function SidebarSources({
                         onContextMenu={(e) => {
                           e.preventDefault();
                           onTip(null);
-                          // Fixed-position coords live in the zoomed space
-                          // (the tooltip's pattern). Keyboard menu key sends
-                          // 0,0 — anchor on the row instead.
-                          const zoom = Number(
-                            document.documentElement.style.zoom || 1,
-                          );
+                          // The keyboard's menu key sends 0,0: anchor on
+                          // the row instead.
                           const r = e.currentTarget.getBoundingClientRect();
                           const cx = e.clientX || r.right - 8;
                           const cy = e.clientY || r.top + r.height / 2;
                           onFolderMenu({
-                            x: cx / zoom,
-                            y: cy / zoom,
+                            x: cx,
+                            y: cy,
                             groupId: g.id,
                             folderId: f.id,
                             name: label,
@@ -214,16 +212,10 @@ const SidebarSources = memo(function SidebarSources({
                         onMouseEnter={(e) => {
                           if (!collapsed) return;
                           const r = e.currentTarget.getBoundingClientRect();
-                          // Fixed positioning lives in the zoomed
-                          // coordinate space (see the settings
-                          // dropdown), so unscale.
-                          const zoom = Number(
-                            document.documentElement.style.zoom || 1,
-                          );
                           onTip({
                             label,
-                            x: r.right / zoom + 12,
-                            y: (r.top + r.height / 2) / zoom,
+                            x: r.right + 12,
+                            y: r.top + r.height / 2,
                           });
                         }}
                         onMouseLeave={() => onTip(null)}
@@ -245,7 +237,7 @@ const SidebarSources = memo(function SidebarSources({
                           type="button"
                           className="live-folder__hide"
                           aria-label={`Hide ${label}`}
-                          title={`Hide ${label}`}
+                          data-hint={`Hide ${label}`}
                           onClick={() => onHideFolder(g.id, f.id, label)}
                         >
                           <EyeOffIcon />
@@ -382,11 +374,10 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       folderId: string;
       name: string;
     }) => {
-      const zoom = Number(document.documentElement.style.zoom || 1);
       setFolderMenu({
         ...m,
-        x: Math.min(m.x, window.innerWidth / zoom - 300),
-        y: Math.min(m.y, window.innerHeight / zoom - 96),
+        x: Math.min(m.x, window.innerWidth - 300),
+        y: Math.min(m.y, window.innerHeight - 96),
       });
     },
     [],
@@ -576,7 +567,10 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   useEffect(() => {
     if (!isTauri()) return;
     return onPopoutClosed(() => {
-      if (heroIdRef.current) setPlaying(true);
+      // Only a popout the Guide opened (plan 016 F11). A game popped out of
+      // Sports, closed while the Guide was up, started the Guide's own
+      // channel in the mini player.
+      if (popoutOpenedBy() === "guide" && heroIdRef.current) setPlaying(true);
     });
   }, []);
 
@@ -751,7 +745,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       // desktop through the still-cut hole. Idempotent with that cleanup.
       const shell = document.querySelector<HTMLElement>(".app-shell");
       if (shell) shell.style.clipPath = "";
-      if (url) void tauriPopoutOpen(url, true).catch(() => {});
+      if (url) void tauriPopoutOpen(url, true, "guide").catch(() => {});
       setPlaying(false);
       setTheater(false);
       leaveFullscreen();

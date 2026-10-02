@@ -1,8 +1,8 @@
 import { Fragment, memo } from "react";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { useFitText } from "../../lib/fitText";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
-import { tooEarly } from "./day";
+import { useTooEarly } from "./useTooEarly";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
@@ -58,7 +58,7 @@ function GameCardImpl({
   const carriage = carriageUnlinked(game)
     ? `${said ? `${said}, but ` : ""}couldn't link it to any of your channels`
     : said;
-  const early = tooEarly(game);
+  const early = useTooEarly(game);
   return (
     <button
       type="button"
@@ -72,7 +72,7 @@ function GameCardImpl({
       // The wire's own line about the fixture. 60 to 80 characters, which
       // is a sentence rather than a label, so it goes where a sentence can
       // be chosen rather than onto the card face.
-      title={
+      data-hint={
         game.headline
           ? `${home.name} vs ${away.name}\n${game.headline}`
           : `${home.name} vs ${away.name}`

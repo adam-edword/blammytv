@@ -43,19 +43,17 @@ import {
   xForTime,
 } from "./epg";
 import type { Channel, Programme } from "./model";
+import { Hint } from "../../ui/Hint";
 
 /** Pointer spotlight on programme cells: writes the cursor's cell-local
  * position into CSS vars; the ::after light circle rides them via
  * transform (compositor-side — no repaint per move, per the WebView2
- * guardrails). clientX and the rect share the zoomed visual space while
- * the vars are consumed in element-local CSS px, so unscale (the
- * folded-rail tooltip's pattern). Reduced motion hides the light in CSS. */
+ * guardrails). Reduced motion hides the light in CSS. */
 function shineMove(e: React.MouseEvent<HTMLElement>) {
   const el = e.currentTarget;
   const r = el.getBoundingClientRect();
-  const zoom = Number(document.documentElement.style.zoom || 1);
-  el.style.setProperty("--mx", `${(e.clientX - r.left) / zoom}px`);
-  el.style.setProperty("--my", `${(e.clientY - r.top) / zoom}px`);
+  el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+  el.style.setProperty("--my", `${e.clientY - r.top}px`);
 }
 
 /* Grid geometry (Figma 133:500): 189px channel cards, 8px gutters, 60px
@@ -105,13 +103,9 @@ function pinnedMetrics(b: Block, scroll: number) {
   };
 }
 
-/** Fade masks only where text actually overflows (measured, not blind). */
-function clipTitle(t: HTMLElement) {
-  t.classList.toggle("is-clipped", t.scrollWidth > t.clientWidth + 1);
-}
-
-/** Batch form: all reads, then all writes — interleaving them forces a
- * reflow per element, which row-window shifts would pay every 68px. */
+/** Fade masks only where text actually overflows (measured, not blind).
+ * All reads, then all writes: interleaving them forces a reflow per
+ * element, which row-window shifts would pay every 68px. */
 function clipTitles(els: Iterable<HTMLElement>) {
   const list = Array.from(els);
   const clipped = list.map((t) => t.scrollWidth > t.clientWidth + 1);
@@ -121,7 +115,11 @@ function clipTitles(els: Iterable<HTMLElement>) {
 /** Restore a cell to its natural place. The true left comes from the
  * React-rendered data-left attribute — never from imperative bookkeeping,
  * which a re-render can poison (React skips style writes when its props
- * are unchanged, so the pinned 197px would masquerade as the original). */
+ * are unchanged, so the pinned 197px would masquerade as the original).
+ *
+ * Writes only. Its title's fade is re-measured by the caller, with every
+ * other read, after every write (see syncPins): a read here, after these
+ * writes, forced a layout per cell. */
 function unpin(el: HTMLElement) {
   el.classList.remove("guide__cell--pinned");
   if (el.dataset.left) el.style.left = `${el.dataset.left}px`;
@@ -129,13 +127,10 @@ function unpin(el: HTMLElement) {
   el.style.clipPath = "";
   el.style.transform = "";
   el.style.opacity = "";
-  delete el.dataset.tw;
   // Defensive: older pin mechanics transformed the body, and imperative
   // styles survive both React renders and HMR module swaps.
   const body = el.querySelector<HTMLElement>(".guide__cell-body");
   if (body) body.style.transform = "";
-  const t = el.querySelector<HTMLElement>(".guide__cell-title");
-  if (t) clipTitle(t);
 }
 
 interface Block {
@@ -227,11 +222,7 @@ export const Guide = memo(function Guide({
   };
   const onResizeMove = (e: ReactPointerEvent) => {
     if (!resizing) return;
-    // clientX rides the document `zoom` (the UI-scale setting), but the
-    // column width is plain CSS px — divide the drag delta back out so the
-    // handle tracks the cursor 1:1 at any scale.
-    const zoom = Number(document.documentElement.style.zoom || 1);
-    const next = dragRef.current.w + (e.clientX - dragRef.current.x) / zoom;
+    const next = dragRef.current.w + (e.clientX - dragRef.current.x);
     setCardW(Math.min(CARD_MAX, Math.max(CARD_MIN, next)));
   };
   const onResizeUp = (e: ReactPointerEvent) => {
@@ -279,9 +270,26 @@ export const Guide = memo(function Guide({
   }, []);
 
   // Lay the windowed lanes out once; only the pinned cell depends on scroll.
+  /* One key per ROW, which a channel id is not: an Xtream panel can file
+   * one stream under two categories, and Stalker's bulk list does the same,
+   * so a channel can be listed twice. Two rows on one key broke the
+   * window. Each time it moved past the pair, React kept one old row as an
+   * orphan; once Chrome anchored scrolling to an orphan, every shift nudged
+   * scrollTop, the layout effect below shifted the window again, and React
+   * stopped at "Maximum update depth exceeded". A repeat is keyed by its
+   * place among the copies. */
+  const rowKeys = useMemo(() => {
+    const seen = new Map<string, number>();
+    return channels.map(({ channel }) => {
+      const n = seen.get(channel.id) ?? 0;
+      seen.set(channel.id, n + 1);
+      return n === 0 ? channel.id : `${channel.id}~${n}`;
+    });
+  }, [channels]);
+
   const lanes = useMemo(
     () =>
-      channels.slice(renderFrom, renderTo).map(({ channel, programmes }) => {
+      channels.slice(renderFrom, renderTo).map(({ channel, programmes }, row) => {
         const blocks: Block[] = programmes
           .map((p) => ({ p, rect: cellRect(p.start, p.end, start) }))
           .filter((b) => b.rect !== null)
@@ -296,9 +304,9 @@ export const Guide = memo(function Guide({
               key: `${p.start.getTime()}:${i}`,
             };
           });
-        return { channel, blocks };
+        return { channel, blocks, rowKey: rowKeys[renderFrom + row] };
       }),
-    [channels, renderFrom, renderTo, now, start],
+    [channels, rowKeys, renderFrom, renderTo, now, start],
   );
 
   /* Pinning is fully imperative — React never renders it. With 14+ lanes a
@@ -326,13 +334,25 @@ export const Guide = memo(function Guide({
    * natural widths are measured once per pin (cached) so the per-frame
    * clip check is pure arithmetic. */
   const syncPins = useCallback(
-    (scroll: number) => {
+    /** `clip`: more titles whose fade to re-measure in the same read pass
+     * (after a render, all of them). */
+    (scroll: number, clip: HTMLElement[] = []) => {
+      // Every write, then every read, then the class writes the reads
+      // decide. A read after a write forces a layout, and doing both per
+      // lane cost one per pinned lane, twice: 60 to 72 layouts on a 3-row
+      // step with 21 lanes pinned (plan 016 5.6, measured on 8,516
+      // channels).
       const next = computePins(scroll);
       const prev = pinsRef.current;
+      const released: HTMLElement[] = [];
       next.forEach((key, i) => {
         const el = pinnedElsRef.current[i];
         if (prev[i] === key && el?.isConnected) return;
-        if (el?.isConnected) unpin(el);
+        if (el?.isConnected) {
+          unpin(el);
+          const t = el.querySelector<HTMLElement>(".guide__cell-title");
+          if (t) released.push(t);
+        }
         const target = key
           ? laneElsRef.current[i]?.querySelector<HTMLElement>(
               `[data-key="${key}"]`,
@@ -346,6 +366,7 @@ export const Guide = memo(function Guide({
       });
       pinsRef.current = next;
 
+      const pinned: { el: HTMLElement; t: HTMLElement; room: number }[] = [];
       lanes.forEach(({ blocks }, i) => {
         const key = next[i];
         const el = pinnedElsRef.current[i];
@@ -357,13 +378,28 @@ export const Guide = memo(function Guide({
         el.style.transform = slide ? `translateX(${slide}px)` : "";
         el.style.opacity = opacity < 1 ? `${opacity}` : "";
         const t = el.querySelector<HTMLElement>(".guide__cell-title");
-        if (!t) return;
-        if (!el.dataset.tw) el.dataset.tw = String(t.scrollWidth);
         // 28 = the cell's horizontal padding.
-        t.classList.toggle(
-          "is-clipped",
-          parseFloat(el.dataset.tw) > width - 28,
-        );
+        if (t) pinned.push({ el, t, room: width - 28 });
+      });
+
+      // Reads. A title's natural width is kept on its cell for as long as
+      // the title is the same text, across pins and renders, so a pinned
+      // lane is measured once, not on every row the window moves.
+      const overflows = (t: HTMLElement) => t.scrollWidth > t.clientWidth + 1;
+      const releasedClipped = released.map(overflows);
+      const clipClipped = clip.map(overflows);
+      const widths = pinned.map(({ el, t }) =>
+        el.dataset.twFor === t.textContent ? Number(el.dataset.tw) : t.scrollWidth,
+      );
+
+      // Writes.
+      released.forEach((t, i) => t.classList.toggle("is-clipped", releasedClipped[i]));
+      clip.forEach((t, i) => t.classList.toggle("is-clipped", clipClipped[i]));
+      // Pinned last: a pinned title's fade is its pin's, not its box's.
+      pinned.forEach(({ el, t, room }, i) => {
+        el.dataset.tw = String(widths[i]);
+        el.dataset.twFor = t.textContent ?? "";
+        t.classList.toggle("is-clipped", widths[i] > room);
       });
     },
     [computePins, lanes, laneX],
@@ -388,12 +424,16 @@ export const Guide = memo(function Guide({
     laneElsRef.current = Array.from(
       scrollRef.current?.querySelectorAll<HTMLElement>(".guide__lane") ?? [],
     );
-    clipTitles(
-      scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ?? [],
-    );
     pinsRef.current = [];
     pinnedElsRef.current = [];
-    syncPins(scrollXRef.current);
+    // Re-pin and re-measure every fade in one pass of reads, after every
+    // write above: one forced layout a render, where there were three.
+    syncPins(
+      scrollXRef.current,
+      Array.from(
+        scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ?? [],
+      ),
+    );
     // Row-window drift check (channels changed, container resized): a
     // corrected window re-renders once; the equality guard stops the loop.
     measureRowWindow();
@@ -401,11 +441,15 @@ export const Guide = memo(function Guide({
   useEffect(() => {
     let alive = true;
     document.fonts?.ready.then(() => {
-      if (alive)
-        clipTitles(
-          scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ??
-            [],
-        );
+      if (!alive) return;
+      // A pinned title measured before the font arrived was measured in
+      // the fallback: forget it, and the next sync measures it again.
+      scrollRef.current
+        ?.querySelectorAll<HTMLElement>("[data-tw-for]")
+        .forEach((el) => delete el.dataset.twFor);
+      clipTitles(
+        scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ?? [],
+      );
     });
     const ro = new ResizeObserver(measureRowWindow);
     if (scrollRef.current) ro.observe(scrollRef.current);
@@ -527,7 +571,7 @@ export const Guide = memo(function Guide({
         {/* Off-window rows exist only as scroll height. */}
         {renderFrom > 0 && <div style={{ height: renderFrom * ROW_STEP }} />}
 
-        {lanes.map(({ channel, blocks }) => {
+        {lanes.map(({ channel, blocks, rowKey }) => {
           const selected = channel.id === selectedId;
           const favorite = favorites.includes(channel.id);
           /* Previews attach to the card and the cells themselves — NOT
@@ -539,7 +583,7 @@ export const Guide = memo(function Guide({
            * previous preview. */
           return (
             <div
-              key={channel.id}
+              key={rowKey}
               className="guide__row"
               data-channel={channel.id}
               style={{ height: ROW_H + ROW_GAP }}
@@ -555,7 +599,7 @@ export const Guide = memo(function Guide({
                 <button
                   type="button"
                   className="guide__card"
-                  title={channel.name}
+                  data-hint={channel.name}
                   aria-current={selected ? "true" : undefined}
                   aria-label={
                     channel.quality
@@ -634,7 +678,7 @@ export const Guide = memo(function Guide({
                       data-width={b.width}
                       className={cellClass(b)}
                       style={{ left: b.left, width: b.width }}
-                      title={b.p.title}
+                      data-hint={b.p.title}
                       aria-label={`${channel.name}, ${b.p.title}, ${range(b.p.start, b.p.end)}${b.live ? ", on now" : ""}`}
                       onClick={() => onSelect(channel.id)}
                       onMouseEnter={() =>
@@ -683,6 +727,7 @@ export const Guide = memo(function Guide({
 
       {/* Drag the channel-card column wider/narrower; double-click resets it
        * to the default width. */}
+      <Hint label="Drag to resize · double-click to reset">
       <div
         className={"guide-resize" + (resizing ? " guide-resize--active" : "")}
         role="separator"
@@ -692,13 +737,13 @@ export const Guide = memo(function Guide({
         aria-valuemax={CARD_MAX}
         aria-valuenow={Math.round(cardW)}
         tabIndex={0}
-        title="Drag to resize · double-click to reset"
         onPointerDown={onResizeDown}
         onPointerMove={onResizeMove}
         onPointerUp={onResizeUp}
         onKeyDown={onResizeKey}
         onDoubleClick={() => setCardW(CARD_MIN)}
       />
+      </Hint>
     </div>
   );
 });

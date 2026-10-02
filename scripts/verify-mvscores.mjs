@@ -7,7 +7,7 @@
 // - S (or the bar's switch) shows it: every live game in the leagues you
 //   follow, each league named once, whether or not a channel carries it;
 // - the grid gives up the row's height, stays 16:9 and stays above it;
-// - the wheel scrolls it sideways;
+// - the wheel scrolls it sideways, and so does a drag, which opens nothing;
 // - a game none of your channels carry does nothing; one they carry opens
 //   the picker on its feeds, taking one adds it, and the row marks it;
 // - the filter offers your sports with their leagues, applies at once, and
@@ -215,7 +215,7 @@ const rowCards = () =>
       c.classList.contains("mvscores__league")
         ? { league: c.textContent }
         : {
-            game: c.querySelector(".compactcard")?.getAttribute("title") ?? "",
+            game: c.querySelector(".compactcard")?.getAttribute("data-hint") ?? "",
             on: c.classList.contains("is-on"),
             off: c.classList.contains("is-off"),
           },
@@ -321,9 +321,30 @@ const scrolled = await scroller.evaluate((el) => el.scrollLeft);
 check("the wheel scrolls the row sideways", room.sw > room.cw && scrolled > 0, JSON.stringify({ ...room, scrolled }));
 await scroller.evaluate((el) => (el.scrollLeft = 0));
 
+// And a drag (v0.10.18: "add click/drag to the score bar"), started on a
+// card a click would open: the row follows the pointer 1:1, and the picker
+// stays shut. Toward whichever side has the room.
+const chiefs = page.locator('.mvscores .compactcard[data-hint*="Chiefs"]');
+await chiefs.scrollIntoViewIfNeeded();
+const s0 = await scroller.evaluate((el) => el.scrollLeft);
+const cb = await chiefs.boundingBox();
+const dx = s0 >= 150 ? 150 : -150;
+await page.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2);
+await page.mouse.down();
+await page.mouse.move(cb.x + cb.width / 2 + dx, cb.y + cb.height / 2, { steps: 10 });
+await page.mouse.up();
+await page.waitForTimeout(400);
+const s1 = await scroller.evaluate((el) => el.scrollLeft);
+check(
+  "a drag scrolls the row with the pointer, and the card it started on opens nothing",
+  Math.abs(s1 - (s0 - dx)) <= 2 && (await page.locator(".mvpick__input").count()) === 0,
+  JSON.stringify({ s0, s1, dx, picker: await page.locator(".mvpick__input").count() }),
+);
+await scroller.evaluate((el) => (el.scrollLeft = 0));
+
 // A baseball game: none of the panel's channels carry it.
 const mlb = page.locator(".mvscores__game.is-off").first();
-const mlbTitle = await mlb.getAttribute("title").catch(() => "");
+const mlbTitle = await mlb.getAttribute("data-hint").catch(() => "");
 await mlb.scrollIntoViewIfNeeded();
 const mlbBox = await mlb.boundingBox();
 await page.mouse.click(mlbBox.x + mlbBox.width / 2, mlbBox.y + mlbBox.height / 2);
@@ -342,8 +363,8 @@ check(
 
 // The Bills: on the panel's ESPN.
 await scroller.evaluate((el) => (el.scrollLeft = 0));
-await page.locator('.mvscores .compactcard[title*="Chiefs"]').scrollIntoViewIfNeeded();
-await page.locator('.mvscores .compactcard[title*="Chiefs"]').click();
+await page.locator('.mvscores .compactcard[data-hint*="Chiefs"]').scrollIntoViewIfNeeded();
+await page.locator('.mvscores .compactcard[data-hint*="Chiefs"]').click();
 await page.locator(".mvpick__input").waitFor({ timeout: 5000 }).catch(() => {});
 await page.waitForTimeout(250);
 const feedRows = (await page.locator(".mvpick__row").allInnerTexts()).map((r) => r.replace(/\n/g, " | "));

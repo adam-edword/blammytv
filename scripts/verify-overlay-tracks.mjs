@@ -115,18 +115,18 @@ check(
 // Buttons are always rendered; they gray out (disabled) with nothing to choose.
 check(
   "no tracks yet → both buttons disabled",
-  (await page.locator(".theater-tracks button:disabled").count()) === 2,
+  (await page.locator(".theater-tracks button[aria-disabled=true]").count()) === 2,
 );
 
 await page.evaluate((t) => window.__pushTracks(t), TRACKS);
 await page.mouse.move(550, 300); // wake the chrome
 await page.mouse.move(560, 310);
-await page.waitForSelector('[aria-label="Audio track"]:not(:disabled)');
+await page.waitForSelector('[aria-label="Audio track"]:not([aria-disabled=true])');
 check(
   "tracks push → audio + CC buttons enabled",
-  (await page.locator('[aria-label="Audio track"]:not(:disabled)').count()) ===
+  (await page.locator('[aria-label="Audio track"]:not([aria-disabled=true])').count()) ===
     1 &&
-    (await page.locator('[aria-label="Subtitles"]:not(:disabled)').count()) ===
+    (await page.locator('[aria-label="Subtitles"]:not([aria-disabled=true])').count()) ===
       1,
 );
 
@@ -245,7 +245,7 @@ await page.evaluate(() =>
 const grayed = await page
   .waitForFunction(
     () =>
-      document.querySelectorAll(".theater-tracks button:disabled").length === 2,
+      document.querySelectorAll(".theater-tracks button[aria-disabled=true]").length === 2,
     null,
     { timeout: 3000 },
   )
@@ -263,9 +263,121 @@ await page2.goto(URL);
 await page2.waitForSelector(".theater-overlay");
 check(
   "pre-mount cached tracks seed via sync getTracks()",
-  (await page2.locator(".theater-tracks button:not(:disabled)").count()) === 2,
+  (await page2.locator(".theater-tracks button:not([aria-disabled=true])").count()) === 2,
 );
 await page2.close();
+
+// ---- Page 3: the player in the redesign's language (plan 020), and a
+// tooltip on every button (Adam, v0.10.22: "make sure every button on the
+// player has a tooltip"; the kit's Hint, not the browser's title). ----
+const page3 = await ctx.newPage();
+await page3.addInitScript(mockBridge);
+await page3.goto(URL);
+await page3.waitForSelector(".theater-overlay");
+await page3.mouse.move(550, 300);
+await page3.mouse.move(560, 310);
+
+// A tooltip by hovering, the way a person gets one: the kit's bubble, with
+// the words. Off the last button onto the picture first, then over in
+// steps, as a hand moves. One jump across the screen from a button with its
+// bubble open is not what a pointer does, and Radix's hover grace area
+// around that bubble swallowed the next trigger's first move.
+const tipFor = async (label) => {
+  await page3.mouse.move(550, 300, { steps: 4 });
+  await page3.waitForTimeout(150);
+  const bb = await page3.locator(`.theater-overlay [aria-label="${label}"]`).first().boundingBox();
+  await page3.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2, { steps: 12 });
+  // The open one: the last bubble can still be fading out beside it.
+  return page3
+    .locator('[data-slot="tooltip-content"]:not([data-state="closed"])')
+    .first()
+    .textContent({ timeout: 3000 })
+    .catch(() => null);
+};
+// Before any tracks: the greyed audio button still answers, and says why.
+const greyTip = await tipFor("Audio track");
+const tips = {
+  back: await tipFor("Back 10 seconds"),
+  play: await tipFor("Pause"),
+  mute: await tipFor("Mute"),
+  exit: await tipFor("Back"),
+};
+const labelled = await page3.evaluate(() => {
+  const all = [...document.querySelectorAll(".theater-overlay button[aria-label]")];
+  return {
+    total: all.length,
+    withoutTip: all.filter((b) => !b.hasAttribute("data-state")).map((b) => b.getAttribute("aria-label")),
+    nativeTitles: document.querySelectorAll(".theater-overlay button[title]").length,
+  };
+});
+check(
+  "every labelled button on the player has the kit's tooltip, and none the browser's",
+  labelled.total >= 9 && labelled.withoutTip.length === 0 && labelled.nativeTitles === 0,
+  JSON.stringify(labelled),
+);
+check(
+  "  hovered, they say what they do, and the greyed audio button says why it's grey",
+  tips.back === "Back 10 seconds" && tips.play === "Pause" && tips.mute === "Mute" && tips.exit === "Back" &&
+    greyTip === "Only one audio track",
+  JSON.stringify({ ...tips, greyTip }),
+);
+
+await page3.evaluate((t) => window.__pushTracks(t), TRACKS);
+await page3.mouse.move(550, 300);
+await page3.waitForSelector('[aria-label="Audio track"]:not([aria-disabled=true])');
+const look = await page3.evaluate(() => {
+  const cs = (el) => el && getComputedStyle(el);
+  const groups = [...document.querySelectorAll(".theater-controls__group")].map((g) => {
+    const s = cs(g);
+    return { bg: s.backgroundColor, edge: s.borderTopWidth, r: parseFloat(s.borderTopLeftRadius), h: g.getBoundingClientRect().height };
+  });
+  const play = cs(document.querySelector(".player__btn--play"));
+  const times = cs(document.querySelector(".theater-seek__labels"));
+  return {
+    groups,
+    play: play && { bg: play.backgroundColor, ink: play.color },
+    times: times && { size: times.fontSize, weight: times.fontWeight, caps: times.textTransform },
+  };
+});
+check(
+  "two capsules on the chip paint, Play the white circle, the times as eyebrows",
+  look.groups.length === 2 &&
+    look.groups.every((g) => g.bg === "rgba(20, 20, 20, 0.6)" && g.edge === "1px" && g.r >= g.h / 2) &&
+    look.play?.bg === "rgb(255, 255, 255)" &&
+    look.play?.ink === "rgb(0, 0, 0)" &&
+    look.times?.size === "11px" &&
+    look.times?.weight === "650" &&
+    look.times?.caps === "uppercase",
+  JSON.stringify(look),
+);
+
+// The light theme: the page's tint turns dark there, and the player is still
+// over a picture, so its controls tint in the on-image white regardless.
+await page3.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+await page3.click('[aria-label="Audio track"]');
+await page3.waitForSelector('.track-menu[aria-label="Audio tracks"]');
+await page3.mouse.move(550, 300); // off the button: its hover tint is not the question
+await page3.waitForTimeout(400); // Button eases its background
+const menu = await page3.evaluate(() => {
+  const open = getComputedStyle(document.querySelector('[aria-label="Audio track"]')).backgroundColor;
+  const head = getComputedStyle(document.querySelector(".track-menu__head"));
+  const chosen = getComputedStyle(document.querySelector('.track-menu__item[aria-checked="true"]')).backgroundColor;
+  return { open, head: { size: head.fontSize, caps: head.textTransform }, chosen };
+});
+// White at some alpha. Tailwind writes the tint through oklab, so it comes
+// back as oklab(L a b / alpha) with L near 1; a plain rgba white is fine too.
+const light = (c) => {
+  const ok = /^oklab\(([\d.]+) [-\d.e]+ [-\d.e]+ \/ ([\d.]+)\)$/.exec(c);
+  if (ok) return +ok[1] > 0.95 && +ok[2] >= 0.08;
+  const rgba = /^rgba\(255, 255, 255, ([\d.]+)\)$/.exec(c);
+  return !!rgba && +rgba[1] >= 0.08;
+};
+check(
+  "in the light theme too: an open menu's button and its chosen item tint white, the head an eyebrow",
+  light(menu.open) && light(menu.chosen) && menu.head.size === "11px" && menu.head.caps === "uppercase",
+  JSON.stringify(menu),
+);
+await page3.close();
 
 await browser.close();
 const fails = results.filter(([, ok]) => !ok);

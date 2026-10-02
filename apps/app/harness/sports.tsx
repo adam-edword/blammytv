@@ -12,7 +12,7 @@ import "../src/styles/sports.css";
 import "../src/styles/discover.css";
 import { SportsScreen } from "../src/features/sports/SportsScreen";
 import { applyAccent, loadAccent } from "../src/features/settings/accent";
-import { applyTheme, loadTheme } from "../src/features/settings/theme";
+import { applyThemePref, loadThemePref } from "../src/features/settings/theme";
 import epl from "./fixtures/epl.json";
 import mlb from "./fixtures/mlb.json";
 import nba from "./fixtures/nba.json";
@@ -479,7 +479,7 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
 };
 
 applyAccent(loadAccent());
-applyTheme(loadTheme());
+applyThemePref(loadThemePref());
 
 /**
  * A stand-in for the app header, and it is not decoration.

@@ -83,10 +83,12 @@ function announceRefresh() {
 }
 
 /** Persist off the critical path: a structured-clone write of a ~15MB graph
- * costs real main-thread time, so let the first paint settle first. */
+ * costs real main-thread time, so let the first paint settle first. Only
+ * doLoad's finished guide comes here, and every list in it was normalized
+ * (or kept from a cache that was), so the record says so. */
 function scheduleDiskPut(key: string, at: number, data: LiveData) {
   setTimeout(() => {
-    void diskPut({ key, at, data });
+    void diskPut({ key, at, data, normalized: true });
   }, 1500);
 }
 
@@ -161,7 +163,8 @@ export function peekLive(): LiveData | null {
 /**
  * The cached catalog for the CURRENT sources, however old. For looking a
  * channel up by id at play time: Sports' rail, a game's autoplay and
- * failover, multi-view.
+ * failover, multi-view. And for anything else that only reads it: the
+ * palette's channel search went empty half an hour in, off the Live tab.
  *
  * peekLive's half-hour TTL exists to make the Live screen refetch, and
  * nothing on the Sports tab ever reloads the catalog. So with peekLive
@@ -221,9 +224,12 @@ export async function loadLive(
       const disk = await diskGet(key).catch(() => null);
       if (disk && Date.now() - disk.at < DISK_MAX_AGE_MS) {
         // Snapshots written before the normalize step existed still carry
-        // overlapping programmes; re-normalizing is cheap and idempotent.
-        for (const [id, list] of disk.data.programmes)
-          disk.data.programmes.set(id, normalizeProgrammes(list));
+        // overlapping programmes. A record that says it was normalized
+        // skips it: 15 to 30ms on the launch path at 1,588 guides
+        // (the Live auditor's shape, plan 016 5.6).
+        if (!disk.normalized)
+          for (const [id, list] of disk.data.programmes)
+            disk.data.programmes.set(id, normalizeProgrammes(list));
         // A snapshot old enough to have run out of schedule renders as a
         // screen of "No Information" — the exact thing a cold load looks
         // like, with nothing to say a refresh is in flight. Say it. A guide
@@ -307,10 +313,24 @@ async function doLoad(
           ? { ...b.group, epgError: phases[i].epgError }
           : b.group,
       );
+      // A source whose guide didn't come this time (a timeout, an error
+      // page, a feed that matched nothing) keeps the one it had. A launch
+      // hydrated from disk showed its guide, then a minute in every lane
+      // went to "No Information" and the disk record lost its guide too.
+      // The reason still lands on the group's epgError.
+      const had = cache?.key === key ? cache.data.programmes : null;
       const programmes = new Map<string, Programme[]>();
-      for (const phase of phases)
+      phases.forEach((phase, i) => {
+        if (phase.programmes.size === 0 && had) {
+          for (const c of built[i].channels) {
+            const kept = had.get(c.id);
+            if (kept) programmes.set(c.id, kept);
+          }
+          return;
+        }
         for (const [id, list] of phase.programmes)
           programmes.set(id, normalizeProgrammes(list));
+      });
       const full: LiveData = {
         groups,
         channels: data.channels,

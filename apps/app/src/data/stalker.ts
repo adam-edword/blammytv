@@ -54,13 +54,10 @@ interface Session {
   token: string;
 }
 const sessions = new Map<string, Session>();
-
-/** Drop a playlist's cached session. Unwired groundwork: nothing calls this
- * yet — the intended caller is the Settings credential-edit path (a stale
- * ~1h session survives a credential change until then). */
-export function resetStalkerSession(playlistId: string): void {
-  sessions.delete(playlistId);
-}
+/** Keyed by the portal and MAC as well as the playlist, so editing either in
+ * Settings starts a new session instead of reusing the old one's endpoint
+ * and token until it happens to fail. */
+const sessionKey = (p: StalkerPlaylist) => `${p.id}\n${p.portal.trim()}\n${p.mac.trim()}`;
 
 // The MAG-STB identity headers. Some portals reject a browser UA outright,
 // so every call presents as a MAG254 box (the string real clients send).
@@ -172,7 +169,7 @@ async function openSession(p: StalkerPlaylist): Promise<Session> {
       const token = await handshake(p, base);
       const s: Session = { base, token };
       await getProfile(p, s);
-      sessions.set(p.id, s);
+      sessions.set(sessionKey(p), s);
       return s;
     } catch (e) {
       lastErr = e;
@@ -189,12 +186,12 @@ async function withSession<T>(
   p: StalkerPlaylist,
   fn: (s: Session) => Promise<T>,
 ): Promise<T> {
-  const cached = sessions.get(p.id);
+  const cached = sessions.get(sessionKey(p));
   if (cached) {
     try {
       return await fn(cached);
     } catch {
-      sessions.delete(p.id);
+      sessions.delete(sessionKey(p));
     }
   }
   const fresh = await openSession(p);
@@ -204,7 +201,7 @@ async function withSession<T>(
 /** The portal's session endpoint, once discovered (for the add-form to
  * persist onto the playlist so later loads skip the probe). */
 export async function discoverEndpoint(p: StalkerPlaylist): Promise<string> {
-  const s = sessions.get(p.id) ?? (await openSession(p));
+  const s = sessions.get(sessionKey(p)) ?? (await openSession(p));
   return s.base;
 }
 

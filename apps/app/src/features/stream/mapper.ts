@@ -5,6 +5,7 @@ import {
   type StremioStream,
   type StremioVideo,
 } from "../../data/stremio";
+import { calendarDay } from "../../lib/time";
 import type {
   CacheStatus,
   Episode,
@@ -232,7 +233,7 @@ export function mapSeasons(videos: StremioVideo[]): Season[] {
       id: v.id,
       number: v.episode ?? list.length + 1,
       title: v.title ?? v.name ?? `Episode ${v.episode}`,
-      ...(formatAirDate(v.released) ? { airDate: formatAirDate(v.released) } : {}),
+      ...(airDateOf(v.released)),
       ...(httpUrl(v.thumbnail) ? { still: httpUrl(v.thumbnail) } : {}),
     });
     bySeason.set(season, list);
@@ -327,17 +328,25 @@ function castNames(
     .slice(0, 20);
 }
 
-/** ISO date → "Jan 21, 2008". */
+/** ISO date → "Jan 21, 2008". A day, not a moment (calendarDay): Cinemeta
+ * sends the Breaking Bad pilot as `2008-01-21T05:00:00.000Z`, which as an
+ * instant read "Jan 20, 2008" anywhere west of UTC-5. */
 function formatAirDate(released?: string | null): string | undefined {
   if (!released) return undefined;
-  const t = Date.parse(released);
-  if (Number.isNaN(t)) return undefined;
-  return new Date(t).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const day = calendarDay(released);
+  if (Number.isNaN(day.getTime())) return undefined;
+  return AIR_DATE.format(day);
 }
+
+/** One formatter for every episode. toLocaleDateString builds a new one on
+ * each call, and each episode asked twice: 236ms for a 1,100-episode
+ * series in the Stream audit's measurement. */
+const AIR_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+const airDateOf = (released?: string | null): { airDate?: string } => {
+  const airDate = formatAirDate(released);
+  return airDate ? { airDate } : {};
+};
 
 function isHttp(s?: string | null): boolean {
   return httpUrl(s) !== undefined;

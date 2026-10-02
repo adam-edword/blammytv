@@ -14,7 +14,7 @@ import type { Weekend } from "../src/features/sports/model";
 import { toRacing, toWeekend } from "../src/features/sports/racing";
 import circuits from "../src/features/sports/circuits/index.json";
 import { applyAccent, loadAccent } from "../src/features/settings/accent";
-import { applyTheme, loadTheme } from "../src/features/settings/theme";
+import { applyThemePref, loadThemePref } from "../src/features/settings/theme";
 import f1 from "./fixtures/f1.json";
 
 /**
@@ -41,7 +41,7 @@ import f1 from "./fixtures/f1.json";
 const races: Field[] = toRacing(f1 as never, "racing/f1");
 
 applyAccent(loadAccent());
-applyTheme(loadTheme());
+applyThemePref(loadThemePref());
 
 /**
  * The same card at every circuit on the calendar.

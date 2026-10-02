@@ -36,6 +36,19 @@
 //! must call `frontend_ready` to clear it. A sentinel still present at the
 //! next startup means the last boot did not survive, and that version is
 //! quarantined and rolled back automatically.
+//!
+//! ## Dev runs leave it alone
+//!
+//! A `pnpm tauri dev` run loads its page from the dev server and never
+//! serves a staged bundle, but it resolves the same data dir as the
+//! installed app. So it used to arm and clear the INSTALLED app's boot
+//! sentinel, and its launch-time check staged releases there. A dev run
+//! whose page never mounted (v0.10.6, a Windows-only black screen) left the
+//! sentinel armed, and the next dev launch quarantined 0.10.3 in the
+//! installed app, which then fell back to 0.10.0's frontend and refused to
+//! download 0.10.3 again. Now every entry point returns before touching the
+//! folder when `tauri::is_dev()`: the same switch Tauri loads the dev server
+//! by (no `custom-protocol` feature, which `tauri build` turns on).
 
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
@@ -74,6 +87,52 @@ pub struct Active {
     /// falling back to the embedded frontend is always safe.
     #[serde(default)]
     pub native: String,
+    /// Boots in a row of `version` that never reported in. A version that
+    /// has booted here before is only quarantined at two (plan 016 N1).
+    #[serde(default)]
+    pub strikes: u32,
+}
+
+/// A boot of `version` never reported in. Decide what that costs it.
+///
+/// A version that has not booted here yet is quarantined at once: a bundle
+/// that throws before React mounts must roll back on the next launch. A
+/// version that HAS (frontend_ready made it the fallback) gets a second
+/// chance first (plan 016 N1, finding F19): the sentinel is armed on every
+/// boot, so closing the app in the second before the UI mounts, a crash
+/// somewhere else, or losing power used to quarantine a perfectly good
+/// version and leave that user on the old interface until the next release.
+/// Two in a row is a broken bundle; one is bad luck.
+///
+/// Returns true when the version was quarantined and the record now points
+/// one step back.
+fn after_unreported_boot(active: &mut Active) -> bool {
+    let failed = active.version.clone();
+    let known_good = !failed.is_empty() && active.previous == failed;
+    active.strikes += 1;
+    if known_good && active.strikes < 2 {
+        return false;
+    }
+    if !failed.is_empty() && !active.quarantined.contains(&failed) {
+        active.quarantined.push(failed);
+    }
+    active.version = std::mem::take(&mut active.previous);
+    active.strikes = 0;
+    true
+}
+
+/// A version string becomes a DIRECTORY NAME under the data dir, so it is
+/// path input (plan 016 N2, finding F8). Letters, digits and `-` in
+/// dot-separated parts, none of them empty, at least one digit: `0.10.37`
+/// and `0.11.0-rc1` pass, while `..`, `.`, `1..2` and `a/b` do not. `..`
+/// used to pass the character check, and staging it would have pointed the
+/// swap at the data dir's parent and deleted it.
+fn valid_version(v: &str) -> bool {
+    v.len() <= 64
+        && v.bytes().any(|b| b.is_ascii_digit())
+        && v.split('.').all(|part| {
+            !part.is_empty() && part.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        })
 }
 
 /// Where staged frontends live. Resolved WITHOUT an AppHandle, because the
@@ -122,6 +181,11 @@ static SERVING: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 /// Returns the directory to serve from, or `None` for the embedded assets.
 /// Called once at startup, before the window exists.
 pub fn resolve() -> Option<PathBuf> {
+    // A dev run serves the dev server; see "Dev runs leave it alone".
+    if tauri::is_dev() {
+        let _ = SERVING.set(String::new());
+        return None;
+    }
     let root = root()?;
     let mut active = read_active(&root);
     let sentinel = root.join(SENTINEL);
@@ -132,13 +196,21 @@ pub fn resolve() -> Option<PathBuf> {
     // way down to the embedded assets, which ship in the binary and are
     // therefore always present and always known-good for this build.
     if sentinel.exists() {
-        let failed = std::mem::take(&mut active.version);
-        if !failed.is_empty() && !active.quarantined.contains(&failed) {
-            eprintln!("[frontend] {failed} did not survive its first boot; rolling back");
-            active.quarantined.push(failed);
+        let failed = active.version.clone();
+        if after_unreported_boot(&mut active) {
+            eprintln!("[frontend] {failed} did not finish booting; rolling back");
+        } else {
+            eprintln!("[frontend] {failed} did not finish booting once; trying it again");
         }
-        active.version = std::mem::take(&mut active.previous);
         let _ = std::fs::remove_file(&sentinel);
+        write_active(&root, &active);
+    }
+
+    // A record edited by hand, or written before N2, is checked again here:
+    // its version is about to become a path.
+    if !active.version.is_empty() && !valid_version(&active.version) {
+        eprintln!("[frontend] ignoring an unreasonable staged version");
+        active.version.clear();
         write_active(&root, &active);
     }
 
@@ -201,6 +273,10 @@ pub fn resolve() -> Option<PathBuf> {
 /// one. Called from a `useEffect` at the React root.
 #[tauri::command]
 pub fn frontend_ready() {
+    // The sentinel there, if any, is the installed app's boot, not ours.
+    if tauri::is_dev() {
+        return;
+    }
     let Some(root) = root() else { return };
     let sentinel = root.join(SENTINEL);
     if !sentinel.exists() {
@@ -208,6 +284,7 @@ pub fn frontend_ready() {
     }
     let mut active = read_active(&root);
     active.previous = active.version.clone();
+    active.strikes = 0;
     write_active(&root, &active);
     let _ = std::fs::remove_file(&sentinel);
 }
@@ -307,7 +384,15 @@ impl<R: Runtime> Assets<R> for StagedAssets<R> {
 /// minisign public-key FILE, so it carries an untrusted-comment line that
 /// has to be skipped). `sig_b64` is the .sig file's contents, same shape as
 /// the ones the release drill already verifies by hand.
-fn verify(pubkey_b64: &str, sig_b64: &str, bytes: &[u8]) -> Result<(), String> {
+///
+/// `file` is the name the signature must carry. frontend.json is not
+/// signed, only the bundle is, so without this an old signed bundle could
+/// be published under any version label: rolled back to, or renamed past
+/// its own quarantine (finding F8 of the v0.9.79 audit, the half that
+/// v0.10.38 left). `tauri signer sign` writes `file:<name>` into minisign's
+/// trusted comment, which the global signature covers, and the release
+/// check (verify-release.mjs) already insists on the same thing.
+fn verify(pubkey_b64: &str, sig_b64: &str, bytes: &[u8], file: &str) -> Result<(), String> {
     use base64::Engine;
     let b64 = base64::engine::general_purpose::STANDARD;
     let key_file = b64
@@ -332,7 +417,40 @@ fn verify(pubkey_b64: &str, sig_b64: &str, bytes: &[u8]) -> Result<(), String> {
         .map_err(|e| format!("bad signature: {e}"))?;
 
     pk.verify(bytes, &sig, false)
-        .map_err(|_| "signature does not match this bundle".to_string())
+        .map_err(|_| "signature does not match this bundle".to_string())?;
+    // Authentic from here: verify() checked the global signature over it.
+    let named = sig
+        .trusted_comment()
+        .split('\t')
+        .find_map(|part| part.trim().strip_prefix("file:"));
+    if named.map(str::trim) != Some(file) {
+        return Err(format!(
+            "the signature is for {}, not {file}",
+            named.unwrap_or("an unnamed file")
+        ));
+    }
+    Ok(())
+}
+
+/// The numbers of a version, part by part: "0.10.14" is [0, 10, 14]. A
+/// part's leading digits count and anything after them does not.
+fn version_parts(v: &str) -> Vec<u64> {
+    v.split('.')
+        .map(|p| {
+            let digits: String = p.chars().take_while(|c| c.is_ascii_digit()).collect();
+            digits.parse().unwrap_or(0)
+        })
+        .collect()
+}
+
+/// Whether `a` is a later version than `b`. Missing trailing parts are 0,
+/// so "0.10" and "0.10.0" are the same version.
+fn newer(a: &str, b: &str) -> bool {
+    let (mut x, mut y) = (version_parts(a), version_parts(b));
+    let n = x.len().max(y.len());
+    x.resize(n, 0);
+    y.resize(n, 0);
+    x > y
 }
 
 /// Unpack a verified tar.gz into `dir`, refusing any entry that escapes it.
@@ -345,12 +463,30 @@ fn unpack(bytes: &[u8], dir: &Path) -> Result<(), String> {
     let entries = archive.entries().map_err(|e| e.to_string())?;
     for entry in entries {
         let mut entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path().map_err(|e| e.to_string())?.into_owned();
-        if path
-            .components()
-            .any(|c| !matches!(c, std::path::Component::Normal(_)))
-        {
-            return Err(format!("archive entry escapes its directory: {path:?}"));
+        // Files and directories only. A symlink or hard link entry is
+        // written as given, target and all, which checking the entry's own
+        // path does nothing to stop: it could point outside this directory
+        // or link a user's file in to be served as an asset.
+        let kind = entry.header().entry_type();
+        if !(kind.is_file() || kind.is_dir()) {
+            return Err(format!(
+                "archive entry is not a file or a directory: {kind:?}"
+            ));
+        }
+        let raw = entry.path().map_err(|e| e.to_string())?.into_owned();
+        // `./index.html` is how `tar -C dist .` names things (plan 016 N3,
+        // behind the archive fix in Track 0.1): a `.` is dropped, and
+        // anything else that is not a plain name refuses the whole bundle.
+        let mut path = PathBuf::new();
+        for c in raw.components() {
+            match c {
+                std::path::Component::Normal(part) => path.push(part),
+                std::path::Component::CurDir => {}
+                _ => return Err(format!("archive entry escapes its directory: {raw:?}")),
+            }
+        }
+        if path.as_os_str().is_empty() {
+            continue; // the archive's own `./`
         }
         let out = dir.join(&path);
         if let Some(parent) = out.parent() {
@@ -374,19 +510,25 @@ pub fn stage(
     sig_b64: &str,
     bytes: &[u8],
 ) -> Result<(), String> {
-    if version.is_empty()
-        || version
-            .contains(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-')
-    {
+    if !valid_version(version) {
         return Err("refusing an unreasonable version string".into());
     }
+    // One stage at a time. The launch check and a "Check for updates" click
+    // can overlap, and two stages share the staging and target directories
+    // and each sweep what they don't keep: one renamed or swept the
+    // directory the other was still unpacking into, and the next launch
+    // served an index.html whose assets were half there.
+    static STAGING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = STAGING.lock().unwrap_or_else(|e| e.into_inner());
     let root = root().ok_or_else(|| "no data directory".to_string())?;
     let mut active = read_active(&root);
     if active.quarantined.contains(&version.to_string()) {
         return Err(format!("{version} previously failed to boot"));
     }
 
-    verify(pubkey_b64, sig_b64, bytes)?;
+    // The signature must be for this version's bundle by name.
+    let file = format!("frontend-{version}.tar.gz");
+    verify(pubkey_b64, sig_b64, bytes, &file)?;
 
     // Assemble beside the target, then swap in. A half-unpacked directory
     // must never be reachable by resolve().
@@ -470,14 +612,26 @@ pub struct Status {
 
 #[tauri::command]
 pub fn frontend_status() -> Status {
+    // Whatever is waiting there is waiting for the installed app.
+    if tauri::is_dev() {
+        return Status::default();
+    }
     let serving = SERVING.get().cloned().unwrap_or_default();
     let Some(root) = root() else {
         return Status { serving, pending: String::new() };
     };
     let active = read_active(&root);
     // active.version is what the NEXT resolve() will serve. Different from
-    // what this run is serving means something was staged since boot.
-    let pending = if active.version != serving { active.version } else { String::new() };
+    // what this run is serving means something was staged since boot,
+    // unless it is quarantined: a known-good version that failed twice is
+    // left as its own fallback, and resolve() serves the embedded frontend
+    // instead. Reported as pending, Settings offered a "Restart now" that
+    // restarted into the same thing, until the next release.
+    let pending = if active.version != serving && !active.quarantined.contains(&active.version) {
+        active.version
+    } else {
+        String::new()
+    };
     Status { serving, pending }
 }
 
@@ -530,8 +684,15 @@ fn manifest_url_from(endpoint: &str) -> Option<String> {
 /// every fresh install. They would each download a byte-for-byte copy of
 /// the frontend already inside their binary and then serve it through the
 /// staged path, for nothing.
+///
+/// Only ever FORWARD: newer than what is serving and than what is already
+/// staged. The manifest is unsigned, so an older bundle offered as an
+/// update is a rollback, and there is no honest reason to publish one: a
+/// bad hot release is replaced by a newer one.
 fn should_stage(m: &Manifest, native: &str, serving: &str, pending: &str) -> bool {
-    m.native_version == native && m.version != serving && m.version != pending
+    m.native_version == native
+        && newer(&m.version, serving)
+        && (pending.is_empty() || newer(&m.version, pending))
 }
 
 /// Check the hot channel and stage a newer frontend if there is one.
@@ -547,6 +708,11 @@ fn should_stage(m: &Manifest, native: &str, serving: &str, pending: &str) -> boo
 /// replaces it.
 #[tauri::command]
 pub async fn frontend_check(app: tauri::AppHandle) -> Result<String, String> {
+    // Nothing a dev run staged would ever be served to it, and the folder
+    // is the installed app's.
+    if tauri::is_dev() {
+        return Ok(String::new());
+    }
     let (manifest_url, pubkey) = channel_config(&app)?;
     let native_version = env!("CARGO_PKG_VERSION").to_string();
     let client = crate::http_client();
@@ -681,12 +847,80 @@ mod tests {
     /// A version string becomes a DIRECTORY NAME, so it is path input.
     #[test]
     fn refuses_a_version_that_is_not_a_version() {
-        for bad in ["", "../evil", "a/b", "1.0;rm", "..\\evil"] {
+        for bad in ["", "../evil", "a/b", "1.0;rm", "..\\evil", "..", ".", "...", "1..2", ".1", "1.", "abc", "-."] {
             assert!(
                 stage(bad, "0.8.0", "x", "y", b"z").is_err(),
                 "accepted a bad version: {bad:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_version_is_digits_letters_and_dashes_between_dots() {
+        for good in ["0.10.37", "0.11.0-rc1", "1", "2026.9.27"] {
+            assert!(valid_version(good), "refused a good version: {good:?}");
+        }
+    }
+
+    /// Plan 016 N1: one boot that never reported in is bad luck for a
+    /// version that has booted here before, and a broken bundle for one
+    /// that has not.
+    #[test]
+    fn a_new_version_that_never_reports_in_is_quarantined_at_once() {
+        let mut a = Active { version: "0.8.2".into(), previous: "0.8.1".into(), ..Default::default() };
+        assert!(after_unreported_boot(&mut a));
+        assert_eq!(a.quarantined, vec!["0.8.2".to_string()]);
+        assert_eq!(a.version, "0.8.1", "falls back one step");
+        assert_eq!(a.strikes, 0);
+    }
+
+    #[test]
+    fn a_version_that_has_booted_here_gets_a_second_chance() {
+        let mut a = Active { version: "0.8.2".into(), previous: "0.8.2".into(), ..Default::default() };
+        assert!(!after_unreported_boot(&mut a), "one interrupted boot is not a broken bundle");
+        assert_eq!(a.version, "0.8.2");
+        assert!(a.quarantined.is_empty());
+        assert_eq!(a.strikes, 1);
+        assert!(after_unreported_boot(&mut a), "two in a row is");
+        assert_eq!(a.quarantined, vec!["0.8.2".to_string()]);
+        // Its fallback was itself, now quarantined: resolve() serves the
+        // embedded frontend.
+        assert!(a.quarantined.contains(&a.version));
+    }
+
+    /// A link in a bundle is refused whole: its target is written as
+    /// given, which the path check on the entry itself cannot catch.
+    #[test]
+    fn refuses_a_bundle_with_a_link_in_it() {
+        for kind in [tar::EntryType::Symlink, tar::EntryType::Link] {
+            let mut tar = tar::Builder::new(Vec::new());
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(kind);
+            h.set_size(0);
+            h.set_mode(0o644);
+            tar.append_link(&mut h, "assets/leak.txt", "/etc/hostname")
+                .unwrap();
+            let raw = tar.into_inner().unwrap();
+            let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+            gz.write_all(&raw).unwrap();
+            let dir = tmpdir("links");
+            let err = unpack(&gz.finish().unwrap(), &dir).unwrap_err();
+            assert!(err.contains("not a file or a directory"), "{err}");
+            std::fs::remove_dir_all(&dir).ok();
+        }
+    }
+
+    /// Plan 016 N3: `tar -C dist .` names every entry `./…`.
+    #[test]
+    fn unpacks_entries_named_with_a_leading_dot() {
+        let dir = tmpdir("curdir");
+        let gz = targz_named("./index.html", b"<html>");
+        unpack(&gz, &dir).unwrap();
+        assert!(dir.join("index.html").is_file());
+        std::fs::remove_dir_all(&dir).ok();
+        let dir = tmpdir("curdir-escape");
+        assert!(unpack(&targz_named("./../escape", b"no"), &dir).is_err());
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     fn manifest(version: &str, native: &str) -> Manifest {
@@ -729,6 +963,7 @@ mod tests {
             previous: "0.8.1".into(),
             quarantined: vec![],
             native: "0.8.0".into(),
+            strikes: 0,
         };
         assert!(stale.native != "0.9.0", "the case resolve() must catch");
         // An older record predates the field entirely. Unknown pairing is
@@ -755,10 +990,117 @@ mod tests {
         }
     }
 
+    /// A dev run must leave the installed app's channel exactly as it found
+    /// it. A test build IS a dev build (no `custom-protocol`), so this runs
+    /// the real entry points against a data dir set up the way 0.10.3's was:
+    /// a staged bundle, and a boot the installed app has not confirmed yet.
+    /// Without the gate, resolve() reads that sentinel as a failed boot,
+    /// quarantines the bundle and rewrites the record.
+    #[test]
+    fn a_dev_run_leaves_the_installed_apps_channel_alone() {
+        assert!(tauri::is_dev(), "a test build should be a dev build");
+        let data = tmpdir("devrun");
+        let root = data.join("com.blammytv.app").join(DIR);
+        std::fs::create_dir_all(root.join("0.8.3")).unwrap();
+        std::fs::write(root.join("0.8.3").join("index.html"), "<html>").unwrap();
+        let record = format!(
+            r#"{{"version":"0.8.3","previous":"0.8.2","quarantined":[],"native":"{}"}}"#,
+            env!("CARGO_PKG_VERSION")
+        );
+        std::fs::write(root.join(ACTIVE), &record).unwrap();
+        std::fs::write(root.join(SENTINEL), "0.8.3").unwrap();
+        // dirs_data() reads APPDATA on Windows and XDG_DATA_HOME elsewhere.
+        std::env::set_var("APPDATA", &data);
+        std::env::set_var("XDG_DATA_HOME", &data);
+
+        assert!(resolve().is_none());
+        frontend_ready();
+        let s = frontend_status();
+        assert!(s.serving.is_empty() && s.pending.is_empty());
+        assert!(
+            root.join(SENTINEL).is_file(),
+            "the installed app's sentinel was cleared"
+        );
+        assert_eq!(std::fs::read_to_string(root.join(ACTIVE)).unwrap(), record);
+        std::fs::remove_dir_all(&data).ok();
+    }
+
     /// Corrupt signatures must be rejected before anything is unpacked.
     #[test]
     fn rejects_a_bundle_whose_signature_does_not_verify() {
-        let err = verify("bm90LWEta2V5", "bm90LWEtc2ln", b"payload").unwrap_err();
+        let err = verify("bm90LWEta2V5", "bm90LWEtc2ln", b"payload", "f").unwrap_err();
         assert!(!err.is_empty());
+    }
+
+    /// A throwaway key and two real signatures over b"payload", in the
+    /// shapes `tauri signer` writes (made with node's Ed25519 and
+    /// blake2b-512; the private key was never kept). One names
+    /// frontend-0.10.50.tar.gz in its trusted comment, the other
+    /// frontend-0.10.20.tar.gz.
+    const TEST_PUB: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkgdGVzdApSV1NLajZnangremljc2c2YUxlZkZUM29MWlQ1cmw1ckNoa2dxZ2xRdUZmeXUrcnJ1NmFmQzF4eQo=";
+    const SIG_0_10_50: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2o2Z2p4K3ppY3JqVzJvZ0V1OWZyUVRPS0pJd0VubEFTS1dYb1NaK1RCa01IU1FyMVUwc2ZKS1hSNnZ3Njd6Y2JVR2diOE93V1dqb0pKNW9jd3kxclEvSjFuV25BakFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzAwMDAwMDAwCWZpbGU6ZnJvbnRlbmQtMC4xMC41MC50YXIuZ3oKWlA5ZFQ2RFU4SFZzc0ZjN2tiQjdad2NLUWlWaG5Bclg1RUVRNFQwRll1QWdxTXRzbEJoYm5TMHZTdWphZDg3cXltR3JWTmg1a3QzWFNMS0Z6Y2dXQ2c9PQo=";
+    const SIG_0_10_20: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTS2o2Z2p4K3ppY3JqVzJvZ0V1OWZyUVRPS0pJd0VubEFTS1dYb1NaK1RCa01IU1FyMVUwc2ZKS1hSNnZ3Njd6Y2JVR2diOE93V1dqb0pKNW9jd3kxclEvSjFuV25BakFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzAwMDAwMDAwCWZpbGU6ZnJvbnRlbmQtMC4xMC4yMC50YXIuZ3oKbGdsL2NzVkE1aXorMFhESUtnc3lJb3pYbFh5WHVSMFQ0Qk5MQUhPa1B3WXVsOWxSVGo0Y3hvL1BCM1dXbjcyb1pHSWJ2MVV2OHBOMnAyNDllcEhEQUE9PQo=";
+
+    #[test]
+    fn a_signature_counts_only_for_the_file_it_names() {
+        assert_eq!(
+            verify(TEST_PUB, SIG_0_10_50, b"payload", "frontend-0.10.50.tar.gz"),
+            Ok(())
+        );
+        // The same signed bytes, offered as another version: an old bundle
+        // relabelled in frontend.json.
+        let err = verify(TEST_PUB, SIG_0_10_20, b"payload", "frontend-0.10.50.tar.gz").unwrap_err();
+        assert!(err.contains("frontend-0.10.20.tar.gz"), "{err}");
+        // And the name does not rescue bytes that were not signed.
+        assert!(verify(
+            TEST_PUB,
+            SIG_0_10_50,
+            b"tampered",
+            "frontend-0.10.50.tar.gz"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn versions_compare_by_number() {
+        assert!(newer("0.10.14", "0.10.3"));
+        assert!(newer("0.10.0", "0.9.132"));
+        assert!(newer("1.0", "0.99.99"));
+        assert!(!newer("0.10.3", "0.10.14"));
+        assert!(!newer("0.10", "0.10.0"));
+        assert!(!newer("0.10.3", "0.10.3"));
+        assert!(newer("0.10.3", ""));
+    }
+
+    /// Only forward (the rollback half of F8): an older signed bundle
+    /// offered as an update is refused, against what is serving and what is
+    /// already staged.
+    #[test]
+    fn an_older_bundle_is_never_staged() {
+        assert!(!should_stage(
+            &manifest("0.10.20", "0.10.0"),
+            "0.10.0",
+            "0.10.30",
+            ""
+        ));
+        assert!(!should_stage(
+            &manifest("0.10.28", "0.10.0"),
+            "0.10.0",
+            "0.10.14",
+            "0.10.30"
+        ));
+        assert!(should_stage(
+            &manifest("0.10.31", "0.10.0"),
+            "0.10.0",
+            "0.10.14",
+            "0.10.30"
+        ));
+        // A first hot release over the embedded frontend (serving = native).
+        assert!(should_stage(
+            &manifest("0.10.3", "0.10.0"),
+            "0.10.0",
+            "0.10.0",
+            ""
+        ));
     }
 }

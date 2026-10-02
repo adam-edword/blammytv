@@ -153,10 +153,13 @@ jobs:
 
       # CLAUDE.md's baseline: 9 warnings, all the libmpv symbol transmutes
       # at mpv.rs:89-103. Anything above that is new and fails the job.
+      # --color never: the toolchain step sets CARGO_TERM_COLOR=always, and
+      # with colour codes in front of every "warning:" the grep matched
+      # nothing and the gate read 0 on every run.
       - name: clippy (baseline 9 warnings)
         working-directory: apps/app/src-tauri
         run: |
-          cargo clippy --locked 2>&1 | tee clippy.txt
+          cargo clippy --locked --color never 2>&1 | tee clippy.txt
           n=$(grep -E '^warning: ' clippy.txt | grep -vcE 'generated [0-9]+ warnings?' || true)
           echo "clippy warnings: $n (baseline 9)"
           if [ "$n" -gt 9 ]; then

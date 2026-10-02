@@ -1,5 +1,16 @@
 # 016: Working the v0.9.79 audit
 
+**Status, 2026-09-28 (v0.10.61):** Tracks 0 and 1 done (below). Track 2
+became plan 017, complete. Track 3 is ROADMAP's M2, done in v0.10.29 to
+v0.10.37, with 3.6 (delete what is unused) in v0.10.61. Track 6 is closed
+(v0.10.56 to v0.10.59): F18 stays as the tradeoff its test pins, F22 waits
+on a real late-night game to probe. Track N: N1 to N5 and N7 in v0.10.38.
+Its N6 note below says the frontend still calls `mpv_blur` and
+`mpv_snapshot`; it does not (checked 2026-09-28), and both are kept as
+dormant on purpose, a native removal that is Adam's to call. Open: Track
+4 (each screen once; 4.8 and 4.9, the light pass and the glass, are plan
+022), Track 5 (download size) and Track 7 (hygiene).
+
 **Status (2026-09-24, v0.9.103):** Adam agreed all eight recommendations
 (D1 to D8). **Track 0 and Track 1 are done**, v0.9.82 to v0.9.96, each fix
 with a check that fails without it; so are ROADMAP M1 steps 1 and 5 and
@@ -421,16 +432,20 @@ the budget is 710KB.
 6. **Runtime, each with a before and after number:**
    - Stamp the disk snapshot with a schema version and skip
      re-normalising when it matches. Don't delete the loop: this clone
-     can't prove every old snapshot has expired.
+     can't prove every old snapshot has expired. *Done v0.10.62
+     (`normalized: true` on the record; 15 to 30ms off a launch at 1,588
+     guides).*
    - Key the sports index on a content fingerprint, so a background
-     refresh with the same channels reuses it.
+     refresh with the same channels reuses it. *Done v0.10.52.*
    - One `Intl.DateTimeFormat` per `matchEvent`.
    - `memo` on TheaterOverlay (check `setOverlayApiOverride` first). The
-     Guide's layout effect reads before it writes.
+     Guide's layout effect reads before it writes. *The Guide's half done
+     v0.10.62: 60 to 72 layouts a row step to 18 to 20, held by
+     verify-guide-pins.*
    - SaveButton parses once. RowScroller writes only changed tabindexes.
      Up Next's countdown state moves into Up Next.
    - Delete the update chip's endless animation of a property nothing
-     reads.
+     reads. *Done v0.10.61.*
    - Reserve boxes for logos and Continue Watching art, so nothing shifts
      on load.
 
@@ -498,6 +513,15 @@ sweep commit.
 ---
 
 ## Track N: the next native release (0.10.0, now the freeze is lifted)
+
+**Status, v0.10.38 (2026-09-27): N1 to N5 and N7 are in**, for the next
+installer release (Adam: "native hardening", with Trakt, MAL and the
+player's re-render fix). N1 went in as "a version that has booted here
+gets a second chance, a new one does not". N2 is the strict version check;
+carrying the version inside the signed tarball is left, since the check
+already refuses every path-shaped name. N6 is moot: `open_external` is
+Trakt's Open Trakt now, and the frontend still calls `mpv_blur` and
+`mpv_snapshot`. N8 was not needed: multi-view plays under the current CSP.
 
 In order of how much each protects users. None of these can reach anyone
 before a native release. They waited for one after M3; since v0.9.101,

@@ -130,6 +130,23 @@ describe("parseXmltvOffThread", () => {
   });
 });
 
+describe("a programme with no stop (F17)", () => {
+  it("runs until the next one on its channel; the last has nothing to end it", () => {
+    const out = parseXmltv(
+      doc(
+        `<programme channel="a" start="${at(0)}"><title>Open</title></programme>` +
+          `<programme channel="a" start="${at(1, 30)}" stop="${at(2)}"><title>Closed</title></programme>` +
+          `<programme channel="a" start="${at(3)}"><title>Last</title></programme>`,
+      ),
+      ids({ a: ["p:1"] }),
+      NOW,
+    );
+    const list = out.get("p:1")!;
+    expect(list.map((p) => p.title)).toEqual(["Open", "Closed"]);
+    expect(list[0].end.getTime()).toBe(list[1].start.getTime());
+  });
+});
+
 describe("parseXmltvTime", () => {
   it("parses explicit offsets", () => {
     expect(parseXmltvTime("20260614200000 +0000")).toBe(
@@ -148,6 +165,17 @@ describe("parseXmltvTime", () => {
     expect(parseXmltvTime("20260101000000")).toBe(
       Date.parse("2026-01-01T00:00:00Z"),
     );
+  });
+
+  it("reads a time cut short from the right, as the spec allows (F17)", () => {
+    expect(parseXmltvTime("202606142030 +0000")).toBe(Date.parse("2026-06-14T20:30:00Z"));
+    expect(parseXmltvTime("2026061420 +0000")).toBe(Date.parse("2026-06-14T20:00:00Z"));
+    expect(parseXmltvTime("20260614")).toBe(Date.parse("2026-06-14T00:00:00Z"));
+  });
+
+  it("reads an offset written with a colon", () => {
+    expect(parseXmltvTime("20260614200000 +05:30")).toBe(Date.parse("2026-06-14T20:00:00+05:30"));
+    expect(parseXmltvTime("20260614200000 -03:00")).toBe(Date.parse("2026-06-14T20:00:00-03:00"));
   });
 
   it("rejects garbage", () => {

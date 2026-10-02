@@ -17,8 +17,6 @@ import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import type { Channel, LiveData } from "./model";
 import type { Fixture } from "../sports/model";
-import { EYEBROW } from "../../ui/eyebrow";
-import { Kbd } from "../../ui/Kbd";
 
 /**
  * The channel picker (plan 017, P3; decision M3): a search-first palette
@@ -42,6 +40,11 @@ import { Kbd } from "../../ui/Kbd";
  * taking a feed adds it. Escape, Backspace in an empty search or the arrow
  * go back to the list. Fill with live games still takes each game's best
  * match: it is the one-press way, and a feed can be changed after with R.
+ *
+ * It looks like the app's palette, shadcn's stock Command (v0.10.26, Adam:
+ * "make the multiview ctrlk similar looking? without losing the cool live
+ * games thing"): a game keeps the Sports matchup, smaller. The old key
+ * footer's one fact, how many more fit on your line, is in the field.
  */
 
 export type PickerMode = { kind: "add" } | { kind: "replace"; id: string; name: string };
@@ -297,7 +300,8 @@ export function MultiviewPicker({
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
-        className="mvpick top-[96px] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
+        // The palette's frame (Palette.tsx): shadcn's Command in its dialog.
+        className="mvpick top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl border-float-border bg-popover p-1 text-popover-foreground shadow-(--float-shadow) [backdrop-filter:var(--float-blur)] sm:max-w-md"
         style={motion}
         onCloseAutoFocus={onCloseAutoFocus}
         // One layer at a time (the app's rule since v0.9.91): from a game's
@@ -323,10 +327,10 @@ export function MultiviewPicker({
           <div className="mvpick__head">
             {feedsOf ? (
               <button type="button" className="mvpick__back" aria-label="Back to the list" onClick={back}>
-                <BackArrowIcon size={19} />
+                <BackArrowIcon size={16} />
               </button>
             ) : (
-              <SearchIcon size={19} aria-hidden />
+              <SearchIcon size={16} className="shrink-0 opacity-50" aria-hidden />
             )}
             <Autocomplete.Input
               className="mvpick__input"
@@ -342,6 +346,7 @@ export function MultiviewPicker({
             <span className="mvpick__target">
               {mode.kind === "replace" ? `Replaces ${mode.name}` : null}
             </span>
+            {mode.kind === "add" && !feedsOf && <span className="mvpick__room">{leftLine(room)}</span>}
           </div>
 
           <div className="mvpick__body">
@@ -357,7 +362,7 @@ export function MultiviewPicker({
             <Autocomplete.List>
               {(section: Section) => (
                 <Autocomplete.Group key={section.value} items={section.items} className="mvpick__group">
-                  <Autocomplete.GroupLabel className={`mvpick__sec ${EYEBROW}`}>{section.value}</Autocomplete.GroupLabel>
+                  <Autocomplete.GroupLabel className="mvpick__sec">{section.value}</Autocomplete.GroupLabel>
                   <Autocomplete.Collection>
                     {(row: Row) => {
                       const taken = isTaken(row, inGrid);
@@ -397,25 +402,6 @@ export function MultiviewPicker({
               )}
             </Autocomplete.List>
           </div>
-
-          <div className="mvpick__foot">
-            <span>
-              <Kbd>↑</Kbd>
-              <Kbd>↓</Kbd>
-              move
-            </span>
-            <span>
-              <Kbd>↵</Kbd>
-              {feedsOf ? "pick" : mode.kind === "replace" ? "replace" : "add"}
-            </span>
-            <span>
-              <Kbd>esc</Kbd>
-              {feedsOf ? "back" : "close"}
-            </span>
-            <span className="mvpick__left">
-              {mode.kind === "replace" ? "Same place, same sound" : leftLine(room)}
-            </span>
-          </div>
         </Autocomplete.Root>
       </DialogContent>
     </Dialog>
@@ -441,7 +427,7 @@ function ChannelRow({
   ].filter(Boolean);
   return (
     <>
-      <ChannelLogo name={channel.name} logo={channel.logo} size={34} />
+      <ChannelLogo name={channel.name} logo={channel.logo} size={20} />
       <span className="mvpick__meta">
         <span className="mvpick__name">
           <span className="mvpick__nametext">{channel.name}</span>

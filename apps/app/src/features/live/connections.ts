@@ -74,11 +74,17 @@ export function useConnections(
    * indistinguishable from the key alone — and they want opposite timing:
    * mount should ask at once, a stop should give the panel a beat first. */
   const lastKey = useRef<string | null | undefined>(undefined);
-  /** Monotonic token so only the NEWEST refresh may write. The 4s and 20s
+  /** Monotonic token so an OLDER refresh never writes over a newer one. The 4s and 20s
    * looks are 16s apart while the Rust HTTP client's timeout is 30s, so the
    * early response can genuinely land after the late one and put the stale
    * count back. `stale` only guards across effect runs, not within one. */
   const seq = useRef(0);
+  /** The newest request whose answer has been APPLIED, per line. An answer
+   * gives way only to a newer one that has already landed, not to a newer
+   * request still out: with the fast 4s look and a panel slower than that,
+   * every answer was overtaken by the next ask and thrown away, and a tile
+   * waiting for a slot waited the full 45s. */
+  const applied = useRef(new Map<string, number>());
   useEffect(() => {
     let stale = false;
     const refresh = () => {
@@ -87,7 +93,8 @@ export function useConnections(
         if (p.kind !== "xtream" || !p.enabled) continue;
         void fetchConnections(p).then(
           (c) => {
-            if (stale || mine !== seq.current) return;
+            if (stale || mine < (applied.current.get(p.id) ?? 0)) return;
+            applied.current.set(p.id, mine);
             // A new Map every good poll, even with the same numbers: the
             // reading's time is part of it (LineReading). That is one
             // render a minute, a few seconds apart only while a

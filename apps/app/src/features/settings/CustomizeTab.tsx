@@ -46,17 +46,15 @@ import { AccentPicker } from "./AccentPicker";
 import {
   clearAccent,
   saveAccent,
-  saveAccentPairedBy,
   saveCustomAccent,
 } from "./accent";
-import { applyTheme, saveTheme, type Theme } from "./theme";
 import {
-  UI_SCALES,
-  applyUiScale,
-  loadUiScale,
-  saveUiScale,
-  type UiScale,
-} from "./uiScale";
+  THEME_TABS,
+  applyThemePref,
+  loadThemePref,
+  saveThemePref,
+  type ThemePref,
+} from "./theme";
 import {
   CLOCK_TABS,
   loadClockFormat,
@@ -67,11 +65,7 @@ import {
   loadShowChannelNumber,
   saveShowChannelNumber,
 } from "./channelNumber";
-
-const SCALE_TABS = UI_SCALES.map((s) => ({
-  key: String(s),
-  label: `${Math.round(s * 100)}%`,
-}));
+import { Hint } from "../../ui/Hint";
 
 // CLOCK_TABS lives in clockFormat.ts — one list shared with onboarding.
 
@@ -112,11 +106,12 @@ const SUB_OPTIONS: ComboboxOption[] = [
 // The accent picker lives here again (ROADMAP decision 1). Theme packs and
 // the Themes Pass are parked in old/themes and come back later with new looks.
 export function CustomizeTab() {
-  // Light/dark axis state exists only so reset() can force dark — the user
-  // control (the Theme Style pill) lives in the Themes panel now.
-  const pickTheme = (next: Theme) => {
-    saveTheme(next);
-    applyTheme(next);
+  // Appearance (plan 022): Dark, Light, or Windows' own setting.
+  const [theme, setTheme] = useState<ThemePref>(loadThemePref);
+  const pickTheme = (next: ThemePref) => {
+    setTheme(next);
+    saveThemePref(next);
+    applyThemePref(next);
   };
 
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
@@ -127,13 +122,6 @@ export function CustomizeTab() {
 
   // Ephemeral, like General's Sources: always opens on Stream.
   const [world, setWorld] = useState<"stream" | "live">("stream");
-
-  const [scale, setScale] = useState<UiScale>(loadUiScale);
-  const pickScale = (next: UiScale) => {
-    setScale(next);
-    saveUiScale(next);
-    applyUiScale(next);
-  };
 
   const [clock, setClock] = useState<ClockFormat>(loadClockFormat);
   const pickClock = (next: ClockFormat) => {
@@ -208,7 +196,7 @@ export function CustomizeTab() {
   const [accentKey, setAccentKey] = useState(0);
 
   /** Back to factory appearance: default accent (custom slot cleared),
-   * dark theme, 100% scale, 12h clock, channel numbers shown. Startup Tab is
+   * dark appearance, 12h clock, channel numbers shown. Startup Tab is
    * NOT reset, even though it is displayed on this tab: it decides where the
    * app OPENS, which is behaviour, and this button promises appearance. */
   const reset = () => {
@@ -218,11 +206,9 @@ export function CustomizeTab() {
     // put the brand red back on a button labelled "Reset Appearance".
     saveAccent("");
     clearAccent();
-    saveAccentPairedBy("");
     saveCustomAccent("");
     setAccentKey((k) => k + 1);
     pickTheme("dark");
-    pickScale(1);
     pickClock("12h");
     setChanNum(true);
     saveShowChannelNumber(true);
@@ -252,6 +238,16 @@ export function CustomizeTab() {
 
         <div className="customize-row">
           <div>
+            <h4 className="customize-row__title">Appearance</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Light, dark, or whatever Windows is set to.
+            </p>
+          </div>
+          <Segmented label="Appearance" options={THEME_TABS} value={theme} onChange={pickTheme} />
+        </div>
+
+        <div className="customize-row">
+          <div>
             <h4 className="customize-row__title">Startup Tab</h4>
             <p className="settings__section-note settings__section-note--dim">
               Where the app opens.
@@ -270,20 +266,6 @@ export function CustomizeTab() {
           <Segmented label="Clock format" options={CLOCK_TABS} value={clock} onChange={pickClock} />
         </div>
 
-        <div className="customize-row">
-          <div>
-            <h4 className="customize-row__title">UI Scale</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Make everything bigger or smaller.
-            </p>
-          </div>
-          <Segmented
-            label="UI scale"
-            options={SCALE_TABS}
-            value={String(scale)}
-            onChange={(key) => pickScale(Number(key) as UiScale)}
-          />
-        </div>
 
       </section>
 
@@ -438,6 +420,7 @@ export function CustomizeTab() {
                   }}
                 />
               ) : (
+                <Hint label="Click to type an exact value">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -446,11 +429,11 @@ export function CustomizeTab() {
                   // INPUT beside it, which is not a Button and still needs
                   // its own type. The button half takes shadcn's instead.
                   className="rowcap__value--btn"
-                  title="Click to type an exact value"
                   onClick={() => setCapDraft(String(rowCap))}
                 >
                   {rowCap}
                 </Button>
+                </Hint>
               )}
             </div>
           </div>
@@ -590,7 +573,7 @@ export function CustomizeTab() {
             <div>
               <h4 className="customize-row__title">Reset Appearance</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Accent, theme, scale, and clock back to defaults.
+                Accent, appearance and clock back to defaults.
               </p>
             </div>
             <Button

@@ -147,6 +147,13 @@ describe("explainFailure", () => {
   });
 });
 
+describe("a codec refusal names the codec refused", () => {
+  it("the audio, when that's the one", () => {
+    const f = explainFailure("CN", { playable: false, codecs: "avc1.64001f + ac-3", refused: "ac-3" });
+    expect(f.reason).toMatch(/It’s AC-3,/);
+  });
+});
+
 describe("unplayable", () => {
   const only = (ok: string[]) => (mime: string) => ok.some((c) => mime.includes(c));
 
@@ -161,6 +168,12 @@ describe("unplayable", () => {
   it("is null when everything plays, or nothing is known yet", () => {
     expect(unplayable("avc1.64001f", "mp4a.40.2", only(["avc1", "mp4a"]))).toBeNull();
     expect(unplayable(undefined, undefined, only([]))).toBeNull();
+  });
+
+  it("asks for MPEG audio as audio/mpeg, the way mpegts.js feeds it to Chromium", () => {
+    const asked: string[] = [];
+    expect(unplayable("avc1.64001f", "mp3", (m) => (asked.push(m), m !== 'audio/mp4; codecs="mp3"'))).toBeNull();
+    expect(asked).toContain("audio/mpeg");
   });
 
   it("asks in the shape MediaSource.isTypeSupported takes", () => {

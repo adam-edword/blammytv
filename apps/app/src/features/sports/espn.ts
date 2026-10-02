@@ -4,6 +4,8 @@ import { toRacing, toWeekends, type RawRacing } from "./racing";
 import { golfPath, toGolf, type RawGolf } from "./golf";
 import { isTournament } from "./model";
 import type { Competitor, Fixture, Game, GameState, Tournament } from "./model";
+import { formatClock } from "../../lib/time";
+import { loadClockFormat } from "../settings/clockFormat";
 
 /**
  * The schedule source (plan 010, phase 1): ESPN's undocumented scoreboard
@@ -475,7 +477,13 @@ export async function fetchLeague(
   let raw: RawScoreboard;
   try {
     raw = await gate(async () => {
-      const res = await fetch(url, { signal });
+      // A request that never answers gives its slot back after 15s. With
+      // none, one hung connection held a slot for good, and six of them
+      // stalled every board until a restart (plan 016, F16). Counted as a
+      // failure below (our own signal isn't the one that fired), so the
+      // path backs off like any other.
+      const timeout = AbortSignal.timeout(15_000);
+      const res = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
       if (!res.ok) throw new Error(`ESPN ${path}: HTTP ${res.status}`);
       return (await res.json()) as RawScoreboard;
     });
@@ -952,9 +960,8 @@ function toGame(
 function statusText(state: GameState, start: Date, shortDetail?: string): string {
   if (state === "final") return (shortDetail ?? "").split("/")[0].trim();
   if (state === "live") return (shortDetail ?? "").split(",").pop()?.trim() ?? "";
-  return start
-    .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-    .replace(/\s/g, "");
+  // The clock format Settings names (plan 016 F21), not always 12-hour.
+  return formatClock(start, loadClockFormat()).replace(/\s/g, "");
 }
 
 /**

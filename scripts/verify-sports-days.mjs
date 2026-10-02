@@ -539,6 +539,44 @@ check("the base window's own count is right", before === inBase + REACHED,
 
 if (process.env.SHOT_DIR)
   await page.screenshot({ path: `${process.env.SHOT_DIR}/sports-days.png` });
+
+// ---- A REFRESH WHILE THE FIRST BOARD IS STILL LOADING ----------------
+// Coming back to the app (a visibilitychange), a theater closing or the
+// 90s tick asks for today. That used to drop the whole board still on its
+// way, and today's answer had no board to land in: the skeleton stayed up
+// for good. ESPN answers slowly here so the refresh lands mid-load.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  const slow = await ctx.newPage();
+  await slow.route(/site\.api\.espn\.com/, async (route) => {
+    const dates = new URL(route.request().url()).searchParams.get("dates") ?? "";
+    await new Promise((r) => setTimeout(r, 2500));
+    const body = dates === "" || dates.includes("-") ? { events: [] } : boardFor(dates);
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) }).catch(() => {});
+  });
+  await slow.route(/a\.espncdn\.com/, (route) => route.abort());
+  await slow.addInitScript((pl) => {
+    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
+    sessionStorage.setItem("btv:welcome-played", "1");
+    localStorage.setItem(
+      "blammytv.sports-follows",
+      JSON.stringify({ v: 1, data: { leagues: ["football/college-football"], teams: [] } }),
+    );
+  }, PLAYLIST);
+  await slow.goto(process.env.APP_URL ?? "http://localhost:4173/", { waitUntil: "domcontentloaded" });
+  await slow.waitForSelector(".navcap", { timeout: 20_000 });
+  await goTo(slow, "sports");
+  // Mid-load: back to the app.
+  await slow.waitForTimeout(800);
+  await slow.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  const landed = await slow
+    .waitForFunction(() => document.querySelectorAll(".sports__grid > *").length > 0, null, { timeout: 12_000 })
+    .then(() => true, () => false);
+  check("a refresh while the first board is loading does not leave the skeleton up", landed,
+    landed ? "" : "no cards 12s after the load started");
+  await ctx.close();
+}
 await browser.close();
 console.log(fail ? `\n${fail} check(s) FAILED` : "\nall checks passed");
 process.exit(fail ? 1 : 0);

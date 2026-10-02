@@ -278,6 +278,17 @@ export function lineFor<L>(conns: ReadonlyMap<string, L>, picks: readonly Pick[]
 }
 
 /**
+ * The line one channel is on: its playlist's reading, or null for a source
+ * with no count (M3U, Stalker). What a single tile's reconnect waits on,
+ * where `lineFor` is what the whole grid is held to and is null whenever
+ * the grid spans two sources.
+ */
+export function lineOfChannel<L>(conns: ReadonlyMap<string, L>, channelId: string): L | null {
+  for (const [id, line] of conns) if (channelId.startsWith(`${id}:`)) return line;
+  return null;
+}
+
+/**
  * How long after the grid changed a count has to have been TAKEN for its
  * "in use elsewhere" to be believed. A panel takes up to about 20 seconds
  * to notice a stream has gone, and connections.ts asks again at 20. It

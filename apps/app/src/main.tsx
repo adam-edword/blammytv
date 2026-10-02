@@ -20,8 +20,7 @@ import { installDiscoverProbe } from "./features/discover/probe";
 import { installSportsProbe } from "./features/sports/probe";
 import { installPlayerProbes } from "./features/live/probe";
 import { applyAccent, loadAccent } from "./features/settings/accent";
-import { applyTheme } from "./features/settings/theme";
-import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
+import { applyThemePref, loadThemePref } from "./features/settings/theme";
 
 // Apply saved appearance before first paint so nothing flashes.
 //
@@ -41,15 +40,21 @@ import { applyUiScale, loadUiScale } from "./features/settings/uiScale";
 // decision 1); a stored `aurora` style is read by nothing.
 const accent = loadAccent();
 if (accent) applyAccent(accent);
-// DARK, whatever is stored (plan 016, decision D1). Light has had no
-// control since the Themes panel was parked in v0.9.58, and several of its
-// surfaces are broken (white text on a white toast, invisible hover fills,
-// dark names on the Sports rail), so a light setting carried over from
-// 0.9.0 painted a broken app with no way out but Reset. Light comes back
-// with its control in M3's light pass. The stored value is left alone, so
-// nobody's choice is lost in the meantime.
-applyTheme("dark");
-applyUiScale(loadUiScale());
+// The stored appearance, read again (plan 022). From v0.9.58 to v0.10.64
+// this was dark whatever was stored (plan 016, D1): light had no control
+// and several broken surfaces, so a light setting carried over from 0.9.0
+// painted a broken app with no way out but Reset. v0.10.64 fixed the
+// surfaces and Settings → Customize → Appearance is the control, so a
+// stored choice, 0.9.0's included, applies again. Dark is the default.
+applyThemePref(loadThemePref());
+// UI Scale is gone (v0.10.24, Adam: "remove it entirely"): it zoomed the
+// whole page, and every screen that measures itself carried arithmetic to
+// undo it. Its stored notch goes with it.
+try {
+  localStorage.removeItem("blammytv.uiScale");
+} catch {
+  /* storage unavailable: nothing was stored either */
+}
 // Paid theme CSS, purely from cache — see license.ts's fail-open comment.
 
 // `playerPerf(seconds)` in the devtools console — the player perf probe

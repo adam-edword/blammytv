@@ -76,11 +76,6 @@ export function mergeLeagues(
   return out;
 }
 
-/** For tests: forget the last look. */
-export function resetGamesToday(): void {
-  last = null;
-}
-
 /**
  * Channels for the LIVE games, each game worked out once per catalog.
  *

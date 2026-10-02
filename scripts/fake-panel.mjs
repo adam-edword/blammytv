@@ -111,7 +111,9 @@ const fmt = (ms) =>
   new Date(ms).toISOString().replace(/[-:T]/g, "").slice(0, 14) + " +0000";
 
 function xmltv() {
-  const now = Date.now();
+  // FAKE_NOW pins the guide to a moment (scripts/screens.mjs), so two
+  // captures an hour apart draw the same programmes.
+  const now = Number(process.env.FAKE_NOW) || Date.now();
   const HOUR = 3600_000;
   // Half-hour-aligned blocks so cells land on clean guide slots.
   const base = Math.floor(now / (30 * 60_000)) * 30 * 60_000;
@@ -164,6 +166,67 @@ const PNG = Buffer.from(
   "base64",
 );
 
+// username "dups": a line where a stream is filed under two categories,
+// as real panels do, so the same stream_id is listed twice, side by side.
+// Three hundred of them, every other one repeated: what verify-guide-dups
+// scrolls through (the Guide's "Maximum update depth" crash).
+const DUPS = [];
+for (let i = 0; i < 300; i++) {
+  const s = { num: i + 1, name: `Dup Channel ${i + 1}`, stream_type: "live", stream_id: 5000 + i, stream_icon: null, epg_channel_id: null, category_id: "1" };
+  DUPS.push(s);
+  if (i % 2 === 0) DUPS.push({ ...s, category_id: "2" });
+}
+
+// username "pins": forty channels with a guide each, what verify-guide-pins
+// scrolls through. Programme lengths vary per channel so every lane hands
+// its pin to the next cell at a different scroll, and titles run from one
+// word to far wider than any cell, so a pinned title is sometimes faded
+// and sometimes not.
+const PINS = Array.from({ length: 40 }, (_, i) => ({
+  num: i + 1,
+  name: `Pin Channel ${i + 1}`,
+  stream_type: "live",
+  stream_id: 6000 + i,
+  stream_icon: null,
+  epg_channel_id: `pin${i}.fake`,
+  category_id: "1",
+}));
+const PIN_TITLES = [
+  "News",
+  "Late Movie",
+  "The Extraordinarily Long Evening Documentary Series",
+  "Match of the Day: Extended Highlights and Analysis",
+  "Quiz",
+];
+const PIN_MINUTES = [25, 40, 55, 30, 45];
+
+function pinsXmltv() {
+  const now = Number(process.env.FAKE_NOW) || Date.now();
+  const MIN = 60_000;
+  const base = Math.floor(now / (30 * MIN)) * 30 * MIN;
+  const progs = [];
+  PINS.forEach((s, i) => {
+    let t = base - 60 * MIN - ((i * 7) % 25) * MIN;
+    for (let k = 0; t < base + 6 * 60 * MIN; k++) {
+      const len = PIN_MINUTES[(i + k) % PIN_MINUTES.length] * MIN;
+      const title = PIN_TITLES[(i * 3 + k) % PIN_TITLES.length];
+      progs.push(
+        `<programme start="${fmt(t)}" stop="${fmt(t + len)}" channel="${s.epg_channel_id}">` +
+          `<title>${title}</title><desc>Programme ${k + 1}.</desc></programme>`,
+      );
+      t += len;
+    }
+  });
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?><tv>` +
+    PINS.map((s) => `<channel id="${s.epg_channel_id}"><display-name>${s.name}</display-name></channel>`).join("") +
+    progs.join("") +
+    `</tv>`
+  );
+}
+
+const LINES = { dups: DUPS, pins: PINS };
+
 http
   .createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -192,12 +255,12 @@ http
       if (action === "get_live_categories")
         return res.end(JSON.stringify(CATEGORIES));
       if (action === "get_live_streams")
-        return res.end(JSON.stringify(STREAMS));
+        return res.end(JSON.stringify(LINES[url.searchParams.get("username")] ?? STREAMS));
       return res.end("[]");
     }
     if (url.pathname === "/xmltv.php") {
       res.setHeader("Content-Type", "application/xml");
-      return res.end(xmltv());
+      return res.end(url.searchParams.get("username") === "pins" ? pinsXmltv() : xmltv());
     }
     if (url.pathname === "/logo.png") {
       res.setHeader("Content-Type", "image/png");

@@ -1,5 +1,5 @@
 import { memo } from "react";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import type { Tournament } from "./model";
 
@@ -43,7 +43,7 @@ function TournamentCardImpl({
       }
       data-game={event.id}
       onClick={() => onOpen?.(event)}
-      title={`${event.title}${event.venue ? ` · ${event.venue}` : ""}\n${count} ${
+      data-hint={`${event.title}${event.venue ? ` · ${event.venue}` : ""}\n${count} ${
         count === 1 ? "match" : "matches"
       }`}
     >

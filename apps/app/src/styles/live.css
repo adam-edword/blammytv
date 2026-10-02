@@ -286,6 +286,10 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  /* The row window owns the scroll position: rows above it are a spacer
+   * of the same height, so there is nothing for the browser to correct.
+   * Its anchoring could only fight the window (see Guide's rowKeys). */
+  overflow-anchor: none;
 }
 
 /* Drag handle for the channel-card column width (the old build's): a
@@ -907,7 +911,7 @@
   font-family: var(--font-headline);
   font-weight: 600;
   font-size: 13.5px;
-  color: #fff;
+  color: var(--text);
   max-width: 44ch;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1005,8 +1009,8 @@
   height: 1000px;
   pointer-events: none;
   background: radial-gradient(
-    circle closest-side,
-    rgba(255, 255, 255, 0.07),
+    circle closest-side in srgb,
+    color-mix(in srgb, var(--text) 7%, transparent),
     transparent
   );
   transform: translate(var(--mx, -9999px), var(--my, -9999px));

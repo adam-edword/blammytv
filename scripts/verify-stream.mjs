@@ -72,6 +72,40 @@ const stillHere = await page.evaluate(() => {
 check("autoplay holds while focus is in the hero", stillHere);
 await page.evaluate(() => document.activeElement?.blur());
 
+// Click-and-drag on a shelf (lib/useDragScroll since v0.10.18, shared with
+// multi-view's scores row): the row follows the pointer 1:1, and the card
+// the drag started on stays shut.
+const probed = await page.evaluate(() => {
+  const el = [...document.querySelectorAll(".media-row__scroller")].find((s) => s.scrollWidth > s.clientWidth + 200);
+  if (!el) return false;
+  el.scrollLeft = 0;
+  el.dataset.dragProbe = "1";
+  return true;
+});
+const shelf = page.locator("[data-drag-probe]");
+let shelfDrag = { probed };
+if (probed) {
+  const card = shelf.locator(".stream-card").nth(1);
+  await card.scrollIntoViewIfNeeded();
+  const b = await card.boundingBox();
+  const from = await shelf.evaluate((el) => el.scrollLeft);
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 - 200, b.y + b.height / 2, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  shelfDrag = { probed, from, to: await shelf.evaluate((el) => el.scrollLeft).catch(() => null), detail: await page.locator(".vod-detail").count() };
+  // A drag that opened the card left the shelf behind: back out, so the
+  // rest of the run reads as it would have and this reads as a FAIL.
+  if (shelfDrag.detail) await page.locator(".vod-back").click();
+  await shelf.evaluate((el) => (el.scrollLeft = 0), null, { timeout: 5000 }).catch(() => {});
+}
+check(
+  "a shelf drags sideways under the mouse, and the card it started on stays shut",
+  probed && Math.abs(shelfDrag.to - shelfDrag.from - 200) <= 2 && shelfDrag.detail === 0,
+  JSON.stringify(shelfDrag),
+);
+
 // Movie detail + sources
 await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
 await page.waitForFunction(() => document.body.innerText.includes("Sources"), null, { timeout: 15_000 }).catch(() => {});
@@ -123,6 +157,54 @@ const openStream = async (p) => {
   await p.goto("http://localhost:4173/");
   await p.getByRole("button", { name: "Stream" }).click();
 };
+
+// On a picture, the dark theme's ink in both themes (plan 022). In light,
+// Watch now turned black and More info vanished into the art; scrolled, the
+// header laid a white haze over the hero. The header takes the picture's
+// ink only while the hero is under it.
+{
+  const ctx = await quietContext();
+  const p = await ctx.newPage();
+  await openStream(p);
+  await p.waitForSelector(".shero__card--active .on-picture button", { timeout: 15_000 });
+  await p.evaluate(() => (document.documentElement.dataset.theme = "light"));
+  const ink = () =>
+    p.evaluate(() => {
+      const [watch, more] = document.querySelectorAll(".shero__card--active .shero__actions button");
+      const header = document.querySelector(".header");
+      return {
+        watch: getComputedStyle(watch).backgroundColor,
+        more: getComputedStyle(more).color,
+        page: getComputedStyle(document.body).color,
+        header: getComputedStyle(header).getPropertyValue("--text").trim(),
+        flag: document.documentElement.dataset.headerOver ?? "",
+      };
+    });
+  const scrollTo = async (y) => {
+    await p.evaluate((y) => (document.querySelector(".stream").scrollTop = y), y);
+    await p.waitForTimeout(250);
+  };
+  const top = await ink();
+  await scrollTo(260); // the hero half under the header
+  const under = await ink();
+  await scrollTo(4000); // rows under the header
+  const rows = await ink();
+  // Light's page ink is near-black (0.145); the picture's is dark's, 0.985.
+  const PIC = "oklch(0.985 0 0)";
+  // Lightness, whichever space it comes back in (a transition reads oklab).
+  const L = (c) => Number(/^okl(?:ch|ab)\(([\d.]+)/.exec(c)?.[1] ?? NaN);
+  check(
+    "in light, the hero's Watch now stays light and More info's words stay light on the art",
+    L(top.watch) === 0.985 && L(top.more) === 0.985 && L(top.page) === 0.145,
+    JSON.stringify({ watch: top.watch, more: top.more, page: top.page }),
+  );
+  check(
+    "the header takes the picture's ink while the hero is under it, and gives it back",
+    top.flag === "" && under.flag === "picture" && under.header === PIC && rows.flag === "" && rows.header === "oklch(0.145 0 0)",
+    JSON.stringify({ top: top.flag, under: [under.flag, under.header], rows: [rows.flag, rows.header] }),
+  );
+  await ctx.close();
+}
 
 // A pick whose details fail, or never come, stays out of the hero, and a
 // build waits on them for 4 seconds at most. Every movie's meta hangs or

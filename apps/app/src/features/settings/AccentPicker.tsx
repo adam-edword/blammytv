@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -17,9 +17,9 @@ import {
   loadAccent,
   loadCustomAccent,
   saveAccent,
-  saveAccentPairedBy,
   saveCustomAccent,
 } from "./accent";
+import { Hint } from "../../ui/Hint";
 
 /**
  * The accent picker, back from old/themes on its own (ROADMAP decision 1).
@@ -55,11 +55,10 @@ const ON_RING = "ring-2 ring-ring ring-offset-2 ring-offset-background";
 export function AccentPicker({
   portalContainer,
 }: {
-  /** Where the Custom popover portals. Onboarding passes its own root,
-   * because that overlay counter-zooms the UI scale and <body> does not:
-   * on a replay at scale 1.2, a popover on <body> measured 190px right of
-   * its chip, 101px low and 20% too big. Inside the overlay it shares the
-   * overlay's zoom. */
+  /** Where the Custom popover portals. Onboarding passes its own root:
+   * that overlay sits on the boot layer, above every popover, so one on
+   * <body> would open behind it. (It also used to counter-zoom the UI
+   * scale, removed in v0.10.24.) */
   portalContainer?: HTMLElement | null;
 } = {}) {
   const [accent, setAccent] = useState(loadAccent);
@@ -88,15 +87,12 @@ export function AccentPicker({
     setAccent(value);
     saveAccent(value);
     applyAccent(value);
-    // A pick ends any theme pack's paired accent: the user's choice wins.
-    saveAccentPairedBy("");
   };
 
   const pickDefault = () => {
     setAccent("");
     saveAccent("");
     clearAccent();
-    saveAccentPairedBy("");
   };
 
   const pickCustom = (hex: string) => {
@@ -107,15 +103,33 @@ export function AccentPicker({
     pick(value);
   };
 
+  // While the square is dragged, only the look follows: applied live, and
+  // written to storage once, on release (plan 016 F23). Every pointer move
+  // wrote three keys.
+  const dragged = useRef<string | null>(null);
+  const previewCustom = (hex: string) => {
+    const value = hex.toLowerCase();
+    dragged.current = value;
+    setCustom(value);
+    setDraft(value.slice(1));
+    setAccent(value);
+    applyAccent(value);
+  };
+  const commitDrag = () => {
+    const value = dragged.current;
+    dragged.current = null;
+    if (value) pickCustom(value);
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-2.5" role="group" aria-label="Accent color">
+      <Hint label="Default">
       <Button
         variant="outline"
         size="icon"
         type="button"
         aria-pressed={accent === ""}
         aria-label="Default, follows light and dark"
-        title="Default"
         className={
           "size-8 rounded-full hover:opacity-90" + (accent === "" ? ` ${ON_RING}` : "")
         }
@@ -138,18 +152,18 @@ export function AccentPicker({
           </span>
         )}
       </Button>
+      </Hint>
 
       {ACCENT_PRESETS.map((p) => {
         const on = accent === p.hex;
         return (
+          <Hint key={p.hex} label={p.name}>
           <Button
-            key={p.hex}
             variant="outline"
             size="icon"
             type="button"
             aria-pressed={on}
             aria-label={p.name}
-            title={p.name}
             className={"size-8 rounded-full hover:opacity-90" + (on ? ` ${ON_RING}` : "")}
             // Inline, so the outline variant's own hover fill and text colour
             // cannot repaint the swatch: an inline value outranks every
@@ -164,6 +178,7 @@ export function AccentPicker({
           >
             {on && <CheckIcon className="size-3.5" />}
           </Button>
+          </Hint>
         );
       })}
 
@@ -203,19 +218,26 @@ export function AccentPicker({
           container={portalContainer}
           className="accent-picker w-auto p-3"
         >
-          <HexColorPicker color={customShown || "#c22727"} onChange={pickCustom} />
+          {/* Released anywhere, not only over the square: the drag carries
+            * on outside it. Arrow keys move it too, and save on key up. */}
+          <div
+            onPointerDown={() => window.addEventListener("pointerup", commitDrag, { once: true })}
+            onKeyUp={commitDrag}
+          >
+            <HexColorPicker color={customShown || "#c22727"} onChange={previewCustom} />
+          </div>
           {/* The picker's own 220px (vendor.css), so the row lines up with
            * the square above it. Left to size itself, the hex Input's
            * intrinsic width pushed the popover wider than the square and
            * left an empty strip down its right side. */}
           <div className="mt-3 flex w-[220px] items-center gap-2">
             {eyeDropper && (
+              <Hint label="Pick from screen">
               <Button
                 variant="outline"
                 size="icon"
                 type="button"
                 aria-label="Pick a color from the screen"
-                title="Pick from screen"
                 onClick={async () => {
                   try {
                     const { sRGBHex } = await new eyeDropper().open();
@@ -227,6 +249,7 @@ export function AccentPicker({
               >
                 <EyeDropperIcon />
               </Button>
+              </Hint>
             )}
             <div className="relative min-w-0 flex-1">
               <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">

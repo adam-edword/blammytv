@@ -2,8 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
 import { ChannelLogo } from "../../ui/ChannelLogo";
-import { EYEBROW } from "../../ui/eyebrow";
-import { Kbd } from "../../ui/Kbd";
 import { QualityBadge } from "../../ui/QualityBadge";
 import {
   DiscoverIcon,
@@ -18,7 +16,7 @@ import {
 } from "../../ui/icons";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat, onClockFormatChange } from "../settings/clockFormat";
-import { peekLive } from "../live/source";
+import { lookupLive } from "../live/source";
 import { channelIndex, searchChannels } from "../live/mvGrid";
 import { airing } from "../live/mvTile";
 import { loadRecents } from "../live/recents";
@@ -40,7 +38,9 @@ import { lastInputWasKey } from "../live/mvMotion";
  * Built exactly as the picker is: Base UI's Autocomplete rendered `inline
  * open` inside the app's Radix Dialog, so the list, its keyboard (arrows
  * move, Enter takes, Escape closes) and its screen-reader wiring are the
- * library's. It wears the picker's own classes, so it is the same object.
+ * library's. It wears the picker's own classes, and so its look: shadcn's
+ * stock Command since v0.10.25 (Adam: "i do want it to look like shadcn's
+ * stock look"), Multi-view's picker since v0.10.26.
  *
  * It reads what the app already has in hand (the last live load, the last
  * catalog, your lists) and fetches nothing: a palette that waits on the
@@ -69,6 +69,36 @@ const TITLES = 6;
 /** What "On later" looks ahead over. */
 const LATER_H = 24;
 
+/**
+ * What "On later" searches: the programmes starting in the next day, their
+ * titles lowercased, soonest first. Built once per catalog and again every
+ * ten minutes, so the window keeps up with the clock. Each keystroke used
+ * to walk every programme in the guide and lowercase each title: 24 to 80ms
+ * a key on a catalog the size of Adam's (the performance audit), where
+ * this is a scan of one flat list that stops at the first few hits.
+ */
+type Upcoming = { t: number; title: string; id: string; channel: Channel; p: Programme };
+const UPCOMING = new WeakMap<LiveData, { at: number; rows: Upcoming[] }>();
+function upcoming(live: LiveData, now: number): Upcoming[] {
+  const hit = UPCOMING.get(live);
+  if (hit && now - hit.at < 10 * 60_000) return hit.rows;
+  const byId = channelIndex(live, false);
+  // An hour past the window, for the ten minutes this copy is used.
+  const until = now + (LATER_H + 1) * 3600_000;
+  const rows: Upcoming[] = [];
+  for (const [id, progs] of live.programmes) {
+    const channel = byId.get(id);
+    if (!channel) continue;
+    for (const p of progs) {
+      const t = p.start.getTime();
+      if (t > now && t <= until) rows.push({ t, title: p.title.toLowerCase(), id, channel, p });
+    }
+  }
+  rows.sort((a, b) => a.t - b.t);
+  UPCOMING.set(live, { at: now, rows });
+  return rows;
+}
+
 export function Palette({
   open,
   onOpenChange,
@@ -86,7 +116,10 @@ export function Palette({
   hasStream: boolean;
   onChannel: (channelId: string) => void;
   onTitle: (item: VodItem) => void;
-  onGo: (to: GoTarget) => void;
+  /** `from` is where focus was when the palette opened. A place that opens
+   * Settings hands it on, because Settings takes focus as the palette goes
+   * and would otherwise give it back to the palette's field, which is gone. */
+  onGo: (to: GoTarget, from: HTMLElement | null) => void;
 }) {
   const [query, setQuery] = useState("");
   // Mounted for the app's life, so it hears a change rather than reading
@@ -160,7 +193,7 @@ export function Palette({
 
   const sections = useMemo((): Section[] => {
     if (!open) return [];
-    const live: LiveData | null = hasLive ? peekLive() : null;
+    const live: LiveData | null = hasLive ? lookupLive() : null;
     const q = query.trim().toLowerCase();
     const out: Section[] = [];
     if (!q) {
@@ -189,21 +222,13 @@ export function Palette({
       const now = Date.now();
       const until = now + LATER_H * 3600_000;
       const later: Row[] = [];
-      const byId = channelIndex(live, false);
-      for (const [id, progs] of live.programmes) {
-        const channel = byId.get(id);
-        if (!channel) continue;
-        for (const p of progs) {
-          const t = p.start.getTime();
-          if (t <= now || t > until) continue;
-          if (p.title.toLowerCase().includes(q))
-            later.push({ key: `p:${id}:${t}`, kind: "later", label: p.title, channel, prog: p });
-        }
+      for (const r of upcoming(live, now)) {
+        if (r.t <= now) continue;
+        if (r.t > until || later.length >= LATER) break;
+        if (r.title.includes(q))
+          later.push({ key: `p:${r.id}:${r.t}`, kind: "later", label: r.p.title, channel: r.channel, prog: r.p });
       }
-      later.sort((a, b) =>
-        a.kind === "later" && b.kind === "later" ? a.prog.start.getTime() - b.prog.start.getTime() : 0,
-      );
-      if (later.length) out.push({ value: "On later", items: later.slice(0, LATER) });
+      if (later.length) out.push({ value: "On later", items: later });
     }
 
     if (hasStream) {
@@ -212,7 +237,9 @@ export function Palette({
       const seen = new Set<string>();
       const saved = new Set<string>();
       const pool: VodItem[] = [];
-      for (const l of loadLists())
+      // Read once: it is parsed from storage on every call.
+      const lists = loadLists();
+      for (const l of lists)
         for (const e of l.entries) {
           saved.add(e.id);
         }
@@ -221,7 +248,7 @@ export function Palette({
         seen.add(it.id);
         pool.push(it);
       }
-      for (const l of loadLists())
+      for (const l of lists)
         for (const e of l.entries) {
           if (seen.has(e.id)) continue;
           seen.add(e.id);
@@ -263,7 +290,7 @@ export function Palette({
     onOpenChange(false);
     if (row.kind === "channel" || row.kind === "later") onChannel(row.channel.id);
     else if (row.kind === "title") onTitle(row.item);
-    else onGo(row.to);
+    else onGo(row.to, opener.current);
   };
 
   const now = new Date();
@@ -272,7 +299,11 @@ export function Palette({
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
-        className="mvpick palette top-[96px] translate-y-0 gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[640px]"
+        // shadcn's stock Command in its dialog (base-vega, v0.10.25): a third
+        // of the way down, rounded-xl on the popover ground, a 4px inset,
+        // 448px wide, no shadow. The rest of the look is player.css
+        // `.mvpick__*`, which Multi-view's picker wears too.
+        className="mvpick palette top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl border-float-border bg-popover p-1 text-popover-foreground shadow-(--float-shadow) [backdrop-filter:var(--float-blur)] sm:max-w-md"
         style={instant ? { animation: "none" } : undefined}
         onCloseAutoFocus={closed}
       >
@@ -289,13 +320,12 @@ export function Palette({
           keepHighlight
         >
           <div className="mvpick__head">
-            <SearchIcon size={19} aria-hidden />
+            <SearchIcon size={16} className="shrink-0 opacity-50" aria-hidden />
             <Autocomplete.Input
               className="mvpick__input"
               placeholder="Channels, films and series, places"
               aria-label="Search BlammyTV"
             />
-            <span className="mvpick__target">Everything</span>
           </div>
 
           <div className="mvpick__body">
@@ -305,7 +335,7 @@ export function Palette({
             <Autocomplete.List>
               {(section: Section) => (
                 <Autocomplete.Group key={section.value} items={section.items} className="mvpick__group">
-                  <Autocomplete.GroupLabel className={`mvpick__sec ${EYEBROW}`}>{section.value}</Autocomplete.GroupLabel>
+                  <Autocomplete.GroupLabel className="mvpick__sec">{section.value}</Autocomplete.GroupLabel>
                   <Autocomplete.Collection>
                     {(row: Row) => (
                       <Autocomplete.Item
@@ -322,27 +352,6 @@ export function Palette({
                 </Autocomplete.Group>
               )}
             </Autocomplete.List>
-          </div>
-
-          <div className="mvpick__foot">
-            <span>
-              <Kbd>↑</Kbd>
-              <Kbd>↓</Kbd>
-              move
-            </span>
-            <span>
-              <Kbd>↵</Kbd>
-              open
-            </span>
-            <span>
-              <Kbd>esc</Kbd>
-              close
-            </span>
-            <span className="mvpick__left">
-              <Kbd>Ctrl</Kbd>
-              <Kbd>K</Kbd>
-              anywhere
-            </span>
           </div>
         </Autocomplete.Root>
       </DialogContent>
@@ -361,7 +370,7 @@ function PaletteRow({
 }) {
   if (row.kind === "channel") {
     const c = row.channel;
-    const on = airing(peekLive()?.programmes.get(c.id), now).now;
+    const on = airing(lookupLive()?.programmes.get(c.id), now).now;
     const sub = [
       c.number != null ? String(c.number) : null,
       on?.title ?? null,
@@ -369,7 +378,7 @@ function PaletteRow({
     ].filter(Boolean);
     return (
       <>
-        <ChannelLogo name={c.name} logo={c.logo} size={34} />
+        <ChannelLogo name={c.name} logo={c.logo} size={20} />
         <span className="mvpick__meta">
           <span className="mvpick__name">
             <span className="mvpick__nametext">{c.name}</span>

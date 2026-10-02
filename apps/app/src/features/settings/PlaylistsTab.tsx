@@ -23,11 +23,12 @@ import {
 } from "./playlists";
 import { loadShowAdult, saveShowAdult } from "./adultFilter";
 import { isAdultCategory } from "../live/adult";
-import { onLiveRefreshed, peekLive } from "../live/source";
+import { lookupLive, onLiveRefreshed } from "../live/source";
 import { LineMeter } from "../../ui/LineMeter";
 import { useConnections } from "../live/connections";
 import { EYEBROW } from "../../ui/eyebrow";
 import { ChannelLogo } from "../../ui/ChannelLogo";
+import { Hint } from "../../ui/Hint";
 
 type Categories =
   | { status: "loading" }
@@ -58,7 +59,7 @@ export function PlaylistsTab() {
   const [liveTick, setLiveTick] = useState(0);
   useEffect(() => onLiveRefreshed(() => setLiveTick((t) => t + 1)), []);
   void liveTick;
-  const liveGroups = peekLive()?.groups ?? [];
+  const liveGroups = lookupLive()?.groups ?? [];
 
   // Per-playlist folder editor: which row is expanded, and each row's
   // fetched category list (kept per id so re-expanding is instant).
@@ -270,6 +271,7 @@ export function PlaylistsTab() {
                   >
                     <ChevronIcon />
                   </Button>
+                  <Hint label={armedDeleteId === p.id ? "Click again to remove" : "Delete"}>
                   <Button
                     // Armed, it says "Sure?", so it needs a button that can
                     // hold a word: `icon-sm` is a 32px square and the word
@@ -284,11 +286,6 @@ export function PlaylistsTab() {
                       armedDeleteId === p.id
                         ? `Click again to remove ${p.name}`
                         : `Delete ${p.name}`
-                    }
-                    title={
-                      armedDeleteId === p.id
-                        ? "Click again to remove"
-                        : undefined
                     }
                     onClick={() => {
                       if (armedDeleteId !== p.id) {
@@ -307,6 +304,7 @@ export function PlaylistsTab() {
                   >
                     {armedDeleteId === p.id ? "Sure?" : <CloseIcon className="size-3.5" />}
                   </Button>
+                  </Hint>
                 </div>
               </div>
               {expandedId === p.id && (

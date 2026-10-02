@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
+import { Hint } from "../ui/Hint";
 import {
   isTauri,
   tauriCheckUpdate,
   tauriInstallUpdate,
 } from "../lib/tauri";
+import { isPlaying } from "../lib/playingNow";
 
 /**
  * The update banner: a small glass chip that slides in beside the header
@@ -53,7 +55,12 @@ export function UpdateChip() {
   if (phase.at === "hidden") return null;
   const busy = phase.at === "installing";
 
+  // Its hint says what the press does. While it installs the button is
+  // disabled and gets no pointer, so no hint; its own words say Installing.
   return (
+    // Installing restarts the app, so not in the middle of something
+    // (plan 016 F20): the press is refused and the hint says why.
+    <Hint label={isPlaying() ? "Finish watching first. Then install." : "Download and restart into the new version"}>
     <Button variant="outline" size="sm"
       type="button"
       className={"update-chip" + (busy ? " update-chip--busy" : "")}
@@ -61,21 +68,18 @@ export function UpdateChip() {
       // On success the app restarts into the new build, so there is no
       // "done" state to render; a failure re-arms the click as a retry.
       onClick={() => {
+        if (isPlaying()) return;
         setPhase({ at: "installing", version: phase.version });
         tauriInstallUpdate().catch(() =>
           setPhase({ at: "error", version: phase.version }),
         );
       }}
-      title={
-        busy
-          ? "Downloading and installing. The app restarts by itself"
-          : "Download and restart into the new version"
-      }
     >
       <span className="update-chip__dot" aria-hidden />
       {phase.at === "ready" && <>v{phase.version} ready</>}
       {phase.at === "installing" && <>Installing…</>}
       {phase.at === "error" && <>Update failed, retry</>}
     </Button>
+    </Hint>
   );
 }

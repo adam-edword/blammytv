@@ -22,10 +22,40 @@ const LOCALES: Record<"12h" | "24h", string> = { "12h": "en-US", "24h": "en-GB" 
 const cache = new Map<string, Intl.DateTimeFormat>();
 
 export function formatClock(date: Date, format: "12h" | "24h" = "12h"): string {
+  // A formatter throws on an invalid date, where toLocaleTimeString said
+  // "Invalid Date". A feed's missing time is dropped further on; it must
+  // not take the whole board down on the way (racing.test.ts has one).
+  if (Number.isNaN(date.getTime())) return "";
   let fmt = cache.get(format);
   if (!fmt) {
     fmt = new Intl.DateTimeFormat(LOCALES[format], FORMATS[format]);
     cache.set(format, fmt);
   }
   return fmt.format(date);
+}
+
+/**
+ * A calendar date that a feed sends as an instant, as LOCAL midnight of
+ * that date: formatted or filed by day in local time, it is then the same
+ * day everywhere.
+ *
+ * Two feeds do this, and neither means a moment. Measured 2026-09-27:
+ * - ESPN's golf `date` and `endDate`: midnight US Eastern on all 115 PGA,
+ *   LPGA and DP World events of 2026, Thailand and Dubai included, so
+ *   `T04:00Z` in summer and `T05:00Z` in winter.
+ * - Cinemeta's episode `released`: `T05:00:00.000Z` on every Breaking Bad
+ *   episode, summer and winter. Other addons send `T00:00:00Z`.
+ * Read as instants, west of Eastern they are the day before: in Chicago
+ * the Wyndham Championship, Thursday 6th to Sunday 9th, read "AUG 5-8",
+ * and filed itself under the Wednesday. All of them fall on their own day
+ * in UTC, so that is the day taken.
+ *
+ * Not for a real start time (a kickoff, a race): those are moments, and a
+ * 7pm kickoff in New York is rightly 6pm in Chicago.
+ *
+ * Unparseable gives an Invalid Date, as `new Date` does.
+ */
+export function calendarDay(iso: string): Date {
+  const at = new Date(iso);
+  return new Date(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate());
 }

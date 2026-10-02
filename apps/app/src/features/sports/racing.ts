@@ -1,5 +1,7 @@
 import { driverCode } from "./driverCode";
 import type { Entrant, Field, GameState, Session, Weekend } from "./model";
+import { formatClock } from "../../lib/time";
+import { loadClockFormat } from "../settings/clockFormat";
 
 /**
  * Racing, as sessions on the board (plan 010 #1).
@@ -195,11 +197,6 @@ function toField(
   };
 }
 
-/** The long name for a session abbreviation, for a tooltip. */
-export function sessionName(abbr: string): string | undefined {
-  return SESSION_NAMES[abbr.toUpperCase()];
-}
-
 /**
  * A session's kick-off, as the cards print it: "1:00PM".
  *
@@ -208,9 +205,8 @@ export function sessionName(abbr: string): string | undefined {
  * the one between them for which gap the eye reads as the separator.
  */
 export function sessionClock(start: Date): string {
-  return start
-    .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-    .replace(/\s+/g, "");
+  // The clock format Settings names (plan 016 F21), not always 12-hour.
+  return formatClock(start, loadClockFormat()).replace(/\s+/g, "");
 }
 
 /** "SAT". Only the upcoming card shows it; the rest are on the day. */

@@ -180,6 +180,31 @@ const focusedLabel = (page) =>
   await ctx.close();
 }
 
+// ------------------------- Delete held down closes one tile, not the grid
+{
+  const { page, ctx, errors } = await open({
+    grid: [pick(101, ESPN), pick(102, SKY), pick(103, NEWS)],
+    sound: "t:101",
+  });
+  await tile(page, ESPN).focus();
+  // Held: every keydown after the first arrives with `repeat` set, and the
+  // sound moves on to the next tile each time.
+  await page.keyboard.down("Delete");
+  await page.keyboard.down("Delete");
+  await page.keyboard.down("Delete");
+  await page.keyboard.up("Delete");
+  await page.waitForTimeout(500);
+  const left = await page.locator(".mvtile:not(.mvtile--empty)").count();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.multiviewGrid") ?? "null")?.data);
+  check(
+    "Delete held down closes the one tile, and the grid saved keeps the other two",
+    left === 2 && saved?.picks?.length === 2,
+    JSON.stringify({ left, saved }),
+  );
+  check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
 // ------------------------------------ U2: the slider; U3: the bar dims
 {
   const { page, ctx, errors } = await open({ grid: [pick(101, ESPN), pick(102, SKY)], sound: "t:101" });

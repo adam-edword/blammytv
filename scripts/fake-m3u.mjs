@@ -10,8 +10,9 @@
 // Covers: three named groups, an adult-named group ("XXX Movies") for the
 // adult filter, a dead logo host (lettermark fallback), a channel with no
 // attributes at all (Ungrouped + URL-hash id), and an EPG feed advertised
-// via the header's url-tvg.
+// via the header's url-tvg (and /playlist-gz.m3u, whose guide is a .xml.gz).
 import http from "node:http";
+import { gzipSync } from "node:zlib";
 
 const PORT = 8082;
 
@@ -35,7 +36,8 @@ const fmt = (ms) =>
   new Date(ms).toISOString().replace(/[-:T]/g, "").slice(0, 14) + " +0000";
 
 function xmltv() {
-  const now = Date.now();
+  // FAKE_NOW pins the guide to a moment (scripts/screens.mjs).
+  const now = Number(process.env.FAKE_NOW) || Date.now();
   const HOUR = 3600_000;
   // Half-hour-aligned blocks so cells land on clean guide slots.
   const base = Math.floor(now / (30 * 60_000)) * 30 * 60_000;
@@ -99,6 +101,17 @@ http
     if (url.pathname === "/guide.xml") {
       res.setHeader("Content-Type", "application/xml");
       return res.end(xmltv());
+    }
+    // The same guide as a gzip FILE, the way many url-tvg links serve it:
+    // the body is the .gz itself, no Content-Encoding.
+    if (url.pathname === "/guide.xml.gz") {
+      res.setHeader("Content-Type", "application/gzip");
+      return res.end(gzipSync(xmltv()));
+    }
+    // The same playlist, pointing at that one.
+    if (url.pathname === "/playlist-gz.m3u") {
+      res.setHeader("Content-Type", "application/x-mpegurl");
+      return res.end(PLAYLIST.replace("/guide.xml", "/guide.xml.gz"));
     }
     if (url.pathname === "/logo.png") {
       res.setHeader("Content-Type", "image/png");

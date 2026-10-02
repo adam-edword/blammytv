@@ -17,25 +17,24 @@
   padding: 88px 48px;
 }
 
-/* Glass card: 10% white over 45% black, blurred backdrop. Grows with its
- * content down to near the window bottom; interior lists scroll, the card
- * itself doesn't. */
+/* The Settings sheet, thick glass. Grows with its content down to near the
+ * window bottom; interior lists scroll, the card itself doesn't. */
 .settings {
   width: min(786px, 100%);
   max-height: calc(100vh - 136px);
   display: flex;
   flex-direction: column;
-  /* shadcn's DialogContent: `bg-background p-6 shadow-lg rounded-lg border`.
-   * Solid, not glass, and a shadow that reads as elevation rather than as a
-   * light source below the card. p-6 is 24px; this carried 32/39, which is
-   * a third more inset than anything else in the app. */
-  background: var(--surface);
+  /* The thick glass (plan 022, B): nearly solid, because a form over bright
+   * art needs its ground, blurred behind, with the lit edge and drop the
+   * thin floats wear. shadcn's DialogContent gave the padding: p-6 is 24px;
+   * this carried 32/39, a third more inset than anything else in the app. */
+  background: var(--sheet-bg);
+  -webkit-backdrop-filter: var(--sheet-blur);
+  backdrop-filter: var(--sheet-blur);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   padding: 24px;
-  box-shadow:
-    0 10px 15px -3px rgb(0 0 0 / 0.1),
-    0 4px 6px -4px rgb(0 0 0 / 0.1);
+  box-shadow: var(--glass-lift);
   /* Entrance (motion plan 002, redesigned at the feel-gate — the stock
    * scale+8px hop read as an afterthought). "The gear drops its sheet":
    * the card descends from the gear on the drawer curve with a 4deg
@@ -50,6 +49,13 @@
   transition:
     opacity 240ms var(--ease-out),
     transform 460ms var(--ease-drawer);
+}
+/* The card takes focus itself when it opens (SettingsModal, v0.10.33), so
+ * Tab starts inside it. The app's one :focus-visible ring (ui.css) would
+ * outline the whole card when it was opened from the keyboard; the card is
+ * not a control, and nothing drew a ring there before. */
+.settings:focus-visible {
+  outline: none;
 }
 @starting-style {
   .settings {
@@ -89,7 +95,8 @@
  * is unreadable, so the card goes solid. LiveScreen stamps data-frost="0"
  * on the root exactly in that case. */
 :root[data-frost="0"] .settings {
-  background: var(--bg);
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
@@ -381,34 +388,6 @@ input.rowcap__value--edit:focus-visible {
  * flex column's default align-items: stretch across the full card width. */
 .customize-rail {
   display: flex;
-}
-
-/* The "you're previewing an unowned pack" banner + buy CTA, shown under the
-   pack row only while an unowned premium pack is the live preview. */
-.pack-preview-note {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  width: 100%;
-  margin-top: 4px;
-  padding: 12px 16px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.pack-preview-note strong {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.pack-preview-note__buy {
-  flex: none;
-  text-decoration: none;
 }
 
 /* A label + control row inside a section (e.g. the theme toggle). */
@@ -715,7 +694,7 @@ input.rowcap__value--edit:focus-visible {
   padding: 2px 6px;
   border-radius: 8px;
   border: 1px solid var(--accent);
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
   color: inherit;
   outline: none;
 }
@@ -774,50 +753,6 @@ input.rowcap__value--edit:focus-visible {
   line-height: 1.45;
 }
 
-/* -------------------------------------------------------- premium themes */
-
-.license-form {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Overrides settings-input's flex:1/width:100% (both classes are single
- * selectors of equal specificity — this rule wins by coming later in the
- * file) so the key field sizes to the key, not the row. */
-.license-input {
-  flex: 0 0 220px;
-  width: auto;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-}
-
-.license-input::placeholder {
-  text-transform: none;
-}
-
-/* Quiet text button — same idiom as .chip-select__add (muted, brightens
- * on hover, no fill), since removing a license is reversible and doesn't
- * warrant danger-zone weight. */
-.license-remove {
-  font-family: var(--font-headline);
-}
-
-/* activate()'s result line — same reading as onboarding's .onb-hint, in
- * this card's token vocabulary instead of onboarding's fixed rgba pair. */
-.license-status {
-  margin: 0;
-  font-size: 13.5px;
-  color: var(--danger-text);
-  max-width: 64ch;
-}
-
-.license-status--ok {
-  color: var(--ok);
-}
-
 /* Slightly-glassy surfaces inside the settings card (Adam, v0.4.2):
  * the solid --surface blocks read heavy over the frosted card — let
  * the card's glass breathe through instead. color-mix keeps the tint
@@ -855,4 +790,34 @@ input.rowcap__value--edit:focus-visible {
 /* A line's count on its row, the Guide's meter (plan 019, K5). */
 .playlist-row__meter {
   margin-right: 6px;
+}
+
+/* Trakt's sign-in (plan 015, B2): the code to type at trakt.tv/activate,
+ * big enough to read from across the room, and the row's two buttons. */
+.trakt-row__code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--text);
+  /* The page is unselectable (base.css); this is the one thing on it a
+   * user needs to copy. */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+/* The code and its copy button, on one line. */
+.trakt-row__codeline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+/* MyAnimeList's row (plan 021) keeps the same pair. */
+.trakt-row__actions,
+.mal-row__actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
 }

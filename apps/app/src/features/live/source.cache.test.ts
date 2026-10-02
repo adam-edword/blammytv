@@ -34,7 +34,7 @@ const xtream = (id: string) => ({
 let playlists = [xtream("A")];
 vi.mock("../settings/playlists", () => ({ loadPlaylists: () => playlists }));
 
-let disk: { key: string; at: number; data: LiveData } | null = null;
+let disk: { key: string; at: number; data: LiveData; normalized?: true } | null = null;
 const diskPut = vi.fn();
 vi.mock("./diskCache", () => ({
   diskGet: async (key: string) => (disk && disk.key === key ? disk : null),
@@ -148,6 +148,54 @@ describe("the live cache's clock", () => {
     await delay(null, 30); // the channel phase lands; the guide never does
     // The guide that was already here is still here.
     expect(lookupLive()?.programmes.size).toBe(1);
+  });
+
+  it("a guide refresh that fails keeps the guide that was here, on disk too", async () => {
+    const key = await diskKey();
+    // Relaunch with a guide on disk; the revalidation's XMLTV fails (the
+    // default here: a timeout, an error page).
+    vi.resetModules();
+    disk = { key, at: Date.now(), data: snapshot(Date.now()) };
+    const { loadLive, lookupLive } = await import("./source");
+    await loadLive(new Date());
+    await delay(null, 30); // the channel phase lands, the guide phase fails
+    expect(lookupLive()?.programmes.size).toBe(1);
+    expect(lookupLive()?.groups[0].epgError).toMatch(/guide download failed/);
+    await delay(null, 1600);
+    const written = diskPut.mock.calls.map((c) => (c[0] as { data: LiveData }).data.programmes.size);
+    expect(written.every((n) => n === 1)).toBe(true);
+  });
+
+  it("a record says its guide is normalized, and a hydrate trusts it", async () => {
+    const { loadLive: first } = await import("./source");
+    await first(new Date());
+    await delay(null, 1600);
+    const written = diskPut.mock.calls.at(-1)?.[0] as { key: string; normalized?: true };
+    expect(written.normalized).toBe(true);
+    // Two overlapping programmes: normalizing cuts the first at the second.
+    const overlapping = (now: number): LiveData => {
+      const d = snapshot(now);
+      d.programmes.set("A:1", [
+        { title: "News", start: new Date(now - 10 * MIN), end: new Date(now + 50 * MIN) } as never,
+        { title: "Film", start: new Date(now + 20 * MIN), end: new Date(now + 110 * MIN) } as never,
+      ]);
+      return d;
+    };
+    fetchLiveStreams.mockImplementation(never);
+    for (const normalized of [undefined, true] as const) {
+      vi.resetModules();
+      const data = overlapping(Date.now());
+      const list = data.programmes.get("A:1")!;
+      disk = { key: written.key, at: Date.now(), data, normalized };
+      const { loadLive, lookupLive } = await import("./source");
+      await loadLive(new Date());
+      const got = lookupLive()!.programmes.get("A:1")!;
+      if (normalized) expect(got).toBe(list); // served as written
+      else expect(got[0].end.getTime()).toBe(got[1].start.getTime());
+    }
+    // Let both revalidations reach their never-answering fetch, or they
+    // call the next test's mock and write a record into it.
+    await delay(null, 30);
   });
 
   it("a guide for a config the user has changed does not land (F3)", async () => {

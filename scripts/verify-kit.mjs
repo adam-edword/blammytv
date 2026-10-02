@@ -296,9 +296,15 @@ const dimmedText = () =>
   await general.focus();
   // Sample the thumb every frame from the key press on, in the page, so the
   // reading can't miss the move or land on its overshoot by timing luck.
+  // The sheet's glass blur is off for it (v0.10.66): this Chromium
+  // composites in software and redoes the 40px blur on every frame the
+  // thumb moves, which took the samples in 700ms from 44 to about 30 and
+  // the ones in motion from 6 to between 1 and 3. That is the renderer,
+  // not the slide. WebView2 composites on the GPU where there is one.
   const path = await page.evaluate(
     () =>
       new Promise((done) => {
+        document.documentElement.style.setProperty("--sheet-blur", "none");
         const t = document.querySelector(".settings .seg .seg__thumb");
         const xs = [t.getBoundingClientRect().left];
         document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
@@ -306,7 +312,10 @@ const dimmedText = () =>
         const tick = () => {
           xs.push(t.getBoundingClientRect().left);
           if (performance.now() - t0 < 700) requestAnimationFrame(tick);
-          else done(xs);
+          else {
+            document.documentElement.style.removeProperty("--sheet-blur");
+            done(xs);
+          }
         };
         requestAnimationFrame(tick);
       }),
@@ -630,7 +639,7 @@ const dimmedText = () =>
   await page.locator(".vod-more__card").first().waitFor({ timeout: 15_000 });
   const more = await page.evaluate(() =>
     [...document.querySelectorAll(".vod-more__card")].map((c) => ({
-      title: c.getAttribute("title"),
+      title: c.getAttribute("data-hint"),
       cap: c.querySelector(".vod-more__name")?.textContent,
       r: getComputedStyle(c.querySelector(".vod-more__tilt")).borderTopLeftRadius,
     })),
@@ -871,11 +880,42 @@ const dimmedText = () =>
   const sport = await eyebrowOf(".leaguepick__sport");
   check("Sports' sidebar labels are the same eyebrow", isEyebrow(sport), JSON.stringify(sport));
 
-  // A film's sources.
+  // Tooltips (v0.10.23; Adam: shadcn's, in the app's dark glass, "across
+  // the entire app"). No element anywhere uses the browser's title. A
+  // control's comes from Hint, one Radix tooltip each; a card's comes from
+  // the one shared HintLayer, by data-hint, because a Radix tooltip per
+  // card cost 154ms per 400 in the dev build. Both are the same bubble.
   await goTo(page, "home");
   await page.waitForTimeout(1500);
   await page.mouse.wheel(0, 700);
-  await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
+  await page.waitForTimeout(400);
+  const openTip = () =>
+    page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])').first().textContent({ timeout: 3000 }).catch(() => null);
+  const hoverSlow = async (loc) => {
+    await page.mouse.move(W / 2, H - 20, { steps: 4 });
+    await page.waitForTimeout(200);
+    const b = await loc.boundingBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+  };
+  const card = page.locator(".stream-card", { hasText: "Fake Movie One" }).first();
+  await card.scrollIntoViewIfNeeded();
+  await hoverSlow(card);
+  const cardTip = await openTip();
+  const cardHint = await card.getAttribute("data-hint");
+  const tab = page.locator(".navcap__item:not([aria-current])").first();
+  await hoverSlow(tab);
+  const tabTip = await openTip();
+  const tabName = (await tab.getAttribute("aria-label"))?.replace(/ \(beta\)$/, "");
+  const titled = await page.evaluate(() => [...document.querySelectorAll("[title]")].map((e) => e.outerHTML.slice(0, 80)));
+  check(
+    "a tooltip is the kit's everywhere: a card's from the shared layer, a tab's from Hint, and nothing uses the browser's",
+    cardHint === "Fake Movie One" && cardTip === "Fake Movie One" && !!tabName && tabTip === tabName && titled.length === 0,
+    JSON.stringify({ cardTip, tabTip, tabName, titled: titled.slice(0, 3) }),
+  );
+  await page.mouse.move(W / 2, H - 20);
+
+  // A film's sources.
+  await card.click();
   await page.locator(".vod-source").first().waitFor({ timeout: 15_000 });
   await page.waitForTimeout(500);
   const more = await eyebrowOf(".vod-more__title");
@@ -887,15 +927,45 @@ const dimmedText = () =>
     const labels = [...document.querySelectorAll(".srclist__sec")].map((l) => l.textContent.trim());
     const rows = [...document.querySelectorAll(".vod-source")].map((b) => {
       const s = getComputedStyle(b);
-      const lines = [...b.querySelectorAll(".vod-source__lines span")].map((l) => ({ w: getComputedStyle(l).fontWeight, ink: getComputedStyle(l).color }));
+      const lines = [...b.querySelectorAll(".vod-source__lines > span")].map((l) => ({ w: getComputedStyle(l).fontWeight, ink: getComputedStyle(l).color }));
       return { r: s.borderTopLeftRadius, border: s.borderTopWidth, shadow: s.boxShadow, bg: s.backgroundColor, tab: b.tabIndex, cache: b.dataset.cache, lines };
     });
-    return { bottom: c.bottom, top: c.top, hdrBottom: hdr?.bottom, labels, rows, foot: document.querySelector(".srclist__foot")?.textContent.replace(/\s+/g, " ").trim() };
+    const cs = getComputedStyle(document.querySelector(".vod-sources"));
+    const half = document.querySelector(".halfstar");
+    const star = (ch) => {
+      const t = document.createElement("span");
+      t.textContent = ch;
+      half.parentElement.append(t);
+      const w = t.getBoundingClientRect().width;
+      t.remove();
+      return w;
+    };
+    const stars = half && {
+      text: [...document.querySelectorAll(".vod-source__lines")].map((l) => l.textContent).join("|"),
+      w: half.getBoundingClientRect().width,
+      outline: star("\u2606"),
+      fill: getComputedStyle(half.firstElementChild).clipPath,
+      overlay: half.firstElementChild.textContent,
+    };
+    return { stars, radius: cs.borderBottomLeftRadius, edge: cs.borderBottomWidth, bottom: c.bottom, top: c.top, hdrBottom: hdr?.bottom, labels, rows, foot: document.querySelector(".srclist__foot")?.textContent.replace(/\s+/g, " ").trim() };
   });
+  // Down the window, but stopping 32px short of its edge with its corners
+  // rounded (Adam, v0.10.17: "can the bottom of the panel not go to the
+  // edge of the window?").
   check(
-    "the sources run to the window's bottom edge, in one glass column",
-    Math.abs(col.bottom - H) <= 1 && col.top > (col.hdrBottom ?? 0),
-    `top ${col.top}, bottom ${col.bottom} of ${H}`,
+    "the sources run down the window to 32px short of its edge, in one glass column",
+    Math.abs(col.bottom - (H - 32)) <= 1 && col.top > (col.hdrBottom ?? 0) && col.radius === "16px" && col.edge === "1px",
+    `top ${col.top}, bottom ${col.bottom} of ${H}, corner ${col.radius}, edge ${col.edge}`,
+  );
+  // The fixture's "★⯪☆☆☆": the half star is drawn from ☆ and ★, since no
+  // Windows font has U+2BEA. Measured here as the text the line holds and
+  // the drawn star's width against a ☆'s, not by eye: this container's
+  // fonts may well draw the real character.
+  check(
+    "  a half star in a source's line is drawn from ☆ and a ★ clipped to its left half, not the character",
+    !!col.stars && !/[\u2BE8-\u2BEB]/.test(col.stars.text) && col.stars.text.includes("★☆★☆☆☆") &&
+      Math.abs(col.stars.w - col.stars.outline) < 0.5 && col.stars.overlay === "★" && col.stars.fill === "inset(0px 50% 0px 0px)",
+    JSON.stringify(col.stars),
   );
   check(
     "  grouped by what is known about the cache, each group with its count",
@@ -1048,7 +1118,39 @@ const dimmedText = () =>
   await page.keyboard.type("espn");
   await page.waitForTimeout(400);
   const secs = await page.evaluate(() => [...document.querySelectorAll(".palette .mvpick__sec")].map((e) => e.textContent));
-  check("  it finds channels and what is on later, under eyebrows", secs.includes("Channels") && secs.includes("On later"), secs.join(", "));
+  check("  it finds channels and what is on later, under their headings", secs.includes("Channels") && secs.includes("On later"), secs.join(", "));
+  // shadcn's stock Command (v0.10.25; Adam: "i do want it to look like
+  // shadcn's stock look"): the dialog rounded-xl on the popover, 448 wide;
+  // the field h-8 rounded-lg; headings text-xs font-medium muted, not an
+  // eyebrow; every row one 32px line, the highlighted one on muted.
+  const popover = await token("--float-bg");
+  const muted = await token("--surface-raised");
+  const stock = await page.evaluate(() => {
+    const px = (el, p) => parseFloat(getComputedStyle(el)[p]);
+    const box = document.querySelector(".palette");
+    const head = document.querySelector(".palette .mvpick__head");
+    const sec = document.querySelector(".palette .mvpick__sec");
+    const rows = [...document.querySelectorAll(".palette [role=option]")];
+    const hi = document.querySelector(".palette [role=option][data-highlighted]");
+    return {
+      w: Math.round(box.getBoundingClientRect().width),
+      radius: px(box, "borderTopLeftRadius"),
+      bg: getComputedStyle(box).backgroundColor,
+      field: [Math.round(head.getBoundingClientRect().height), px(head, "borderTopLeftRadius")],
+      sec: [px(sec, "fontSize"), getComputedStyle(sec).fontWeight, getComputedStyle(sec).textTransform],
+      rows: [...new Set(rows.map((r) => Math.round(r.getBoundingClientRect().height)))],
+      hi: hi && getComputedStyle(hi).backgroundColor,
+      foot: !!document.querySelector(".palette .mvpick__foot"),
+    };
+  });
+  check(
+    "  it wears shadcn's stock Command: 448 by rounded-xl on the popover, an h-8 field, 32px rows, muted highlight",
+    stock.w === 448 && stock.radius === 14 && stock.bg === popover &&
+      stock.field[0] === 32 && stock.field[1] === 10 &&
+      stock.sec[0] === 12 && stock.sec[1] === "500" && stock.sec[2] === "none" &&
+      stock.rows.length === 1 && stock.rows[0] === 32 && stock.hi === muted && !stock.foot,
+    JSON.stringify(stock),
+  );
   await page.keyboard.press("Enter");
   await page.waitForTimeout(1200);
   const tuned = await page.evaluate(() => ({
@@ -1361,6 +1463,25 @@ const dimmedText = () =>
   await p6.waitForTimeout(500);
   const mb = await p6.evaluate(() => ({ palette: !!document.querySelector(".palette"), draw: !!document.querySelector(".tourndraw") }));
   check("  and the mouse's Back closes the palette, not the draw under it", !mb.palette && mb.draw, JSON.stringify(mb));
+  // The same two for Settings (M2, v0.10.33). The draw's Escape no longer
+  // asks lib/modalOpen: it reads the mark Radix puts on the Escape it takes.
+  const settingsOver = async (how) => {
+    await p6.locator(".header__action[aria-label='Settings']").click();
+    const opened = await p6.locator(".settings").waitFor({ timeout: 4000 }).then(() => true, () => false);
+    await p6.waitForTimeout(400);
+    if (how === "escape") await p6.keyboard.press("Escape");
+    else
+      await p6.evaluate(() => {
+        for (const t of ["mousedown", "mouseup"]) window.dispatchEvent(new MouseEvent(t, { button: 3, bubbles: true, cancelable: true }));
+      });
+    const closed = await p6.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).then(() => true, () => false);
+    await p6.waitForTimeout(400);
+    return { opened, closed, draw: await p6.evaluate(() => !!document.querySelector(".tourndraw")) };
+  };
+  const byEsc = await settingsOver("escape");
+  check("  Escape in Settings over the draw closes Settings, not the draw too", byEsc.opened && byEsc.closed && byEsc.draw, JSON.stringify(byEsc));
+  const byBack = await settingsOver("back");
+  check("  and the mouse's Back closes Settings, not the draw under it", byBack.opened && byBack.closed && byBack.draw, JSON.stringify(byBack));
   await ctx6.close();
 }
 
@@ -1552,6 +1673,310 @@ const dimmedText = () =>
     JSON.stringify(other),
   );
   await p3.close();
+}
+
+// ======================================================================= M2
+// ROADMAP M2, finishing plan 014's primitives: one block per step.
+{
+  // The league picker's rule is shadcn's Separator (v0.10.29), the one place
+  // a hand-drawn line did its job. It has to be the same line: 1px of the
+  // hairline colour, the picker's full width, 2px clear of either side, and
+  // still a separator to a screen reader, as the <hr> was.
+  await goTo(page, "sports");
+  await page.locator(".leaguepick__rule").waitFor({ timeout: 15_000 }).catch(() => {});
+  const rule = await page.evaluate(() => {
+    const el = document.querySelector(".leaguepick__rule");
+    if (!el) return null;
+    const s = getComputedStyle(el);
+    const p = getComputedStyle(el.parentElement);
+    const inner = el.parentElement.clientWidth - parseFloat(p.paddingLeft) - parseFloat(p.paddingRight);
+    return {
+      slot: el.dataset.slot,
+      role: el.getAttribute("role"),
+      h: el.getBoundingClientRect().height,
+      w: Math.round(el.getBoundingClientRect().width),
+      box: Math.round(inner),
+      bg: s.backgroundColor,
+      m: `${s.marginTop} ${s.marginBottom}`,
+    };
+  });
+  const hair = await token("--border");
+  check(
+    "M2. the league picker's rule is the Separator: 1px of the hairline, full width, 2px clear",
+    rule?.slot === "separator" && rule.role === "separator" && rule.h === 1 && rule.w === rule.box && rule.bg === hair && rule.m === "2px 2px",
+    JSON.stringify({ ...rule, hair }),
+  );
+
+  // The Switch wears the rest of shadcn's surface (v0.10.32) and keeps its
+  // thumb: the off track is `dark:bg-input/80` (15% white at 80%, so 12%),
+  // the track carries `shadow-xs`, and the thumb still slides on its own
+  // 260ms spring (Adam, 2026-09-06: take the surface, keep the thumb).
+  await goTo(page, "guide");
+  await page.waitForTimeout(600);
+  await page.locator(".header__action[aria-label='Settings']").click();
+  await page.locator(".settings").waitFor();
+  await page.getByRole("tab", { name: "Customize", exact: true }).click();
+  await page.getByRole("tablist", { name: "Media" }).getByRole("tab", { name: "Stream", exact: true }).click();
+  await page.waitForTimeout(600);
+  const sw = await page.evaluate(() => {
+    const read = (label) => {
+      const el = document.querySelector(`.settings [role=switch][aria-label='${label}']`);
+      if (!el) return null;
+      const s = getComputedStyle(el);
+      const t = getComputedStyle(el.querySelector(".toggle__thumb"));
+      const r = el.getBoundingClientRect();
+      return { on: el.getAttribute("aria-checked"), bg: s.backgroundColor, shadow: s.boxShadow, size: `${r.width}x${Math.round(r.height * 10) / 10}`, thumb: t.transition };
+    };
+    return { off: read("One-click play"), on: read("Featured carousel") };
+  });
+  const accent = await token("--accent");
+  check(
+    "M2. the Switch's track is shadcn's: input at 80% off, the accent on, shadow-xs, 32 by 18.4",
+    sw.off?.on === "false" && /^oklab\(1 0 0 \/ 0\.12\)$/.test(sw.off.bg) && sw.on?.on === "true" && sw.on.bg === accent &&
+      [sw.off, sw.on].every((s) => s.shadow === "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px" && s.size === "32x18.4"),
+    JSON.stringify({ ...sw, accent }),
+  );
+  check("  and its thumb still slides on the 260ms spring", /^transform 0\.26s linear\(/.test(sw.off?.thumb ?? ""), sw.off?.thumb);
+  await page.keyboard.press("Escape");
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+
+  // RowScroller and Card live in ui/ (v0.10.31), and ContinueCard in its own
+  // file: a screen that exports primitives is why "redo one screen" kept
+  // touching three. So no file imports a screen's file but App, which mounts
+  // them. Read from the source, so a new cross-screen import fails here.
+  const crossed = [];
+  const scan = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) scan(p);
+      else if (/\.tsx?$/.test(e.name) && !p.endsWith(join("app", "App.tsx")))
+        for (const m of readFileSync(p, "utf8").matchAll(/from\s+"([^"]*\/\w+Screen)"/g))
+          crossed.push(`${p.slice(SRC.length + 1)} <- ${m[1]}`);
+    }
+  };
+  scan(SRC);
+  check("M2. no screen imports another screen's file: the rows and cards are in ui/", crossed.length === 0, crossed.join(" | ") || "only App mounts screens");
+  // And every screen that draws rows still draws them, cards and all.
+  const rows = {};
+  for (const dest of ["home", "discover", "mylist", "sports"]) {
+    await goTo(page, dest);
+    await page.locator(".media-row__viewport").first().waitFor({ timeout: 15_000 }).catch(() => {});
+    await page.waitForTimeout(600);
+    rows[dest] = await page.evaluate(() => ({
+      rows: document.querySelectorAll(".media-row__viewport").length,
+      posters: document.querySelectorAll(".stream-card").length,
+      cw: document.querySelectorAll(".media-row__viewport .continue-card").length,
+    }));
+  }
+  check(
+    "  and Stream, Discover, Library and Sports still draw their rows: posters, Continue Watching, the board's row",
+    rows.home.rows > 1 && rows.home.posters > 0 && rows.home.cw === 3 && rows.discover.rows > 0 && rows.discover.posters > 0 && rows.mylist.cw === 3 && rows.sports.rows > 0,
+    JSON.stringify(rows),
+  );
+
+  // Settings on Radix's Dialog (v0.10.33, plan 014 phase 1), behind its own
+  // markup. A modal now: focus goes in and stays in. The card is where it
+  // was, top right, 88 down and 48 in.
+  const gearSel = ".header__action[aria-label='Settings']";
+  await goTo(page, "guide");
+  await page.waitForTimeout(800);
+  await page.locator(gearSel).click();
+  await page.locator(".settings").waitFor();
+  await page.waitForTimeout(700);
+  const modal = await page.evaluate(() => {
+    const s = document.querySelector(".settings");
+    const r = s.getBoundingClientRect();
+    return { inside: !!document.activeElement?.closest(".settings"), top: r.top, right: innerWidth - r.right, parent: s.parentElement?.className };
+  });
+  const stops = new Set();
+  for (let i = 0; i < 40; i++) {
+    await page.keyboard.press("Tab");
+    stops.add(await page.evaluate(() => (document.activeElement?.closest(".settings") ? "in" : document.activeElement?.tagName)));
+  }
+  check(
+    "M2. Settings is a modal on Radix's Dialog: focus goes in, Tab stays in, the card where it was",
+    modal.inside && [...stops].join() === "in" && modal.top === 88 && modal.right === 48 && modal.parent === "modal-backdrop",
+    JSON.stringify({ ...modal, stops: [...stops] }),
+  );
+  // And out by one Escape, pressed just after Tab leaves a control whose
+  // tooltip was showing (v0.10.43). A closing tooltip stayed mounted for its
+  // 150ms exit, and a mounted TooltipContent is the top Radix layer, so it
+  // took the Escape and Settings stayed up (before v0.10.33 as well). Tab
+  // on until the last stop had a tooltip open and this one has none, then
+  // Escape 80ms later: inside the old exit, and clear of the ~10ms Radix
+  // takes to give Escape back to the dialog once a layer goes.
+  const openTip = () => page.evaluate(() => document.querySelector("[data-slot=tooltip-content]:not([data-state=closed])")?.textContent ?? null);
+  let tipWas = await openTip();
+  let tabbedOff = null;
+  for (let i = 0; i < 60 && !tabbedOff; i++) {
+    await page.keyboard.press("Tab");
+    const tip = await openTip();
+    if (tipWas && !tip) tabbedOff = tipWas;
+    tipWas = tip;
+  }
+  await page.waitForTimeout(80);
+  const mounted = await page.evaluate(() => [...document.querySelectorAll("[data-slot=tooltip-content]")].map((t) => `${t.textContent} (${t.dataset.state})`));
+  await page.keyboard.press("Escape");
+  const escShut = await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).then(() => true, () => false);
+  check(
+    "  and after the walk one Escape closes it: the tooltip Tab just left is already gone",
+    Boolean(tabbedOff) && mounted.length === 0 && escShut,
+    JSON.stringify({ tabbedOff, mounted, shut: escShut }),
+  );
+  if (!escShut) await page.locator("button[aria-label='Close settings']").click().catch(() => {});
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  // Escape hands focus back to the gear. Focus after a key rings, and a
+  // ringing gear opened its "Settings" tooltip every time: it mustn't.
+  await page.locator(gearSel).click();
+  await page.locator(".settings").waitFor();
+  await page.waitForTimeout(700);
+  await page.keyboard.press("Escape");
+  const shut = await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).then(() => true, () => false);
+  await page.waitForTimeout(500);
+  const back = await page.evaluate(() => ({
+    focus: document.activeElement?.getAttribute("aria-label"),
+    bubbles: [...document.querySelectorAll("[data-slot=tooltip-content]:not([data-state=closed])")].map((t) => t.textContent),
+  }));
+  check("  and Escape gives focus back to the gear, without popping its tooltip", shut && back.focus === "Settings" && back.bubbles.length === 0, JSON.stringify(back));
+  if (!shut) await page.locator("button[aria-label='Close settings']").click().catch(() => {});
+  // The Combobox's list portals to <body>, and a Radix modal takes pointer
+  // events off <body>: the list stopped taking clicks or the wheel, and a
+  // click on an option landed on the backdrop.
+  await page.mouse.move(W / 2, H - 4);
+  await page.locator(gearSel).click();
+  await page.locator(".settings").waitFor();
+  await page.getByRole("tab", { name: "Customize", exact: true }).click();
+  await page.getByRole("tablist", { name: "Media" }).getByRole("tab", { name: "Stream", exact: true }).click();
+  await page.waitForTimeout(500);
+  const sub = page.getByRole("combobox", { name: "Preferred subtitle language" });
+  await sub.scrollIntoViewIfNeeded();
+  const had = await sub.inputValue().catch(() => null);
+  await sub.click();
+  const list = page.locator("[data-slot=combobox-list]");
+  await list.waitFor({ timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  const lb = await list.boundingBox();
+  await page.mouse.move(lb.x + lb.width / 2, lb.y + lb.height / 2);
+  await page.mouse.wheel(0, 200);
+  await page.waitForTimeout(400);
+  const wheeled = await list.evaluate((e) => e.scrollTop);
+  const opt = page.locator("[data-slot=combobox-item]").nth(2);
+  const want = (await opt.textContent())?.trim();
+  await opt.click({ timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  const took = { had, want, value: await sub.inputValue().catch(() => null), wheeled, settings: await page.evaluate(() => !!document.querySelector(".settings")) };
+  check(
+    "  and a Combobox inside it still scrolls and takes a pick, with Settings staying up",
+    took.value === want && want !== had && took.wheeled > 0 && took.settings,
+    JSON.stringify(took),
+  );
+  await page.keyboard.press("Escape");
+  await page.locator("button[aria-label='Close settings']").click().catch(() => {});
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+
+  // Keys pressed in Settings stay in Settings. S is Multi-view's Live
+  // scores row; on a button in Settings it used to toggle the row under it.
+  await goTo(page, "multiview");
+  await page.waitForTimeout(1200);
+  const scores = () => page.evaluate(() => document.querySelector("[aria-label='Live scores']")?.getAttribute("aria-pressed") ?? null);
+  const s0 = await scores();
+  await page.keyboard.press("s");
+  await page.waitForTimeout(300);
+  const s1 = await scores();
+  await page.keyboard.press("s");
+  await page.waitForTimeout(300);
+  await page.locator(gearSel).click();
+  await page.locator(".settings").waitFor();
+  await page.waitForTimeout(400);
+  await page.keyboard.press("s");
+  await page.waitForTimeout(300);
+  const s2 = await scores();
+  await page.keyboard.press("Escape");
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+  check(
+    "  and a key pressed in Settings doesn't reach Multi-view under it (S, the scores row)",
+    s0 === "false" && s1 === "true" && s2 === "false",
+    JSON.stringify({ before: s0, withoutSettings: s1, underSettings: s2 }),
+  );
+
+  // Over the Sports theater, the other screen whose Escape stopped asking
+  // lib/modalOpen: Escape and the mouse's Back close Settings and leave the
+  // theater, and an Escape with Settings shut still leaves it (so the
+  // theater was listening all along).
+  await goTo(page, "sports");
+  await page.locator(".gamecard").first().waitFor({ timeout: 15_000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  await page.locator(".gamecard").first().click();
+  const inTheater = await page.locator(".sportstheater").waitFor({ timeout: 8000 }).then(() => true, () => false);
+  await page.waitForTimeout(600);
+  const over = {};
+  for (const how of ["escape", "back"]) {
+    await page.locator(gearSel).click({ force: true });
+    const opened = await page.locator(".settings").waitFor({ timeout: 4000 }).then(() => true, () => false);
+    await page.waitForTimeout(400);
+    if (how === "escape") await page.keyboard.press("Escape");
+    else
+      await page.evaluate(() => {
+        for (const t of ["mousedown", "mouseup"]) window.dispatchEvent(new MouseEvent(t, { button: 3, bubbles: true, cancelable: true }));
+      });
+    const closed = await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).then(() => true, () => false);
+    await page.waitForTimeout(500);
+    over[how] = opened && closed && (await page.evaluate(() => !!document.querySelector(".sportstheater")));
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(600);
+  over.leavesAlone = await page.evaluate(() => !document.querySelector(".sportstheater"));
+  check(
+    "  and over the Sports theater, Escape and Back close Settings and leave the theater, which still hears its own Escape",
+    inTheater && over.escape && over.back && over.leavesAlone,
+    JSON.stringify({ inTheater, ...over }),
+  );
+
+  // With no playlist there is no mark, and the capsule centres itself
+  // (v0.10.34, plan 016 3.5). Its left edge used to sit on the midline:
+  // 117.5px right of centre at 1600, 189 on Discover with the second row
+  // open. Its own context: the page above has a playlist.
+  const ctx7 = await browser.newContext({ viewport: { width: W, height: H } });
+  await ctx7.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+  const p7 = await ctx7.newPage();
+  p7.on("pageerror", (e) => errors.push(String(e)));
+  await p7.addInitScript(init);
+  await p7.addInitScript(() => localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [] })));
+  await p7.goto(APP, { waitUntil: "domcontentloaded" });
+  await p7.waitForSelector('[data-dest="home"]', { timeout: 60_000 });
+  const centre = {};
+  for (const dest of ["home", "discover"]) {
+    await goTo(p7, dest);
+    // goTo waits for the tab, not the capsule's own slide: wait that out.
+    await p7.waitForTimeout(900);
+    centre[dest] = await p7.evaluate(() => {
+      const r = document.querySelector(".navcap").getBoundingClientRect();
+      return { off: Math.round((r.left + r.width / 2 - innerWidth / 2) * 10) / 10, mark: !!document.querySelector(".navcap__mark") };
+    });
+  }
+  check(
+    "  with no live source the capsule is centred, on Stream and on Discover's two rows",
+    !centre.home.mark && Math.abs(centre.home.off) <= 1 && Math.abs(centre.discover.off) <= 1,
+    JSON.stringify(centre),
+  );
+  await ctx7.close();
+
+  // The clock and its version, on the capsule's centre line with the gear
+  // and Search (v0.10.37, Adam: "clock onto the line"). It sat 8px high.
+  const line = await page.evaluate(() => {
+    const mid = (s) => {
+      const r = document.querySelector(s).getBoundingClientRect();
+      return Math.round((r.top + r.height / 2) * 10) / 10;
+    };
+    const cap = document.querySelector(".navcap").getBoundingClientRect();
+    return { clock: mid(".header__brand"), gear: mid(".header__right button[aria-label='Settings']"), capsuleRow1: Math.round((cap.top + 11 + 43 / 2) * 10) / 10 };
+  });
+  check(
+    "  the clock block sits on the capsule's line, with the gear",
+    Math.abs(line.clock - line.capsuleRow1) <= 0.5 && Math.abs(line.gear - line.capsuleRow1) <= 0.5,
+    JSON.stringify(line),
+  );
 }
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));

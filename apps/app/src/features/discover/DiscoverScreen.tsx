@@ -7,7 +7,8 @@ import {
   onCardMetaChange,
   type CardMetaField,
 } from "../settings/cardMeta";
-import { Card, RowScroller } from "../stream/StreamScreen";
+import { Card } from "../../ui/Card";
+import { RowScroller } from "../../ui/RowScroller";
 import {
   onTypeFilterRequest,
   publishTypeFilter,

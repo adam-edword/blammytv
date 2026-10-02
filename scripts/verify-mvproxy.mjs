@@ -41,10 +41,36 @@ const check = (n, ok, d = "") => {
   console.log(`${ok ? "PASS" : "FAIL"} ${n}${d ? `: ${d}` : ""}`);
 };
 
-// The stand-in for mvproxy.rs's loopback server.
+// The stand-in for mvproxy.rs's loopback server. For the HLS tiles
+// (v0.10.67) it is also the provider: an M3U list with one .m3u8 channel,
+// and that channel's playlist, which only the fallback may fetch directly.
 const hits = [];
 let closed = 0;
+const playlist = (seg) =>
+  `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:4.0,\n${seg}\n`;
 const proxy = http.createServer((rq, rs) => {
+  const cors = { "Access-Control-Allow-Origin": "*" };
+  if (rq.url === "/list.m3u") {
+    rs.writeHead(200, { ...cors, "Content-Type": "audio/x-mpegurl" });
+    return rs.end(`#EXTM3U\n#EXTINF:-1 group-title="News",Fake HLS One\nhttp://127.0.0.1:${PORT}/provider/one.m3u8?user=u&pass=p\n`);
+  }
+  if (rq.url.startsWith("/provider/")) {
+    hlsDirect.push(rq.url);
+    rs.writeHead(200, { ...cors, "Content-Type": "application/vnd.apple.mpegurl" });
+    return rs.end(playlist(`http://127.0.0.1:${PORT}/provider/seg0.ts`));
+  }
+  if (rq.url.startsWith("/mv/hls")) {
+    hits.push(rq.url);
+    const [, , token, child] = rq.url.split("/");
+    if (child === undefined) {
+      rs.writeHead(200, { ...cors, "Content-Type": "application/vnd.apple.mpegurl" });
+      return rs.end(playlist(`http://127.0.0.1:${PORT}/mv/${token}/0`));
+    }
+    const packet = Buffer.alloc(188 * 10);
+    for (let i = 0; i < packet.length; i += 188) packet[i] = 0x47;
+    rs.writeHead(200, { ...cors, "Content-Type": "video/mp2t" });
+    return rs.end(packet);
+  }
   hits.push(rq.url);
   rs.writeHead(200, {
     "Content-Type": "video/mp2t",
@@ -58,14 +84,16 @@ const proxy = http.createServer((rq, rs) => {
     closed++;
   });
 });
+const hlsDirect = [];
 await new Promise((r) => proxy.listen(0, "127.0.0.1", r));
 const PORT = proxy.address().port;
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 
 /** The app under the IPC stub; `proxyMode` "missing" plays an old build.
- * `hevc`: whether this webview says it can play HEVC. */
-async function open(proxyMode, hevc = true) {
+ * `hevc`: whether this webview says it can play HEVC. `hls`: the M3U list
+ * with the HLS channel, and that channel in the tile. */
+async function open(proxyMode, hevc = true, hls = false) {
   const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
   // Offline, as the dev container always is (CLAUDE.md).
   await ctx.route(/\.espn(cdn)?\.com\/|strem\.io/, (r) => r.abort());
@@ -75,7 +103,7 @@ async function open(proxyMode, hevc = true) {
   const requested = [];
   page.on("request", (r) => requested.push(r.url()));
   await page.addInitScript(
-    ({ port, mode, hevc }) => {
+    ({ port, mode, hevc, hls }) => {
       MediaSource.isTypeSupported = (m) => hevc || !/hvc1|hev1/.test(m);
       window.__calls = [];
       let cb = 0;
@@ -99,6 +127,15 @@ async function open(proxyMode, hevc = true) {
               return Promise.reject(new Error("command mv_proxy_open not found"));
             return Promise.resolve(`http://127.0.0.1:${port}/mv/tok${++n}`);
           }
+          if (cmd === "mv_proxy_open_hls") {
+            if (mode === "missing") {
+              window.__calls.push([cmd, args.url, ""]);
+              return Promise.reject(new Error("command mv_proxy_open_hls not found"));
+            }
+            const local = `http://127.0.0.1:${port}/mv/hls${++n}`;
+            window.__calls.push([cmd, args.url, local]);
+            return Promise.resolve(local);
+          }
           if (cmd === "mv_proxy_close") window.__calls.push([cmd, args.local]);
           if (cmd === "mv_convert_warm") window.__calls.push([cmd, ""]);
           return Promise.resolve(undefined);
@@ -113,28 +150,30 @@ async function open(proxyMode, hevc = true) {
         JSON.stringify({
           v: 1,
           data: [
-            {
-              kind: "xtream",
-              id: "t",
-              name: "Test",
-              enabled: true,
-              server: "http://localhost:8081",
-              username: "u",
-              password: "p",
-            },
+            hls
+              ? { kind: "m3u", id: "h", name: "HLS", enabled: true, url: `http://127.0.0.1:${port}/list.m3u` }
+              : {
+                  kind: "xtream",
+                  id: "t",
+                  name: "Test",
+                  enabled: true,
+                  server: "http://localhost:8081",
+                  username: "u",
+                  password: "p",
+                },
           ],
         }),
       );
     },
-    { port: PORT, mode: proxyMode, hevc },
+    { port: PORT, mode: proxyMode, hevc, hls },
   );
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   // Its own tab since plan 017, between Guide and Sports.
   await goTo(page, "multiview");
   // The picker (plan 017, P3): the empty place opens it, the row adds.
   await page.locator(".mvtile--empty").click();
-  await page.locator(".mvpick__input").fill("fake");
-  await page.locator(".mvpick__row", { hasText: "Fake ESPN 4K" }).first().click();
+  await page.locator(".mvpick__input").fill(hls ? "hls" : "fake");
+  await page.locator(".mvpick__row", { hasText: hls ? "Fake HLS One" : "Fake ESPN 4K" }).first().click();
   return { page, ctx, errors, requested };
 }
 
@@ -247,6 +286,63 @@ const direct = (urls) => urls.filter((u) => u.startsWith("http://localhost:8081/
     "a native build without the proxy falls back to the direct URL",
     direct(requested).length >= 1 && hits.length === before,
     `${direct(requested).length} direct, ${hits.length - before} proxied`,
+  );
+  await ctx.close();
+}
+
+// v0.10.67: an HLS channel's tile goes through the proxy too, on a route
+// whose playlists name only loopback URLs (mvproxy.rs rewrites them; its
+// tests hold that). Here: the tile asks for that kind of route, hls.js
+// reads the playlist and its segment from it, and the route goes back.
+{
+  const { page, ctx, errors, requested } = await open("present", true, true);
+  const t = Date.now();
+  while (!hits.some((h) => /^\/mv\/hls\d+\/0$/.test(h)) && Date.now() - t < 10_000) await page.waitForTimeout(100);
+  const all = await calls(page);
+  const opened = all.filter(([c]) => c === "mv_proxy_open_hls");
+  check(
+    "an HLS channel's tile asks the proxy for an HLS route, not a stream one",
+    opened.length >= 1 && opened.every(([, u]) => u.endsWith("/provider/one.m3u8?user=u&pass=p")) &&
+      !all.some(([c]) => c === "mv_proxy_open"),
+    JSON.stringify(all.map(([c]) => c)),
+  );
+  check(
+    "and hls.js reads the playlist and its segment from loopback",
+    hits.includes(`/mv/hls1`) && hits.includes(`/mv/hls1/0`),
+    JSON.stringify(hits.filter((h) => h.startsWith("/mv/hls"))),
+  );
+  check(
+    "never the provider's playlist",
+    hlsDirect.length === 0 && !requested.some((u) => u.includes("/provider/")),
+    JSON.stringify(hlsDirect),
+  );
+  await page.locator('[data-dest="guide"]').click();
+  const t2 = Date.now();
+  const given = () => calls(page).then((c) => c.filter(([k]) => k === "mv_proxy_open_hls").map(([, , l]) => l));
+  const back = () => calls(page).then((c) => c.filter(([k]) => k === "mv_proxy_close").map(([, l]) => l));
+  while (Date.now() - t2 < 5_000) {
+    const [g, b] = await Promise.all([given(), back()]);
+    if (g.every((l) => b.includes(l))) break;
+    await page.waitForTimeout(100);
+  }
+  const [g, b] = await Promise.all([given(), back()]);
+  check(
+    "leaving the tab hands every HLS route back",
+    g.length >= 1 && g.every((l) => b.includes(l)),
+    JSON.stringify({ given: g, back: b }),
+  );
+  check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+{
+  const { page, ctx } = await open("missing", true, true);
+  const t = Date.now();
+  while (!hlsDirect.length && Date.now() - t < 10_000) await page.waitForTimeout(100);
+  check(
+    "a native build without HLS routes plays the playlist directly, as it did",
+    hlsDirect.length >= 1,
+    `${hlsDirect.length} direct`,
   );
   await ctx.close();
 }

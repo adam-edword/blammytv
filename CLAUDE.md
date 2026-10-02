@@ -63,15 +63,16 @@ It is a TYPE check, not a build: it will not catch a linker problem or
 anything about libmpv's runtime behaviour.
 
 **The stream proxy's tests run here for real** (mvproxy.rs and
-mvconvert.rs, HEVC conversion through an actual ffmpeg included), from a
-host crate that includes the two files as they are:
+mvconvert.rs, HEVC conversion through an actual ffmpeg included), and so
+do Trakt's and MAL's (trakt.rs and mal.rs, against fakes), from a host crate that
+includes the files as they are:
 
 ```
 curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz | tar xJ -C /tmp
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 33 tests (v0.9.131). On CI the Windows job runs the same tests with the
+Baseline 68 tests (v0.10.67): 36 for the proxy, 15 for Trakt, 17 for MAL. On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 
@@ -86,11 +87,11 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **44/44 harnesses clean, 872 or 873 checks** (v0.10.14). The
-one-check wobble is verify-cw-sources' last check, which only runs when the
-catalog is still loading at the click; the script says so and it is not a
-failure. verify-kit (plan 019) has one section per shared primitive, so a
-later change that undoes one fails there. If playwright-core is not installed, point `PW_FROM` at somewhere
+Baseline is **54/54 harnesses clean, 1007 checks** (v0.10.71), or one
+fewer: verify-cw-sources' last check only runs when the catalog is still
+loading at the click; the script says so and it is not a failure. verify-kit
+(plan 019) has one section per shared primitive, so a later change that
+undoes one fails there. If playwright-core is not installed, point `PW_FROM` at somewhere
 that can require it.
 
 It refuses to start if anything is already on one of its ports, and that
@@ -98,6 +99,11 @@ refusal is load-bearing: a leftover `vite preview` on 4173 binds first, our
 vite dies on `--strictPort`, and the suite runs green against a stale dist.
 Kill the squatter rather than working around the message. `KEEP=1` is the
 usual way to leave one behind.
+
+Don't edit `apps/app/src` while it runs. It serves the working tree through
+vite's dev server, so an edit reloads whatever page a harness has open:
+v0.10.62's full run read one CRASH and two FAILED from edits mid-run, all
+three clean on a re-run.
 
 Read the board's STATUS column, not just the tick counts. **CRASH is the
 one that matters.** A failing check is loud; a harness that throws at check
@@ -109,6 +115,14 @@ stopped being exercised.
 Watch for checks that pass VACUOUSLY, too. verify-stalker read 2/4 while
 the portal served nothing: the two that "passed" were negative assertions
 ("the adult genre is dropped"), and an empty page drops everything.
+
+**For a change that must not move a pixel** (a token move, a dead-code
+sweep): `node scripts/screens.mjs capture <dir>` before and after, then
+`compare <before> <after>`. Eleven scenes in both themes, byte-identical
+between two runs of one tree, plus every colour the stylesheets declare
+resolved to pixels, which covers hovers, errors and the player. About ten
+minutes a capture; `ONLY=guide,stream` for fewer. It uses the board's
+ports, so not while the board runs.
 
 **Harnesses stay offline.** This container can't reach Cinemeta, ESPN or
 TMDB (each fails in about 250ms), and CI can. So a harness that leaves one

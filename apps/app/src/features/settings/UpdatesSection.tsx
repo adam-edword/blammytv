@@ -10,6 +10,7 @@ import {
   tauriInstallUpdate,
 } from "../../lib/tauri";
 import { isPlaying } from "../../lib/playingNow";
+import { Hint } from "../../ui/Hint";
 
 /**
  * Settings → Updates: the manual sibling of the header's UpdateChip. Shows
@@ -97,10 +98,10 @@ export function UpdatesSection() {
       <div>
         <h4 className="customize-row__title">BlammyTV v{APP_VERSION}</h4>
         <p className="settings__section-note settings__section-note--dim">
-          {pending
-            ? `Version ${pending} is ready. It applies the next time you open BlammyTV.`
-            : phase.at === "found"
+          {phase.at === "found"
             ? `Version ${phase.version} is ready to install.`
+            : pending
+            ? `Version ${pending} is ready. It applies the next time you open BlammyTV.`
             : phase.at === "installing"
               ? "Downloading and installing. The app restarts by itself."
               : phase.at === "error"
@@ -108,11 +109,44 @@ export function UpdatesSection() {
                 : "Updates install themselves with one click and keep your playlists."}
         </p>
       </div>
-      {pending ? (
+      {/* An installer found beats a waiting bundle (plan 016 F20): it
+        * carries a frontend of its own, and a native update is the one a
+        * bundle can't bring. It used to hide behind "Restart now". */}
+      {phase.at === "found" || phase.at === "installing" ? (
+        // Installing restarts the app, so it waits for playback to finish
+        // like Restart now does (F20).
+        <Hint
+          label="Finish watching first. Then install."
+          off={phase.at === "installing" || !isPlaying()}
+        >
+        <Button
+          variant="default"
+          type="button"
+          className="settings-button settings-button--accent"
+          disabled={phase.at === "installing"}
+          onClick={() => {
+            if (phase.at !== "found" || isPlaying()) return;
+            install(phase.version);
+          }}
+          aria-disabled={phase.at === "found" && isPlaying()}
+        >
+          {phase.at === "installing"
+            ? "Installing…"
+            : `Install v${phase.version}`}
+        </Button>
+        </Hint>
+      ) : pending ? (
         // Restarting mid-playback would kill the stream to save a wait
         // that costs nothing — the update lands on the next launch either
         // way. Read at click time, so starting playback after Settings
         // opened still counts.
+        // Greyed by aria-disabled, not disabled: a disabled button gets no
+        // pointer and so no hint, and the hint is the reason it is grey.
+        // The click is refused in the handler either way.
+        <Hint
+          label="Finish watching first. It applies on its own next launch."
+          off={!isPlaying()}
+        >
         <Button
           // `default` IS the accent state. `.settings-button--accent` used
           // to mix 22% accent into the neutral face; since v0.9.54 that
@@ -126,27 +160,11 @@ export function UpdatesSection() {
             if (isPlaying()) return;
             void tauriFrontendApply().catch(() => {});
           }}
-          disabled={isPlaying()}
-          title={
-            isPlaying()
-              ? "Finish watching first — this applies on its own next launch"
-              : undefined
-          }
+          aria-disabled={isPlaying()}
         >
           Restart now
         </Button>
-      ) : phase.at === "found" || phase.at === "installing" ? (
-        <Button
-          variant="default"
-          type="button"
-          className="settings-button settings-button--accent"
-          disabled={phase.at === "installing"}
-          onClick={() => phase.at === "found" && install(phase.version)}
-        >
-          {phase.at === "installing"
-            ? "Installing…"
-            : `Install v${phase.version}`}
-        </Button>
+        </Hint>
       ) : (
         <Button
           variant="secondary"

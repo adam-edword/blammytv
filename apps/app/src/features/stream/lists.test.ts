@@ -180,3 +180,44 @@ describe("lists", () => {
     expect(m.loadLists().find((l) => l.id === a.id)).toBeTruthy();
   });
 });
+
+describe("the Trakt Watchlist (plan 015, D2)", () => {
+  beforeEach(() => {
+    store.clear();
+    vi.resetModules();
+  });
+
+  const ITEM = { id: "x1", title: "A Title", kind: "movie" as const, genres: [], cast: [], seasons: [] };
+
+  it("is made once, at the end, and a plain Save never lands in it", async () => {
+    const m = await import("./lists");
+    m.ensureTraktList();
+    m.ensureTraktList();
+    expect(m.loadLists().map((l) => l.id)).toEqual([m.TRAKT_LIST]);
+    // With only the Trakt list there, Save makes My List rather than
+    // sending the title to Trakt.
+    m.addToList(null, ITEM);
+    const lists = m.loadLists();
+    expect(lists.map((l) => l.name)).toEqual(["Trakt Watchlist", "My List"]);
+    expect(lists.find((l) => l.id === m.TRAKT_LIST)!.entries).toEqual([]);
+  });
+
+  it("cannot be renamed or deleted by hand, only dropped on disconnect", async () => {
+    const m = await import("./lists");
+    m.ensureTraktList();
+    m.renameList(m.TRAKT_LIST, "Mine");
+    m.deleteList(m.TRAKT_LIST);
+    expect(m.loadLists().map((l) => l.name)).toEqual(["Trakt Watchlist"]);
+    m.dropTraktList();
+    expect(m.loadLists()).toEqual([]);
+  });
+
+  it("takes Trakt's titles as they come, once each", async () => {
+    const m = await import("./lists");
+    m.ensureTraktList();
+    const e = { id: "tt1", title: "One", kind: "movie" as const, year: 2001, at: 5 };
+    m.addEntries(m.TRAKT_LIST, [e]);
+    m.addEntries(m.TRAKT_LIST, [e, { ...e, id: "tt2", title: "Two" }]);
+    expect(m.loadLists()[0].entries.map((x) => x.id)).toEqual(["tt2", "tt1"]);
+  });
+});

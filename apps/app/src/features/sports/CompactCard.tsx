@@ -43,7 +43,7 @@ function CompactCardImpl({
     <button
       type="button"
       className="compactcard"
-      title={`${home.name} vs ${away.name}`}
+      data-hint={`${home.name} vs ${away.name}`}
       // Read out as "BOT 7TH CIN 8 10 MIL" without this: both scores in
 
       // the middle, attached to neither side.

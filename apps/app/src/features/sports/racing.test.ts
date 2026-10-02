@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { sessionClock, sessionDay, toRacing, toWeekend, toWeekends } from "./racing";
 import { onDay } from "./day";
 import { isField } from "./model";
@@ -268,6 +268,16 @@ describe("sessionClock and sessionDay", () => {
       /^\d{1,2}:\d{2}(AM|PM)$/,
     );
   });
+
+  it("in 24-hour time when that's the clock setting (plan 016 F21)", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => (k === "blammytv.clockFormat" ? JSON.stringify({ v: 1, data: "24h" }) : null),
+      setItem: () => {},
+      removeItem: () => {},
+    });
+    expect(sessionClock(at("2026-08-23T13:00"))).toBe("13:00");
+  });
+  afterEach(() => vi.unstubAllGlobals());
 
   it("names the weekday in caps", () => {
     expect(sessionDay(at("2026-08-23T13:00"))).toBe("SUN");

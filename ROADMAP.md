@@ -6,65 +6,46 @@ and it goes stale on purpose: read it for reasons, not for status.
 
 Rewritten 2026-09-24 against the tree rather than against the old version of
 this file, which still said "v0.1.109" at the top while the app was on
-v0.9.78.
+v0.9.78. "Where we are" refreshed 2026-09-28.
 
-## Where we are (v0.9.79, 2026-09-24)
+## Where we are (v0.10.63, 2026-09-28)
 
-- **Released:** v0.9.0, the Sports tab, on 2026-08-23. That is what users run.
-- **Since then: 90 commits and no release, for 32 days.** The longest gap
-  before this one was 12 days (0.8.202 to 0.9.0). From June to August a
-  release went out every few days.
-- **`main` is at v0.9.73.** The redesign's first stretch (plan 014, below)
-  landed there on 2026-09-13.
-- **`claude/nice-heisenberg-67k4uk` is at v0.9.79 and not in `main`.** It
-  carries the sports matcher fixes, the two console probes and multi-view.
-  It fast-forwards onto `main` with no conflicts.
-- **No open GitHub issues.** The backlog lives in this file and `plans/`.
+- **Released: 0.10.14**, "Multi-view's look everywhere, and live scores",
+  on 2026-09-26, on the hot channel. Three releases went out that day:
+  0.10.0 (Multi-view, through the installer), then 0.10.3 and 0.10.14.
+- **`main` is at v0.10.14**, tagged.
+- **`claude/nice-heisenberg-67k4uk` is 49 versions ahead, v0.10.15 to
+  v0.10.63, and not released.** Adam, 2026-09-27: "i dont wanna ship" yet.
+  Six of those versions are native (v0.10.19, v0.10.27 Trakt, v0.10.38
+  plan 016's Track N, v0.10.39 MAL, v0.10.46, v0.10.47), so **the next
+  release goes through the installer**, not the hot channel. It carries
+  the player in the redesign's language (plan 020), M2's primitives,
+  Trakt and MAL (M4), and the week of 2026-09-28: a whole-codebase audit's
+  fixes (v0.10.47 to v0.10.59), every colour on a token (v0.10.60), the
+  dead code gone (v0.10.61) and three measured performance fixes (v0.10.62
+  and v0.10.63).
+- **The week of 2026-09-28** is done, logged in `plans/week-2026-09-28.md`.
+  Read its summary and "Yours when you're back" first.
+- **No open GitHub issues.** The backlog is this file and `plans/`.
 - **Version numbers 0.9.47 to 0.9.51 exist twice** in history, once on each
   side of the 2026-09-13 merge. Anything that quotes one of those five
-  numbers (a changelog, a bug report) needs the commit hash to mean anything.
+  numbers needs the commit hash to mean anything.
 
 ### What is in flight
 
 | | State |
 |---|---|
-| **Redesign** (plan 014) | L0 done. L1 partly: Button is in 25 files, Combobox, DropdownMenu, Tooltip and Item are in use, and the accent picker (v0.9.79) is the first consumer of Input and Popover. **Card, Dialog, Badge, Separator, Textarea, Skeleton and InputGroup were generated and have zero consumers.** L2, L3 and the glass have not started. |
-| **Multi-view** (plan 013) | Built and reachable off the Sports board. **Never played a frame.** Everything below the demuxer is unit-tested; the demuxer itself is untested until someone opens it against a real stream. |
-| **Themes** | Parked at v0.9.58 because a pack outranks the base palette. **The current looks are being removed and the concept returns after 1.0 with new ones.** The accent picker is back on its own in v0.9.79 (decision 1 below). |
-| **Sports matcher** | Probed against the real 26,621-channel catalog on 2026-09-13 and fixed from that data. ACCNX, SECN+ and ESPNEWS still miss. |
+| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player; M2 is done. M3's leftovers (the glass tiers, reduced transparency, the light pass) are [plan 022](plans/022-glass-and-light.md): three calls rendered as options on 2026-09-28, waiting on Adam. Light mode is forced off at boot until then. |
+| **Trakt** (M4) | Built, v0.10.27 to v0.10.36, `plans/015-trakt.md`: sign-in, scrobbling, sync and the Trakt Watchlist. Waiting on Adam to register the Trakt app and put its keys in `.env.local` for a first real run. |
+| **MAL** (M4) | Built, v0.10.39 to v0.10.44, `plans/021-mal.md`: sign-in in the browser, finished anime episodes and films counted on MAL, MAL's counts ticking episodes here. Waiting on Adam to register the MAL app and put its client id in `.env.local`. Ships in the same installer release as Trakt. |
+| **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
+| **Themes** | Parked. They return after 1.0 with new looks (decision 1), and since v0.10.60 every colour a pack would change is a token. |
 
-### Debt from the multi-view work
-
-- **Multi-view's UI is hand-written.** v0.9.76 to 0.9.78 added about eight
-  plain `<button>`s, a hand-rolled dialog and a plain `<input>`, after
-  v0.9.54 made shadcn's Button the rule for every standalone button. It
-  works, and it is exactly the drift plan 014 exists to stop.
-- **The native slot refactor is dead weight, and it is the ONLY native
-  change since 0.9.0.** v0.9.48 on the multi-view branch turned mpv's one
-  player into four, for a native multi-view that became a web one.
-  `PLAYERS[4]` only ever holds slot 0, and no native grid was ever built on
-  top of it, so it is not a fallback either. `tileRects` and `holesClip`
-  are unused for the same reason. Measured 2026-09-24:
-  `git diff v0.9.0 origin/main -- apps/app/src-tauri` is empty. The whole
-  redesign is frontend. Those three files (`inv.rs`, `lib.rs`, `mpv.rs`) are the one
-  thing standing between the next release and a frontend-only one, which
-  matters for M3 below.
-- **The 2026-09-24 audit: [`docs/audit-0.9.79.md`](docs/audit-0.9.79.md),
-  and the plan that works it: [`plans/016-audit-work.md`](plans/016-audit-work.md).**
-  Its P0 (the documented hot-channel `tar` command builds a bundle every
-  installed copy refuses, and CI runs none of the gate) is Track 0 and has
-  to land before M3 ships. Track 1 is the user-visible breakage (Sports
-  tuning dies after 30 minutes, the Guide star is invisible, every icon in
-  a Button renders at 16px) and belongs in M1. Tracks 3 to 5 are M2 and
-  M3's work list; Track N waits for the first native release after M3.
-  **Eight decisions come first (D1 to D8), each with a recommendation.**
-  Also, M1 step 5's file list below is partly stale: `packs.css`,
-  `themePacks.ts`, `verify-intense-themes.mjs` and the rest already sit in
-  `old/themes/`; what is left is Aurora in `accent.ts`, `tokens.css`,
-  `ui.css`, `onboarding.css` and verify-tailwind's check 8.
-- ~~Docs that disagree with the tree~~ Fixed with this rewrite: HANDOFF's
-  `"csp": null` line (the CSP shipped in v0.8.115), and `plans/README.md`
-  now marks 010 shipped and has a row for 014.
+The Guide going black on a folder ("Maximum update depth", Adam,
+2026-09-27) was found and fixed in v0.10.50: a channel listed under two
+categories gave two Guide rows one key, and the row window piled up
+orphans until scroll anchoring looped React. Whether Adam's catalog
+repeats ids is one console line, in the week log.
 
 ## Decisions, taken by Adam on 2026-09-24
 
@@ -108,11 +89,14 @@ chose.
      the shadcn layer reaches the app's own tokens through `@theme inline`
      (`--color-background: var(--bg)`), so a pack that redefines `--bg`,
      `--surface` and the rest under `[data-theme-pack]` repaints shadcn
-     components too. Only seven raw colour utilities exist, all scrims over
-     posters or video (`bg-black/50`, `hover:bg-black/60`) or shadcn's white
-     on destructive red, which should look the same in any theme. Keep it
-     at that: new colour goes through a token, and a raw colour utility is
-     for a scrim over imagery and nothing else.
+     components too. The hand-written sheets followed on 2026-09-28 (week
+     item 2): every colour a theme would change is a token now, and no
+     colour changed (`scripts/screens.mjs`). Three raw colour utilities are
+     left: the dialog's `bg-black/50` scrim, the play circle's black glyph,
+     and shadcn's white on destructive red. Keep it at that: new colour goes
+     through a token, and a literal is for black (a scrim, a shadow, the
+     letterbox) and the rest of the short list in tokens.css's NAMED
+     COLOURS.
    - **The base tokens are the default look.** What forced the parking was a
      default PACK pinning `--bg` and friends from a file imported after
      `tokens.css`, so the new palette never showed. When themes return,
@@ -137,12 +121,14 @@ chose.
    whether the M3 release is signed, and there is no cost before then.
 4. **Release: HOLD for the finished redesign.** Recommended the other way
    (release after M1). The next release is the M3 "new look" release; M1
-   and M2 end green but do not ship.
+   and M2 end green but do not ship. **Done: 0.10.0 shipped 2026-09-26**,
+   ahead of M2, and the hot channel has carried two releases since.
 
 ## The plan to 1.0
 
 Milestones, not version numbers. Each one ends green. Only M3 and M5
-ship, per decision 4.
+ship, per decision 4. (Overtaken once 0.10.0 was out: fixes and looks now
+go out between milestones, on the hot channel, when Adam says so.)
 
 **The native freeze is lifted (2026-09-24, v0.9.101).** It was here to
 keep 0.10.0 frontend-only, so it could be the hot channel's first run.
@@ -189,7 +175,8 @@ never be a deterrent to building anything." So:
    Aurora is out of `accent.ts` (the style, its hue, the easter egg),
    `tokens.css` and `ui.css`, both cut by marker with a brace check, and
    verify-tailwind's check 8, which forced it, is retired. The pack-pairing
-   key in `accent.ts` stays with the rest of the theme machinery.
+   key in `accent.ts` stayed with the rest of the theme machinery until
+   v0.10.61 removed it: every accent pick wrote it and nothing read it.
 6. **Plan 016's Tracks 0 and 1** (done), and **plan 017** in place of
    016's Track 2. 017's P1 shipped in v0.9.105: multi-view is its own tab
    between Guide and Sports, with its own auto-hiding bar and every picture
@@ -256,15 +243,25 @@ never be a deterrent to building anything." So:
 
 ### M2: finish the primitives (plan 014 L1 and L2)
 
-- Adopt or delete the seven generated components nobody imports. A
-  component with no consumer is a promise nobody is keeping.
-- Settings modal onto Dialog, which should let `lib/modalOpen.ts` shrink
-  or go (plan 014 phase 1).
-- Switch and ChipTabs take shadcn's surface **and keep their thumb**. Adam's
-  constraint, 2026-09-06.
-- L2: header, nav capsule, app shell. **Move `RowScroller` and `Card` out
-  of `StreamScreen.tsx` into `ui/`.** A screen that exports primitives is
-  why "redo one screen" keeps touching three.
+**Done, v0.10.29 to v0.10.34 (2026-09-27), in the background**, and its
+two calls taken by Adam the same day (below).
+
+- ~~Adopt or delete the generated components nobody imports~~ v0.10.29:
+  Separator adopted (the league picker's rule), Badge, Card, Skeleton and
+  Textarea deleted, InputGroup kept (the Combobox draws through it).
+- ~~Settings modal onto Dialog~~ v0.10.33, measured identical. It cannot
+  let `lib/modalOpen.ts` go: mouse Back and Multi-view's capture-phase
+  Escape still need it.
+- Switch and ChipTabs take shadcn's surface **and keep their thumb**.
+  Adam's constraint, 2026-09-06. The Switch did in v0.10.32. ~~The
+  segmented control~~ **keeps plan 019's look** (Adam, 2026-09-27, over
+  shadcn's tabs or a hybrid): its glass track and sliding tint are his 019
+  decisions D2 and D3, made after this line was written, which retires it.
+- ~~L2~~ v0.10.34: the capsule centres itself with no live source.
+  v0.10.37: the clock and its version sit on the capsule's centre line
+  with the gear and Search (Adam: the clock moves, not the capsule). ~~Move `RowScroller`
+  and `Card` out of `StreamScreen.tsx`~~ v0.10.31, to `ui/`, and
+  ContinueCard to its own file.
 
 ### M3: the screens and the glass, then release (plan 014 L3)
 
@@ -274,10 +271,13 @@ never be a deterrent to building anything." So:
   only where there is content behind it to see through. Never over the mpv
   surface, which cannot be composited with.
 - `prefers-reduced-transparency` and a light-mode contrast pass, together,
-  with a `verify-glass` harness.
-- **Release it: the new look, 0.10.0.** A native release through the
-  installer (the stream proxy is native). Signed, if decision 3 says so;
-  this is the first build where signing would buy anything.
+  with a `verify-glass` harness. Plan 022 puts these to Adam as rendered
+  options first (week of 2026-09-28, item 6); the light pass starts from
+  the list of white-on-the-page colours in that week's log.
+- ~~**Release it: the new look, 0.10.0.**~~ **Shipped 2026-09-26**, unsigned
+  (decision 3 is still open). A native release through the installer (the
+  stream proxy is native). The glass and the light pass above did not make
+  it and are still open.
 - **Themes, in the same release's words.** 0.10.0 is the first release
   without packs, and 0.9.0 users who picked one lose it (a picked accent
   colour is not lost; the picker is back from M1). The changelog says
@@ -299,25 +299,32 @@ never be a deterrent to building anything." So:
 - A token is a credential. Where it is stored gets the same scrutiny as
   playlist passwords.
 - MAL after, for the anime lists. The IMDb to MAL mapping is already in the
-  tree for aniskip.
+  tree for aniskip. **Planned and built** (`plans/021`, v0.10.39 to
+  v0.10.41), not yet run against the real MAL.
 - Built on the M2 primitives, so its UI never needs converting.
 
 ### M5: 1.0
 
-- TheaterOverlay's clock: it re-renders the whole 1,400-line overlay ten
-  times a second during VOD. Measure render counts before and after.
+- ~~TheaterOverlay's clock: it re-renders the whole 1,400-line overlay ten
+  times a second during VOD.~~ **Measured and done (v0.10.42).** The clock
+  stopped re-rendering at v0.9.0 (it writes its text to the node); what was
+  left was the 500ms position poll, 2 commits a second playing and paused
+  alike. Paused is 0 now; playing stays at 2, which the scrubber needs.
+  `verify-overlay-renders` holds it.
 - Every harness green, no generated component without a consumer, docs
-  that match the tree.
+  that match the tree. The second has held since v0.10.29 (verify-tailwind
+  9f fails on one), and the dead code around it went in v0.10.61. The docs
+  were brought to the tree on 2026-09-28; keeping them there is each
+  commit's job.
 - Signed, with the reputation M3's installs have built, if decision 3
   says sign.
 
 ### Alongside, whenever there is room
 
-- **An app-wide command palette** (Adam, 2026-09-24, on plan 017's M3:
-  "bookmark this as a full app feature down the line"). Multi-view's picker
-  is its first shape: search-first, keyboard-complete, rows with logos and
-  what is on. Grown out to channels, films and series, Settings and actions,
-  it is also the Ctrl+K channel search the Live slate ranked first.
+- ~~**An app-wide command palette**~~ **Built in v0.10.9** (plan 019, K11):
+  Ctrl+K anywhere, or the search button beside Settings. Channels with what
+  is on, programmes on later, films and series, and places to go. Actions
+  (play, add to a list) are the part still open.
 - **Sports matcher leftovers.** ACCNX and ESPN+ are carried as per-fixture
   event channels ("Liberty vs. Virginia (ACCNX)"), which is `matchEvent`
   territory. Run `btvSports()` on a college Saturday first; whether those
@@ -373,9 +380,11 @@ Not in 1.0: recording, anything else below.
 - **Styling goes through the design system now.** Tailwind and shadcn since
   v0.9.49: a standalone button is `<Button>`, and plan 014 lists the three
   legal ways to override a variant (`!important` is not one). Colour still
-  comes from tokens, and that is what keeps Themes possible later: a raw
-  colour utility is for a scrim over imagery and nothing else (see
-  decision 1). Icons: coolicons-style strokes in `ui/icons.tsx`.
+  comes from tokens, and that is what keeps Themes possible later: a
+  literal colour is for black (a scrim, a shadow, the letterbox) and the
+  short list in tokens.css's NAMED COLOURS, nothing else (see decision 1).
+  White on a picture is `--on-image`. Icons: coolicons-style strokes in
+  `ui/icons.tsx`.
 
 # History
 

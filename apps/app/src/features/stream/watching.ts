@@ -1,4 +1,4 @@
-import { load, save } from "../../lib/storage";
+import { hasId, loadList, save } from "../../lib/storage";
 
 /**
  * Continue Watching: a recency-ordered record of what was played in the
@@ -32,6 +32,9 @@ export interface WatchEntry {
    * Powers resume-from-position and the card's progress bar. */
   posSec?: number;
   durSec?: number;
+  /** Trakt's id for this paused position (plan 015, T4), so clearing the
+   * card clears it on Trakt too. Only on entries Trakt has seen paused. */
+  trakt?: number;
   at: number;
 }
 
@@ -40,7 +43,7 @@ const VERSION = 1;
 const CAP = 20;
 
 export function loadWatching(): WatchEntry[] {
-  return load<WatchEntry[]>(KEY, VERSION, []);
+  return loadList(KEY, VERSION, hasId<WatchEntry>);
 }
 
 /** Move-to-front on the title id (an episode replaces its sibling). */
@@ -53,16 +56,37 @@ export function recordWatching(entry: WatchEntry): WatchEntry[] {
   return list;
 }
 
+/** Replace the whole list (a Trakt sync's merge, plan 015). Capped, as a
+ * record is. */
+export function replaceWatching(list: WatchEntry[]): WatchEntry[] {
+  const capped = list.slice(0, CAP);
+  save(KEY, VERSION, capped);
+  return capped;
+}
+
+/** Told what a clear removed. Trakt listens (plan 015, T4): a card cleared
+ * here clears its paused position there, or the next sync brings it back. */
+type Cleared = (gone: WatchEntry[]) => void;
+const cleared = new Set<Cleared>();
+export function onWatchingCleared(fn: Cleared): () => void {
+  cleared.add(fn);
+  return () => cleared.delete(fn);
+}
+
 /** Forget everything watched. Returns the (empty) list so callers set
  * state from the same value the store now holds, as clearWatching does. */
 export function clearAllWatching(): WatchEntry[] {
+  const gone = loadWatching();
   save(KEY, VERSION, []);
+  cleared.forEach((fn) => fn(gone));
   return [];
 }
 
 export function clearWatching(id: string): WatchEntry[] {
-  const list = loadWatching().filter((e) => e.id !== id);
+  const all = loadWatching();
+  const list = all.filter((e) => e.id !== id);
   save(KEY, VERSION, list);
+  cleared.forEach((fn) => fn(all.filter((e) => e.id === id)));
   return list;
 }
 

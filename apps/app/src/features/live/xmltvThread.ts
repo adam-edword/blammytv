@@ -27,7 +27,31 @@ import type { XmltvDone, XmltvJob, XmltvReady } from "./xmltv.worker";
  * page still has them to fall back on. After that, a failure is an error
  * like any other guide failure.
  */
-export function parseXmltvOffThread(
+export async function parseXmltvOffThread(
+  bytes: ArrayBuffer,
+  byEpgId: Map<string, string[]>,
+  now: Date,
+  stats?: XmltvStats,
+): Promise<{ programmes: Map<string, Programme[]>; chars: number; onWorker: boolean }> {
+  return parseInflated(await inflateGuide(bytes), byEpgId, now, stats);
+}
+
+/**
+ * A guide served as a gzip FILE (an M3U's `url-tvg` pointing at .xml.gz,
+ * which is common) arrives as gzip bytes: the HTTP layer only undoes a
+ * Content-Encoding, and here the gzip is the body itself. Decoded as text
+ * it was binary, matched nothing, and the guide stayed empty with "matched
+ * none of the channels". Anything that doesn't start with gzip's magic
+ * bytes is handed back as it came.
+ */
+export async function inflateGuide(bytes: ArrayBuffer): Promise<ArrayBuffer> {
+  const head = new Uint8Array(bytes, 0, Math.min(2, bytes.byteLength));
+  if (head[0] !== 0x1f || head[1] !== 0x8b) return bytes;
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Response(stream).arrayBuffer();
+}
+
+function parseInflated(
   bytes: ArrayBuffer,
   byEpgId: Map<string, string[]>,
   now: Date,

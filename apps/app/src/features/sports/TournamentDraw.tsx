@@ -5,7 +5,6 @@ import { Segmented } from "../../ui/Segmented";
 import { UpcomingCard } from "./UpcomingCard";
 import { WarnIcon, LeaguesIcon } from "../../ui/icons";
 import { useMouseNav } from "../../lib/mouseNav";
-import { isModalOpen } from "../../lib/modalOpen";
 import { isTauri, tauriIsFullscreen } from "../../lib/tauri";
 import type { Fixture, Tournament } from "./model";
 import { BackButton } from "../../ui/BackButton";
@@ -87,11 +86,12 @@ export function TournamentDraw({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      // Settings or Themes is over this screen and owns the key.
-      if (isModalOpen()) return;
-      // So does a dialog that just took it: the palette's Escape closes the
-      // palette, and by the time it reaches here the palette may already
-      // have told modalOpen it's gone. Radix marks the Escape it takes.
+      // A dialog over this screen took it: Settings and the palette are
+      // both Radix dialogs (Settings since v0.10.33), and Radix marks the
+      // Escape it takes, on the document, before this window listener hears
+      // it. This asked lib/modalOpen first while Settings was hand-rolled;
+      // the mark is the better answer, since the palette's Escape can land
+      // after it has already told modalOpen it's gone.
       if (e.defaultPrevented) return;
       if (!isTauri()) {
         onClose();

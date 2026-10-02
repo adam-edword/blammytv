@@ -110,14 +110,29 @@ check(
 // stock zinc. Asserted through a REAL generated class rather than the
 // variable, because the variable being right does not prove the utility was
 // generated from it.
+//
+// `text-primary`, Button's link variant. It was `bg-primary` until v0.10.29,
+// when Badge went and took the last use of it with it: Tailwind emits only
+// the utilities the source uses, so the probe read a class that no longer
+// existed and got transparent back.
+// A colour is inherited, so "not transparent" would pass on a missing class
+// too; it has to BE the accent, and differ from the text it would inherit.
 const accent = await cssVar("--accent");
-const primaryBg = await computed("bg-primary", "background-color");
+const primaryBg = await computed("text-primary", "color");
+const [accentColor, inherited] = await page.evaluate(() => {
+  const el = document.createElement("div");
+  el.style.color = "var(--accent)";
+  document.body.appendChild(el);
+  const v = getComputedStyle(el).color;
+  el.remove();
+  return [v, getComputedStyle(document.body).color];
+});
 const muted = await cssVar("--text-muted");
 const mutedFg = await computed("text-muted-foreground", "color");
 check(
-  "bg-primary reaches the app's accent, not a stock palette",
-  primaryBg.length > 0 && primaryBg !== "rgba(0, 0, 0, 0)",
-  `--accent ${accent} -> ${primaryBg}`,
+  "text-primary reaches the app's accent, not a stock palette",
+  primaryBg === accentColor && primaryBg !== inherited,
+  `--accent ${accent} -> ${primaryBg} (accent ${accentColor}, inherited ${inherited})`,
 );
 check(
   "text-muted-foreground reaches the app's middle text tier",
@@ -133,13 +148,13 @@ check(
 // still passes while every custom accent silently stops reaching anything
 // written with a utility. The Customize picker writes --accent onto :root,
 // which is exactly what this does.
-const before = await computed("bg-primary", "background-color");
+const before = await computed("text-primary", "color");
 await page.evaluate(() =>
   document.documentElement.style.setProperty("--accent", "#1e90ff"),
 );
-const after = await computed("bg-primary", "background-color");
+const after = await computed("text-primary", "color");
 check(
-  "bg-primary FOLLOWS a runtime accent change (`@theme inline`)",
+  "text-primary FOLLOWS a runtime accent change (`@theme inline`)",
   after !== before && after === "rgb(30, 144, 255)",
   `${before} -> ${after}, expected rgb(30, 144, 255)`,
 );
@@ -656,7 +671,7 @@ check(
 // against a face `default` paints from the utilities layer. Aurora was
 // removed in v0.9.95 (ROADMAP decision 1) and nothing can reach that face
 // now. What made it worth a check, a TOKEN repainting a shadcn variant, is
-// covered above by "bg-primary FOLLOWS a runtime accent change", which is
+// covered above by "text-primary FOLLOWS a runtime accent change", which is
 // the property themes need when they return.
 
 // ---- 9. THE DESIGN SYSTEM ITSELF, not just the plumbing -----------------
@@ -924,7 +939,7 @@ check(
   //
   // PER COMPONENT, not per file. A file-wide `/forwardRef/` test passes
   // every component in any file where one of them forwards, which is most
-  // of them — input-group.tsx alone holds six. That version of this check
+  // of them: input-group.tsx alone held six. That version of this check
   // reported clean against a deliberately broken InputGroupInput.
   const forwards = (name) => {
     const def = readFileSync(join(uiDir, owner.get(name)), "utf8");
@@ -981,6 +996,60 @@ check(
     "every ref handed to a components/ui primitive is actually forwarded",
     dropped.length === 0,
     dropped.length ? dropped.slice(0, 3).join(", ") : "no dropped refs",
+  );
+}
+
+// 9f. EVERY GENERATED COMPONENT HAS A CONSUMER (ROADMAP M2, v0.10.29). "A
+// component with no consumer is a promise nobody is keeping." Badge, Card
+// and Skeleton sat in components/ui for weeks with nothing importing them,
+// generated ahead of conversions that had not happened, and nothing said so.
+// M2 adopted or deleted each one; this keeps it that way.
+//
+// REACHED, not just imported from outside. A file counts when the app
+// imports it, or when a file the app reaches imports it. input-group has no
+// import outside the folder and is still load-bearing: the Combobox renders
+// its field through it, so counting outside imports alone would have called
+// it dead and deleting it would have broken Settings' language pickers.
+{
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { join, basename } = await import("node:path");
+  const root = new URL("..", import.meta.url).pathname;
+  const src = join(root, "apps/app/src");
+  const uiDir = join(src, "components/ui");
+  const ui = readdirSync(uiDir).filter((n) => n.endsWith(".tsx")).map((n) => basename(n, ".tsx"));
+  // `./x` only means components/ui/x inside that folder.
+  const importsOf = (body, inside = false) =>
+    [...body.matchAll(/from\s+["']([^"']+)["']/g)]
+      .map((m) => m[1])
+      .map((p) => (p.match(inside ? /(?:components\/ui\/|^\.\/)([\w-]+)$/ : /components\/ui\/([\w-]+)$/) ?? [])[1])
+      .filter((n) => n && ui.includes(n));
+  const reached = new Set();
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (p !== uiDir) walk(p);
+      } else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) {
+        for (const n of importsOf(readFileSync(p, "utf8"))) reached.add(n);
+      }
+    }
+  };
+  walk(src);
+  // Then whatever those reach, until nothing new turns up.
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const n of [...reached])
+      for (const dep of importsOf(readFileSync(join(uiDir, `${n}.tsx`), "utf8"), true))
+        if (!reached.has(dep)) {
+          reached.add(dep);
+          grew = true;
+        }
+  }
+  const orphans = ui.filter((n) => !reached.has(n));
+  check(
+    "every generated component in components/ui is reached from the app",
+    orphans.length === 0 && ui.length > 0,
+    orphans.length ? `no consumer: ${orphans.join(", ")}` : `${ui.length} components, all reached`,
   );
 }
 

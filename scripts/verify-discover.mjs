@@ -418,7 +418,7 @@ await page4.waitForSelector(".vod-detail", { timeout: 15_000 });
 await page4.waitForTimeout(1200); // full meta + more-like-this fetches
 const detailText = await page4.evaluate(() => document.body.innerText);
 check("detail shows the cast line", detailText.includes("With Actor A, Actor B"));
-const moreTitles = await page4.$$eval(".vod-more__card", (els) => els.map((e) => e.getAttribute("title")));
+const moreTitles = await page4.$$eval(".vod-more__card", (els) => els.map((e) => e.getAttribute("data-hint")));
 check("More Like This renders genre neighbors",
   moreTitles.length > 0 && !moreTitles.includes("Fake Movie One"),
   moreTitles.join(", "));

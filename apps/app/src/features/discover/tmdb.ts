@@ -42,11 +42,6 @@ const KEY = "tmdbKey";
 const VERSION = 1;
 const BASE = "https://api.themoviedb.org/3";
 
-/** Overridable so the harness can point at a fake on localhost. */
-let base = BASE;
-export function setTmdbBase(url: string): void {
-  base = url.replace(/\/+$/, "");
-}
 
 /**
  * The app's own key (Adam, 2026-09-26: "we can ship our own key in the
@@ -157,7 +152,7 @@ async function ask(path: string, params: Record<string, string>): Promise<unknow
   // The key rides the query string (their v3 scheme, which is what an API
   // key from the account page is). A v4 bearer token would go in an
   // Authorization header instead; we do not issue those.
-  const body = await httpGetText(`${base}${path}?${q}`);
+  const body = await httpGetText(`${BASE}${path}?${q}`);
   return JSON.parse(body);
 }
 

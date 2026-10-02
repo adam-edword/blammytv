@@ -44,5 +44,5 @@
 .accent-picker .react-colorful__pointer {
   width: 18px;
   height: 18px;
-  border: 2px solid #fff;
+  border: 2px solid var(--on-image);
 }

@@ -62,3 +62,6 @@ apps/app/latest.json
 apps/app/frontend.json
 apps/app/frontend-*.tar.gz
 apps/app/frontend-*.tar.gz.sig
+
+# Background agents' git worktrees (Claude Code)
+.claude/worktrees/

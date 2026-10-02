@@ -1,6 +1,6 @@
 # 017: Multi-view, designed
 
-**Status: IN PROGRESS. P1 shipped in v0.9.105** (the tab, its bar, the
+**Status: COMPLETE (2026-09-28 check), shipped in 0.10.0. P1 shipped in v0.9.105** (the tab, its bar, the
 layout engine), **P2 in v0.9.107** (the tile), **P3a in v0.9.109** (the
 picker and the line's limits), **P3b in v0.9.111** (live games), **P4a
 in v0.9.116** (sound and keys), **P4b in v0.9.117** (the seam), **P5 in

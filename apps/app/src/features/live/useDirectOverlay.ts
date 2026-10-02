@@ -225,6 +225,9 @@ export function useDirectOverlay(
     const tick = () => {
       tauriMpvStatus()
         .then((st) => {
+          // An answer about the stream before a switch: its `presenting`
+          // would dismiss the new tune's card before its first frame.
+          if (stopped) return;
           // FINISHED or DIED — the most expensive question here, and the
           // one with two shipped regressions behind it. The decision lives
           // in ending.ts as a tested pure function; this is only the wiring.

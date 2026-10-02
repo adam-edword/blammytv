@@ -142,11 +142,14 @@ if (!FAST) {
 
   // Startup tab.
   await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
-  // Scoped: the header's own "Stream" is in the DOM behind the overlay.
+  // Scoped: the header's own tabs are in the DOM behind the overlay. Stream
+  // first, then Live TV: each click saves, and the app has to open on the
+  // last one (checked once the overlay lets go).
   await page.locator(".onb").getByRole("button", { name: "Stream", exact: true }).click();
   const startup = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("blammytv.startupTab") ?? "{}").data);
   check("startup pill saves the choice", startup === "stream", String(startup));
+  await page.locator(".onb").getByRole("button", { name: "Live TV", exact: true }).click();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
   // Done: the Settings nudge, then the hand-off.
@@ -253,6 +256,12 @@ if (!FAST) {
   const kept = await page.evaluate(() =>
     document.documentElement.style.getPropertyValue("--accent"));
   check("the accent picked on step 3 is still on once the app is up", kept === "#3730ff", kept);
+  // Where it opens: the Guide, as picked, now that a playlist is set up.
+  // The section was decided at mount, before either, and a first run came
+  // out on Stream.
+  const openedOn = await page.evaluate(() =>
+    document.querySelector("[data-dest][aria-current='page']")?.getAttribute("data-dest") ?? "nowhere");
+  check("and it opens where the startup step said, the Guide", openedOn === "guide", openedOn);
   await page.close();
 }
 
@@ -390,13 +399,6 @@ if (!FAST) {
   check("with it closed, Escape steps back as before", stepped);
   await page.close();
 
-  // Settings → Replay onboarding runs it at whatever UI scale is stored.
-  const scaled = await newPage({ "blammytv.uiScale": JSON.stringify({ v: 1, data: 1.2 }) });
-  await toAccentStep(scaled);
-  const at12 = await openCustom(scaled);
-  check("ui scale 1.2: custom popover still opens under its chip",
-    at12.onTop && underChip(at12), JSON.stringify(at12));
-  await scaled.close();
 }
 
 // 5c. Back navigation: button + Escape walk backwards; hidden on step 0.
@@ -547,43 +549,6 @@ if (!FAST) {
     .catch(() => false);
   check("cold boot: input skips it immediately", gone);
   await page.close();
-}
-
-// 11. UI-scale exemption (v0.4.43, Adam's call): the boot/onboarding
-//     overlays counter-zoom the root zoom, so their geometry is
-//     IDENTICAL at every scale notch. uiScale persists across
-//     sessions, so a scaled cold boot is the common case. gBCR is
-//     visual px — the exempt overlays must measure the same values a
-//     zoom-1 run produces (screen inset 35·s per side; splash mark
-//     76px fixed).
-if (!FAST) {
-  const uiScale = JSON.stringify({ v: 1, data: 1.2 });
-  const page = await newPage({ "btv:onboarded": "1", "blammytv.uiScale": uiScale });
-  await page.goto("http://localhost:4173/?welcome=1");
-  await page.waitForSelector(".boot-overlay", { timeout: 8000 });
-  const geo = await page.evaluate(() => {
-    const s = Math.max(innerWidth / 1920, innerHeight / 1167);
-    const f = document.querySelector(".boot-frame").getBoundingClientRect();
-    const scr = document.querySelector(".boot-screen").getBoundingClientRect();
-    return {
-      zoom: document.documentElement.style.zoom,
-      frameFull: Math.abs(f.width - innerWidth) < 1 && Math.abs(f.height - innerHeight) < 1,
-      insetOk: Math.abs(scr.x - 35 * s) < 1 && Math.abs(innerWidth - scr.right - 35 * s) < 1,
-    };
-  });
-  check("ui scale 1.2: root zoom applied but the boot frame fills the true viewport",
-    geo.zoom === "1.2" && geo.frameFull, JSON.stringify(geo));
-  check("ui scale 1.2: screen inset is the true-px 35·s (zoom-invariant)",
-    geo.insetOk, JSON.stringify(geo));
-  await page.close();
-
-  const onb = await newPage({ "blammytv.uiScale": uiScale });
-  await onb.goto("http://localhost:4173/?onboarding=1");
-  await onb.waitForSelector(".onb-mark", { timeout: 8000 });
-  const markW = await onb.$eval(".onb-mark", (el) => el.getBoundingClientRect().width);
-  check("ui scale 1.2: splash mark still 76 visual px (onboarding exempt)",
-    Math.abs(markW - 76) < 1, String(markW));
-  await onb.close();
 }
 
 await browser.close();

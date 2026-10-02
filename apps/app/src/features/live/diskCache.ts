@@ -21,6 +21,9 @@ export interface DiskCached {
   key: string;
   at: number;
   data: LiveData;
+  /** Its programmes were normalized before the write (v0.10.62 on), so a
+   * hydrate needn't do it again. Absent on older records. */
+  normalized?: true;
 }
 
 function openDb(): Promise<IDBDatabase | null> {
@@ -132,6 +135,29 @@ export async function diskPut(record: DiskCached): Promise<void> {
       console.warn("[live-cache] write threw:", e);
       db.close();
       resolve();
+    }
+  });
+}
+
+/** Drop the stored catalog. Its key carries an Xtream server, username and
+ * password, and its channels carry every stream URL with them in it, so
+ * Clear All Login Info takes it too. */
+export async function diskClear(): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  return new Promise((resolve) => {
+    const done = () => {
+      db.close();
+      resolve();
+    };
+    try {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(RECORD);
+      tx.oncomplete = done;
+      tx.onerror = done;
+      tx.onabort = done;
+    } catch {
+      done();
     }
   });
 }

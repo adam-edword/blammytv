@@ -196,6 +196,27 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
     rows.length === 3 && /^Fake ESPN 4K[\s\S]*1 · ESPN Hour 2 · until /.test(rows[0]),
     JSON.stringify(rows.map((r) => r.replace(/\n/g, " | "))),
   );
+  // The palette's look (v0.10.26, Adam: "make the multiview ctrlk similar
+  // looking"): shadcn's Command, 448 by rounded-xl, an h-8 field, 32px rows,
+  // no key footer, and the footer's one fact, the room left, in the field.
+  const look = await page.evaluate(() => {
+    const box = document.querySelector(".mvpick");
+    const head = document.querySelector(".mvpick__head");
+    return {
+      w: Math.round(box.getBoundingClientRect().width),
+      radius: parseFloat(getComputedStyle(box).borderTopLeftRadius),
+      field: Math.round(head.getBoundingClientRect().height),
+      rows: [...new Set([...document.querySelectorAll(".mvpick__row")].map((r) => Math.round(r.getBoundingClientRect().height)))],
+      room: head.querySelector(".mvpick__room")?.textContent,
+      foot: !!document.querySelector(".mvpick__foot"),
+    };
+  });
+  check(
+    "  it wears the palette's look: 448 by rounded-xl, an h-8 field, 32px rows, the room left in the field",
+    look.w === 448 && look.radius === 14 && look.field === 32 && look.rows.length === 1 && look.rows[0] === 32 &&
+      /more fits? on your line/.test(look.room ?? "") && !look.foot,
+    JSON.stringify(look),
+  );
   await page.keyboard.press("Enter");
   await input(page).waitFor({ state: "detached", timeout: 5000 });
   check(

@@ -6,11 +6,13 @@ Everything under `ui/` is **generated**, by:
 cd apps/app && npx shadcn@latest add button dialog popover dropdown-menu tooltip
 ```
 
-It reads `components.json` at the app root, writes into `src/components/ui/`,
-and imports `cn` from `@/lib/utils`. Both paths are already wired: the `@/*`
-alias is in `vite.config.ts` and `tsconfig.json`, and the runtime packages
-it needs (Radix, `class-variance-authority`, `clsx`, `tailwind-merge`,
-`lucide-react`) are already installed, so `add` will not have to fetch them.
+It reads `components.json` at the app root and writes into
+`src/components/ui/`. The components here import `cn` from the `cn`
+package, shadcn's drop-in for `clsx` + `tailwind-merge` (neither of those
+is installed since v0.10.61). There is no `src/lib/utils.ts` and never has
+been, but `components.json` still names `@/lib/utils`, so check the `cn`
+import in anything `add` writes. The other runtime packages (Radix,
+`class-variance-authority`, `lucide-react`) are installed.
 
 ## Edit them freely, but know what you are giving up
 
@@ -19,6 +21,13 @@ us. Re-running `add` for the same component **overwrites the file**, so a
 component that has been edited should either be left alone or copied out
 from under `ui/` first. Prefer passing `className` at the call site over
 editing the generated file: `cn()` is built so a caller's utility wins.
+
+Edited so far, and what a re-`add` would take off: the floating surfaces
+(dropdown-menu, context-menu, popover, combobox, tooltip) carry the thin
+glass tier as `border-float-border`, `shadow-(--float-shadow)` and
+`[backdrop-filter:var(--float-blur)]`, and dialog's overlay is
+`bg-(--dim)` (plan 022). The tokens are in `styles/tokens.css`; utilities
+outrank the app's own stylesheets, so a rule there cannot put them back.
 
 ## They are Tailwind-only on purpose
 

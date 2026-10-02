@@ -74,15 +74,14 @@ check(
   "the censored channel in an innocent genre is dropped",
   !text.includes("Sneaky Flagged Stream"),
 );
-check(
-  "EPG listings from get_epg_info render",
-  // The fixture generates programme titles per channel; the airing one
-  // shows in the hero/guide.
-  /Programme|Now on|Fake .* (Show|Hour|News)/i.test(text) ||
-    (await page.evaluate(
-      () => document.querySelectorAll("[class*=guide], [class*=cell]").length,
-    )) > 0,
-);
+// The fixture titles each channel's airing programme "Now Showing <id>".
+// This used to accept any element with "guide" or "cell" in its class,
+// which the empty guide's own frame satisfied: a portal answering
+// get_epg_info with nothing still passed (the services audit's mutation).
+const epg = await page
+  .waitForFunction(() => /Now Showing \d+/.test(document.body.innerText), null, { timeout: 15_000 })
+  .then(() => true, () => false);
+check("EPG listings from get_epg_info render", epg);
 
 await browser.close();
 const fails = results.filter(([, ok]) => !ok);

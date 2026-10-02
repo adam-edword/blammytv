@@ -70,6 +70,28 @@ check(
   !text.includes("Late Night Feature"),
 );
 
+// The guide, from the playlist's url-tvg: plainly, and as a .xml.gz file
+// (the body is the gzip itself, no Content-Encoding). The second was read
+// as text and matched nothing. Landed on the Guide, whose lanes show the
+// programmes by title.
+for (const [label, path] of [
+  ["the guide from url-tvg renders", "/playlist.m3u"],
+  ["  and one served as a .xml.gz file renders too", "/playlist-gz.m3u"],
+]) {
+  const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await c.newPage();
+  await p.addInitScript((pl) => {
+    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
+  }, { v: 1, data: [{ ...PLAYLIST.data[0], url: `http://localhost:8082${path}` }] });
+  await p.goto(URL);
+  const shown = await p
+    .waitForFunction(() => document.body.innerText.includes("ESPN Hour"), null, { timeout: 20_000 })
+    .then(() => true, () => false);
+  check(label, shown);
+  await c.close();
+}
+
 await browser.close();
 const fails = results.filter(([, ok]) => !ok);
 console.log(

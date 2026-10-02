@@ -3,6 +3,7 @@ import { Button } from "../../components/ui/button";
 import { CheckIcon, CloseIcon, CopyIcon } from "../../ui/icons";
 import { probeAioStreams, probeVerdict, type ProbeStep } from "./aioProbe";
 import { isValidManifestUrl, loadAioUrl, saveAioUrl } from "./aiostreams";
+import { Hint } from "../../ui/Hint";
 
 export function AioStreamsTab() {
   const [url, setUrl] = useState(loadAioUrl);
@@ -72,24 +73,26 @@ export function AioStreamsTab() {
             />
             {url.trim() !== "" && (
               <span className="settings-field__tools">
+                <Hint label={copied ? "Copied!" : "Copy"}>
                 <Button variant="ghost" size="icon-sm"
                   type="button"
                   className="settings-field__tool"
                   aria-label="Copy manifest URL"
-                  title={copied ? "Copied!" : "Copy"}
                   onClick={copy}
                 >
                   {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
                 </Button>
+                </Hint>
+                <Hint label="Clear">
                 <Button variant="ghost" size="icon-sm"
                   type="button"
                   className="settings-field__tool"
                   aria-label="Clear manifest URL"
-                  title="Clear"
                   onClick={() => setUrl("")}
                 >
                   <CloseIcon className="size-3.5" />
                 </Button>
+                </Hint>
               </span>
             )}
           </div>

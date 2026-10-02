@@ -48,6 +48,9 @@ export interface CompRect {
 export interface TheaterMeta {
   channelName: string;
   logo?: string;
+  /** VOD: the title's wide art, blurred into the loading screen behind the
+   * logo (VodLoading). */
+  backdrop?: string;
   title?: string;
   description?: string;
   /** CONTENT TYPE: true = live TV, false = VOD. The overlay derives its
@@ -82,9 +85,14 @@ export interface TheaterMeta {
  * line and is left playing. */
 let livePopout = false;
 let watchingPopout = false;
+/** Which screen opened the popout, when it said. Kept after it closes, so
+ * a screen hearing popout-closed can ask whether the stream was its own. */
+let popoutOwner: string | null = null;
+export const popoutOpenedBy = (): string | null => popoutOwner;
 
-export function tauriPopoutOpen(url: string, live: boolean): Promise<void> {
+export function tauriPopoutOpen(url: string, live: boolean, owner?: string): Promise<void> {
   livePopout = live;
+  popoutOwner = owner ?? null;
   if (!watchingPopout) {
     watchingPopout = true;
     void listen("popout-closed", () => {
@@ -173,7 +181,14 @@ export function tauriMvProxyOpen(url: string, convertHevc = false): Promise<stri
 export function tauriMvConvertWarm(): Promise<void> {
   return invoke("mv_convert_warm");
 }
-/** Forget a URL `tauriMvProxyOpen` returned. */
+/** An HLS stream for a multi-view tile: a loopback URL for its playlist,
+ * whose URIs (variants, segments, keys) all point back at the proxy, so
+ * hls.js gets the CORS header on every one (mvproxy.rs). Rejects on a
+ * native build from before v0.10.67; the tile then plays it directly. */
+export function tauriMvProxyOpenHls(url: string): Promise<string> {
+  return invoke<string>("mv_proxy_open_hls", { url });
+}
+/** Forget a URL `tauriMvProxyOpen` or `tauriMvProxyOpenHls` returned. */
 export function tauriMvProxyClose(local: string): Promise<void> {
   return invoke("mv_proxy_close", { local });
 }

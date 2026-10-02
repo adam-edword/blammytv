@@ -108,10 +108,12 @@ export function Recommender({
         const chosen = pick(pool, recent.current);
         if (!chosen) break;
         pool = pool.filter((c) => c.id !== chosen.id);
-        const imdb = await imdbIdFor(chosen);
+        // A throw is a miss too: one title whose lookup failed ended the
+        // whole walk on the error card with the rest of the list untried.
+        const imdb = await imdbIdFor(chosen).catch(() => null);
         if (mine !== gen.current) return;
         if (!imdb) continue;
-        const item = await resolveVodItem(kind, imdb);
+        const item = await resolveVodItem(kind, imdb).catch(() => null);
         if (mine !== gen.current) return;
         if (!item) continue;
         recent.current = remember(recent.current, chosen.id);

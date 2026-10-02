@@ -7,7 +7,7 @@ import type {
   ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { PanelIcon } from "../../ui/icons";
 import {
@@ -22,9 +22,7 @@ import {
   SIDE_MAX,
   SIDE_MIN,
 } from "../settings/theaterSide";
-import { currentZoom } from "../settings/uiScale";
 import { useMouseNav } from "../../lib/mouseNav";
-import { isModalOpen } from "../../lib/modalOpen";
 import {
   isTauri,
   tauriIsFullscreen,
@@ -198,7 +196,7 @@ export function SportsTheater({
    * lags the pointer while the setting unwinds from above the cap. */
   const shownSide = () => {
     const el = sideRef.current;
-    return el ? el.getBoundingClientRect().width / currentZoom() : sideW;
+    return el ? el.getBoundingClientRect().width : sideW;
   };
   const onEdgeDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -209,8 +207,7 @@ export function SportsTheater({
   const onEdgeMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (!d) return;
-    // clientX rides the UI-scale zoom; the width is plain CSS px.
-    setSideW(clampSide(d.w + (e.clientX - d.x) / currentZoom()));
+    setSideW(clampSide(d.w + (e.clientX - d.x)));
   };
   const onEdgeEnd = () => {
     if (!dragRef.current) return;
@@ -582,10 +579,12 @@ export function SportsTheater({
      */
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      // Settings or Themes is over this screen and owns the key.
-      if (isModalOpen()) return;
-      // So does a menu: the rail's right-click menu, dismissed with Escape,
-      // used to leave the theater too. Radix marks the Escape it takes.
+      // Something over this screen took it: Settings or the palette (both
+      // Radix dialogs, Settings since v0.10.33), or the rail's right-click
+      // menu, which used to leave the theater too when Escape shut it.
+      // Radix marks the Escape it takes, on the document, before this
+      // window listener hears it. This asked lib/modalOpen first while
+      // Settings was hand-rolled.
       if (e.defaultPrevented) return;
       if (!isTauri()) {
         onClose();
@@ -839,14 +838,14 @@ function Rail({
     <button
       type="button"
       className={"sportsrail" + (on ? " is-on" : "") + (wrong ? " is-wrong" : "")}
-      title={channel.name}
+      data-hint={channel.name}
       // Which row is playing was carried by a CSS class alone, so the
       // accessible name was identical playing or not. Same shape the
       // sidebar already uses on its own toggles.
       aria-pressed={on}
       onClick={() => onPlay(channel)}
     >
-      <Lean className="sportsrail__tilt">
+      <Lean className="sportsrail__tilt on-picture">
         <ChannelLogo name={channel.name} logo={channel.logo} size={34} lazy className="sportsrail__logo" />
         <span className="sportsrail__name">{channel.name}</span>
         {wrong && <span className="sportsrail__wrong">Marked wrong</span>}

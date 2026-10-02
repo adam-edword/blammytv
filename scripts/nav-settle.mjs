@@ -16,6 +16,14 @@
  * that tab afterwards, this throws and says where it is instead.
  *
  * Not for a harness that clicks the nav on purpose while it moves.
+ *
+ * Then it waits for the SCREEN, not just the tab. App holds the swap back
+ * NAV_SETTLE_MS (190ms) after the tab lights up, so the old screen is
+ * still there for that long, and a click aimed at the new one lands on
+ * whatever the old one has in that spot. verify-trakt's
+ * `[data-hint="Fake Movie Two"]` found the film's card in Stream's
+ * Continue Watching row, opened it there, and the swap to Discover closed
+ * it a moment later: "element was detached from the DOM".
  */
 
 const STILL_MS = 300;
@@ -71,4 +79,5 @@ export async function goTo(page, dest, clickOptions = {}) {
     );
     throw new Error(`clicked the ${dest} tab but the app stayed on ${at}`);
   }
+  await page.locator(`main[data-screen="${dest}"]`).waitFor({ timeout: 5_000 });
 }

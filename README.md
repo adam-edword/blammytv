@@ -30,7 +30,7 @@ It's **self-contained**: there's no server to run. The app builds its own catalo
 - **Movies & shows**: a browsable VOD layout backed by AIOStreams; title detail, artwork, and ranked playable sources resolve on demand. Titles with missing metadata fall back to Stremio's free **Cinemeta**.
 - **A player that doesn't compromise**: a native libmpv player on Windows for true 4K60, with mini / theater / fullscreen / pop-out modes.
 - **Self-updating**: new versions install on launch from GitHub Releases (or on demand from Settings).
-- **Personal & local**: a cosmetic profile (name + avatar), recolorable accent, light/dark theme, UI scale, and a squircle UI, all stored on-device.
+- **Personal & local**: a cosmetic profile (name + avatar), recolorable accent, light/dark theme, and a squircle UI, all stored on-device.
 
 ## Status
 
@@ -46,7 +46,7 @@ Everything you configure lives in **localStorage** on the device:
 
 - **AIOStreams**: your manifest URL (it embeds your debrid/provider config, so treat it as a secret).
 - **Playlists**: your Xtream sources (server URL + username + password), kept entirely separate from AIOStreams.
-- **Customize**: accent color, UI scale, light mode, carousel sources, and "hide channels with no info".
+- **Customize**: accent color, light mode, carousel sources, and "hide channels with no info".
 - **Profile**: a cosmetic name + avatar.
 
 > **Security:** your AIOStreams URL, debrid keys, and Xtream credentials never leave the device. They're only used to fetch directly from the providers. Keep your AIOStreams URL private; it's effectively a password.

@@ -338,11 +338,13 @@ export function MultiviewGrid({
         target = k.shown.find((s) => s.id === id);
       } else if ((e.key === "r" || e.key === "R") && k.sound) {
         e.preventDefault();
-        k.onReplace(k.sound.id, k.sound.name);
+        if (!e.repeat) k.onReplace(k.sound.id, k.sound.name);
         return;
       } else if (e.key === "Delete" && k.sound) {
         e.preventDefault();
-        k.onRemove(k.sound.id);
+        // One tile a press. Held, the key repeats, the sound moves to the
+        // next tile each time, and the whole grid went (and saved empty).
+        if (!e.repeat) k.onRemove(k.sound.id);
         return;
       } else if ((e.key === "[" || e.key === "]" || e.key === "\\") && k.seam && k.box) {
         // Focus's seam: `[` and `]` nudge it, `\` puts it back.

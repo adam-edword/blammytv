@@ -1,4 +1,4 @@
-import { load, save } from "../../lib/storage";
+import { isString, load, loadList, save } from "../../lib/storage";
 import { isHttpUrl } from "./playlists";
 
 /** The AIOStreams manifest URL — the single credential that powers the
@@ -9,7 +9,8 @@ const KEY = "aiostreams";
 const VERSION = 1;
 
 export function loadAioUrl(): string {
-  return load<string>(KEY, VERSION, "");
+  const url = load<unknown>(KEY, VERSION, "");
+  return typeof url === "string" ? url : "";
 }
 
 export function saveAioUrl(url: string): void {
@@ -26,7 +27,7 @@ export function isValidManifestUrl(url: string): boolean {
 const SOURCES_KEY = "heroSources";
 
 export function loadHeroSources(): string[] {
-  return load<string[]>(SOURCES_KEY, VERSION, []);
+  return loadList(SOURCES_KEY, VERSION, isString);
 }
 
 export function saveHeroSources(keys: string[]): void {

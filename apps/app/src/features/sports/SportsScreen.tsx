@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { MultiviewIcon } from "../../ui/icons";
-import { RowScroller } from "../stream/StreamScreen";
+import { RowScroller } from "../../ui/RowScroller";
 import {
   loadCompactResults,
   saveCompactResults,

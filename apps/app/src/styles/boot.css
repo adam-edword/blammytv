@@ -60,11 +60,6 @@
   background: #000;
   opacity: 1;
   transition: opacity 400ms ease;
-  /* EXEMPT from UI scale: counter-zoom the root's zoom (uiScale.ts
-   * publishes the inverse) so 1 local px = 1 true px in here at any
-   * scale notch — bootVars' innerWidth-based geometry then needs no
-   * zoom correction. Keep identical on .onb. */
-  zoom: var(--ui-zoom-inverse, 1);
 }
 .boot-overlay.is-leaving {
   opacity: 0;
@@ -160,18 +155,18 @@
     translate(-140.72px, -140.72px);
   background: conic-gradient(
     from 90deg,
-    #ff9b9b -4.8706%,
-    #ff8bc9 3.8928%,
-    #ff7bf6 12.656%,
-    #c388fb 21.574%,
-    #8696ff 30.493%,
-    #85cbd4 40.25%,
-    #84ffa9 50.008%,
-    #c1f294 62.55%,
-    #ffe57f 75.091%,
-    #ff9b9b 95.129%,
-    #ff8bc9 103.89%,
-    #ff7bf6 112.66%
+    var(--brand-coral) -4.8706%,
+    var(--brand-rose) 3.8928%,
+    var(--brand-pink) 12.656%,
+    var(--brand-violet) 21.574%,
+    var(--brand-blue) 30.493%,
+    var(--brand-teal) 40.25%,
+    var(--brand-mint) 50.008%,
+    var(--brand-lime) 62.55%,
+    var(--brand-butter) 75.091%,
+    var(--brand-coral) 95.129%,
+    var(--brand-rose) 103.89%,
+    var(--brand-pink) 112.66%
   );
 }
 

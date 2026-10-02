@@ -66,15 +66,6 @@ export function SearchIcon({ size = 22, className, filled }: NavIconProps) {
   );
 }
 
-/** User / User_03 */
-export function AccountIcon({ size = 24, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <path d="M18 19C18 16.7909 15.3137 15 12 15C8.68629 15 6 16.7909 6 19M12 12C9.79086 12 8 10.2091 8 8C8 5.79086 9.79086 4 12 4C14.2091 4 16 5.79086 16 8C16 10.2091 14.2091 12 12 12Z" />
-    </Svg>
-  );
-}
-
 /** Interface / Settings — Fluent 16 (see the nav block for the source). */
 export function SettingsIcon({ size = 22, className, filled }: NavIconProps) {
   return (
@@ -108,124 +99,6 @@ export function StarIcon({
       aria-hidden="true"
     >
       <path d="M2.33496 10.3368C2.02171 10.0471 2.19187 9.52339 2.61557 9.47316L8.61914 8.76107C8.79182 8.74059 8.94181 8.63215 9.01465 8.47425L11.5469 2.98446C11.7256 2.59703 12.2764 2.59695 12.4551 2.98439L14.9873 8.47413C15.0601 8.63204 15.2092 8.74077 15.3818 8.76124L21.3857 9.47316C21.8094 9.52339 21.9791 10.0472 21.6659 10.3369L17.2278 14.4419C17.1001 14.56 17.0433 14.7357 17.0771 14.9063L18.255 20.8359C18.3382 21.2544 17.8928 21.5787 17.5205 21.3703L12.2451 18.4166C12.0934 18.3317 11.9091 18.3321 11.7573 18.417L6.48144 21.3695C6.10913 21.5779 5.66294 21.2544 5.74609 20.8359L6.92414 14.9066C6.95803 14.7361 6.90134 14.5599 6.77367 14.4419L2.33496 10.3368Z" />
-    </svg>
-  );
-}
-
-/**
- * The heart, in the guide star's THREE treatments.
- *
- * Adam asked for "the same exact stroke and fill style as the favorites
- * star on the guide", and the first pass got that wrong: it copied
- * StarIcon, which is the mode rail's plain outline. The guide's star is
- * not that. It is a three-state rainbow, and the picture he sent is the
- * middle one.
- *
- *   at rest, row hovered   HeartGhostIcon          currentColor at 0.1
- *   the control hovered    HeartRainbowHollowIcon  dark core, gradient ring
- *   on                     RainbowHeartIcon        gradient fill and ring
- *
- * The gradient is the star's, stop for stop. Its coordinates are
- * userSpaceOnUse, so they are RESCALED from the star's 17-unit box into
- * this 24-unit one rather than copied: 18.8541/17 of the width becomes
- * 26.62/24, and so on. Copying the raw numbers would have run the whole
- * ramp across the middle third of the heart and left both ends flat.
- *
- * Stroke is 1.4 rather than the star's 1, for the same reason and in the
- * same direction: 1 in a 17-box is 1.4 in a 24-box, so this is the star's
- * line rather than a heavier one.
- */
-const HEART_D =
-  "M12 20.7 4.3 13a5.1 5.1 0 0 1 0-7.2 5.1 5.1 0 0 1 7.2 0l.5.5.5-.5a5.1 5.1 0 0 1 7.2 0 5.1 5.1 0 0 1 0 7.2L12 20.7Z";
-
-/** The star's ramp, rescaled to a 24-unit box. Both rainbow hearts use it. */
-function HeartGradient({ id }: { id: string }) {
-  return (
-    <defs>
-      <linearGradient
-        id={id}
-        x1="26.62"
-        y1="14.96"
-        x2="-4.01"
-        y2="11.0"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop stopColor="#FF7BF6" />
-        <stop offset="0.259615" stopColor="#8696FF" />
-        <stop offset="0.528846" stopColor="#84FFA9" />
-        <stop offset="0.783654" stopColor="#FFE57F" />
-        <stop offset="1" stopColor="#FF9B9B" />
-      </linearGradient>
-    </defs>
-  );
-}
-
-/** Faint filled heart — at rest, while the row is hovered. StarGhostIcon's
- * opposite number, at its 0.1. */
-export function HeartGhostIcon({ size = 19, className }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      <path opacity="0.1" d={HEART_D} fill="currentColor" />
-    </svg>
-  );
-}
-
-/** Dark-core heart ringed by the rainbow gradient — while the control
- * itself is hovered. StarRainbowHollowIcon's opposite number. Gradient ids
- * are per-instance so many can render at once. */
-export function HeartRainbowHollowIcon({ size = 19, className }: IconProps) {
-  const grad = useId();
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d={HEART_D} fill="#262626" />
-      <path d={HEART_D} stroke={`url(#${grad})`} strokeWidth={1.4} />
-      <HeartGradient id={grad} />
-    </svg>
-  );
-}
-
-/** Gradient-filled heart — the ON state. RainbowStarIcon's opposite
- * number, `vivid` included. */
-export function RainbowHeartIcon({
-  size = 19,
-  className,
-  vivid = false,
-}: IconProps & { vivid?: boolean }) {
-  const grad = useId();
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      {/* No black understroke: at scaled sizes its antialiased fringe
-       * peeks past the gradient stroke as a dark halo. */}
-      <path d={HEART_D} fill="black" />
-      <path
-        d={HEART_D}
-        fill={`url(#${grad})`}
-        fillOpacity={vivid ? 1 : 0.7}
-        stroke={`url(#${grad})`}
-        strokeWidth={1.4}
-      />
-      <HeartGradient id={grad} />
     </svg>
   );
 }
@@ -717,11 +590,11 @@ export function RainbowStarIcon({
           y2="9.52432"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#FF7BF6" />
-          <stop offset="0.259615" stopColor="#8696FF" />
-          <stop offset="0.528846" stopColor="#84FFA9" />
-          <stop offset="0.783654" stopColor="#FFE57F" />
-          <stop offset="1" stopColor="#FF9B9B" />
+          <stop style={{ stopColor: "var(--brand-pink)" }} />
+          <stop offset="0.259615" style={{ stopColor: "var(--brand-blue)" }} />
+          <stop offset="0.528846" style={{ stopColor: "var(--brand-mint)" }} />
+          <stop offset="0.783654" style={{ stopColor: "var(--brand-butter)" }} />
+          <stop offset="1" style={{ stopColor: "var(--brand-coral)" }} />
         </linearGradient>
       </defs>
     </svg>
@@ -766,7 +639,7 @@ export function StarRainbowHollowIcon({ size = 17, className }: IconProps) {
       className={className}
       aria-hidden="true"
     >
-      <path d={d} fill="#262626" />
+      <path d={d} style={{ fill: "var(--hollow-core)" }} />
       <path d={d} stroke={`url(#${grad})`} />
       <defs>
         <linearGradient
@@ -777,18 +650,17 @@ export function StarRainbowHollowIcon({ size = 17, className }: IconProps) {
           y2="7.78823"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#FF7BF6" />
-          <stop offset="0.259615" stopColor="#8696FF" />
-          <stop offset="0.528846" stopColor="#84FFA9" />
-          <stop offset="0.783654" stopColor="#FFE57F" />
-          <stop offset="1" stopColor="#FF9B9B" />
+          <stop style={{ stopColor: "var(--brand-pink)" }} />
+          <stop offset="0.259615" style={{ stopColor: "var(--brand-blue)" }} />
+          <stop offset="0.528846" style={{ stopColor: "var(--brand-mint)" }} />
+          <stop offset="0.783654" style={{ stopColor: "var(--brand-butter)" }} />
+          <stop offset="1" style={{ stopColor: "var(--brand-coral)" }} />
         </linearGradient>
       </defs>
     </svg>
   );
 }
 
-/** Interface / Check — the active-accent tick. */
 /**
  * Warning triangle — the carriage line's "we named it but could not link
  * it" pill (plan 010 #43).
@@ -808,6 +680,7 @@ export function WarnIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Interface / Check: the active-accent tick. */
 export function CheckIcon({ size = 16, className }: IconProps) {
   return (
     <Svg size={size} className={className}>
@@ -816,43 +689,6 @@ export function CheckIcon({ size = 16, className }: IconProps) {
   );
 }
 
-/** Sun — the light half of the Themes panel's theme-style pill. */
-export function SunIcon({ size = 16, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-    </Svg>
-  );
-}
-
-/** Moon — the dark half of the Themes panel's theme-style pill. */
-export function MoonIcon({ size = 16, className }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  );
-}
-
-/** Box-with-arrow — "opens an external checkout link" on premium theme prices. */
-export function ExternalLinkIcon({ size = 16, className }: IconProps) {
-  return (
-    <Svg size={size} className={className}>
-      <path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
-    </Svg>
-  );
-}
-
-/** Edit / Pipette — the color-picker eyedropper. */
-/* (pipette doc comment restored below — EyeOffIcon slotted in above it) */
 /** Crossed-out eye — the sidebar's hover-revealed "hide this folder". */
 export function EyeOffIcon({ size = 16, className }: IconProps) {
   return (
@@ -862,27 +698,12 @@ export function EyeOffIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Edit / Pipette: the color-picker eyedropper. */
 export function EyeDropperIcon({ size = 16, className }: IconProps) {
   return (
     <Svg size={size} className={className}>
       <path d="m2 22 1-1h3l9-9M3 21v-3l9-9m0 0 3.5-3.5a2.121 2.121 0 1 1 3 3L15 12m-3-3 3 3" />
     </Svg>
-  );
-}
-
-/** Filled heart — the supporters/Themes-Pass mark on the secret theme card. */
-export function HeartIcon({ size = 16, className }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-    </svg>
   );
 }
 

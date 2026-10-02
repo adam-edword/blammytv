@@ -3,6 +3,7 @@ import { CompactCard } from "../sports/CompactCard";
 import type { Fixture } from "../sports/model";
 import { LeaguesIcon } from "../../ui/icons";
 import { Hint } from "../../ui/Hint";
+import { useDragScroll } from "../../lib/useDragScroll";
 
 /**
  * Multi-view's Live Scores row (Adam, v0.10.6: "at the bottom in one
@@ -48,6 +49,9 @@ export function MvScoresRow({
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+  // And a mouse drags it, as a Stream shelf drags (Adam, v0.10.18: "add
+  // click/drag to the score bar"). A drag never opens the card it ends on.
+  const dragScroll = useDragScroll(row);
 
   let league = "";
   return (
@@ -62,7 +66,7 @@ export function MvScoresRow({
           <LeaguesIcon size={18} />
         </button>
       </Hint>
-      <div className="mvscores__row" ref={row}>
+      <div className="mvscores__row" ref={row} {...dragScroll}>
         {games.length === 0 ? (
           <p className="mvscores__empty">
             {!looked
@@ -81,11 +85,11 @@ export function MvScoresRow({
               <Fragment key={g.id}>
                 {first && <span className="mvscores__league">{g.league}</span>}
                 {/* The reason a game does nothing, on the wrapper: the card
-                  * has its own title (the teams), and an idle card lets the
+                  * has its own hint (the teams), and an idle card lets the
                   * pointer through to this one (player.css). */}
                 <div
                   className={"mvscores__game" + (on ? " is-on" : "") + (can ? "" : " is-off")}
-                  title={can ? undefined : "None of your channels carry it"}
+                  data-hint={can ? undefined : "None of your channels carry it"}
                 >
                   <CompactCard game={g} onOpen={can ? () => onOpen(g) : undefined} />
                 </div>

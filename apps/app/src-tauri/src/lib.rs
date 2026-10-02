@@ -1,7 +1,12 @@
 mod frontend;
+mod mal;
 mod mpv;
 mod mvconvert;
 mod mvproxy;
+mod trakt;
+
+#[cfg(windows)]
+mod credman;
 #[cfg(windows)]
 mod inv;
 
@@ -222,8 +227,69 @@ fn mpv_track(kind: String, id: String) {
 /// actually holds is the difference between "I set it" and "it took".
 #[tauri::command]
 fn mpv_set(key: String, value: String) -> String {
+    if !(cfg!(debug_assertions) || tunable(&key)) {
+        return "<refused: not a tuning option in a release build>".into();
+    }
     mpv::set_prop_pub(&key, &value);
     mpv::get_prop_pub(&key).unwrap_or_else(|| "<unset>".into())
+}
+
+/// What `mpv_set` may touch in a release build (plan 016 N5, finding F15).
+///
+/// It is a tuning probe (`mpvSet()` in the console), so a release build
+/// keeps the families tuning is about: the cache and demuxer, the network,
+/// decoding, frame timing and the renderer. Not a property that names a
+/// file or a directory, loads a script or a shader, or writes a log or a
+/// recording: mpv has several (`log-file`, `stream-record`, `cache-dir`,
+/// `scripts`), and a page that could reach this command would otherwise
+/// reach them. A dev build (debug) keeps the whole of mpv, as before.
+fn tunable(key: &str) -> bool {
+    const FAMILIES: &[&str] = &[
+        "cache",
+        "demuxer",
+        "network-timeout",
+        "stream-buffer-size",
+        "hwdec",
+        "vd-lavc",
+        "video-sync",
+        "interpolation",
+        "framedrop",
+        "hr-seek",
+        "audio-buffer",
+        "untimed",
+        "video-latency-hacks",
+        "gpu-",
+        "d3d11",
+        "tone-mapping",
+        "target-",
+        "hdr-",
+        "deband",
+        "scale",
+        "dscale",
+        "cscale",
+    ];
+    const NEVER: &[&str] = &[
+        "dir",
+        "file",
+        "path",
+        "script",
+        "conf",
+        "include",
+        "log",
+        "record",
+        "dump",
+        "screenshot",
+        "shader",
+        // libav passthroughs: `demuxer-lavf-o`, `vd-lavc-o` and their kin
+        // take arbitrary FFmpeg options (a protocol whitelist, a proxy),
+        // and `demuxer-lavf-format` forces a demuxer.
+        "lavf-format",
+        // A colour lookup table read from a file (`target-lut`).
+        "lut",
+    ];
+    FAMILIES.iter().any(|f| key.starts_with(f))
+        && !key.ends_with("-o")
+        && !NEVER.iter().any(|n| key.contains(n))
 }
 
 /// DIAGNOSTIC: read one mpv property. The other half of `mpv_set`, and
@@ -754,7 +820,9 @@ async fn http_get(
             None => "absent (compressed, or chunked)".to_string(),
         },
     );
-    Ok(tauri::ipc::Response::new(body.to_vec()))
+    // Into the Vec without a copy where the buffer is uniquely held: a
+    // guide can be 95MB, and to_vec() held it twice.
+    Ok(tauri::ipc::Response::new(Vec::from(body)))
 }
 
 /// Multi-view: serve a live stream to the webview through the loopback
@@ -765,6 +833,16 @@ async fn http_get(
 #[tauri::command]
 fn mv_proxy_open(url: String, convert_hevc: Option<bool>) -> Result<String, String> {
     mvproxy::open(&url, convert_hevc.unwrap_or(false))
+}
+
+/// Multi-view, an HLS (.m3u8) stream: the same loopback URL, and every
+/// playlist it serves has its URIs pointed back through the proxy, so hls.js
+/// reaches the segments with the CORS header too (v0.10.67). Its own command
+/// so a newer frontend on an older native build, whose proxy would not
+/// rewrite playlists, fails the call and plays the stream directly.
+#[tauri::command]
+fn mv_proxy_open_hls(url: String) -> Result<String, String> {
+    mvproxy::open_hls(&url)
 }
 
 /// Multi-view opened on a webview that can't play HEVC: ask now what this
@@ -779,6 +857,148 @@ async fn mv_convert_warm() {
 #[tauri::command]
 fn mv_proxy_close(local: String) {
     mvproxy::close(&local)
+}
+
+/// Trakt (plan 015): one client for the run. Its client id is compiled in
+/// by build.rs from apps/app/.env.local (TRAKT_CLIENT_ID; Trakt no longer
+/// issues a secret) and is empty in a build without it, which then says
+/// "not configured". A dev run keeps its session under its own name, so it never
+/// spends the installed app's single-use refresh token (the lesson of
+/// v0.10.19, where dev runs reached into the installed app's hot channel).
+fn trakt_client() -> &'static std::sync::Arc<trakt::Trakt> {
+    static CLIENT: OnceLock<std::sync::Arc<trakt::Trakt>> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        let cfg = trakt::Config {
+            client_id: option_env!("BLAMMYTV_TRAKT_ID").unwrap_or("").to_string(),
+            redirect_uri: option_env!("BLAMMYTV_TRAKT_REDIRECT")
+                .unwrap_or("urn:ietf:wg:oauth:2.0:oob")
+                .to_string(),
+            api_base: "https://api.trakt.tv".into(),
+            auth_base: "https://auth.trakt.tv".into(),
+            user_agent: format!("BlammyTV/{}", env!("CARGO_PKG_VERSION")),
+        };
+        #[cfg(windows)]
+        let vault: Box<dyn trakt::Vault> = Box::new(trakt::WindowsVault {
+            target: if tauri::is_dev() {
+                "BlammyTV/trakt-dev"
+            } else {
+                "BlammyTV/trakt"
+            }
+            .into(),
+        });
+        #[cfg(not(windows))]
+        let vault: Box<dyn trakt::Vault> = Box::new(trakt::MemoryVault::default());
+        trakt::Trakt::new(cfg, http_client().clone(), vault)
+    })
+}
+
+/// Whether this build can reach Trakt, and whether a session is kept.
+#[tauri::command]
+async fn trakt_status() -> trakt::Status {
+    trakt_client().status().await
+}
+
+/// Start signing in: the code to show and where to enter it.
+#[tauri::command]
+async fn trakt_device_start() -> Result<trakt::DeviceCode, String> {
+    trakt_client().device_start().await
+}
+
+/// One poll of the sign-in, at the interval `trakt_device_start` gave.
+#[tauri::command]
+async fn trakt_device_poll() -> Result<trakt::Poll, String> {
+    trakt_client().device_poll().await
+}
+
+/// A Trakt API call by path (`/sync/history`), with the session's token
+/// added here. The answer comes back as data, a 4xx included.
+#[tauri::command]
+async fn trakt_request(
+    method: String,
+    path: String,
+    body: Option<String>,
+) -> Result<trakt::Reply, String> {
+    trakt_client().request(&method, &path, body).await
+}
+
+/// Sign out of Trakt, here and there.
+#[tauri::command]
+async fn trakt_disconnect() {
+    trakt_client().disconnect().await
+}
+
+/// MyAnimeList (plan 021): one client for the run, the same shape as
+/// Trakt's. Its client id is compiled in by build.rs from apps/app/.env.local
+/// (MAL_CLIENT_ID); an app of type "other" has no secret. The redirect is
+/// http://localhost:47391/, registered with MAL exactly. A dev run keeps
+/// its session under its own name, as Trakt's does.
+fn mal_client() -> &'static std::sync::Arc<mal::Mal> {
+    static CLIENT: OnceLock<std::sync::Arc<mal::Mal>> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        let cfg = mal::Config {
+            client_id: option_env!("BLAMMYTV_MAL_ID").unwrap_or("").to_string(),
+            api_base: "https://api.myanimelist.net/v2".into(),
+            auth_base: "https://myanimelist.net/v1/oauth2".into(),
+            redirect_port: 47391,
+            sign_in_for: std::time::Duration::from_secs(600),
+            user_agent: format!("BlammyTV/{}", env!("CARGO_PKG_VERSION")),
+        };
+        #[cfg(windows)]
+        let vault: Box<dyn trakt::Vault> = Box::new(mal::WindowsVault {
+            target: if tauri::is_dev() {
+                "BlammyTV/mal-dev"
+            } else {
+                "BlammyTV/mal"
+            }
+            .into(),
+        });
+        #[cfg(not(windows))]
+        let vault: Box<dyn trakt::Vault> = Box::new(trakt::MemoryVault::default());
+        mal::Mal::new(cfg, http_client().clone(), vault)
+    })
+}
+
+/// Whether this build can reach MAL, and whether a session is kept.
+#[tauri::command]
+async fn mal_status() -> trakt::Status {
+    mal_client().status().await
+}
+
+/// Start signing in: listen for MAL's redirect, and return the link for
+/// the page to open in the browser.
+#[tauri::command]
+async fn mal_sign_in_start() -> Result<String, String> {
+    mal_client().sign_in_start().await
+}
+
+/// Where the sign-in is: waiting, approved, denied, expired or failed.
+#[tauri::command]
+fn mal_sign_in_poll() -> mal::SignIn {
+    mal_client().sign_in_poll()
+}
+
+/// Stop waiting for the browser and give the port back.
+#[tauri::command]
+async fn mal_sign_in_cancel() {
+    mal_client().sign_in_cancel().await
+}
+
+/// A MAL API call by path (`/users/@me/animelist`), with the session's
+/// token added here. `form` is the query on a GET and the form body on
+/// anything else. The answer comes back as data, a 4xx included.
+#[tauri::command]
+async fn mal_request(
+    method: String,
+    path: String,
+    form: Option<std::collections::BTreeMap<String, String>>,
+) -> Result<mal::Reply, String> {
+    mal_client().request(&method, &path, form).await
+}
+
+/// Sign out of MAL here. MAL has no revoke.
+#[tauri::command]
+async fn mal_disconnect() {
+    mal_client().disconnect().await
 }
 
 /// Forensic GET for the settings Connection Test. Unlike `http_get`, a
@@ -988,8 +1208,20 @@ pub fn run() {
             http_get,
             http_probe,
             mv_proxy_open,
+            mv_proxy_open_hls,
             mv_proxy_close,
             mv_convert_warm,
+            trakt_status,
+            trakt_device_start,
+            trakt_device_poll,
+            trakt_request,
+            trakt_disconnect,
+            mal_status,
+            mal_sign_in_start,
+            mal_sign_in_poll,
+            mal_sign_in_cancel,
+            mal_request,
+            mal_disconnect,
             check_update,
             install_update,
             frontend::frontend_ready,
@@ -1014,4 +1246,52 @@ fn context() -> tauri::Context<tauri::Wry> {
         ctx.set_assets(Box::new(frontend::StagedAssets::new(Some(dir), embedded)));
     }
     ctx
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tunable;
+
+    /// Plan 016 N5: a release build's `mpv_set` reaches the tuning
+    /// families and none of mpv's properties that touch files or code.
+    #[test]
+    fn a_release_build_tunes_but_never_touches_files_or_scripts() {
+        for ok in [
+            "cache-secs",
+            "cache-pause-wait",
+            "demuxer-max-bytes",
+            "demuxer-readahead-secs",
+            "hwdec",
+            "video-sync",
+            "tone-mapping",
+            "target-peak",
+            "network-timeout",
+        ] {
+            assert!(tunable(ok), "refused a tuning option: {ok}");
+        }
+        for no in [
+            "log-file",
+            "stream-record",
+            "cache-dir",
+            "demuxer-cache-dir",
+            "scripts",
+            "script-opts",
+            "glsl-shaders",
+            "gpu-shader-cache-dir",
+            "input-conf",
+            "include",
+            "demuxer-lavf-o",
+            "demuxer-lavf-format",
+            "vd-lavc-o",
+            "target-lut",
+            "screenshot-directory",
+            "vf",
+            "af",
+            "external-files",
+            "sub-files",
+            "profile",
+        ] {
+            assert!(!tunable(no), "let through: {no}");
+        }
+    }
 }

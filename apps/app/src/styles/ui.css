@@ -156,7 +156,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent, #6c8cff);
+  background: var(--accent);
 }
 .live-pill.is-behind {
   font-weight: 600;
@@ -219,8 +219,8 @@
   place-items: center;
   flex: none;
   border-radius: 22%;
-  background: #fff;
-  color: #111;
+  background: var(--plate);
+  color: var(--plate-ink);
   font-weight: 800;
 }
 .chlogo img {
@@ -485,15 +485,33 @@ button.place:focus-visible {
  * The COLOURS are shadcn's too, and the checked thumb going DARK is not a
  * bug: their dark rule is `bg-primary-foreground`, and with primary a
  * near-white the ink on it has to be near-black. Off-track is `bg-input`,
- * on-track `bg-primary`, off-thumb `bg-foreground` in dark. */
+ * on-track `bg-primary`, off-thumb `bg-foreground` in dark.
+ *
+ * THE LAST OF THE SURFACE (ROADMAP M2, v0.10.32), checked against the
+ * current registry (base-vega and new-york-v4 agree on the track). v0.9.58
+ * took the geometry and the thumb's colours and left two values: the off
+ * track in dark is `dark:bg-input/80`, not the full `bg-input` (15% white
+ * at 80% is 12%), and the track carries `shadow-xs`. The thumb, its 260ms
+ * spring and its press dip are ours and stay (Adam, 2026-09-06: take the
+ * surface, keep the thumb); so do the track's colour timing and the app's
+ * focus ring. Not taken: base-vega's `after:-inset-x-3 -inset-y-2` hit
+ * area, which is behaviour rather than surface, and 24px wider in the
+ * folder list's rows of small switches. */
 .toggle {
   position: relative;
   width: 32px;
   height: 1.15rem;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--border-input);
+  /* `bg-input/80`, spelled the way Tailwind compiles it. */
+  background: color-mix(in oklab, var(--border-input) 80%, transparent);
+  box-shadow: var(--shadow-xs);
   transition: background 220ms ease;
+}
+/* `dark:` is the variant, so light keeps the full `bg-input`. Not on the
+ * checked track, which the accent paints in both themes. */
+:root[data-theme="light"] .toggle:not(.toggle--on) {
+  background: var(--border-input);
 }
 
 .toggle__thumb {
@@ -650,30 +668,33 @@ select:focus-visible,
   font-weight: 700;
   font-size: 8.2px;
   line-height: 1;
-  color: #fff;
+  color: var(--on-image);
 }
 
 /* Fill gradients verbatim from the Figma dev-mode export; rings are the
- * same stops at full strength. */
+ * same stops at full strength. The fills say `in srgb` because a gradient
+ * with a color-mix() stop otherwise blends in oklab (CSS Color 4 does that
+ * for any stop not written the old rgb() way), which moved these by up to
+ * 4 levels when the stops became tokens. */
 .badge--4k {
   background:
     linear-gradient(
-        277deg,
-        rgba(255, 123, 246, 0.29) 4.71%,
-        rgba(134, 150, 255, 0.29) 28.92%,
-        rgba(132, 255, 169, 0.29) 54.03%,
-        rgba(255, 229, 127, 0.29) 77.78%,
-        rgba(255, 155, 155, 0.29) 97.96%
+        277deg in srgb,
+        color-mix(in srgb, var(--brand-pink) 29%, transparent) 4.71%,
+        color-mix(in srgb, var(--brand-blue) 29%, transparent) 28.92%,
+        color-mix(in srgb, var(--brand-mint) 29%, transparent) 54.03%,
+        color-mix(in srgb, var(--brand-butter) 29%, transparent) 77.78%,
+        color-mix(in srgb, var(--brand-coral) 29%, transparent) 97.96%
       )
       padding-box,
     linear-gradient(#000, #000) padding-box,
     linear-gradient(
         277deg,
-        #ff7bf6 4.71%,
-        #8696ff 28.92%,
-        #84ffa9 54.03%,
-        #ffe57f 77.78%,
-        #ff9b9b 97.96%
+        var(--brand-pink) 4.71%,
+        var(--brand-blue) 28.92%,
+        var(--brand-mint) 54.03%,
+        var(--brand-butter) 77.78%,
+        var(--brand-coral) 97.96%
       )
       border-box;
 }
@@ -681,46 +702,46 @@ select:focus-visible,
 .badge--fhd {
   background:
     linear-gradient(
-        236deg,
-        rgba(255, 229, 127, 0.3) 8.39%,
-        rgba(179, 87, 0, 0.3) 88%
+        236deg in srgb,
+        color-mix(in srgb, var(--gold-light) 30%, transparent) 8.39%,
+        color-mix(in srgb, var(--gold-dark) 30%, transparent) 88%
       )
       padding-box,
     linear-gradient(#000, #000) padding-box,
-    linear-gradient(236deg, #ffe57f 8.39%, #b35700 88%) border-box;
+    linear-gradient(236deg, var(--gold-light) 8.39%, var(--gold-dark) 88%) border-box;
 }
 
 .badge--hd {
   background:
     linear-gradient(
-        284deg,
-        rgba(255, 255, 255, 0.3) 0%,
-        rgba(49, 49, 49, 0.3) 96.81%
+        284deg in srgb,
+        color-mix(in srgb, var(--silver-light) 30%, transparent) 0%,
+        color-mix(in srgb, var(--silver-dark) 30%, transparent) 96.81%
       )
       padding-box,
     linear-gradient(#000, #000) padding-box,
-    linear-gradient(284deg, #fff 0%, #313131 96.81%) border-box;
+    linear-gradient(284deg, var(--silver-light) 0%, var(--silver-dark) 96.81%) border-box;
 }
 
 .badge--hdr {
   background:
     conic-gradient(
-        from -57deg at 50% 50%,
-        rgba(255, 123, 246, 0.29) 3.46deg,
-        rgba(134, 150, 255, 0.29) 93.46deg,
-        rgba(132, 255, 169, 0.29) 190.38deg,
-        rgba(255, 229, 127, 0.29) 282.12deg,
-        rgba(255, 155, 155, 0.29) 353.08deg
+        from -57deg at 50% 50% in srgb,
+        color-mix(in srgb, var(--brand-pink) 29%, transparent) 3.46deg,
+        color-mix(in srgb, var(--brand-blue) 29%, transparent) 93.46deg,
+        color-mix(in srgb, var(--brand-mint) 29%, transparent) 190.38deg,
+        color-mix(in srgb, var(--brand-butter) 29%, transparent) 282.12deg,
+        color-mix(in srgb, var(--brand-coral) 29%, transparent) 353.08deg
       )
       padding-box,
     linear-gradient(#000, #000) padding-box,
     conic-gradient(
         from -57deg at 50% 50%,
-        #ff7bf6 3.46deg,
-        #8696ff 93.46deg,
-        #84ffa9 190.38deg,
-        #ffe57f 282.12deg,
-        #ff9b9b 353.08deg
+        var(--brand-pink) 3.46deg,
+        var(--brand-blue) 93.46deg,
+        var(--brand-mint) 190.38deg,
+        var(--brand-butter) 282.12deg,
+        var(--brand-coral) 353.08deg
       )
       border-box;
 }

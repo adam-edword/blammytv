@@ -201,6 +201,26 @@ check(
   /^Fill with live games[\s\S]*Adds 2 games, the ones you follow first/.test(rows[0] ?? ""),
   (rows[0] ?? "").replace(/\n/g, " | "),
 );
+// In the palette's look (v0.10.26), a game keeps the Sports matchup (Adam:
+// "without losing the cool live games thing"): both teams' abbreviations
+// over their names in the headline face, at 15px, the row taller than a
+// channel's 32.
+const game = await page.evaluate(() => {
+  const row = [...document.querySelectorAll(".mvpick__row")].find((r) => r.querySelector(".matchup"));
+  if (!row) return null;
+  const name = row.querySelector(".matchup__name");
+  return {
+    abbrs: [...row.querySelectorAll(".matchup__abbr")].map((a) => a.textContent),
+    size: parseFloat(getComputedStyle(name).fontSize),
+    weight: getComputedStyle(name).fontWeight,
+    h: Math.round(row.getBoundingClientRect().height),
+  };
+});
+check(
+  "a game row keeps the matchup: both abbreviations over bold 15px names",
+  !!game && game.abbrs.length === 2 && game.size === 15 && game.weight === "700" && game.h > 32,
+  JSON.stringify(game),
+);
 
 await page.keyboard.press("Enter");
 await page.locator(".mvpick__input").waitFor({ state: "detached", timeout: 5000 });

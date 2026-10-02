@@ -108,6 +108,23 @@ check(
   Math.abs(place.dx) <= 1 && place.gap >= 2 && place.gap <= 6,
   JSON.stringify(place),
 );
+// Dragging the square: the look follows the pointer, and storage is written
+// once, on release (plan 016 F23). Every move used to write three keys.
+const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.accent") ?? "null")?.data ?? null);
+const square = await page.locator(".react-colorful__saturation").boundingBox();
+const before = await stored();
+await page.mouse.move(square.x + square.width * 0.3, square.y + square.height * 0.3);
+await page.mouse.down();
+await page.mouse.move(square.x + square.width * 0.7, square.y + square.height * 0.4, { steps: 6 });
+const mid = { inline: (await root()).inline, stored: await stored() };
+await page.mouse.up();
+await page.waitForTimeout(100);
+const after = { inline: (await root()).inline, stored: await stored() };
+check(
+  "dragging the square applies live and saves once, on release",
+  /^#[0-9a-f]{6}$/.test(mid.inline) && mid.stored === before && after.stored === after.inline && after.inline !== before,
+  JSON.stringify({ before, mid, after }),
+);
 await page.locator("input[aria-label='Hex color']").fill("ff6a00");
 check("typing a full hex applies it", (await root()).inline === "#ff6a00");
 await page.keyboard.press("Escape");
@@ -165,7 +182,8 @@ await stalePage.addInitScript(() => {
   localStorage.setItem("btv:onboarded", "1");
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.accent", JSON.stringify({ v: 1, data: "#7b5bf5" }));
-  // And a stored LIGHT theme, which 0.9.0 could set and nothing since can.
+  // And a stored LIGHT theme, which 0.9.0 could set and v0.10.65's
+  // Appearance control can again.
   localStorage.setItem("blammytv.theme", JSON.stringify({ v: 1, data: "light" }));
 });
 await stalePage.goto(process.env.APP_URL ?? "http://localhost:4173/", {
@@ -176,15 +194,16 @@ const staleInline = await stalePage.evaluate(() =>
   document.documentElement.style.getPropertyValue("--accent"),
 );
 check("a 0.9.0-era (v1) accent is ignored at launch", staleInline === "", staleInline);
-// Dark only until M3's light pass (plan 016 D1): a stored light setting
-// no longer paints the half-broken light theme, and it is kept, not wiped.
+// From v0.9.58 to v0.10.64 the app booted dark whatever was stored (plan
+// 016 D1) and kept the stored value for this day: light is fixed and has
+// its control again (plan 022), so a kept 0.9.0 choice applies again.
 const staleTheme = await stalePage.evaluate(() => ({
   applied: document.documentElement.dataset.theme ?? "dark",
   stored: localStorage.getItem("blammytv.theme"),
 }));
 check(
-  "a stored light theme boots dark, and stays stored",
-  staleTheme.applied === "dark" && /light/.test(staleTheme.stored ?? ""),
+  "a light theme stored by 0.9.0 boots light again",
+  staleTheme.applied === "light" && /light/.test(staleTheme.stored ?? ""),
   JSON.stringify(staleTheme),
 );
 

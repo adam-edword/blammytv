@@ -40,7 +40,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "createUpdaterArtifacts": true,
     "copyright": "© 2026 BlammyTV",
     "shortDescription": "Live TV, sports and on-demand in one desktop player.",
@@ -51,9 +51,6 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "android": {
-      "debugApplicationIdSuffix": ".debug"
-    }
+    ]
   }
 }

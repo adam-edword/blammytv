@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
-import Tilt from "react-parallax-tilt";
-import { Card, ContinueCard, RowScroller } from "./StreamScreen";
+import { Tilt } from "../../ui/Tilt";
+import { Card } from "../../ui/Card";
+import { RowScroller } from "../../ui/RowScroller";
+import { ContinueCard } from "./ContinueCard";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { useMouseNav } from "../../lib/mouseNav";
 import { useViewStack } from "../../lib/viewStack";
@@ -14,6 +16,7 @@ import {
   removeFromList,
   renameList,
   setCover,
+  TRAKT_LIST,
   type UserList,
 } from "./lists";
 import type { ListEntry } from "./myList";
@@ -40,6 +43,7 @@ import {
 import { BackButton } from "../../ui/BackButton";
 import { LibraryIcon, PlusIcon } from "../../ui/icons";
 import { StateCard } from "../../ui/StateCard";
+import { TRAKT_SYNCED } from "../trakt/store";
 
 /**
  * Library (plan 009): Discover's shape, with Continue Watching where the
@@ -107,6 +111,16 @@ function toCover(file: File): Promise<string> {
 export function LibraryScreen() {
   const [lists, setLists] = useState<UserList[]>(loadLists);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
+  // A Trakt sync can change the Trakt Watchlist and Continue Watching
+  // (plan 015).
+  useEffect(() => {
+    const reread = () => {
+      setLists(loadLists());
+      setWatching(loadWatching());
+    };
+    window.addEventListener(TRAKT_SYNCED, reread);
+    return () => window.removeEventListener(TRAKT_SYNCED, reread);
+  }, []);
   const {
     view,
     scrollRef,
@@ -298,6 +312,9 @@ export function LibraryScreen() {
               >
                 Set cover
               </Button>
+              {/* The Trakt Watchlist comes and goes with Trakt itself. */}
+              {list.id !== TRAKT_LIST && (
+              <>
               <Button variant="outline" size="sm"
                 type="button"
                 className="library__action"
@@ -324,6 +341,8 @@ export function LibraryScreen() {
               >
                 {armed === "delete" ? "Click again to confirm" : "Delete"}
               </Button>
+              </>
+              )}
             </div>
           )}
         </div>
@@ -478,7 +497,7 @@ function ListCard({
     <button
       type="button"
       className="stream-card library__card"
-      title={name}
+      data-hint={name}
       onClick={onOpen}
     >
       {/* A poster card in every respect, lean and glare included: the grid

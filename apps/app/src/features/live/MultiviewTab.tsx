@@ -41,6 +41,7 @@ import {
   gameOver,
   goneFrom,
   lineFor,
+  lineOfChannel,
   meterLine,
   removePick,
   replacePick,
@@ -52,7 +53,7 @@ import {
 import { forMultiview, releaseHeader } from "./mvKeys";
 import { useConnections } from "./connections";
 import { loadPlaylists } from "../settings/playlists";
-import { resolveStreamUrl } from "./stream";
+import { channelStreamUrl, resolveStreamUrl } from "./stream";
 import { useLiveData } from "./useLiveData";
 import { loadRecents, recordRecent } from "./recents";
 import { tunedChannel } from "../sports/catalog";
@@ -197,8 +198,8 @@ function useWindowFullscreen(): [boolean, () => void] {
  * open "Multi-view" label sits in its left half, so its left edge is about
  * 291px short of the midline at 100% scale. The side with words is 293px.
  * Below a window of roughly 1260 they would meet, and the window goes down
- * to 1000. The number moves with the UI scale and the font, so it is
- * measured rather than written into a media query.
+ * to 1000. The number moves with the font, so it is measured rather than
+ * written into a media query.
  */
 function useCompactSide(
   ref: RefObject<HTMLElement | null>,
@@ -443,13 +444,36 @@ export function MultiviewTab() {
   const [urls, setUrls] = useState<Record<string, string | null>>({});
   const looking = useRef(new Set<string>());
   useEffect(() => {
+    // A channel that leaves the grid takes its link with it. A Stalker link
+    // carries a play token that must never be reused, and one kept here
+    // was: closed and added back, the tile opened the dead token and sat
+    // on a 403 until Retry.
+    const inGrid = new Set(picks.map((p) => p.channelId));
+    const gone = Object.keys(urls).filter((id) => !inGrid.has(id));
+    if (gone.length) {
+      setUrls((was) => {
+        const next = { ...was };
+        for (const id of gone) delete next[id];
+        return next;
+      });
+      return;
+    }
     for (const p of picks) {
       const id = p.channelId;
       if (id in urls || looking.current.has(id)) continue;
       const real = live ? channelIndex(live).get(id) : undefined;
-      // Not in the catalog yet: wait for it (the effect above drops the
-      // pick if it never turns up).
-      if (!real) continue;
+      if (!real) {
+        // Not in the catalog yet: wait for it (the effect above drops the
+        // pick if it never turns up). Unless the catalog is here and its
+        // playlist is the one that failed to load, which is why the pick
+        // was kept: nothing would ever arrive, and the tile said "Tuning"
+        // for good, with no Retry. An Xtream channel plays from its saved
+        // playlist alone; anything else says it found no stream, and can
+        // be retried.
+        const failed = live && !live.groups.some((g) => !g.error && id.startsWith(`${g.id}:`));
+        if (failed) setUrls((was) => (id in was ? was : { ...was, [id]: channelStreamUrl(id) }));
+        continue;
+      }
       looking.current.add(id);
       void resolveStreamUrl(real)
         .then(
@@ -468,13 +492,18 @@ export function MultiviewTab() {
 
   /** The gate a tile passes before it connects again (mvRecover.passGate):
    * a free slot on the line, its turn, a fresh link. */
-  const lineRef = useRef(line);
-  lineRef.current = line;
+  // Each tile waits on its OWN line. The grid-wide `line` is null whenever
+  // the grid spans two sources, and a null line always has room, so a tile
+  // in a mixed grid reconnected straight into its own ghost connection
+  // (the panel still counts a dropped stream for about 20s), three times,
+  // and settled on a refusal.
+  const connsRef = useRef(conns);
+  connsRef.current = conns;
   const turn = useRef({ last: 0 });
   const gate = useCallback(
     (id: string, waiting: (on: boolean) => void) =>
       passGate({
-        room: () => hasRoom(lineRef.current),
+        room: () => hasRoom(lineOfChannel(connsRef.current, id)),
         waiting: (on) => {
           setWaitingRoom((n) => n + (on ? 1 : -1));
           waiting(on);
@@ -711,7 +740,9 @@ export function MultiviewTab() {
       if (e.key !== "Escape" || e.defaultPrevented) return;
       // The palette over it owns this one. A capture listener on window
       // hears it before the palette can, and taking it kept the palette up.
-      if (isModalOpen()) return;
+      // So does any of the tab's own dialogs (the Scores filter): the pick
+      // was let go behind it, and the filter stayed up for a second Escape.
+      if (isModalOpen() || document.querySelector("[data-slot='dialog-content'][data-state='open']")) return;
       e.preventDefault();
       setChoosing(null);
     };
@@ -891,15 +922,28 @@ export function MultiviewTab() {
           )}
           {!blocked && (
             <Hint label={scores.on ? "Hide live scores (S)" : "Live scores (S)"}>
-              <button
+              {/* The bar's own Button, like Mute and Full screen beside it: a
+                * plain <button> lost its chip when plan 019 moved the bar
+                * onto Button (v0.10.15). Pressed is the kit's own look.
+                *
+                * Gone at the tight step, with the volume slider: plan 019's
+                * Search sat down beside Settings (64px) and this became a
+                * 40px chip, and at 1000px the side ran 14px into the capsule
+                * with the slider already gone (v0.10.16, measured). It is a
+                * set-once switch, remembered, and S still flips it; mute and
+                * full screen are reached for while watching. A utility, not
+                * app CSS: Button's own display outranks the app layer. */}
+              <Button
+                variant="secondary"
+                size="icon"
                 type="button"
-                className={"mvbar__icon" + (scores.on ? " is-on" : "")}
+                className={"mvbar__icon mvbar__scores" + (rightLevel === 2 ? " hidden" : "")}
                 aria-label="Live scores"
                 aria-pressed={scores.on}
                 onClick={toggleScores}
               >
-                <SportsIcon size={18} />
-              </button>
+                <SportsIcon size={18} className="size-[18px]" />
+              </Button>
             </Hint>
           )}
           {!blocked && (

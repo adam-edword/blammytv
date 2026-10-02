@@ -1,5 +1,5 @@
 import { memo } from "react";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import type { Field } from "./model";
 import { dateRange } from "./golf";
@@ -45,7 +45,7 @@ export const GolfCard = memo(function GolfCard({ round }: { round: Field }) {
       className={
         "golfcard" + (round.state === "final" ? " golfcard--final" : "")
       }
-      title={`${round.place}${round.session ? ` · ${round.session}` : ""}`}
+      data-hint={`${round.place}${round.session ? ` · ${round.session}` : ""}`}
     >
       <Tilt
         className="golfcard__tilt"

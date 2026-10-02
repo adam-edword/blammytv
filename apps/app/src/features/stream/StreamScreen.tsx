@@ -1,16 +1,13 @@
 import {
-  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import {
   CheckIcon,
-  ChevronIcon,
   CloseIcon,
   MoviesIcon,
   PlayIcon,
@@ -22,7 +19,7 @@ import { EYEBROW_ON_IMAGE } from "../../ui/eyebrow";
 import { SourceList } from "./SourceList";
 import { Button } from "../../components/ui/button";
 import { Segmented } from "../../ui/Segmented";
-import Tilt from "react-parallax-tilt";
+import { Tilt } from "../../ui/Tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { artLoaded } from "../../lib/artIn";
 import { wantsEpisodeList } from "./backTarget";
@@ -46,6 +43,7 @@ import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
 import { setOverlayApiOverride } from "../live/overlayApi";
 import { InvertedPlayer } from "../live/InvertedPlayer";
+import { VodLoading } from "../live/VodLoading";
 import { TheaterOverlay } from "../live/TheaterOverlay";
 import { useDirectOverlay } from "../live/useDirectOverlay";
 import type { Episode, Season, StreamSource, VodData, VodItem } from "./model";
@@ -70,7 +68,7 @@ import {
   takeOpenRequest,
   takeResumeRequest,
 } from "./openRequest";
-import { loadWatched, markWatched } from "./watched";
+import { filmWatched, loadWatched, markWatched } from "./watched";
 import { loadAioUrl } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
@@ -82,7 +80,6 @@ import {
   type DiscoverConfig,
 } from "../discover/data";
 import {
-  cardMetaLine,
   loadCardMeta,
   onCardMetaChange,
   type CardMetaField,
@@ -105,6 +102,14 @@ import {
   tauriPopoutStop,
 } from "../../lib/tauri";
 import { BackButton } from "../../ui/BackButton";
+import { useTraktScrobble } from "../trakt/scrobble";
+import { rememberForMal } from "../mal/sync";
+import { useMalTicks } from "../mal/ticks";
+import { loadTrakt, TRAKT_SYNCED } from "../trakt/store";
+import { Hint } from "../../ui/Hint";
+import { Card } from "../../ui/Card";
+import { RowScroller } from "../../ui/RowScroller";
+import { ContinueCard } from "./ContinueCard";
 
 /**
  * The Stream tab: AIOStreams-powered movies + series. A featured hero, then
@@ -160,6 +165,12 @@ export function StreamScreen() {
     popped?: boolean;
   } | null>(null);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
+  // A Trakt sync can move Continue Watching (plan 015, T4).
+  useEffect(() => {
+    const reread = () => setWatching(loadWatching());
+    window.addEventListener(TRAKT_SYNCED, reread);
+    return () => window.removeEventListener(TRAKT_SYNCED, reread);
+  }, []);
   const {
     view,
     scrollRef,
@@ -194,6 +205,7 @@ export function StreamScreen() {
   const [slowResolve, setSlowResolve] = useState(false);
   const [resolving, setResolving] = useState<{
     art?: string;
+    backdrop?: string;
     title: string;
   } | null>(null);
   /**
@@ -220,7 +232,7 @@ export function StreamScreen() {
    * common one.
    */
   const resolveGen = useRef(0);
-  const armResolve = useCallback((r: { art?: string; title: string }) => {
+  const armResolve = useCallback((r: { art?: string; backdrop?: string; title: string }) => {
     setResolving(r);
     return ++resolveGen.current;
   }, []);
@@ -277,8 +289,11 @@ export function StreamScreen() {
           episodeId: p.episodeId,
           title: p.item.title,
           label: p.label,
-          art: p.item.backdrop ?? p.item.poster,
-          logo: p.item.logo,
+          // What the card already had, before a poster: a resume from
+          // Continue Watching can play the light copy of a film, with no
+          // backdrop or logo, and the card came back as a bare poster.
+          art: p.item.backdrop ?? prev?.art ?? p.item.poster,
+          logo: p.item.logo ?? prev?.logo,
           rating: p.item.rating,
           year: p.item.year,
           runtimeMin: p.item.runtimeMin,
@@ -473,7 +488,11 @@ export function StreamScreen() {
       // The resolving screen unmounts this tree too — same reason as
       // setPlaying, same fix.
       captureScroll();
-      const gen = armResolve({ art: item.logo ?? item.poster, title: item.title });
+      const gen = armResolve({
+        art: item.logo ?? item.poster,
+        backdrop: item.backdrop ?? item.poster,
+        title: item.title,
+      });
       try {
         const sources = await resolveVodSources("movie", item.id);
         if (gen !== resolveGen.current) return; // cancelled while we waited
@@ -599,7 +618,11 @@ export function StreamScreen() {
        * playingRef, which is what we are about to clear.
        */
       setPlaying(null);
-      const gen = armResolve({ art: item.logo ?? item.poster, title: item.title });
+      const gen = armResolve({
+        art: item.logo ?? item.poster,
+        backdrop: item.backdrop ?? item.poster,
+        title: item.title,
+      });
       const label = `S${season.number} · E${episode.number}: ${episode.title}`;
       const info = {
         season: season.number,
@@ -713,8 +736,16 @@ export function StreamScreen() {
       entry?.posSec && entry.posSec > 10
         ? Math.max(0, entry.posSec - 3)
         : p.resumeAt;
+    // Still the same stream when the answer comes? Leaving the player, or
+    // moving on to another episode or source, while the sources resolved
+    // used to be overruled: the old title started playing again.
+    const same = () => {
+      const now = playingRef.current;
+      return !!now && now.item.id === p.item.id && now.episodeId === p.episodeId && now.url === p.url;
+    };
     void resolveVodSources(p.item.kind, p.episodeId ?? p.item.id).then(
       (list) => {
+        if (!same()) return;
         const pick = list.find((s) => s.cached) ?? list[0];
         if (!pick) {
           void tauriMpvGoLive().catch(() => {});
@@ -729,7 +760,9 @@ export function StreamScreen() {
           reloadTick: (p.reloadTick ?? 0) + 1,
         });
       },
-      () => void tauriMpvGoLive().catch(() => {}),
+      () => {
+        if (same()) void tauriMpvGoLive().catch(() => {});
+      },
     );
   }, []);
 
@@ -747,6 +780,8 @@ export function StreamScreen() {
       captureScroll();
       const gen = armResolve({
         art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
+        // entry.art is the landscape art when there is one (watching.ts).
+        backdrop: known?.backdrop ?? entry.art ?? known?.poster,
         title: entry.title,
       });
       /**
@@ -868,6 +903,8 @@ export function StreamScreen() {
       captureScroll();
       const gen = armResolve({
         art: known?.logo ?? entry.logo ?? known?.poster ?? entry.art,
+        // entry.art is the landscape art when there is one (watching.ts).
+        backdrop: known?.backdrop ?? entry.art ?? known?.poster,
         title: entry.title,
       });
       let item = known;
@@ -1035,6 +1072,7 @@ export function StreamScreen() {
         ? {
             channelName: playing.item.title,
             logo: playing.item.logo ?? playing.item.poster,
+            backdrop: playing.item.backdrop ?? playing.item.poster,
             title: playing.label ?? playing.item.title,
             description: playing.item.synopsis,
             live: false,
@@ -1119,7 +1157,7 @@ export function StreamScreen() {
               setUpNext({ item: p.item, ...nxt });
               return; // stage stays; the Up Next card takes over
             }
-          }
+          } else if (p.item.kind === "movie") filmWatched(p.item.id);
         }
         stop();
       },
@@ -1308,12 +1346,35 @@ export function StreamScreen() {
     [],
   );
 
+  // Trakt (plan 015, T2): what plays here is scrobbled, start to stop. Does
+  // nothing until Trakt is connected.
+  useTraktScrobble(
+    playing
+      ? {
+          itemId: playing.item.id,
+          kind: playing.item.kind,
+          title: playing.item.title,
+          year: playing.item.year,
+          episodeId: playing.episodeId,
+          popped: playing.popped,
+        }
+      : null,
+  );
+
+  // MyAnimeList (plan 021): what a tick needs to find the title on MAL
+  // (whether it is anime, and a series' seasons).
+  const playingItem = playing?.item;
+  useEffect(() => {
+    if (playingItem) rememberForMal(playingItem);
+  }, [playingItem]);
+
   // Progress tick: every 5s while playing, mirror pos/dur into the watch
   // entry — powers resume and the Continue Watching progress bar.
   useEffect(() => {
     if (!playing || playing.popped || !isTauri()) return;
     const itemId = playing.item.id;
     const episodeId = playing.episodeId;
+    const film = playing.item.kind === "movie";
     const id = window.setInterval(() => {
       tauriMpvStatus()
         .then((st) => {
@@ -1323,15 +1384,12 @@ export function StreamScreen() {
             );
           // 90% through = watched, same threshold resumePoint treats as
           // finished — credits-skippers and next-episode jumps get their
-          // checkmarks without reaching hard EOF (markWatched dedupes).
-          if (
-            episodeId &&
-            st.pos != null &&
-            st.dur != null &&
-            st.dur > 0 &&
-            st.pos >= st.dur * 0.9
-          )
-            markWatched(itemId, episodeId);
+          // checkmarks without reaching hard EOF (markWatched dedupes). A
+          // film has no checkmark, but MAL hears of it (plan 021).
+          const done =
+            st.pos != null && st.dur != null && st.dur > 0 && st.pos >= st.dur * 0.9;
+          if (done && episodeId) markWatched(itemId, episodeId);
+          else if (done && film) filmWatched(itemId);
         })
         .catch(() => {});
     }, 5000);
@@ -1372,17 +1430,15 @@ export function StreamScreen() {
   if (resolving && !playing && isTauri()) {
     return (
       <div className="vod-stage vod-stage--popped">
-        <div className="vod-pip">
-          {resolving.art ? (
-            <img
-              className="tune__vodlogo"
-              src={resolving.art}
-              alt=""
-              aria-hidden
-            />
-          ) : (
-            <span className="tune__vodtitle">{resolving.title}</span>
-          )}
+        {/* The first half of the loading screen the player finishes
+          * (VodLoading): same wash, same logo, the bar at its first stage. */}
+        <VodLoading
+          art={resolving.art}
+          backdrop={resolving.backdrop}
+          title={resolving.title}
+          stage="finding"
+          slow={slowResolve}
+        >
           {/* A WAY OUT, and a reason to wait.
             *
             * Resolving is one or two addon requests and they inherit the
@@ -1392,11 +1448,8 @@ export function StreamScreen() {
             * out while a .vod-stage exists, so Escape did nothing either.
             * There was no control on the screen at all.
             *
-            * The line appears only once the wait stops looking normal, so
-            * a fast resolve never flashes it. */}
-          {slowResolve && (
-            <p className="tune__vodslow">Still looking for a source…</p>
-          )}
+            * The bar's label turns to "Still looking for a source" once the
+            * wait stops looking normal, so a fast resolve never flashes it. */}
           <Button
             variant="secondary"
             size="sm"
@@ -1406,7 +1459,7 @@ export function StreamScreen() {
           >
             Cancel
           </Button>
-        </div>
+        </VodLoading>
       </div>
     );
   }
@@ -1909,221 +1962,6 @@ function Home({
   );
 }
 
-/** Horizontal row shell: scroller + edge scrims + hover arrows. Scrims
- * and arrows only exist on a side that actually has hidden content
- * (scroll position tracked; ResizeObserver keeps it honest). Arrows
- * nudge by ~75% of the viewport, smooth. */
-export function RowScroller({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  /**
-   * ONE TAB STOP PER ROW, arrows to move inside it.
-   *
-   * A row is a list you scan, not forty separate destinations. Measured on
-   * the sports board, crossing Today's row cost 42 presses and ArrowRight
-   * did nothing at all — and Stream home and Discover's genre rail are the
-   * same component with the same problem.
-   *
-   * Roving tabindex, the pattern ModeRail and the hero carousel already
-   * use: every item but the current one leaves the tab order, and the
-   * arrows move focus and selection together. Done imperatively rather
-   * than by prop, because the children here are four different kinds of
-   * card from three different features and none of them need to know.
-   */
-  const items = () =>
-    ref.current
-      ? [...ref.current.querySelectorAll<HTMLElement>(":scope > *")].filter(
-          (el) => el.matches("button, a, [tabindex]") && !el.hasAttribute("disabled"),
-        )
-      : [];
-  const rove = useCallback(() => {
-    const all = items();
-    if (!all.length) return;
-    // Whatever already has focus keeps it; otherwise the first item is the
-    // way in. A disabled-only row leaves nothing tabbable, which is right.
-    const active = all.findIndex((el) => el.tabIndex === 0);
-    const keep = active === -1 ? 0 : active;
-    all.forEach((el, i) => {
-      el.tabIndex = i === keep ? 0 : -1;
-    });
-  }, []);
-  useEffect(rove);
-  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const all = items();
-    const at = all.indexOf(document.activeElement as HTMLElement);
-    if (at === -1) return;
-    let next: number;
-    if (e.key === "ArrowRight") next = Math.min(at + 1, all.length - 1);
-    else if (e.key === "ArrowLeft") next = Math.max(at - 1, 0);
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = all.length - 1;
-    else return;
-    e.preventDefault();
-    all.forEach((el, i) => {
-      el.tabIndex = i === next ? 0 : -1;
-    });
-    all[next]?.focus();
-    // Keep the focused card on screen. Arrow keys are how a keyboard reads
-    // this row, so the row has to follow.
-    all[next]?.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-    });
-  };
-  const [can, setCan] = useState({ left: false, right: false });
-  const update = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    setCan({
-      left: el.scrollLeft > 4,
-      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
-    });
-  }, []);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    update();
-    el.addEventListener("scroll", update, { passive: true });
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener("scroll", update);
-      ro.disconnect();
-    };
-  }, [update]);
-  const nudge = (dir: 1 | -1) =>
-    ref.current?.scrollBy({
-      left: dir * ref.current.clientWidth * 0.75,
-      // Chromium does NOT auto-disable programmatic smooth scroll under
-      // reduced motion — branch it (the app's inline matchMedia idiom).
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-    });
-  // Click-and-drag scrolling: pointer deltas map 1:1 onto scrollLeft (no
-  // physics — native feel only). Past a small slop the gesture is a DRAG:
-  // capture the pointer and swallow the next click so the card under the
-  // cursor doesn't open. Serves every row: Stream home, Continue
-  // Watching, and Discover's genre rail all render through here.
-  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(
-    null,
-  );
-  // Set when a drag ends; the gesture's trailing click (which fires AFTER
-  // pointerup) checks-and-clears it in the capture phase, before any
-  // card's own onClick can open something.
-  const justDragged = useRef(false);
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || e.pointerType !== "mouse") return; // touch scrolls natively
-    const el = ref.current;
-    if (!el) return;
-    justDragged.current = false;
-    drag.current = { x: e.clientX, left: el.scrollLeft, moved: false };
-  };
-  /** Drop a gesture whose end we never saw. Deliberately does NOT arm the
-   * click latch: there is no trailing click to swallow. */
-  const abandonDrag = () => {
-    drag.current = null;
-    ref.current?.classList.remove("is-dragging");
-  };
-  // Losing the window mid-drag is the common way an up event goes missing,
-  // and `lostpointercapture` covers the OS releasing capture on its own.
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    window.addEventListener("blur", abandonDrag);
-    el.addEventListener("lostpointercapture", abandonDrag);
-    return () => {
-      window.removeEventListener("blur", abandonDrag);
-      el.removeEventListener("lostpointercapture", abandonDrag);
-    };
-  }, []);
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    const el = ref.current;
-    if (!d || !el) return;
-    // This fires on plain HOVER too, not only mid-drag. If the terminating
-    // pointerup never arrived — alt-tab away with the button down and the
-    // OS can drop pointer capture without one — `drag` stays armed, and
-    // the next hover starts a phantom drag whose .is-dragging sets
-    // pointer-events:none on the whole row. Hover then looks broken until
-    // some later drag happens to end cleanly. No buttons down means the
-    // gesture is over, whatever events did or did not arrive.
-    if (e.buttons === 0) return abandonDrag();
-    const dx = e.clientX - d.x;
-    if (!d.moved && Math.abs(dx) < 6) return; // click slop
-    if (!d.moved) {
-      d.moved = true;
-      el.setPointerCapture(e.pointerId);
-      el.classList.add("is-dragging");
-    }
-    el.scrollLeft = d.left - dx;
-  };
-  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    const el = ref.current;
-    drag.current = null;
-    if (!d?.moved || !el) return;
-    justDragged.current = true;
-    // Self-heal: if the trailing click never arrives (capture-release
-    // edge cases), don't leave the latch armed to eat a later real click.
-    window.setTimeout(() => {
-      justDragged.current = false;
-    }, 250);
-    el.releasePointerCapture(e.pointerId);
-    el.classList.remove("is-dragging");
-  };
-  const swallowDragClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!justDragged.current) return;
-    justDragged.current = false;
-    e.preventDefault();
-    e.stopPropagation();
-  };
-  return (
-    <div className="media-row__viewport">
-      <div
-        className="media-row__scroller"
-        ref={ref}
-        onKeyDown={onKeyDown}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onClickCapture={swallowDragClick}
-      >
-        {children}
-      </div>
-      {can.left && (
-        <Button variant="secondary" size="icon"
-          type="button"
-          // The capsule's glass behind the glyph (plan 019, K3): it sits over
-          // artwork and card text, and a bare chevron over a team name read
-          // as part of the name.
-          className="media-row__arrow media-row__arrow--left"
-          aria-label="Scroll back"
-          onClick={() => nudge(-1)}
-        >
-          <ChevronIcon className="size-4.5" />
-        </Button>
-      )}
-      {can.right && (
-        <Button variant="secondary" size="icon"
-          type="button"
-          // The capsule's glass behind the glyph (plan 019, K3): it sits over
-          // artwork and card text, and a bare chevron over a team name read
-          // as part of the name.
-          className="media-row__arrow media-row__arrow--right"
-          aria-label="Scroll forward"
-          onClick={() => nudge(1)}
-        >
-          <ChevronIcon className="size-4.5" />
-        </Button>
-      )}
-    </div>
-  );
-}
-
 /** The Figma hero (133-721): a ~90vh sliding carousel that never rewinds.
  * The index is VIRTUAL (unbounded, forward-only on auto-advance); slides
  * are a moving window of absolute-positioned cards, each showing
@@ -2164,6 +2002,40 @@ function Hero({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
+  }, []);
+  // A picture under the header (plan 022). Scrolled, the hero passes under
+  // the header, whose scrim is the page's colour: in light, a white haze
+  // over the art with dark ink on it. While the active card overlaps the
+  // header, the root says so and the header takes the picture's ink
+  // (tokens.css, .on-picture), which is what dark already draws.
+  useEffect(() => {
+    const host = hostRef.current;
+    const scroller = host?.closest<HTMLElement>(".stream");
+    if (!host || !scroller) return;
+    const root = document.documentElement;
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const card = host.querySelector(".shero__card--active")?.getBoundingClientRect();
+      const header = document.querySelector(".header")?.getBoundingClientRect();
+      const under = !!card && !!header && card.height > 0 && card.top < header.bottom && card.bottom > header.top;
+      if (under !== (root.dataset.headerOver === "picture")) {
+        if (under) root.dataset.headerOver = "picture";
+        else delete root.dataset.headerOver;
+      }
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    check();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(raf);
+      scroller.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      delete root.dataset.headerOver;
+    };
   }, []);
   // Track transitions stay OFF until a frame has painted at the measured
   // geometry — otherwise entering the tab animates the 650ms slide from
@@ -2337,7 +2209,7 @@ function Hero({
                 />
               )}
               <div className="shero__scrim" aria-hidden />
-              <div className="shero__text">
+              <div className="shero__text on-picture">
                 <HeroTitle key={item.logo ?? item.id} item={item} />
                 {item.synopsis && (
                   <p className="shero__synopsis">{item.synopsis}</p>
@@ -2414,251 +2286,6 @@ function HeroTitle({ item }: { item: VodItem }) {
   );
 }
 
-/** Memoized: mapped by the hundreds across Stream rows, Discover's
- * infinite grid and My List, each wrapping a stateful Tilt — parent
- * re-renders (search keystrokes, enrichment passes) must not re-render
- * every mounted card. Callers keep metaFields/onOpen identities stable. */
-export const Card = memo(function Card({
-  item,
-  metaFields,
-  onOpen,
-}: {
-  item: VodItem;
-  metaFields: CardMetaField[];
-  onOpen: (i: VodItem) => void;
-}) {
-  // Real catalogs carry poster URLs of wildly varying health — a broken
-  // one falls back to the lettermark like a missing one does, instead of
-  // the browser's broken-image box (same pattern as the guide's logos).
-  const [broken, setBroken] = useState(false);
-  // Enrichment can swap a dead preview poster for a working full-meta
-  // one under the same item id — give the new URL a chance.
-  useEffect(() => setBroken(false), [item.poster]);
-  const meta = cardMetaLine(metaFields, {
-    rating: item.rating,
-    year: item.year,
-    runtimeMin: item.runtimeMin,
-    genre: item.genres[0],
-    kind: item.kind,
-  });
-  // Apple TV-style pointer tilt on the poster only — the title/meta below
-  // stay planted. Angles well under the library's 20° default: the real
-  // thing is a gentle lean, not a flip. OS-level reduced-motion wins.
-  const reducedMotion = REDUCED_MOTION;
-  return (
-    <button
-      type="button"
-      className="stream-card"
-      title={item.title}
-      onClick={() => onOpen(item)}
-    >
-      <Tilt
-        className="stream-card__tilt"
-        tiltEnable={!reducedMotion}
-        tiltMaxAngleX={5}
-        tiltMaxAngleY={5}
-        scale={reducedMotion ? 1 : 1.03}
-        transitionSpeed={650}
-        glareEnable={!reducedMotion}
-        glareMaxOpacity={0.12}
-        glarePosition="all"
-        glareBorderRadius="var(--radius-pic)"
-      >
-        {item.poster && !broken ? (
-          <img
-            key={item.poster}
-            className="stream-card__poster art-in"
-            src={item.poster}
-            alt=""
-            loading="lazy"
-            draggable={false}
-            onLoad={artLoaded}
-            onError={() => setBroken(true)}
-          />
-        ) : (
-          <span className="stream-card__mono">{item.title.slice(0, 1)}</span>
-        )}
-      </Tilt>
-      <span className="stream-card__name">{item.title}</span>
-      {meta && <span className="stream-card__meta">{meta}</span>}
-    </button>
-  );
-});
-
-/** Continue Watching card: landscape art, meta line, HOLD to clear (the
- * Figma interaction — a click opens, a ~1s press-and-hold removes).
- * EXPORTED because the Library tab shows the same row: one implementation,
- * or every future card fix has to be made twice. */
-export function ContinueCard({
-  entry,
-  metaFields,
-  onOpen,
-  onSources,
-  onClear,
-}: {
-  entry: WatchEntry;
-  metaFields: CardMetaField[];
-  onOpen: () => void;
-  onSources: () => void;
-  onClear: () => void;
-}) {
-  const meta = cardMetaLine(metaFields, {
-    rating: entry.rating,
-    year: entry.year,
-    runtimeMin: entry.runtimeMin,
-    genre: entry.genre,
-    kind: entry.kind,
-  });
-  // "42m left" from the progress clocks — only while genuinely mid-way
-  // (finished movies retire from the row entirely; see Home's filter).
-  const leftMin =
-    entry.posSec && entry.durSec && entry.posSec < entry.durSec * 0.9
-      ? Math.max(1, Math.round((entry.durSec - entry.posSec) / 60))
-      : null;
-  const metaLine = [meta, leftMin != null ? `${leftMin}m left` : null]
-    .filter(Boolean)
-    .join(" · ");
-  const [holding, setHolding] = useState(false);
-  const timer = useRef(0);
-  const held = useRef(false);
-  // A press longer than this is a HOLD (the clear gesture, abandoned or
-  // not) — releasing must never fall through to opening the show. Under
-  // it, it's a click and opens. The holdbar is ~1/3 full at the cutoff,
-  // so the visual and the intent boundary roughly agree (Adam).
-  const CLICK_MAX_MS = 350;
-  const pressAt = useRef(0);
-  const start = () => {
-    held.current = false;
-    pressAt.current = Date.now();
-    setHolding(true);
-    timer.current = window.setTimeout(() => {
-      held.current = true;
-      setHolding(false);
-      onClear();
-    }, 1000);
-  };
-  const cancel = () => {
-    window.clearTimeout(timer.current);
-    setHolding(false);
-  };
-  const wasClick = () => {
-    // No pointerdown preceded this click (screen-reader / synthetic
-    // activation) — it IS a click; the 350ms rule only judges presses.
-    if (pressAt.current === 0) return !held.current;
-    const ok = !held.current && Date.now() - pressAt.current < CLICK_MAX_MS;
-    pressAt.current = 0;
-    return ok;
-  };
-  return (
-    // div+role, not <button>: the Sources chip nests a real button inside.
-    <div
-      role="button"
-      tabIndex={0}
-      className={"tile continue-card" + (holding ? " continue-card--holding" : "")}
-      onPointerDown={start}
-      onPointerUp={cancel}
-      onPointerLeave={cancel}
-      onClick={() => {
-        if (wasClick()) onOpen();
-      }}
-      onKeyDown={(e) => {
-        // Keys aimed at the nested Sources chip (a real button) must not
-        // bubble into card actions — Enter there was quick-resuming.
-        if (e.target !== e.currentTarget) return;
-        if (e.key === "Enter" || e.key === " ") {
-          // Space also pages the scroll container without this.
-          e.preventDefault();
-          onOpen();
-        }
-        // The pointer path clears via press-and-hold; this is the
-        // keyboard's equivalent (the a11y sweep pattern from Live).
-        if (e.key === "Delete" || e.key === "Backspace") {
-          e.preventDefault();
-          onClear();
-        }
-      }}
-    >
-      {/* The tile (plan 019, K7): a 16:9 picture with nothing on it at
-        * rest, progress UNDER it, the caption under that. */}
-      <span className="tile__pic continue-card__artwrap">
-        {entry.art ? (
-          <img className="tile__art continue-card__art" src={entry.art} alt="" loading="lazy" draggable={false} />
-        ) : (
-          <span className="tile__art continue-card__art" />
-        )}
-        {/* Clearlogo over the art, lower-middle — sits UNDER the hover
-          * play cue (which is dead center), never fighting it. */}
-        {entry.logo && (
-          <img
-            className="continue-card__logo"
-            src={entry.logo}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            draggable={false}
-          />
-        )}
-        <span className="tile__scrim" aria-hidden />
-        <span className="continue-card__cue" aria-hidden>
-          <PlayIcon size={36} />
-        </span>
-        {/* Straight to the source screen instead of quick-resume. */}
-        <Button variant="chip" size="chip"
-          type="button"
-          className="continue-card__sources"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSources();
-          }}
-        >
-          Sources
-        </Button>
-        <span className="continue-card__hold" aria-hidden>
-          Keep holding to clear
-        </span>
-        <span className="continue-card__holdbar" aria-hidden />
-      </span>
-      {entry.posSec && entry.durSec ? (
-        <span className="tile__track continue-card__progress" aria-hidden>
-          <i style={{ width: `${Math.min(100, (entry.posSec / entry.durSec) * 100)}%` }} />
-        </span>
-      ) : null}
-      {/* The title/meta line goes to the SOURCE list, not playback — the
-        * art is the "play this" target, the text is the "what is this"
-        * target.
-        *
-        * pointerdown is deliberately NOT stopped: the card's press-and-hold
-        * to clear has to keep working over the text, which is most of the
-        * card's lower half. Stopping it there silently killed hold-to-clear
-        * on that whole strip. So the press runs the card's own start(), and
-        * the click below asks the same wasClick() question the card asks —
-        * a completed HOLD already fired onClear and must not also open
-        * sources. Only the click is stopped, so the card's onClick (which
-        * would quick-resume) never doubles up.
-        *
-        * tabIndex -1 on purpose: RowScroller keeps ONE tab stop per row and
-        * a focusable child sits outside that roving list, so it both adds a
-        * stop per card and makes ArrowLeft/Right dead while focused. The
-        * Sources chip beside it is already the keyboard route to this exact
-        * action, so the text stays a pointer affordance rather than a
-        * second, arrow-breaking stop. */}
-      <button
-        type="button"
-        tabIndex={-1}
-        className="continue-card__text"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (wasClick()) onSources();
-        }}
-      >
-        <span className="stream-card__name">{entry.title}</span>
-        {metaLine && <span className="stream-card__meta">{metaLine}</span>}
-      </button>
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 
 /** One Discover-config resolve per session for the More Like This rows
@@ -2690,16 +2317,16 @@ function GenrePills({ genres }: { genres: string[] }) {
   return (
     <div className="vod-detail__pills">
       {genres.slice(0, 5).map((g) => (
+        <Hint key={g} label={`Browse ${g} in Discover`}>
         <Button
           variant="outline"
           size="sm"
-          key={g}
           type="button"
-          title={`Browse ${g} in Discover`}
           onClick={() => requestDiscoverGenre(g)}
         >
           {g}
         </Button>
+        </Hint>
       ))}
     </div>
   );
@@ -2710,6 +2337,17 @@ function GenrePills({ genres }: { genres: string[] }) {
 /** Detail page: backdrop + info left, the addon's pre-ranked sources right.
  * For an episode, `episodeId` scopes the source resolve. Sources re-resolve
  * on every open — debrid links can be short-lived. */
+/** "Watched Sep 12" for a film Trakt has as watched, or null. The year
+ * too when it was not this year. */
+function watchedOn(id: string): string | null {
+  const at = loadTrakt().movies?.[id];
+  if (at == null) return null;
+  if (!at) return "Watched";
+  const d = new Date(at);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return `Watched ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) })}`;
+}
+
 function Detail({
   item,
   episodeId,
@@ -2806,6 +2444,9 @@ function Detail({
               item.year,
               item.runtimeMin ? `${item.runtimeMin} min` : null,
               item.rating ? `★ ${item.rating.toFixed(1)}` : null,
+              // A film watched, from Trakt (plan 015, D6): anywhere, this
+              // app included once connected.
+              item.kind === "movie" ? watchedOn(item.id) : null,
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -2884,7 +2525,7 @@ function Detail({
                 key={v.id}
                 type="button"
                 className="vod-more__card"
-                title={v.title}
+                data-hint={v.title}
                 onClick={() => onOpenItem?.(v)}
               >
                 {/* Same lean and glare as every other poster in the app.
@@ -2947,7 +2588,11 @@ function Episodes({
 }) {
   // Watched ledger (checkmarks). Re-read per mount — playback marks land
   // between visits to this screen.
-  const watched = useMemo(() => loadWatched(item.id), [item.id]);
+  // MAL's counts tick episodes too (plan 021, D2 b). The hook's number
+  // moves when it has written new ones for loadWatched to read.
+  const malTicks = useMalTicks(item);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const watched = useMemo(() => loadWatched(item.id), [item.id, malTicks]);
   // Next up: the episode after the last one watched/played (the CW entry
   // knows exactly where you are; the ledger covers checkmark-only state).
   const entry = useMemo(

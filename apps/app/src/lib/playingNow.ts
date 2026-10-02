@@ -11,10 +11,15 @@
  * `#inv-chrome` is the live player's chrome host, which is appended to the
  * body only while a stream is mounted. App.tsx's Escape gate already reads
  * the first one the same way.
+ *
+ * And multi-view's grid, whose tiles play in video elements of their own:
+ * a restart from Settings over it tore every tile down (the app shell
+ * audit). A grid with a tile in it counts; an empty one doesn't.
  */
 export function isPlaying(): boolean {
   return (
     document.querySelector(".vod-stage") !== null ||
-    document.getElementById("inv-chrome") !== null
+    document.getElementById("inv-chrome") !== null ||
+    document.querySelector(".mvtab .mvtile:not(.mvtile--empty)") !== null
   );
 }

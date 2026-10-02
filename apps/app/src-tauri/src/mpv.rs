@@ -257,6 +257,10 @@ impl Handoff {
 /// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
 pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {
     let l = lib()?;
+    // Before mpv exists (plan 016 N4, F7): a URL with a null byte used to
+    // fail here after mpv_create and mpv_initialize, and the early return
+    // leaked an initialized instance, window and threads included.
+    let curl = CString::new(url).map_err(|_| "url has a null byte")?;
     stop_popout();
     unsafe {
         let h = (l.create)();
@@ -307,7 +311,6 @@ pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {
             return Err("mpv_initialize failed".into());
         }
         let load = CString::new("loadfile").unwrap();
-        let curl = CString::new(url).map_err(|_| "url has a null byte")?;
         let args = [load.as_ptr(), curl.as_ptr(), std::ptr::null()];
         if (l.command)(h, args.as_ptr()) < 0 {
             (l.terminate_destroy)(h);

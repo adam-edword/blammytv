@@ -1,4 +1,4 @@
-import { load, save } from "../../lib/storage";
+import { hasId, loadList, save } from "../../lib/storage";
 
 /**
  * Live-TV sources. Three kinds share the list; each carries its own
@@ -237,7 +237,9 @@ const VERSION = 1;
 const EVENT = "blammytv:playlists";
 
 export function loadPlaylists(): Playlist[] {
-  return load<Playlist[]>(KEY, VERSION, []);
+  return loadList(KEY, VERSION, (x): x is Playlist =>
+    hasId(x) && ["xtream", "m3u", "stalker"].includes((x as { kind?: unknown }).kind as string),
+  );
 }
 
 /** Saving notifies listeners (the Live tab) so its data refreshes without

@@ -99,7 +99,17 @@ describe("a tournament nobody has teed off in", () => {
 
   it("says the date rather than a tee time", () => {
     // A tournament runs Thursday to Sunday, so a clock is the wrong grain.
-    expect(board.status).toMatch(/[A-Z][a-z]{2}\s\d+/);
+    // ESPN's own day, the 6th: its midnight Eastern read as an instant
+    // said "Aug 5" in Chicago.
+    expect(board.status).toBe("Aug 6");
+  });
+
+  it("starts at local midnight of ESPN's day, so the board files it there", () => {
+    // 2026-08-06T04:00Z was 11pm on the 5th in Chicago, and the board
+    // buckets by local day: the Wyndham sat under the Wednesday.
+    const at = (d: Date) => [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours()];
+    expect(at(board.start)).toEqual([2026, 8, 6, 0]);
+    expect(at(board.end!)).toEqual([2026, 8, 9, 0]);
   });
 });
 

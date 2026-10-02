@@ -327,6 +327,12 @@ export function useGames(
    */
   const teamKey = [...teams].sort().join(",");
 
+  /** Moved on by every whole-board load, which clears the days "Show
+   * more" and "Show earlier days" added. One of those still out then was
+   * appending to a board it wasn't asked about: change the league filter
+   * while more days load, and the old filter's days landed under the new
+   * one (the Sports audit). */
+  const boardGen = useRef(0);
   useEffect(() => {
     const paths = key ? key.split(",") : [];
     const clubKeys = teamKey ? teamKey.split(",") : [];
@@ -377,6 +383,26 @@ export function useGames(
      * `ahead`); one counter conflated them.
      */
     let aheadGen = 0;
+    /**
+     * `loadToday`'s OWN generation, for the same reason.
+     *
+     * It bumped `gen` too, so a refresh while the first board was still
+     * loading (coming back to the app, a theater closing, the 90s tick on a
+     * slow line) dropped that board when it landed. And `loadToday` only
+     * patches the first day into a board already on screen, so with none it
+     * patched nothing: the skeleton stayed up for good. `loadAll` bumps
+     * this one, so a today refresh from before a date roll cannot land on
+     * the new day's board.
+     */
+    let todayGen = 0;
+    /**
+     * Whether a whole board is on screen, and whether one is on its way.
+     * Until one is, a refresh asks for the whole board again rather than
+     * for today: a failed first load never recovered, because the tick only
+     * ever patched today into a board that was not there.
+     */
+    let boarded = false;
+    let boarding = false;
 
     /**
      * The paths the 90 second tick actually asks for.
@@ -395,6 +421,10 @@ export function useGames(
 
     const loadAll = async () => {
       const mine = ++gen;
+      todayGen++;
+      boardGen.current++;
+      boarded = false;
+      boarding = true;
       polling = paths;
       setAhead([]);
       // A date roll comes through here, and these days are offsets from
@@ -404,20 +434,31 @@ export function useGames(
       // Same, backwards: yesterday's "yesterday" is today's day before.
       setEarlier([]);
       try {
-        const all = await Promise.all(
+        // Settled, not all: one day that could not be read (fetchBoard
+        // throws only when every league failed for it) threw the whole
+        // window away, today included.
+        const all = await Promise.allSettled(
           dates.map((date) => fetchBoard(paths, { date, signal: ac.signal })),
         );
         if (ac.signal.aborted || mine !== gen) return;
+        const today = all[0];
+        if (today.status === "rejected") throw today.reason;
         // TODAY's answers only. Day two having a game does not make that
         // league worth re-asking about today, which is the only day the
         // tick refreshes.
-        polling = all[0].answered;
-        const window = dates.map((date, i) => ({
-          date,
-          games: onDay(all[i].games, date, i === 0),
-        }));
+        polling = today.value.answered;
+        const window = dates.map((date, i) => {
+          const day = all[i];
+          return {
+            date,
+            games: day.status === "fulfilled" ? onDay(day.value.games, date, i === 0) : [],
+          };
+        });
         setDays(window);
         setState("ready");
+        // A later day that could not be read is asked for again, with the
+        // whole board, at the next refresh.
+        boarded = all.every((d) => d.status === "fulfilled");
         // Painted first, extended after. The window is the answer to "what
         // is on"; reaching ahead is a second, slower question, and holding
         // the board back for it would make every narrowed board wait on a
@@ -427,6 +468,8 @@ export function useGames(
         if (ac.signal.aborted) return;
         // Only the first load has nothing to fall back on.
         setState((s) => (s === "ready" ? "ready" : "error"));
+      } finally {
+        if (mine === gen) boarding = false;
       }
     };
 
@@ -544,7 +587,7 @@ export function useGames(
     };
 
     const loadToday = async () => {
-      const mine = ++gen;
+      const mine = ++todayGen;
       // Captured BEFORE the await. `dates` is reassigned when the local
       // date rolls, and this closure reads it again afterwards, so a
       // request in flight across midnight stamped yesterday's fixtures
@@ -559,7 +602,7 @@ export function useGames(
           date: d0,
           signal: ac.signal,
         });
-        if (ac.signal.aborted || mine !== gen) return;
+        if (ac.signal.aborted || mine !== todayGen) return;
         setDays((prev) =>
           prev.length === 0
             ? prev
@@ -582,6 +625,8 @@ export function useGames(
       if (rolled()) {
         dates = makeDates();
         void loadAll();
+      } else if (!boarded) {
+        if (!boarding) void loadAll();
       } else {
         void loadToday();
       }
@@ -658,6 +703,7 @@ export function useGames(
     if (busy.current) return;
     busy.current = true;
     setMoreState("loading");
+    const board = boardGen.current;
     try {
       const paths = key ? key.split(",") : [];
       const leagues = Math.max(1, paths.length);
@@ -703,7 +749,7 @@ export function useGames(
         }
         walked += n;
       }
-      setExtra((prev) => [...prev, ...got]);
+      if (board === boardGen.current) setExtra((prev) => [...prev, ...got]);
       setMoreState("idle");
     } catch {
       setMoreState("error");
@@ -738,6 +784,7 @@ export function useGames(
     if (back > EARLIER_DAYS) return;
     backing.current = true;
     setEarlierState("loading");
+    const board = boardGen.current;
     try {
       const paths = key ? key.split(",") : [];
       const date = new Date();
@@ -748,7 +795,8 @@ export function useGames(
       // board renders it. SportsScreen sorts `allDays` by date anyway, so
       // this is about the array making sense on its own rather than about
       // what ends up on screen.
-      setEarlier((prev) => [{ date, games: onDay(games, date, false) }, ...prev]);
+      if (board === boardGen.current)
+        setEarlier((prev) => [{ date, games: onDay(games, date, false) }, ...prev]);
       setEarlierState("idle");
     } catch {
       setEarlierState("error");

@@ -1,6 +1,7 @@
 import { formatClock } from "../../lib/time";
 import { carriageText, carriageUnlinked, type Carriable } from "./carriage";
 import { WarnIcon } from "../../ui/icons";
+import { loadClockFormat } from "../settings/clockFormat";
 
 /**
  * The bottom rail of a wide card: where it is on the left, where to watch
@@ -38,7 +39,7 @@ export function CardFoot({
        * over. ESPN carries no end time, or this would say that. */}
       {item.state === "final" ? (
         <span className="gamecard__carriage gamecard__carriage--none">
-          Started {formatClock(start)}
+          Started {formatClock(start, loadClockFormat())}
         </span>
       ) : (
         <span

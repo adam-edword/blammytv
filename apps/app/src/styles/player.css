@@ -39,12 +39,12 @@
 .tune__channel {
   font: 600 clamp(15px, 2vw, 22px) / 1.2 var(--font-text);
   letter-spacing: 0.01em;
-  color: rgba(255, 255, 255, 0.95);
+  color: color-mix(in srgb, var(--on-image) 95%, transparent);
 }
 
 .tune__title {
   font: 400 clamp(12px, 1.4vw, 15px) / 1.3 var(--font-text);
-  color: rgba(255, 255, 255, 0.62);
+  color: color-mix(in srgb, var(--on-image) 62%, transparent);
   max-width: 44ch;
   text-align: center;
 }
@@ -54,7 +54,7 @@
    * app that opted out of the family everything else uses, so it rendered in
    * Segoe while its neighbours rendered in Geist. */
   font: 500 clamp(12px, 1.5vw, 16px) / 1 var(--font-text);
-  color: rgba(255, 255, 255, 0.75);
+  color: color-mix(in srgb, var(--on-image) 75%, transparent);
   animation: tune-pulse 1.4s ease-in-out infinite;
 }
 
@@ -79,7 +79,7 @@
 .tune__dead-msg {
   margin: 0;
   font: 400 clamp(13px, 1.5vw, 16px) / 1.4 var(--font-text);
-  color: rgba(255, 255, 255, 0.85);
+  color: color-mix(in srgb, var(--on-image) 85%, transparent);
   text-align: center;
   max-width: 34ch;
 }
@@ -128,6 +128,74 @@
   }
 }
 
+/* A title's loading screen (VodLoading.tsx, v0.10.21): its backdrop blurred
+ * into a dark wash, the logo in the middle, a stage bar along the bottom.
+ * Taken from Adam's reference, measured off his screenshot: about rgb 45 in
+ * the middle, black by the edges and corners. */
+.vodload {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+  overflow: hidden;
+}
+.vodload__bg {
+  position: absolute;
+  inset: 0;
+}
+/* Static on purpose: nothing animates the blurred layer, so it is drawn
+ * once. The logo breathes on its own layer above it. */
+.vodload__bg > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(64px) brightness(0.42) saturate(1.25);
+}
+/* Black at the edges and corners, where the blur also thins out. */
+.vodload__bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 72% 68% at 50% 50%, transparent 30%, #000 100%);
+}
+.vodload__art {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+.vodload__bar {
+  position: absolute;
+  left: max(32px, 17%);
+  right: max(32px, 17%);
+  bottom: 56px;
+}
+.vodload__track {
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--on-image) 16%, transparent);
+  overflow: hidden;
+}
+/* Moves when a stage changes, never on a timer (VodLoading.tsx). */
+.vodload__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--on-image) 90%, transparent);
+  transform-origin: left;
+  transform: scaleX(var(--at));
+  transition: transform 700ms var(--ease-out, ease-out);
+}
+.vodload__label {
+  margin: 12px 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vodload__fill {
+    transition: none;
+  }
+}
+
 .tune--compact {
   gap: 8px;
 }
@@ -169,7 +237,7 @@
 }
 
 .mini-overlay:hover {
-  border-color: rgba(255, 255, 255, 0.92);
+  border-color: color-mix(in srgb, var(--on-image) 92%, transparent);
 }
 
 /* Same glassy treatment as the theater top buttons (circular, translucent,
@@ -205,7 +273,7 @@
 .theater-overlay {
   position: fixed;
   inset: 0;
-  color: #fff;
+  color: var(--on-image);
   font-family: var(--font-text);
 }
 
@@ -307,7 +375,7 @@
 .player__volume {
   width: 96px;
   height: 4px;
-  accent-color: #fff;
+  accent-color: var(--on-image);
   cursor: pointer;
 }
 
@@ -404,6 +472,20 @@
   max-width: 320px;
   object-fit: contain;
   object-position: left center;
+  /* Held back until its ink is measured (lib/logoInk, at most 1.5s), so a
+   * padded logo never shows at its file's edge and then jumps left. */
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.theater-bar__logo[data-ready] {
+  opacity: 1;
+}
+/* Cropped to its ink across the width, so the mark starts where the title
+ * under it starts (Adam, v0.10.20: "left justify the logo over the episode
+ * title"). A crop, not a shift: the box shrinks with it, and the height and
+ * so the logo's size stay as they were. */
+.theater-bar__logo[data-trim] {
+  object-view-box: inset(0 var(--ink-r) 0 var(--ink-l));
 }
 
 .theater-bar__text {
@@ -429,7 +511,7 @@
   font-family: var(--font-headline);
   font-weight: 500;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.72);
+  color: color-mix(in srgb, var(--on-image) 72%, transparent);
 }
 
 .theater-bar__title {
@@ -438,14 +520,14 @@
   font-weight: 700;
   font-size: clamp(22px, 2.4vw, 32px);
   line-height: 1.1;
-  color: #fff;
+  color: var(--on-image);
 }
 
 .theater-bar__desc {
   margin: 6px 0 0;
   font-size: 14px;
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.72);
+  color: color-mix(in srgb, var(--on-image) 72%, transparent);
   max-width: 720px;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -459,11 +541,13 @@
   gap: 7px;
 }
 
+/* 4px at white 20% (plan 020, P5): a hair lighter than the 5px it was, next
+ * to capsules that now carry the weight. */
 .theater-seek__track {
   position: relative;
-  height: 5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.22);
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--on-image) 20%, transparent);
 }
 
 /* Both driven by --pct (0..1) on the track, so a drag frame writes ONE
@@ -479,7 +563,7 @@
 .theater-seek__clip {
   position: absolute;
   inset: 0;
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
   pointer-events: none;
 }
@@ -518,10 +602,10 @@
   pointer-events: auto;
   left: 0;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--on-image);
   transform: translate(-50%, -50%);
 }
 
@@ -540,17 +624,13 @@
   bottom: -9px;
 }
 
+/* The type is the eyebrow's (EYEBROW_ON_IMAGE, plan 020 P4), tabular
+ * figures included: the elapsed label ticks every second (v0.8.195's
+ * projected clock) and the DVR depth continuously, and proportional digits
+ * visibly wobble. */
 .theater-seek__labels {
   display: flex;
   justify-content: space-between;
-  /* The elapsed label now ticks every second (v0.8.195's projected clock) and
-     the DVR depth label ticks continuously, so proportional digits visibly
-     wobble. Seventeen other rules in this file already do this. */
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-headline);
-  font-weight: 600;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.72);
 }
 
 .theater-seek__live {
@@ -563,17 +643,29 @@
   justify-content: space-between;
 }
 
+/* The two capsules (plan 020, P1): the nav's shape in the chip's paint.
+ * Glass can't blur the video under it (mpv is a native window below the
+ * page), so over a picture it is the chip fill and hairline the top corners
+ * already wear. The buttons inside are bare and round (IN_CAPSULE). */
 .theater-controls__group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+  padding: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-edge);
+  backdrop-filter: var(--chip-fx);
+}
+/* Play, the white circle, a little apart from its neighbours. */
+.player__btn--play {
+  margin: 0 4px;
 }
 
 /* Jump-to-live pill. The dot glows red at the live edge and dims when the
  * indicator says we've fallen behind (a rewind/skip-back). */
 .theater-live {
-  margin-left: 10px;
-  font-family: var(--font-headline);
+  margin-left: 2px;
 }
 
 .theater-live__dot {
@@ -607,9 +699,7 @@
   background: rgba(0, 0, 0, 0.55);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
   backdrop-filter: blur(18px) saturate(1.2);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 8px 28px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--glass-lift);
 
   /* Entrance (motion plan 002). Close stays instant — deliberate. */
   transition:
@@ -623,16 +713,22 @@
   }
 }
 
+/* The menus take the capsules' paint, a shade denser so the words hold over
+ * a bright frame (plan 020, P6). The stats panel keeps the recipe above. */
 .track-menu {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 10px);
+  /* Clear of the capsule: its 6px padding and hairline, and a gap. */
+  bottom: calc(100% + 16px);
   z-index: 5;
   min-width: 190px;
   max-width: 300px;
   max-height: 300px;
   overflow-y: auto;
   padding: 6px;
+  border-radius: 18px;
+  border-color: var(--chip-edge);
+  background: rgb(20 20 20 / 0.78);
   /* Entrance rides the shared glass rule above; only the origin is ours
    * (grows upward from its button). */
   transform-origin: bottom right;
@@ -644,13 +740,9 @@
   }
 }
 
+/* An eyebrow (EYEBROW_ON_IMAGE); only its room is set here. */
 .track-menu__head {
-  margin: 4px 10px 6px;
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.8px;
-  color: rgba(255, 255, 255, 0.55);
+  margin: 8px 10px 8px;
 }
 
 .track-menu__item {
@@ -668,11 +760,13 @@
 .theater-vol {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
+  /* The slider's end clear of the capsule's round edge. */
+  padding-right: 12px;
 }
 
 .theater-vol__slider {
-  width: 96px;
+  width: 88px;
 }
 
 /* ---- Stats-for-nerds overlay: a compact glass telemetry panel pinned
@@ -687,7 +781,7 @@
   min-width: 208px;
   max-width: 300px;
   padding: 10px 12px;
-  color: #fff;
+  color: var(--on-image);
 }
 
 .stats-overlay__head {
@@ -699,13 +793,13 @@
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.8px;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--on-image) 55%, transparent);
 }
 
 .stats-overlay__empty {
   margin: 0;
   font: 500 12px / 1.3 var(--font-text);
-  color: rgba(255, 255, 255, 0.6);
+  color: color-mix(in srgb, var(--on-image) 60%, transparent);
 }
 
 .stats-overlay__list {
@@ -722,7 +816,7 @@
 
 .stats-overlay__key {
   font: 500 12px / 1.5 var(--font-text);
-  color: rgba(255, 255, 255, 0.6);
+  color: color-mix(in srgb, var(--on-image) 60%, transparent);
   white-space: nowrap;
 }
 
@@ -734,7 +828,7 @@
   font-size: 12px;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
-  color: #fff;
+  color: var(--on-image);
 }
 
 /* Speed button: text glyph in the icon row (VOD only). */
@@ -811,10 +905,10 @@
   border-radius: 999px;
   /* The house glass recipe, matching .skip-chip rather than inventing one. */
   background: rgb(0 0 0 / 0.6);
-  border: 1px solid rgb(255 255 255 / 0.22);
+  border: 1px solid color-mix(in srgb, var(--on-image) 22%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  color: #fff;
+  color: var(--on-image);
   /* Every other label in this chrome is the headline face; without this it
      inherits --font-text from .theater-overlay and is the one odd element. */
   font-family: var(--font-headline);
@@ -869,7 +963,7 @@
      read as one label and a blank gap exactly when being behind live was the
      thing worth saying. Restate the colour instead: legible, and no longer
      claiming live. */
-  color: rgb(255 255 255 / 0.5);
+  color: color-mix(in srgb, var(--on-image) 50%, transparent);
 }
 
 /* ---------------------------------------------------------------------------
@@ -903,8 +997,8 @@
   /* Amber rather than red: this is a heads-up about a trade-off, not an
    * error. The card's own rule about "no match is a real state, not an
    * error" is the same instinct. */
-  background: rgba(212, 160, 23, 0.16);
-  color: #e0ab2b;
+  background: var(--caution-bg);
+  color: var(--caution);
   margin-bottom: 16px;
 }
 
@@ -945,7 +1039,7 @@
   width: 33px;
   height: 33px;
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
   color: var(--text-muted);
 }
 
@@ -1177,13 +1271,6 @@
   backdrop-filter: var(--glass-fx);
 }
 
-/* The Live Scores switch while the row shows: ringed, not filled, since Add
- * is the one bright thing on the bar. */
-.mvbar__icon.is-on {
-  background: color-mix(in srgb, var(--text) 20%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent);
-}
-
 /* ---------------------------------------------------------------------------
  * Live Scores (v0.10.6): the Sports theater's score tracker as one row under
  * the grid. The stage gives up the row's height and keeps its width, and
@@ -1235,8 +1322,8 @@
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent);
 }
 
-/* One line. The wheel scrolls it sideways (MultiviewScores); the bar is hidden
- * because the cards cut off at the edge say there is more. */
+/* One line. The wheel or a drag scrolls it sideways (MultiviewScores); the
+ * bar is hidden because the cards cut off at the edge say there is more. */
 .mvscores__row {
   flex: 1;
   min-width: 0;
@@ -1251,6 +1338,15 @@
 }
 .mvscores__row::-webkit-scrollbar {
   display: none;
+}
+/* Mid-drag (lib/useDragScroll), as a Stream shelf: the row is grabbed, and
+ * no card under the pointer lights up as it passes. */
+.mvscores__row.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.mvscores__row.is-dragging * {
+  pointer-events: none;
 }
 
 /* The league, said once before its games, as the theater says it over them. */
@@ -1408,10 +1504,10 @@
   height: 56px;
   max-height: 60%;
   border-radius: 3px;
-  background: rgb(255 255 255 / 0.9);
+  background: color-mix(in srgb, var(--on-image) 90%, transparent);
   box-shadow:
-    0 0 0 4px rgb(255 255 255 / 0.12),
-    0 0 24px rgb(255 255 255 / 0.25);
+    0 0 0 4px color-mix(in srgb, var(--on-image) 12%, transparent),
+    0 0 24px color-mix(in srgb, var(--on-image) 25%, transparent);
   opacity: 0;
   transition: opacity var(--dur-hover) var(--ease-out, ease);
 }
@@ -1436,7 +1532,7 @@
   width: 2px;
   margin-left: -1px;
   border-radius: 1px;
-  background: rgb(255 255 255 / 0.4);
+  background: color-mix(in srgb, var(--on-image) 40%, transparent);
   pointer-events: none;
 }
 .mvseam-tip {
@@ -1446,7 +1542,7 @@
   padding: 6px 10px;
   border-radius: 8px;
   background: oklch(0.205 0 0 / 0.92);
-  border: 1px solid var(--border, rgb(255 255 255 / 0.1));
+  border: 1px solid var(--border);
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
@@ -1487,12 +1583,12 @@
  * three seconds with the badge (YouTube TV and Channels DVR both fade
  * theirs: an always-on marker was called distracting). */
 .mvtile.is-on {
-  outline-color: rgb(255 255 255 / 0.4);
+  outline-color: color-mix(in srgb, var(--on-image) 40%, transparent);
 }
 .mvtile.is-on.is-flash,
 .mvtab:not(.is-idle) .mvtile.is-on:hover {
   outline-width: 2px;
-  outline-color: var(--accent, #6c8cff);
+  outline-color: var(--accent);
   transition-duration: var(--dur-hover);
 }
 
@@ -1566,8 +1662,8 @@
   height: 26px;
   padding: 0 10px 0 8px;
   border-radius: var(--radius-pill);
-  background: var(--accent, #6c8cff);
-  color: var(--accent-ink, #111);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-size: 11.5px;
   font-weight: 700;
   opacity: 0;
@@ -1813,45 +1909,62 @@
     border-color var(--dur-hover) var(--ease-out),
     background-color var(--dur-hover) var(--ease-out);
 }
-/* The keys in the Add tile and the picker's footer are the app's Kbd
- * (ui.css .kbd, plan 019 K12), which came from here. */
+/* The keys in the Add tile are the app's Kbd (ui.css .kbd, plan 019
+ * K12), which came from here. */
 
-/* The picker (plan 017, M3): a search-first palette over the dimmed grid.
- * The Dialog's frame is its own (Tailwind, in the utilities layer, which
- * outranks this one); what is inside is styled here. */
+/* The pickers: Multi-view's (plan 017, M3) and the app's palette (plan
+ * 019, K11), which is the same object grown to the whole app. Both wear
+ * shadcn's stock Command (base-vega; the palette in v0.10.25, Multi-view's
+ * in v0.10.26, Adam: "make the multiview ctrlk similar looking"). The
+ * numbers are the component's utilities: an `h-8 rounded-lg` field,
+ * `max-h-72` of list, headings `text-xs font-medium text-muted-foreground`,
+ * items `px-2 py-1.5 text-sm rounded-lg` on `bg-muted` when highlighted.
+ * The Dialog's frame is Tailwind on each component (the utilities layer,
+ * which outranks this one); what is inside is styled here. */
 .mvpick__head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 58px;
-  padding: 0 18px;
-  border-bottom: 1px solid var(--border);
+  gap: 6px;
+  height: 32px;
+  margin: 4px 4px 0;
+  padding: 0 8px;
+  border: 1px solid color-mix(in oklab, var(--border-input) 30%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--border-input) 30%, transparent);
   color: var(--text-muted);
 }
 .mvpick__input {
   flex: 1;
   min-width: 0;
   height: 100%;
+  padding-right: 8px;
   border: 0;
   outline: none;
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 16px;
+  font-size: 14px;
 }
-.mvpick__target {
+/* What the field is for, on its right: the tile a Replace takes the place
+ * of, or how many more fit on your line (the old footer's, v0.10.26). */
+.mvpick__target,
+.mvpick__room {
   flex: none;
   font-size: 12px;
+  white-space: nowrap;
+}
+.mvpick__target:empty {
+  display: none;
 }
 /* Back to the list, from a game's feeds (v0.10.3): in the search icon's
- * place, the same size, so the input does not move. */
+ * place, so the input does not move. */
 .mvpick__back {
   flex: none;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  margin: 0 -5px;
+  width: 22px;
+  height: 22px;
+  margin: 0 -3px;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -1864,28 +1977,40 @@
   color: var(--text);
 }
 .mvpick__body {
-  max-height: min(520px, calc(100vh - 260px));
+  max-height: 288px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 6px 8px 8px;
+  scroll-padding-block: 4px;
+  scrollbar-width: none;
 }
-/* The type is the eyebrow (ui/eyebrow.ts, plan 019 K9), which came from
- * here. */
+.mvpick__group {
+  padding: 4px;
+}
 .mvpick__sec {
-  padding: 12px 10px 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 .mvpick__row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 52px;
-  padding: 8px 10px;
-  border-radius: var(--radius);
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 20px;
   cursor: pointer;
-  scroll-margin-block: 8px;
 }
+/* `data-selected:bg-muted`. The light theme's muted is the grey track: its
+ * `--surface-raised` is white, which is the popover's own ground. */
 .mvpick__row[data-highlighted] {
-  background: var(--tint-hover);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+:root[data-theme="light"] .mvpick__row[data-highlighted] {
+  background: var(--surface-track);
 }
 /* Muted by colour, not opacity: faded text is the app's own "no" (2.9:1
  * here), and the quieter tiers are what the rest of it uses (plan 018,
@@ -1900,24 +2025,26 @@
 .mvpick__row[data-disabled] .mvpick__sub {
   color: var(--text-dim);
 }
-.mvpick__row[data-disabled] .chlogo {
+.mvpick__row[data-disabled] .chlogo,
+.mvpick__row[data-disabled] .gamebadge {
   filter: grayscale(1);
   opacity: 0.6;
 }
+/* One line, as a Command item is: the name, then what a shortcut would be
+ * on the right. */
 .mvpick__meta {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 8px;
 }
 .mvpick__name {
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  font-size: 13.5px;
-  font-weight: 600;
 }
 .mvpick__nametext {
   overflow: hidden;
@@ -1925,33 +2052,40 @@
   white-space: nowrap;
 }
 .mvpick__sub {
+  flex: 0 4 auto;
+  min-width: 0;
+  margin-left: auto;
   font-size: 12px;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mvpick__game {
-  flex: 1;
-  min-width: 0;
+.mvpick__row[data-highlighted]:not([data-disabled]) .mvpick__sub {
+  color: var(--text);
 }
-.mvpick__gamechan {
+/* The leading column is 20px on every row, so the names line up: a
+ * channel's logo, an icon, a title's poster. */
+.mvpick__fillicon {
+  display: grid;
+  place-items: center;
   flex: none;
-  max-width: 40%;
+  width: 20px;
+  height: 20px;
 }
-/* The app palette (plan 019, K11) is this picker grown to the whole app,
- * and wears these same classes. Its one row of its own: a title's poster,
- * 2:3 on the picture's ground, as tall as a channel row's logo tile. */
+/* The palette's one row of its own: a title's poster, cropped square to
+ * the column. */
 .palette__poster {
   flex: none;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 51px;
-  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
   overflow: hidden;
   background: var(--pic);
   color: var(--text-muted);
+  font-size: 11px;
   font-weight: 700;
 }
 .palette__poster img {
@@ -1959,23 +2093,43 @@
   height: 100%;
   object-fit: cover;
 }
-.mvpick__fillicon {
-  display: grid;
-  place-items: center;
+/* A live game keeps the Sports matchup (crests, abbreviations, the
+ * headline names face to face), at about two thirds of the board's size so
+ * it sits in a Command list: a 28px crest where the board's is 45. */
+.mvpick__game {
+  flex: 1;
+  min-width: 0;
+}
+.mvpick__game .matchup {
+  gap: 12px;
+  padding: 0;
+}
+.mvpick__game .matchup__team {
+  gap: 8px;
+}
+.mvpick__game .gamebadge {
+  width: 28px;
+  max-height: 28px;
+}
+.mvpick__game .matchup__abbr {
+  font-size: 10px;
+  line-height: 12px;
+}
+.mvpick__game .matchup__name {
+  font-size: 15px;
+  line-height: 18px;
+}
+.mvpick__gamechan {
   flex: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--text) 12%, transparent);
-  color: var(--text);
 }
 /* The rail's first feed for a game, which Fill would have taken. */
 .mvpick__best {
   flex: none;
-  padding: 2px 8px;
+  padding: 0 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
   font-size: 11px;
+  line-height: 18px;
   color: var(--text-muted);
 }
 .mvpick__ingrid {
@@ -1988,26 +2142,10 @@
 }
 .mvpick__empty {
   margin: 0;
-  padding: 28px 10px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.mvpick__foot {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  height: 44px;
-  padding: 0 18px;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.mvpick__foot > span {
-  display: inline-flex;
-  align-items: center;
-}
-.mvpick__left {
-  margin-left: auto;
+  padding: 24px 0;
+  font-size: 14px;
+  text-align: center;
+  color: var(--text);
 }
 
 /* The caption, UNDER the picture (Adam, on M4: "as long as it doesn't
@@ -2020,7 +2158,7 @@
   padding: 0 2px;
   font-size: 12.5px;
   font-weight: 600;
-  color: rgb(255 255 255 / 0.92);
+  color: color-mix(in srgb, var(--on-image) 92%, transparent);
   white-space: nowrap;
   pointer-events: none;
 }

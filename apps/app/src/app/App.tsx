@@ -18,6 +18,8 @@ import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { SportsScreen } from "../features/sports/SportsScreen";
 import { MultiviewTab } from "../features/live/MultiviewTab";
+import { useMalSync } from "../features/mal/sync";
+import { useTraktSync } from "../features/trakt/sync";
 import {
   onAddRequest,
   onMultiviewRequest,
@@ -58,6 +60,12 @@ const NAV_SETTLE_MS = 190;
 const SWAP_MS = 180;
 
 export function App() {
+  // Trakt (plan 015): sync at launch, on coming back, and soon after the
+  // Trakt Watchlist changes. Here, not in Root: Root mounts the pop-out and
+  // overlay windows too, and one sync per app is the point. MyAnimeList
+  // (plan 021) the same way.
+  useTraktSync();
+  useMalSync();
   // Nav is two facts, not one: which SIDE of the app (Live TV vs Stream)
   // and which Stream PAGE (the pill rail). streamTab survives a trip to
   // Live TV — coming back lands where you were; the startup setting only
@@ -123,6 +131,9 @@ export function App() {
    */
   const [sportsHome, setSportsHome] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Where Settings hands focus back when the palette opened it: the element
+  // the palette was opened from. From the gear, Settings finds its own.
+  const [settingsFrom, setSettingsFrom] = useState<HTMLElement | null>(null);
   // The app palette (plan 019, K11): Ctrl+K anywhere, or the search button
   // beside Settings. Not over onboarding, and not over Settings, which is
   // its own modal (Ctrl+K there closes Settings' way first).
@@ -322,7 +333,9 @@ export function App() {
       if (e.key !== "Escape") return;
       // A dialog took it (Radix dismisses on Escape and marks the event):
       // one press closes the multi-view picker, not the picker AND full
-      // screen (plan 017: Esc closes the picker, then full screen).
+      // screen (plan 017: Esc closes the picker, then full screen). Settings
+      // too, since v0.10.33: it used to close and leave full screen on the
+      // same press.
       if (e.defaultPrevented) return;
       // The VOD player owns Escape (theater↔fullscreen toggle through its
       // own state machine) — exiting OS fullscreen from here would desync
@@ -463,10 +476,16 @@ export function App() {
           if (t === "sports") setSportsHome((n) => n + 1);
           setLiveTab(t);
         }}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => {
+          setSettingsFrom(null);
+          setSettingsOpen(true);
+        }}
         onOpenSearch={() => setPaletteOpen(true)}
       />
-      <main className="app-main" ref={mainRef}>
+      {/* data-screen: which screen is mounted, which trails the nav by
+        * NAV_SETTLE_MS. The harnesses' goTo waits on it; a click aimed at
+        * the new screen used to land on the old one still showing. */}
+      <main className="app-main" ref={mainRef} data-screen={dest}>
         {dest === "sports" ? (
           <SportsScreen home={Number(destHome)} />
         ) : dest === "multiview" ? (
@@ -481,7 +500,9 @@ export function App() {
           <StreamScreen />
         )}
       </main>
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsModal returnTo={settingsFrom} onClose={() => setSettingsOpen(false)} />
+      )}
       <Palette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
@@ -494,7 +515,7 @@ export function App() {
         onTitle={(item) =>
           requestOpenInStream(item, dest === "discover" || dest === "mylist" ? dest : "home")
         }
-        onGo={(to: GoTarget) => {
+        onGo={(to: GoTarget, from) => {
           if (to.kind === "live") {
             setSection("live");
             setLiveTab(to.tab);
@@ -503,12 +524,27 @@ export function App() {
             setStreamTab(to.tab);
           } else {
             saveSettingsTab(to.tab);
+            setSettingsFrom(from);
             setSettingsOpen(true);
           }
         }}
       />
       {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
-      {onboarding && <Onboarding onDone={() => setOnboarding(false)} />}
+      {onboarding && (
+        <Onboarding
+          // Where a launch would open, now that onboarding has set it up.
+          // The section was decided at mount, before a playlist was added
+          // or the startup tab picked, so a first run that chose Live TV
+          // came out on Stream (with no manifest, its empty state). Set as
+          // the finale starts, under the overlay, so the app it fades into
+          // is already the right one.
+          onFinish={() => {
+            setSection(loadStartupTab() === "live" && hasEnabledPlaylist() ? "live" : "stream");
+            setStreamTab(loadStartupTab() === "discover" ? "discover" : "home");
+          }}
+          onDone={() => setOnboarding(false)}
+        />
+      )}
     </div>
   );
 }

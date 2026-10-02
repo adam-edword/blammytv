@@ -7,7 +7,12 @@ import {
   type ReactNode,
 } from "react";
 import { scrubbedMessage } from "../../lib/errors";
-import { isTauri, tauriMvProxyClose, tauriMvProxyOpen } from "../../lib/tauri";
+import {
+  isTauri,
+  tauriMvProxyClose,
+  tauriMvProxyOpen,
+  tauriMvProxyOpenHls,
+} from "../../lib/tauri";
 import {
   getMvProfile,
   hlsConfig,
@@ -62,8 +67,8 @@ import { LivePill } from "../../ui/LivePill";
  * real multi-view run every tile died on a 302 with no header, Cartoon
  * Network included. mvproxy.rs fetches on the Rust side, follows the
  * redirect and adds the header, and the tile reads from 127.0.0.1. The
- * .m3u8 path still goes direct: proxying HLS means rewriting every playlist
- * the stream hands back, and his panel serves .ts.
+ * .m3u8 path joined it in v0.10.67: the proxy rewrites every playlist it
+ * serves so each URI in it points back there too.
  *
  * PLACED, NOT FLOWED (plan 017). The grid hands each tile its rect from
  * mvLayout and the tile goes exactly there, so a layout change moves the
@@ -312,6 +317,13 @@ export function MultiviewTile({
   // and empties while a tile is tuning.
   const atCapRef = useRef(atCap);
   atCapRef.current = atCap;
+  // Read the same way: the name only goes into words and logs. As a
+  // dependency it restarted the stream whenever the label changed, and a
+  // game tile's label turns into its channel's after the final whistle, so
+  // the tile went back to Tuning mid post-game show (on a full line, to a
+  // refusal from its own ghost connection).
+  const nameRef = useRef(name);
+  nameRef.current = name;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -335,7 +347,7 @@ export function MultiviewTile({
     const fail = (why: string) => {
       if (disposed || failed) return;
       failed = true;
-      logFailure(name, why, codecs);
+      logFailure(nameRef.current, why, codecs);
       facts.codecs = codecs || undefined;
       facts.atCap = atCapRef.current;
       // Let go of it at once, outside the library's own event: a failed
@@ -347,7 +359,7 @@ export function MultiviewTile({
         destroy?.();
         destroy = undefined;
       }, 0);
-      loseRef.current(explainFailure(name, facts));
+      loseRef.current(explainFailure(nameRef.current, facts));
     };
     // The codecs, checked against what Media Source can play the moment the
     // demuxer names them, rather than waiting for a decoder to give up.
@@ -355,6 +367,7 @@ export function MultiviewTile({
       codecs = [videoCodec, audioCodec].filter(Boolean).join(" + ");
       const bad = unplayable(videoCodec, audioCodec, (m) => MediaSource.isTypeSupported(m));
       facts.playable = bad === null;
+      facts.refused = bad ?? undefined;
       if (bad !== null) {
         fail(`this browser cannot play ${bad}`);
         destroy?.();
@@ -428,6 +441,17 @@ export function MultiviewTile({
             video.src = url;
             return;
           }
+          // Through the proxy too (v0.10.67), for the same CORS header on
+          // the playlist and everything it names. A native build from
+          // before it has no such command; the tile plays it directly.
+          let proxied = "";
+          if (isTauri()) {
+            proxied = await tauriMvProxyOpenHls(url).catch(() => "");
+            if (disposed) {
+              if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
+              return;
+            }
+          }
           const hls = new Hls(hlsConfig());
           hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
             const l = data.levels[0];
@@ -446,12 +470,13 @@ export function MultiviewTile({
                 (data.error ? ` / ${data.error.message}` : ""),
             );
           });
-          hls.loadSource(url);
+          hls.loadSource(proxied || url);
           hls.attachMedia(video);
-          const unregister = registerTile({ name, video, speed: () => undefined });
+          const unregister = registerTile({ name: nameRef.current, video, speed: () => undefined });
           destroy = () => {
             unregister();
             hls.destroy();
+            if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
           };
           return;
         }
@@ -505,7 +530,7 @@ export function MultiviewTile({
         player.attachMediaElement(video);
         player.load();
         const unregister = registerTile({
-          name,
+          name: nameRef.current,
           video,
           speed: () => (player.statisticsInfo as { speed?: number } | undefined)?.speed,
         });
@@ -534,7 +559,7 @@ export function MultiviewTile({
       video.removeAttribute("src");
       video.load();
     };
-  }, [url, name, profile, attempt]);
+  }, [url, profile, attempt]);
 
   // Audio follows focus rather than being set at mount, so moving focus does
   // not restart a stream. Exactly one tile is ever unmuted; the grid owns
@@ -714,7 +739,7 @@ export function MultiviewTile({
     <div
       ref={rootRef}
       className={
-        "mvtile" +
+        "mvtile on-picture" +
         (focused ? " is-on" : "") +
         (flash ? " is-flash" : "") +
         (dead ? " is-failed" : "") +

@@ -87,7 +87,7 @@ const fits = (loc) =>
   });
   await page.getByRole("button", { name: /^library$/i }).first().click({ timeout: 8000 });
   // History is the list card titled "Library" (LibraryScreen's HISTORY).
-  await page.locator('.library__card[title="Library"]').click({ timeout: 10_000 });
+  await page.locator('.library__card[data-hint="Library"]').click({ timeout: 10_000 });
 
   const clear = page.getByRole("button", { name: "Clear history" });
   await clear.waitFor({ timeout: 15_000 });
@@ -102,7 +102,7 @@ const fits = (loc) =>
 
   // Back to the grid, then into the user's list.
   await page.getByRole("button", { name: /back/i }).first().click();
-  await page.locator('.library__card[title="Weekend"]').click({ timeout: 10_000 });
+  await page.locator('.library__card[data-hint="Weekend"]').click({ timeout: 10_000 });
   const del = page.getByRole("button", { name: "Delete", exact: true });
   await del.waitFor({ timeout: 10_000 });
   await del.click();
