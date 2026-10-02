@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { isTauri, openExternal } from "../../lib/tauri";
+import { CheckIcon, CopyIcon } from "../../ui/icons";
+import { Hint } from "../../ui/Hint";
 import {
   traktDeviceStart,
   traktDevicePoll,
@@ -32,6 +34,9 @@ export function TraktSection() {
   const [user, setUser] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [armed, setArmed] = useState(false);
+  // The sign-in code goes to Trakt's page by paste: typed off the screen,
+  // an 8 and a B or a 0 and an O are easy to mix up.
+  const [copied, setCopied] = useState(false);
   const [, bump] = useState(0);
   const poll = useRef(0);
   /** The sign-in under way. Cancel, closing Settings and a new Connect
@@ -98,6 +103,15 @@ export function TraktSection() {
     poll.current = window.setTimeout(() => void tick(), every);
   };
 
+  const copyCode = (code: string) =>
+    navigator.clipboard
+      .writeText(code)
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
+
   const cancel = () => {
     attempt.current.n++;
     window.clearTimeout(poll.current);
@@ -130,7 +144,7 @@ export function TraktSection() {
       : phase.at === "off"
         ? (phase.note ?? "Send what you watch to Trakt, and bring back what you watched elsewhere, where you left off, and your watchlist.")
         : phase.at === "code"
-          ? `Go to ${phase.code.verification_url.replace(/^https?:\/\//, "")} on any device and enter the code. This page notices on its own.`
+          ? `Go to ${phase.code.verification_url.replace(/^https?:\/\//, "")} on any device and enter the code. Open Trakt copies it for you. This page notices on its own.`
           : local.problem && local.problem !== "not connected"
             ? `Last sync hit a snag: ${local.problem}`
             : local.capped
@@ -146,9 +160,22 @@ export function TraktSection() {
           {phase.at === "on" ? (user ? `Trakt: ${user}` : "Trakt: connected") : "Trakt"}
         </h4>
         {phase.at === "code" && (
-          <p className="trakt-row__code" aria-label={`Code ${phase.code.user_code}`}>
-            {phase.code.user_code}
-          </p>
+          <div className="trakt-row__codeline">
+            <p className="trakt-row__code" aria-label={`Code ${phase.code.user_code}`}>
+              {phase.code.user_code}
+            </p>
+            <Hint label={copied ? "Copied!" : "Copy code"}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                type="button"
+                aria-label="Copy code"
+                onClick={() => void copyCode(phase.code.user_code)}
+              >
+                {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
+              </Button>
+            </Hint>
+          </div>
         )}
         <p className="settings__section-note settings__section-note--dim">{note}</p>
       </div>
@@ -159,7 +186,14 @@ export function TraktSection() {
       )}
       {phase.at === "code" && (
         <div className="trakt-row__actions">
-          <Button variant="default" type="button" onClick={() => openExternal(phase.code.verification_url)}>
+          <Button
+            variant="default"
+            type="button"
+            onClick={() => {
+              void copyCode(phase.code.user_code);
+              openExternal(phase.code.verification_url);
+            }}
+          >
             Open Trakt
           </Button>
           <Button variant="secondary" type="button" onClick={cancel}>

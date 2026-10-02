@@ -795,12 +795,24 @@ input.rowcap__value--edit:focus-visible {
 /* Trakt's sign-in (plan 015, B2): the code to type at trakt.tv/activate,
  * big enough to read from across the room, and the row's two buttons. */
 .trakt-row__code {
-  margin: 6px 0 4px;
+  margin: 0;
   font-family: var(--font-mono);
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 0.18em;
   color: var(--text);
+  /* The page is unselectable (base.css); this is the one thing on it a
+   * user needs to copy. */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+/* The code and its copy button, on one line. */
+.trakt-row__codeline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 4px;
 }
 /* MyAnimeList's row (plan 021) keeps the same pair. */
 .trakt-row__actions,

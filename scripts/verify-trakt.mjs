@@ -316,6 +316,12 @@ await page.close();
 const connectStub = ({ port, configured }) => {
   window.__calls = [];
   window.__connected = false;
+  // What the page asked to copy (v0.10.69): the code goes to Trakt by paste.
+  window.__copied = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: (t) => (window.__copied.push(t), Promise.resolve()) },
+  });
   let polls = 0;
   let cb = 0;
   window.__TAURI_INTERNALS__ = {
@@ -383,14 +389,31 @@ const openSettings = async (p) => {
   const code = await p2.locator(".trakt-row__code").innerText({ timeout: 5000 }).catch(() => "");
   check("Connect shows Trakt's code to enter", code === "ABCD1234", code);
   if (process.env.SHOT_DIR) await p2.locator(".trakt-row").first().screenshot({ path: `${process.env.SHOT_DIR}/trakt-code.png` });
+  // The page is unselectable (base.css); the code must not be.
+  const selectable = await p2.locator(".trakt-row__code").evaluate((el) => getComputedStyle(el).userSelect);
+  await p2.locator(".trakt-row").getByRole("button", { name: "Copy code" }).click();
+  const copied = await p2.evaluate(() => [...window.__copied]);
+  check(
+    "  the code can be selected, and its button copies it",
+    selectable === "text" && copied.length === 1 && copied[0] === "ABCD1234",
+    JSON.stringify({ selectable, copied }),
+  );
   await p2.locator(".trakt-row").getByRole("button", { name: "Open Trakt" }).click();
   const opened = await p2.evaluate(() => window.__calls.filter(([c]) => c === "open_external").map(([, a]) => a.url));
-  check("  and Open Trakt takes you to the activation page", opened[0] === "https://trakt.tv/activate", JSON.stringify(opened));
+  const copiedToo = await p2.evaluate(() => [...window.__copied]);
+  check(
+    "  and Open Trakt copies it too and takes you to the activation page",
+    opened[0] === "https://trakt.tv/activate" && copiedToo.length === 2 && copiedToo[1] === "ABCD1234",
+    JSON.stringify({ opened, copiedToo }),
+  );
   const on = await p2
     .locator(".trakt-row .customize-row__title", { hasText: "Trakt: Adam" })
     .waitFor({ timeout: 8000 })
     .then(() => true, () => false);
   const synced = calls.slice(before).some((c) => c.path === "/sync/last_activities");
+  // The first sync runs on from the approval; its button reads "Syncing…"
+  // until it ends (seen when Open Trakt's timing moved).
+  await p2.locator(".trakt-row").getByRole("button", { name: "Sync now" }).waitFor({ timeout: 8000 }).catch(() => {});
   const buttons = await p2.locator(".trakt-row button").allInnerTexts();
   if (process.env.SHOT_DIR) await p2.locator(".settings-section", { has: p2.locator(".trakt-row") }).first().screenshot({ path: `${process.env.SHOT_DIR}/trakt-connected.png` });
   check(
