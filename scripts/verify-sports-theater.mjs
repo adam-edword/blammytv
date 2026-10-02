@@ -71,7 +71,7 @@ const FIXTURE = {
  * pos 40 is 42s behind it. Those are the numbers dvr.ts folds, run here
  * through the real hook rather than asserted against it.
  */
-const stub = (pos) => `
+const stub = (pos, fixture = FIXTURE) => `
   window.__tauriCalls = [];
   let cb = 0;
   window.__TAURI_INTERNALS__ = {
@@ -96,7 +96,7 @@ const stub = (pos) => `
       return Promise.resolve(undefined);
     },
   };
-  window.__sportsFixture = ${JSON.stringify(FIXTURE)};
+  window.__sportsFixture = ${JSON.stringify(fixture)};
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.playlists", ${JSON.stringify(JSON.stringify(PLAYLIST))});
 `;
@@ -105,12 +105,12 @@ const browser = await chromium.launch({
   executablePath: "/opt/pw-browsers/chromium",
 });
 
-async function open(pos) {
+async function open(pos, fixture) {
   const ctx = await browser.newContext({
     viewport: { width: 1600, height: 900 },
   });
   const page = await ctx.newPage();
-  await page.addInitScript(stub(pos));
+  await page.addInitScript(stub(pos, fixture));
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   // The catalog load, the match, autoplay, and then the settle window the
   // edge baseline needs (SETTLE_MS is 10s) before it will draw a window.
@@ -435,6 +435,60 @@ async function open(pos) {
     foldedEdges === 0 && (await edge.count()) === 1,
     JSON.stringify({ foldedEdges }),
   );
+  await ctx.close();
+}
+
+// ---- The channel list, shut to its heading (v0.10.74) -------------------
+// Adam: collapse "just the column of channels, so you don't have to scroll
+// far to see the other games' scores below them". Two rows (fake-m3u's Sky
+// by name, its ESPN by acronym) and three other live games for the scores.
+{
+  const other = (id, home, away) => ({
+    ...FIXTURE.game,
+    id,
+    broadcasts: [],
+    home: { name: home, abbr: home.slice(0, 3).toUpperCase() },
+    away: { name: away, abbr: away.slice(0, 3).toUpperCase() },
+  });
+  const { page, ctx } = await open(82, {
+    game: { ...FIXTURE.game, broadcasts: ["Fake Sky Sports", "ESPN"] },
+    others: [other("o1", "Detroit", "Chicago"), other("o2", "Dallas", "Houston"), other("o3", "Denver", "Seattle")],
+  });
+  const head = page.getByRole("button", { name: /^Channels/ });
+  const state = () =>
+    page.evaluate(() => ({
+      rows: [...document.querySelectorAll(".sportstheater__rail .sportsrail")].map((r) => ({
+        on: r.classList.contains("is-on"),
+        name: r.querySelector(".sportsrail__name")?.textContent,
+      })),
+      scores: Math.round(document.querySelector(".sportstheater__scores")?.getBoundingClientRect().top ?? -1),
+    }));
+  const open1 = await state();
+  check(
+    "the channel list has a heading that says how many, open to begin with",
+    (await head.getAttribute("aria-expanded")) === "true" && /2/.test(await head.innerText()) && open1.rows.length === 2,
+    JSON.stringify(open1),
+  );
+  await head.click();
+  await page.waitForTimeout(300);
+  const shut = await state();
+  check(
+    "shut, only the channel playing stays",
+    (await head.getAttribute("aria-expanded")) === "false" && shut.rows.length === 1 && shut.rows[0].on,
+    JSON.stringify(shut.rows),
+  );
+  check(
+    "and the scores come up by the rows it put away",
+    open1.scores > 0 && open1.scores - shut.scores > 40,
+    `${open1.scores}px -> ${shut.scores}px`,
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".theater-overlay", { timeout: 30_000 });
+  await page.waitForTimeout(1500);
+  check("it's still shut after a restart", (await head.getAttribute("aria-expanded")) === "false" && (await state()).rows.length <= 1);
+  await head.click();
+  await page.waitForTimeout(300);
+  check("and opens again", (await state()).rows.length === 2, JSON.stringify((await state()).rows));
   await ctx.close();
 }
 

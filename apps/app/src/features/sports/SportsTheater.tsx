@@ -9,10 +9,12 @@ import type {
 import { createPortal } from "react-dom";
 import { Tilt } from "../../ui/Tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
-import { PanelIcon } from "../../ui/icons";
+import { ChevronIcon, PanelIcon } from "../../ui/icons";
 import {
   loadTheaterFolded,
+  loadTheaterRailShut,
   saveTheaterFolded,
+  saveTheaterRailShut,
 } from "../settings/theaterFolded";
 import {
   clampSide,
@@ -169,6 +171,15 @@ export function SportsTheater({
   const toggleFold = useCallback(() => {
     setFolded((on) => {
       saveTheaterFolded(!on);
+      return !on;
+    });
+  }, []);
+  /** The channel list shut to its heading, so the scores under it come up
+   * (Adam's). Remembered like the fold (theaterFolded.ts). */
+  const [railShut, setRailShut] = useState(loadTheaterRailShut);
+  const toggleRail = useCallback(() => {
+    setRailShut((on) => {
+      saveTheaterRailShut(!on);
       return !on;
     });
   }, []);
@@ -677,9 +688,29 @@ export function SportsTheater({
          * networks ("NBC", "MASN") and the matcher turns those into your
          * own channels; the card's "Live on 3 channels" is a promise that
          * lands here, and clicking one plays it. */}
-        <nav className="sportstheater__rail">
+        {/* The list's heading, and the way to shut it: a game with a long
+          * rail pushed the other games' scores out of reach (Adam, 2026-10-02).
+          * Shut, the channel playing stays, so the column still says what is
+          * on. Only when there is a list to shut. */}
+        {matches.length > 0 && (
+          <Button
+            variant="ghost"
+            type="button"
+            className="sportstheater__railhead h-auto w-full justify-start gap-2.5 px-0 py-1 has-[>svg]:px-0 hover:bg-transparent"
+            aria-expanded={!railShut}
+            aria-controls="sportstheater-rail"
+            onClick={toggleRail}
+          >
+            <span className="sportstheater__railname">Channels</span>
+            <span className="sportstheater__railcount">{matches.length}</span>
+            <ChevronIcon
+              className={"sportstheater__caret" + (railShut ? " sportstheater__caret--shut" : "")}
+            />
+          </Button>
+        )}
+        <nav id="sportstheater-rail" className="sportstheater__rail">
           {matches.length > 0 ? (
-            matches.map((c) => (
+            (railShut ? matches.filter((c) => tuned?.id === c.id) : matches).map((c) => (
               <Rail
                 key={c.id}
                 channel={c}
