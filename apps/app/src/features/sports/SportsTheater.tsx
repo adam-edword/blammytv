@@ -30,9 +30,9 @@ import {
   tauriIsFullscreen,
   tauriMpvGoLive,
   tauriPopoutOpen,
-  tauriSetFullscreen,
   type TheaterMeta,
 } from "../../lib/tauri";
+import { setFullscreenChecked } from "../../lib/fullscreen";
 import { InvertedPlayer } from "../live/InvertedPlayer";
 import { TheaterOverlay } from "../live/TheaterOverlay";
 import { useDirectOverlay } from "../live/useDirectOverlay";
@@ -473,11 +473,11 @@ export function SportsTheater({
     onCollapse: onClose,
     onFullscreen: () => {
       setFullscreen(true);
-      void tauriSetFullscreen(true).catch(() => {});
+      void setFullscreenChecked(true).catch(() => {});
     },
     onExitFullscreen: () => {
       setFullscreen(false);
-      void tauriSetFullscreen(false).catch(() => {});
+      void setFullscreenChecked(false).catch(() => {});
     },
     // The same open sequence both other hosts use: heal the shell's clip
     // hole BEFORE Rust tears the video child down, because losing that
@@ -646,7 +646,7 @@ export function SportsTheater({
   // the whole app there, with no player left to take it out.
   useEffect(
     () => () => {
-      if (fsRef.current) void tauriSetFullscreen(false).catch(() => {});
+      if (fsRef.current) void setFullscreenChecked(false).catch(() => {});
     },
     [],
   );

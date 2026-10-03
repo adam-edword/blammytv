@@ -37,6 +37,7 @@ import { StreamScreen } from "../features/stream/StreamScreen";
 import { LibraryScreen } from "../features/stream/LibraryScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { setModalOpen } from "../lib/modalOpen";
+import { setFullscreenChecked } from "../lib/fullscreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
 import { loadStartupTab } from "../features/settings/startupTab";
 import {
@@ -345,7 +346,7 @@ export function App() {
       // ate Live's Escape-exits-fullscreen everywhere.
       if (document.querySelector(".vod-stage")) return;
       const win = getCurrentWindow();
-      if (await win.isFullscreen()) void win.setFullscreen(false);
+      if (await win.isFullscreen()) void setFullscreenChecked(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

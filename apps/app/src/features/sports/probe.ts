@@ -16,6 +16,7 @@ import { airing, showsIn } from "./guideMatch";
 import { sharing } from "./sharing";
 import { loadPairingLog } from "./pairingLog";
 import { APP_VERSION } from "../../lib/version";
+import { loadFullscreenChecks } from "../../lib/fullscreen";
 
 /**
  * Console probes for the sports channel matcher.
@@ -54,6 +55,7 @@ import { APP_VERSION } from "../../lib/version";
 interface Probes {
   btvSports?: (...paths: string[]) => Promise<void>;
   btvPairing?: (...paths: string[]) => Promise<unknown>;
+  btvFullscreen?: () => unknown;
   btvChannels?: (query: string) => Promise<void>;
 }
 
@@ -327,6 +329,16 @@ export function installSportsProbe(): void {
     );
     return report;
   };
+
+  /**
+   * The times a fullscreen switch left the page at the old window's size,
+   * newest last (lib/fullscreen.ts):
+   *
+   *   btvFullscreen()
+   *
+   * Empty means the check never saw one. Sizes and a flag, nothing else.
+   */
+  w.btvFullscreen = () => loadFullscreenChecks();
 
   /**
    * How your provider spells a broadcaster.

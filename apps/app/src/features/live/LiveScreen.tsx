@@ -35,8 +35,8 @@ import {
   tauriMpvFrostRect,
   tauriMpvGoLive,
   tauriPopoutOpen,
-  tauriSetFullscreen,
 } from "../../lib/tauri";
+import { setFullscreenChecked } from "../../lib/fullscreen";
 import { createPortal } from "react-dom";
 import { frostRegion } from "./hole";
 import { setOverlayApiOverride } from "./overlayApi";
@@ -548,7 +548,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // Leave fullscreen fully — player state + the OS window together.
   const leaveFullscreen = useCallback(() => {
     setFullscreen(false);
-    if (isTauri()) void tauriSetFullscreen(false).catch(() => {});
+    if (isTauri()) void setFullscreenChecked(false).catch(() => {});
   }, []);
   // The player-chrome handlers (directApi below, plus the popout-closed
   // listener) are stable objects that fire long after the render that made
@@ -734,7 +734,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     },
     onFullscreen: () => {
       setFullscreen(true);
-      void tauriSetFullscreen(true).catch(() => {});
+      void setFullscreenChecked(true).catch(() => {});
     },
     onExitFullscreen: leaveFullscreen,
     onPopout: () => {

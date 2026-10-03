@@ -71,12 +71,15 @@ const FIXTURE = {
  * pos 40 is 42s behind it. Those are the numbers dvr.ts folds, run here
  * through the real hook rather than asserted against it.
  */
-const stub = (pos, fixture = FIXTURE) => `
+const stub = (pos, fixture = FIXTURE, win = null) => `
   window.__tauriCalls = [];
   let cb = 0;
   window.__TAURI_INTERNALS__ = {
     transformCallback: (f) => { const id = ++cb; window["_" + id] = f; return id; },
     convertFileSrc: (p) => p,
+    // getCurrentWindow() reads this. Without it every window call (set and
+    // read fullscreen, inner size) threw before it reached invoke.
+    metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
     invoke: (cmd, args) => {
       window.__tauriCalls.push([cmd, args]);
       // Stubbing the IPC boundary makes isTauri() true, which reroutes the
@@ -93,6 +96,13 @@ const stub = (pos, fixture = FIXTURE) => `
           audio: [], subs: [], chapters: [],
         }));
       }
+      // The window's own answers, for the fullscreen check (lib/fullscreen.ts).
+      // Tauri's innerSize() reads { width, height } in PHYSICAL px. Left
+      // unset they stay undefined like every other unknown IPC: "can't tell".
+      const win = ${JSON.stringify(win)};
+      if (win && cmd === "plugin:window|inner_size")
+        return Promise.resolve({ width: win.width, height: win.height });
+      if (win && cmd === "plugin:window|is_fullscreen") return Promise.resolve(win.fullscreen);
       return Promise.resolve(undefined);
     },
   };
@@ -105,12 +115,12 @@ const browser = await chromium.launch({
   executablePath: "/opt/pw-browsers/chromium",
 });
 
-async function open(pos, fixture) {
+async function open(pos, fixture, win) {
   const ctx = await browser.newContext({
     viewport: { width: 1600, height: 900 },
   });
   const page = await ctx.newPage();
-  await page.addInitScript(stub(pos, fixture));
+  await page.addInitScript(stub(pos, fixture, win));
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   // The catalog load, the match, autoplay, and then the settle window the
   // edge baseline needs (SETTLE_MS is 10s) before it will draw a window.
@@ -631,6 +641,72 @@ async function open(pos, fixture) {
     JSON.stringify({ shut, opened }),
   );
   await ctx.close();
+}
+
+// ---- A fullscreen switch that left the page behind (v0.11.1) ----------
+// A friend, 2026-10-02: the window went fullscreen and the picture and its
+// controls stayed at the old window's size. lib/fullscreen.ts compares the
+// window's client size with the page's after each switch and, when they
+// disagree, switches again ONCE. The page here is 1600x900 at dpr 1.
+//
+// Two of the three cases are NEGATIVE assertions (nothing is repaired), so
+// they would pass against a check that never ran. The disagreeing case is
+// what proves it is running: it is the only one that sees a repair.
+{
+  const wake = async (page) => {
+    await page.mouse.move(700, 400);
+    await page.mouse.move(720, 420);
+    await page.waitForTimeout(250);
+  };
+  const run = async (win) => {
+    const { page, ctx } = await open(82, undefined, win);
+    await wake(page);
+    await page.getByLabel("Fullscreen").click();
+    await page.waitForTimeout(2000);
+    const out = await page.evaluate(() => ({
+      sets: window.__tauriCalls
+        .filter((c) => c[0] === "plugin:window|set_fullscreen")
+        .map((c) => c[1].value),
+      // How often the window's size was asked for: proof the check ran,
+      // for the cases where it has nothing to do.
+      looked: window.__tauriCalls.filter((c) => c[0] === "plugin:window|inner_size").length,
+      stored: localStorage.getItem("blammytv.fullscreenChecks"),
+    }));
+    await ctx.close();
+    return out;
+  };
+
+  const agrees = await run({ width: 1600, height: 900, fullscreen: true });
+  check(
+    "a window that agrees with the page is switched once, and nothing is recorded",
+    JSON.stringify(agrees.sets) === "[true]" && agrees.stored === null && agrees.looked >= 1,
+    JSON.stringify(agrees),
+  );
+
+  const split = await run({ width: 2560, height: 1440, fullscreen: true });
+  const kept = split.stored ? JSON.parse(split.stored) : null;
+  check(
+    "a window that stays 2560x1440 under a 1600x900 page is switched again once, not in a loop",
+    JSON.stringify(split.sets) === "[true,false,true]",
+    JSON.stringify(split.sets),
+  );
+  check(
+    "and the mismatch is recorded once, with the sizes and fixed false",
+    kept?.v === 1 &&
+      kept.data.length === 1 &&
+      kept.data[0].on === true &&
+      JSON.stringify(kept.data[0].page) === "[1600,900]" &&
+      JSON.stringify(kept.data[0].win) === "[2560,1440]" &&
+      kept.data[0].fixed === false,
+    split.stored ?? "nothing stored",
+  );
+
+  const silent = await run(null);
+  check(
+    "a window that answers nothing is switched once and left alone",
+    JSON.stringify(silent.sets) === "[true]" && silent.stored === null && silent.looked >= 1,
+    JSON.stringify(silent),
+  );
 }
 
 await browser.close();
