@@ -7,9 +7,7 @@ BlammyTV asks you for provider credentials, so it's fair to ask what it does
 with them. They stay on your machine, and every request for your content goes
 straight from your machine to the provider you configured.
 
-This page lists every host the app talks to. It once listed four when there
-were ten, which is the sort of thing a privacy page has no business getting
-wrong, so the full set is below with what each one receives.
+Below is every host the app talks to, and what each one receives.
 
 ## Your content
 
