@@ -265,16 +265,31 @@ export function countKey(picks: readonly Pick[]): string {
 }
 
 /**
- * The line whose limit the grid is held to: the one playlist that answered,
- * when every tile is on it. With several lines, or a tile from another
- * source (an M3U beside an Xtream line), no single cap describes the grid;
- * it used to be "one Xtream line answered", so a line of one stream capped
- * an M3U beside it too (plan 018, L4). Channel ids are "{playlist}:{id}".
+ * The line whose limit the grid is held to: the one live source's, when it
+ * is the ONLY source enabled (`enabled` is the enabled playlists' ids, any
+ * kind) and its line answered.
+ *
+ * With anything beside it (a second Xtream line, an M3U, a portal) no single
+ * cap describes the grid, and guessing wrong in either direction is worse
+ * than offering up to four and letting a tile say it was refused. It used to
+ * be "one Xtream line answered", so a line of one stream capped an M3U beside
+ * it too (plan 018, L4). That holds however the tiles are spread: a grid
+ * wholly on one of two lines is not capped by it either (what each line has
+ * room for is a design item of its own, not built).
+ *
+ * A tile on another playlist than the source's (one switched off a moment
+ * ago, before the catalog reloads and MultiviewTab drops it) is not the
+ * source's to count. Channel ids are "{playlist}:{id}".
  */
-export function lineFor<L>(conns: ReadonlyMap<string, L>, picks: readonly Pick[]): L | null {
-  if (conns.size !== 1) return null;
-  const [id, line] = [...conns][0];
-  return picks.every((p) => p.channelId.startsWith(`${id}:`)) ? line : null;
+export function lineFor<L>(
+  conns: ReadonlyMap<string, L>,
+  picks: readonly Pick[],
+  enabled: readonly string[],
+): L | null {
+  if (enabled.length !== 1) return null;
+  const [id] = enabled;
+  if (!picks.every((p) => p.channelId.startsWith(`${id}:`))) return null;
+  return conns.get(id) ?? null;
 }
 
 /**
@@ -313,6 +328,18 @@ export function goneFrom(
   inCatalog: (id: string) => boolean,
 ): boolean {
   return loaded.some((src) => channelId.startsWith(`${src}:`)) && !inCatalog(channelId);
+}
+
+/**
+ * Whether a remembered tile's playlist is no longer one of the ENABLED ones:
+ * deleted, or switched off. `goneFrom` can't say so, since a playlist with
+ * no group in the catalog never counts as loaded, and a switched-off Xtream
+ * line's tile kept playing on its saved credentials (channelStreamUrl
+ * ignores `enabled`). Asked only once the catalog is here: a cold launch
+ * must keep the grid it saved.
+ */
+export function offPlaylist(enabled: readonly string[], channelId: string): boolean {
+  return !enabled.some((id) => channelId.startsWith(`${id}:`));
 }
 
 /** A game tile goes back to being its channel this long after its game was

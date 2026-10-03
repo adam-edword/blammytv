@@ -4,9 +4,9 @@ Morning summary: (written when the audit is done)
 
 **Progress:** all 10 auditors back, every finding checked. Fixed so far:
 Sports, the privacy page, CI's timeout and the changelog line (v0.11.2),
-the app shell (v0.11.3), Live TV (v0.11.4), Stream (v0.11.5). Next
-through the builder: Multi-view, light mode, native, tooling, then a
-mop-up of what those leave (LV8). A session restart at 03:30 UTC killed seven
+the app shell (v0.11.3), Live TV (v0.11.4), Stream (v0.11.5),
+Multi-view (v0.11.6). Next through the builder: light mode, native,
+tooling, then a mop-up of what those leave (LV8). A session restart at 03:30 UTC killed seven
 auditors and Sonnet's fullscreen run; the seven were started again and
 0.11.1 was finished here (`8e9b5ef0`).
 
@@ -330,36 +330,47 @@ so with every tile on a one-stream line A there's no cap at all and Add
 offers four; and an empty grid takes the one line's cap even with an M3U
 beside it, so "Your line allows one stream at a time" hides Add and a
 Guide channel from the M3U is dropped. The reconnect gate already uses
-each channel's own line. Plan: all tiles on one playlist means that
-playlist's line; an empty grid is blocked only when that line is the only
-live source. One pinned test (`mvGrid.test.ts:241`) changes with it.
+each channel's own line. Fixed in v0.11.6, the second half: the grid is
+held to a line only when that line's source is the only one enabled, so an
+M3U beside a line of one no longer hides Add, a Guide channel joins at
+once, and A agrees with the Add button. The first half (every tile on
+one of two lines isn't capped) is **Held**: my briefed fix, "all tiles on
+one playlist means that line", was built and then stuck the grid behind
+"Your line allows one stream at a time" after a single tile on the line
+of one, with the other line unreachable. The real fix is room per line in
+the picker, a design of its own.
 
 **MV2. MEDIUM. Fill with live games adds a game already on the grid
 through another feed.** Confirmed, reproduced: `fillFrom` skips channel
 ids only (`mvGames.ts:263-283`), so a game picked on its second feed goes
-in again on its first. Plan: skip by game.
+in again on its first. Fixed in v0.11.6: Fill skips the grid's games by
+id.
 
 **MV3. LOW-MEDIUM. Saved tiles from a deleted or disabled playlist stay
 forever.** Confirmed by reading: a playlist with no group never counts as
 gone (`MultiviewTab.tsx:325-332`), so a deleted line's tiles read "No
 stream" and hold a slot, and a disabled one's play on its saved
-credentials. Plan: tiles on a playlist that's deleted or off are dropped.
+credentials. Fixed in v0.11.6: once the catalog loads, a tile whose
+playlist isn't enabled goes; a cold launch keeps the saved grid.
 The other half (an empty 200 counts as loaded and drops tiles) stays as
 it is, with LV7's reasoning: read only, confidence 6.
 
 **MV4. LOW. Holding M, G, S or F toggles at key-repeat rate.** Confirmed
 by reading: only Delete and R ignore `e.repeat`
-(`MultiviewTab.tsx:765-805`); held F thrashes the window. Plan: toggles
-ignore repeats.
+(`MultiviewTab.tsx:765-805`); held F thrashes the window. Fixed in
+v0.11.6: M, G, S and F ignore repeats (held F: one fullscreen call, not
+four).
 
 **MV5. LOW. A closed tile's reconnect gate keeps running.** Confirmed by
 reading: the gate waits up to 45s and then calls `fresh()`, which, if the
-channel was re-added, restarts the new tile's healthy stream. Plan: tile
-cleanup aborts its gate.
+channel was re-added, restarts the new tile's healthy stream. Fixed in
+v0.11.6: the tile's cleanup aborts its gate, whose wait ends at once.
 
 **MV6. LOW. One league's failed poll blanks its games' scores.**
 Confirmed by reading: `mergeLeagues` replaces a rejected league with
-nothing (`mvGames.ts:54-79`). Plan: a failed league keeps its last games.
+nothing (`mvGames.ts:54-79`). Fixed in v0.11.6: `fetchBoard` says which
+leagues failed, and both the poll and the full look keep those leagues'
+last games.
 
 ### Stream, VOD and the player (second pass)
 
@@ -502,6 +513,12 @@ without a number.
   claim, and splitting it empties the card for leagues that list nothing.
 - **SP5, the guide match's nickname rule.** Wants your `btvPairing`
   numbers before a rule is picked; it only feeds that report.
+- **MV1's first half, room per line.** Two lines, every tile on the line
+  of one: Add still offers four and the panel refuses or kicks. Holding
+  the grid to that line (what I tried) traps you when the other line could
+  fill it. The fix is the picker knowing each line's room: a full line's
+  channels ask which tile to replace, the other line's add. A design pass,
+  not a bug fix.
 - **LV5, a Stalker switch.** A "resolving" state in the player hosts, so
   the switch shows a spinner under the new name. Worth it if you use
   Stalker; I'd leave it if you don't.

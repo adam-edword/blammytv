@@ -11,6 +11,8 @@
 //   fresh budget;
 // - on a full line a reconnect waits for the panel to show a free slot,
 //   asking every few seconds meanwhile, and goes once there is one;
+// - a tile closed while its reconnect waits for a slot takes the wait with
+//   it: the channel added back is not restarted when the slot appears (MV5);
 // - a channel that fails on its first connection says so at once and is
 //   not retried, and the sound moves off it to a tile that plays;
 // - a picture that stops moving is caught and reconnected;
@@ -298,6 +300,44 @@ const served = async (id) => {
     JSON.stringify({ opens: waited, state, polls: polls1 - polls0 }),
   );
   check("and goes once there is one", went);
+  check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+// ------------- a closed tile's wait for a slot ends with it (MV5)
+{
+  modes.set("101", "live");
+  modes.set("102", "live");
+  const { page, ctx, errors } = await openTab({ grid: [pickOf(101, ESPN), pickOf(102, SKY)], sound: "t:101", line: [3, 3] });
+  await opened(page, "101", 1);
+  await served("101");
+  await playing(page, ESPN);
+  await page.waitForTimeout(1000);
+  // The stream drops on a full line: the reconnect waits for a slot.
+  drop("101", "cut");
+  await page.waitForFunction((n) => document.querySelector(`.mvtile[aria-label^="${n},"]`)?.dataset.state === "reconnecting", ESPN, { timeout: 5000 }).catch(() => {});
+  const waiting = await stateOf(page, ESPN);
+  // Closed while it waits, and the channel added back: a healthy new tile.
+  await tile(page, ESPN).focus();
+  await page.keyboard.press("Delete");
+  await page.waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 1, null, { timeout: 5000 });
+  await page.keyboard.press("a");
+  await page.locator(".mvpick__input").fill("espn");
+  await page.locator(".mvpick__row", { hasText: ESPN }).first().click();
+  const back = await opened(page, "101", 2);
+  await served("101");
+  await playing(page, ESPN);
+  await page.waitForTimeout(500);
+  const opens = await opensOf(page, "101");
+  // The slot appears. The old wait, if it were still running, would see it,
+  // take its turn and ask for a fresh link: a restart of the new tile.
+  await page.evaluate(() => (window.__line = [2, 3]));
+  await page.waitForTimeout(9000);
+  check(
+    "a tile closed while it waits for a slot takes the wait with it: the channel added back is not restarted",
+    waiting === "reconnecting" && back && opens === 2 && (await opensOf(page, "101")) === 2,
+    JSON.stringify({ waiting, back, opens, after: await opensOf(page, "101") }),
+  );
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }

@@ -8,7 +8,12 @@
 // - a channel picked after the line filled while the picker was open asks
 //   which tile it replaces, where it used to add nothing and say nothing;
 // - a game tile goes back to being its channel once the game is long over;
-// - a score kept through failed looks at ESPN says when it is from.
+// - a score kept through failed looks at ESPN says when it is from;
+// - a line caps the grid only when it is the one source enabled (MV1): two
+//   lines, or a line beside an M3U, cap nothing and block nothing, and
+//   alone a line of one blocks, with A agreeing with Add;
+// - a saved tile whose playlist was deleted or switched off goes once the
+//   catalog has loaded, and not before (MV3).
 // The rules themselves are unit tested (mvGrid.test.ts, connections.test.ts);
 // this is them wired into the tab.
 //
@@ -73,7 +78,26 @@ const NEWS = "Fake News Channel";
 const pickOf = (id, label) => ({ channelId: `t:${id}`, label });
 
 /** The tab, with this grid remembered and this line on the panel. */
-async function openTab({ grid, sound, line = [0, 3], frames = false, espn = null, clock = false, catalogDown = false, m3u = false, lax = false }) {
+async function openTab({
+  grid,
+  sound,
+  line = [0, 3],
+  frames = false,
+  espn = null,
+  clock = false,
+  catalogDown = false,
+  m3u = false,
+  lax = false,
+  // More playlists beside "t", as saved; and the line each Xtream username's
+  // panel reports, [in use, allowed], where it isn't `line`.
+  extra = [],
+  lineBy = null,
+  // The catalog's channels held back until the test releases them: a cold
+  // launch, before the catalog has loaded.
+  holdCatalog = false,
+  // Start on the Guide rather than the tab, to send a channel from there.
+  start = "multiview",
+}) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
   await ctx.route(/a\.espncdn\.com|strem\.io/, (r) => r.abort());
   // ESPN answers what the test says until the test takes it down.
@@ -90,9 +114,11 @@ async function openTab({ grid, sound, line = [0, 3], frames = false, espn = null
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(
-    ({ port, grid, sound, line, frames, catalogDown, m3u }) => {
+    ({ port, grid, sound, line, frames, catalogDown, m3u, extra, lineBy, holdCatalog }) => {
       MediaSource.isTypeSupported = () => true;
       window.__catalogDown = catalogDown;
+      window.__lineBy = lineBy;
+      if (holdCatalog) window.__holdCatalog = new Promise((r) => (window.__release = r));
       window.__opens = [];
       window.__closes = [];
       window.__polls = 0;
@@ -125,14 +151,21 @@ async function openTab({ grid, sound, line = [0, 3], frames = false, espn = null
             // The catalog, down: the playlist fails to load.
             if (window.__catalogDown && /action=get_live_streams/.test(args.url))
               return Promise.reject(new Error("panel timed out"));
+            if (window.__holdCatalog && /action=get_live_streams/.test(args.url))
+              return window.__holdCatalog.then(() => fetch(args.url).then((r) => r.arrayBuffer()));
             if (/player_api\.php/.test(args.url) && !/action=/.test(args.url)) {
               window.__polls++;
               if (window.__pollFails) return Promise.reject(new Error("panel timed out"));
-              return fetch(args.url)
+              // Held from the test, after the catalog is in: the count is
+              // what the tab is waiting on.
+              return (window.__holdPoll ?? Promise.resolve())
+                .then(() => fetch(args.url))
                 .then((r) => r.json())
                 .then((j) => {
-                  j.user_info.active_cons = String(window.__line[0]);
-                  j.user_info.max_connections = String(window.__line[1]);
+                  const user = new globalThis.URL(args.url).searchParams.get("username");
+                  const [active, max] = window.__lineBy?.[user] ?? window.__line;
+                  j.user_info.active_cons = String(active);
+                  j.user_info.max_connections = String(max);
                   return new TextEncoder().encode(JSON.stringify(j)).buffer;
                 });
             }
@@ -173,13 +206,19 @@ async function openTab({ grid, sound, line = [0, 3], frames = false, espn = null
             ...(m3u
               ? [{ kind: "m3u", id: "m", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }]
               : []),
+            ...extra,
           ],
         }),
       );
     },
-    { port: PORT, grid, sound, line, frames, catalogDown, m3u },
+    { port: PORT, grid, sound, line, frames, catalogDown, m3u, extra, lineBy, holdCatalog },
   );
   await page.goto(URL, { waitUntil: "domcontentloaded" });
+  if (start === "guide") {
+    await goTo(page, "guide");
+    await page.locator(".guide__row").first().waitFor({ timeout: 20_000 });
+    return { page, ctx, errors };
+  }
   await goTo(page, "multiview");
   await page.locator(".mvtab").waitFor();
   // lax: the section judges the tiles itself, so losing them is a FAIL
@@ -366,6 +405,284 @@ const savedGrid = (page) =>
     JSON.stringify({ fresh, old }),
   );
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+// --------------- MV1: a line caps the grid only when it is the only source
+//
+// Two Xtream lines, "t" (panel user u) and "v", answer different limits, and
+// neither caps the grid: every tile can sit on the line of one and Add is
+// still offered (what each line has room for is a design item, not built).
+// An empty grid with an M3U beside a line of one used to take that line,
+// which hid Add and dropped a channel sent from the Guide. Each case then
+// switches a source off from "Settings" and expects the cap to arrive, which
+// is also what shows the counts had answered all along.
+const SECOND = { kind: "xtream", id: "v", name: "Second", enabled: true, server: "http://localhost:8081", username: "v", password: "p" };
+const addButton = (page) => page.getByRole("button", { name: "Add channel" });
+/** Press A and say whether the picker opened (closing it again if so). */
+async function aOpensPicker(page) {
+  await page.keyboard.press("a");
+  const opened = await page.locator(".mvpick__input").waitFor({ timeout: 1200 }).then(() => true, () => false);
+  if (opened) {
+    await page.keyboard.press("Escape");
+    await page.locator(".mvpick__input").waitFor({ state: "detached" }).catch(() => {});
+  }
+  return opened;
+}
+/** The panels have been asked and have had time to answer. */
+const answered = async (page, polls) => {
+  await page.waitForFunction((n) => window.__polls >= n, polls, { timeout: 10_000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+};
+/** A playlist switched off, as Settings does it: saved, and announced. */
+const switchOff = (page, id) =>
+  page.evaluate((off) => {
+    const k = "blammytv.playlists";
+    const j = JSON.parse(localStorage.getItem(k));
+    j.data = j.data.map((p) => (p.id === off ? { ...p, enabled: false } : p));
+    localStorage.setItem(k, JSON.stringify(j));
+    window.dispatchEvent(new CustomEvent("blammytv:playlists"));
+  }, id);
+/** What the bar says about the line and Add, as the page shows it. */
+const barState = async (page) => ({
+  blocked: await page.locator(".mvtab__blocked").count(),
+  meter: await page.locator(".mvmeter").getAttribute("aria-label").catch(() => null),
+  add: await addButton(page).count(),
+  refuses: await addButton(page).getAttribute("aria-disabled").catch(() => null),
+});
+/** Right-click a Guide row's card and send it to multi-view. */
+async function sendFromGuide(page, row) {
+  await row.waitFor({ timeout: 20_000 });
+  await row.locator(".guide__card").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Add to multi-view" }).click();
+  await page.locator(".mvtab").waitFor({ timeout: 10_000 });
+}
+{
+  // Every tile on the line of one, a second line enabled: not capped, not blocked.
+  const { page, ctx, errors } = await openTab({
+    grid: [pickOf(101, ESPN)],
+    sound: "t:101",
+    extra: [SECOND],
+    lineBy: { u: [0, 1], v: [0, 5] },
+    lax: true,
+  });
+  await answered(page, 2);
+  const two = await barState(page);
+  const opened = await aOpensPicker(page);
+  check(
+    "two lines, every tile on the line of one: not capped and not blocked, Add is offered and A opens it",
+    two.blocked === 0 && two.meter === "1 stream" && two.add === 1 && two.refuses === "false" && opened,
+    JSON.stringify({ ...two, opened }),
+  );
+  // The second line off: the line of one is the only source, and blocks as it always did.
+  await switchOff(page, "v");
+  const blocked = await page.locator(".mvtab__blocked").waitFor({ timeout: 8000 }).then(() => true, () => false);
+  const alone = await barState(page);
+  const openedAlone = await aOpensPicker(page);
+  check(
+    "and with the second line off, the line of one is the only source: blocked, Add gone, A does not open it",
+    blocked && alone.add === 0 && !openedAlone,
+    JSON.stringify({ blocked, ...alone, openedAlone }),
+  );
+  check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+{
+  // A line of two with both its streams on the grid, a second line enabled: not capped.
+  const { page, ctx } = await openTab({
+    grid: [pickOf(101, ESPN), pickOf(102, SKY)],
+    sound: "t:101",
+    extra: [SECOND],
+    lineBy: { u: [0, 2], v: [0, 5] },
+    lax: true,
+  });
+  await answered(page, 2);
+  const two = await barState(page);
+  const opened = await aOpensPicker(page);
+  check(
+    "two lines, every tile on a line of two: not capped, Add is open",
+    two.blocked === 0 && two.meter === "2 streams" && two.refuses === "false" && opened,
+    JSON.stringify({ ...two, opened }),
+  );
+  await switchOff(page, "v");
+  await page
+    .waitForFunction(() => /2 of 2 streams/.test(document.querySelector(".mvmeter")?.getAttribute("aria-label") ?? ""), null, { timeout: 8000 })
+    .catch(() => {});
+  const alone = await barState(page);
+  const openedAlone = await aOpensPicker(page);
+  check(
+    "and alone, the line of two caps the grid: the meter reads it, Add refuses, A does not open it",
+    /2 of 2 streams/.test(alone.meter ?? "") && alone.refuses === "true" && !openedAlone,
+    JSON.stringify({ ...alone, openedAlone }),
+  );
+  await ctx.close();
+}
+{
+  // Every tile on the roomy line is not held to it either, and is when it is alone.
+  const { page, ctx } = await openTab({
+    grid: [{ channelId: "v:101", label: ESPN }],
+    sound: "v:101",
+    extra: [SECOND],
+    lineBy: { u: [0, 1], v: [0, 5] },
+    lax: true,
+  });
+  await answered(page, 2);
+  const two = await barState(page);
+  await switchOff(page, "t");
+  await page
+    .waitForFunction(() => /of 5 streams/.test(document.querySelector(".mvmeter")?.getAttribute("aria-label") ?? ""), null, { timeout: 8000 })
+    .catch(() => {});
+  const alone = await barState(page);
+  check(
+    "every tile on the line of five: no cap beside another line, the meter reads five when it is alone",
+    two.meter === "1 stream" && two.blocked === 0 && /1 of 5 streams/.test(alone.meter ?? "") && alone.refuses === "false",
+    JSON.stringify({ two, alone }),
+  );
+  await ctx.close();
+}
+{
+  // Tiles on both lines: no single cap, as it was (L4).
+  const { page, ctx } = await openTab({
+    grid: [pickOf(101, ESPN), { channelId: "v:102", label: SKY }],
+    sound: "t:101",
+    extra: [SECOND],
+    lineBy: { u: [0, 1], v: [0, 5] },
+    lax: true,
+  });
+  await answered(page, 2);
+  const two = await barState(page);
+  check(
+    "tiles on two lines: no cap, no block (the counts have answered)",
+    two.blocked === 0 && two.meter === "2 streams" && two.refuses === "false",
+    JSON.stringify(two),
+  );
+  await ctx.close();
+}
+{
+  // An empty grid, a line of one, and an M3U beside it.
+  const { page, ctx, errors } = await openTab({ grid: [], sound: null, line: [0, 1], m3u: true });
+  await answered(page, 1);
+  const withM3u = await barState(page);
+  const openedWith = await aOpensPicker(page);
+  check(
+    "an empty grid with an M3U beside a line of one is not blocked: Add is open and A opens it",
+    withM3u.blocked === 0 && withM3u.refuses === "false" && openedWith,
+    JSON.stringify({ ...withM3u, openedWith }),
+  );
+  // The M3U switched off from Settings: the line of one is the only source.
+  await switchOff(page, "m");
+  const blockedAlone = await page.locator(".mvtab__blocked").waitFor({ timeout: 8000 }).then(() => true, () => false);
+  const offeredAlone = await addButton(page).count();
+  const openedAlone = await aOpensPicker(page);
+  check(
+    "and with the M3U off, the line of one is the only source: blocked, Add gone, A does not open it",
+    blockedAlone && offeredAlone === 0 && !openedAlone,
+    JSON.stringify({ blockedAlone, offeredAlone, openedAlone }),
+  );
+  check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+{
+  // A channel sent from the Guide to a grid wholly on the line of one, with a second line enabled.
+  const { page, ctx, errors } = await openTab({
+    grid: [pickOf(101, ESPN)],
+    sound: "t:101",
+    extra: [SECOND],
+    lineBy: { u: [0, 1], v: [0, 5] },
+    start: "guide",
+  });
+  await sendFromGuide(page, page.locator('.guide__row[data-channel="t:103"]'));
+  const joined = await page
+    .waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 2, null, { timeout: 5000 })
+    .then(() => true, () => false);
+  await answered(page, 4);
+  const saved = (await savedGrid(page)).map((p) => p.channelId).sort();
+  const after = await barState(page);
+  check(
+    "a channel sent from the Guide joins a grid on the line of one when a second line is enabled",
+    joined && JSON.stringify(saved) === JSON.stringify(["t:101", "t:103"]) && after.blocked === 0 && (await page.locator(".mvchoose").count()) === 0,
+    JSON.stringify({ joined, saved, ...after }),
+  );
+  check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+// ------------- MV1: a channel sent from the Guide to an empty grid, M3U beside
+{
+  const sendWeather = (page) =>
+    sendFromGuide(page, page.locator(".guide__row", { hasText: "Fake Weather Now" }).first());
+  const tiles = (page) => page.locator(".mvtile:not(.mvtile--empty)").count();
+  {
+    const { page, ctx, errors } = await openTab({ grid: [], sound: null, line: [0, 1], m3u: true, start: "guide" });
+    await sendWeather(page);
+    const joined = await page
+      .waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 1, null, { timeout: 5000 })
+      .then(() => true, () => false);
+    await answered(page, 2);
+    const saved = (await savedGrid(page)).map((p) => p.channelId);
+    check(
+      "a channel sent from the Guide joins an empty grid with a line of one and an M3U beside it, and stays once the count lands",
+      joined && (await tiles(page)) === 1 && saved.length === 1 && saved[0].startsWith("m:") && (await page.locator(".mvtab__blocked").count()) === 0,
+      JSON.stringify({ joined, saved }),
+    );
+    check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+    await ctx.close();
+  }
+  {
+    // The panel never answers: the grid has no line to wait for (it has an
+    // M3U beside it), so the channel joins at once, not after LINE_WAIT_MS.
+    const { page, ctx } = await openTab({ grid: [], sound: null, line: [0, 1], m3u: true, start: "guide" });
+    await page.evaluate(() => {
+      window.__holdPoll = new Promise((r) => (window.__releasePoll = r));
+    });
+    await sendWeather(page);
+    const t0 = Date.now();
+    const joined = await page
+      .waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 1, null, { timeout: 2200 })
+      .then(() => true, () => false);
+    check(
+      "and with the panel not answering it joins without waiting out the line",
+      joined,
+      `${Date.now() - t0}ms`,
+    );
+    await page.evaluate(() => window.__releasePoll());
+    await ctx.close();
+  }
+}
+
+// ---------------- MV3: a tile on a playlist that is deleted or off goes
+{
+  // "x" was deleted; "v" is switched off. Neither has a group in the catalog.
+  const gone = { channelId: "x:101", label: "Fake Sky Sports FHD" };
+  const off = { channelId: "v:101", label: "Fake News Channel" };
+  const { page, ctx, errors } = await openTab({
+    grid: [pickOf(101, ESPN), gone, off],
+    sound: "x:101",
+    extra: [{ ...SECOND, enabled: false }],
+    holdCatalog: true,
+    lax: true,
+  });
+  // A cold launch: the catalog has not loaded, so the grid is as it was left.
+  await page.waitForTimeout(1500);
+  // In any order: Focus brings the sound tile to the front.
+  const coldSaved = (await savedGrid(page)).map((p) => p.channelId).sort();
+  const coldTiles = await page.locator(".mvtile:not(.mvtile--empty)").count();
+  check(
+    "before the catalog has loaded, a saved grid keeps every tile",
+    coldTiles === 3 && JSON.stringify(coldSaved) === JSON.stringify(["t:101", "v:101", "x:101"]),
+    JSON.stringify({ coldTiles, coldSaved }),
+  );
+  await page.evaluate(() => window.__release());
+  const dropped = await page
+    .waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 1, null, { timeout: 15_000 })
+    .then(() => true, () => false);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.multiviewGrid") ?? "null")?.data);
+  check(
+    "once it has, the tiles of a deleted playlist and a switched-off one are dropped, and the sound with them",
+    dropped && JSON.stringify(saved?.picks?.map((p) => p.channelId)) === JSON.stringify(["t:101"]) && saved?.sound !== "x:101",
+    JSON.stringify({ dropped, saved }),
+  );
+  check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }
 

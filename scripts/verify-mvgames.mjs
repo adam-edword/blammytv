@@ -8,7 +8,8 @@
 // - then it asks the leagues you follow, and the picker lists their live
 //   games on your channels;
 // - "Fill with live games" is the first row, adds as many as the line has
-//   room for, and puts the game you follow first;
+//   room for, and puts the game you follow first, and leaves a game that is
+//   already on the grid by another of its feeds alone;
 // - a game tile carries its score and clock, in the caption and under the
 //   pointer;
 // - after a reload the game tiles are back with their scores, asked for
@@ -392,6 +393,14 @@ check(
     "a game is taken only once all its feeds are: Arsenal's one is, the Bills' other is free",
     /In the grid/.test(epl) && !/In the grid/.test(nflRow),
     JSON.stringify({ epl, nflRow }),
+  );
+  // And Fill leaves both alone (MV2): the Bills are on the grid by their
+  // second feed, which used to leave their first one for Fill to add again.
+  const fillRows = await two.locator(".mvpick__row", { hasText: "Fill with live games" }).count();
+  check(
+    "Fill with live games does not offer a game that is already on the grid by another feed",
+    fillRows === 0,
+    `${fillRows} Fill rows`,
   );
   await two.keyboard.press("Escape");
   await two.locator(".mvpick__input").waitFor({ state: "detached", timeout: 5000 }).catch(() => {});

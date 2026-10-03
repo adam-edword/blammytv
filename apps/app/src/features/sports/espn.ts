@@ -557,6 +557,10 @@ export async function fetchGames(
  * contributed no game to read a path back off, so a derived list would drop
  * it silently and never ask again for the rest of the session — turning one
  * bad response into a league that is missing until the app restarts.
+ *
+ * `failed` is the paths that threw, for a caller that keeps what it had for
+ * them rather than reading their silence as a league with nothing on
+ * (multi-view's mergeLeagues). They are in `answered` too.
  */
 export async function fetchBoard(
   paths: readonly string[] = DEFAULT_LEAGUES,
@@ -566,7 +570,7 @@ export async function fetchBoard(
     ahead?: boolean;
     withinDays?: number;
   } = {},
-): Promise<{ games: Game[]; answered: string[] }> {
+): Promise<{ games: Game[]; answered: string[]; failed: string[] }> {
   const settled = await Promise.allSettled(
     paths.map((p) => fetchLeague(p, opts)),
   );
@@ -574,6 +578,7 @@ export async function fetchBoard(
     const r = settled[i];
     return r.status === "rejected" || r.value.length > 0;
   });
+  const failed = paths.filter((_, i) => settled[i].status === "rejected");
   const ok = settled.filter((r) => r.status === "fulfilled");
   // EVERY league failing is not a quiet day, it is an outage, and the two
   // looked identical: allSettled never rejects, so the screen's own
@@ -589,6 +594,7 @@ export async function fetchBoard(
   return {
     games: dedupe(ok.flatMap((r) => (r as PromiseFulfilledResult<Game[]>).value)),
     answered: [...answered],
+    failed,
   };
 }
 

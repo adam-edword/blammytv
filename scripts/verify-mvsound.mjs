@@ -360,6 +360,46 @@ const rest = (page) => page.mouse.move(W - 200, H - 10);
   const fs = (await page.evaluate(() => window.__calls)).slice(calls0);
   check("F asks for full screen", fs.includes("plugin:window|set_fullscreen"), JSON.stringify(fs));
 
+  // A held toggle flips once (MV4). Every keydown after the first arrives
+  // with `repeat` set, as Delete's check in verify-mvaccess has it, and a
+  // toggle that ignored it flipped at the repeat rate: held F thrashed the
+  // window. Full screen is counted; the others take an even number of downs,
+  // so one flip and a flip per repeat end up in different places.
+  const held = async (key, downs) => {
+    for (let i = 0; i < downs; i++) await page.keyboard.down(key);
+    await page.keyboard.up(key);
+    await page.waitForTimeout(250);
+  };
+  const callsF = (await page.evaluate(() => window.__calls)).length;
+  await held("f", 4);
+  const asked = (await page.evaluate(() => window.__calls))
+    .slice(callsF)
+    .filter((c) => c === "plugin:window|set_fullscreen").length;
+  check("F held down asks for full screen once, not at the repeat rate", asked === 1, `${asked} set_fullscreen calls from 4 keydowns`);
+
+  const muteLabel = () => page.locator(".mvvol button").first().getAttribute("aria-label");
+  const layout = () => page.locator(".mvseg [aria-pressed='true']").getAttribute("aria-label");
+  const scoresOn = () => page.locator(".mvbar__scores").getAttribute("aria-pressed");
+  const wasThen = [await muteLabel(), await layout(), await scoresOn()];
+  await held("m", 2);
+  await held("g", 2);
+  await held("s", 2);
+  const nowIs = [await muteLabel(), await layout(), await scoresOn()];
+  check(
+    "M, G and S held down flip once each",
+    wasThen.every((b, i) => b !== nowIs[i]),
+    JSON.stringify({ wasThen, nowIs }),
+  );
+  // Put them back for what follows.
+  await press(page, "m");
+  await press(page, "g");
+  await press(page, "s");
+  check(
+    "and a press after puts each back",
+    JSON.stringify([await muteLabel(), await layout(), await scoresOn()]) === JSON.stringify(wasThen),
+    JSON.stringify({ wasThen }),
+  );
+
   await press(page, "Delete");
   const left = await page
     .locator(".mvtile:not(.mvtile--empty)")

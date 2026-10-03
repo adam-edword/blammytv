@@ -50,13 +50,19 @@ let last: {
  * `prev` with the leagues in `asked` answered afresh by `fresh`, each where
  * its games already sat (fetchBoard orders by league), a league new to the
  * list at the end.
+ *
+ * A league in `failed` (its request threw) said nothing, so it keeps the
+ * games it had. It used to lose them as a league with nothing on does, and
+ * its game tiles lost their scores until the next look.
  */
 export function mergeLeagues(
   prev: readonly Game[],
   fresh: readonly Game[],
   asked: readonly string[],
+  failed: readonly string[] = [],
 ): Game[] {
-  const again = new Set(asked);
+  const down = new Set(failed);
+  const again = new Set(asked.filter((l) => !down.has(l)));
   const byLeague = new Map<string, Game[]>();
   for (const g of fresh) {
     const list = byLeague.get(g.leagueKey);
@@ -76,6 +82,17 @@ export function mergeLeagues(
   }
   for (const [league, games] of byLeague) if (!placed.has(league)) out.push(...games);
   return out;
+}
+
+/**
+ * A full look's games, with the games `prev` had for the leagues in `failed`
+ * (their request threw, so `fresh` has nothing of theirs) at the end, as
+ * mergeLeagues keeps them for the leagues it asks again.
+ */
+export function keepFailed(prev: readonly Game[], fresh: Game[], failed: readonly string[]): Game[] {
+  if (failed.length === 0) return fresh;
+  const down = new Set(failed);
+  return [...fresh, ...prev.filter((g) => down.has(g.leagueKey))];
 }
 
 /**
@@ -183,11 +200,11 @@ export function useGamesToday(
       if (scoresOnly) {
         const asked = pinKey.split("|");
         try {
-          const { games } = await fetchBoard(asked, { date: new Date() });
+          const { games, failed } = await fetchBoard(asked, { date: new Date() });
           const now = Date.now();
           last = {
             key: last?.key ?? "",
-            games: mergeLeagues(last?.games ?? [], games, asked),
+            games: mergeLeagues(last?.games ?? [], games, asked, failed),
             answered: last?.answered ?? [],
             at: last?.at ?? 0,
             scoresAt: now,
@@ -207,7 +224,9 @@ export function useGamesToday(
       const paths = new Set(last?.key === key ? last.answered : wanted);
       for (const p of pinKey ? pinKey.split("|") : []) paths.add(p);
       try {
-        const { games, answered } = await fetchBoard([...paths].sort(), { date: new Date() });
+        const board = await fetchBoard([...paths].sort(), { date: new Date() });
+        const { answered } = board;
+        const games = keepFailed(last?.games ?? [], board.games, board.failed);
         const now = Date.now();
         last = { key, games, answered, at: now, scoresAt: now };
         if (alive) {
@@ -253,6 +272,9 @@ export function liveWithChannels(games: readonly Game[]): Fixture[] {
  * What "Fill with live games" adds (decision M9): live games on your
  * channels that are not in the grid yet, as many as the line has room for.
  * Two games on one channel only count once: that channel is one stream.
+ * A game already on the grid is skipped by its id, whichever of its feeds
+ * is there: a game picked on its second feed used to go in again on its
+ * first.
  *
  * YOUR TEAMS FIRST, then your leagues, then the rest (ESPN puts favourites
  * first too). A followed league counts as followed everywhere else, so
@@ -265,6 +287,7 @@ export function fillFrom(
   inGrid: ReadonlySet<string>,
   left: number,
   follows: Follows,
+  gamesInGrid: ReadonlySet<string> = new Set(),
 ): Fixture[] {
   const rank = (g: Fixture) =>
     gameTeamKeys(g).some((k) => follows.teams.includes(k)) ? 0 : isFollowed(g, follows) ? 1 : 2;
@@ -275,7 +298,7 @@ export function fillFrom(
   for (const g of ranked) {
     if (out.length >= left) break;
     const ch = g.channels[0]?.id;
-    if (!ch || taken.has(ch)) continue;
+    if (!ch || taken.has(ch) || gamesInGrid.has(g.id)) continue;
     taken.add(ch);
     out.push(g);
   }

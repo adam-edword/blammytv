@@ -43,6 +43,7 @@ import {
   lineFor,
   lineOfChannel,
   meterLine,
+  offPlaylist,
   removePick,
   replacePick,
   roomOn,
@@ -52,7 +53,7 @@ import {
 } from "./mvGrid";
 import { forMultiview, releaseHeader } from "./mvKeys";
 import { useConnections } from "./connections";
-import { loadPlaylists } from "../settings/playlists";
+import { loadPlaylists, onPlaylistsChange } from "../settings/playlists";
 import { channelStreamUrl, resolveStreamUrl } from "./stream";
 import { useLiveData } from "./useLiveData";
 import { loadRecents, recordRecent } from "./recents";
@@ -287,6 +288,9 @@ const BAR_GAP = 12;
  */
 const LINE_WAIT_MS = 3000;
 
+/** The enabled playlists' ids, as saved. */
+const enabledPlaylistIds = (): string[] => loadPlaylists().filter((p) => p.enabled).map((p) => p.id);
+
 export function MultiviewTab() {
   // Where the first open's hang goes (v0.10.10): from the first render, so
   // a long one counts. Once per session, whatever this runs.
@@ -320,13 +324,17 @@ export function MultiviewTab() {
   // the catalog is here to say so. ITS OWN PLAYLIST's catalog: one that
   // failed to load (a slow panel, a refresh that timed out) says nothing
   // about its channels, and its tiles used to be dropped and the smaller
-  // grid saved, mid-game (plan 018, L5). The sound goes with a tile that
-  // goes, so the channel coming back later doesn't find it waiting.
+  // grid saved, mid-game (plan 018, L5). A tile whose playlist is no longer
+  // among the enabled ones goes too, deleted or switched off: it has no
+  // group to say so, and a switched-off line's tile went on playing on its
+  // saved credentials. The sound goes with a tile that goes, so the channel
+  // coming back later doesn't find it waiting.
   useEffect(() => {
     if (!live) return;
     const loaded = live.groups.filter((g) => !g.error).map((g) => g.id);
     const known = channelIndex(live);
-    const gone = (id: string) => goneFrom(loaded, id, (c) => known.has(c));
+    const enabled = enabledPlaylistIds();
+    const gone = (id: string) => offPlaylist(enabled, id) || goneFrom(loaded, id, (c) => known.has(c));
     setPicks((was) => (was.some((p) => gone(p.channelId)) ? was.filter((p) => !gone(p.channelId)) : was));
     setSoundId((s) => (s !== null && gone(s) ? null : s));
   }, [live]);
@@ -334,12 +342,12 @@ export function MultiviewTab() {
   /**
    * The line: its limit, what it reports in use, and so what is left.
    *
-   * ONLY WHEN ONE PLAYLIST ANSWERS, AND EVERY TILE IS ON IT: with several,
-   * or with tiles from another source (an M3U beside an Xtream line), no
-   * single cap describes the grid, and guessing wrong in either direction
-   * is worse than offering up to four and letting a tile say it was
-   * refused. It used to be "one Xtream line answered", so a line of one
-   * stream capped an M3U beside it too (plan 018, L4).
+   * ONLY WHEN ONE SOURCE IS ENABLED, and its line answered (mvGrid.lineFor).
+   * With several (two Xtream lines, or an M3U beside one), no single cap
+   * describes the grid, and guessing wrong in either direction is worse than
+   * offering up to four and letting a tile say it was refused (plan 018,
+   * L4). It used to go by the lines that answered, so a line of one stream
+   * hid Add from an empty grid with an M3U beside it.
    *
    * Keyed on the grid's channels so the count is asked again after every
    * change, then again once the panel has caught up. The SET of them, not
@@ -352,7 +360,15 @@ export function MultiviewTab() {
    * few seconds while any is (plan 018, H1). */
   const [waitingRoom, setWaitingRoom] = useState(0);
   const conns = useConnections(key || null, waitingRoom > 0);
-  const line = lineFor(conns, picks);
+  // Settings opens over this tab, so the playlists can change while it is up.
+  const [enabledIds, setEnabledIds] = useState(enabledPlaylistIds);
+  useEffect(() => onPlaylistsChange(() => setEnabledIds(enabledPlaylistIds())), []);
+  const line = lineFor(conns, picks, enabledIds);
+  // One line of one stream can't run a grid: Add goes, and the stage says so.
+  // Here rather than at the render, because A reads it too.
+  const blocked = line !== null && line.max <= 1;
+  const blockedRef = useRef(blocked);
+  blockedRef.current = blocked;
   // When the grid's channels last changed. Set as the render sees the new
   // key, not in an effect after it, so no render believes a reading taken
   // before the change against the new grid.
@@ -386,8 +402,9 @@ export function MultiviewTab() {
     return () => window.clearTimeout(t);
   }, [incoming]);
   // One line that answered, several (no single cap, as `line` says), no
-  // panel to ask, or the wait is over.
-  const lineKnown = line !== null || conns.size > 1 || !xtream || waited;
+  // panel to ask, more than one source enabled (there is no line to wait
+  // for), or the wait is over.
+  const lineKnown = line !== null || conns.size > 1 || !xtream || enabledIds.length > 1 || waited;
   /** A channel waiting for you to pick the tile it replaces: the grid was
    * full when it came. */
   const [choosing, setChoosing] = useState<Pick | null>(null);
@@ -501,16 +518,30 @@ export function MultiviewTab() {
   connsRef.current = conns;
   const turn = useRef({ last: 0 });
   const gate = useCallback(
-    (id: string, waiting: (on: boolean) => void) =>
+    (id: string, waiting: (on: boolean) => void, signal?: AbortSignal) =>
       passGate({
         room: () => hasRoom(lineOfChannel(connsRef.current, id)),
         waiting: (on) => {
           setWaitingRoom((n) => n + (on ? 1 : -1));
           waiting(on);
         },
-        sleep: (ms) => new Promise((r) => window.setTimeout(r, ms)),
+        // Cut short by the tile closing, so its gate lets go at once.
+        sleep: (ms) =>
+          new Promise<void>((r) => {
+            if (signal?.aborted) return r();
+            const t = window.setTimeout(r, ms);
+            signal?.addEventListener(
+              "abort",
+              () => {
+                window.clearTimeout(t);
+                r();
+              },
+              { once: true },
+            );
+          }),
         now: () => performance.now(),
         turn: turn.current,
+        signal,
         // Every kind is looked up again; for most it is the same URL.
         fresh: () =>
           setUrls((was) => {
@@ -608,6 +639,8 @@ export function MultiviewTab() {
   // memoised on it, and a new Set every render re-ran the search over the
   // whole catalog on every tick of the tab.
   const inGrid = useMemo(() => new Set(picks.map((p) => p.channelId)), [picks]);
+  // And the games on it, by id: Fill skips a game on any of its feeds.
+  const gamesInGrid = useMemo(() => new Set(picks.flatMap((p) => (p.gameId ? [p.gameId] : []))), [picks]);
 
   const choosingRef = useRef(false);
   choosingRef.current = choosing !== null;
@@ -645,7 +678,8 @@ export function MultiviewTab() {
   }, [landOn]);
 
   const openAdd = useCallback(() => {
-    if (roomRef.current.left > 0 && !choosingRef.current) openPicker({ kind: "add" });
+    // Not while the bar has no Add to press (blocked): A used to open it.
+    if (roomRef.current.left > 0 && !choosingRef.current && !blockedRef.current) openPicker({ kind: "add" });
   }, [openPicker]);
   /** A game from the Live Scores row: the picker on its feeds. On a full
    * line too: taking a feed then asks which tile it replaces (choose). */
@@ -773,7 +807,7 @@ export function MultiviewTab() {
           break;
         case "m":
         case "M":
-          k.toggleMute();
+          if (!e.repeat) k.toggleMute();
           break;
         case "ArrowUp":
           k.nudge(0.05);
@@ -784,15 +818,15 @@ export function MultiviewTab() {
         case "g":
         case "G":
           if (kindsFor(k.streamCount).length < 2) return;
-          k.chooseKind(k.kind === "grid" ? "focus" : "grid");
+          if (!e.repeat) k.chooseKind(k.kind === "grid" ? "focus" : "grid");
           break;
         case "f":
         case "F":
-          k.toggleFullscreen();
+          if (!e.repeat) k.toggleFullscreen();
           break;
         case "s":
         case "S":
-          k.toggleScores();
+          if (!e.repeat) k.toggleScores();
           break;
         default:
           return;
@@ -827,7 +861,6 @@ export function MultiviewTab() {
     else delete root.dataset.mvIdle;
   }, [idle]);
 
-  const blocked = line !== null && line.max <= 1;
   const full = fullReason(room);
   const dashes = room.max !== null ? Math.min(room.max, 8) : 0;
 
@@ -1038,6 +1071,7 @@ export function MultiviewTab() {
         live={live}
         games={liveGames}
         inGrid={inGrid}
+        gamesInGrid={gamesInGrid}
         room={room}
         onChoose={choose}
         onFill={fill}

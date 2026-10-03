@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillFrom, gameLabel, liveChannels, liveWithChannels, mergeLeagues, scoreLine } from "./mvGames";
+import { fillFrom, gameLabel, keepFailed, liveChannels, liveWithChannels, mergeLeagues, scoreLine } from "./mvGames";
 import { indexChannels } from "../sports/matcher";
 import type { Fixture, Game } from "../sports/model";
 
@@ -64,6 +64,18 @@ describe("fillFrom", () => {
     const live = [game("1", { ch: "espn" }), game("2", { ch: "espn" }), game("3")];
     expect(fillFrom(live, new Set(), 3, none).map((g) => g.id)).toEqual(["1", "3"]);
   });
+
+  it("skips a game already on the grid, whichever of its feeds is there (MV2)", () => {
+    // Game 1 has two feeds, the best first. The grid has it on the second.
+    const feeds = [
+      { id: "c:1a", name: "ESPN" },
+      { id: "c:1b", name: "ESPN 2" },
+    ];
+    const live = [game("1", { channels: feeds }), game("2")];
+    expect(fillFrom(live, new Set(["c:1b"]), 3, none, new Set(["1"])).map((g) => g.id)).toEqual(["2"]);
+    // Not a game id the grid doesn't hold.
+    expect(fillFrom(live, new Set(["c:1b"]), 3, none, new Set(["9"])).map((g) => g.id)).toEqual(["1", "2"]);
+  });
 });
 
 describe("the words", () => {
@@ -94,6 +106,39 @@ describe("mergeLeagues (plan 018, P5)", () => {
   it("a league that answers nothing loses its games; one new to the list goes last", () => {
     const prev = [nfl("n1"), epl("e1")];
     expect(ids(mergeLeagues(prev, [mlb("m1")], ["football/nfl", "baseball/mlb"]))).toEqual(["e1", "m1"]);
+  });
+
+  it("a league whose request failed keeps the games it had, where they sat (MV6)", () => {
+    const prev = [mlb("m1"), nfl("n1", 3), nfl("n2"), epl("e1")];
+    // MLB answered; the NFL's request threw; the Premier League answered with nothing on.
+    const out = mergeLeagues(prev, [mlb("m2")], ["baseball/mlb", "football/nfl", "soccer/eng.1"], ["football/nfl"]);
+    expect(ids(out)).toEqual(["m2", "n1", "n2"]);
+    expect((out[1] as Fixture).home.score).toBe(3);
+  });
+});
+
+describe("keepFailed (MV6, the full look)", () => {
+  const nfl = (id: string, score = 0) =>
+    game(id, { home: { name: "Kansas City", shortName: "Chiefs", abbr: "KC", score, id: `h${id}` } });
+  const epl = (id: string) => game(id, { leagueKey: "soccer/eng.1", league: "Premier League" });
+  const ids = (gs: readonly Game[]) => gs.map((g) => g.id);
+
+  it("a league whose request failed keeps the games it had, after the fresh ones", () => {
+    const prev = [nfl("n1", 3), epl("e1")];
+    const out = keepFailed(prev, [epl("e2")], ["football/nfl"]);
+    expect(ids(out)).toEqual(["e2", "n1"]);
+    expect((out[1] as Fixture).home.score).toBe(3);
+  });
+
+  it("with nothing failed it is the fresh look as it came", () => {
+    const fresh = [epl("e2")];
+    expect(keepFailed([nfl("n1")], fresh, [])).toBe(fresh);
+  });
+
+  it("a league that answered nothing, or was not asked, is not brought back", () => {
+    // The NFL answered with nothing on; baseball is no longer on the list.
+    const prev = [nfl("n1"), game("m1", { leagueKey: "baseball/mlb" })];
+    expect(ids(keepFailed(prev, [epl("e2")], ["soccer/eng.1"]))).toEqual(["e2"]);
   });
 });
 

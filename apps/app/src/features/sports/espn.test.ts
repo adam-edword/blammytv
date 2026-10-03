@@ -500,6 +500,11 @@ describe("fetchBoard says which paths are worth asking again", () => {
     expect((out as { answered: string[] }).answered).toEqual(["a/has", "b/dead"]);
   });
 
+  it("names the leagues that failed, apart from the ones with nothing on (MV6)", async () => {
+    const out = await wire(() => fetchBoard(["a/has", "b/dead", "c/empty"]));
+    expect((out as { failed: string[] }).failed).toEqual(["b/dead"]);
+  });
+
   it("is the saving the wide board rests on", async () => {
     // Measured across the real catalog on 2026-08-03: 151 leagues answered,
     // 20 had anything on. Polling all of them every 90 seconds is ~100

@@ -113,6 +113,8 @@ export interface GateDeps {
   turn: { last: number };
   /** Have the stream's link looked up afresh. */
   fresh: () => void;
+  /** The tile closed: stop waiting and call nothing more. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -128,13 +130,25 @@ export interface GateDeps {
  * THEN ITS TURN: tiles that fail together go STAGGER_MS apart. THEN A FRESH
  * LINK: a portal's links expire (the "never cache it" rule at
  * stalker.ts:417), and the one a tile played from an hour ago is a 403.
+ *
+ * A CLOSED TILE'S GATE STOPS (`signal`). The tile's own check stops only its
+ * own continuation, and the gate went on waiting up to 45 seconds, took a
+ * stagger turn and asked for a fresh link: if the channel had been added
+ * back by then, that purged the NEW tile's link and restarted its healthy
+ * stream. An aborted gate hands back the waiting count it took and does
+ * nothing else.
  */
 export async function passGate(d: GateDeps): Promise<void> {
+  const { signal } = d;
+  if (signal?.aborted) return;
   const started = d.now();
   if (!d.room()) {
     d.waiting(true);
     try {
-      while (!d.room() && d.now() - started < ROOM_WAIT_MS) await d.sleep(1000);
+      while (!d.room() && d.now() - started < ROOM_WAIT_MS) {
+        await d.sleep(1000);
+        if (signal?.aborted) return;
+      }
     } finally {
       d.waiting(false);
     }
@@ -142,5 +156,6 @@ export async function passGate(d: GateDeps): Promise<void> {
   const slot = nextSlot(d.turn.last, d.now());
   d.turn.last = slot.at;
   if (slot.wait > 0) await d.sleep(slot.wait);
+  if (signal?.aborted) return;
   d.fresh();
 }

@@ -160,4 +160,52 @@ describe("passGate", () => {
     expect(r.log).toEqual([`fresh at ${STAGGER_MS - 500}`]);
     expect(r.deps.turn.last).toBe(STAGGER_MS - 500);
   });
+
+  describe("a closed tile's gate (MV5)", () => {
+    /** The same clock, with the tile closing once it reaches `closeAt`. */
+    const closing = (room: (t: number) => boolean, closeAt: number, last = -Infinity) => {
+      const ctl = new AbortController();
+      const r = rig(room, last);
+      const sleep = r.deps.sleep;
+      const deps = {
+        ...r.deps,
+        signal: ctl.signal,
+        sleep: async (ms: number) => {
+          await sleep(ms);
+          if (r.at() >= closeAt) ctl.abort();
+        },
+      };
+      return { deps, log: r.log, at: r.at, ctl };
+    };
+
+    it("closed while it waits for a slot: hands back its place in the count, and asks for nothing", async () => {
+      const r = closing(() => false, 3000);
+      await passGate(r.deps);
+      expect(r.log).toEqual(["waiting", "done waiting"]);
+      // Stopped there, not after the full wait, and without taking a turn.
+      expect(r.at()).toBe(3000);
+      expect(r.deps.turn.last).toBe(-Infinity);
+    });
+
+    it("closed while it waits its turn: no fresh link", async () => {
+      const r = closing(() => true, 1, -500);
+      await passGate(r.deps);
+      expect(r.log).toEqual([]);
+    });
+
+    it("closed before it starts: nothing at all", async () => {
+      const r = closing(() => false, 0);
+      r.ctl.abort();
+      await passGate(r.deps);
+      expect(r.log).toEqual([]);
+      expect(r.at()).toBe(0);
+      expect(r.deps.turn.last).toBe(-Infinity);
+    });
+
+    it("a tile still open goes through as before", async () => {
+      const r = closing(() => true, Infinity);
+      await passGate(r.deps);
+      expect(r.log).toEqual(["fresh at 0"]);
+    });
+  });
 });

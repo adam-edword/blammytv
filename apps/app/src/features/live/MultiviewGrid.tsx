@@ -148,7 +148,7 @@ export function MultiviewGrid({
   onReplace: (id: string, name: string) => void;
   onRetryResolve: (id: string) => void;
   /** A tile about to connect again: resolves when it may (the tab's gate). */
-  onGate: (id: string, waiting: (on: boolean) => void) => Promise<void>;
+  onGate: (id: string, waiting: (on: boolean) => void, signal?: AbortSignal) => Promise<void>;
   /** The empty place: open the picker to add. */
   onAdd: () => void;
   /** The line is full. */
@@ -517,7 +517,7 @@ export function MultiviewGrid({
                 onPick={() => onChoose(s.id)}
                 onReplace={() => onReplace(s.id, s.name)}
                 onRetryResolve={() => onRetryResolve(s.id)}
-                gate={(waiting) => onGate(s.id, waiting)}
+                gate={(waiting, signal) => onGate(s.id, waiting, signal)}
                 idle={idle}
                 atCap={atCap}
                 style={fill === s.id && fillRect ? place(fillRect) : fill ? { ...place(r), visibility: "hidden" } : place(r)}

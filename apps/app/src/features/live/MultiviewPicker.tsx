@@ -92,6 +92,7 @@ export function MultiviewPicker({
   live,
   games,
   inGrid,
+  gamesInGrid,
   room,
   onChoose,
   onFill,
@@ -106,6 +107,8 @@ export function MultiviewPicker({
   games: Fixture[];
   /** Channel ids already on the grid. */
   inGrid: ReadonlySet<string>;
+  /** And the ids of the games on it, whichever feed they are on. */
+  gamesInGrid: ReadonlySet<string>;
   room: Room;
   onChoose: (pick: Pick) => void;
   /** Fill the grid with these games, in this order. */
@@ -223,7 +226,7 @@ export function MultiviewPicker({
     // One action, not a preset system (M9): fill what the line has room
     // for, the games you follow first. Offered only when it would add one.
     const follows = loadFollows();
-    const fill = mode.kind === "add" && !q ? fillFrom(games, inGrid, room.left, follows) : [];
+    const fill = mode.kind === "add" && !q ? fillFrom(games, inGrid, room.left, follows, gamesInGrid) : [];
     const fillRow: Row[] = fill.length
       ? [
           {
@@ -258,7 +261,7 @@ export function MultiviewPicker({
     if (recent.length) out.push({ value: "Recent", items: addableFirst(recent.map(channelRow)) });
     return spentLast(out);
     // `now` is left out on purpose: the rows' "what is on" is read at render.
-  }, [open, live, games, query, inGrid, mode.kind, room.left, feedsOf]);
+  }, [open, live, games, query, inGrid, gamesInGrid, mode.kind, room.left, feedsOf]);
 
   const back = () => {
     setFeedsOf(null);

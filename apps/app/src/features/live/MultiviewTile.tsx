@@ -203,8 +203,10 @@ export function MultiviewTile({
   onDead?: (dead: boolean) => void;
   /** Before connecting again: waits for the line to have a slot, and its
    * turn after other tiles, and has the stream's link looked up afresh
-   * (the tab's, plan 018 H1). Says while it waits on the line. */
-  gate: (waiting: (on: boolean) => void) => Promise<void>;
+   * (the tab's, plan 018 H1). Says while it waits on the line. Aborted when
+   * the tile closes, so a closed tile's gate does not go on to refresh a
+   * link the channel's next tile is playing. */
+  gate: (waiting: (on: boolean) => void, signal?: AbortSignal) => Promise<void>;
   /** The line was full when this tile last looked: a refusal then is most
    * likely the limit, and says so (mvTile.explainFailure). */
   atCap: boolean;
@@ -260,13 +262,19 @@ export function MultiviewTile({
   const tries = useRef(0);
   const tryGen = useRef(0);
   const alive = useRef(true);
+  /** Aborted when the tile goes: every gate it has started stops with it. */
+  const closed = useRef<AbortController | null>(null);
   useEffect(() => {
     // Set here, not only at creation: StrictMode's dev replay runs the
     // cleanup below and then this again, and a flag only ever cleared left
-    // every tile in `pnpm tauri dev` thinking it was gone.
+    // every tile in `pnpm tauri dev` thinking it was gone. The controller
+    // too: an aborted one stays aborted.
     alive.current = true;
+    const ctl = new AbortController();
+    closed.current = ctl;
     return () => {
       alive.current = false;
+      ctl.abort();
     };
   }, []);
   const gateRef = useRef(gate);
@@ -278,7 +286,7 @@ export function MultiviewTile({
     await gateRef
       .current((on) => {
         if (alive.current && gen === tryGen.current) setForSlot(on);
-      })
+      }, closed.current?.signal)
       .catch(() => {});
     if (!alive.current || gen !== tryGen.current) return;
     setForSlot(false);

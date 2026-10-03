@@ -18,6 +18,7 @@ import {
   lineOfChannel,
   settledOn,
   goneFrom,
+  offPlaylist,
   gameOver,
   SETTLED_AFTER_MS,
   GAME_KEEP_MS,
@@ -231,14 +232,41 @@ describe("the line's count (plan 018, H2)", () => {
     expect(countKey([p("t:1")])).not.toBe(countKey([p("t:1"), p("t:2")]));
   });
 
-  it("holds the grid to the one line only when every tile is on it (L4)", () => {
+  it("holds the grid to the one source's line, when it is the only one enabled (L4)", () => {
     const conns = new Map([["t", { max: 1, active: 0 }]]);
-    expect(lineFor(conns, [p("t:1"), p("t:2")])).toEqual({ max: 1, active: 0 });
-    expect(lineFor(conns, [])).toEqual({ max: 1, active: 0 });
-    // An M3U tile beside it: no single cap describes the grid.
-    expect(lineFor(conns, [p("t:1"), p("m:9")])).toBeNull();
-    // Two lines answering: none either.
-    expect(lineFor(new Map([["t", 1], ["u", 2]]), [p("t:1")])).toBeNull();
+    expect(lineFor(conns, [p("t:1"), p("t:2")], ["t"])).toEqual({ max: 1, active: 0 });
+    // Nothing on the grid yet: it is still that source's grid.
+    expect(lineFor(conns, [], ["t"])).toEqual({ max: 1, active: 0 });
+    // An M3U beside it, enabled: no single cap describes the grid, whichever tiles are on it.
+    expect(lineFor(conns, [p("t:1"), p("m:9")], ["t", "m"])).toBeNull();
+    expect(lineFor(conns, [p("t:1")], ["t", "m"])).toBeNull();
+    expect(lineFor(conns, [p("m:9")], ["t", "m"])).toBeNull();
+    // A tile on a playlist switched off a moment ago is not the source's to count.
+    expect(lineFor(conns, [p("t:1"), p("m:9")], ["t"])).toBeNull();
+    // A playlist id that is only a prefix of the tile's.
+    expect(lineFor(conns, [p("tt:1")], ["t"])).toBeNull();
+  });
+
+  it("with two sources enabled there is no cap, however the tiles are spread (MV1)", () => {
+    const conns = new Map([["t", { max: 1, active: 0 }], ["u", { max: 5, active: 0 }]]);
+    const both = ["t", "u"];
+    expect(lineFor(conns, [], both)).toBeNull();
+    // Every tile on the line of one, or of five: neither caps the grid.
+    expect(lineFor(conns, [p("t:1")], both)).toBeNull();
+    expect(lineFor(conns, [p("u:1"), p("u:2")], both)).toBeNull();
+    expect(lineFor(conns, [p("t:1"), p("u:1")], both)).toBeNull();
+    // An Xtream line beside a portal or an M3U that has no count.
+    expect(lineFor(new Map([["t", { max: 1, active: 0 }]]), [p("t:1")], ["t", "s"])).toBeNull();
+  });
+
+  it("the only source takes the line only if it answered (MV1)", () => {
+    const conns = new Map([["t", { max: 1, active: 0 }]]);
+    // The one enabled playlist is not the one that answered, or none did.
+    expect(lineFor(conns, [], ["m"])).toBeNull();
+    expect(lineFor(new Map(), [], ["t"])).toBeNull();
+    // A reading kept for a playlist since switched off isn't the grid's line.
+    const kept = new Map([["t", { max: 1, active: 0 }], ["u", { max: 5, active: 0 }]]);
+    expect(lineFor(kept, [], ["u"])).toEqual({ max: 5, active: 0 });
   });
 
   it("finds one tile's own line, whatever else is in the grid", () => {
@@ -267,6 +295,19 @@ describe("goneFrom (plan 018, L5)", () => {
   });
   it("keeps a tile whose playlist failed to load: it says nothing about its channels", () => {
     expect(goneFrom(["m"], "t:2", inCatalog)).toBe(false);
+  });
+});
+
+describe("offPlaylist (MV3)", () => {
+  it("is a tile whose playlist is not among the enabled ones: deleted, or switched off", () => {
+    expect(offPlaylist(["t", "m"], "t:101")).toBe(false);
+    expect(offPlaylist(["t", "m"], "m:espn")).toBe(false);
+    expect(offPlaylist(["t"], "m:espn")).toBe(true);
+    expect(offPlaylist([], "t:101")).toBe(true);
+  });
+  it("goes by the whole playlist id, not the start of it", () => {
+    expect(offPlaylist(["t"], "tt:101")).toBe(true);
+    expect(offPlaylist(["tt"], "t:101")).toBe(true);
   });
 });
 
