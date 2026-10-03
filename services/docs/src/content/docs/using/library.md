@@ -38,8 +38,11 @@ Lists are ordered by when you created them.
 ## Where this lives
 
 On your machine, in the app's local storage, alongside the rest of your
-settings. Nothing is synced anywhere. Two things follow from that: your
-history is private, and it doesn't follow you to another computer.
+settings. Nothing is synced anywhere unless you connect Trakt. Then the
+**Trakt Watchlist** list is kept in step with your Trakt watchlist both ways,
+what you watch and how far you got go to Trakt, and Trakt's watched history
+and paused positions come back. Without it, your history is private and
+doesn't follow you to another computer.
 
 Clearing the app's data clears this too. See [Where your data
 goes](/how-it-works/).
