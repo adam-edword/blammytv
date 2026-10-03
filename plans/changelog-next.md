@@ -1,7 +1,7 @@
 # Draft: the next installer release's changelog
 
 Week of 2026-09-28, item 5. **A draft, not sent.** It covers v0.10.15 to
-v0.10.74, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
+v0.10.75, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
 release: pick the version, move the entry into `CHANGELOG.md` (newest
 first), and trim what you don't want to say. Every line was checked against
 its commit; the version each came from is in the comment after it, for
@@ -120,6 +120,9 @@ the background.
 - **A game's channel list folds to its heading** in the Sports theater, so
   the other games' scores below it come up; the channel playing stays in
   view, and the list stays folded until you open it. <!-- v0.10.74 -->
+- **The Sports theater's channels are quieter:** a channel that's surely
+  the game shows no score, and the guesses fold under a "Less likely" line
+  with their number. <!-- v0.10.75 -->
 - **Onboarding** opens on the tab you picked, and Enter during a check no
   longer skips a step. <!-- v0.10.51 -->
 - **Multi-view:** holding Delete closes one tile, not the grid; a tile

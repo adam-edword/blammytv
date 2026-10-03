@@ -745,3 +745,45 @@ describe("a hidden channel that names the game's team", () => {
     expect(rail[0]).toBe(own.name);
   });
 });
+
+/**
+ * The order the theater folds (v0.10.75). SportsTheater cuts the rail at
+ * the card's bar and folds the guesses under a line, while autoplay takes
+ * the top row and failover steps down. That is the list the eye reads only
+ * if no sure row ever comes after a guess.
+ */
+describe("the rail the theater folds", () => {
+  const banded = (rail: { confidence: number }[]) => {
+    const cut = rail.findIndex((c) => c.confidence < CARD_CONFIDENCE);
+    return cut < 0 || rail.slice(cut).every((c) => c.confidence < CARD_CONFIDENCE);
+  };
+  const names: string[] = vocabulary.names.map((n) => n.name);
+
+  it("puts every sure row ahead of every guess, for each network on the real dump", () => {
+    const mixed = names.filter((n) => {
+      const rail = railFor([n], ALL);
+      expect(banded(rail), n).toBe(true);
+      return rail.some((c) => c.confidence >= CARD_CONFIDENCE) && rail.some((c) => c.confidence < CARD_CONFIDENCE);
+    });
+    // Not vacuous: some of them have both halves.
+    expect(mixed.length).toBeGreaterThan(0);
+  });
+
+  it("and for a game listed on two networks at once", () => {
+    for (let i = 0; i + 1 < names.length; i += 2)
+      expect(banded(railFor([names[i], names[i + 1]], ALL)), `${names[i]} + ${names[i + 1]}`).toBe(true);
+  });
+
+  it("and when only a hidden folder carries the game", () => {
+    const hidden = { ...chan("US: ESPN"), hidden: true };
+    const loose = chan("ESPN Classic");
+    const rail = railFor(["ESPN"], [loose, hidden]);
+    // The visible guess comes along behind it (preferVisible), and behind
+    // is the point.
+    expect(rail.map((c) => [c.name, c.confidence >= CARD_CONFIDENCE])).toEqual([
+      [hidden.name, true],
+      [loose.name, false],
+    ]);
+    expect(banded(rail)).toBe(true);
+  });
+});

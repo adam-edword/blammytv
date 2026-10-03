@@ -151,14 +151,19 @@ if (params.get("overlay") === "1") {
    */
   function SportsHarness({ game, others }: { game: Fixture; others: Fixture[] }) {
     const [open, setOpen] = React.useState(true);
+    // A live score below switches the theater to its game, as the board's
+    // own handler does, so a harness can drive a game change.
+    const [shown, setShown] = React.useState(game);
     const catalog = useCatalog();
     if (!open) return null;
     return (
       <SportsTheater
-        game={game}
-        others={others}
+        game={shown}
+        others={others.filter((g) => g.id !== shown.id)}
         catalog={catalog}
-        onOpen={() => {}}
+        onOpen={(g) => {
+          if (g.kind === "fixture") setShown(g);
+        }}
         onClose={() => {
           const w = window as unknown as { __sportsClosed?: number };
           w.__sportsClosed = (w.__sportsClosed ?? 0) + 1;

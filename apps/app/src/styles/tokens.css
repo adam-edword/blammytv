@@ -226,13 +226,7 @@
   /* A heads-up, not an error: multi-view's notice. */
   --caution: #e0ab2b;
   --caution-bg: rgba(212, 160, 23, 0.16);
-  /* How sure the Sports rail is that a channel is the game, by
-   * SportsTheater's bands: 85 and up, 60 and up, below. */
-  --match-sure: #34d17e;
-  --match-likely: #e8b84b;
-  --match-doubt: #e05c5c;
-  /* The Sports rail row's own ground, which the match number punches
-   * through. Dark in both themes. */
+  /* The Sports rail row's own ground. Dark in both themes. */
   --sportsrail-bg: #131316;
   /* A picture's corner (plan 019, K7): posters, tiles, episode stills and
    * the player slots, multi-view's 10px. Cards and panels keep

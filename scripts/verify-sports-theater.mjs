@@ -492,6 +492,107 @@ async function open(pos, fixture) {
   await ctx.close();
 }
 
+// ---- The guesses, folded under the sure rows (v0.10.75) ----------------
+// Adam picked D of five mockups: a sure channel says nothing, a guess says
+// its number quietly, and the guesses fold under a "Less likely" line.
+// fake-m3u's ESPN by acronym (90) and its Sky by a loose "Sky" (40); the
+// second game is the same pair, the third has only the guess.
+{
+  const other = (id, home, away, broadcasts) => ({
+    ...FIXTURE.game,
+    id,
+    broadcasts,
+    home: { name: home, abbr: home.slice(0, 3).toUpperCase() },
+    away: { name: away, abbr: away.slice(0, 3).toUpperCase() },
+  });
+  const { page, ctx } = await open(82, {
+    game: { ...FIXTURE.game, broadcasts: ["ESPN", "Sky"] },
+    others: [other("o1", "Detroit", "Chicago", ["ESPN", "Sky"]), other("o2", "Dallas", "Houston", ["Sky Sports"])],
+  });
+  const fold = page.locator(".sportstheater__guesshead");
+  const rail = () =>
+    page.evaluate(() => {
+      const items = [...document.querySelectorAll(".sportstheater__rail .sportsrail, .sportstheater__guesshead")];
+      return items.map((r) => {
+        if (r.classList.contains("sportstheater__guesshead")) return { fold: r.textContent };
+        const name = r.querySelector(".sportsrail__name");
+        const odds = r.querySelector(".sportsrail__odds");
+        const tilt = r.querySelector(".sportsrail__tilt").getBoundingClientRect();
+        return {
+          name: name.textContent,
+          guess: r.classList.contains("is-guess"),
+          on: r.classList.contains("is-on"),
+          said: r.textContent.includes("match confidence"),
+          odds: odds ? odds.textContent : null,
+          oddsRight: odds ? Math.round(tilt.right - odds.getBoundingClientRect().right) : null,
+          ink: getComputedStyle(name).color,
+        };
+      });
+    });
+
+  const shut = await rail();
+  check(
+    "a sure channel shows no number, and the guess folds under Less likely with its count",
+    shut.length === 2 &&
+      /ESPN/.test(shut[0].name) && !shut[0].guess && shut[0].odds === null && shut[0].said &&
+      shut[1].fold === "Less likely1" &&
+      (await fold.getAttribute("aria-expanded")) === "false",
+    JSON.stringify(shut),
+  );
+
+  await fold.click();
+  await page.waitForTimeout(300);
+  const opened = await rail();
+  const guess = opened[2] ?? {};
+  check(
+    "opened, the guess is under the line, stepped back, its number at the row's end",
+    opened.length === 3 && opened[1].fold && /Sky/.test(guess.name ?? "") && guess.guess &&
+      guess.odds === "match confidence 40%" && guess.oddsRight <= 24 &&
+      /rgba\(255, 255, 255, 0\.55\)/.test(guess.ink) && opened[0].ink === "rgb(255, 255, 255)",
+    JSON.stringify(opened),
+  );
+
+  // A guess that is playing stays in sight with the fold shut, the way the
+  // shut channel list keeps its playing row.
+  await page.locator(".sportsrail", { hasText: "Sky" }).click();
+  await page.waitForTimeout(1200);
+  await fold.click();
+  await page.waitForTimeout(300);
+  const playing = await rail();
+  check(
+    "a guess you put on stays, under its line, with the fold shut",
+    playing.length === 3 && playing[1].fold && playing[2].on && /Sky/.test(playing[2].name) &&
+      (await fold.getAttribute("aria-expanded")) === "false",
+    JSON.stringify(playing),
+  );
+
+  // Open here, then another game: its guesses start folded. Opening says
+  // this game's sure channels let you down, not the next one's.
+  await fold.click();
+  await page.waitForTimeout(300);
+  const wasOpen = await fold.getAttribute("aria-expanded");
+  await page.getByRole("button", { name: /^Detroit/ }).click();
+  await page.waitForTimeout(1500);
+  check(
+    "the next game's guesses start folded",
+    wasOpen === "true" && (await page.locator(".matchup").innerText()).includes("Detroit") &&
+      (await fold.getAttribute("aria-expanded")) === "false" && (await rail()).length === 2,
+    JSON.stringify({ wasOpen, rail: await rail() }),
+  );
+
+  // Nothing sure: the guesses are the rail, and there is no line to fold
+  // them under.
+  await page.getByRole("button", { name: /^Dallas/ }).click();
+  await page.waitForTimeout(1500);
+  const only = await rail();
+  check(
+    "with nothing sure, the guesses are the rail, unfolded",
+    (await fold.count()) === 0 && only.length === 1 && only[0].guess && only[0].odds === "match confidence 40%",
+    JSON.stringify(only),
+  );
+  await ctx.close();
+}
+
 await browser.close();
 console.log(fail ? `${fail} FAILURES` : "ALL PASS");
 process.exit(fail ? 1 : 0);

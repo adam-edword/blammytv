@@ -53,7 +53,7 @@ import { Matchup } from "./Matchup";
 import { CompactCard } from "./CompactCard";
 import { autoPlay, nextSource } from "./autoplay";
 import { tunedChannel } from "./catalog";
-import { railFor } from "./matcher";
+import { CARD_CONFIDENCE, railFor } from "./matcher";
 import { logPairing } from "./pairingLog";
 import type { Catalog, Match } from "./matcher";
 import type { Fixture, Game } from "./model";
@@ -183,6 +183,21 @@ export function SportsTheater({
       return !on;
     });
   }, []);
+  /**
+   * The rail's sure channels, and the guesses folded under them (Adam picked
+   * this from five mockups, 2026-10-02).
+   *
+   * A CUT, not a sort: railFor already puts everything at the card's bar
+   * ahead of everything under it (matcher.test.ts holds it to that), so
+   * autoplay and failover still walk the list the eye reads.
+   *
+   * The fold is open for one game at a time. Opening it says this game's
+   * sure channels let you down, which says nothing about the next game's.
+   */
+  const sure = matches.filter((c) => c.confidence >= CARD_CONFIDENCE);
+  const guesses = matches.filter((c) => c.confidence < CARD_CONFIDENCE);
+  const [guessesFor, setGuessesFor] = useState<string | null>(null);
+  const guessesOpen = guessesFor === game.id;
 
   /**
    * The side column's width, dragged by its edge (Adam's), remembered as
@@ -343,6 +358,17 @@ export function SportsTheater({
       rank: matches.findIndex((m) => m.id === c.id),
     });
   };
+  /** One rail row, wherever the list puts it. */
+  const row = (c: Match) => (
+    <Rail
+      key={c.id}
+      channel={c}
+      on={tuned?.id === c.id}
+      onPlay={(ch) => tune(ch, "hand")}
+      wrong={wrong.has(c.id)}
+      onWrong={markWrong}
+    />
+  );
   const failover = useCallback(() => {
     const t = tunedRef.current;
     if (!t) return;
@@ -710,16 +736,40 @@ export function SportsTheater({
         )}
         <nav id="sportstheater-rail" className="sportstheater__rail">
           {matches.length > 0 ? (
-            (railShut ? matches.filter((c) => tuned?.id === c.id) : matches).map((c) => (
-              <Rail
-                key={c.id}
-                channel={c}
-                on={tuned?.id === c.id}
-                onPlay={(ch) => tune(ch, "hand")}
-                wrong={wrong.has(c.id)}
-                onWrong={markWrong}
-              />
-            ))
+            railShut ? (
+              matches.filter((c) => tuned?.id === c.id).map(row)
+            ) : (
+              <>
+                {sure.map(row)}
+                {/* The guesses, folded to a line. Only under something sure:
+                  * with nothing sure, the guesses ARE the rail, and folding
+                  * them would leave a list with nothing in it. A guess that
+                  * is playing stays in sight, as the shut list keeps its
+                  * playing row. */}
+                {sure.length > 0 && guesses.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    className="sportstheater__guesshead h-auto w-full justify-start gap-2 px-1 py-1 has-[>svg]:px-1 hover:bg-transparent"
+                    aria-expanded={guessesOpen}
+                    aria-controls="sportstheater-guesses"
+                    onClick={() => setGuessesFor(guessesOpen ? null : game.id)}
+                  >
+                    <span className="sportstheater__guessname">Less likely</span>
+                    <span className="sportstheater__railcount">{guesses.length}</span>
+                    <ChevronIcon
+                      className={"sportstheater__caret" + (guessesOpen ? "" : " sportstheater__caret--shut")}
+                    />
+                  </Button>
+                )}
+                <div id="sportstheater-guesses" className="sportstheater__guesses">
+                  {(sure.length === 0 || guessesOpen
+                    ? guesses
+                    : guesses.filter((c) => tuned?.id === c.id)
+                  ).map(row)}
+                </div>
+              </>
+            )
           ) : (
             <p className="sportstheater__empty">
               {/* Same three states as the card: unknown is not none. */}
@@ -834,11 +884,12 @@ export function SportsTheater({
 }
 
 /**
- * One channel, with how sure we are that it is the right one.
+ * One channel, and how sure we are that it is the game.
  *
- * The score is the point. Everything here would once have been dropped or
- * shown without qualification; a number lets a doubtful match be offered
- * honestly instead of either hidden or dressed up as certain.
+ * Only a guess says so on screen. A number lets a doubtful match be offered
+ * honestly instead of hidden or dressed up as certain; on a sure row it said
+ * nothing the order hadn't, and a bar and a colour on every row made the
+ * rail read like a meter (Adam picked this from five mockups, 2026-10-02).
  */
 function Rail({
   channel,
@@ -855,12 +906,7 @@ function Rail({
   wrong: boolean;
   onWrong: (channel: Match) => void;
 }) {
-  const band =
-    channel.confidence >= 85
-      ? "sure"
-      : channel.confidence >= 60
-        ? "likely"
-        : "doubt";
+  const guess = channel.confidence < CARD_CONFIDENCE;
   return (
     // Right-click to say this is not the game (pairingLog.ts). The menu is
     // the same shadcn one the Guide's channels use.
@@ -868,7 +914,9 @@ function Rail({
     <ContextMenuTrigger asChild>
     <button
       type="button"
-      className={"sportsrail" + (on ? " is-on" : "") + (wrong ? " is-wrong" : "")}
+      className={
+        "sportsrail" + (on ? " is-on" : "") + (guess ? " is-guess" : "") + (wrong ? " is-wrong" : "")
+      }
       data-hint={channel.name}
       // Which row is playing was carried by a CSS class alone, so the
       // accessible name was identical playing or not. Same shape the
@@ -883,18 +931,16 @@ function Rail({
         {channel.quality && (
           <span className="sportsrail__badge">{channel.quality}</span>
         )}
-        {/* The score stays put now. It used to stand aside for the play
-         * mark; with the lean carrying the affordance there is nothing to
-         * stand aside for, so the number stays readable throughout. */}
-        <span className={`sportsrail__score is-${band}`}>
-          {/* "85%" of WHAT. Visually the column header is the rail itself,
-            * but read aloud the number arrives with no noun. */}
-          <span className="vh">match confidence </span>
-          <span className="sportsrail__bar" aria-hidden>
-            <i style={{ height: `${channel.confidence}%` }} />
+        {/* Read aloud, every row still says its number, with the noun it
+          * needs: "40%" of WHAT. */}
+        {guess ? (
+          <span className="sportsrail__odds">
+            <span className="vh">match confidence </span>
+            {channel.confidence}%
           </span>
-          <span className="sportsrail__pct">{channel.confidence}%</span>
-        </span>
+        ) : (
+          <span className="vh">match confidence {channel.confidence}%</span>
+        )}
       </Lean>
     </button>
     </ContextMenuTrigger>
