@@ -2,6 +2,10 @@
 
 Morning summary: (written when the audit is done)
 
+**Progress:** 3 of 10 auditors back (tooling, app shell, security). 15
+findings checked, all confirmed or plausible, 0 fixed yet, 2 held (T7,
+T8). Fixes start when the 0.11.1 fullscreen change is committed.
+
 ## How it ran
 
 Adam, after publishing 0.11.0: "run until its actually done". Ten auditors,
