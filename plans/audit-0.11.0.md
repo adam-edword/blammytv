@@ -1,14 +1,25 @@
 # Audit of 0.11.0, overnight 2026-10-02
 
-Morning summary: (written when the audit is done)
+Morning summary: 56 findings from ten auditors, every one checked by
+hand. 46 are fixed across v0.11.2 to v0.11.9, CI green on each push (the
+last full board 56/56, 1,107 checks). v0.11.7 is native and needs a
+rebuild. The one HIGH: a hidden "NFL Teams: FOX Cardinals" station led
+MLB Cardinals cards and autoplayed Phoenix's game (SP1, v0.11.2). Three
+briefed fixes were built and then taken out, because building them showed
+they made things worse: MV1's first half (trapped a grid behind the line
+of one), NA1's single-instance plugin (would quarantine a staged update)
+and LV5 (a blank player for up to 30s). Those, and the other calls below
+under "Held for Adam", wait for you. Also tonight: 0.11.1's fullscreen
+check, finished here after a session restart killed its builder.
 
-**Progress:** all 10 auditors back, every finding checked. Fixed so far:
-Sports, the privacy page, CI's timeout and the changelog line (v0.11.2),
-the app shell (v0.11.3), Live TV (v0.11.4), Stream (v0.11.5),
-Multi-view (v0.11.6), native (v0.11.7, needs a rebuild), light mode
-(v0.11.8), tooling and LV8 (v0.11.9). Every finding is fixed or held. A session restart at 03:30 UTC killed seven
-auditors and Sonnet's fullscreen run; the seven were started again and
-0.11.1 was finished here (`8e9b5ef0`).
+**Progress:** done. Sports, the privacy page, CI's timeout and the
+changelog line (v0.11.2), the app shell (v0.11.3), Live TV (v0.11.4),
+Stream (v0.11.5), Multi-view (v0.11.6), native (v0.11.7, needs a
+rebuild), light mode (v0.11.8), tooling and LV8 (v0.11.9). A session
+restart at 03:30 UTC killed seven auditors and Sonnet's fullscreen run;
+the seven were started again and 0.11.1 was finished here (`8e9b5ef0`).
+One builder hung for two and a half hours on a script (10:28 to 13:03
+UTC); the hourly check caught it and a fresh one finished the batch.
 
 ## How it ran
 
