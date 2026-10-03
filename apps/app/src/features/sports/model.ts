@@ -224,6 +224,13 @@ interface Board {
    * know about it.
    */
   presumed?: string[];
+  /**
+   * How many games each of this game's networks has at its kick-off, by
+   * the network's normalized name, where it is more than this one
+   * (sharing.ts). Worked out from the board with the channels, so the
+   * theater's rail splits a network's odds exactly as the card did.
+   */
+  shared?: Readonly<Record<string, number>>;
 }
 
 /**

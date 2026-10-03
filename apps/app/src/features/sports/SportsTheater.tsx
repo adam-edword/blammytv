@@ -101,7 +101,7 @@ export function SportsTheater({
   others: Fixture[];
   /** The user's channels. The rail resolves its own, rather than taking the
    * card's list: the card counts only what it is sure of, and the rail is
-   * the one place a doubtful match can be shown honestly, with its score. */
+   * the one place a doubtful match can be shown honestly, with its odds. */
   catalog: Catalog | null;
   /** Switch the theater to another game, from the live scores below. The
    * same handler the board opens a card with, so switching in here and
@@ -109,11 +109,12 @@ export function SportsTheater({
   onOpen: (game: Game) => void;
   onClose: () => void;
 }) {
-  // Channels naming this exact fixture first, then whatever carries the
-  // networks the schedule listed: the same list the card counts the sure
-  // part of (matcher.railFor).
+  // Every channel that may be showing this game, best odds first, with a
+  // network's odds split by the other games it has at this kick-off
+  // (game.shared): the same list the card counts the sure part of
+  // (matcher.railFor).
   const matches = useMemo(
-    () => (catalog ? railFor(game.broadcasts, catalog, game) : []),
+    () => (catalog ? railFor(game.broadcasts, catalog, game, game.shared) : []),
     [game, catalog],
   );
 
@@ -931,15 +932,15 @@ function Rail({
         {channel.quality && (
           <span className="sportsrail__badge">{channel.quality}</span>
         )}
-        {/* Read aloud, every row still says its number, with the noun it
-          * needs: "40%" of WHAT. */}
+        {/* Read aloud, every row still says its odds, with the words it
+          * needs: "15%" of WHAT. */}
         {guess ? (
           <span className="sportsrail__odds">
-            <span className="vh">match confidence </span>
+            <span className="vh">chance it's this game: </span>
             {channel.confidence}%
           </span>
         ) : (
-          <span className="vh">match confidence {channel.confidence}%</span>
+          <span className="vh">chance it's this game: {channel.confidence}%</span>
         )}
       </Lean>
     </button>

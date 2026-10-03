@@ -223,6 +223,45 @@ describe("withChannels", () => {
     });
   });
 
+  describe("a network's games at one kick-off (the odds split)", () => {
+    // Four CBS games at noon and one at 4:25, as on Adam's board.
+    const at = (h: number, m = 0) => new Date(2026, 9, 4, h, m);
+    const cbs = (id: string, start: Date) => game(id, { broadcasts: ["CBS"], start });
+    const c = cat({ name: "CBS 4K UHD (Event Only)" });
+
+    it("keeps a network's channel off the card when it has four games at once", () => {
+      const out = withChannels(
+        [cbs("a", at(12)), cbs("b", at(12)), cbs("c", at(12)), cbs("d", at(12)), cbs("late", at(15, 25))],
+        c,
+      );
+      expect(out.map((g) => [g.id, g.channels.length, g.shared ?? null])).toEqual([
+        ["a", 0, { cbs: 4 }],
+        ["b", 0, { cbs: 4 }],
+        ["c", 0, { cbs: 4 }],
+        ["d", 0, { cbs: 4 }],
+        // Three hours and twenty-five minutes on: its own slot.
+        ["late", 1, null],
+      ]);
+    });
+
+    it("counts the board it is given, not just the games it resolves", () => {
+      // multi-view resolves one game at a time (mvGames.liveChannels).
+      const board = [cbs("a", at(12)), cbs("b", at(13))];
+      const [alone] = withChannels([board[0]], c);
+      const [shared] = withChannels([board[0]], c, board);
+      expect([alone.channels.length, shared.channels.length, shared.shared]).toEqual([1, 0, { cbs: 2 }]);
+    });
+
+    it("resolves again when another game joins its slot, and not otherwise", () => {
+      const a = cbs("a", at(12));
+      const first = withChannels([a], c);
+      expect(withChannels([a], c)[0]).toBe(first[0]);
+      const joined = withChannels([a, cbs("b", at(12, 30))], c);
+      expect(joined[0]).not.toBe(first[0]);
+      expect(joined[0].channels).toEqual([]);
+    });
+  });
+
   describe("the hidden-folder rule, over the whole join", () => {
     it("does not let a doubtful visible match bury an exact hidden one", () => {
       // The bar mismatch: the visible/hidden fallback was decided at

@@ -495,7 +495,7 @@ async function open(pos, fixture) {
 // ---- The guesses, folded under the sure rows (v0.10.75) ----------------
 // Adam picked D of five mockups: a sure channel says nothing, a guess says
 // its number quietly, and the guesses fold under a "Less likely" line.
-// fake-m3u's ESPN by acronym (90) and its Sky by a loose "Sky" (40); the
+// fake-m3u's ESPN by acronym (90) and its Sky by a loose "Sky" (15); the
 // second game is the same pair, the third has only the guess.
 {
   const other = (id, home, away, broadcasts) => ({
@@ -522,7 +522,7 @@ async function open(pos, fixture) {
           name: name.textContent,
           guess: r.classList.contains("is-guess"),
           on: r.classList.contains("is-on"),
-          said: r.textContent.includes("match confidence"),
+          said: r.textContent.includes("chance it's this game"),
           odds: odds ? odds.textContent : null,
           oddsRight: odds ? Math.round(tilt.right - odds.getBoundingClientRect().right) : null,
           ink: getComputedStyle(name).color,
@@ -547,7 +547,7 @@ async function open(pos, fixture) {
   check(
     "opened, the guess is under the line, stepped back, its number at the row's end",
     opened.length === 3 && opened[1].fold && /Sky/.test(guess.name ?? "") && guess.guess &&
-      guess.odds === "match confidence 40%" && guess.oddsRight <= 24 &&
+      guess.odds === "chance it's this game: 15%" && guess.oddsRight <= 24 &&
       /rgba\(255, 255, 255, 0\.55\)/.test(guess.ink) && opened[0].ink === "rgb(255, 255, 255)",
     JSON.stringify(opened),
   );
@@ -587,8 +587,39 @@ async function open(pos, fixture) {
   const only = await rail();
   check(
     "with nothing sure, the guesses are the rail, unfolded",
-    (await fold.count()) === 0 && only.length === 1 && only[0].guess && only[0].odds === "match confidence 40%",
+    (await fold.count()) === 0 && only.length === 1 && only[0].guess && only[0].odds === "chance it's this game: 15%",
     JSON.stringify(only),
+  );
+  await ctx.close();
+}
+
+// ---- A network split by its games at one kick-off (v0.10.76) ----------
+// The odds model: ESPN's own channel shows one game at a time, so with two
+// ESPN games at this kick-off (game.shared, from the board) it is a coin
+// flip, and folds under the sure Sky feed with its number.
+{
+  const { page, ctx } = await open(82, {
+    game: { ...FIXTURE.game, broadcasts: ["Fake Sky Sports", "ESPN"], shared: { espn: 2 } },
+    others: [],
+  });
+  const fold = page.locator(".sportstheater__guesshead");
+  const names = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll(".sportstheater__rail .sportsrail")].map((r) => [
+        r.querySelector(".sportsrail__name")?.textContent,
+        r.querySelector(".sportsrail__odds")?.textContent ?? null,
+      ]),
+    );
+  const shut = await names();
+  // Unsplit, there is no line to open: say so rather than time out on it.
+  if ((await fold.count()) === 1) await fold.click();
+  await page.waitForTimeout(300);
+  const opened = await names();
+  check(
+    "a network shared with another game at kick-off folds under the sure feed, at half its odds",
+    shut.length === 1 && /Sky/.test(shut[0][0]) && shut[0][1] === null &&
+      opened.length === 2 && /ESPN/.test(opened[1][0]) && opened[1][1] === "chance it's this game: 45%",
+    JSON.stringify({ shut, opened }),
   );
   await ctx.close();
 }
