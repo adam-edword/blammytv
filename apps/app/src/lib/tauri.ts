@@ -138,6 +138,9 @@ export function tauriInvOpen(
   /** VOD resume point in seconds. mpv applies it as the file opens, so
    * nothing is fetched or decoded from 0:00 first. Omit for live. */
   start?: number,
+  /** A live channel, which opens with subtitles off (mpv.rs
+   * reset_per_file). Omit for VOD. */
+  live?: boolean,
 ): Promise<void> {
   return invoke("inv_open", {
     url,
@@ -146,6 +149,7 @@ export function tauriInvOpen(
     w: rect.w,
     h: rect.h,
     start: start && start > 0 ? start : null,
+    live: live ?? null,
   });
 }
 export function tauriInvSetRect(rect: CompRect): Promise<void> {

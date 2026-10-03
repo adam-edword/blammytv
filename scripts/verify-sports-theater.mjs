@@ -125,6 +125,15 @@ async function open(pos, fixture) {
 
   const calls = await page.evaluate(() => window.__tauriCalls.map((c) => c[0]));
   check("the sports host tunes and opens mpv", calls.includes("inv_open"));
+  // v0.10.77: a channel opens with subtitles off (mpv.rs reset_per_file).
+  const lives = await page.evaluate(() =>
+    window.__tauriCalls.filter((c) => c[0] === "inv_open").map((c) => c[1].live),
+  );
+  check(
+    "and opens the channel as live, so its subtitles start off",
+    lives.length > 0 && lives.every((l) => l === true),
+    JSON.stringify(lives),
+  );
   check("the status poll is running", calls.filter((c) => c === "mpv_status").length > 1);
 
   check(

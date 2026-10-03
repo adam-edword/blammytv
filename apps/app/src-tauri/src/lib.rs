@@ -96,6 +96,10 @@ fn popout_open(
 
 // ---- Inverted-layer player (THE architecture; see inv.rs). Rects are PHYSICAL px. ----
 
+// Flat on purpose: these names ARE the IPC payload, and the frontend ships
+// apart from this binary (two-tier updates), so bundling them into a struct
+// would break every build on the other side of a mismatch.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 fn inv_open(
     window: tauri::WebviewWindow,
@@ -106,6 +110,10 @@ fn inv_open(
     h: u32,
     // VOD resume point in seconds, applied by mpv as it opens the file.
     start: Option<f64>,
+    // A live channel, per the app's own meta (popout_open's flag). Live
+    // opens with subtitles off. None means an older frontend that did not
+    // say, which keeps mpv's own choice.
+    live: Option<bool>,
 ) -> Result<(), String> {
     #[cfg(windows)]
     {
@@ -113,14 +121,14 @@ fn inv_open(
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(inv::open(hwnd, x, y, w, h, &url, start));
+                let _ = tx.send(inv::open(hwnd, x, y, w, h, &url, start, live));
             })
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url, x, y, w, h, start);
+        let _ = (window, url, x, y, w, h, start, live);
         Ok(())
     }
 }

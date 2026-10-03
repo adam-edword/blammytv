@@ -860,6 +860,7 @@ export function SportsTheater({
       {tuned && (
         <InvertedPlayer
           url={tuned.url}
+          live
           squared={fullscreen}
           radius={SLOT_RADIUS}
           ready={videoReady}

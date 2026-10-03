@@ -162,6 +162,12 @@ const opened = (page) =>
     { timeout: 20_000 },
   ).catch(() => {});
   check("left alone, the resolve starts playback", await opened(page));
+  // v0.10.77: only a live channel opens with subtitles off. A film keeps
+  // mpv's own pick, with the remembered language on top (TheaterOverlay).
+  const live = await page.evaluate(
+    () => window.__tauriCalls.find((c) => c[0] === "inv_open")?.[1]?.live,
+  );
+  check("  and opens it as VOD, keeping its subtitles", live === false, JSON.stringify({ live }));
   await page.close();
 }
 

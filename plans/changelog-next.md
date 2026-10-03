@@ -1,7 +1,7 @@
 # Draft: the next installer release's changelog
 
 Week of 2026-09-28, item 5. **A draft, not sent.** It covers v0.10.15 to
-v0.10.76, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
+v0.10.77, everything on `claude/nice-heisenberg-67k4uk` since 0.10.14. At
 release: pick the version, move the entry into `CHANGELOG.md` (newest
 first), and trim what you don't want to say. Every line was checked against
 its commit; the version each came from is in the comment after it, for
@@ -127,6 +127,10 @@ the background.
   with several games at once (four CBS games at noon) splits that chance,
   so its channel folds under "Less likely" instead of claiming all four. A
   team's own station and a game's own feed don't split. <!-- v0.10.76 -->
+- **Live channels open with subtitles off**, in Live TV and the Sports
+  theater. The player's subtitle menu still turns them on, and a popped-out
+  channel keeps whatever you had. Films and shows are unchanged.
+  <!-- v0.10.77 -->
 - **Onboarding** opens on the tab you picked, and Enter during a check no
   longer skips a step. <!-- v0.10.51 -->
 - **Multi-view:** holding Delete closes one tile, not the grid; a tile
