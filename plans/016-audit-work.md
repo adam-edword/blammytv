@@ -6,8 +6,9 @@ v0.10.37, with 3.6 (delete what is unused) in v0.10.61. Track 6 is closed
 (v0.10.56 to v0.10.59): F18 stays as the tradeoff its test pins, F22 waits
 on a real late-night game to probe. Track N: N1 to N5 and N7 in v0.10.38.
 Its N6 note below says the frontend still calls `mpv_blur` and
-`mpv_snapshot`; it does not (checked 2026-09-28), and both are kept as
-dormant on purpose, a native removal that is Adam's to call. Open: Track
+`mpv_snapshot`; it does not (checked 2026-09-28). `mpv_snapshot` went in
+v0.11.10, with its `tauriMpvSnapshot`; `mpv_blur` stays, dormant on
+purpose, a native removal that is Adam's to call. Open: Track
 4 (each screen once; 4.8 and 4.9, the light pass and the glass, are plan
 022), Track 5 (download size) and Track 7 (hygiene).
 

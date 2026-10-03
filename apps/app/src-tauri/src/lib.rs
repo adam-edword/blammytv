@@ -10,6 +10,8 @@ mod trakt;
 mod credman;
 #[cfg(windows)]
 mod inv;
+#[cfg(windows)]
+mod single;
 
 use std::sync::OnceLock;
 
@@ -425,20 +427,6 @@ fn mpv_frost_rect(x0: f64, y0: f64, x1: f64, y1: f64) {
     ));
 }
 
-/// Frozen-frame glass (DORMANT — Adam requires the video visibly playing
-/// behind modals; kept for future channel thumbnails): one tone-mapped
-/// frame of the playing video as raw PNG bytes.
-#[tauri::command]
-fn mpv_snapshot() -> Result<tauri::ipc::Response, String> {
-    let path = std::env::temp_dir().join("blammytv-freeze.png");
-    if !mpv::screenshot_to_file(path.to_string_lossy().as_ref()) {
-        return Err("no frame to snapshot".into());
-    }
-    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
-    let _ = std::fs::remove_file(&path);
-    Ok(tauri::ipc::Response::new(bytes))
-}
-
 /// Player status snapshot for the inverted chrome's poll (replaced the old
 /// overlay webview's loader/time/tracks push threads): position/duration,
 /// whether mpv is
@@ -752,11 +740,51 @@ pub(crate) fn http_client() -> &'static reqwest::Client {
     })
 }
 
+/// The most `http_get` holds of one body, counted after the transparent
+/// decompression: over five times the largest real one (the xmltv guide,
+/// ~95MB decoded). Past it a broken or hostile server, or a compression
+/// bomb, would stream gigabytes into memory (audit NA4).
+const HTTP_GET_MAX_BODY: usize = 512 * 1024 * 1024;
+
+/// The error for a body past `cap`. It names the cap and never the URL,
+/// which can carry a credential.
+fn body_over_cap(cap: usize) -> String {
+    format!("response is over the {} MiB limit", cap >> 20)
+}
+
+/// A response that declares more than `cap` fails before a byte is read.
+fn check_declared_len(declared: Option<u64>, cap: usize) -> Result<(), String> {
+    match declared {
+        Some(n) if n > cap as u64 => Err(body_over_cap(cap)),
+        _ => Ok(()),
+    }
+}
+
+/// How much to reserve before reading: what the response declares, up to
+/// `cap`. A compressed response declares nothing (reqwest drops the length
+/// when it decodes), so that one grows as it reads.
+fn body_capacity(declared: Option<u64>, cap: usize) -> usize {
+    declared.map_or(0, |n| n.min(cap as u64) as usize)
+}
+
+/// Add one chunk to the body, failing on the chunk that takes the total past
+/// `cap`. A body of exactly `cap` is fine.
+fn append_capped(body: &mut Vec<u8>, chunk: &[u8], cap: usize) -> Result<(), String> {
+    if body.len().saturating_add(chunk.len()) > cap {
+        return Err(body_over_cap(cap));
+    }
+    body.extend_from_slice(chunk);
+    Ok(())
+}
+
 /// Returns the body as RAW BYTES (`tauri::ipc::Response`), not a String: a
 /// String return rides the JSON IPC path, and JSON-escaping a ~95MB xmltv
 /// document (every quote/newline) plus re-parsing it webview-side measurably
 /// dominated load time. The raw path hands the buffer over untouched; the
 /// frontend TextDecoder-decodes it in ~100ms.
+///
+/// The body is read chunk by chunk and stops at `HTTP_GET_MAX_BODY` (512 MiB);
+/// a declared Content-Length over it fails before any is read.
 ///
 /// `timeout_secs` (optional) overrides the client's 30s default for one
 /// request — the full xmltv guide is tens of MB and legitimately exceeds
@@ -814,7 +842,7 @@ async fn http_get(
     if let Some(secs) = timeout_secs {
         req = req.timeout(std::time::Duration::from_secs(secs));
     }
-    let res = req.send().await.map_err(|e| e.to_string())?;
+    let mut res = req.send().await.map_err(|e| e.to_string())?;
     if !res.status().is_success() {
         return Err(format!("HTTP {}", res.status().as_u16()));
     }
@@ -823,7 +851,11 @@ async fn http_get(
     // compressed the response, reqwest strips it during transparent decode,
     // so None here ≈ "compression was applied".
     let clen = res.content_length();
-    let body = res.bytes().await.map_err(|e| e.to_string())?;
+    check_declared_len(clen, HTTP_GET_MAX_BODY)?;
+    let mut body: Vec<u8> = Vec::with_capacity(body_capacity(clen, HTTP_GET_MAX_BODY));
+    while let Some(chunk) = res.chunk().await.map_err(|e| e.to_string())? {
+        append_capped(&mut body, &chunk, HTTP_GET_MAX_BODY)?;
+    }
     println!(
         "[http] {} — headers {}ms, total {}ms, body {:.1}MB (content-length: {})",
         short,
@@ -835,9 +867,9 @@ async fn http_get(
             None => "absent (compressed, or chunked)".to_string(),
         },
     );
-    // Into the Vec without a copy where the buffer is uniquely held: a
-    // guide can be 95MB, and to_vec() held it twice.
-    Ok(tauri::ipc::Response::new(Vec::from(body)))
+    // The Vec goes over as it is: a guide can be 95MB, and a copy held it
+    // twice.
+    Ok(tauri::ipc::Response::new(body))
 }
 
 /// Multi-view: serve a live stream to the webview through the loopback
@@ -1126,6 +1158,13 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
             .download_and_install(|_chunk, _total| {}, || {})
             .await
             .map_err(|e| e.to_string())?;
+        // restart() starts the new copy before this one has exited. Give the
+        // one-copy name up first, or the new one would find it taken and
+        // hand off to this closing window (single.rs). On Windows the
+        // installer path exits inside download_and_install; this is for any
+        // path that returns.
+        #[cfg(windows)]
+        single::release();
         app.restart()
     }
     #[cfg(not(desktop))]
@@ -1151,6 +1190,18 @@ fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // The one-copy check stays FIRST, ahead of `tauri::Builder` and so of
+    // `context()`. `.run(context())` evaluates `context()` before any
+    // plugin's setup, and `context()` calls `frontend::resolve()`, which arms
+    // the hot channel's boot sentinel; a second copy that armed it and then
+    // exited would leave it armed, and two of those quarantine a good bundle.
+    // And a second copy that got as far as Trakt would spend the first copy's
+    // single-use refresh token and clear the vault. A later check, a plugin
+    // among them, is too late for both (single.rs, audit NA1).
+    #[cfg(windows)]
+    if !single::claim() {
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -1219,7 +1270,6 @@ pub fn run() {
             mpv_blur,
             mpv_frost,
             mpv_frost_rect,
-            mpv_snapshot,
             http_get,
             http_probe,
             mv_proxy_open,
@@ -1265,7 +1315,7 @@ fn context() -> tauri::Context<tauri::Wry> {
 
 #[cfg(test)]
 mod tests {
-    use super::tunable;
+    use super::{append_capped, body_capacity, check_declared_len, tunable, HTTP_GET_MAX_BODY};
 
     /// Plan 016 N5: a release build's `mpv_set` reaches the tuning
     /// families and none of mpv's properties that touch files or code.
@@ -1308,5 +1358,63 @@ mod tests {
         ] {
             assert!(!tunable(no), "let through: {no}");
         }
+    }
+
+    /// Audit NA4: `http_get` stops a body at the cap. Small caps here, so no
+    /// test holds half a gigabyte.
+    #[test]
+    fn a_body_under_the_cap_passes() {
+        let mut body = Vec::new();
+        append_capped(&mut body, b"abcd", 10).unwrap();
+        append_capped(&mut body, b"efg", 10).unwrap();
+        assert_eq!(body, b"abcdefg");
+    }
+
+    #[test]
+    fn a_body_of_exactly_the_cap_passes() {
+        let mut one = Vec::new();
+        append_capped(&mut one, &[7; 10], 10).unwrap();
+        assert_eq!(one.len(), 10);
+        let mut two = Vec::new();
+        append_capped(&mut two, &[7; 6], 10).unwrap();
+        append_capped(&mut two, &[7; 4], 10).unwrap();
+        assert_eq!(two.len(), 10);
+    }
+
+    #[test]
+    fn one_byte_over_the_cap_fails_and_is_not_kept() {
+        let mut across = Vec::new();
+        append_capped(&mut across, &[7; 10], 10).unwrap();
+        assert!(append_capped(&mut across, &[7; 1], 10).is_err());
+        assert_eq!(across.len(), 10, "the chunk that broke the cap was kept");
+        let mut single = Vec::new();
+        assert!(append_capped(&mut single, &[7; 11], 10).is_err());
+        assert!(single.is_empty());
+    }
+
+    #[test]
+    fn a_declared_length_over_the_cap_fails_before_reading() {
+        assert!(check_declared_len(Some(11), 10).is_err());
+        assert!(check_declared_len(Some(10), 10).is_ok());
+        assert!(check_declared_len(Some(0), 10).is_ok());
+        // A compressed response declares nothing; the chunks are what count.
+        assert!(check_declared_len(None, 10).is_ok());
+    }
+
+    #[test]
+    fn the_cap_is_512_mib_and_the_error_names_it() {
+        assert_eq!(HTTP_GET_MAX_BODY, 512 * 1024 * 1024);
+        assert_eq!(
+            check_declared_len(Some(HTTP_GET_MAX_BODY as u64 + 1), HTTP_GET_MAX_BODY),
+            Err("response is over the 512 MiB limit".to_string()),
+        );
+    }
+
+    #[test]
+    fn the_reserve_follows_the_declared_length_up_to_the_cap() {
+        assert_eq!(body_capacity(None, 10_000), 0);
+        assert_eq!(body_capacity(Some(1_000), 10_000), 1_000);
+        assert_eq!(body_capacity(Some(10_000), 10_000), 10_000);
+        assert_eq!(body_capacity(Some(u64::MAX), 10_000), 10_000);
     }
 }

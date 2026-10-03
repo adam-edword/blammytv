@@ -766,9 +766,11 @@ and the painted corner bites read funky. New treatment:
 
 **A4 (v0.1.121): frozen-frame glass: built, then REJECTED by Adam (the
 video must VISIBLY keep playing behind the panel).** `mpv_snapshot` +
-`mpv::screenshot_to_file` (second additive do-not-touch exception) stay in
-the build, dormant: future channel thumbnails. Settings modal is centered
-now (v0.1.120, Adam's call: the top-right float predates video-behind).
+`mpv::screenshot_to_file` (second additive do-not-touch exception) were
+removed in v0.11.10, along with the frontend's `tauriMpvSnapshot`; they are
+in git history for the day channel thumbnails want them. Settings modal is
+centered now (v0.1.120, Adam's call: the top-right float predates
+video-behind).
 
 **A5 (v0.1.122, needs rebuild): LIVE region frost: the endgame modal
 treatment.** mpv GPU-blurs ONLY the rectangle under the settings card,

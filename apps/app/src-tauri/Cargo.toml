@@ -77,4 +77,6 @@ windows = { version = "0.61", features = [
     # trakt.rs keeps the Trakt session in Credential Manager (plan 015, D4).
     "Win32_Security",
     "Win32_Security_Credentials",
+    # single.rs: the one-copy mutex, and the owner of a window by its process.
+    "Win32_System_Threading",
 ] }

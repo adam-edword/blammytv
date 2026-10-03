@@ -288,12 +288,6 @@ export function tauriMpvFrostRect(
 ): Promise<void> {
   return invoke("mpv_frost_rect", { x0, y0, x1, y1 });
 }
-/** One tone-mapped frame of the playing video, as a PNG blob (raw-bytes
- * IPC, same path as http_get). DORMANT — kept for future thumbnails. */
-export async function tauriMpvSnapshot(): Promise<Blob> {
-  const raw = await invoke<unknown>("mpv_snapshot");
-  return new Blob([raw as ArrayBuffer], { type: "image/png" });
-}
 
 /** One poll of the inverted player's status (replaces the overlay bridge's
  * loading/time/tracks pushes). `presenting` = mpv has put up a frame. */

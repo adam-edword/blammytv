@@ -519,13 +519,20 @@ which is single-use; the second one's refresh gets 400 and
 `refresh_locked` clears the vault (`trakt.rs:327`), deleting what the
 first just saved. The hot channel can quarantine a new bundle the first
 launch is still booting. There's no single-instance guard
-(`lib.rs:1147-1150`). **Held**: the plugin was built and taken out. It
-ends the second process in its setup, and `.run(context())` runs
-`frontend::resolve()` before any plugin's setup, so the hot-channel half
-isn't fixed, and worse: the second process re-arms the sentinel and exits
-without clearing it, so a staged update is quarantined on the next real
-launch. Doing it right means a single-instance check before `resolve()`,
-which reorders the hot channel's failsafe.
+(`lib.rs:1147-1150`). Held overnight: the standard plugin acts in its
+setup, and `.run(context())` runs `frontend::resolve()` first, so a second
+process would re-arm the sentinel and exit, and a staged update would be
+quarantined on the next real launch. Fixed in v0.11.10, Adam's call handed
+to me: our own check is the first thing `run()` does, before `context()`
+(`single.rs`). A named mutex in the session's namespace; a second launch
+finds it taken, brings the first copy's window forward (restoring it only
+if minimised) and exits before anything else runs. Release builds only, so
+`pnpm tauri dev` still runs beside the installed app. `app.restart()`
+starts the new copy before the old one exits, so both restart sites give
+the name up first. The window is found by its exact title and its
+process's file name; unit tests cover the PiP, an Explorer window called
+BlammyTV and this process. They and a real-mutex test run on CI's Windows
+job; a real second launch is yours to try.
 
 **NA2. LOW. Pop out drops the audio track and the speed.** Confirmed by
 reading: the handoff carries start, volume, mute and subtitles
@@ -541,8 +548,10 @@ then refuses it, silently, until the next release. Fixed in v0.11.7:
 `should_stage` refuses a quarantined version before any download.
 
 **NA4. LOW. `http_get` buffers a whole body with no size cap.**
-Plausible, reasoned only (`lib.rs:819`). **Held** with LV7: not changed
-without a number.
+Plausible, reasoned only (`lib.rs:819`). Fixed in v0.11.10, decided
+2026-10-03: the body is read in chunks and stops at 512 MiB (over five
+times the 95 MB guide, the largest measured), and a declared length over
+it fails before a byte is read. The error names the cap, never the URL.
 
 ## Held for Adam
 

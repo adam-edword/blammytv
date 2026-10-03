@@ -584,6 +584,12 @@ pub fn stage(
 /// line of defence, not the policy.
 #[tauri::command]
 pub fn frontend_apply(app: tauri::AppHandle) {
+    // restart() starts the new copy before this one has exited. Give the
+    // one-copy name up first, or the new one would find it taken, hand off to
+    // this closing window and exit: applying an update would close the app
+    // instead of restarting it (single.rs).
+    #[cfg(windows)]
+    crate::single::release();
     app.restart();
 }
 
