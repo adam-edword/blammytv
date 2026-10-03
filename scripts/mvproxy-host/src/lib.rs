@@ -7,3 +7,5 @@ pub mod mvconvert;
 pub mod trakt;
 #[path = "../../../apps/app/src-tauri/src/mal.rs"]
 pub mod mal;
+#[path = "../../../apps/app/src-tauri/src/mpvurl.rs"]
+pub mod mpvurl;

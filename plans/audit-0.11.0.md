@@ -5,8 +5,8 @@ Morning summary: (written when the audit is done)
 **Progress:** all 10 auditors back, every finding checked. Fixed so far:
 Sports, the privacy page, CI's timeout and the changelog line (v0.11.2),
 the app shell (v0.11.3), Live TV (v0.11.4), Stream (v0.11.5),
-Multi-view (v0.11.6). Next through the builder: light mode, native,
-tooling, then a mop-up of what those leave (LV8). A session restart at 03:30 UTC killed seven
+Multi-view (v0.11.6), native (v0.11.7, needs a rebuild). Next through
+the builder: light mode, tooling, then a mop-up (LV8). A session restart at 03:30 UTC killed seven
 auditors and Sonnet's fullscreen run; the seven were started again and
 0.11.1 was finished here (`8e9b5ef0`).
 
@@ -145,14 +145,17 @@ Stalker's regex restrict it to http(s), and the frontend is the
 hot-swappable layer. `open_external` (`lib.rs:1135`) already refuses
 anything but https, and `tunable()` exists for exactly this threat. With
 script in the page, a UNC path would hand Windows' NTLM hash to another
-host. Needs script in the page first, and none was found. Plan: refuse
-anything but http and https natively.
+host. Needs script in the page first, and none was found. Fixed in
+v0.11.7: `mpvurl::http_only` refuses anything but an http or https URL as
+written (a parser strips tabs and leading spaces, so the string itself has
+to start that way too), for both commands.
 
 **X2. LOW. `http_get`'s timing line can print a password.** Confirmed:
 `lib.rs:782` keeps the first three `/`-pieces as "the origin", which for
 `http://user:pass@host/...` includes `user:pass@`. Dev terminal only
 (release has no stdout), but that output is what gets pasted into
-sessions. Plan: log the parsed origin.
+sessions. Fixed in v0.11.7: it logs the parsed origin (`origin_of`), and
+a placeholder for one that won't parse.
 
 ### Sports (new code, then the whole feature)
 
@@ -448,21 +451,26 @@ an exact Host check, and no URL ever taken from a request.
 4,096 segments.** Confirmed, reproduced (the auditor's host-crate copy):
 `trim` (`mvproxy.rs:121-139`) evicts by when a playlist last named a URI,
 and fetching never refreshes it, so the master's variant goes first and
-the tile fails after 2 to 11 hours depending on segment length. Plan: a
-fetch refreshes the entry.
+the tile fails after 2 to 11 hours depending on segment length. Fixed in
+v0.11.7: serving a child refreshes it (`touch`). A variant hls.js never
+fetches (an alternate it hasn't switched to) can still age out.
 
 **H2. LOW. The rewriter misses playlists hls.js reads.** Confirmed,
 reproduced for the space case: `#EXT-X-KEY:METHOD=AES-128, URI="k.bin"`
 comes back unrewritten (hls.js trims attribute names); a non-UTF-8 body,
 a playlist served as `text/plain`, and CR-only line ends go through
 whole too. Each leaves a relative URI hls.js resolves against loopback,
-and the tile fails. Plan: trim, decode lossily, know a playlist by
-`#EXTM3U`, split on CR.
+and the tile fails. Fixed in v0.11.7: attribute names trimmed, a playlist
+known by its first line whatever its type or name (the start is peeked; a
+segment still streams), decoded lossily, lines split on CR too. A quoted
+value containing `,URI=` still confuses the scan; not seen in the wild.
 
 **H3. LOW. One huge playlist stalls every tile.** Confirmed, reproduced:
 8 MiB of short URIs holds the routes lock 2.4 to 3.5s and returns 78 MB.
-Needs a hostile provider. Plan: cap the URIs per playlist and answer 502
-past it.
+Needs a hostile provider. Fixed in v0.11.7: past 20,000 distinct URIs (a
+6-hour DVR window at 2s is 10,800) the answer is 502, the scan happens
+before the lock, and the rewrite after it. The auditor's test: another
+route's worst wait went from 7.09s to 4.4ms.
 
 ### Native (second pass)
 
@@ -477,20 +485,26 @@ which is single-use; the second one's refresh gets 400 and
 `refresh_locked` clears the vault (`trakt.rs:327`), deleting what the
 first just saved. The hot channel can quarantine a new bundle the first
 launch is still booting. There's no single-instance guard
-(`lib.rs:1147-1150`). Plan: `tauri-plugin-single-instance` in release
-builds, focusing the open window. Dev builds stay unguarded so
-`pnpm tauri dev` still runs beside an installed copy.
+(`lib.rs:1147-1150`). **Held**: the plugin was built and taken out. It
+ends the second process in its setup, and `.run(context())` runs
+`frontend::resolve()` before any plugin's setup, so the hot-channel half
+isn't fixed, and worse: the second process re-arms the sentinel and exits
+without clearing it, so a staged update is quarantined on the next real
+launch. Doing it right means a single-instance check before `resolve()`,
+which reorders the hot channel's failsafe.
 
 **NA2. LOW. Pop out drops the audio track and the speed.** Confirmed by
 reading: the handoff carries start, volume, mute and subtitles
 (`mpv.rs:211-260`), so a Japanese track or 1.5x comes back as mpv's
-default at 1x in the PiP. Plan: carry `aid` and `speed` the way `sid` is.
+default at 1x in the PiP. Fixed in v0.11.7: `aid` (a track id only, so a
+read of "no" can't open it silent) and `speed` (0.01 to 100) ride the
+handoff.
 
 **NA3. LOW. A quarantined hot bundle downloads again on every launch.**
 Confirmed by reading: `should_stage` (`frontend.rs:692-696`) doesn't know
 about quarantine, so `frontend_check` fetches the 1.1MB bundle and only
-then refuses it, silently, until the next release. Plan: don't stage a
-quarantined version.
+then refuses it, silently, until the next release. Fixed in v0.11.7:
+`should_stage` refuses a quarantined version before any download.
 
 **NA4. LOW. `http_get` buffers a whole body with no size cap.**
 Plausible, reasoned only (`lib.rs:819`). **Held** with LV7: not changed
@@ -519,6 +533,11 @@ without a number.
   fill it. The fix is the picker knowing each line's room: a full line's
   channels ask which tile to replace, the other line's add. A design pass,
   not a bug fix.
+- **NA1, one copy of the app.** The standard plugin can't be used as is:
+  the hot channel's `resolve()` runs before it, so a second launch would
+  quarantine a staged update. The fix is our own single-instance check at
+  the very top of `run()`, before `context()`, which then hands off to the
+  open window. A native change to the update failsafe, so it's yours.
 - **LV5, a Stalker switch.** A "resolving" state in the player hosts, so
   the switch shows a spinner under the new name. Worth it if you use
   Stalker; I'd leave it if you don't.

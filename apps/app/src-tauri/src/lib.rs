@@ -1,6 +1,7 @@
 mod frontend;
 mod mal;
 mod mpv;
+mod mpvurl;
 mod mvconvert;
 mod mvproxy;
 mod trakt;
@@ -69,6 +70,8 @@ fn popout_open(
     // frontend that did not say, and falls back to the duration heuristic.
     live: Option<bool>,
 ) -> Result<(), String> {
+    // Native says what mpv may open, not only the frontend (audit X1).
+    mpvurl::http_only(&url)?;
     let hand;
     #[cfg(windows)]
     {
@@ -115,6 +118,8 @@ fn inv_open(
     // say, which keeps mpv's own choice.
     live: Option<bool>,
 ) -> Result<(), String> {
+    // Native says what mpv may open, not only the frontend (audit X1).
+    mpvurl::http_only(&url)?;
     #[cfg(windows)]
     {
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
@@ -778,8 +783,10 @@ async fn http_get(
     // timer wraps this whole invoke, so (frontend − total here) = IPC-bridge
     // cost of hauling the decoded string into the webview. ONLY the origin
     // is logged: AIOStreams embeds the user's config (a credential) in the
-    // PATH, not just the query string.
-    let short: String = url.splitn(4, '/').take(3).collect::<Vec<_>>().join("/");
+    // PATH, not just the query string. The origin of the PARSED URL, so
+    // `user:pass@` in front of the host goes too (audit X2); a URL that does
+    // not parse prints a placeholder, never a piece of itself.
+    let short = mvproxy::origin_of(&url);
     let t0 = std::time::Instant::now();
     let mut req = http_client()
         .get(&url)

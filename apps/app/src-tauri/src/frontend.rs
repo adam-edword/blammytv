@@ -689,10 +689,28 @@ fn manifest_url_from(endpoint: &str) -> Option<String> {
 /// staged. The manifest is unsigned, so an older bundle offered as an
 /// update is a rollback, and there is no honest reason to publish one: a
 /// bad hot release is replaced by a newer one.
-fn should_stage(m: &Manifest, native: &str, serving: &str, pending: &str) -> bool {
-    m.native_version == native
+///
+/// `quarantined`: this manifest's version already failed to boot here
+/// (audit NA3). `stage()` refuses it anyway, but only after the whole bundle
+/// has been downloaded, and that was every launch and every "Check for
+/// updates" until the next release. Asked here, before the download.
+fn should_stage(
+    m: &Manifest,
+    native: &str,
+    serving: &str,
+    pending: &str,
+    quarantined: bool,
+) -> bool {
+    !quarantined
+        && m.native_version == native
         && newer(&m.version, serving)
         && (pending.is_empty() || newer(&m.version, pending))
+}
+
+/// Whether `version` has failed to boot here, by the record in `root`. A
+/// record that is missing or unreadable quarantines nothing.
+fn is_quarantined(root: &Path, version: &str) -> bool {
+    read_active(root).quarantined.iter().any(|q| q == version)
 }
 
 /// Check the hot channel and stage a newer frontend if there is one.
@@ -739,7 +757,9 @@ pub async fn frontend_check(app: tauri::AppHandle) -> Result<String, String> {
     } else {
         status.serving.as_str()
     };
-    if !should_stage(&m, &native_version, serving, &status.pending) {
+    // Failed to boot here before: not fetched again (audit NA3).
+    let quarantined = root().is_some_and(|r| is_quarantined(&r, &m.version));
+    if !should_stage(&m, &native_version, serving, &status.pending, quarantined) {
         return Ok(String::new());
     }
 
@@ -937,19 +957,55 @@ mod tests {
     /// is the part that keeps it safe.
     #[test]
     fn stages_only_a_bundle_built_for_this_native_version() {
-        assert!(should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "", ""));
+        assert!(should_stage(
+            &manifest("0.8.1", "0.8.0"),
+            "0.8.0",
+            "",
+            "",
+            false
+        ));
         // Built against newer Rust: the installer channel's problem.
-        assert!(!should_stage(&manifest("0.9.0", "0.9.0"), "0.8.0", "", ""));
+        assert!(!should_stage(
+            &manifest("0.9.0", "0.9.0"),
+            "0.8.0",
+            "",
+            "",
+            false
+        ));
         // Built against older Rust: equally refused, not "close enough".
-        assert!(!should_stage(&manifest("0.8.1", "0.7.0"), "0.8.0", "", ""));
+        assert!(!should_stage(
+            &manifest("0.8.1", "0.7.0"),
+            "0.8.0",
+            "",
+            "",
+            false
+        ));
         // Already serving it, or already staged: nothing to do.
-        assert!(!should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "0.8.1", ""));
-        assert!(!should_stage(&manifest("0.8.1", "0.8.0"), "0.8.0", "", "0.8.1"));
+        assert!(!should_stage(
+            &manifest("0.8.1", "0.8.0"),
+            "0.8.0",
+            "0.8.1",
+            "",
+            false
+        ));
+        assert!(!should_stage(
+            &manifest("0.8.1", "0.8.0"),
+            "0.8.0",
+            "",
+            "0.8.1",
+            false
+        ));
         // A native release publishes a frontend.json naming its OWN
         // version. A fresh install of that release is already running that
         // exact frontend, so there is nothing to fetch — the caller passes
         // the native version as `serving` when serving embedded.
-        assert!(!should_stage(&manifest("0.8.0", "0.8.0"), "0.8.0", "0.8.0", ""));
+        assert!(!should_stage(
+            &manifest("0.8.0", "0.8.0"),
+            "0.8.0",
+            "0.8.0",
+            "",
+            false
+        ));
     }
 
     /// The gate has to hold at SERVE time, not only at download time: a
@@ -1081,26 +1137,73 @@ mod tests {
             &manifest("0.10.20", "0.10.0"),
             "0.10.0",
             "0.10.30",
-            ""
+            "",
+            false
         ));
         assert!(!should_stage(
             &manifest("0.10.28", "0.10.0"),
             "0.10.0",
             "0.10.14",
-            "0.10.30"
+            "0.10.30",
+            false
         ));
         assert!(should_stage(
             &manifest("0.10.31", "0.10.0"),
             "0.10.0",
             "0.10.14",
-            "0.10.30"
+            "0.10.30",
+            false
         ));
         // A first hot release over the embedded frontend (serving = native).
         assert!(should_stage(
             &manifest("0.10.3", "0.10.0"),
             "0.10.0",
             "0.10.0",
-            ""
+            "",
+            false
         ));
+    }
+
+    /// Audit NA3: a version that failed to boot here is not downloaded
+    /// again. `stage()` refuses it, but only once the whole bundle is in, so
+    /// every launch and every "Check for updates" fetched 1.1MB to throw
+    /// away until the next release. The same manifest that stages when it
+    /// is not quarantined is the one that does not when it is.
+    #[test]
+    fn a_quarantined_bundle_is_not_staged_again() {
+        let m = manifest("0.10.31", "0.10.0");
+        assert!(should_stage(&m, "0.10.0", "0.10.14", "", false));
+        assert!(!should_stage(&m, "0.10.0", "0.10.14", "", true));
+        // Newer than what is staged, and still refused.
+        assert!(should_stage(&m, "0.10.0", "0.10.14", "0.10.30", false));
+        assert!(!should_stage(&m, "0.10.0", "0.10.14", "0.10.30", true));
+        // A first hot release over the embedded frontend.
+        assert!(should_stage(&m, "0.10.0", "0.10.0", "", false));
+        assert!(!should_stage(&m, "0.10.0", "0.10.0", "", true));
+    }
+
+    /// The flag frontend_check passes comes from the record on disk: the
+    /// versions it lists, and no others. A record that is not there says
+    /// nothing is quarantined.
+    #[test]
+    fn the_record_says_which_versions_are_quarantined() {
+        let root = tmpdir("quarantine");
+        assert!(!is_quarantined(&root, "0.10.31"));
+        write_active(
+            &root,
+            &Active {
+                version: "0.10.5".into(),
+                previous: "0.10.4".into(),
+                quarantined: vec!["0.10.30".into(), "0.10.31".into()],
+                native: "0.10.0".into(),
+                strikes: 0,
+            },
+        );
+        assert!(is_quarantined(&root, "0.10.31"));
+        assert!(is_quarantined(&root, "0.10.30"));
+        assert!(!is_quarantined(&root, "0.10.3"));
+        assert!(!is_quarantined(&root, "0.10.32"));
+        assert!(!is_quarantined(&root, ""));
+        std::fs::remove_dir_all(&root).ok();
     }
 }

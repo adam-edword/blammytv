@@ -220,6 +220,28 @@ pub struct Handoff {
     /// subtitles off (reset_per_file), and popping it out must not bring
     /// mpv's own pick back.
     pub sid: Option<String>,
+    /// The audio track on screen (audit NA2), the way `sid` is: a Japanese
+    /// track picked in the player came back as mpv's own pick in the PiP.
+    /// Only a real track id (see `track_id`).
+    pub aid: Option<String>,
+    /// The playback speed, mpv's own string (audit NA2): 1.5x came back at
+    /// 1x. Only a sane multiplier (see `speed_factor`).
+    pub speed: Option<String>,
+}
+
+/// An `aid` worth carrying: a track id, digits. `aid` also reads "no" (no
+/// track chosen) and "auto", and handing the PiP "no" because a read raced
+/// the tracks would open it silent. Anything else is left to mpv's own pick.
+/// An id is only good for the same URL, which is what a pop out opens (the
+/// same reasoning as `sid`).
+fn track_id(v: Option<String>) -> Option<String> {
+    v.filter(|a| !a.is_empty() && a.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// A `speed` worth carrying: a number mpv accepts (0.01 to 100), not NaN or
+/// a word. Anything else leaves the PiP at 1x.
+fn speed_factor(v: Option<String>) -> Option<String> {
+    v.filter(|s| s.parse::<f64>().is_ok_and(|n| (0.01..=100.0).contains(&n)))
 }
 
 impl Handoff {
@@ -255,6 +277,8 @@ impl Handoff {
             volume: get_property("volume"),
             mute: get_property("mute"),
             sid: get_property("sid"),
+            aid: track_id(get_property("aid")),
+            speed: speed_factor(get_property("speed")),
         }
     }
 }
@@ -310,6 +334,12 @@ pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {
         }
         if let Some(s) = &hand.sid {
             set("sid", s);
+        }
+        if let Some(a) = &hand.aid {
+            set("aid", a);
+        }
+        if let Some(s) = &hand.speed {
+            set("speed", s);
         }
         // Resume where the in-app player was. VOD only — see Handoff::capture.
         if let Some(s) = hand.start.filter(|s| *s > 0.0) {
@@ -1030,5 +1060,38 @@ pub fn get_property(name: &str) -> Option<String> {
         } else {
             Some(s)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{speed_factor, track_id};
+
+    fn some(s: &str) -> Option<String> {
+        Some(s.to_string())
+    }
+
+    /// Audit NA2: the PiP gets the audio track the player had, and only a
+    /// real one. "no" would open it silent.
+    #[test]
+    fn only_a_real_track_id_is_carried_to_the_popout() {
+        assert_eq!(track_id(some("2")), some("2"));
+        assert_eq!(track_id(some("14")), some("14"));
+        for no in ["no", "auto", "", "-1", "1.5", "2 ", "a1", "\u{0663}"] {
+            assert_eq!(track_id(some(no)), None, "carried {no:?}");
+        }
+        assert_eq!(track_id(None), None);
+    }
+
+    #[test]
+    fn only_a_sane_speed_is_carried_to_the_popout() {
+        assert_eq!(speed_factor(some("1.500000")), some("1.500000"));
+        assert_eq!(speed_factor(some("1.000000")), some("1.000000"));
+        assert_eq!(speed_factor(some("0.5")), some("0.5"));
+        assert_eq!(speed_factor(some("100")), some("100"));
+        for no in ["0", "-1", "0.001", "101", "NaN", "inf", "fast", ""] {
+            assert_eq!(speed_factor(some(no)), None, "carried {no:?}");
+        }
+        assert_eq!(speed_factor(None), None);
     }
 }
