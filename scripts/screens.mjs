@@ -26,6 +26,7 @@
 // PW_FROM as for the harnesses. Ports are the board's own (verify-all.mjs):
 // it refuses to start if something is already on one of them.
 import { spawn } from "node:child_process";
+import http from "node:http";
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -207,6 +208,29 @@ const espn = (url) => {
   return { leagues: [{ id: "46", name: "NBA", abbreviation: "NBA", slug: "nba" }], events };
 };
 
+// Stands in for mvproxy.rs's loopback server, as verify-multiview does: a
+// stream of empty transport-stream packets, so a multi-view tile has a source
+// to attach and nothing to decode.
+const mvProxy = http.createServer((rq, rs) => {
+  rs.writeHead(200, { "Content-Type": "video/mp2t", "Access-Control-Allow-Origin": "*" });
+  const packet = Buffer.alloc(188);
+  packet[0] = 0x47;
+  const t = setInterval(() => rs.write(packet), 10);
+  rs.on("close", () => clearInterval(t));
+});
+await new Promise((r) => mvProxy.listen(0, "127.0.0.1", r));
+const MV_PORT = mvProxy.address().port;
+
+/** Pick a channel from multi-view's picker, from the empty place or the bar. */
+const mvAdd = async (p, name) => {
+  const empty = p.locator(".mvtile--empty");
+  if (await empty.count()) await empty.click();
+  else await p.locator(".mvbar__add").click();
+  await p.locator(".mvpick__input").fill(name);
+  await p.locator(".mvpick__row", { hasText: name }).first().click();
+  await p.locator(".mvpick__input").waitFor({ state: "detached" });
+};
+
 const SCENES = [
   { name: "guide", store: { playlists: XTREAM, startupTab: "live" }, ready: (p) => p.waitForFunction(() => document.body.innerText.includes("ESPN Hour"), null, { timeout: 30_000 }) },
   { name: "stream", store: { aiostreams: AIO, startupTab: "stream" }, ready: (p) => p.locator(".stream-card").first().waitFor({ timeout: 30_000 }) },
@@ -245,6 +269,83 @@ const SCENES = [
       await p.keyboard.press("Control+k");
       await p.keyboard.type("fake");
       await p.waitForTimeout(300);
+    },
+  },
+  // A film's page (plan 022: a picture page, in both themes), with the art
+  // and without: the fake addon's backdrop is one red pixel, and the second
+  // scene takes it away so the page's own ground shows.
+  {
+    name: "title",
+    store: { aiostreams: AIO, startupTab: "stream" },
+    ready: async (p) => {
+      await p.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
+      await p.locator(".vod-source").first().waitFor({ timeout: 30_000 });
+      await p.locator(".vod-more__card").first().waitFor({ timeout: 30_000 });
+    },
+  },
+  {
+    name: "title-bare",
+    store: { aiostreams: AIO, startupTab: "stream" },
+    ready: async (p) => {
+      await p.route(/localhost:8084\/meta\//, async (r) => {
+        const res = await r.fetch();
+        const body = await res.json();
+        delete body.meta.background;
+        await r.fulfill({ response: res, json: body });
+      });
+      await p.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
+      await p.locator(".vod-source").first().waitFor({ timeout: 30_000 });
+      await p.locator(".vod-more__card").first().waitFor({ timeout: 30_000 });
+    },
+  },
+  // A series opens on its episodes (the page's other root).
+  {
+    name: "episodes",
+    store: { aiostreams: AIO, startupTab: "stream" },
+    ready: async (p) => {
+      await p.locator(".stream-card", { hasText: "Fake Series One" }).first().click();
+      await p.locator(".episode-card").first().waitFor({ timeout: 30_000 });
+    },
+  },
+  // Three tiles with their captions, one holding keyboard focus.
+  {
+    name: "multiview-tiles",
+    store: { playlists: XTREAM, startupTab: "live", multiviewNoticeSeen: true },
+    go: "multiview",
+    initArg: MV_PORT,
+    init: (port) => {
+      MediaSource.isTypeSupported = () => true;
+      let cb = 0;
+      let n = 0;
+      window.__TAURI_INTERNALS__ = {
+        transformCallback: (f) => {
+          const id = ++cb;
+          window["_" + id] = f;
+          return id;
+        },
+        convertFileSrc: (x) => x,
+        metadata: {
+          currentWindow: { label: "main" },
+          currentWebview: { label: "main", windowLabel: "main" },
+        },
+        invoke: (cmd, args) => {
+          if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
+          if (cmd === "mv_proxy_open") return Promise.resolve(`http://127.0.0.1:${port}/mv/tok${++n}`);
+          return Promise.resolve(undefined);
+        },
+      };
+      window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+    },
+    ready: async (p) => {
+      await p.locator(".mvtab").waitFor({ timeout: 30_000 });
+      for (const name of ["Fake ESPN 4K", "Fake Sky Sports FHD", "Fake News Channel"]) await mvAdd(p, name);
+      await p.waitForFunction(() => document.querySelectorAll("video.mvtile__video").length === 3, null, { timeout: 10_000 });
+      // Nothing decodes here: give each tile the event its first frame fires.
+      await p.evaluate(() => document.querySelectorAll("video.mvtile__video").forEach((v) => v.dispatchEvent(new Event("playing"))));
+      await p.waitForTimeout(3300);
+      // Keyboard focus, so :focus-visible rings a tile.
+      for (let i = 0; i < 40 && !(await p.evaluate(() => !!document.activeElement?.matches?.(".mvtile:focus-visible"))); i++)
+        await p.keyboard.press("Tab");
     },
   },
   { name: "onboarding", store: { onboarded: false }, hide: ".boot-scene, .onb-cursor-glow", ready: (p) => p.locator(".onb-stage").waitFor({ timeout: 30_000 }) },
@@ -455,7 +556,7 @@ for (const theme of ["dark", "light"]) {
       },
       { store: s.store ?? {}, theme },
     );
-    if (s.init) await page.addInitScript(s.init);
+    if (s.init) await page.addInitScript(s.init, s.initArg);
     // Requests in flight, so the shot waits for the last one: a card's year
     // and runtime arrive in a second request, and a shot taken before it
     // lands shows "Movie" where the next run shows "2024 · 118 min · Movie".

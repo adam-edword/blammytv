@@ -394,6 +394,45 @@ const painted = await page.evaluate(({ x, y }) => {
 }, { x: W / 2, y: (capsBottom + H) / 2 });
 check("the app's own background shows around the tiles", painted.length === 0, painted.join(", "));
 
+// The caption's name takes the page's ink (audit N2). The caption sits on the
+// page, under the tile, not in it: it said --on-image, which is white in both
+// themes, so on light's grey page the name was white on near-white.
+const nameContrast = (theme) =>
+  page.evaluate((theme) => {
+    const root = document.documentElement;
+    if (theme === "light") root.dataset.theme = "light";
+    else delete root.dataset.theme;
+    const g = document.createElement("canvas").getContext("2d");
+    const flat = (c, under) => {
+      g.globalCompositeOperation = "copy";
+      g.fillStyle = under;
+      g.fillRect(0, 0, 1, 1);
+      g.globalCompositeOperation = "source-over";
+      g.fillStyle = c;
+      g.fillRect(0, 0, 1, 1);
+      return [...g.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+    };
+    const lin = (v) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const lum = ([r, gg, b]) => 0.2126 * lin(r) + 0.7152 * lin(gg) + 0.0722 * lin(b);
+    const name = document.querySelector(".mvcap__name");
+    // The first ground that paints, going up from the caption.
+    let ground = null;
+    for (let e = name; e && !ground; e = e.parentElement) {
+      const c = getComputedStyle(e).backgroundColor;
+      if (!/^rgba\(.*,\s*0\)$/.test(c) && !/\/\s*0\)$/.test(c) && c !== "transparent") ground = flat(c, "#fff");
+    }
+    const ink = flat(getComputedStyle(name).color, `rgb(${ground})`);
+    const [a, b] = [lum(ink), lum(ground)];
+    delete root.dataset.theme;
+    return { ratio: Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100, ink, ground };
+  }, theme);
+const names = { dark: await nameContrast("dark"), light: await nameContrast("light") };
+check(
+  "a caption's name clears 4.5:1 on the page, in dark and in light",
+  names.dark.ratio >= 4.5 && names.light.ratio >= 4.5,
+  JSON.stringify(names),
+);
+
 // Tag the elements, switch layout, and see the same elements come back.
 await page.evaluate(() =>
   document.querySelectorAll("video.mvtile__video").forEach((v, i) => (v.__tag = `v${i}`)),
@@ -464,6 +503,40 @@ const chromeOf = () =>
     focused: t.matches(":focus-visible"),
   }));
 const awake = await chromeOf();
+// Its ring is the page's, whatever the tile wears (audit N4): the gap is the
+// page's colour and the band outside it the page's ink. The tile is a picture
+// (.on-picture, so --bg and --text are the picture's dark and light), which in
+// light drew a dark gap and a white band that vanished on the grey page.
+const ringOf = (theme) =>
+  page.locator(".mvtile").first().evaluate((t, theme) => {
+    const root = document.documentElement;
+    if (theme === "light") root.dataset.theme = "light";
+    else delete root.dataset.theme;
+    const g = document.createElement("canvas").getContext("2d");
+    const px = (c) => {
+      g.clearRect(0, 0, 1, 1);
+      g.fillStyle = c;
+      g.fillRect(0, 0, 1, 1);
+      return [...g.getImageData(0, 0, 1, 1).data.slice(0, 3)].join(",");
+    };
+    const rings = {};
+    for (const m of getComputedStyle(t).boxShadow.matchAll(/((?:rgba?|color|oklch|oklab|hsla?)\([^)]*\))\s+0px 0px 0px (\d+)px/g)) rings[m[2]] = px(m[1]);
+    const out = {
+      focused: t.matches(":focus-visible"),
+      gap: rings["6"],
+      band: rings["8"],
+      pageBg: px(getComputedStyle(root).getPropertyValue("--bg").trim()),
+      pageText: px(getComputedStyle(root).getPropertyValue("--text").trim()),
+    };
+    delete root.dataset.theme;
+    return out;
+  }, theme);
+const rings = { dark: await ringOf("dark"), light: await ringOf("light") };
+check(
+  "a focused tile's ring is the page's colour and ink, in dark and in light",
+  ["dark", "light"].every((t) => rings[t].focused && rings[t].gap === rings[t].pageBg && rings[t].band === rings[t].pageText),
+  JSON.stringify(rings),
+);
 await page.waitForTimeout(2600);
 const resting = await chromeOf();
 await page.keyboard.press("Shift");

@@ -1347,7 +1347,14 @@ const dimmedText = () =>
   await page.waitForTimeout(800);
   // Its up-next episode, focused: the focus ring shows round the picture,
   // not the accent ring that sits in the same place.
-  await page.evaluate(() => document.documentElement.style.setProperty("--accent", "rgb(255, 0, 0)"));
+  // A PICKED accent, as the picker sets one: the colour and the flag that
+  // says it was picked (accent.ts). Without the flag a picture page (the
+  // episodes page wears .on-picture since 0.11.0's N1) puts the theme's own
+  // accent back over it.
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty("--accent", "rgb(255, 0, 0)");
+    document.documentElement.dataset.accent = "picked";
+  });
   const upnext = page.locator(".tile.is-next").first();
   const ring = async () =>
     page.evaluate(() => ({
@@ -1362,7 +1369,10 @@ const dimmedText = () =>
     await page.waitForTimeout(250);
   }
   const lit = await ring();
-  await page.evaluate(() => document.documentElement.style.removeProperty("--accent"));
+  await page.evaluate(() => {
+    document.documentElement.style.removeProperty("--accent");
+    delete document.documentElement.dataset.accent;
+  });
   check(
     "  the up-next episode, focused, shows the focus ring and not the accent over it",
     idle.pic === "rgb(255, 0, 0)" && lit.focused && lit.pic === "rgba(0, 0, 0, 0)",

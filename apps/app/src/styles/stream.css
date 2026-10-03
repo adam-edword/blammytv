@@ -659,12 +659,18 @@
 .stream--full {
   padding: 0;
 }
+/* A PICTURE PAGE in both themes (plan 022, audit N1): the root wears
+ * .on-picture, so the scrim below fades to the picture's shade and every
+ * word on it reads as it does in dark. The ground until art lands (or with
+ * none) is dark's card colour, the same literal in both themes: --surface
+ * is white in light, and .on-picture does not remap it. tokens.test.ts holds
+ * it equal to dark's --surface. */
 .vod-detail {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: var(--surface);
+  background: oklch(0.205 0 0);
 }
 .vod-detail__backdrop {
   position: absolute;

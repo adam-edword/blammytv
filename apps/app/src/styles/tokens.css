@@ -66,6 +66,12 @@
   --float-shadow: var(--glass-lift);
   --sheet-bg: color-mix(in srgb, var(--surface) 90%, transparent);
   --sheet-blur: blur(40px) saturate(1.4);
+  /* The row a menu is on, under the pointer or the arrow keys: the generated
+   * dropdown, context menu and combobox (components/README.md). Dark has the
+   * raised surface, shadcn's `accent`. Light's raised surface is white, which
+   * is the glass's own ground (1.03:1), so light takes the track, as Ctrl+K's
+   * rows do (player.css, .mvpick__row). */
+  --menu-highlight: var(--surface-raised);
   /* The dim behind a dialog: light enough that the glass has something to
    * show (was shadcn's 50% black). */
   --dim: rgb(0 0 0 / 0.3);
@@ -285,6 +291,15 @@
    * app's own word for "not available". A mix with the page keeps the
    * same look without that meaning. */
   --text-faint: color-mix(in srgb, var(--text) 35%, var(--bg));
+  /* THE PAGE'S OWN COLOURS. `.on-picture` remaps --bg and --text to the
+   * picture's, so something drawn AROUND a picture in the page's colour (the
+   * windowed player's corner wedges, a focused multi-view tile's gap ring)
+   * cannot say --bg: on the light page it comes out as a dark notch. These
+   * two are never remapped. Declared once, here: on the root they resolve
+   * against whichever theme the root has, and a subtree inherits the
+   * resolved colour, as --text-faint above does. */
+  --page-bg: var(--bg);
+  --page-text: var(--text);
 
   /* Status — deliberately UNTHEMED constants: danger must read as danger
    * under any pack (the settings danger-zone's documented fixed-red rule).
@@ -437,6 +452,7 @@
   --surface-track: oklch(0.93 0 0); /* `muted`, darker than the page */
   --surface-puck: oklch(0.93 0 0);
   --surface-raised: oklch(1 0 0); /* a white thumb on the muted track */
+  --menu-highlight: var(--surface-track);
   --border: oklch(0.922 0 0);
   --border-strong: oklch(0.922 0 0);
   --border-raised: oklch(0.922 0 0);
@@ -483,10 +499,12 @@
  * on the picture, not on the root with the page's ink.
  *
  * The header joins while a picture is under it (StreamScreen's hero sets
- * the flag): its scrim is --bg, so it takes the picture's shade, and its
- * ink turns with it. */
+ * the flag, and a film or series page is a picture page, 0.11.0 audit N1):
+ * its scrim is --bg, so it takes the picture's shade, and its ink turns with
+ * it. */
 .on-picture,
-:root[data-header-over="picture"] .header {
+:root[data-header-over="picture"] .header,
+:root:has(.vod-detail) .header {
   --bg: oklch(0.145 0 0);
   --text: oklch(0.985 0 0);
   --text-muted: oklch(0.708 0 0);
@@ -503,7 +521,8 @@
  * themes and stays (accent.ts flags it). The values are dark's, held equal
  * by tokens.test.ts like the four above. */
 :root:not([data-accent]) .on-picture,
-:root:not([data-accent])[data-header-over="picture"] .header {
+:root:not([data-accent])[data-header-over="picture"] .header,
+:root:not([data-accent]):has(.vod-detail) .header {
   --accent: oklch(0.922 0 0);
   --accent-ink: oklch(0.205 0 0);
 }

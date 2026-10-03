@@ -346,8 +346,10 @@
  * DWM composites directly, so neither SetWindowRgn (round_child) nor a CSS
  * radius on the slot clips the picture — the video corners are always sharp.
  * This transparent overlay sits pixel-aligned over the video, so we paint the
- * four corner triangles in the app background: outside the arc = --bg (blends
- * into the chrome around the inset player), inside = transparent (video shows).
+ * four corner triangles in the app background: outside the arc = --page-bg
+ * (blends into the chrome around the inset player), inside = transparent
+ * (video shows). Not --bg: this element wears .on-picture, which makes --bg
+ * the picture's dark, a notch on the light page.
  * Windowed theater only — fullscreen fills the monitor, no corners to round. */
 .theater-overlay:not(.theater-overlay--fs)::before {
   content: "";
@@ -357,13 +359,13 @@
   pointer-events: none;
   --r: 12px;
   background:
-    radial-gradient(var(--r) at bottom right, #0000 98%, var(--bg)) top left /
+    radial-gradient(var(--r) at bottom right, #0000 98%, var(--page-bg)) top left /
       var(--r) var(--r) no-repeat,
-    radial-gradient(var(--r) at bottom left, #0000 98%, var(--bg)) top right /
+    radial-gradient(var(--r) at bottom left, #0000 98%, var(--page-bg)) top right /
       var(--r) var(--r) no-repeat,
-    radial-gradient(var(--r) at top right, #0000 98%, var(--bg)) bottom left /
+    radial-gradient(var(--r) at top right, #0000 98%, var(--page-bg)) bottom left /
       var(--r) var(--r) no-repeat,
-    radial-gradient(var(--r) at top left, #0000 98%, var(--bg)) bottom right /
+    radial-gradient(var(--r) at top left, #0000 98%, var(--page-bg)) bottom right /
       var(--r) var(--r) no-repeat;
 }
 
@@ -1596,11 +1598,14 @@
  * near-white outline at the same place under the default accent, so a
  * sound flash read as focus, and a focused sound tile showed one of the
  * two (plan 018, U13). The outline stays the sound's; focus is a shadow
- * ring past it, with the page between. */
+ * ring past it, with the page between. The page's colours, not --bg and
+ * --text: the tile wears .on-picture, which makes those the picture's, and
+ * in light the gap came out dark with a white ring that vanished on the
+ * grey page. */
 .mvtile:focus-visible {
   box-shadow:
-    0 0 0 6px var(--bg),
-    0 0 0 8px var(--text);
+    0 0 0 6px var(--page-bg),
+    0 0 0 8px var(--page-text);
 }
 
 .mvtile__video {
@@ -2149,7 +2154,9 @@
 }
 
 /* The caption, UNDER the picture (Adam, on M4: "as long as it doesn't
- * cover the content"): logo, name, and what is on. */
+ * cover the content"): logo, name, and what is on. It sits on the page, not
+ * in the tile, so it takes the page's ink: --on-image is white in both
+ * themes, which is white on white in light. */
 .mvcap {
   position: absolute;
   display: flex;
@@ -2158,7 +2165,7 @@
   padding: 0 2px;
   font-size: 12.5px;
   font-weight: 600;
-  color: color-mix(in srgb, var(--on-image) 92%, transparent);
+  color: color-mix(in srgb, var(--text) 92%, transparent);
   white-space: nowrap;
   pointer-events: none;
 }

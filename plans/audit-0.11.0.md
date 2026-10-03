@@ -5,8 +5,8 @@ Morning summary: (written when the audit is done)
 **Progress:** all 10 auditors back, every finding checked. Fixed so far:
 Sports, the privacy page, CI's timeout and the changelog line (v0.11.2),
 the app shell (v0.11.3), Live TV (v0.11.4), Stream (v0.11.5),
-Multi-view (v0.11.6), native (v0.11.7, needs a rebuild). Next through
-the builder: light mode, tooling, then a mop-up (LV8). A session restart at 03:30 UTC killed seven
+Multi-view (v0.11.6), native (v0.11.7, needs a rebuild), light mode
+(v0.11.8). Next through the builder: tooling, then a mop-up (LV8). A session restart at 03:30 UTC killed seven
 auditors and Sonnet's fullscreen run; the seven were started again and
 0.11.1 was finished here (`8e9b5ef0`).
 
@@ -226,36 +226,41 @@ screens nobody looked at in light.
 in light mode.** Confirmed by reading, measured by the auditor (title
 contrast 1.05 to 1.56 in light, 9.6 to 18.9 in dark): `.vod-detail`'s
 scrim fades to `--bg` (`stream.css:676-684`), which light makes near-white,
-and every word on the page is `--on-image` white. Plan: the title page is
-a picture page, so it takes `.on-picture`, the way the Home hero's header
-does, with its no-art ground dark too. In light it reads like dark there,
-which is what a page over a backdrop should do.
+and every word on the page is `--on-image` white. Fixed in v0.11.8: the
+film and series pages wear `.on-picture`, their no-art ground is dark's
+surface, and the header joins the picture on them as it does over the
+Stream hero. In light they read like dark. Title contrast in light: 1.6
+before, 11.25 with art; dark byte-identical.
 
 **N2. MEDIUM. Multi-view's channel names are white on the light page.**
 Confirmed: `.mvcap` (`player.css:2153-2164`) sits in `MultiviewGrid`, not
 inside the `.on-picture` tile, and takes `--on-image`; its siblings
-`.mvcap__now` and `.mvcap__sound` already take `--text`. Plan: so does the
-name.
+`.mvcap__now` and `.mvcap__sound` already take `--text`. Fixed in v0.11.8:
+so does the name (light 1.1 to 15.4; dark moves a few levels in the name
+only, #fff to #fafafa).
 
 **N3. LOW-MEDIUM, accessibility. A menu's highlighted row doesn't show in
 light mode.** Confirmed: the dropdown, context-menu and combobox items
 use `bg-accent`, which is `--surface-raised`, white in light, on 72% white
 glass (1.03:1). Ctrl+K already fixed the same pairing
-(`player.css:2012`). Plan: light's menu highlight a step darker, the
-palette's way.
+(`player.css:2012`). Fixed in v0.11.8: a `--menu-highlight` token, dark's
+raised surface and light's track grey, for the three components'
+highlighted and open rows. `--color-accent` is untouched.
 
 **N4. LOW. `.on-picture` paints page-coloured things around a picture
 near-black in light.** Confirmed: the windowed theater's rounded corners
 (`player.css:352-367`) and a focused multi-view tile's gap ring
 (`player.css:1600-1604`) use `--bg`, which `.on-picture` makes dark. In
-light the corners show as dark notches on the grey page. Plan: a page
-colour token `.on-picture` doesn't override, for those two rules.
+light the corners show as dark notches on the grey page. Fixed in v0.11.8:
+`--page-bg` and `--page-text`, which `.on-picture` leaves alone, for both
+rules.
 
 **N5. LOW. A verify-appearance check passes vacuously.** Confirmed by
 reading: "Dark stays dark whatever Windows says" emulates light while the
 page is already light, so no change event fires
-(`scripts/verify-appearance.mjs:121-130`). Plan: emulate dark first, then
-flip.
+(`scripts/verify-appearance.mjs:121-130`). Fixed in v0.11.8: it emulates
+dark, picks Dark, then flips to light. With the listener removal deleted,
+the old check passed and the new one fails.
 
 ### Live TV core (second pass)
 

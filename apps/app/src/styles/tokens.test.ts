@@ -39,4 +39,15 @@ describe("tokens.css", () => {
       expect(picture.get(name), name).toBe(dark.get(name));
     }
   });
+
+  it("the title page's ground, until its art lands, is dark's card colour", () => {
+    // The page wears .on-picture, which doesn't remap --surface (white in
+    // light), so stream.css says dark's value itself.
+    const dark = block(":root {");
+    const stream = readFileSync(fileURLToPath(new URL("./stream.css", import.meta.url)), "utf8");
+    const at = stream.indexOf("\n.vod-detail {");
+    expect(at).toBeGreaterThan(-1);
+    const ground = /background:\s*([^;]+);/.exec(stream.slice(at, stream.indexOf("}", at)))?.[1].trim();
+    expect(ground).toBe(dark.get("--surface"));
+  });
 });

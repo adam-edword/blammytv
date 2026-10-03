@@ -118,7 +118,7 @@ the portal served nothing: the two that "passed" were negative assertions
 
 **For a change that must not move a pixel** (a token move, a dead-code
 sweep): `node scripts/screens.mjs capture <dir>` before and after, then
-`compare <before> <after>`. Eleven scenes in both themes, byte-identical
+`compare <before> <after>`. Fifteen scenes in both themes, byte-identical
 between two runs of one tree, plus every colour the stylesheets declare
 resolved to pixels, which covers hovers, errors and the player. About ten
 minutes a capture; `ONLY=guide,stream` for fewer. It uses the board's

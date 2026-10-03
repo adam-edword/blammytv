@@ -9,6 +9,8 @@
 //   - the grey page: light's page is a grey with white cards on it, not
 //     shadcn's white on white.
 //   - Reset going back to Dark.
+//   - the windowed player's rounded corners being the page's colour in light,
+//     not the picture's dark (audit N4).
 //
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-appearance.mjs
 import { createRequire } from "node:module";
@@ -122,12 +124,24 @@ await page.emulateMedia({ colorScheme: "light" });
 await boot();
 check("and at launch", (await state()).theme === "light");
 
-// Picking a theme stops following Windows.
+// Picking a theme stops following Windows. Windows is flipped for real: the
+// page is already light here, and emulating light on a light page fires no
+// change event, so this passed with the listener still attached. Windows goes
+// dark first (Match Windows follows it), Dark is picked, and only then does
+// Windows go light.
 await openCustomize();
+await page.emulateMedia({ colorScheme: "dark" });
+await page.waitForTimeout(150);
+const followedDark = (await state()).theme;
 await pick("Dark");
 await page.emulateMedia({ colorScheme: "light" });
 await page.waitForTimeout(150);
-check("Dark stays dark whatever Windows says", (await state()).theme === "dark");
+const windowsNow = await page.evaluate(() => (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+check(
+  "Dark stays dark whatever Windows says",
+  followedDark === "dark" && windowsNow === "light" && (await state()).theme === "dark",
+  `Windows went dark (app ${followedDark}), Dark picked, Windows went ${windowsNow} (app ${(await state()).theme})`,
+);
 
 // Reset Appearance goes back to Dark.
 await pick("Light");
@@ -137,6 +151,70 @@ check(
   "Reset Appearance goes back to Dark",
   (await state()).theme === "dark" && (await pressed()) === "Dark",
 );
+// The windowed player draws four corner wedges over the video in the page's
+// colour, so the inset picture reads as rounded. The chrome wears
+// .on-picture, which makes --bg the picture's dark, and the wedges said --bg:
+// near-black notches on light's grey page (audit N4). ?overlay=1 is the chrome
+// on a page of its own. It takes the windowed state from the window's size,
+// so the screen is made bigger than the window (at the screen's width it is
+// the fullscreen chrome, which has no wedges).
+{
+  const ovCtx = await browser.newContext({ viewport: { width: 1100, height: 650 }, screen: { width: 1920, height: 1080 } });
+  await ovCtx.route((u) => u.hostname !== "localhost", (r) => r.abort());
+  const ov = await ovCtx.newPage();
+  ov.on("pageerror", (e) => errors.push(String(e)));
+  await ov.addInitScript(() => {
+    const off = () => () => {};
+    window.overlayApi = {
+      close() {}, setPause() {}, setMute() {}, setVolume() {}, seek() {}, seekAbs() {}, seekTo() {}, setSpeed() {},
+      expand() {}, collapse() {}, fullscreen() {}, exitFullscreen() {}, popout() {}, panel() {},
+      toggleFavorite() {}, goLive() {}, setMouseIgnore() {}, selectAudio() {}, selectSub() {},
+      getMeta: async () => ({ channelName: "Fake Movie", title: "Fake Movie", live: false }),
+      onMeta: off, onLoading: off, onKey: off, onTime: off, onTracks: off, onChapters: off,
+      getLoading: () => false, getTime: () => null, getTracks: () => null, getChapters: () => [],
+    };
+    localStorage.setItem("btv:onboarded", "1");
+    sessionStorage.setItem("btv:welcome-played", "1");
+  });
+  await ov.goto(`${URL}?overlay=1`, { waitUntil: "domcontentloaded" });
+  await ov.locator(".theater-overlay").first().waitFor({ timeout: 15_000 });
+  const windowed = await ov.evaluate(() => !document.querySelector(".theater-overlay").classList.contains("theater-overlay--fs"));
+  const corners = {};
+  for (const theme of ["dark", "light"]) {
+    await ov.evaluate((theme) => {
+      if (theme === "light") document.documentElement.dataset.theme = "light";
+      else delete document.documentElement.dataset.theme;
+    }, theme);
+    await ov.waitForTimeout(200);
+    const png = await ov.screenshot();
+    corners[theme] = await ov.evaluate(async (b64) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const c = document.createElement("canvas");
+      c.width = img.width;
+      c.height = img.height;
+      const g = c.getContext("2d");
+      g.drawImage(img, 0, 0);
+      const at = (x, y) => [...g.getImageData(x, y, 1, 1).data.slice(0, 3)];
+      // What the page paints around the player: --bg on the root, resolved.
+      g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+      g.fillRect(0, 0, 1, 1);
+      const surround = [...g.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+      g.drawImage(img, 0, 0);
+      const [w, h] = [img.width, img.height];
+      return { surround, corners: [at(0, 0), at(w - 1, 0), at(0, h - 1), at(w - 1, h - 1)] };
+    }, png.toString("base64"));
+  }
+  await ovCtx.close();
+  // One level of slack: a gradient is rasterised through a float path.
+  const same = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= 1);
+  check(
+    "the windowed player's four corners are the page's colour, in dark and in light",
+    windowed && ["dark", "light"].every((t) => corners[t].corners.every((c) => same(c, corners[t].surround))),
+    JSON.stringify({ windowed, ...corners }),
+  );
+}
 check("no page errors", errors.length === 0, errors[0]?.slice(0, 160));
 
 await browser.close();

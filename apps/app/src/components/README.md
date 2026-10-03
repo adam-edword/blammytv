@@ -29,6 +29,14 @@ glass tier as `border-float-border`, `shadow-(--float-shadow)` and
 `bg-(--dim)` (plan 022). The tokens are in `styles/tokens.css`; utilities
 outrank the app's own stylesheets, so a rule there cannot put them back.
 
+The highlighted row in dropdown-menu, context-menu and combobox takes the
+`--menu-highlight` token where the generated file uses the `accent` colour
+(on `focus:`, `data-highlighted:` and `data-[state=open]:`). `accent` is the
+raised surface, white in light, on glass that is white too (1.03:1); the
+token is the same surface in dark and the track in light. `--color-accent`
+itself stays, since other hovers read it. A re-`add` of any of the three
+takes this off.
+
 ## They are Tailwind-only on purpose
 
 A generated component uses stock Tailwind classes (`bg-background`,

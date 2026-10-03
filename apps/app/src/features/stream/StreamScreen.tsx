@@ -2471,7 +2471,7 @@ function Detail({
   }, [item.kind, item.id, episodeId, sourcesTick]);
 
   return (
-    <div className="vod-detail">
+    <div className="vod-detail on-picture">
       {item.backdrop && (
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
@@ -2678,7 +2678,7 @@ function Episodes({
   const season =
     item.seasons[Math.min(seasonIdx, Math.max(0, item.seasons.length - 1))];
   return (
-    <div className="vod-detail">
+    <div className="vod-detail on-picture">
       {item.backdrop && (
         <img className="vod-detail__backdrop" src={item.backdrop} alt="" />
       )}
