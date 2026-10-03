@@ -19,7 +19,6 @@ import {
   mpegtsConfig,
   onMvProfileChange,
   registerTile,
-  tileGain,
 } from "./multiviewTuning";
 import {
   airing,
@@ -36,6 +35,7 @@ import type { Programme } from "./model";
 import type { Fixture } from "../sports/model";
 import { scoreLine } from "./mvGames";
 import { watchLevel, type LevelWatch } from "./mvLevel";
+import { bindTile, routeSound } from "./mvAudio";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
 import { CloseIcon, PlayIcon, SwapIcon, VolumeIcon, WarnIcon } from "../../ui/icons";
@@ -141,7 +141,6 @@ export function MultiviewTile({
   scoreAt,
   now,
   focused,
-  volume,
   muted,
   onFocus,
   onRemove,
@@ -179,8 +178,8 @@ export function MultiviewTile({
   now: Date;
   /** The one tile with sound. Exactly one, enforced by the grid. */
   focused: boolean;
-  /** The bar's volume, 0 to 1, and its mute: for the sound tile. */
-  volume: number;
+  /** The bar's mute, for the sound tile's badge. Its volume and the element
+   * itself are mvAudio.ts's. */
   muted: boolean;
   onFocus: () => void;
   /** Close this stream (Adam's X). */
@@ -575,15 +574,24 @@ export function MultiviewTile({
 
   // Audio follows focus rather than being set at mount, so moving focus does
   // not restart a stream. Exactly one tile is ever unmuted; the grid owns
-  // that invariant and this just obeys it. The bar's volume and mute are
-  // the sound tile's (plan 017, "Sound and volume"), on mpv's curve so the
-  // same slider sounds the same in both (tileGain).
+  // that invariant and this just obeys it. mvAudio.ts sets the element from
+  // here: the sound tile's volume and mute are the bar's (plan 017, "Sound
+  // and volume"), on mpv's curve so the same slider sounds the same in both
+  // (tileGain), and while the app plays the sound itself every tile is muted.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.muted = !focused || muted;
-    video.volume = tileGain(volume);
-  }, [focused, muted, volume]);
+    return bindTile(video, focused);
+  }, [focused]);
+
+  // The sound tile's element, for the routed copy of its sound: while it
+  // has the sound and is playing, and again after a retry (a new stream is a
+  // new copy), as the level watch below does.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !focused || !playing) return;
+    return routeSound(video);
+  }, [focused, playing]);
 
   // The Sound badge's bars follow what the feed is actually saying, on the
   // sound tile only (mvLevel.ts). Set on the element directly: sixty

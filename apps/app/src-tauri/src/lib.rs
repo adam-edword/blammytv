@@ -2,6 +2,7 @@ mod frontend;
 mod mal;
 mod mpv;
 mod mpvurl;
+mod mvaudio;
 mod mvconvert;
 mod mvproxy;
 mod trakt;
@@ -10,6 +11,8 @@ mod trakt;
 mod credman;
 #[cfg(windows)]
 mod inv;
+#[cfg(windows)]
+mod mvaudio_out;
 #[cfg(windows)]
 mod single;
 
@@ -906,6 +909,44 @@ fn mv_proxy_close(local: String) {
     mvproxy::close(&local)
 }
 
+/// Multi-view's sound, played from this process (mvaudio.rs): open the
+/// default output device and a loopback listener the webview POSTs the sound
+/// tile's audio to, and return the URL and the rate to render it at. Opening
+/// twice hands back the open one. Rejects with a plain message when there is
+/// no device, and on a native build from before it, which the frontend treats
+/// as "play it in the webview".
+#[tauri::command]
+async fn mv_audio_open() -> Result<mvaudio::Opened, String> {
+    // Opening a device can take a moment: not on the thread that runs the UI.
+    tauri::async_runtime::spawn_blocking(|| mvaudio::open(audio_output))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[cfg(windows)]
+use mvaudio_out::start as audio_output;
+
+// Only Windows has the output; nothing else builds this app, but the shared
+// part of mvaudio.rs should still compile.
+#[cfg(not(windows))]
+fn audio_output(_: std::sync::Arc<mvaudio::Shared>) -> Result<mvaudio::Output, String> {
+    Err("multi-view's sound output is Windows only".to_string())
+}
+
+/// Stop multi-view's sound output and its listener, and free the device.
+/// Nothing open is fine.
+#[tauri::command]
+async fn mv_audio_close() {
+    let _ = tauri::async_runtime::spawn_blocking(mvaudio::close).await;
+}
+
+/// What the sound output is doing, for working out on a real machine why it
+/// sounds the way it does: milliseconds buffered, underruns, overruns, batches.
+#[tauri::command]
+fn mv_audio_stats() -> mvaudio::Stats {
+    mvaudio::stats()
+}
+
 /// Trakt (plan 015): one client for the run. Its client id is compiled in
 /// by build.rs from apps/app/.env.local (TRAKT_CLIENT_ID; Trakt no longer
 /// issues a secret) and is empty in a build without it, which then says
@@ -1276,6 +1317,9 @@ pub fn run() {
             mv_proxy_open_hls,
             mv_proxy_close,
             mv_convert_warm,
+            mv_audio_open,
+            mv_audio_close,
+            mv_audio_stats,
             trakt_status,
             trakt_device_start,
             trakt_device_poll,

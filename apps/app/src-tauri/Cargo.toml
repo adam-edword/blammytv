@@ -71,6 +71,13 @@ flate2 = "1"
 # via Tauri; pinned as a direct dep with just the features inv.rs uses. (The
 # WebView2/DirectComposition set died with comp.rs at the v0.2.0 deletion.)
 [target.'cfg(windows)'.dependencies]
+# Multi-view's sound is played from this process (mvaudio_out.rs) so a Discord
+# window share with sound hears it: WebView2 renders a tile's audio in its own
+# process, which that capture misses. cpal is the standard Rust audio I/O
+# library (WASAPI here). It pulls its own `windows` 0.62 beside the 0.61 below,
+# which is not churned for it: inv.rs and the rest stay on 0.61. It needs Rust
+# 1.85; time and others in the tree already need 1.88.
+cpal = "0.18"
 windows = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",

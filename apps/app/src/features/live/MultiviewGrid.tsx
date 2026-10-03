@@ -15,6 +15,7 @@ import {
 } from "./mvLayout";
 import { airing } from "./mvTile";
 import { stepSound } from "./mvGrid";
+import { useMvAudio } from "./mvAudio";
 import { requestWatchInPlayer } from "./multiviewEntry";
 import { forMultiview, releaseHeader } from "./mvKeys";
 import { ghostOf, lastInputWasKey, leave, play, snapshot, stop, type Ghost } from "./mvMotion";
@@ -228,6 +229,9 @@ export function MultiviewGrid({
     shown.find(live) ??
     shown.find((s) => s.id === soundId) ??
     shown[0];
+  // The sound goes out through the app while the grid has a sound tile, and
+  // mvAudio.ts sets every tile's element from the bar (see MultiviewTile).
+  useMvAudio(sound?.id ?? null, volume, muted);
 
   // FILL THE WINDOW (decision M6): double-click a tile, or Enter, and it
   // takes the whole stage inside multi-view; the others keep playing out of
@@ -512,7 +516,6 @@ export function MultiviewGrid({
                 scoreAt={s.scoreAt}
                 now={now}
                 focused={on}
-                volume={volume}
                 muted={muted}
                 onFocus={() => chooseSound(s)}
                 onDead={(is) => markDead(s.id, is)}

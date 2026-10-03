@@ -201,6 +201,38 @@ export function tauriMvProxyClose(local: string): Promise<void> {
   return invoke("mv_proxy_close", { local });
 }
 
+/** Where multi-view's sound goes (mvaudio.rs): a loopback URL to POST
+ * interleaved f32 stereo to, and the rate to render it at. */
+export interface MvAudioSink {
+  url: string;
+  rate: number;
+}
+/** What the sound output is doing, for the console line when multi-view is
+ * left: milliseconds buffered, and how often it ran dry or ran over. */
+export interface MvAudioStats {
+  open: boolean;
+  rate: number;
+  bufferedMs: number;
+  underruns: number;
+  overruns: number;
+  droppedMs: number;
+  chunks: number;
+}
+/** Open the native sound output (the default device, played from this
+ * process so Discord's per-app capture hears it) and its listener. Rejects
+ * with a plain message when there is no device, and on a native build from
+ * before it: the caller then leaves the sound in the webview. */
+export function tauriMvAudioOpen(): Promise<MvAudioSink> {
+  return invoke<MvAudioSink>("mv_audio_open");
+}
+/** Stop the sound output and free the device. Nothing open is fine. */
+export function tauriMvAudioClose(): Promise<void> {
+  return invoke("mv_audio_close");
+}
+export function tauriMvAudioStats(): Promise<MvAudioStats> {
+  return invoke<MvAudioStats>("mv_audio_stats");
+}
+
 /** Tell the native side this frontend booted far enough to run code.
  *
  * Only meaningful for a STAGED frontend (plan 008): the native side arms a
