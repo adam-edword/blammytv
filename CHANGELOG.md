@@ -98,8 +98,9 @@ the background.
   channel in two categories could crash it.
 - **Clear All Login Info clears everything.** A playlist and its password
   could come back, and the guide's saved copy stayed.
-- **Escape closes Settings the first time**, even right after tabbing
-  through it.
+- **Escape closes Settings after tabbing through it.** It used to miss
+  every time; now it's rare, when a key lands in the few milliseconds
+  after a tooltip closes.
 - **Golf dates and episode air dates** no longer show a day early west of
   US Eastern.
 - **A failed guide refresh keeps the guide you had**, `.xml.gz` guides
