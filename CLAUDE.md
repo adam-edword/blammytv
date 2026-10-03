@@ -266,7 +266,7 @@ message or a doc gets read first-hand before it is written down.
 
 **Bigger changes: Sonnet builds, the main session plans and checks.**
 Adam, v0.11.0: it's cheaper. Anything past a small tweak goes to the
-builder, Sonny (`.claude/agents/sonny.md`, pinned to Sonnet). A small
+builder, Sonnet (`.claude/agents/sonnet.md`, on the Sonnet model). A small
 tweak is one or two files, a few lines and nothing new to test (copy, a CSS
 value, a one-line fix with its check): those stay here, because briefing
 one costs more than it buys.
