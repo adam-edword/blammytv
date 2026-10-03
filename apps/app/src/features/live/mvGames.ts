@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchBoard } from "../sports/espn";
 import { fetchList, gameTeamKeys, isFollowed, loadFollows, type Follows } from "../sports/follows";
 import { useCatalog } from "../sports/catalog";
-import type { Catalog } from "../sports/matcher";
+import type { Catalog, Shared } from "../sports/matcher";
+import { presumedNetworks } from "../sports/networkMap";
+import { sharing } from "../sports/sharing";
 import { withChannels } from "../sports/useGames";
 import { isFixture, type Fixture, type Game } from "../sports/model";
 
@@ -95,8 +97,16 @@ export function mergeLeagues(
  */
 const RESOLVED = new WeakMap<Catalog, Map<string, Game>>();
 
-const matchKey = (g: Fixture): string =>
-  [g.leagueKey, g.id, g.start.getTime(), g.home.name, g.away.name, ...g.broadcasts].join("\u0001");
+const matchKey = (g: Fixture, shared: Shared | undefined): string =>
+  [
+    g.leagueKey,
+    g.id,
+    g.start.getTime(),
+    g.home.name,
+    g.away.name,
+    ...g.broadcasts,
+    JSON.stringify(shared ?? {}),
+  ].join("\u0001");
 
 export function liveChannels(raw: Game[], catalog: Catalog | null): Game[] {
   // Not known yet: every game says so, as withChannels has them say.
@@ -106,12 +116,14 @@ export function liveChannels(raw: Game[], catalog: Catalog | null): Game[] {
   const seen = memo;
   const t0 = performance.now();
   let matched = 0;
+  // The day's other games, which split a network's odds (sharing.ts).
+  const share = sharing(raw);
   const out = raw.map((g) => {
     if (!isFixture(g) || g.state !== "live") return g;
-    const key = matchKey(g);
+    const key = matchKey(g, share(g, [...g.broadcasts, ...presumedNetworks(g.leagueKey)]));
     let done = seen.get(key);
     if (!done) {
-      done = withChannels([g], catalog)[0];
+      done = withChannels([g], catalog, raw)[0];
       seen.set(key, done);
       matched++;
     }
@@ -122,6 +134,7 @@ export function liveChannels(raw: Game[], catalog: Catalog | null): Game[] {
       hiddenOnly: done.hiddenOnly,
       presumedOnly: done.presumedOnly,
       presumed: done.presumed,
+      shared: done.shared,
       channelsPending: false,
     };
   });

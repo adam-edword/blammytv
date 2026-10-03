@@ -1054,6 +1054,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             {playUrl && (
               <InvertedPlayer
                 url={playUrl}
+                live
                 squared={theater || fullscreen}
                 ready={videoReady}
               />

@@ -128,7 +128,7 @@ const row = (page, name) => page.locator(".sportsrail", { hasText: name });
   const auto = first.find((e) => e.kind === "tune");
   check(
     "autoplay's pick is logged: the top of the rail, for this game",
-    !!auto && auto.how === "auto" && auto.rank === 0 && auto.channel === SKY && auto.confidence === 100 && auto.game === GAME_NAME,
+    !!auto && auto.how === "auto" && auto.rank === 0 && auto.channel === SKY && auto.confidence === 90 && auto.game === GAME_NAME,
     JSON.stringify(auto),
   );
   const played = first.find((e) => e.kind === "played");
@@ -173,7 +173,10 @@ const row = (page, name) => page.locator(".sportsrail", { hasText: name });
   const flat = JSON.stringify(report ?? {});
   check(
     "btvPairing returns the rail as the theater builds it, and what autoplay and the card make of it",
-    !!g && g.rail[0][0] === SKY && g.rail[0][1] === 100 && g.rail[1][0] === ESPN && g.card === 2,
+    // v2: odds, and the kind they rest on. Both are the networks' own
+    // channels, in the schedule's order at equal odds.
+    !!g && g.rail[0][0] === SKY && g.rail[0][1] === 90 && g.rail[0][4] === "network" &&
+      g.rail[1][0] === ESPN && g.card === 2 && g.shared === null,
     JSON.stringify(g),
   );
   check(

@@ -7,6 +7,7 @@ import { gameTeamKeys } from "./follows";
 import { isFixture, isTournament } from "./model";
 import type { Game } from "./model";
 import { presumedNetworks } from "./networkMap";
+import { sameShared, sharing } from "./sharing";
 
 /** How often a mounted hub re-reads TODAY. Later days do not move. */
 const REFRESH_MS = 90_000;
@@ -905,7 +906,13 @@ export function keepStable(prev: Game[], next: Game[]): Game[] {
  */
 const RESOLVED = new WeakMap<Catalog, WeakMap<Game, Game>>();
 
-export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
+export function withChannels(
+  games: Game[],
+  catalog: Catalog | null,
+  /** The games a network's split is counted over (sharing.ts): the board
+   * these came from, when this is handed only some of it. */
+  board: readonly Game[] = games,
+): Game[] {
   // Not "no channels": not KNOWN yet. The cards say so rather than
   // guessing.
   //
@@ -925,9 +932,15 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
     RESOLVED.set(catalog, cache);
   }
   const memo = cache;
+  const share = sharing(board);
   return games.map((game) => {
+    // The other games on its networks at kick-off, which the odds split by
+    // (matcher.matchGame). Its curated networks too, for the fallback below.
+    const presumedFor = presumedNetworks(game.leagueKey, isTournament(game) ? game.title : undefined);
+    const shared = share(game, [...game.broadcasts, ...presumedFor]);
     const already = memo.get(game);
-    if (already) return already;
+    // A game keeps its answer while the board around its kick-off does.
+    if (already && sameShared(already.shared, shared)) return already;
     // The CARD only counts what we are sure of. A 40% match is a candidate
     // for the rail, where its score is visible; putting it behind "Live on
     // 3 channels" would be the silent wrongness plan 010 warns about.
@@ -943,10 +956,10 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
     // hidden-folder rule is decided over the COMBINED list (railFor): a
     // fixture-named channel from a folder the viewer muted used to walk
     // straight past it and LEAD the card, tuning the hidden one first.
-    let found = railFor(game.broadcasts, catalog, isFixture(game) ? game : undefined).filter(
+    let found = railFor(game.broadcasts, catalog, isFixture(game) ? game : undefined, shared).filter(
       (c) => c.confidence >= CARD_CONFIDENCE,
     );
-    // A club's own channel is sure for its own game (matcher SCORE.team),
+    // A club's own channel is sure for its own game (matcher ODDS.team),
     // in the curated map's fallback too.
     const clubs = isFixture(game) ? clubsOf([game.home, game.away]) : undefined;
     /**
@@ -993,14 +1006,9 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
     let presumedOnly = false;
     let presumed: string[] = [];
     if (found.length === 0) {
-      presumed = [
-        ...presumedNetworks(
-          game.leagueKey,
-          isTournament(game) ? game.title : undefined,
-        ),
-      ];
+      presumed = [...presumedFor];
       if (presumed.length > 0) {
-        found = matchGame(presumed, catalog, clubs).filter(
+        found = matchGame(presumed, catalog, clubs, true, shared).filter(
           (c) => c.confidence >= CARD_CONFIDENCE,
         );
         presumedOnly = found.length > 0;
@@ -1014,6 +1022,7 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
       hiddenOnly === (game.hiddenOnly ?? false) &&
       presumedOnly === (game.presumedOnly ?? false) &&
       sameNames(presumed, game.presumed) &&
+      sameShared(shared, game.shared) &&
       !game.channelsPending;
     const out: Game = unchanged
       ? game
@@ -1023,6 +1032,7 @@ export function withChannels(games: Game[], catalog: Catalog | null): Game[] {
           hiddenOnly,
           presumedOnly,
           presumed,
+          shared,
           channelsPending: false,
         };
     memo.set(game, out);

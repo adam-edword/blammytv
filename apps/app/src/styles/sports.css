@@ -1823,19 +1823,24 @@ div.sports__bar:not(.sports__head *) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The play mark, stacked ON the confidence score rather than sitting after
- * it (Adam's call).
- *
- * Two things it fixes at once. The row is already a button, so a separate
- * arrow implied IT was the target and competed for the eye at exactly the
- * spot the score needs it. And it was taking ~24px from the channel name,
- * which on a per-game feed is the only text distinguishing one row from
- * the next ("... HOME" against "... AWAY").
- *
- * It is out of flow now, which also settles an older bug for good: as a
- * flex item with no width pinned, it SHRANK to 4.94px on rows with long
- * names while rendering at 11px on short ones, and that read as the
- * confidence column wobbling. */
+/* The guesses under the sure rows, and the line that folds them. The line
+ * speaks a size under the Channels heading: it is a part of that list, not
+ * a section of its own. Empty, the box goes, or the rail's gap would count
+ * it as a row. */
+.sportstheater__guesses {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sportstheater__guesses:empty {
+  display: none;
+}
+.sportstheater__guessname {
+  font-family: var(--font-text);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-muted);
+}
 /* Says what it knows and what it cannot do yet, rather than showing an
  * empty box that looks broken. */
 .sportstheater__empty {
@@ -1877,6 +1882,33 @@ div.sports__bar:not(.sports__head *) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+/* The channel list's heading, which shuts it (Adam's): the Live Scores
+ * heading's voice, so the column reads as two sections of one kind, with
+ * the count and a caret. The Button underneath carries the layout; the
+ * words carry the type, because utilities outrank this file. */
+.sportstheater__railname {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 21px;
+  color: rgb(var(--card-ink));
+}
+.sportstheater__railcount {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.sportstheater__caret {
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  transition: transform var(--dur-enter) var(--ease-in-out);
+}
+.sportstheater__caret--shut {
+  transform: rotate(-90deg);
 }
 .sportstheater__heading {
   display: flex;
@@ -2024,6 +2056,7 @@ div.sports__bar:not(.sports__head *) {
 }
 .sportstheater__side--folded > .matchup,
 .sportstheater__side--folded > .sportstheater__rail,
+.sportstheater__side--folded > .sportstheater__railhead,
 .sportstheater__side--folded > .sportstheater__scores {
   display: none;
 }
@@ -2043,16 +2076,6 @@ div.sports__bar:not(.sports__head *) {
   border-radius: 0;
 }
 
-/* The channel rail's confidence column (Adam's Figma).
- *
- * A vertical bar rather than a horizontal one because the row is already a
- * left-to-right sentence (art, name, badge) and a horizontal bar would read
- * as another word in it. Standing up, it reads as a gauge beside the
- * sentence instead of part of it.
- *
- * Three bands, not a gradient: the number is derived from a handful of
- * discrete match reasons (see SCORE in matcher.ts), so a continuous ramp
- * would imply a precision it does not have. */
 /* .sportsrail__logo is ui/ChannelLogo now (plan 019, K6): the logo on a
  * white tile, the initial where there is none, sized inline. */
 .sportsrail__badge {
@@ -2084,68 +2107,27 @@ div.sports__bar:not(.sports__head *) {
 .sportsrail.is-wrong .sportsrail__name {
   color: var(--text-dim);
 }
-.sportsrail__score {
-  /* The number sits ON the bar, not beside it (Adam's Figma). Stacked
-   * rather than side by side: two things reading one measurement should
-   * occupy one place, and the pair was otherwise the widest column in a row
-   * whose subject is the channel name. */
-  position: relative;
-  display: grid;
-  place-items: center;
-  height: 32px;
-  min-width: 42px;
+/* A guess: under the card's bar (matcher.CARD_CONFIDENCE). It steps back
+ * and says its number, quietly, where a sure row says nothing (Adam picked
+ * this from five mockups, 2026-10-02). The row's own ink at 55%, because
+ * its ground is dark in both themes; about 6:1 on it. */
+.sportsrail.is-guess .sportsrail__name {
+  color: rgba(var(--card-ink), 0.55);
+}
+/* By opacity, the one place muting isn't by colour (plan 019 rule 6): a
+ * logo is a picture, with no colour of its own to set. */
+.sportsrail.is-guess .sportsrail__logo {
+  opacity: 0.55;
+}
+.sportsrail__odds {
   margin-left: auto;
+  padding: 0 4px;
   flex: 0 0 auto;
-}
-.sportsrail__bar {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 3px;
-  border-radius: 100px;
-  /* The track is the unfilled remainder, so a 20% bar still reads as a
-   * measurement against a scale rather than as a stray dash. */
-  background: rgba(var(--card-ink), 0.14);
-  overflow: hidden;
-}
-.sportsrail__bar i {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  border-radius: 100px;
-  background: currentColor;
-}
-.sportsrail__pct {
-  position: relative;
-  /* The row's own background, so the number interrupts the bar cleanly
-   * instead of sitting on top of it. Taken from the token above rather than
-   * repeated, so restyling the rail cannot leave this behind. */
-  background: var(--sportsrail-bg);
-  padding: 1px 3px;
-  /* Sized for "100%" and centred, so every row's number occupies the same
-   * box. Tabular figures keep the digits an even width; this keeps the
-   * STRING an even width, which is the part that was moving, because a
-   * three-character score centred in the column sits at different edges
-   * from a four-character one and the pair read as misaligned down a list. */
-  min-width: 42px;
-  text-align: center;
   font-family: var(--font-headline);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-.sportsrail__score.is-sure {
-  color: var(--match-sure);
-}
-.sportsrail__score.is-likely {
-  color: var(--match-likely);
-}
-.sportsrail__score.is-doubt {
-  color: var(--match-doubt);
+  color: rgba(var(--card-ink), 0.55);
 }
 
 /* ------------------------------------------------------- board + sidebar */

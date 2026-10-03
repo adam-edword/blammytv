@@ -71,7 +71,7 @@ const FIXTURE = {
  * pos 40 is 42s behind it. Those are the numbers dvr.ts folds, run here
  * through the real hook rather than asserted against it.
  */
-const stub = (pos) => `
+const stub = (pos, fixture = FIXTURE) => `
   window.__tauriCalls = [];
   let cb = 0;
   window.__TAURI_INTERNALS__ = {
@@ -96,7 +96,7 @@ const stub = (pos) => `
       return Promise.resolve(undefined);
     },
   };
-  window.__sportsFixture = ${JSON.stringify(FIXTURE)};
+  window.__sportsFixture = ${JSON.stringify(fixture)};
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.playlists", ${JSON.stringify(JSON.stringify(PLAYLIST))});
 `;
@@ -105,12 +105,12 @@ const browser = await chromium.launch({
   executablePath: "/opt/pw-browsers/chromium",
 });
 
-async function open(pos) {
+async function open(pos, fixture) {
   const ctx = await browser.newContext({
     viewport: { width: 1600, height: 900 },
   });
   const page = await ctx.newPage();
-  await page.addInitScript(stub(pos));
+  await page.addInitScript(stub(pos, fixture));
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   // The catalog load, the match, autoplay, and then the settle window the
   // edge baseline needs (SETTLE_MS is 10s) before it will draw a window.
@@ -125,6 +125,15 @@ async function open(pos) {
 
   const calls = await page.evaluate(() => window.__tauriCalls.map((c) => c[0]));
   check("the sports host tunes and opens mpv", calls.includes("inv_open"));
+  // v0.10.77: a channel opens with subtitles off (mpv.rs reset_per_file).
+  const lives = await page.evaluate(() =>
+    window.__tauriCalls.filter((c) => c[0] === "inv_open").map((c) => c[1].live),
+  );
+  check(
+    "and opens the channel as live, so its subtitles start off",
+    lives.length > 0 && lives.every((l) => l === true),
+    JSON.stringify(lives),
+  );
   check("the status poll is running", calls.filter((c) => c === "mpv_status").length > 1);
 
   check(
@@ -434,6 +443,192 @@ async function open(pos) {
     "folded, there is no edge to drag, and it's back on unfolding",
     foldedEdges === 0 && (await edge.count()) === 1,
     JSON.stringify({ foldedEdges }),
+  );
+  await ctx.close();
+}
+
+// ---- The channel list, shut to its heading (v0.10.74) -------------------
+// Adam: collapse "just the column of channels, so you don't have to scroll
+// far to see the other games' scores below them". Two rows (fake-m3u's Sky
+// by name, its ESPN by acronym) and three other live games for the scores.
+{
+  const other = (id, home, away) => ({
+    ...FIXTURE.game,
+    id,
+    broadcasts: [],
+    home: { name: home, abbr: home.slice(0, 3).toUpperCase() },
+    away: { name: away, abbr: away.slice(0, 3).toUpperCase() },
+  });
+  const { page, ctx } = await open(82, {
+    game: { ...FIXTURE.game, broadcasts: ["Fake Sky Sports", "ESPN"] },
+    others: [other("o1", "Detroit", "Chicago"), other("o2", "Dallas", "Houston"), other("o3", "Denver", "Seattle")],
+  });
+  const head = page.getByRole("button", { name: /^Channels/ });
+  const state = () =>
+    page.evaluate(() => ({
+      rows: [...document.querySelectorAll(".sportstheater__rail .sportsrail")].map((r) => ({
+        on: r.classList.contains("is-on"),
+        name: r.querySelector(".sportsrail__name")?.textContent,
+      })),
+      scores: Math.round(document.querySelector(".sportstheater__scores")?.getBoundingClientRect().top ?? -1),
+    }));
+  const open1 = await state();
+  check(
+    "the channel list has a heading that says how many, open to begin with",
+    (await head.getAttribute("aria-expanded")) === "true" && /2/.test(await head.innerText()) && open1.rows.length === 2,
+    JSON.stringify(open1),
+  );
+  await head.click();
+  await page.waitForTimeout(300);
+  const shut = await state();
+  check(
+    "shut, only the channel playing stays",
+    (await head.getAttribute("aria-expanded")) === "false" && shut.rows.length === 1 && shut.rows[0].on,
+    JSON.stringify(shut.rows),
+  );
+  check(
+    "and the scores come up by the rows it put away",
+    open1.scores > 0 && open1.scores - shut.scores > 40,
+    `${open1.scores}px -> ${shut.scores}px`,
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".theater-overlay", { timeout: 30_000 });
+  await page.waitForTimeout(1500);
+  check("it's still shut after a restart", (await head.getAttribute("aria-expanded")) === "false" && (await state()).rows.length <= 1);
+  await head.click();
+  await page.waitForTimeout(300);
+  check("and opens again", (await state()).rows.length === 2, JSON.stringify((await state()).rows));
+  await ctx.close();
+}
+
+// ---- The guesses, folded under the sure rows (v0.10.75) ----------------
+// Adam picked D of five mockups: a sure channel says nothing, a guess says
+// its number quietly, and the guesses fold under a "Less likely" line.
+// fake-m3u's ESPN by acronym (90) and its Sky by a loose "Sky" (15); the
+// second game is the same pair, the third has only the guess.
+{
+  const other = (id, home, away, broadcasts) => ({
+    ...FIXTURE.game,
+    id,
+    broadcasts,
+    home: { name: home, abbr: home.slice(0, 3).toUpperCase() },
+    away: { name: away, abbr: away.slice(0, 3).toUpperCase() },
+  });
+  const { page, ctx } = await open(82, {
+    game: { ...FIXTURE.game, broadcasts: ["ESPN", "Sky"] },
+    others: [other("o1", "Detroit", "Chicago", ["ESPN", "Sky"]), other("o2", "Dallas", "Houston", ["Sky Sports"])],
+  });
+  const fold = page.locator(".sportstheater__guesshead");
+  const rail = () =>
+    page.evaluate(() => {
+      const items = [...document.querySelectorAll(".sportstheater__rail .sportsrail, .sportstheater__guesshead")];
+      return items.map((r) => {
+        if (r.classList.contains("sportstheater__guesshead")) return { fold: r.textContent };
+        const name = r.querySelector(".sportsrail__name");
+        const odds = r.querySelector(".sportsrail__odds");
+        const tilt = r.querySelector(".sportsrail__tilt").getBoundingClientRect();
+        return {
+          name: name.textContent,
+          guess: r.classList.contains("is-guess"),
+          on: r.classList.contains("is-on"),
+          said: r.textContent.includes("chance it's this game"),
+          odds: odds ? odds.textContent : null,
+          oddsRight: odds ? Math.round(tilt.right - odds.getBoundingClientRect().right) : null,
+          ink: getComputedStyle(name).color,
+        };
+      });
+    });
+
+  const shut = await rail();
+  check(
+    "a sure channel shows no number, and the guess folds under Less likely with its count",
+    shut.length === 2 &&
+      /ESPN/.test(shut[0].name) && !shut[0].guess && shut[0].odds === null && shut[0].said &&
+      shut[1].fold === "Less likely1" &&
+      (await fold.getAttribute("aria-expanded")) === "false",
+    JSON.stringify(shut),
+  );
+
+  await fold.click();
+  await page.waitForTimeout(300);
+  const opened = await rail();
+  const guess = opened[2] ?? {};
+  check(
+    "opened, the guess is under the line, stepped back, its number at the row's end",
+    opened.length === 3 && opened[1].fold && /Sky/.test(guess.name ?? "") && guess.guess &&
+      guess.odds === "chance it's this game: 15%" && guess.oddsRight <= 24 &&
+      /rgba\(255, 255, 255, 0\.55\)/.test(guess.ink) && opened[0].ink === "rgb(255, 255, 255)",
+    JSON.stringify(opened),
+  );
+
+  // A guess that is playing stays in sight with the fold shut, the way the
+  // shut channel list keeps its playing row.
+  await page.locator(".sportsrail", { hasText: "Sky" }).click();
+  await page.waitForTimeout(1200);
+  await fold.click();
+  await page.waitForTimeout(300);
+  const playing = await rail();
+  check(
+    "a guess you put on stays, under its line, with the fold shut",
+    playing.length === 3 && playing[1].fold && playing[2].on && /Sky/.test(playing[2].name) &&
+      (await fold.getAttribute("aria-expanded")) === "false",
+    JSON.stringify(playing),
+  );
+
+  // Open here, then another game: its guesses start folded. Opening says
+  // this game's sure channels let you down, not the next one's.
+  await fold.click();
+  await page.waitForTimeout(300);
+  const wasOpen = await fold.getAttribute("aria-expanded");
+  await page.getByRole("button", { name: /^Detroit/ }).click();
+  await page.waitForTimeout(1500);
+  check(
+    "the next game's guesses start folded",
+    wasOpen === "true" && (await page.locator(".matchup").innerText()).includes("Detroit") &&
+      (await fold.getAttribute("aria-expanded")) === "false" && (await rail()).length === 2,
+    JSON.stringify({ wasOpen, rail: await rail() }),
+  );
+
+  // Nothing sure: the guesses are the rail, and there is no line to fold
+  // them under.
+  await page.getByRole("button", { name: /^Dallas/ }).click();
+  await page.waitForTimeout(1500);
+  const only = await rail();
+  check(
+    "with nothing sure, the guesses are the rail, unfolded",
+    (await fold.count()) === 0 && only.length === 1 && only[0].guess && only[0].odds === "chance it's this game: 15%",
+    JSON.stringify(only),
+  );
+  await ctx.close();
+}
+
+// ---- A network split by its games at one kick-off (v0.10.76) ----------
+// The odds model: ESPN's own channel shows one game at a time, so with two
+// ESPN games at this kick-off (game.shared, from the board) it is a coin
+// flip, and folds under the sure Sky feed with its number.
+{
+  const { page, ctx } = await open(82, {
+    game: { ...FIXTURE.game, broadcasts: ["Fake Sky Sports", "ESPN"], shared: { espn: 2 } },
+    others: [],
+  });
+  const fold = page.locator(".sportstheater__guesshead");
+  const names = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll(".sportstheater__rail .sportsrail")].map((r) => [
+        r.querySelector(".sportsrail__name")?.textContent,
+        r.querySelector(".sportsrail__odds")?.textContent ?? null,
+      ]),
+    );
+  const shut = await names();
+  // Unsplit, there is no line to open: say so rather than time out on it.
+  if ((await fold.count()) === 1) await fold.click();
+  await page.waitForTimeout(300);
+  const opened = await names();
+  check(
+    "a network shared with another game at kick-off folds under the sure feed, at half its odds",
+    shut.length === 1 && /Sky/.test(shut[0][0]) && shut[0][1] === null &&
+      opened.length === 2 && /ESPN/.test(opened[1][0]) && opened[1][1] === "chance it's this game: 45%",
+    JSON.stringify({ shut, opened }),
   );
   await ctx.close();
 }

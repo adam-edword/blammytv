@@ -182,25 +182,28 @@ describe("matchNetwork", () => {
     const list = [chan("US: MSG Western New York"), chan("US: MSG")];
     const got = matchNetwork("MSG", list);
     expect(got.map((c) => c.name)).toEqual(["US: MSG", "US: MSG Western New York"]);
-    expect(got[0].confidence).toBe(100);
-    expect(got[1].confidence).toBe(40);
+    expect(got.map((c) => [c.kind, c.confidence])).toEqual([
+      ["network", 90],
+      ["loose", 15],
+    ]);
   });
 
-  it("scores by HOW the match was made", () => {
-    expect(matchNetwork("MASN", [chan("US: MASN")])[0].confidence).toBe(100);
-    expect(
-      matchNetwork("CHSN", [chan("US: Chicago Sports Network CHSN")])[0].confidence,
-    ).toBe(90);
-    expect(
-      matchNetwork("MASN", [chan("US: The MASN Network")])[0].confidence,
-    ).toBe(85);
-    // MLBN only reaches MLB Network through our own alias table, so it is
-    // docked for being our claim rather than either side's.
-    expect(matchNetwork("MLBN", [chan("US: MLB Network")])[0].confidence).toBe(85);
+  it("is the network's channel however the name agrees", () => {
+    // The same name, its acronym, shelf words, or one of our own checked
+    // spellings: all of them the network's channel, at the network's odds.
+    for (const [network, name] of [
+      ["MASN", "US: MASN"],
+      ["CHSN", "US: Chicago Sports Network CHSN"],
+      ["MASN", "US: The MASN Network"],
+      ["MLBN", "US: MLB Network"],
+    ])
+      expect(matchNetwork(network, [chan(name)]).map((c) => [c.kind, c.confidence])).toEqual([
+        ["network", 90],
+      ]);
   });
 
-  it("puts the exact name before one carrying only shelf words", () => {
-    const list = [chan("US: The MASN Network"), chan("US: MASN")];
+  it("puts the better picture first among the network's channels", () => {
+    const list = [chan("US: The MASN Network"), chan("US: MASN", "FHD")];
     expect(matchNetwork("MASN", list).map((c) => c.name)).toEqual([
       "US: MASN",
       "US: The MASN Network",
@@ -486,14 +489,14 @@ describe("the brand-stem fallback", () => {
     const list = [chan("US: MLB Network"), chan("US: The MLB Channel")];
     const got = matchNetwork("MLB.TV", list);
     expect(got).toHaveLength(2);
-    expect(got.every((c) => c.confidence === 30)).toBe(true);
+    expect(got.every((c) => c.kind === "stem" && c.confidence === 5)).toBe(true);
   });
 
   it("keeps the guess a guess, however cleanly the short name fits", () => {
     // "MLB" against "MLB Network" is a tidy fit, but the doubt is in having
     // dropped ".TV", not in what is left, so it must not score as a match.
-    expect(matchNetwork("MLB.TV", [chan("US: MLB Network")])[0].confidence).toBe(30);
-    expect(matchNetwork("MLB Network", [chan("US: MLB Network")])[0].confidence).toBe(100);
+    expect(matchNetwork("MLB.TV", [chan("US: MLB Network")])[0].confidence).toBe(5);
+    expect(matchNetwork("MLB Network", [chan("US: MLB Network")])[0].confidence).toBe(90);
   });
 
   it("only shortens names shaped like a service", () => {
@@ -510,7 +513,7 @@ describe("the brand-stem fallback", () => {
   it("puts the best guess first once everything is a guess", () => {
     const list = [chan("US: MLB Network"), chan("US: Texas Rangers Sports Network")];
     const got = matchGame(["MLB.TV", "Rangers Sports Network"], list);
-    expect(got.map((c) => c.confidence)).toEqual([40, 30]);
+    expect(got.map((c) => c.confidence)).toEqual([15, 5]);
   });
 });
 
@@ -525,7 +528,7 @@ describe("matchEvent", () => {
   it("finds the channel that names this exact fixture", () => {
     const got = matchEvent(teams, start, [chan(REAL), chan(AWAY), chan("US: ESPN")]);
     expect(got.map((c) => c.name)).toEqual([REAL, AWAY]);
-    expect(got[0].confidence).toBe(100);
+    expect(got[0]).toMatchObject({ kind: "own", confidence: 97 });
   });
 
   it("ignores the date, feed number and booth, which are not the fixture", () => {
@@ -697,5 +700,153 @@ describe("Adam's board (2026-10-02)", () => {
     // With nothing else, the guess is still offered: something to try.
     const alone = railFor(["MLB.TV"], league, game);
     expect(alone.map((c) => c.name).sort()).toEqual(league.map((c) => c.name).sort());
+  });
+});
+
+/**
+ * A hidden channel that names the game's team (Adam, 2026-10-02). His "NFL
+ * Teams" folder is 39 market stations, all hidden; "CBS 4K UHD (Event
+ * Only)" is visible and matched every CBS game, so none of them ever
+ * reached a Sunday rail. Names verbatim from btvChannels("nfl teams").
+ */
+describe("a hidden channel that names the game's team", () => {
+  const hide = (t: Tunable): Tunable => ({ ...t, hidden: true });
+  const bills = {
+    home: { name: "New England Patriots", shortName: "Patriots" },
+    away: { name: "Buffalo Bills", shortName: "Bills" },
+    start: new Date("2026-10-04T17:00:00Z"),
+  };
+  const fourK = chan("CBS 4K UHD (Event Only)", "4K");
+  const wbz = hide(chan("NFL Teams: CBS Patriots (WBZ) Boston MA"));
+  const wcbs = hide(chan("NFL Teams: CBS Bills Giants Jets (WCBS) New York NY"));
+  const wbbm = hide(chan("NFL Teams: CBS Bears (WBBM) Chicago IL"));
+  const plainCbs = hide(chan("US: CBS"));
+  // Four CBS games at noon (sharing.ts), as on Adam's board.
+  const sunday = { cbs: 4 };
+
+  it("comes through from a hidden folder, ahead of the bare network", () => {
+    const rail = railFor(["CBS"], [fourK, wbz, wcbs, wbbm, plainCbs], bills, sunday).map((c) => c.name);
+    expect(rail.slice(0, 2).sort()).toEqual([wbz.name, wcbs.name].sort());
+    expect(rail[2]).toBe(fourK.name);
+  });
+
+  it("and only those: the rest of the hidden folder stays hidden", () => {
+    const rail = railFor(["CBS"], [fourK, wbz, wcbs, wbbm, plainCbs], bills, sunday).map((c) => c.name);
+    // Another club's station, and the bare network, exactly named.
+    expect(rail).not.toContain(wbbm.name);
+    expect(rail).not.toContain(plainCbs.name);
+  });
+
+  it("comes through when CBS has one game too, behind nothing", () => {
+    // The exception doesn't wait on the split: a club's station is no
+    // clutter. At the same odds as the network, it goes first.
+    const rail = railFor(["CBS"], [fourK, wbz], bills).map((c) => [c.name, c.confidence]);
+    expect(rail).toEqual([
+      [wbz.name, 90],
+      [fourK.name, 90],
+    ]);
+  });
+
+  it("puts a visible club channel ahead of the bare network too", () => {
+    const rail = railFor(["CBS"], [fourK, { ...wbz, hidden: false }], bills);
+    expect(rail.map((c) => [c.name, c.kind])).toEqual([
+      [wbz.name, "team"],
+      [fourK.name, "network"],
+    ]);
+  });
+
+  it("lets a game's own feed lead all of it, and keeps the stations behind it", () => {
+    const own = chan("NFL Game Pass 04: Buffalo Bills vs New England Patriots @ Oct 04 01:00 PM ET");
+    const rail = railFor(["CBS"], [fourK, wbz, own], bills, sunday).map((c) => c.name);
+    expect(rail).toEqual([own.name, wbz.name, fourK.name]);
+  });
+});
+
+/**
+ * The odds model's Sunday (Adam, 2026-10-02): Bills at Patriots on CBS,
+ * four CBS games at noon, and the rail the plan promised for it.
+ */
+describe("the odds a channel is showing the game", () => {
+  const bills = {
+    home: { name: "New England Patriots", shortName: "Patriots" },
+    away: { name: "Buffalo Bills", shortName: "Bills" },
+    start: new Date("2026-10-04T17:00:00Z"),
+  };
+  const own = chan("NFL Game Pass 04: Buffalo Bills vs New England Patriots @ Oct 04 01:00 PM ET");
+  const wbz = { ...chan("NFL Teams: CBS Patriots (WBZ) Boston MA"), hidden: true };
+  const wcbs = { ...chan("NFL Teams: CBS Bills Giants Jets (WCBS) New York NY"), hidden: true };
+  const fourK = chan("CBS 4K UHD (Event Only)", "4K");
+  const cbssn = chan("US: CBS Sports Network");
+
+  it("reads like the plan: own feed, the two stations, then the split network and a loose fit", () => {
+    const rail = railFor(["CBS"], [cbssn, fourK, wcbs, wbz, own], bills, { cbs: 4 });
+    expect(rail.map((c) => [c.name, c.confidence, c.kind])).toEqual([
+      [own.name, 97, "own"],
+      [wcbs.name, 90, "team"],
+      [wbz.name, 90, "team"],
+      [fourK.name, 23, "network"],
+      [cbssn.name, 15, "loose"],
+    ]);
+  });
+
+  it("splits only the network's own channel", () => {
+    const one = railFor(["CBS"], [fourK], bills);
+    const two = railFor(["CBS"], [fourK], bills, { cbs: 2 });
+    expect([one[0].confidence, two[0].confidence]).toEqual([90, 45]);
+    // A club's station and the game's own feed point at one game.
+    const rail = railFor(["CBS"], [{ ...wbz, hidden: false }, own], bills, { cbs: 9 });
+    expect(rail.map((c) => c.confidence)).toEqual([97, 90]);
+  });
+
+  it("drops a network split so many ways it is somebody else's game", () => {
+    // 90 over 21 is 4, under the rail's floor of 5.
+    expect(railFor(["CBS"], [fourK], bills, { cbs: 21 })).toEqual([]);
+    expect(railFor(["CBS"], [fourK], bills, { cbs: 18 }).map((c) => c.confidence)).toEqual([5]);
+  });
+
+  it("takes a split from the network's normalized name", () => {
+    expect(railFor(["FS1"], [chan("US: FOX Sports 1")], undefined, { "fs 1": 3 })[0].confidence).toBe(30);
+  });
+});
+
+/**
+ * The order the theater folds (v0.10.75). SportsTheater cuts the rail at
+ * the card's bar and folds the guesses under a line, while autoplay takes
+ * the top row and failover steps down. That is the list the eye reads only
+ * if no sure row ever comes after a guess.
+ */
+describe("the rail the theater folds", () => {
+  const banded = (rail: { confidence: number }[]) => {
+    const cut = rail.findIndex((c) => c.confidence < CARD_CONFIDENCE);
+    return cut < 0 || rail.slice(cut).every((c) => c.confidence < CARD_CONFIDENCE);
+  };
+  const names: string[] = vocabulary.names.map((n) => n.name);
+
+  it("puts every sure row ahead of every guess, for each network on the real dump", () => {
+    const mixed = names.filter((n) => {
+      const rail = railFor([n], ALL);
+      expect(banded(rail), n).toBe(true);
+      return rail.some((c) => c.confidence >= CARD_CONFIDENCE) && rail.some((c) => c.confidence < CARD_CONFIDENCE);
+    });
+    // Not vacuous: some of them have both halves.
+    expect(mixed.length).toBeGreaterThan(0);
+  });
+
+  it("and for a game listed on two networks at once", () => {
+    for (let i = 0; i + 1 < names.length; i += 2)
+      expect(banded(railFor([names[i], names[i + 1]], ALL)), `${names[i]} + ${names[i + 1]}`).toBe(true);
+  });
+
+  it("and when only a hidden folder carries the game", () => {
+    const hidden = { ...chan("US: ESPN"), hidden: true };
+    const loose = chan("ESPN Classic");
+    const rail = railFor(["ESPN"], [loose, hidden]);
+    // The visible guess comes along behind it (preferVisible), and behind
+    // is the point.
+    expect(rail.map((c) => [c.name, c.confidence >= CARD_CONFIDENCE])).toEqual([
+      [hidden.name, true],
+      [loose.name, false],
+    ]);
+    expect(banded(rail)).toBe(true);
   });
 });

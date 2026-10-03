@@ -2,6 +2,135 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.11.0: Trakt, MyAnimeList, and the player (2026-10-02)
+
+Connect Trakt and MyAnimeList, a new look for the player, and a long round
+of fixes. This one is a full update, like 0.10.0: parts of it are in the
+app itself, not only its screens, so it installs rather than arriving in
+the background.
+
+### Trakt
+
+- **Connect in Settings → General → Accounts.** The app shows a code; Open
+  Trakt takes you to the page to enter it. Nothing talks to Trakt until
+  you do.
+- **What you watch here goes to Trakt.** Playing, paused and finished,
+  films and episodes. Past 80% it counts as watched, on Trakt and here.
+  Close the app at the credits and the watch still counts.
+- **What you watched elsewhere comes in.** Episodes you watched on another
+  app tick here, and where you paused something elsewhere joins Continue
+  Watching.
+- **Your Trakt Watchlist is a list in your Library**, kept in step both
+  ways within seconds.
+- **A film's page says when you watched it**, "Watched Sep 12".
+- Clearing a Continue Watching card clears it on Trakt too. Disconnect
+  signs you out on Trakt, and Clear All Login Info includes it.
+
+### MyAnimeList
+
+- **Connect under Trakt**, in your browser.
+- **An anime episode you finish here moves your MAL count up to it**:
+  watching, or completed at the last episode. An anime film you finish
+  marks it completed. It never lowers a count you set on MAL.
+- **Your MAL counts tick episodes here.**
+- Offline, or MAL busy? It waits and sends at the next sync. Disconnect
+  forgets the counts here; your list on MAL isn't touched.
+
+### The player
+
+- **A new look.** The controls sit in two capsules, like the nav bar, with
+  Play as the white circle.
+- **A tooltip on every button**, and every tooltip in the app is the app's
+  own now, not the browser's.
+- **Loading a film or episode shows its art**, blurred, with its logo and
+  a bar that moves as it finds a source, opens the stream and buffers.
+- **Live channels open with subtitles off**, in Live TV and the Sports
+  theater. The player's subtitle menu still turns them on, and a popped-out
+  channel keeps whatever you had. Films and shows are unchanged.
+- A show's logo on its page lines up with the title under it.
+
+### Sports
+
+- **A channel's number is the chance it's showing the game.** A network
+  with several games at once (four CBS games at noon) splits that chance,
+  so its channel folds under "Less likely" instead of claiming all four. A
+  team's own station and a game's own feed don't split.
+- **The theater's channels are quieter.** A channel that's surely the
+  game shows no score, and the guesses fold under a "Less likely" line
+  with their number.
+- **A game's channel list folds to its heading** in the theater, so
+  the other games' scores below it come up; the channel playing stays in
+  view, and the list stays folded until you open it.
+- **Sports finds the right channel more often:** CBS Sports Network and
+  FOX Sports 1 under the names ESPN uses, no college town mistaken for a
+  team's channel, and MLB Network no longer offered beside a game's own
+  feeds. A team's own station comes first, even from a folder you hid in
+  the Guide.
+
+### Around the app
+
+- **Search, Settings and the clock sit on the nav bar's line**, and with
+  no Live TV source the nav bar sits in the middle.
+- **Ctrl+K is simpler to read**, one line per result, and Multi-view's
+  picker matches it, live games included.
+- **A title's sources are easier to scan**: bigger text, the quality and
+  the play arrow centred on each row, and half stars drawn properly.
+- **UI Scale is gone** from Settings → Customize. If you'd set it, the app
+  opens at its normal size.
+- **Light mode is back**, in Settings → Customize → Appearance: Dark,
+  Light, or Match Windows, which follows Windows as it changes. Its page is
+  a light grey with white cards on it. Dark stays the default, and if you
+  picked light in 0.9, it's back on.
+- **Menus, Ctrl+K and tooltips are glass again**, and Settings is a
+  thicker glass that stays easy to read over bright art. Turn off
+  Transparency effects in Windows and they all go solid.
+- **Every time on screen follows your 12h or 24h setting**, the player's
+  and Sports' included.
+- **Multi-view:** drag the live scores row with the mouse, channels with
+  MP3 audio play, and the bar fits the smallest window.
+- **Multi-view plays `.m3u8` channels through the app's own connection**,
+  as it has `.ts` since 0.9, so a provider that redirects them or leaves
+  out the browser's permission header no longer stops them.
+
+### Fixed
+
+- **The Guide going black on some folders.** A provider that lists a
+  channel in two categories could crash it.
+- **Clear All Login Info clears everything.** A playlist and its password
+  could come back, and the guide's saved copy stayed.
+- **Escape closes Settings the first time**, even right after tabbing
+  through it.
+- **Golf dates and episode air dates** no longer show a day early west of
+  US Eastern.
+- **A failed guide refresh keeps the guide you had**, `.xml.gz` guides
+  load, and odd programme times are read instead of dropped.
+- **Sports:** a game's card opens once the game is near, "Show more"
+  can't add another filter's days, and the board can't get stuck loading.
+- **Onboarding** opens on the tab you picked, and Enter during a check no
+  longer skips a step.
+- **Multi-view:** holding Delete closes one tile, not the grid; a tile
+  from a playlist that failed to load plays from the saved one or says
+  why.
+- **Editing a Stalker playlist's portal or MAC** takes effect at once.
+- **An update never restarts the app over something playing**, Multi-view
+  included, and a full update shows ahead of a smaller waiting one.
+- **The Guide scrolls lighter**: a third of the layout work each time the
+  rows move, and opening from the saved guide skips a pass over every
+  programme.
+- **Discover, Stream's rows and Sports open faster**: a card waits until
+  you point at it to measure itself for its tilt.
+- Smaller: Ctrl+K's channel search keeps working past half an hour, the
+  mini player's Retry stays mini, Continue Watching keeps its wide art,
+  dragging the accent colour saves once, and the Guide only takes back a
+  pop-out it opened.
+
+### Safer updates
+
+- A version that has started fine before gets a second chance if one
+  launch fails (a power cut, closing it in the first second), instead of
+  being rolled back.
+- Updates only move forward, to exactly the files they're signed for.
+
 ## 0.10.14: Multi-view's look everywhere, and live scores (2026-09-26)
 
 An update to the app's screens, like 0.10.3: it downloads by itself and

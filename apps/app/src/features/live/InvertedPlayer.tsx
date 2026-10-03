@@ -82,6 +82,7 @@ export function InvertedPlayer({
   radius = RADIUS_CSS,
   ready = true,
   start,
+  live = false,
 }: {
   url: string;
   /** The slot's own CSS corner radius, when it is not squared. Two things
@@ -106,6 +107,9 @@ export function InvertedPlayer({
    * for a given playback, and putting it in the effect key would restart the
    * stream if a host ever recomputed it. */
   start?: number;
+  /** A live channel: mpv opens it with subtitles off (Adam, v0.10.77).
+   * Fixed for a host, so read through a ref like `start`. */
+  live?: boolean;
 }) {
   const fsRef = useRef(squared);
   fsRef.current = squared;
@@ -117,6 +121,8 @@ export function InvertedPlayer({
   readyRef.current = ready;
   const startRef = useRef(start);
   startRef.current = start;
+  const liveRef = useRef(live);
+  liveRef.current = live;
   // See [mpv-timing] in mpv.rs: this is the half that spans the probe.
   const openedAtRef = useRef(0);
   const framedRef = useRef(false);
@@ -237,7 +243,7 @@ export function InvertedPlayer({
               ? tauriInvSetRect(rect)
               : ((opened = true),
                 ((openedAtRef.current = performance.now()),
-                tauriInvOpen(url, rect, startRef.current)));
+                tauriInvOpen(url, rect, startRef.current, liveRef.current)));
             // Phase 2: once the native move has landed (plus a frame for
             // its present), open the full hole and snap the chrome to it.
             void move

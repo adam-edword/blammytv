@@ -24,3 +24,21 @@ export function loadTheaterFolded(): boolean {
 export function saveTheaterFolded(on: boolean): void {
   save(KEY, VERSION, on);
 }
+
+/**
+ * The theater's channel list, shut to its heading so the other games'
+ * scores under it are in reach without a scroll (Adam, 2026-10-02: "so you
+ * don't have to scroll far to see the other games' scores"). The channel
+ * playing stays in view. Its own key: folding the column gives the picture
+ * room, shutting the list gives the scores room, and they are different
+ * asks. Default open: the list is the feature.
+ */
+const RAIL_KEY = "sportsTheaterRailShut";
+
+export function loadTheaterRailShut(): boolean {
+  return load<boolean>(RAIL_KEY, VERSION, false);
+}
+
+export function saveTheaterRailShut(on: boolean): void {
+  save(RAIL_KEY, VERSION, on);
+}

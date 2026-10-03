@@ -34,10 +34,26 @@ export interface Tunable {
   logo?: string;
 }
 
-/** A channel that carries a game, and how sure we are of it. */
+/**
+ * What a match rests on, strongest first: the order ties break in (byOdds).
+ *
+ * - `own`: the channel names this fixture (matchEvent).
+ * - `team`: a club's own station on the listed network, like "NFL Teams:
+ *   CBS Patriots (WBZ) Boston MA".
+ * - `network`: the listed network's channel, like "CBS 4K UHD (Event Only)".
+ * - `loose`: shares the network's name with words that may make it another
+ *   feed ("NBC Sports Bay Area" for NBC).
+ * - `stem`: the league's channel for a game on its service (MLB Network for
+ *   MLB.TV).
+ */
+export type MatchKind = "own" | "team" | "network" | "loose" | "stem";
+
+/** A channel that carries a game, and the odds that it is showing it. */
 export interface Match extends Tunable {
-  /** 0-100. See SCORE for where each number comes from. */
+  /** 0-100: the odds this channel is showing this game at kick-off. See
+   * ODDS for where each number comes from. */
   confidence: number;
+  kind: MatchKind;
 }
 
 /**
@@ -248,38 +264,42 @@ const isQualifier = (w: string) => /^\d+$/.test(w) || QUALIFIERS.has(w);
 const GENERIC = new Set(["sports", "network", "channel", "tv", "television"]);
 
 /**
- * How sure we are, 0 to 100, and where each number comes from.
+ * The odds a channel is showing this game at kick-off, 0 to 100, by what
+ * the match rests on (Adam's ask, 2026-10-02: "the odds that channel is
+ * showing that game", where it had been how well two names agree).
  *
- * Derived from HOW the match was made rather than invented, so every score
- * is a fact about the two names rather than a feeling. A viewer reading
- * "40%" is being told the truth: this shares the broadcaster's name but
- * carries words that could mean a different feed of it.
+ * Estimates, to be tuned on the pairing log (pairingLog.ts). The names
+ * still decide WHICH kind a match is (carries); this decides what that kind
+ * is worth.
+ *
+ * Our own spellings (WORDS, BRANDS, ALSO) cost nothing here. Each was
+ * checked against both corpora, so "MLBN" reaching MLB Network is MLB
+ * Network. The old score docked them 15 for being our claim, and under odds
+ * that made an exactly-named regional outrank a national feed listed first.
  */
-const SCORE = {
-  /** The names agree once the country prefix and quality badge come off. */
-  exact: 100,
-  /** Agreed on the acronym a provider appends after spelling the brand out. */
-  acronym: 90,
-  /** Agreed, and the channel only carried shelf words extra ("AT&T", "The"). */
-  shelf: 85,
+const ODDS: Record<MatchKind, number> = {
+  /** Named after this fixture, and the time fits (matchEvent). */
+  own: 97,
+  /**
+   * A club's own station on the listed network: "Texas Rangers Sports
+   * Network" for a Rangers game listed on "Rangers Sports Network", "NFL
+   * Teams: CBS Patriots (WBZ)" for a Patriots game on CBS. It shows its
+   * club's game, so it never splits.
+   */
+  team: 90,
+  /**
+   * The listed network's channel. Split by the games that network has at
+   * this kick-off (matchGame): "CBS 4K UHD (Event Only)" carries one of the
+   * four CBS games at noon on a Sunday, not all four (Adam's board,
+   * 2026-10-02).
+   */
+  network: 90,
   /**
    * Shares the name but carries words that distinguish nothing we know of:
    * "NBC" against "NBC Sports Bay Area". Probably a different feed, possibly
-   * the same one. Shown, ranked last, and never counted on a card.
+   * the same one.
    */
-  loose: 40,
-  /**
-   * Agreed, and the words the channel says on top name one of THIS game's
-   * clubs: "Texas Rangers Sports Network" for a Rangers game listed on
-   * "Rangers Sports Network", "Spectrum SportsNet LA Dodgers" for a Dodgers
-   * one on "Sportsnet LA". A team's own channel, for a game of that team, is
-   * as sure as a shelf label. Both pairs came off the dump, where they
-   * scored 40 and 25, under the card's bar: the right channel, reading
-   * "couldn't link".
-   */
-  team: 85,
-  /** Deduction when one of OUR expansions was needed to make them meet. */
-  aliased: -15,
+  loose: 15,
   /**
    * Only the BRAND of a product name matched: "MLB.TV" reaching "MLB
    * Network" through "MLB".
@@ -292,25 +312,31 @@ const SCORE = {
    * times in two games (2026-09-25), and with nothing else it is still the
    * one thing to try.
    */
-  stem: 30,
+  stem: 5,
 };
 
-/**
- * Below this, a match is not worth a viewer's attention.
- *
- * Set under the stem tier deliberately. Adam's rule, and it is an
- * operational one rather than an aesthetic one: IPTV streams die mid-game,
- * so a rail with five imperfect options beats a rail with two perfect ones
- * that have both gone dark. Being wrong is recoverable when the score says
- * so; having nothing to try is not.
- */
-export const MIN_CONFIDENCE = 25;
+/** Ties break on what the match rests on, in MatchKind's order. */
+const KIND_RANK: Record<MatchKind, number> = { own: 0, team: 1, network: 2, loose: 3, stem: 4 };
 
 /**
- * A card may only claim a game is "on" a channel it is this sure about.
- * Loose matches still appear in the rail, where the score is visible.
+ * The rail's floor: under this, a match is not worth a viewer's attention.
+ *
+ * At the stem tier, deliberately. Adam's rule, and it is an operational one
+ * rather than an aesthetic one: IPTV streams die mid-game, so a rail with
+ * five imperfect options beats a rail with two perfect ones that have both
+ * gone dark. Being wrong is recoverable when the number says so; having
+ * nothing to try is not. What it drops is a network split so many ways that
+ * it is showing somebody else's game.
+ */
+export const MIN_CONFIDENCE = 5;
+
+/**
+ * A card may only claim a game is "on" a channel at these odds or better.
+ * The rest still reach the rail, folded under "Less likely" with their
+ * number (SportsTheater).
  */
 export const CARD_CONFIDENCE = 70;
+
 
 /**
  * A channel's names, plural.
@@ -352,32 +378,30 @@ const same = (a: Set<string>, b: Set<string>) =>
  * and one line: whatever distinguishes siblings must be identical on both
  * sides, so a bare name only ever finds a bare channel.
  */
-function carries(
-  want: Set<string>,
-  channel: Set<string>,
-  viaAcronym: boolean,
-  clubs?: Clubs,
-): number {
-  if (![...want].every((w) => channel.has(w))) return 0;
+function carries(want: Set<string>, channel: Set<string>, clubs?: Clubs): MatchKind | null {
+  if (![...want].every((w) => channel.has(w))) return null;
   const extras = [...channel].filter((w) => !want.has(w));
   // A qualifier is not doubt, it is a different channel. Rejected outright,
   // whatever else agrees.
-  if (extras.some(isQualifier)) return 0;
-  if (extras.length === 0) return viaAcronym ? SCORE.acronym : SCORE.exact;
-  if (extras.every((w) => NOISE.has(w))) return SCORE.shelf;
+  if (extras.some(isQualifier)) return null;
+  // The same name, its acronym, or the name with shelf words ("AT&T",
+  // "The", "Event Only").
+  if (extras.every((w) => NOISE.has(w))) return "network";
   // A lone timezone suffix is the same network an hour later, not a sibling.
   // See FEEDS: one extra only, so a two-word regional brand stays loose.
-  if (extras.length === 1 && FEEDS.has(extras[0])) return SCORE.shelf;
+  if (extras.length === 1 && FEEDS.has(extras[0])) return "network";
   // This game's own club. Either everything extra is its name ("Texas"
   // for the Texas Rangers), or the channel carries its nickname among
   // other words ("Spectrum ... Dodgers": the owner's brand rides along).
+  // Both pairs came off the dump, where they read as loose: the right
+  // channel, under the card's bar.
   if (
     clubs &&
     (extras.every((w) => NOISE.has(w) || clubs.words.has(w)) ||
       clubs.nicknames.some((n) => n.every((w) => extras.includes(w))))
   )
-    return SCORE.team;
-  return SCORE.loose;
+    return "team";
+  return "loose";
 }
 
 /**
@@ -516,6 +540,20 @@ const QUALITY_RANK: Record<string, number> = { "4K": 0, HDR: 1, FHD: 2, HD: 3 };
 const rank = (q: string | null) => (q ? (QUALITY_RANK[q] ?? 4) : 5);
 
 /**
+ * Best odds first. At the same odds, what the match rests on (an own feed,
+ * then a club's station, then the bare network), then a visible channel
+ * before a hidden one. Stops there for a whole game's list (settle), where
+ * the order it was built in comes next.
+ */
+const bySure = (a: Match, b: Match) =>
+  b.confidence - a.confidence ||
+  KIND_RANK[a.kind] - KIND_RANK[b.kind] ||
+  Number(!!a.hidden) - Number(!!b.hidden);
+
+/** The same, then the better picture: one network's channels. */
+const byOdds = (a: Match, b: Match) => bySure(a, b) || rank(a.quality) - rank(b.quality);
+
+/**
  * The channels carrying ONE network name, best first.
  *
  * Channels whose name says exactly what the schedule said come before ones
@@ -527,25 +565,20 @@ const rank = (q: string | null) => (q ? (QUALITY_RANK[q] ?? 4) : 5);
 export function matchNetwork(
   network: string,
   source: Tunable[] | Catalog,
-  /** The game's clubs, when there is a game: see SCORE.team. */
+  /** The game's clubs, when there is a game: see ODDS.team. */
   clubs?: Clubs,
-  /** Whether a service's brand may stand in for it (SCORE.stem). */
+  /** Whether a service's brand may stand in for it (ODDS.stem). */
   stems = true,
 ): Match[] {
   const also = ALSO[normalize(network)];
   const found = matchOne(network, source, clubs, stems);
   if (!also) return found;
-  // The second spelling is ours, so it costs what any alias costs.
   const best = new Map(found.map((c) => [c.id, c]));
   for (const c of matchOne(also, source, clubs, stems)) {
-    const confidence = Math.max(0, c.confidence + SCORE.aliased);
-    if (confidence < MIN_CONFIDENCE) continue;
     const had = best.get(c.id);
-    if (!had || had.confidence < confidence) best.set(c.id, { ...c, confidence });
+    if (!had || had.confidence < c.confidence) best.set(c.id, c);
   }
-  return [...best.values()].sort(
-    (a, b) => b.confidence - a.confidence || rank(a.quality) - rank(b.quality),
-  );
+  return [...best.values()].sort(byOdds);
 }
 
 function matchOne(
@@ -560,10 +593,6 @@ function matchOne(
   // in its own spelling, not in our expansion of it. See GENERIC.
   const raw = normalize(network).split(" ").filter(Boolean);
   const generic = [...want].every((w) => GENERIC.has(w));
-  // Whether our own alias table was needed to get here. That is a claim we
-  // made rather than something either side said, so it costs confidence.
-  const aliased = normalize(network).split(" ").filter(Boolean).join(" ") !==
-    [...want].join(" ");
   const catalog = asCatalog(source);
   // Every word must be present, so start from whichever is rarest and the
   // rest of the catalog is never touched. A word that appears in NO channel
@@ -576,15 +605,15 @@ function matchOne(
   const seen = new Set<string>();
   for (const { channel, ids, raw: own } of candidates ?? []) {
     if (generic && !raw.every((w) => own.has(w))) continue;
-    let best = 0;
-    ids.forEach((id, i) => {
-      best = Math.max(best, carries(want, id, i > 0, clubs));
-    });
-    if (best === 0) continue;
-    const confidence = Math.max(0, best + (aliased ? SCORE.aliased : 0));
-    if (confidence < MIN_CONFIDENCE) continue;
+    // The strongest of the names it answers to (identities).
+    let kind: MatchKind | null = null;
+    for (const id of ids) {
+      const k = carries(want, id, clubs);
+      if (k && (!kind || KIND_RANK[k] < KIND_RANK[kind])) kind = k;
+    }
+    if (!kind) continue;
     seen.add(channel.id);
-    out.push({ ...channel, confidence });
+    out.push({ ...channel, confidence: ODDS[kind], kind });
   }
 
   // Second pass on the brand alone, for the games whose only listed
@@ -595,15 +624,12 @@ function matchOne(
   if (brand) {
     for (const { channel, ids } of narrow(catalog, brand) ?? []) {
       if (seen.has(channel.id)) continue;
-      if (!ids.some((id, i) => carries(brand, id, i > 0) > 0)) continue;
+      if (!ids.some((id) => carries(brand, id) !== null)) continue;
       seen.add(channel.id);
-      out.push({ ...channel, confidence: SCORE.stem });
+      out.push({ ...channel, confidence: ODDS.stem, kind: "stem" });
     }
   }
-  // Surest first; a better picture breaks the tie.
-  return out.sort(
-    (a, b) => b.confidence - a.confidence || rank(a.quality) - rank(b.quality),
-  );
+  return out.sort(byOdds);
 }
 
 /**
@@ -649,7 +675,7 @@ export function matchEvent(
     const all = ids[0];
     if (![...want].every((w) => all.has(w))) continue;
     if (!sameSlot(channel.name, start)) continue;
-    out.push({ ...channel, confidence: SCORE.exact });
+    out.push({ ...channel, confidence: ODDS.own, kind: "own" });
   }
   return out.sort((a, b) => rank(a.quality) - rank(b.quality));
 }
@@ -666,7 +692,7 @@ export function matchEvent(
  * rather than a simplification. A doubleheader is two fixtures between the
  * same two clubs on the same date, so the day check alone cannot tell them
  * apart: traced against the real channel naming, ARI at PIT on 26 Jul
- * returned BOTH feeds for BOTH legs, each at SCORE.exact. That is a wrong
+ * returned BOTH feeds for BOTH legs, each at full odds. That is a wrong
  * channel presented as a right one, which is the failure this whole file is
  * organised around.
  *
@@ -712,64 +738,47 @@ function sameSlot(name: string, start: Date): boolean {
 }
 
 /**
- * The hidden-folder fallback, as ONE rule both halves of the join can share.
+ * The rail's floor, the hidden-folder rule and the order, over one list.
  *
- * Adam's rule is that if anything in a visible folder carries the game, that
- * is the whole answer and the hidden ones are never mentioned; only when
- * nothing visible carries it do they appear. The subtlety, and the bug this
- * was extracted to fix: "carries it" has to mean CARD-WORTHY.
+ * HIDDEN FOLDERS ARE A FALLBACK. Adam's rule: if anything visible carries
+ * the game at the card's bar, that is the whole answer. Only when nothing
+ * does, a hidden channel comes through, and only if its odds beat every
+ * visible one's. `US: NBC` hidden and `NBC Sports Bay Area` visible at 15:
+ * the hidden NBC leads, and the visible guess stays behind it. A hidden
+ * channel naming the fixture stays hidden beside a visible network at 90;
+ * it used to lead the card and autoplay from a folder the viewer muted.
  *
- * It used to be decided at MIN_CONFIDENCE, so a 40% visible guess counted as
- * carrying the game — and then the card, which only counts 70 and above,
- * threw that guess away too. Traced: with `US: NBC` hidden at 100 and `NBC
- * Sports Bay Area` visible at 40, the card came back with NO channel and the
- * "couldn't link" pill, while the viewer owned an exact NBC feed. Worst of
- * both bars.
+ * THE ONE EXCEPTION (Adam, 2026-10-02): a club's own station at the card's
+ * bar comes through, hidden folder or not. His "NFL Teams" folder is 39
+ * market stations, all hidden, and a channel naming the game's own team is
+ * no clutter. Beside a visible own feed too, as a second way in.
  *
- * So the fallback asks the CARD's question, and the rail keeps everything
- * either way: when only the hidden folder really carries it, the doubtful
- * visible rows still come along behind it rather than being dropped.
+ * ORDER: bySure, which the theater's fold, the card and autoplay all read.
+ * The sort is stable, so at equal odds and kind the order the list was
+ * built in survives: the game's own feeds best picture first, then the
+ * schedule's networks in its order (national feed before regional), each
+ * network's best picture first.
  */
-export function preferVisible(matches: Match[]): Match[] {
-  const visible = matches.filter((c) => !c.hidden);
-  const hidden = matches.filter((c) => c.hidden);
-  if (hidden.length === 0 || visible.length === 0) return matches;
-  const carries = (list: Match[]) =>
-    list.some((c) => c.confidence >= CARD_CONFIDENCE);
-  if (carries(visible)) return visible;
-  if (carries(hidden)) return [...hidden, ...visible];
-  return visible;
+function settle(all: Match[]): Match[] {
+  const kept = all.filter((c) => c.confidence >= MIN_CONFIDENCE);
+  let top = 0;
+  for (const c of kept) if (!c.hidden && c.confidence > top) top = c.confidence;
+  const fallback = top < CARD_CONFIDENCE;
+  const shown = (c: Match) =>
+    !c.hidden ||
+    (c.kind === "team" && c.confidence >= CARD_CONFIDENCE) ||
+    (fallback && c.confidence > top);
+  return kept.filter(shown).sort(bySure);
 }
 
-/**
- * Every channel of yours carrying a game, given the networks the schedule
- * named for it.
- *
- * De-duplicated by channel id, keeping the order the networks came in, so a
- * game's national feed is offered before a regional one.
- *
- * HIDDEN FOLDERS ARE A FALLBACK, NOT A TIER. If anything in a visible folder
- * carries this game, that is the whole answer and the hidden ones are never
- * mentioned; only when nothing visible carries it do they appear. Adam's
- * call, and it is the right one for a reason worth writing down: the common
- * case is that the user hid a folder precisely so they would stop seeing it,
- * and the rare case is a Sunday where the only copy of the game is in there.
- * Mixing the two would serve the rare case by spoiling the common one.
- *
- * Note this is decided per GAME and not per network. A game on FOX and MASN
- * with only MASN visible offers MASN alone: something visible carries it, so
- * the question of hidden folders never arises.
- */
 /**
  * Every channel of yours for one game, in the order the theater's rail
  * draws it and autoplay takes its top.
  *
- * Channels that name this fixture first, then the networks the schedule
- * listed (national before regional, matchGame), with hidden folders only
- * as the per-game fallback over the COMBINED list (preferVisible). The card
- * counts the sure part of this, the rail shows all of it and the pairing
- * probe reports it: one function, so the three cannot disagree about which
- * channels a game has.
+ * Channels that name this fixture, then the networks the schedule listed
+ * (matchGame), settled as one list: the card counts the part at its bar,
+ * the rail shows all of it and the pairing probe reports it. One function,
+ * so the three cannot disagree about which channels a game has.
  */
 export function railFor(
   broadcasts: string[],
@@ -781,6 +790,8 @@ export function railFor(
     away: { name: string; shortName?: string };
     start: Date;
   },
+  /** The other games on each network at this kick-off (sharing.ts). */
+  shared?: Shared,
 ): Match[] {
   const catalog = asCatalog(source);
   const named = fixture
@@ -789,11 +800,11 @@ export function railFor(
   const seen = new Set(named.map((c) => c.id));
   const clubs = fixture ? clubsOf([fixture.home, fixture.away]) : undefined;
   const rail = (stems: boolean) =>
-    preferVisible([
+    settle([
       ...named,
-      ...matchGame(broadcasts, catalog, clubs, stems).filter((c) => !seen.has(c.id)),
+      ...matchGame(broadcasts, catalog, clubs, stems, shared).filter((c) => !seen.has(c.id)),
     ]);
-  // A league's channel for a game listed on its service (SCORE.stem) only
+  // A league's channel for a game listed on its service (ODDS.stem) only
   // when nothing else carries the game. Adam marked "US: MLB Network" and
   // "US: The MLB Channel" wrong three times in two games (2026-09-25), each
   // time beside the game's own MLB feeds; where nothing else carries a game
@@ -802,40 +813,50 @@ export function railFor(
   return sure.length > 0 ? sure : rail(true);
 }
 
+/**
+ * How many games each network has at one kick-off, keyed by its normalized
+ * name. A network missing has just this one.
+ */
+export type Shared = Readonly<Record<string, number>>;
+
+/**
+ * Every channel of yours carrying a game, given the networks the schedule
+ * named for it.
+ *
+ * THE SPLIT. A network's own channel shows one game at a time, so with N
+ * games on that network at this kick-off its odds are ODDS.network over N.
+ * A club's station and a game's own feed point at one game and never
+ * split. Adam's board, 2026-10-02: four CBS games at noon, and "CBS 4K UHD
+ * (Event Only)" matched all four at full marks.
+ *
+ * De-duplicated by channel id at its best odds, so a channel two of the
+ * listed networks reach counts once.
+ */
 export function matchGame(
   networks: string[],
   source: Tunable[] | Catalog,
-  /** The game's clubs, so a club's own channel counts as sure. */
+  /** The game's clubs, so a club's own channel counts as theirs. */
   clubs?: Clubs,
-  /** Whether a service's brand may stand in for it (SCORE.stem). */
+  /** Whether a service's brand may stand in for it (ODDS.stem). */
   stems = true,
+  shared?: Shared,
 ): Match[] {
   const catalog = asCatalog(source);
-  const seen = new Set<string>();
-  const visible: Match[] = [];
-  const hidden: Match[] = [];
+  const at = new Map<string, number>();
+  const all: Match[] = [];
   for (const network of networks) {
-    for (const c of matchNetwork(network, catalog, clubs, stems)) {
-      if (seen.has(c.id)) continue;
-      seen.add(c.id);
-      (c.hidden ? hidden : visible).push(c);
+    const n = shared?.[normalize(network)] ?? 1;
+    for (const found of matchNetwork(network, catalog, clubs, stems)) {
+      const c =
+        found.kind === "network" && n > 1
+          ? { ...found, confidence: Math.round(found.confidence / n) }
+          : found;
+      const i = at.get(c.id);
+      if (i === undefined) {
+        at.set(c.id, all.length);
+        all.push(c);
+      } else if (all[i].confidence < c.confidence) all[i] = c;
     }
   }
-  const out = preferVisible([...visible, ...hidden]);
-  // NOT sorted by confidence outright. The order the networks arrived in is
-  // the schedule's own priority, national feed before regional, and that is
-  // better information about what someone wants to watch than a naming
-  // detail is. Sorting purely by score put an exactly-named regional above
-  // an alias-matched national one, which is the wrong answer.
-  //
-  // So confidence only decides the BAND: everything we are sure of, in the
-  // schedule's order, then everything doubtful, in the schedule's order.
-  return [
-    ...out.filter((c) => c.confidence >= CARD_CONFIDENCE),
-    // Below the card's bar the schedule's ordering has stopped meaning
-    // much: these are all guesses, so the best guess goes first.
-    ...out
-      .filter((c) => c.confidence < CARD_CONFIDENCE)
-      .sort((a, b) => b.confidence - a.confidence || rank(a.quality) - rank(b.quality)),
-  ];
+  return settle(all);
 }

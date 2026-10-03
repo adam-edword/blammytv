@@ -13,6 +13,7 @@ import {
   type Tunable,
 } from "./matcher";
 import { airing, showsIn } from "./guideMatch";
+import { sharing } from "./sharing";
 import { loadPairingLog } from "./pairingLog";
 import { APP_VERSION } from "../../lib/version";
 
@@ -53,7 +54,7 @@ import { APP_VERSION } from "../../lib/version";
 interface Probes {
   btvSports?: (...paths: string[]) => Promise<void>;
   btvPairing?: (...paths: string[]) => Promise<unknown>;
-  btvChannels?: (query: string) => void;
+  btvChannels?: (query: string) => Promise<void>;
 }
 
 /** The catalog as the Sports tab builds it, or null if no playlist loaded. */
@@ -164,15 +165,16 @@ export function installSportsProbe(): void {
       let carded = 0;
       let railOnly = 0;
       let nothing = 0;
+      const share = sharing(games);
       for (const g of games) {
-        const found = railFor(g.broadcasts, catalog, isFixture(g) ? g : undefined);
+        const found = railFor(g.broadcasts, catalog, isFixture(g) ? g : undefined, share(g));
         if (found.some((c) => c.confidence >= CARD_CONFIDENCE)) carded++;
         else if (found.length > 0) railOnly++;
         else nothing++;
       }
       console.info(
         `[sports] ${carded} games get a channel on the card, ${railOnly} found one but ` +
-          `scored under ${CARD_CONFIDENCE} so the card says "couldn't link", ` +
+          `at odds under ${CARD_CONFIDENCE} so the card says "couldn't link", ` +
           `${nothing} reached nothing at all`,
       );
       if (weak.length)
@@ -250,8 +252,10 @@ export function installSportsProbe(): void {
         ? showsIn(programmes, Math.min(...starts) - 3 * 3600e3, Math.max(...starts) + 3600e3)
         : [];
 
+    // The other games on each network at a kick-off, which split its odds.
+    const share = sharing(games);
     const report = {
-      v: 1,
+      v: 2,
       at: new Date().toISOString(),
       app: APP_VERSION,
       catalog: {
@@ -265,7 +269,8 @@ export function installSportsProbe(): void {
       affiliates,
       guide: { channels: all.length, withGuide, hiddenWithGuide, programmes: shows.length },
       games: games.map((g) => {
-        const rail = railFor(g.broadcasts, catalog, isFixture(g) ? g : undefined);
+        const shared = share(g);
+        const rail = railFor(g.broadcasts, catalog, isFixture(g) ? g : undefined, shared);
         const card = rail.filter((c) => c.confidence >= CARD_CONFIDENCE).length;
         const inRail = new Set(rail.map((c) => c.id));
         const aired = isFixture(g) ? airing(shows, g) : [];
@@ -281,8 +286,14 @@ export function installSportsProbe(): void {
               }
             : { title: "title" in g ? g.title : null }),
           broadcasts: g.broadcasts,
-          // [name, confidence, quality, hidden]: the rail, top first.
-          rail: rail.slice(0, 12).map((c) => [c.name, c.confidence, c.quality, c.hidden ? 1 : 0]),
+          // Games on each of those networks at this kick-off, where more
+          // than one.
+          shared: shared ?? null,
+          // [name, odds, quality, hidden, kind]: the rail, top first (v2:
+          // odds, and the kind they rest on).
+          rail: rail
+            .slice(0, 12)
+            .map((c) => [c.name, c.confidence, c.quality, c.hidden ? 1 : 0, c.kind]),
           more: Math.max(0, rail.length - 12),
           card,
           // Nothing sure: what the catalog has that shares a word.
@@ -326,8 +337,12 @@ export function installSportsProbe(): void {
    * national network is reachable at all depends entirely on whether it is
    * carried as "US: ABC", "US: ABC East" or "ABC 7 New York WABC", and each
    * of those needs a different rule.
+   *
+   * Loads the catalog first when nothing has yet, as the other two do:
+   * from a fresh window it said "no playlist loaded" (Adam, 2026-10-02).
    */
-  w.btvChannels = (query: string) => {
+  w.btvChannels = async (query: string) => {
+    if (!peekLive()) await loadLive(new Date());
     const all = tunables();
     if (!all) {
       console.warn("[sports] no playlist loaded");

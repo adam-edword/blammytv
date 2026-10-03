@@ -77,7 +77,7 @@ async function open(grid, { slowLine = 0 } = {}) {
           currentWebview: { label: "main", windowLabel: "main" },
         },
         invoke: (cmd, args) => {
-          window.__calls.push([cmd, cmd === "inv_open" ? args.url : undefined]);
+          window.__calls.push([cmd, cmd === "inv_open" ? { url: args.url, live: args.live } : undefined]);
           if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
           if (cmd === "mv_proxy_open") return Promise.resolve(`http://127.0.0.1:${port}/mv/t${++n}`);
           if (cmd === "plugin:window|is_fullscreen") return Promise.resolve(false);
@@ -314,11 +314,18 @@ const settle = async (page, want) => {
   await page.getByRole("button", { name: `Watch ${NEWS.label} in the player` }).click();
   await page.waitForFunction(() => !!document.querySelector(".live--theater"), null, { timeout: 10_000 }).catch(() => {});
   await page.waitForTimeout(1500);
-  const opened = await page.evaluate(() => window.__calls.filter(([c]) => c === "inv_open").map(([, u]) => u));
+  const opens = await page.evaluate(() => window.__calls.filter(([c]) => c === "inv_open").map(([, a]) => a));
+  const opened = opens.map((a) => a.url);
   check(
     "Watch in player plays that tile's channel, not the Guide's first",
     opened.length > 0 && opened.every((u) => u.endsWith("/103.ts")),
     JSON.stringify(opened),
+  );
+  // v0.10.77: Live TV opens a channel with subtitles off (mpv.rs).
+  check(
+    "and opens it as live, so its subtitles start off",
+    opens.length > 0 && opens.every((a) => a.live === true),
+    JSON.stringify(opens.map((a) => a.live)),
   );
   const ov = await page.locator(".theater-overlay").first().boundingBox();
   await page.mouse.move(ov.x + ov.width / 2, ov.y + ov.height / 2);

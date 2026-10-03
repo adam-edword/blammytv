@@ -42,7 +42,7 @@ await new Promise((r) => proxy.listen(0, "127.0.0.1", r));
 const PORT = proxy.address().port;
 
 /** One live event in ESPN's scoreboard shape. */
-const liveEvent = ({ id, home, away, hs, as, network, networks, detail }) => {
+const liveEvent = ({ id, home, away, hs, as, network, networks, detail, ago = 90 }) => {
   const status = {
     clock: 442,
     displayClock: "7:22",
@@ -52,14 +52,14 @@ const liveEvent = ({ id, home, away, hs, as, network, networks, detail }) => {
   const team = (t) => ({ id: t.id, displayName: t.name, shortDisplayName: t.short, abbreviation: t.abbr, name: t.short });
   return {
     id,
-    date: new Date(Date.now() - 90 * 60_000).toISOString(),
+    date: new Date(Date.now() - ago * 60_000).toISOString(),
     name: `${away.name} at ${home.name}`,
     shortName: `${away.abbr} @ ${home.abbr}`,
     status,
     competitions: [
       {
         id,
-        date: new Date(Date.now() - 90 * 60_000).toISOString(),
+        date: new Date(Date.now() - ago * 60_000).toISOString(),
         competitors: [
           { id: home.id, homeAway: "home", team: team(home), score: String(hs) },
           { id: away.id, homeAway: "away", team: team(away), score: String(as) },
@@ -86,11 +86,15 @@ const EPL = liveEvent({
   away: { id: "363", name: "Chelsea", short: "Chelsea", abbr: "CHE" },
   hs: 1,
   as: 1,
-  // The fake panel's own name for it. A bare "Sky Sports" scores 40 against
-  // "Fake Sky Sports FHD" (the extra "Fake" makes it loose), under the 70 a
+  // The fake panel's own name for it. A bare "Sky Sports" is a loose fit
+  // for "Fake Sky Sports FHD" (the extra "Fake"), at 15, under the 70 a
   // game needs to claim a channel, so the game would rightly have none.
   network: "Fake Sky Sports",
   detail: "63'",
+  // Kicked off hours before the Bills (v0.10.76). On one network at one
+  // kick-off, the two would split its odds and neither card could claim
+  // it (sharing.ts); hours apart, it is each one's channel in turn.
+  ago: 330,
 });
 
 // The same game on two networks, so it has two feeds (v0.10.3).

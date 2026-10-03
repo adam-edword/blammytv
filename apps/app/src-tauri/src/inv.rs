@@ -21,6 +21,9 @@ static CHILD: AtomicIsize = AtomicIsize::new(0);
 /// coords), parked at the bottom of the z-order, and start mpv into it.
 /// Flip present model (the quality path — the spike confirmed it composites
 /// under the webview). UI thread only.
+// One-to-one with the inv_open command's payload (lib.rs), which is flat
+// for the frontend's sake.
+#[allow(clippy::too_many_arguments)]
 pub fn open(
     parent: isize,
     x: i32,
@@ -31,9 +34,11 @@ pub fn open(
     // VOD resume point in seconds. mpv applies it as it opens the file, so
     // nothing is decoded from 0:00 first. None for live and for a fresh start.
     start: Option<f64>,
+    // A live channel: opens with subtitles off (mpv::reset_per_file).
+    live: Option<bool>,
 ) -> Result<(), String> {
     let child = ensure_child(parent, x, y, w, h)?;
-    if let Err(e) = crate::mpv::play_wid(url, child, start) {
+    if let Err(e) = crate::mpv::play_wid(url, child, start, live) {
         // Leave the window in place — it is the mpv instance's permanent
         // render target now. Just make sure nothing is holding a stream.
         crate::mpv::unload();

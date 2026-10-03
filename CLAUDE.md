@@ -87,7 +87,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **54/54 harnesses clean, 1007 checks** (v0.10.71), or one
+Baseline is **54/54 harnesses clean, 1022 checks** (v0.10.77), or one
 fewer: verify-cw-sources' last check only runs when the catalog is still
 loading at the click; the script says so and it is not a failure. verify-kit
 (plan 019) has one section per shared primitive, so a later change that
@@ -264,11 +264,34 @@ paths and line numbers, then read the few that matter directly. Delegate the
 FINDING, never the quoting: anything that ends up in a changelog, a commit
 message or a doc gets read first-hand before it is written down.
 
-**Stay hands-on for surgical, diagnostic, context-heavy work**: the
-measure→fix→retest loop that most changes here are. Accumulated context is the
-asset: the v0.1.106 disk cache caught a StrictMode race only because the same
-head fixed it in v0.1.104. Subagents start blank. Briefing them on a one-file
-fix costs more than it buys.
+**Bigger changes: Sonnet builds, the main session plans and checks.**
+Adam, v0.11.0: it's cheaper. Anything past a small tweak goes to the
+builder, Sonny (`.claude/agents/sonny.md`, pinned to Sonnet). A small
+tweak is one or two files, a few lines and nothing new to test (copy, a CSS
+value, a one-line fix with its check): those stay here, because briefing
+one costs more than it buys.
+
+- **Here, first:** the diagnosis and its data (Confirm with data), the
+  decision (Confusion Protocol), and the brief.
+- **The brief carries what the builder can't know.** The decision and why;
+  the earlier fixes and Adam's calls it must not undo, with their versions;
+  the files; the checks to add and the mutations that prove them; the
+  gates. Subagents start blank. Built as written, the v0.10.76 odds plan
+  would have dropped Adam's hidden team stations (v0.10.73) and let a
+  hidden game feed lead the card again, and only the history caught it.
+- **There:** the code, its tests and harness checks, the gates. It stops
+  and reports when the code, a test or the history disagrees with the
+  brief, and never edits a test to make it pass.
+- **Here, after:** read the whole diff, re-run the gates and the touched
+  harnesses, then version, commit, push and report. Nothing it says is
+  taken on trust, same as a finding.
+- **One thing on the working tree at a time.** No board run here while the
+  builder works: it edits `apps/app/src` and needs the same ports.
+
+**Diagnosis stays hands-on**: the measure→fix→retest loop that most
+changes here are. Accumulated context is the asset: the v0.1.106 disk cache
+caught a StrictMode race only because the same head fixed it in v0.1.104.
+The builder gets that context through the brief, or not at all.
 
 Delegation never dilutes the agreements above: agent findings get verified
 before acting on them, and the main session owns the synthesis, the decision,

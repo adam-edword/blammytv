@@ -103,12 +103,23 @@ describe("liveChannels (v0.10.9)", () => {
   const raw = (id: string, opts: Partial<Fixture> = {}) => game(id, { ch: "", ...opts });
 
   it("finds channels for the live games only; the rest go through untouched", () => {
-    const pre = raw("2", { state: "pre" });
-    const done = raw("3", { state: "final" });
+    // Hours either side: three ESPN games at one kick-off would split its
+    // odds three ways and keep it off all three cards (sharing.ts).
+    const pre = raw("2", { state: "pre", start: new Date(2026, 8, 25, 23) });
+    const done = raw("3", { state: "final", start: new Date(2026, 8, 25, 16) });
     const out = liveChannels([raw("1"), pre, done], catalog);
     expect(out[0].channels.map((c) => c.id)).toEqual(["p:1"]);
     expect(out[1]).toBe(pre);
     expect(out[2]).toBe(done);
+  });
+
+  it("splits a network's odds over the day's live games at one kick-off", () => {
+    // Two live ESPN games at 8: neither card can claim ESPN (45 each).
+    const out = liveChannels([raw("1"), raw("2")], catalog);
+    expect(out.map((g) => [g.channels.length, g.shared])).toEqual([
+      [0, { espn: 2 }],
+      [0, { espn: 2 }],
+    ]);
   });
 
   it("a new score on the same game reuses the answer rather than matching again", () => {

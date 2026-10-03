@@ -215,6 +215,11 @@ pub struct Handoff {
     /// mpv's own strings, passed straight back as options.
     pub volume: Option<String>,
     pub mute: Option<String>,
+    /// The subtitle track on screen, or "no". Same URL, same track ids, so
+    /// the PiP shows what the player showed: a live channel opens with
+    /// subtitles off (reset_per_file), and popping it out must not bring
+    /// mpv's own pick back.
+    pub sid: Option<String>,
 }
 
 impl Handoff {
@@ -249,6 +254,7 @@ impl Handoff {
             },
             volume: get_property("volume"),
             mute: get_property("mute"),
+            sid: get_property("sid"),
         }
     }
 }
@@ -301,6 +307,9 @@ pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {
         }
         if let Some(m) = &hand.mute {
             set("mute", m);
+        }
+        if let Some(s) = &hand.sid {
+            set("sid", s);
         }
         // Resume where the in-app player was. VOD only — see Handoff::capture.
         if let Some(s) = hand.start.filter(|s| *s > 0.0) {
@@ -547,7 +556,7 @@ fn ensure_player(wid: isize) -> Result<(), String> {
 /// previous file's track choice would leak into a file that has different
 /// tracks. Reproduce the old defaults explicitly; the frontend re-applies
 /// remembered preferences afterwards, exactly as it did before.
-fn reset_per_file(start: Option<f64>) {
+fn reset_per_file(start: Option<f64>, live: Option<bool>) {
     // SHADERS TOO. glsl-shaders/glsl-shader-opts are set at runtime by
     // mpv_frost/mpv_blur for the Settings glass and are neither init options
     // nor cleared by anything else — a fresh instance per stream used to drop
@@ -570,7 +579,14 @@ fn reset_per_file(start: Option<f64>) {
     set_prop("pause", "no");
     set_prop("speed", "1");
     set_prop("aid", "auto");
-    set_prop("sid", "auto");
+    // SUBTITLES OFF ON LIVE (Adam, v0.10.77). mpv's `auto` takes a track the
+    // stream flags as default, and IPTV channels carry DVB subtitles and
+    // captions flagged that way, so channels opened with text on the
+    // picture. Off before the file opens, rather than turned off after the
+    // first poll, so nothing flashes up. The subtitle menu still turns them
+    // on; the next channel starts off again. VOD keeps `auto`, and its
+    // remembered language is applied on top (TheaterOverlay).
+    set_prop("sid", if live == Some(true) { "no" } else { "auto" });
     // RESUME POINT, applied by mpv as it opens the file rather than as a
     // seek after it opened.
     //
@@ -608,7 +624,12 @@ fn reset_per_file(start: Option<f64>) {
 }
 
 /// Start `url` in the in-app player, creating the player on first use.
-pub fn play_wid(url: &str, wid: isize, start: Option<f64>) -> Result<(), String> {
+pub fn play_wid(
+    url: &str,
+    wid: isize,
+    start: Option<f64>,
+    live: Option<bool>,
+) -> Result<(), String> {
     let t0 = std::time::Instant::now();
     ensure_player(wid)?;
     // One provider connection at a time is the app-wide invariant, and it was
@@ -623,7 +644,7 @@ pub fn play_wid(url: &str, wid: isize, start: Option<f64>) -> Result<(), String>
     // independent mutexes and stop_popout drops POPOUT's before the quit.
     stop_popout();
     let t_ready = t0.elapsed();
-    reset_per_file(start);
+    reset_per_file(start, live);
     // `loadfile <url> replace` — replace is the default, stated for the
     // reader. This is the same call reload_live() has always made, which is
     // why the load path itself is proven rather than new.

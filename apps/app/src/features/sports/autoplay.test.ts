@@ -3,6 +3,7 @@ import { autoPlay, nextSource } from "./autoplay";
 import type { Match } from "./matcher";
 
 const chan = (id: string, confidence = 90): Match => ({
+  kind: "network",
   id,
   name: id,
   quality: null,
