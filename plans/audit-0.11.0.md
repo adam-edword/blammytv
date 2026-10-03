@@ -56,8 +56,10 @@ proxy and HEVC conversion. `using/library.md:41` says nothing is synced; the
 Trakt watchlist is. Fixed in v0.11.2 (`dafda819`): those passages rewritten
 from the code, with Trakt, MyAnimeList and TMDB in the table and what each
 gets, the licence section gone, and Multi-view's loopback proxy and ffmpeg
-described. The deploy (`origin/docs` is a further 59 lines behind main) is
-Adam's.
+described. Deployed 2026-10-03 on Adam's word ("all the other stuff can be
+your decisions"): `docs` `aebbe5be` carries the three corrected pages
+(the privacy page, Library's Trakt text, and the themes page without UI
+scale), built clean with Astro first.
 
 **T2. LOW-MEDIUM. `verify-release` passes manifests the updater rejects.**
 Confirmed by reading: manifest mode (`scripts/verify-release.mjs:266-310`)
@@ -98,11 +100,14 @@ mirror of `unpack` over 32 real archives.
 **T7. LOW. Clippy's warning gate runs on an unpinned toolchain.** Plausible,
 not reproducible today: `ci.yml` uses `dtolnay/rust-toolchain@stable` and
 counts warnings against 9, so a new default lint on a Rust release turns CI
-red with no code change. **Held** (see below).
+red with no code change. Fixed (`5aa75436`): CI's Windows job is pinned to
+1.99.0, stable on the day. Only CI: your machine stays on whatever rustup
+gives it. Moving the pin is a deliberate commit that reads clippy first.
 
 **T8. LOW. The deployed site still lists UI Scale.** Confirmed on
 `origin/website:services/site/index.html:653`; main's copy doesn't have it.
-**Held**: the site deploy is Adam's, as last week's drift finding was.
+Fixed on Adam's word ("remove from site"): `website` `27bd2445` drops the
+badge, and Coolify deploys from that branch.
 
 ### App shell and shared code (second pass)
 
@@ -220,20 +225,21 @@ so it stays.
 
 **SP4. LOW. A presumed network is never split by other games that
 presume it.** Confirmed: three qualifiers at one kick-off each claim
-CBSSN at 90. **Held**: "usually found on" is a claim about carriage, not
+CBSSN at 90. Held overnight: "usually found on" is a claim about carriage, not
 about which game is on, and splitting it would take the card's only
-answer away for the leagues that list nothing. Your call if you'd rather
-it split.
+answer away for the leagues that list nothing. **Kept** as it is: Adam
+left it to me (2026-10-03), and that reasoning stands.
 
 **SP5. LOW. `airing()` counts another game's show on shared nicknames.**
 Confirmed, reproduced: Auburn Tigers v Georgia Bulldogs counts "LSU Tigers
 at Mississippi State Bulldogs". Diagnostic only, but it's the measurement
-`btvPairing` reports for the guide's place in the matcher. **Held**: the
+`btvPairing` reports for the guide's place in the matcher. Held overnight: the
 fix I briefed (one club by more than its nickname) also drops "NCAA
 Football: The Huskies visit the Trojans", which `guideMatch.test.ts:36`
 is there to keep, and the two look the same at the level of club names.
 A better rule wants your btvPairing numbers, which is when the guide's
-place gets decided anyway.
+place gets decided anyway. **Kept** as it is until those numbers exist
+(decided 2026-10-03): it only feeds that report.
 
 ### The rest of the new code (glass and light, Trakt, live subtitles)
 
@@ -324,11 +330,13 @@ and the poll drops to 500ms. New harness verify-dead-poll: 30 reads in
 new name.** Confirmed by reading: the `[playing, heroId]` effect
 (`LiveScreen.tsx:672-690`) doesn't clear `playUrl` while `create_link`
 runs (up to 30s), and a failed link closes the player with no message.
-**Held**: the fix I briefed doesn't hold. The player and its tuning card
+Held overnight: the fix I briefed doesn't hold. The player and its tuning card
 mount only with a URL (`LiveScreen.tsx:1059-1070`), so clearing it shows
 the new channel's art with no spinner for up to 30s, and there's no
 existing notice for a failed link. Doing it right is a "resolving" state
-in InvertedPlayer and TheaterOverlay, for Stalker only.
+in InvertedPlayer and TheaterOverlay, for Stalker only. **Kept** as it is
+(decided 2026-10-03): two shared player components changed for one
+portal type you don't use day to day, on a finding read and not seen.
 
 **LV6. LOW, security. A queued disk write can undo Clear All Login
 Info.** Confirmed by reading: `scheduleDiskPut` (`source.ts:89-93`) writes
@@ -338,8 +346,9 @@ Fixed in v0.11.4: the timer asks `isCurrent`. No other writer found.
 
 **LV7. LOW. Catalog downloads keep the 30s total timeout.** Plausible,
 reasoned only: the guide gets 180s because it was measured; nobody has
-measured a big catalog on a slow line. **Held**: not changed without a
-number.
+measured a big catalog on a slow line. **Kept** as it is (decided
+2026-10-03): not changed without a number, and nobody has reported a
+catalog timing out.
 
 **LV8. LOW. Stalker's Unhide list shows genre ids.** Confirmed by reading:
 `PlaylistsTab.tsx:386-399` assumes the stored ids are folder names, which
@@ -436,9 +445,10 @@ queue only on 2xx, 404, 409 or 422 (`settled`), and the live stop queues on
 the same rule.
 
 **ST5. LOW. A new Trakt account gets the old account's watches.**
-Confirmed by reading. **Held**: the ledger is also the app's own watched
-record, and there's no notion of whose it is; clearing it at sign-out
-loses your checkmarks. Your call.
+Confirmed by reading. The ledger is also the app's own watched record,
+and there's no notion of whose it is; clearing it at sign-out loses your
+checkmarks. **Kept** on Adam's word (2026-10-03): "keep app checkmarks".
+A new account gets the old one's watches; that's the trade.
 
 **ST6. LOW. Retry with nothing cached plays an uncached source.**
 **Held**: it's your click on Retry, and the rule against uncached sources
