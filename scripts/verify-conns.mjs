@@ -31,15 +31,28 @@ await page.addInitScript(() => {
   sessionStorage.setItem("btv:welcome-played", "1");
 });
 await page.goto("http://localhost:4173/");
-await page
-  .waitForFunction(
-    () => document.body.innerText.includes("Fake Sports HD"),
-    null,
-    { timeout: 30_000 },
-  )
-  .catch(() => {});
+// Wait for a channel fake-panel serves ("Fake Sports HD" is fake-stalker's, so
+// this used to sit out the whole 30s on every run and move on). A page that
+// never lists one has failed, so say so instead of reading a pill that was
+// never going to be there.
+const listed = await page
+  .waitForFunction(() => document.body.innerText.includes("Fake ESPN 4K"), null, {
+    timeout: 30_000,
+  })
+  .then(
+    () => true,
+    () => false,
+  );
+if (!listed) {
+  console.log("FAIL: the Live page never listed Fake ESPN 4K, the first channel fake-panel serves");
+  await browser.close();
+  process.exit(1);
+}
 
 const pill = page.locator(".live-conns");
+// The count rides its own poll, not the catalog's request, so give it a beat
+// after the channels show. If it never comes, the check below fails on it.
+await pill.first().waitFor({ timeout: 10_000 }).catch(() => {});
 const count = await pill.count();
 // The meter (plan 019, K5): "3 of 3", a dash a stream, all three filled.
 const text = count ? (await pill.first().textContent()).trim() : null;

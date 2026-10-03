@@ -183,7 +183,12 @@ to an `!ml` detection in the first place.
   node scripts\verify-release.mjs latest.json <exe>      # or verifies a local one, offline
   ```
   It reads the manifest's kind off its shape, then checks that the version
-  is declared, that a `frontend.json`'s `nativeVersion` equals
+  is declared, that a `latest.json` is one the updater will parse (it
+  refuses the whole manifest, with nothing shown, for a `version` that is
+  not semver, a `pub_date` that is not RFC 3339 like `2026-06-24T00:00:00Z`
+  (a date alone, or no `Z` or offset, fails), or no `platforms` key a
+  Windows x64 install asks for, `windows-x86_64-nsis` or
+  `windows-x86_64`), that a `frontend.json`'s `nativeVersion` equals
   tauri.conf's (a stale one is silently ignored by the app, not an error),
   that the `signature` field is an actual minisign signature and not a
   placeholder, that it names the asset the `url` points at, that the asset
@@ -276,7 +281,7 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    {
      "version": "<version>",
      "notes": "What changed in this release.",
-     "pub_date": "<ISO 8601, e.g. 2026-06-24T00:00:00Z>",
+     "pub_date": "<RFC 3339, e.g. 2026-06-24T00:00:00Z>",
      "platforms": {
        "windows-x86_64": {
          "signature": "<paste the full contents of the .exe.sig file>",
@@ -331,19 +336,26 @@ the bundle anyway, but do not make the app prove it for you.
    ```
    **tar.gz, not zip**, with `index.html` at the archive root.
 
-   **Name dist's contents; never pack `.`** The unpacker (`frontend.rs`,
-   unchanged since 0.9.0) refuses any entry whose path is not plain names
-   all the way down: absolute paths, `..`, and a leading `./`. And
-   `tar -C dist .` writes `./` and `./index.html`, so that command, which
-   this step said until v0.9.82, built a bundle every installed copy would
-   have refused, silently. `Get-ChildItem dist -Name` passes the top-level
-   names instead (`assets`, `index.html`, `logo.svg`, whatever else the
-   build puts there).
+   **Name dist's contents; never pack `.`** The unpacker (`unpack` in
+   `frontend.rs`) takes files and directories only. A symlink, a hard link
+   or any other kind of entry refuses the whole bundle (since v0.10.47: a
+   link is written as given, target and all, so it could point outside the
+   folder). It also refuses a path that is not plain names all the way
+   down: absolute paths and `..`. A leading `./` it has dropped since
+   v0.10.38, so `tar -C dist .`, which this step said until v0.9.82 and
+   which writes `./` and `./index.html`, no longer builds a bundle the app
+   refuses. `verify-release` still fails one, though: name dist's contents
+   and it never comes up. `Get-ChildItem dist -Name` passes the top-level
+   names (`assets`, `index.html`, `logo.svg`, whatever else the build puts
+   there).
 
-   The last line is the check, run BEFORE signing: every entry is a path
-   the app will unpack, `index.html` is at the root, and nothing in `dist`
-   was left out. It reads the archive the way the app does. Don't sign a
-   bundle it fails.
+   The last line is the check, run BEFORE signing: every entry is a file or
+   a directory, every path is one the app will unpack, `index.html` is at
+   the root, and nothing in `dist` was left out. It reads the archive the
+   way the app does. Don't sign a bundle it fails.
+   `node scripts\verify-release.mjs --self-test` runs these rules, and the
+   manifest rules, against archives and strings it builds itself, with no
+   release in hand.
 
 3. **Sign it with the same key:**
    ```powershell

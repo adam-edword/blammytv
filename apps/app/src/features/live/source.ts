@@ -264,7 +264,7 @@ function keepIfFailed(
   );
   return {
     ...b,
-    group: { ...b.group, folders: before.folders },
+    group: { ...b.group, folders: before.folders, hiddenFolders: before.hiddenFolders },
     channels,
     hidden,
   };
@@ -896,6 +896,11 @@ async function buildStalkerSource(
     const folders = genres
       .filter((g) => !hidden.has(g.id))
       .map((g) => ({ id: folderId(p.id, g.id), name: g.title }));
+    // The ones the user hid, by name: a hidden genre leaves `folders`, and
+    // Settings' Unhide list would otherwise show the portal's id (LV8).
+    const hiddenFolders = genres
+      .filter((g) => userHidden.has(g.id))
+      .map((g) => ({ id: g.id, name: g.title }));
 
     onStage?.(`Fetching ${p.name} channels…`);
     await breathe();
@@ -987,7 +992,12 @@ async function buildStalkerSource(
       }
     })();
 
-    return { group: { id: p.id, name: p.name, folders }, channels, hidden: hiddenChannels, epg };
+    return {
+      group: { id: p.id, name: p.name, folders, hiddenFolders },
+      channels,
+      hidden: hiddenChannels,
+      epg,
+    };
   } catch (err) {
     console.error(`[live] playlist "${p.name}" failed: ${msg(err)}`);
     return {

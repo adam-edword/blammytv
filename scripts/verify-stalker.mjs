@@ -83,6 +83,41 @@ const epg = await page
   .then(() => true, () => false);
 check("EPG listings from get_epg_info render", epg);
 
+// LV8: Settings' Unhide list. The portal's genre "2" is Sports, and hiding it
+// stores "2". The list used to read "2"; it names the folder the portal named.
+{
+  const hiddenCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const hiddenPage = await hiddenCtx.newPage();
+  await hiddenPage.addInitScript((pl) => {
+    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
+  }, { v: 1, data: [{ ...PLAYLIST.data[0], hiddenCategories: ["2"] }] });
+  await hiddenPage.goto(URL);
+  const loaded = await hiddenPage
+    .waitForFunction(() => document.body.innerText.includes("Fake News One"), null, { timeout: 30_000 })
+    .then(() => true, () => false);
+  const guideText = loaded ? await hiddenPage.evaluate(() => document.body.innerText) : "";
+  check(
+    "a hidden genre's channels are out of the guide (so the Unhide list below has one to name)",
+    loaded && !guideText.includes("Fake Sports HD"),
+  );
+  await hiddenPage.locator(".header__right button").last().click();
+  await hiddenPage.locator(".settings").waitFor();
+  await hiddenPage.getByRole("tab", { name: "General", exact: true }).click();
+  await hiddenPage.getByRole("button", { name: "Edit Test Portal folders" }).click();
+  const rows = await hiddenPage
+    .locator(".source-row__name")
+    .first()
+    .waitFor({ timeout: 8000 })
+    .then(() => hiddenPage.locator(".source-row__name").allTextContents(), () => []);
+  check(
+    "Settings' Unhide list names the hidden Stalker folder, not the portal's id for it",
+    rows.length === 1 && rows[0] === "Sports",
+    JSON.stringify(rows),
+  );
+  await hiddenCtx.close();
+}
+
 await browser.close();
 const fails = results.filter(([, ok]) => !ok);
 console.log(

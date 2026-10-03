@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addPlaylist,
+  hiddenFolderLabel,
   isCategoryHidden,
   isHttpUrl,
   playlistSource,
@@ -183,5 +184,35 @@ describe("setHiddenCategories (wholesale, the folder editor's Save)", () => {
     expect(list[1].hiddenCategories).toEqual(["z"]);
     list = setHiddenCategories(list, list[0].id, []);
     expect(list[0].hiddenCategories).toEqual([]);
+  });
+});
+
+describe("hiddenFolderLabel", () => {
+  // A Stalker portal stores its genre id ("14") for a folder it calls
+  // "Sports" (LV8).
+  const known = [
+    { id: "14", name: "Sports" },
+    { id: "7", name: "" },
+  ];
+
+  it("is the name the catalog recorded for the id", () => {
+    expect(hiddenFolderLabel("14", known)).toBe("Sports");
+  });
+
+  it("is the id when the catalog has no name for it", () => {
+    expect(hiddenFolderLabel("99", known)).toBe("99");
+  });
+
+  it("is the id when the catalog isn't loaded, or its record predates the names", () => {
+    expect(hiddenFolderLabel("14", undefined)).toBe("14");
+    expect(hiddenFolderLabel("14", [])).toBe("14");
+  });
+
+  it("is the id when the portal gave the folder an empty name", () => {
+    expect(hiddenFolderLabel("7", known)).toBe("7");
+  });
+
+  it("leaves an M3U's folder name alone: its id already is the name", () => {
+    expect(hiddenFolderLabel("Sports HD", undefined)).toBe("Sports HD");
   });
 });

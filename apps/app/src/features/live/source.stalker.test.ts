@@ -153,6 +153,36 @@ describe("loadLive Stalker path", () => {
     expect(data.hidden?.[0]).toMatchObject({ name: "News One", streamCmd: "ffconc http://p/ch/101" });
   });
 
+  it("names the folders the user hid, as the portal does, for Settings' Unhide list (LV8)", async () => {
+    // A portal whose genre ids say nothing: hiding "Sports" stores "14".
+    const base = httpGetJson.getMockImplementation()!;
+    httpGetJson.mockImplementation((url: unknown, headers?: unknown) =>
+      new URL(String(url)).searchParams.get("action") === "get_genres"
+        ? Promise.resolve({
+            js: [
+              { id: "*", title: "All" },
+              { id: "1", title: "News" },
+              { id: "14", title: "Sports" },
+              { id: "2", title: "XXX After Dark" }, // adult by NAME, not hidden by the user
+            ],
+          })
+        : base(url, headers),
+    );
+    // "99" is a hidden id the portal no longer lists: nothing to name it by.
+    hiddenCategories = ["14", "99"];
+    const { loadLive } = await import("./source");
+    const group = (await loadLive(NOW)).groups[0];
+    expect(group.hiddenFolders).toEqual([{ id: "14", name: "Sports" }]);
+    // A hidden folder leaves `folders`, which is why its name is kept apart.
+    expect(group.folders.map((f) => f.name)).toEqual(["News"]);
+  });
+
+  it("has no hidden folders to name when the user hid none", async () => {
+    const { loadLive } = await import("./source");
+    const group = (await loadLive(NOW)).groups[0];
+    expect(group.hiddenFolders).toEqual([]);
+  });
+
   it("keeps adult genres and censored channels when the filter is off", async () => {
     showAdult = true;
     const { loadLive } = await import("./source");

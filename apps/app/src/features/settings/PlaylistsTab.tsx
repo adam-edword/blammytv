@@ -10,6 +10,7 @@ import {
   KIND_TABS,
   addPlaylist,
   draftFrom,
+  hiddenFolderLabel,
   isFormComplete as isComplete,
   loadPlaylists,
   playlistSource,
@@ -311,6 +312,7 @@ export function PlaylistsTab() {
                 <FolderEditor
                   playlist={p}
                   categories={categories[p.id]}
+                  hiddenFolders={liveGroups.find((x) => x.id === p.id)?.hiddenFolders}
                   showAdult={showAdult}
                   onSave={(hiddenIds) =>
                     update(setHiddenCategories(playlists, p.id, hiddenIds))
@@ -360,11 +362,16 @@ export function PlaylistsTab() {
 function FolderEditor({
   playlist,
   categories,
+  hiddenFolders,
   showAdult,
   onSave,
 }: {
   playlist: Playlist;
   categories: Categories | undefined;
+  /** The loaded catalog's names for this playlist's hidden folders, read
+   * off the cache (no load is started for them); undefined until it has
+   * loaded, or for a record from before the field. */
+  hiddenFolders: readonly { id: string; name: string }[] | undefined;
   showAdult: boolean;
   onSave: (hiddenIds: string[]) => void;
 }) {
@@ -383,11 +390,14 @@ function FolderEditor({
     // the only recovery was deleting the playlist, which throws away the
     // rest of the curation with it.
     //
-    // The stored ids ARE the folder names for these kinds (folderId is
-    // `${playlistId}:${group}`), so what CAN be listed is exactly what was
-    // hidden, which is all an unhide needs.
-    const hidden = [...(playlist.hiddenCategories ?? [])].sort((a, b) =>
-      a.localeCompare(b),
+    // What CAN be listed is exactly what was hidden, which is all an
+    // unhide needs. The stored ids are the folder names for an M3U
+    // (folderId is `${playlistId}:${group}`), but a Stalker portal's are
+    // its genre ids, so those take their name from the loaded catalog
+    // (hiddenFolders) and show the id until it has one.
+    const label = (id: string) => hiddenFolderLabel(id, hiddenFolders);
+    const hidden = [...(playlist.hiddenCategories ?? [])].sort(
+      (a, b) => label(a).localeCompare(label(b)) || a.localeCompare(b),
     );
     return (
       <div className="source-list">
@@ -398,7 +408,7 @@ function FolderEditor({
         </p>
         {hidden.map((id) => (
           <div className="source-row" key={id}>
-            <span className="source-row__name">{id}</span>
+            <span className="source-row__name">{label(id)}</span>
             <Button
               variant="secondary"
               size="sm"

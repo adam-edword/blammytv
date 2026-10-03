@@ -6,7 +6,7 @@ Morning summary: (written when the audit is done)
 Sports, the privacy page, CI's timeout and the changelog line (v0.11.2),
 the app shell (v0.11.3), Live TV (v0.11.4), Stream (v0.11.5),
 Multi-view (v0.11.6), native (v0.11.7, needs a rebuild), light mode
-(v0.11.8). Next through the builder: tooling, then a mop-up (LV8). A session restart at 03:30 UTC killed seven
+(v0.11.8), tooling and LV8 (v0.11.9). Every finding is fixed or held. A session restart at 03:30 UTC killed seven
 auditors and Sonnet's fullscreen run; the seven were started again and
 0.11.1 was finished here (`8e9b5ef0`).
 
@@ -52,12 +52,17 @@ Adam's.
 Confirmed by reading: manifest mode (`scripts/verify-release.mjs:266-310`)
 never checks `pub_date`, the platform key, or that `version` is semver, and
 `tauri-plugin-updater` refuses all three. RELEASING.md promises "a green run
-means an install will accept the update". Plan: check all three.
+means an install will accept the update". Fixed in v0.11.9: a semver
+version, an RFC 3339 `pub_date` and a `windows-x86_64(-nsis)` key with its
+url and signature, each matched against the updater's own crates (`semver`,
+`time`) over 20,000-odd cases with no disagreement. The 0.11.0 manifest
+passes; hand-broken ones each fail on their own line.
 
 **T3. LOW. `verify-conns` sleeps 30s on every run.** Confirmed:
 `scripts/verify-conns.mjs:35-38` waits for "Fake Sports HD", which only
-fake-stalker serves (`fake-stalker.mjs:82`), and swallows the timeout. Plan:
-wait for a name its own fake serves.
+fake-stalker serves (`fake-stalker.mjs:82`), and swallows the timeout.
+Fixed in v0.11.9: it waits for a channel fake-panel serves, and a page
+that never lists it fails. 36s to 6s.
 
 **T4. LOW. CI's harness job has little headroom.** Confirmed:
 `.github/workflows/ci.yml:56` gives it 25 minutes; recent runs take 20 to
@@ -73,8 +78,11 @@ release notes are Adam's own text and don't make the claim.
 unpacker as it was at 0.9.0.** Confirmed: RELEASING.md:334 says "unchanged
 since 0.9.0" and that a leading `./` is refused (tolerated since v0.10.38);
 the unpacker refuses link entries since v0.10.47 (`frontend.rs:466-470`) and
-`verify-release`'s layout check doesn't. Plan: fix the doc and teach
-`verify-release` the link rule, with T2.
+`verify-release`'s layout check doesn't. Fixed in v0.11.9: RELEASING.md
+says what `unpack` does today, and the layout check refuses links (and a
+pax global header, which `unpack` also refuses) and a header it can't
+read. `--self-test` runs 35 cases; its layout verdicts agree with a Rust
+mirror of `unpack` over 32 real archives.
 
 **T7. LOW. Clippy's warning gate runs on an unpinned toolchain.** Plausible,
 not reproducible today: `ci.yml` uses `dtolnay/rust-toolchain@stable` and
@@ -325,9 +333,9 @@ number.
 **LV8. LOW. Stalker's Unhide list shows genre ids.** Confirmed by reading:
 `PlaylistsTab.tsx:386-399` assumes the stored ids are folder names, which
 holds for M3U; Stalker stores the portal's genre id, so you see "14".
-Plan, revised: a hidden folder leaves the catalog's folder list, so its
-name isn't there to look up. The group keeps a list of its hidden
-folders' names for this, filled by the Stalker builder.
+Fixed in v0.11.9: the Stalker builder records its hidden genres' names
+(`LiveGroup.hiddenFolders`, carried through a failed load too), and the
+Unhide list shows them, the id until the catalog has loaded.
 
 ### Multi-view (second pass)
 

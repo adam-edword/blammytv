@@ -55,7 +55,6 @@ try {
 } catch {
   /* storage unavailable: nothing was stored either */
 }
-// Paid theme CSS, purely from cache — see license.ts's fail-open comment.
 
 // `playerPerf(seconds)` in the devtools console — the player perf probe
 // (plan 011). Installed for both entries so the overlay harness can use it too.

@@ -50,6 +50,15 @@ export interface LiveGroup {
   id: string;
   name: string;
   folders: LiveFolder[];
+  /** The folders the USER hid from this source, with the names the provider
+   * gave them, for Settings' Unhide list. A hidden folder leaves `folders`,
+   * so its name can't be looked up there. `id` is the RAW category id,
+   * exactly as hiddenCategories stores it (not a namespaced LiveFolder id).
+   * Only Stalker fills it: its ids are the portal's genre ids, which say
+   * nothing to a reader, where an M3U's ids are the folder names already.
+   * Absent on a source that doesn't, and on a disk record from before this
+   * field, which Settings reads as "show the id". */
+  hiddenFolders?: { id: string; name: string }[];
   /** Set when this source failed to load — its folders/channels are absent
    * but the other sources still render. */
   error?: string;

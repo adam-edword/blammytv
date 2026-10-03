@@ -197,6 +197,18 @@ export function isCategoryHidden(p: Playlist, categoryId: string): boolean {
   return p.hiddenCategories?.includes(categoryId) ?? false;
 }
 
+/** What to call one entry of a playlist's hidden set in the Unhide list: the
+ * name the loaded catalog recorded for it (LiveGroup.hiddenFolders), else the
+ * id itself. The id IS the name for an M3U, and for a Stalker portal it is
+ * the genre id, which is all there is until the catalog has loaded or when
+ * its record predates the field. Unhiding acts on the id either way. */
+export function hiddenFolderLabel(
+  id: string,
+  known: readonly { id: string; name: string }[] | undefined,
+): string {
+  return known?.find((f) => f.id === id)?.name || id;
+}
+
 /** Flip one category's visibility on one playlist. */
 export function toggleHiddenCategory(
   list: Playlist[],
