@@ -2,7 +2,7 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
-## 0.12.0: Multi-view on Discord, and a round of fixes (2026-10-03)
+## 0.11.12: Multi-view on Discord, and a round of fixes (2026-10-03)
 
 Multi-view's sound reaches a Discord stream, and the fixes from a fresh
 look over all of 0.11.0. A full update, like 0.11.0: parts of it are in
