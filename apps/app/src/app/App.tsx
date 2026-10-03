@@ -18,6 +18,7 @@ import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { SportsScreen } from "../features/sports/SportsScreen";
 import { MultiviewTab } from "../features/live/MultiviewTab";
+import { watchPlaylists } from "../features/live/source";
 import { useMalSync } from "../features/mal/sync";
 import { useTraktSync } from "../features/trakt/sync";
 import {
@@ -82,6 +83,9 @@ export function App() {
     () => onPlaylistsChange(() => setHasLiveSource(hasEnabledPlaylist())),
     [],
   );
+  // The catalog follows the playlists on every screen, not just the Guide:
+  // Sports and Multi-view read it too (source.ts watchPlaylists).
+  useEffect(() => watchPlaylists(), []);
   const [section, setSection] = useState<Section>(() =>
     loadStartupTab() === "live" && hasEnabledPlaylist() ? "live" : "stream",
   );

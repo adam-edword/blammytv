@@ -646,6 +646,10 @@ export function TheaterOverlay({
       window.clearTimeout(after);
     };
   }, [loading, tuneAttempt, vodSrc, playbackKey, diag, jumpLive]);
+  // Tell the host's status poll, which slows down once the card is up.
+  useEffect(() => {
+    api()?.setTuneDead?.(tune === "dead");
+  }, [tune]);
   // Auto-failover: the moment the watchdog declares the source dead, jump
   // to the next candidate.
   //

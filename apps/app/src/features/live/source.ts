@@ -14,6 +14,7 @@ import {
 } from "../../data/stalker";
 import {
   loadPlaylists,
+  onPlaylistsChange,
   type M3uPlaylist,
   type StalkerPlaylist,
   type XtreamPlaylist,
@@ -59,6 +60,9 @@ let inflight: {
   key: string;
   promise: Promise<LiveData>;
   stages: Set<(label: string) => void>;
+  /** Started by a playlist change (force), which another forced call for
+   * the same key joins. See loadLive. */
+  forced: boolean;
 } | null = null;
 
 /** How old a DISK snapshot may be and still hydrate the guide instantly,
@@ -85,9 +89,15 @@ function announceRefresh() {
 /** Persist off the critical path: a structured-clone write of a ~15MB graph
  * costs real main-thread time, so let the first paint settle first. Only
  * doLoad's finished guide comes here, and every list in it was normalized
- * (or kept from a cache that was), so the record says so. */
+ * (or kept from a cache that was), so the record says so.
+ *
+ * The timer asks whether `key` is still the user's config before it writes.
+ * The record's key holds an Xtream server, username and password, and
+ * Clear All Login Info lands in this 1.5s window as readily as anywhere:
+ * the clear emptied the disk, then this put the credentials straight back. */
 function scheduleDiskPut(key: string, at: number, data: LiveData) {
   setTimeout(() => {
+    if (!isCurrent(key)) return;
     void diskPut({ key, at, data, normalized: true });
   }, 1500);
 }
@@ -103,7 +113,7 @@ function refreshInBackground(playlists: LoadableSource[], key: string) {
   const promise = doLoad(playlists, key, new Date(), (label) =>
     stages.forEach((cb) => cb(label)),
   );
-  const record = { key, promise, stages };
+  const record = { key, promise, stages, forced: false };
   inflight = record;
   promise
     .then((data) => {
@@ -135,6 +145,8 @@ type LoadableSource = XtreamPlaylist | M3uPlaylist | StalkerPlaylist;
 const enabledSources = (): LoadableSource[] =>
   loadPlaylists().filter((p) => p.enabled);
 
+// hiddenCategories stays the LAST element of each source's entry: sameFeed
+// drops it to ask whether two keys are one account.
 const cacheKey = (playlists: LoadableSource[]) =>
   playlists.length === 0
     ? "mock"
@@ -181,6 +193,83 @@ export function lookupLive(): LiveData | null {
  * must not write over the newer one's cache or its disk record. */
 const isCurrent = (key: string) => cacheKey(enabledSources()) === key;
 
+/** What a load started from: the memory cache, or the disk record a launch
+ * hydrated into it. Its per-source config is read back out of its key. */
+type Prior = { data: LiveData; parts: KeyParts | null };
+type KeyParts = { entries: Map<string, unknown[]>; adult: unknown };
+
+function keyParts(key: string): KeyParts | null {
+  try {
+    const parsed: unknown = JSON.parse(key);
+    if (!Array.isArray(parsed) || !Array.isArray(parsed[0])) return null;
+    const entries = new Map<string, unknown[]>();
+    for (const e of parsed[0])
+      if (Array.isArray(e) && typeof e[0] === "string") entries.set(e[0], e);
+    return { entries, adult: parsed[1] };
+  } catch {
+    return null; // "mock", or a key from some other shape
+  }
+}
+
+/** Was this source built from exactly the config it has now: its own entry
+ * (id, credentials or URL, hidden folders) and the adult filter? Only then
+ * is what it held last time still what it would hold. */
+function sameBuild(prior: Prior, now: KeyParts | null, id: string): boolean {
+  const was = prior.parts?.entries.get(id);
+  const is = now?.entries.get(id);
+  return (
+    !!was &&
+    !!is &&
+    JSON.stringify(was) === JSON.stringify(is) &&
+    JSON.stringify(prior.parts?.adult) === JSON.stringify(now?.adult)
+  );
+}
+
+/** Is it the same account, whatever it hides? Programmes don't depend on
+ * hidden folders or the adult filter, so those may differ. Credentials, the
+ * server, the portal, the URL may not: the same channel id on another feed is
+ * another channel. */
+function sameFeed(prior: Prior, now: KeyParts | null, id: string): boolean {
+  const was = prior.parts?.entries.get(id);
+  const is = now?.entries.get(id);
+  return (
+    !!was &&
+    !!is &&
+    JSON.stringify(was.slice(0, -1)) === JSON.stringify(is.slice(0, -1))
+  );
+}
+
+/** A source that failed to build keeps what it held at its last good load:
+ * its channels, folders and hidden channels, when it was built from this
+ * same config. The group still carries its `error`, so every place that says
+ * "couldn't load this playlist" still says it. A changed config, or a source
+ * that never loaded, gets nothing, as before. doLoad's guide phase reads
+ * these channels off the build, so their programmes ride the `had`
+ * carry-over like any other source's. */
+function keepIfFailed(
+  b: SourceBuild,
+  p: LoadableSource,
+  prior: Prior | null,
+  now: KeyParts | null,
+): SourceBuild {
+  if (!b.group.error || !prior || !sameBuild(prior, now, p.id)) return b;
+  const before = prior.data.groups.find((g) => g.id === p.id);
+  if (!before) return b;
+  const mine = (c: Channel) => c.id.startsWith(`${p.id}:`);
+  const channels = prior.data.channels.filter(mine);
+  const hidden = prior.data.hidden?.filter(mine);
+  if (channels.length === 0 && !hidden?.length) return b;
+  console.warn(
+    `[live] ${p.name}: failed, keeping its ${channels.length} channels from the last good load`,
+  );
+  return {
+    ...b,
+    group: { ...b.group, folders: before.folders },
+    channels,
+    hidden,
+  };
+}
+
 export async function loadLive(
   now: Date,
   onStage?: (label: string) => void,
@@ -200,7 +289,10 @@ export async function loadLive(
 
   // Join a matching load already in the air instead of doubling it. Forced
   // refreshes (playlist edits) start fresh — they exist to bypass stale work.
-  if (!force && inflight && inflight.key === key) {
+  // Except another FORCED one for this very key: that is one settled change
+  // reaching us twice (the Guide's own listener and the app's, watchPlaylists),
+  // and the second has no stale work to bypass that the first didn't.
+  if (inflight && inflight.key === key && (!force || inflight.forced)) {
     if (onStage) inflight.stages.add(onStage);
     return inflight.promise;
   }
@@ -213,6 +305,7 @@ export async function loadLive(
   const record = {
     key,
     stages,
+    forced: force,
     promise: undefined as unknown as Promise<LiveData>,
   };
   record.promise = (async () => {
@@ -260,6 +353,45 @@ export async function loadLive(
   }
 }
 
+/** How long a burst of playlist saves has to be quiet before the catalog
+ * reloads. Settings saves once per toggle. The Guide's own listener waits
+ * the same time, so one change reaches loadLive twice at about the same
+ * moment, which its single-flight turns into one load. */
+export const PLAYLIST_SETTLE_MS = 800;
+
+/**
+ * Reload the catalog when the playlists change, whatever screen is up.
+ *
+ * Only the Guide listened, so a playlist added, toggled or edited in
+ * Settings while Sports or Multi-view was showing (or the adult filter
+ * flipped there) left lookupLive() null under the new key until the Guide
+ * was opened: Sports' rail clicks, autoplay and failover did nothing, and
+ * Multi-view kept the old catalog. App mounts this once.
+ *
+ * It announces when the channels land, not only when the guide does, so the
+ * readers that follow onLiveRefreshed (Multi-view, Sports, Settings' status
+ * rows) pick the new catalog up in seconds instead of after the xmltv. A
+ * load that produced nothing announces nothing: there is nothing to re-read.
+ */
+export function watchPlaylists(): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const off = onPlaylistsChange(() => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (enabledSources().length === 0) return;
+      loadLive(new Date(), undefined, true)
+        .then(() => {
+          if (peekLive()) announceRefresh();
+        })
+        .catch(() => {});
+    }, PLAYLIST_SETTLE_MS);
+  });
+  return () => {
+    off();
+    clearTimeout(timer);
+  };
+}
+
 async function doLoad(
   playlists: LoadableSource[],
   key: string,
@@ -267,6 +399,17 @@ async function doLoad(
   onStage: (label: string) => void,
 ): Promise<LiveData> {
   let data: LiveData;
+  // What this load started from: the memory cache, or the disk record a
+  // launch hydrated into it. Read now, before the builds run and anything
+  // else lands in the cache. A failed source keeps its channels from it, and
+  // every channel's programmes are seeded from it (below).
+  const prior: Prior | null = cache
+    ? { data: cache.data, parts: keyParts(cache.key) }
+    : null;
+  const current = keyParts(key);
+  // Every source failed. Its channels may all be carried (keepIfFailed), but
+  // it is still a total failure, and a total failure stays uncached (below).
+  let allFailed = false;
   if (playlists.length === 0) {
     // Unreachable in normal use — the Live tab hides without an enabled
     // source — but load() is also called by refresh paths, so keep the
@@ -280,15 +423,18 @@ async function doLoad(
     // different one is the one actually wedged) — fall back to the generic
     // "Loading channels…" the caller shows when no stage is reported.
     const narrate = playlists.length === 1 ? onStage : undefined;
-    const built = await Promise.all(
-      playlists.map((p) =>
-        p.kind === "m3u"
-          ? buildM3uSource(p, now, narrate)
-          : p.kind === "stalker"
-            ? buildStalkerSource(p, now, narrate)
-            : buildXtreamSource(p, now, narrate),
-      ),
-    );
+    const built = (
+      await Promise.all(
+        playlists.map((p) =>
+          p.kind === "m3u"
+            ? buildM3uSource(p, now, narrate)
+            : p.kind === "stalker"
+              ? buildStalkerSource(p, now, narrate)
+              : buildXtreamSource(p, now, narrate),
+        ),
+      )
+    ).map((b, i) => keepIfFailed(b, playlists[i], prior, current));
+    allFailed = built.every((b) => !!b.group.error);
     // Assembled in saved-playlist order, not arrival order. concat, not
     // push(...spread): spreading a six-figure channel list overflows the
     // argument stack. Programme lists are normalized here — the one choke
@@ -301,11 +447,32 @@ async function doLoad(
       if (src.hidden?.length)
         data.hidden = (data.hidden ?? []).concat(src.hidden);
     }
+    // SEEDED from what this load started from. Hiding a folder, Undo and
+    // the adult filter each change the cache key and force a reload, and the
+    // reload's first phase had no programmes at all, so every lane read
+    // "Loading guide…" for the whole xmltv download (60 to 77s on a big
+    // guide). A programme doesn't depend on a hidden folder or the adult
+    // filter, so every channel the new catalog holds, kept-aside ones
+    // included (Undo brings those straight back), keeps the list it had,
+    // provided its source is the same account. The same channel id on a
+    // changed server or login is another channel and is not seeded. The guide
+    // phase below still replaces all of it when the real guide lands.
+    if (prior) {
+      built.forEach((b, i) => {
+        if (!sameFeed(prior, current, playlists[i].id)) return;
+        for (const list of [b.channels, b.hidden ?? []])
+          for (const c of list) {
+            const kept = prior.data.programmes.get(c.id);
+            if (kept) data.programmes.set(c.id, kept);
+          }
+      });
+    }
     // The guide is still in the air. Channels render now (empty lanes read
     // as "No Information", which the guide already handles), and when the
     // programmes land we publish a NEW LiveData and announce it — the same
     // re-read the disk hydrate uses. A new object, not a mutation: the
     // screen holds this one in state and would never see an in-place edit.
+    // `guidePending` still says the real guide is coming, whatever was seeded.
     data.guidePending = true;
     void Promise.all(built.map((b) => b.epg)).then((phases) => {
       const groups = built.map((b, i) =>
@@ -337,7 +504,7 @@ async function doLoad(
         hidden: data.hidden,
         programmes,
       };
-      if (full.channels.length === 0) return;
+      if (full.channels.length === 0 || allFailed) return;
       // A guide for a config the user has since changed (hid a folder,
       // flipped the adult filter) lands late: it must not replace the
       // newer config's cache or overwrite the one disk record, and its
@@ -353,9 +520,11 @@ async function doLoad(
   }
 
   // A total failure (no channels at all) stays uncached so the next mount
-  // retries instead of pinning the error for half an hour. Real playlist
-  // loads also persist to disk for the next launch's instant hydrate.
-  if (data.channels.length > 0) {
+  // retries instead of pinning the error for half an hour. So does one where
+  // every source failed and their channels were carried from the last good
+  // load: the screen shows them, and the next mount still tries again. Real
+  // playlist loads also persist to disk for the next launch's instant hydrate.
+  if (data.channels.length > 0 && !allFailed) {
     const at = Date.now();
     // MUST NOT DOWNGRADE A GUIDE THAT IS ALREADY HERE.
     //
@@ -370,11 +539,14 @@ async function doLoad(
     // The two-phase split (v0.7.11) introduced the guideless intermediate
     // write; the background revalidation predates it and was never taught
     // about it. The guide phase above publishes the complete record.
-    const downgrades =
-      cache?.key === key &&
-      cache.data.programmes.size > 0 &&
-      data.programmes.size === 0;
-    if (!downgrades && isCurrent(key)) cache = { key, at, data };
+    //
+    // Seeding (above) can give `data` programmes of its own, so this no
+    // longer asks whether it is guideless. It asks whether a guide is
+    // already here under this key, and then leaves it alone: publishing over
+    // it would put "Guide still downloading…" on a guide that is complete. A
+    // different key has no guide to protect, and its seeded snapshot goes out.
+    const holdsGuide = cache?.key === key && cache.data.programmes.size > 0;
+    if (!holdsGuide && isCurrent(key)) cache = { key, at, data };
     // NO disk write here any more: this snapshot has no guide yet, and
     // persisting it would let the next launch hydrate a guideless catalog
     // and then sit through the whole download again. The guide phase above

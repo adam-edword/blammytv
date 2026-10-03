@@ -43,6 +43,17 @@ const POLL_MS = 500;
  */
 const TUNE_POLL_MS = 100;
 
+/**
+ * The delay before the next status read.
+ *
+ * Fast while a tune is loading, and slow again once the watchdog has called
+ * it dead. A stream that never presents leaves `loading` true for as long as
+ * the dead card is up, and that was ten mpv_status calls a second for the
+ * whole time. A tune the watchdog is still retrying keeps the fast rate.
+ */
+export const statusPollMs = (loading: boolean, dead: boolean): number =>
+  loading && !dead ? TUNE_POLL_MS : POLL_MS;
+
 /** The window verbs (expand/collapse/fullscreen/…) — plain callbacks into
  * LiveScreen's state. Read through a ref at call time, so the returned api
  * can stay one stable object. */
@@ -98,6 +109,8 @@ export function useDirectOverlay(
   const metaRef = useRef(meta);
   const s = useRef({
     loading: true,
+    /** The tune watchdog has called this stream dead (setTuneDead). */
+    dead: false,
     endedFired: false,
     tracks: null as Tracks | null,
     tracksJson: "",
@@ -165,6 +178,7 @@ export function useDirectOverlay(
   useEffect(() => {
     if (!active) return;
     s.loading = true;
+    s.dead = false;
     s.endedFired = false;
     s.buffering = false;
     s.seekable = true;
@@ -208,8 +222,9 @@ export function useDirectOverlay(
      * was this timer.
      *
      * So it runs at TUNE_POLL_MS while something is loading and drops back to
-     * POLL_MS once the picture is up. The fast rate only exists during a tune,
-     * a second or two, and buys back most of that quarter second.
+     * POLL_MS once the picture is up, or the watchdog has called the tune
+     * dead (statusPollMs). The fast rate only exists during a tune, a second or
+     * two, and buys back most of that quarter second.
      *
      * NOT a faster poll in general. Plan 012 declined that, and correctly, but
      * it declined it for SCRUBBER GRANULARITY on the reasoning that the drag
@@ -342,7 +357,7 @@ export function useDirectOverlay(
         .catch(() => {})
         .finally(() => {
           if (stopped) return;
-          timer = window.setTimeout(tick, s.loading ? TUNE_POLL_MS : POLL_MS);
+          timer = window.setTimeout(tick, statusPollMs(s.loading, s.dead));
         });
     };
     // First read at the tune rate: `s.loading` is true from a few lines
@@ -445,6 +460,9 @@ export function useDirectOverlay(
       onMeta: sub(s.metaCbs),
       getLoading: () => s.loading,
       onLoading: sub(s.loadingCbs),
+      setTuneDead: (dead) => {
+        s.dead = dead;
+      },
       getBuffering: () => s.buffering,
       onBuffering: sub(s.bufferingCbs),
       getSeekable: () => s.seekable,

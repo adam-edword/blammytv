@@ -65,6 +65,13 @@ export interface OverlayApi {
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
   getLoading: () => boolean;
   onLoading: (cb: (loading: boolean) => void) => () => void;
+  /** The tune watchdog's verdict, for the host: true once it has called the
+   * stream dead (the "isn't responding" card is up), false again on Retry or
+   * a new stream. `loading` can't say it: a dead stream never presents, so it
+   * stays true, and a host that polls faster while loading polled at the tune
+   * rate for as long as the card showed. Optional, so a host or test seam
+   * that doesn't poll ignores it. */
+  setTuneDead?: (dead: boolean) => void;
   /** mpv paused itself to refill the cache after a seek outside it.
    * DELIBERATELY not folded into `loading`: the tune watchdog keys on
    * loading, and arming it on every buffering seek would silently reload

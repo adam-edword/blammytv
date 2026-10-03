@@ -4,8 +4,9 @@ Morning summary: (written when the audit is done)
 
 **Progress:** all 10 auditors back, every finding checked. Fixed so far:
 Sports, the privacy page, CI's timeout and the changelog line (v0.11.2),
-the app shell (v0.11.3). Next through the builder: Live TV, Stream,
-Multi-view, light mode, native, tooling. A session restart at 03:30 UTC killed seven
+the app shell (v0.11.3), Live TV (v0.11.4). Next through the builder:
+Stream, Multi-view, light mode, native, tooling, then a mop-up of what
+those leave (LV8). A session restart at 03:30 UTC killed seven
 auditors and Sonnet's fullscreen run; the seven were started again and
 0.11.1 was finished here (`8e9b5ef0`).
 
@@ -260,41 +261,53 @@ until the next good load.** Confirmed, reproduced
 (`/tmp/audit-live/vt/partial.test.ts`): with A and B on disk and B
 answering 503 at launch, the guide phase publishes A's channels only and
 writes that to disk; B's channels leave the Guide, Favorites and Sports,
-and a playing B channel stops. Plan: a source that errors keeps its last
-good channels, folders and hidden list from the snapshot.
+and a playing B channel stops. Fixed in v0.11.4: a source that errors
+keeps its channels, folders and hidden channels from the load it started
+from, when its own config is unchanged, and still says it failed. If every
+source fails, the carried channels show but aren't cached, so the next
+mount tries again, as a total failure always did.
 
 **LV2. MEDIUM. Hiding a folder blanks every lane's guide for the whole
 XMLTV download.** Confirmed, reproduced (`hide.test.ts`): hide changes the
 cache key, the forced reload's first phase has no programmes, and the
 screen and `lookupLive()` show "Loading guide…" for the 60 to 77 seconds
-your guide takes. Undo does it again. Plan: the channel half is seeded
-with the previous guide's programmes by channel id; hiding doesn't change
-a programme.
+your guide takes. Undo does it again. Fixed in v0.11.4: the channel half
+is seeded with the programmes it had, for every channel whose source is
+the same account (a changed server or login isn't seeded), and the real
+guide replaces them when it lands.
 
 **LV3. MEDIUM-LOW. A playlist change made on Sports or Multi-view loads
 nothing.** Confirmed by reading: only `LiveScreen` listens to
 `onPlaylistsChange`; `useLiveData` loads once at mount, and Sports' tune
 reads `lookupLive()`, which is null under the new key. Rail clicks and
-autoplay do nothing until the Guide is opened. Plan: a playlist change
-loads the catalog whatever screen is up.
+autoplay do nothing until the Guide is opened. Fixed in v0.11.4:
+`watchPlaylists` (App) loads once per settled change on any screen, and a
+second forced load of the same key joins the first, so the Guide's own
+listener doesn't double it. New harness verify-live-sync.
 
 **LV4. LOW. The 100ms status poll never slows on a dead channel.**
 Confirmed by reading: `useDirectOverlay.ts:345` polls at the tune rate
 while `loading` is true, which a stream that never presents leaves true:
-ten IPC calls a second for as long as the dead card shows. Plan: back off
-once the tune is called dead.
+ten IPC calls a second for as long as the dead card shows. Fixed in
+v0.11.4: the overlay tells the host when its card is up (`setTuneDead`),
+and the poll drops to 500ms. New harness verify-dead-poll: 30 reads in
+3s while tuning, 6 on the dead card.
 
 **LV5. LOW. On Stalker, switching channel keeps the old picture under the
 new name.** Confirmed by reading: the `[playing, heroId]` effect
 (`LiveScreen.tsx:672-690`) doesn't clear `playUrl` while `create_link`
 runs (up to 30s), and a failed link closes the player with no message.
-Plan: clear the old URL at the switch, and say when the link fails.
+**Held**: the fix I briefed doesn't hold. The player and its tuning card
+mount only with a URL (`LiveScreen.tsx:1059-1070`), so clearing it shows
+the new channel's art with no spinner for up to 30s, and there's no
+existing notice for a failed link. Doing it right is a "resolving" state
+in InvertedPlayer and TheaterOverlay, for Stalker only.
 
 **LV6. LOW, security. A queued disk write can undo Clear All Login
 Info.** Confirmed by reading: `scheduleDiskPut` (`source.ts:89-93`) writes
 1.5s later without asking whether its key is still current, so a clear in
 that window is followed by a record whose key holds the Xtream password.
-Plan: ask `isCurrent` inside the timer.
+Fixed in v0.11.4: the timer asks `isCurrent`. No other writer found.
 
 **LV7. LOW. Catalog downloads keep the 30s total timeout.** Plausible,
 reasoned only: the guide gets 180s because it was measured; nobody has
@@ -304,7 +317,9 @@ number.
 **LV8. LOW. Stalker's Unhide list shows genre ids.** Confirmed by reading:
 `PlaylistsTab.tsx:386-399` assumes the stored ids are folder names, which
 holds for M3U; Stalker stores the portal's genre id, so you see "14".
-Plan: show the folder's name.
+Plan, revised: a hidden folder leaves the catalog's folder list, so its
+name isn't there to look up. The group keeps a list of its hidden
+folders' names for this, filled by the Stalker builder.
 
 ### Multi-view (second pass)
 
@@ -476,6 +491,9 @@ without a number.
   claim, and splitting it empties the card for leagues that list nothing.
 - **SP5, the guide match's nickname rule.** Wants your `btvPairing`
   numbers before a rule is picked; it only feeds that report.
+- **LV5, a Stalker switch.** A "resolving" state in the player hosts, so
+  the switch shows a spinner under the new name. Worth it if you use
+  Stalker; I'd leave it if you don't.
 - **ST5, the old Trakt account's watches.** Clearing the ledger at sign-out
   loses your own checkmarks; keeping it pushes them to the next account.
   I'd keep it as is: one person switching Trakt accounts is rare, losing

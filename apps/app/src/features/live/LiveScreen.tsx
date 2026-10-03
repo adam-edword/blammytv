@@ -67,7 +67,12 @@ import {
   takeWatchRequest,
   watchWantsTheater,
 } from "./multiviewEntry";
-import { loadLive, onLiveRefreshed, peekLive } from "./source";
+import {
+  loadLive,
+  onLiveRefreshed,
+  peekLive,
+  PLAYLIST_SETTLE_MS,
+} from "./source";
 import { buildMeta, resolveStreamUrl } from "./stream";
 
 type Mode = "playlist" | "favorites" | "recents";
@@ -487,7 +492,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       window.clearTimeout(timer);
       timer = window.setTimeout(
         () => refresh(liveRef.current.status === "ready", true),
-        800,
+        PLAYLIST_SETTLE_MS,
       );
     });
     return () => {
