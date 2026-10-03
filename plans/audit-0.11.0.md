@@ -74,6 +74,45 @@ red with no code change. **Held** (see below).
 `origin/website:services/site/index.html:653`; main's copy doesn't have it.
 **Held**: the site deploy is Adam's, as last week's drift finding was.
 
+### App shell and shared code (second pass)
+
+**S1. MEDIUM. The player's keys act on the stream while Settings is
+open.** Confirmed: `TheaterOverlay.tsx` `onDocKey` (around line 1388) skips
+inputs, held modifiers, a taken Escape, and a button's own keys, and nothing
+else. Settings focuses its card, so over a playing Guide preview the arrows
+seek and change volume, Space pauses, and M, F and the rest act, while
+`preventDefault` also stops the arrows scrolling Settings. `isModalOpen()`
+(`lib/modalOpen.ts`) is the bit made for this. Plan: stand down while a
+modal is open.
+
+**S2. MEDIUM. Onboarding adds the same playlist twice.** Confirmed:
+`Onboarding.tsx` `continueTv` verifies and calls `addPlaylist`, which never
+dedupes (`playlists.ts:149`); Back keeps the form filled, so Continue again
+adds "Xtream Playlist 2" with the same line, and the Guide shows every
+channel twice. Also confirmed, LOW: Back pressed while the check is still
+running doesn't stop it, and its `.then` arms `advance` after `retreat`
+cleared the timer, so the step jumps forward again. Plan: a repeat Continue
+replaces the playlist it saved instead of adding one, and a check that
+finishes after Back doesn't advance.
+
+**S3. LOW. A live pop-out doesn't count as playing.** Confirmed:
+`lib/playingNow.ts` looks for `.vod-stage`, `#inv-chrome` and a Multi-view
+tile; popping out a live channel unmounts the in-app player, so Restart now
+and Install pass their guard and end the PiP. `lib/tauri.ts` already tracks
+`livePopout`. Plan: count it.
+
+**S4. LOW, accessibility. The header search has no focus ring.** Confirmed:
+`.navcap__searchinput` sets `outline: none` (`base.css:786`), ui.css opts
+text inputs out of the global ring, and settings.css's restore list
+(`:322-329`) doesn't include it. Plan 016 3.1 listed it. Plan: a ring on the
+search capsule while its input has keyboard focus.
+
+**S5. LOW. A new AIOStreams manifest can empty the hero.** Confirmed: saved
+Hero Slider Sources are only pruned when Customize's section is opened, and
+`source.ts:185` uses them whenever any are saved; keys the new manifest
+doesn't have each pool to nothing, so no hero. Plan: use the saved keys the
+manifest has, and the default mix when it has none of them.
+
 ## Held for Adam
 
 - **T7, pinning Rust for CI.** Two ways: pin the CI jobs only
