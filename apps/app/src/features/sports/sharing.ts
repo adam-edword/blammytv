@@ -14,11 +14,16 @@ import type { Game } from "./model";
  * the sidebar narrows anything. A college game on CBS at noon counts only
  * if college football is on your board.
  *
- * Games within SHARE_WINDOW of each other count, either side: NFL's 1:00
- * and 4:25 slots don't share, 4:05 and 4:25 do, and an ESPN doubleheader
- * 2.5 hours apart doesn't.
+ * Games within SHARE_WINDOW of each other count, either side, and strictly
+ * inside it: NFL's 1:00 and 4:25 slots don't share, 4:05 and 4:25 do, and a
+ * doubleheader two hours apart (ESPN's college basketball) doesn't, since
+ * exactly 120 apart is not inside it.
+ *
+ * A game that is over doesn't count for the others: it isn't on the
+ * channel any more, so it can't be the game that channel is showing instead
+ * of theirs. It still gets its own answer, as any game does.
  */
-export const SHARE_WINDOW_MS = 150 * 60_000;
+export const SHARE_WINDOW_MS = 120 * 60_000;
 
 /** Works out the board once; the answer for one game is then a lookup. */
 export function sharing(
@@ -26,6 +31,7 @@ export function sharing(
 ): (game: Game, networks?: readonly string[]) => Shared | undefined {
   const on = new Map<string, Map<string, number>>();
   for (const g of board) {
+    if (g.state === "final") continue;
     const at = g.start.getTime();
     for (const name of g.broadcasts) {
       const key = normalize(name);

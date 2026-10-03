@@ -2,11 +2,12 @@
 
 Morning summary: (written when the audit is done)
 
-**Progress:** all 10 auditors back. A session restart at 03:30 UTC killed
-seven of them and Sonnet's fullscreen run; the seven were started again
-and 0.11.1 was finished here (v0.11.1, `8e9b5ef0`). Every finding is
-checked; fixes go out in batches through the builder: Sports first, then
-the app shell, Live TV, Stream, Multi-view, light mode, native, tooling.
+**Progress:** all 10 auditors back, every finding checked. Fixed so far:
+Sports, the privacy page, CI's timeout and the changelog line (v0.11.2).
+Next through the builder: the app shell, Live TV, Stream, Multi-view,
+light mode, native, tooling. A session restart at 03:30 UTC killed seven
+auditors and Sonnet's fullscreen run; the seven were started again and
+0.11.1 was finished here (`8e9b5ef0`).
 
 ## How it ran
 
@@ -40,8 +41,11 @@ are accounts, and a connected Trakt is sent what you watch. The host table
 still lists `themes.eddtv.org`, which nothing in the app calls now. Line 97,
 "doesn't re-encode, re-host or relay anything", is false for Multi-view's
 proxy and HEVC conversion. `using/library.md:41` says nothing is synced; the
-Trakt watchlist is. Plan: rewrite those passages from the code. The deploy
-(`origin/docs` is a further 59 lines behind main) is Adam's.
+Trakt watchlist is. Fixed in v0.11.2 (`dafda819`): those passages rewritten
+from the code, with Trakt, MyAnimeList and TMDB in the table and what each
+gets, the licence section gone, and Multi-view's loopback proxy and ffmpeg
+described. The deploy (`origin/docs` is a further 59 lines behind main) is
+Adam's.
 
 **T2. LOW-MEDIUM. `verify-release` passes manifests the updater rejects.**
 Confirmed by reading: manifest mode (`scripts/verify-release.mjs:266-310`)
@@ -56,13 +60,13 @@ wait for a name its own fake serves.
 
 **T4. LOW. CI's harness job has little headroom.** Confirmed:
 `.github/workflows/ci.yml:56` gives it 25 minutes; recent runs take 20 to
-21.5. Plan: raise it to 35.
+21.5. Fixed in v0.11.2 (`37b05dbd`): 35.
 
 **T5. LOW. The 0.11.0 changelog oversells the Escape fix.** Confirmed:
 `CHANGELOG.md:101` says Escape closes Settings the first time; v0.10.43's own
 message (`88fb40c2`) says 4 of 40 runs still lost it to a 7-14ms Radix gap.
-Plan: soften the repo's line. The GitHub release notes are Adam's own text
-and don't make the claim.
+Fixed in v0.11.2 (`37b05dbd`): the line says it's rare now. The GitHub
+release notes are Adam's own text and don't make the claim.
 
 **T6. LOW. RELEASING.md and `verify-release` describe the hot-bundle
 unpacker as it was at 0.9.0.** Confirmed: RELEASING.md:334 says "unchanged
@@ -154,27 +158,34 @@ Oklahoma St Cowboys picks Chicago's and Dallas's. `carries()`
 (`matcher.ts:398-403`) takes a nickname among other words as `team`
 without asking whose league the channel names, and `settle()` lets a
 hidden `team` at 90 out of the folder (v0.10.76, for your hidden team
-stations). Plan: a channel that names another league ("NFL Teams" for an
-MLB game) is never this game's `team`. Your NFL stations keep working for
-NFL games.
+stations). Fixed in v0.11.2: a channel that names another league ("NFL
+Teams" for an MLB game; the words are nfl, nba, mlb, nhl, wnba, mls) is
+never this game's `team`, so it's a hidden loose 15 and drops. Your NFL
+stations still lead NFL games. Removing the check fails five tests.
 
 **SP2. MEDIUM. The board split counts games that are over, and splits
 two-hour doubleheaders.** Confirmed, reproduced: an ESPN game at 7:00 ET,
 final, and one at 9:00, live, both read `{espn: 2}`, so the live one's ESPN
 drops to 45 and off its card. `sharing.ts` counts every game within 150
 minutes whatever its state; its own comment says a doubleheader shouldn't
-share, and ESPN's college basketball runs every two hours. Plan: finished
-games don't count, and the window drops to 120 minutes (strict, so a
+share, and ESPN's college basketball runs every two hours. Fixed in v0.11.2:
+finished games don't count, and the window is 120 minutes (strict, so a
 two-hour doubleheader doesn't share; 4:05 and 4:25 still do, and nothing
-regional starts more than half an hour apart).
+regional starts more than half an hour apart). A postponed game still
+counts: ESPN's adapter files it as `pre` with only a free-text status.
 
 **SP3. MEDIUM. The theater ignores the "Usually found on" fallback.**
 Confirmed, reproduced: a UEFA qualifier's card says "Usually found on US:
 CBS Sports Network" (`useGames.ts` presumed fallback), and opening it
 shows "No broadcast listed for this game." and plays nothing, because the
 theater's `railFor(game.broadcasts, ...)` sees no listing. Multi-view
-tunes the same presumed channel. Old (v0.9.0 or before). Plan: the
-theater falls back the way the card does.
+tunes the same presumed channel. Old (v0.9.0 or before). Fixed in
+v0.11.2: one function (`presumedMatches`) gives the card and the theater
+the map's channels, and the theater uses it when the listed rail is
+empty. One case still differs: a mapped league's game that lists a
+network only as a guess gets "Usually found on" on the card, and the
+guesses in the theater. Rare (the map covers leagues that list nothing),
+so it stays.
 
 **SP4. LOW. A presumed network is never split by other games that
 presume it.** Confirmed: three qualifiers at one kick-off each claim
@@ -186,8 +197,12 @@ it split.
 **SP5. LOW. `airing()` counts another game's show on shared nicknames.**
 Confirmed, reproduced: Auburn Tigers v Georgia Bulldogs counts "LSU Tigers
 at Mississippi State Bulldogs". Diagnostic only, but it's the measurement
-`btvPairing` reports for the guide's place in the matcher. Plan: at least
-one club by full name or place, not two bare nicknames.
+`btvPairing` reports for the guide's place in the matcher. **Held**: the
+fix I briefed (one club by more than its nickname) also drops "NCAA
+Football: The Huskies visit the Trojans", which `guideMatch.test.ts:36`
+is there to keep, and the two look the same at the level of club names.
+A better rule wants your btvPairing numbers, which is when the guide's
+place gets decided anyway.
 
 ### The rest of the new code (glass and light, Trakt, live subtitles)
 
@@ -451,6 +466,8 @@ without a number.
   merge you make.
 - **SP4, splitting "usually found on".** I'd leave it: it's a carriage
   claim, and splitting it empties the card for leagues that list nothing.
+- **SP5, the guide match's nickname rule.** Wants your `btvPairing`
+  numbers before a rule is picked; it only feeds that report.
 - **ST5, the old Trakt account's watches.** Clearing the ledger at sign-out
   loses your own checkmarks; keeping it pushes them to the next account.
   I'd keep it as is: one person switching Trakt accounts is rare, losing

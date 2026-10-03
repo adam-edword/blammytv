@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { onDay } from "./day";
 import { DEFAULT_LEAGUES, fetchBoard } from "./espn";
 import { CARD_CONFIDENCE, clubsOf, matchGame, railFor } from "./matcher";
-import type { Catalog } from "./matcher";
+import type { Catalog, Match, Shared } from "./matcher";
 import { gameTeamKeys } from "./follows";
 import { isFixture, isTournament } from "./model";
 import type { Game } from "./model";
@@ -874,6 +874,26 @@ export function keepStable(prev: Game[], next: Game[]): Game[] {
   });
 }
 
+/** The networks the curated map says normally carry this game's league. */
+const presumedOf = (game: Game): readonly string[] =>
+  presumedNetworks(game.leagueKey, isTournament(game) ? game.title : undefined);
+
+/**
+ * The curated map's channels for a game, at the card's bar: what the card
+ * says "Usually found on" about (withChannels), and what the theater's rail
+ * falls back to when the schedule's own names reach nothing. One function,
+ * so the two cannot disagree about which channels those are.
+ *
+ * A club's own channel is sure for its own game (matcher ODDS.team), in the
+ * map's fallback too.
+ */
+export function presumedMatches(game: Game, catalog: Catalog, shared: Shared | undefined): Match[] {
+  const clubs = isFixture(game) ? clubsOf([game.home, game.away], game.leagueKey) : undefined;
+  return matchGame([...presumedOf(game)], catalog, clubs, true, shared).filter(
+    (c) => c.confidence >= CARD_CONFIDENCE,
+  );
+}
+
 /**
  * Fill in each game's channels from the user's catalog.
  *
@@ -936,7 +956,7 @@ export function withChannels(
   return games.map((game) => {
     // The other games on its networks at kick-off, which the odds split by
     // (matcher.matchGame). Its curated networks too, for the fallback below.
-    const presumedFor = presumedNetworks(game.leagueKey, isTournament(game) ? game.title : undefined);
+    const presumedFor = presumedOf(game);
     const shared = share(game, [...game.broadcasts, ...presumedFor]);
     const already = memo.get(game);
     // A game keeps its answer while the board around its kick-off does.
@@ -959,9 +979,6 @@ export function withChannels(
     let found = railFor(game.broadcasts, catalog, isFixture(game) ? game : undefined, shared).filter(
       (c) => c.confidence >= CARD_CONFIDENCE,
     );
-    // A club's own channel is sure for its own game (matcher ODDS.team),
-    // in the curated map's fallback too.
-    const clubs = isFixture(game) ? clubsOf([game.home, game.away]) : undefined;
     /**
      * THE CURATED MAP, and only where the source said NOTHING AT ALL.
      *
@@ -1008,9 +1025,7 @@ export function withChannels(
     if (found.length === 0) {
       presumed = [...presumedFor];
       if (presumed.length > 0) {
-        found = matchGame(presumed, catalog, clubs, true, shared).filter(
-          (c) => c.confidence >= CARD_CONFIDENCE,
-        );
+        found = presumedMatches(game, catalog, shared);
         presumedOnly = found.length > 0;
       }
     }

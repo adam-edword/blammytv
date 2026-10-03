@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keepStable, pollDelay, reachTargets, withChannels } from "./useGames";
+import { keepStable, pollDelay, presumedMatches, reachTargets, withChannels } from "./useGames";
 import { indexChannels } from "./matcher";
 import type { Fixture } from "./model";
 
@@ -262,6 +262,82 @@ describe("withChannels", () => {
     });
   });
 
+  describe("a game going final", () => {
+    // Two CBS games half an hour apart split one channel; once one is over
+    // it isn't on the channel any more (0.11.0 audit, SP2).
+    const at = (h: number, m = 0) => new Date(2026, 9, 4, h, m);
+    const cbs = (id: string, start: Date, over: Partial<Fixture> = {}) =>
+      game(id, { broadcasts: ["CBS"], start, ...over });
+    const c = cat({ name: "CBS 4K UHD (Event Only)" });
+
+    it("gives its neighbour the unsplit odds, and the memo notices", () => {
+      const a = cbs("a", at(12));
+      const b = cbs("b", at(12, 30));
+      const before = withChannels([a, b], c);
+      expect(before.map((g) => [g.channels.length, g.shared ?? null])).toEqual([
+        [0, { cbs: 2 }],
+        [0, { cbs: 2 }],
+      ]);
+      // b finishes: a is a new answer though its own object didn't move.
+      const done = cbs("b", at(12, 30), { state: "final", status: "Final" });
+      const after = withChannels([a, done], c);
+      expect(after[0]).not.toBe(before[0]);
+      expect(after[0].channels.map((x) => x.name)).toEqual(["CBS 4K UHD (Event Only)"]);
+      expect(after[0].shared ?? null).toBeNull();
+      // The finished game's own answer is as it was.
+      expect(after[1].shared).toEqual({ cbs: 2 });
+    });
+
+    it("does not split games two hours apart, and does at 119 minutes", () => {
+      const twoHours = withChannels([cbs("a", at(12)), cbs("b", at(14))], c);
+      expect(twoHours.map((g) => g.channels.length)).toEqual([1, 1]);
+      const under = withChannels([cbs("a", at(12)), cbs("b", at(13, 59))], c);
+      expect(under.map((g) => g.channels.length)).toEqual([0, 0]);
+    });
+  });
+
+  /**
+   * A channel of another league is not this game's club station (0.11.0
+   * audit, SP1), through the whole join: the card.
+   */
+  describe("another league's station on the card", () => {
+    const at = new Date("2026-06-13T23:15:00Z");
+    const fox = (id: string, home: [string, string], away: [string, string], leagueKey: string) =>
+      game(id, {
+        leagueKey,
+        state: "pre",
+        start: at,
+        broadcasts: ["FOX"],
+        home: { name: home[0], shortName: home[1], abbr: "H" },
+        away: { name: away[0], shortName: away[1], abbr: "A" },
+      });
+    const names = (g: { channels: { name: string }[] }) => g.channels.map((x) => x.name);
+    const ksaz = "NFL Teams: FOX Cardinals (KSAZ) Phoenix AZ";
+    const stations = cat({ name: "US: FOX" }, { name: ksaz, hidden: true });
+
+    it("leaves the MLB Cardinals' card without the Phoenix NFL station", () => {
+      const board = [
+        fox("g1", ["Chicago Cubs", "Cubs"], ["St. Louis Cardinals", "Cardinals"], "baseball/mlb"),
+        fox("g2", ["Arizona Diamondbacks", "Diamondbacks"], ["Colorado Rockies", "Rockies"], "baseball/mlb"),
+        fox("g3", ["New York Mets", "Mets"], ["Atlanta Braves", "Braves"], "baseball/mlb"),
+      ];
+      const out = withChannels(board, stations);
+      expect(names(out[0])).toEqual([]);
+      expect(out[0].hiddenOnly).toBe(false);
+    });
+
+    it("keeps it on the card of an NFL Cardinals game", () => {
+      const board = [
+        fox("g1", ["Los Angeles Rams", "Rams"], ["Arizona Cardinals", "Cardinals"], "football/nfl"),
+        fox("g2", ["Dallas Cowboys", "Cowboys"], ["Washington Commanders", "Commanders"], "football/nfl"),
+        fox("g3", ["New York Giants", "Giants"], ["Seattle Seahawks", "Seahawks"], "football/nfl"),
+      ];
+      const out = withChannels(board, stations);
+      expect(names(out[0])).toEqual([ksaz]);
+      expect(out[0].hiddenOnly).toBe(true);
+    });
+  });
+
   describe("the hidden-folder rule, over the whole join", () => {
     it("does not let a doubtful visible match bury an exact hidden one", () => {
       // The bar mismatch: the visible/hidden fallback was decided at
@@ -410,6 +486,25 @@ describe("withChannels", () => {
       const c = cat({ name: "US: Tennis Channel" });
       const once = withChannels([tennis()], c);
       expect(withChannels(once, c)[0]).toBe(once[0]);
+    });
+
+    it("hands the theater the card's own channels (presumedMatches)", () => {
+      // SP3: the theater's rail falls back to this where the schedule's
+      // names reach nothing, so it has to be what the card resolved.
+      const c = cat({ name: "US: CBS Sports Network" }, { name: "US: Tennis Channel" });
+      const q = (id: string) =>
+        tennis({ id, leagueKey: "soccer/uefa.champions_qual", broadcasts: [] });
+      const board = [q("q1"), q("q2"), q("q3")];
+      const [card] = withChannels(board, c);
+      expect(card.presumedOnly).toBe(true);
+      const rail = presumedMatches(card, c, card.shared);
+      expect(rail.map((m) => m.name)).toEqual(["US: CBS Sports Network"]);
+      expect(rail.map((m) => m.id)).toEqual(card.channels.map((x) => x.id));
+    });
+
+    it("has nothing for a league the map doesn't know", () => {
+      const c = cat({ name: "US: Tennis Channel" });
+      expect(presumedMatches(tennis({ leagueKey: "soccer/swe.1" }), c, undefined)).toEqual([]);
     });
   });
 });

@@ -45,6 +45,30 @@ describe("sharing", () => {
     expect(board.map((g) => share(g) ?? null)).toEqual([null, null, null, null]);
   });
 
+  it("shares inside two hours and not at it: 119 apart do, 120 don't", () => {
+    // ESPN's college basketball runs every two hours, and a two-hour
+    // doubleheader doesn't share; 4:05 and 4:25 (NFL's late slot) do.
+    const apart = (min: number) => {
+      const board = [game("a", ["ESPN"], at(19)), game("b", ["ESPN"], at(19, min))];
+      return board.map((g) => sharing(board)(g) ?? null);
+    };
+    expect(apart(119)).toEqual([{ espn: 2 }, { espn: 2 }]);
+    expect(apart(120)).toEqual([null, null]);
+    const late = [game("a", ["CBS"], at(16, 5)), game("b", ["CBS"], at(16, 25))];
+    expect(late.map((g) => sharing(late)(g))).toEqual([{ cbs: 2 }, { cbs: 2 }]);
+  });
+
+  it("does not count a game that is over, for the others", () => {
+    const over = { ...game("done", ["ESPN"], at(19)), state: "final" as const };
+    const board = [over, game("live", ["ESPN"], at(19, 30))];
+    const share = sharing(board);
+    // The live game has the channel to itself.
+    expect(share(board[1])).toBeUndefined();
+    // The finished one still gets its own answer, as before: itself and the
+    // live game beside it.
+    expect(share(over)).toEqual({ espn: 2 });
+  });
+
   it("matches networks by their normalized names", () => {
     const board = [game("a", ["FS1"], at(19)), game("b", ["FS 1"], at(19))];
     expect(sharing(board)(board[0])).toEqual({ "fs 1": 2 });

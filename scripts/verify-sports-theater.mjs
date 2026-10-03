@@ -709,6 +709,111 @@ async function open(pos, fixture, win) {
   );
 }
 
+// ---- The card's "Usually found on" channel, in the theater (0.11.0 audit, SP3) ----
+// A league whose schedule lists nothing falls back to the curated map's
+// networks (useGames presumedMatches), and the card says "Usually found on
+// US: CBS Sports Network". The theater's rail asked railFor with the
+// listing alone, so it said "No broadcast listed for this game." and played
+// nothing. fake-m3u has no CBS Sports Network, so this block's pages get a
+// playlist of their own with one.
+//
+// The two controls matter as much as the case: a league the map doesn't
+// know keeps the empty line, and a game that lists a network keeps its own
+// rail without the map's channel added. None of them waits for the player's
+// overlay, which never mounts when nothing tunes: a broken fallback has to
+// read as a failed check, not a crash.
+{
+  const CBSSN = "http://localhost:8082/stream/cbssn.ts";
+  const ESPN = "http://localhost:8082/stream/espn.ts";
+  const m3u =
+    `#EXTM3U\n` +
+    `#EXTINF:-1 tvg-id="cbssn.m3u" group-title="🏆 Sports",US: CBS Sports Network\n${CBSSN}\n` +
+    `#EXTINF:-1 tvg-id="espn.m3u" group-title="🏆 Sports",Fake ESPN 4K\n${ESPN}\n`;
+  const qualifier = {
+    ...FIXTURE.game,
+    id: "q1",
+    sport: "soccer",
+    league: "UCL Qualifying",
+    leagueKey: "soccer/uefa.champions_qual",
+    status: "67'",
+    broadcasts: [],
+    home: { name: "Club A", abbr: "CLA" },
+    away: { name: "Club B", abbr: "CLB" },
+  };
+  /** Opens the theater on a game and reads what the rail and the player
+   * did once the catalog has been through it. */
+  const look = async (game) => {
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+    const page = await ctx.newPage();
+    await page.route("http://localhost:8082/playlist.m3u", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/x-mpegurl",
+        headers: { "access-control-allow-origin": "*" },
+        body: m3u,
+      }),
+    );
+    await page.addInitScript(stub(82, { game, others: [] }));
+    await page.goto(URL, { waitUntil: "domcontentloaded" });
+    // Past "Checking your channels": the catalog has answered, with a rail
+    // or with the empty line.
+    await page.waitForFunction(
+      () =>
+        document.querySelector(".sportstheater__rail .sportsrail") ||
+        (document.querySelector(".sportstheater__empty") &&
+          !/Checking your channels/.test(document.querySelector(".sportstheater__empty").textContent)),
+      undefined,
+      { timeout: 30_000 },
+    );
+    // A tune, if there is one to make. Nothing to wait for when there isn't.
+    await page
+      .waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "inv_open"), undefined, { timeout: 8_000 })
+      .catch(() => {});
+    await page.waitForTimeout(1_000);
+    const seen = await page.evaluate(() => ({
+      rows: [...document.querySelectorAll(".sportstheater__rail .sportsrail .sportsrail__name")].map(
+        (n) => n.textContent,
+      ),
+      empty: [...document.querySelectorAll(".sportstheater__empty")].map((n) => n.textContent),
+      opened: window.__tauriCalls.filter((c) => c[0] === "inv_open").map((c) => c[1].url),
+    }));
+    await ctx.close();
+    return seen;
+  };
+
+  // The case: nothing listed, so the map's channel is on the rail and plays.
+  const fallback = await look(qualifier);
+  check(
+    "a league that lists nothing: the rail shows the map's channel, and not the empty line",
+    fallback.rows.length === 1 && /CBS Sports Network/.test(fallback.rows[0]) && fallback.empty.length === 0,
+    JSON.stringify(fallback),
+  );
+  check(
+    "and autoplay tunes it",
+    fallback.opened.length === 1 && fallback.opened[0] === CBSSN,
+    JSON.stringify(fallback.opened),
+  );
+
+  // Control 1: a league the map has nothing for keeps the empty line and
+  // plays nothing, although the playlist carries the channel the case plays.
+  const unknown = await look({ ...qualifier, id: "q2", leagueKey: "soccer/swe.1" });
+  check(
+    "a league the map doesn't know keeps the empty line, and plays nothing",
+    unknown.empty.join("") === "No broadcast listed for this game." &&
+      unknown.rows.length === 0 &&
+      unknown.opened.length === 0,
+    JSON.stringify(unknown),
+  );
+
+  // Control 2: the schedule's own listing is the rail, with nothing added.
+  const listed = await look({ ...qualifier, id: "q3", broadcasts: ["ESPN"] });
+  check(
+    "a game that lists a network keeps its own rail: the map's channel isn't added",
+    listed.rows.length === 1 && /ESPN/.test(listed.rows[0]) && listed.opened.length === 1 && listed.opened[0] === ESPN,
+    JSON.stringify(listed),
+  );
+}
+
 await browser.close();
 console.log(fail ? `${fail} FAILURES` : "ALL PASS");
 process.exit(fail ? 1 : 0);

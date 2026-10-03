@@ -850,3 +850,114 @@ describe("the rail the theater folds", () => {
     expect(banded(rail)).toBe(true);
   });
 });
+
+/**
+ * A channel that names another league is not this game's club station (the
+ * 0.11.0 audit, SP1). "NFL Teams: FOX Cardinals (KSAZ)" carries the
+ * Cardinals' nickname, and was the St. Louis Cardinals' sure station on FOX:
+ * hidden, at 90, past the folder, leading the card and autoplaying Phoenix's
+ * game. Names verbatim from Adam's "NFL Teams" folder.
+ */
+describe("a channel of another league", () => {
+  const hide = (t: Tunable): Tunable => ({ ...t, hidden: true });
+  const fox = chan("US: FOX", "HD");
+  const ksaz = hide(chan("NFL Teams: FOX Cardinals (KSAZ) Phoenix AZ"));
+  const wfld = hide(chan("NFL Teams: FOX Bears (WFLD) Chicago IL"));
+  const kdfw = hide(chan("NFL Teams: FOX Cowboys (KDFW) Dallas TX"));
+  const wnyw = hide(chan("NFL Teams: FOX Giants (WNYW) New York NY"));
+  const cubs = {
+    home: { name: "Chicago Cubs", shortName: "Cubs" },
+    away: { name: "St. Louis Cardinals", shortName: "Cardinals" },
+    start: new Date("2026-06-13T23:15:00Z"),
+    leagueKey: "baseball/mlb",
+  };
+
+  it("is not the MLB club's station: dropped, hidden, loose", () => {
+    const got = matchNetwork("FOX", [ksaz], clubsOf([cubs.home, cubs.away], cubs.leagueKey));
+    expect(got.map((c) => [c.name, c.confidence, c.kind])).toEqual([[ksaz.name, 15, "loose"]]);
+    // Three FOX games in the slot: the network is at 30, the loose guess
+    // behind a hidden folder stays there, and the card has no Phoenix on it.
+    const rail = railFor(["FOX"], [fox, ksaz, wfld], cubs, { fox: 3 });
+    expect(rail.map((c) => [c.name, c.confidence, c.kind])).toEqual([[fox.name, 30, "network"]]);
+  });
+
+  it("is still the NFL club's, for an NFL game on FOX", () => {
+    const rams = {
+      home: { name: "Los Angeles Rams", shortName: "Rams" },
+      away: { name: "Arizona Cardinals", shortName: "Cardinals" },
+      start: new Date("2026-10-04T20:05:00Z"),
+      leagueKey: "football/nfl",
+    };
+    const rail = railFor(["FOX"], [fox, ksaz, wfld], rams, { fox: 3 });
+    expect(rail.map((c) => [c.name, c.confidence, c.kind])).toEqual([
+      [ksaz.name, 90, "team"],
+      [fox.name, 30, "network"],
+    ]);
+    expect(rail[0].confidence).toBeGreaterThanOrEqual(CARD_CONFIDENCE);
+  });
+
+  it("is not a college game's, whatever the nickname: Bears and Cowboys", () => {
+    const baylor = {
+      home: { name: "Baylor Bears", shortName: "Baylor" },
+      away: { name: "Oklahoma State Cowboys", shortName: "Oklahoma St" },
+      start: new Date("2026-10-03T16:00:00Z"),
+      leagueKey: "football/college-football",
+    };
+    const rail = railFor(["FOX"], [fox, wfld, kdfw], baylor, { fox: 2 });
+    expect(rail.map((c) => [c.name, c.confidence, c.kind])).toEqual([[fox.name, 45, "network"]]);
+    // Both are loose guesses for it, not sure ones.
+    const got = matchNetwork("FOX", [wfld, kdfw], clubsOf([baylor.home, baylor.away], baylor.leagueKey));
+    expect(got.map((c) => c.kind)).toEqual(["loose", "loose"]);
+  });
+
+  it("is not the other league's Giants either", () => {
+    const sf = {
+      home: { name: "Los Angeles Dodgers", shortName: "Dodgers" },
+      away: { name: "San Francisco Giants", shortName: "Giants" },
+      start: new Date("2026-06-13T23:15:00Z"),
+      leagueKey: "baseball/mlb",
+    };
+    expect(railFor(["FOX"], [fox, wnyw], sf, { fox: 3 }).map((c) => c.name)).toEqual([fox.name]);
+    // A city's own channel for its club's game is unchanged: no league word.
+    const clubs = clubsOf([sf.home, sf.away], sf.leagueKey);
+    const la = matchNetwork("FOX", [chan("US: FOX Los Angeles")], clubs);
+    expect(la.map((c) => [c.confidence, c.kind])).toEqual([[90, "team"]]);
+  });
+
+  it("is checked on the first team branch too: every extra is the club's words", () => {
+    // "NBA TV Texas" carries the network's own league word, so the extra is
+    // only "texas": the branch that reads "everything extra is the club".
+    const rangers = [{ name: "Texas Rangers", shortName: "Rangers" }, { name: "Houston Astros", shortName: "Astros" }];
+    const channel = [chan("US: NBA TV Texas")];
+    expect(matchNetwork("NBA TV", channel, clubsOf(rangers))[0].kind).toBe("team");
+    expect(matchNetwork("NBA TV", channel, clubsOf(rangers, "baseball/mlb"))[0].kind).toBe("loose");
+    expect(matchNetwork("NBA TV", channel, clubsOf(rangers, "basketball/nba"))[0].kind).toBe("team");
+  });
+
+  it("is only asked when the game's league is known", () => {
+    // clubsOf without a league says nothing about it: as before, the NFL
+    // station is the club's whatever the game.
+    const unknown = clubsOf([cubs.home, cubs.away]);
+    expect(unknown.leagues).toBeUndefined();
+    expect(matchNetwork("FOX", [ksaz], unknown).map((c) => [c.confidence, c.kind])).toEqual([[90, "team"]]);
+    // And a game carrying no leagueKey through railFor is the same.
+    const bare = { home: cubs.home, away: cubs.away, start: cubs.start };
+    expect(railFor(["FOX"], [fox, ksaz], bare)[0].kind).toBe("team");
+  });
+
+  it("works out a game's own league words from its catalog path", () => {
+    const words = (key: string) => [...(clubsOf([], key).leagues ?? [])].sort();
+    expect(words("football/nfl")).toEqual(["nfl"]);
+    expect(words("baseball/mlb")).toEqual(["mlb"]);
+    expect(words("hockey/nhl")).toEqual(["nhl"]);
+    expect(words("basketball/nba")).toEqual(["nba"]);
+    // WNBA is its own word, not NBA.
+    expect(words("basketball/wnba")).toEqual(["wnba"]);
+    // MLS is ESPN's soccer/usa.1.
+    expect(words("soccer/usa.1")).toEqual(["mls"]);
+    // A college has none, which is different from not knowing.
+    expect(words("football/college-football")).toEqual([]);
+    expect(words("basketball/mens-college-basketball")).toEqual([]);
+    expect(words("soccer/eng.1")).toEqual([]);
+  });
+});

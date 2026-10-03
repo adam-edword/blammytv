@@ -54,6 +54,7 @@ import { CompactCard } from "./CompactCard";
 import { autoPlay, nextSource } from "./autoplay";
 import { tunedChannel } from "./catalog";
 import { CARD_CONFIDENCE, railFor } from "./matcher";
+import { presumedMatches } from "./useGames";
 import { logPairing } from "./pairingLog";
 import type { Catalog, Match } from "./matcher";
 import type { Fixture, Game } from "./model";
@@ -112,11 +113,14 @@ export function SportsTheater({
   // Every channel that may be showing this game, best odds first, with a
   // network's odds split by the other games it has at this kick-off
   // (game.shared): the same list the card counts the sure part of
-  // (matcher.railFor).
-  const matches = useMemo(
-    () => (catalog ? railFor(game.broadcasts, catalog, game, game.shared) : []),
-    [game, catalog],
-  );
+  // (matcher.railFor). Where the schedule's names reach nothing, the curated
+  // map's channels the card says "Usually found on" (presumedMatches), so
+  // what the card names is what the theater plays.
+  const matches = useMemo(() => {
+    if (!catalog) return [];
+    const listed = railFor(game.broadcasts, catalog, game, game.shared);
+    return listed.length > 0 ? listed : presumedMatches(game, catalog, game.shared);
+  }, [game, catalog]);
 
   /**
    * The other live games, by league, in the order their first one started.

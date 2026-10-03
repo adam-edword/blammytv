@@ -395,13 +395,54 @@ function carries(want: Set<string>, channel: Set<string>, clubs?: Clubs): MatchK
   // other words ("Spectrum ... Dodgers": the owner's brand rides along).
   // Both pairs came off the dump, where they read as loose: the right
   // channel, under the card's bar.
+  //
+  // Unless the channel says it is another league's. "NFL Teams: FOX
+  // Cardinals (KSAZ)" carries the Cardinals' nickname and is the NFL
+  // club's station, not the MLB one's: it showed Phoenix's game on the
+  // card for Cubs at St. Louis. Such a channel is a near-miss like any
+  // other.
   if (
     clubs &&
+    !otherLeague(channel, clubs) &&
     (extras.every((w) => NOISE.has(w) || clubs.words.has(w)) ||
       clubs.nicknames.some((n) => n.every((w) => extras.includes(w))))
   )
     return "team";
   return "loose";
+}
+
+/**
+ * The league words a channel's name can carry, as `tokens` makes them: the
+ * pro leagues, whose stations and feeds are filed under their name ("NFL
+ * Teams: ...", "NBA 02: ..."). A college game's league goes by none of them.
+ */
+const LEAGUE_WORDS = new Set(["nfl", "nba", "mlb", "nhl", "wnba", "mls"]);
+
+/**
+ * A league's words that its catalog path does not spell. MLS is ESPN's
+ * "soccer/usa.1"; the rest name themselves ("football/nfl").
+ */
+const LEAGUE_OF_KEY: Record<string, string> = { "soccer/usa.1": "mls" };
+
+/** The league words a game's own league goes by, from its catalog path. */
+function leagueWordsOf(leagueKey: string): Set<string> {
+  const own = new Set<string>();
+  const alias = LEAGUE_OF_KEY[leagueKey];
+  if (alias) own.add(alias);
+  for (const w of leagueKey.slice(leagueKey.indexOf("/") + 1).toLowerCase().split(/[^a-z0-9]+/))
+    if (LEAGUE_WORDS.has(w)) own.add(w);
+  return own;
+}
+
+/**
+ * Does this channel name a league that is not the game's own? Only when the
+ * game's league is known (Clubs.leagues): an unknown one says nothing.
+ */
+function otherLeague(channel: Set<string>, clubs: Clubs): boolean {
+  const own = clubs.leagues;
+  if (!own) return false;
+  for (const w of channel) if (LEAGUE_WORDS.has(w) && !own.has(w)) return true;
+  return false;
 }
 
 /**
@@ -416,9 +457,20 @@ function carries(want: Set<string>, channel: Set<string>, clubs?: Clubs): MatchK
 export interface Clubs {
   words: Set<string>;
   nicknames: string[][];
+  /**
+   * The league words the game's own league goes by ("nfl" for
+   * "football/nfl"; none for "football/college-football"), so a channel
+   * naming another league can be told from this one's (carries). Absent
+   * when the game's league is not known, which is not the same as none.
+   */
+  leagues?: ReadonlySet<string>;
 }
 
-export function clubsOf(teams: { name: string; shortName?: string }[]): Clubs {
+export function clubsOf(
+  teams: { name: string; shortName?: string }[],
+  /** The game's catalog path ("baseball/mlb"), when there is one. */
+  leagueKey?: string,
+): Clubs {
   const words = new Set<string>();
   const nicknames: string[][] = [];
   for (const t of teams) {
@@ -426,7 +478,9 @@ export function clubsOf(teams: { name: string; shortName?: string }[]): Clubs {
     const own = nicknameOf(t.name, t.shortName);
     if (own.length > 0) nicknames.push(own);
   }
-  return { words, nicknames };
+  return leagueKey === undefined
+    ? { words, nicknames }
+    : { words, nicknames, leagues: leagueWordsOf(leagueKey) };
 }
 
 /**
@@ -789,6 +843,8 @@ export function railFor(
     home: { name: string; shortName?: string };
     away: { name: string; shortName?: string };
     start: Date;
+    /** Its league, so a channel of another league's is not its club's. */
+    leagueKey?: string;
   },
   /** The other games on each network at this kick-off (sharing.ts). */
   shared?: Shared,
@@ -798,7 +854,7 @@ export function railFor(
     ? matchEvent([fixture.home.name, fixture.away.name], fixture.start, catalog)
     : [];
   const seen = new Set(named.map((c) => c.id));
-  const clubs = fixture ? clubsOf([fixture.home, fixture.away]) : undefined;
+  const clubs = fixture ? clubsOf([fixture.home, fixture.away], fixture.leagueKey) : undefined;
   const rail = (stems: boolean) =>
     settle([
       ...named,
