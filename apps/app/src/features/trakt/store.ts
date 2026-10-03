@@ -64,6 +64,19 @@ export function queueWatch(body: HistoryBody): void {
   save(QUEUE, VERSION, [...loadQueue(), body].slice(-200));
 }
 
+/**
+ * Whether Trakt's answer to a watch settles it: it took it (2xx), or it
+ * never will (404 it doesn't know the title, 409 it already has this one,
+ * 422 the entry is malformed). Those leave the queue. Anything else is
+ * "not now" and keeps the watch: no answer, a 5xx, a 408 or 429, a 401 (the
+ * session was refused) or a 403 (trakt.rs reads a 403 as Cloudflare's
+ * passing challenge, not a verdict). The drain and the live stop share
+ * this, so the two never disagree about which watches to keep.
+ */
+export function settled(status: number): boolean {
+  return (status >= 200 && status < 300) || status === 404 || status === 409 || status === 422;
+}
+
 /** Take out what was sent, one entry for each. Re-read at the time, so a
  * watch queued while those were on their way stays in. */
 export function dropFromQueue(sent: readonly HistoryBody[]): void {

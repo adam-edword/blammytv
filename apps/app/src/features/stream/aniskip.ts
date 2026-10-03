@@ -1,5 +1,5 @@
 import { httpGetJson } from "../../lib/http";
-import { ensureIndex, looksAnime, resolveMal } from "./animemap";
+import { ensureIndex, ensureKitsuIndex, looksAnime, malEpisodeOf, malFilmOf, resolveMal } from "./animemap";
 import type { VodItem } from "./model";
 
 /**
@@ -62,28 +62,47 @@ async function fetchSkips(mal: number, ep: number): Promise<SkipRange[]> {
   return ranges;
 }
 
+/** Where what's about to play is on MAL: an IMDb-keyed title through the
+ * season rows (skip times take the first row, as they always have), a
+ * Kitsu-keyed one the way MAL's own writes place it, straight across. */
+async function malPlace(
+  item: VodItem,
+  episodeId: string | null | undefined,
+): Promise<{ mal: number; ep: number } | null> {
+  if (/^kitsu:\d+$/.test(item.id)) {
+    // Anime by where it comes from, so no genre gate (animemap.ts, and MAL's
+    // indexesFor, skip it too): the Kitsu addon's genres don't say
+    // Animation. Its index is MAL's own, not the IMDb one below.
+    const kitsu = await ensureKitsuIndex();
+    if (!kitsu) return null;
+    const idx = { imdb: null, kitsu };
+    return episodeId ? malEpisodeOf(item.id, episodeId, item.seasons, idx) : malFilmOf(item.id, idx);
+  }
+  if (!looksAnime(item)) return null;
+  const index = await ensureIndex();
+  const rows = index?.[item.id];
+  if (!rows?.length) return null;
+  let season: number | null = null;
+  let episode: number | null = null;
+  if (episodeId) {
+    const m = /^.+:(\d+):(\d+)$/.exec(episodeId);
+    if (!m) return null;
+    season = Number(m[1]);
+    episode = Number(m[2]);
+  }
+  return resolveMal(rows, season, episode, episodeId ?? null, item.seasons);
+}
+
 /**
  * The one entry point: exact skip ranges for what's about to play, or []
  * when anything along the chain has no answer. `episodeId` is the Stremio
- * id ("tt…:S:E"); null for movies.
+ * id ("tt…:S:E", "kitsu:ID:N"); null for movies.
  */
 export async function getAniskipRanges(
   item: VodItem,
   episodeId: string | null | undefined,
 ): Promise<SkipRange[]> {
-  if (!looksAnime(item)) return [];
-  const index = await ensureIndex();
-  const rows = index?.[item.id];
-  if (!rows?.length) return [];
-  let season: number | null = null;
-  let episode: number | null = null;
-  if (episodeId) {
-    const m = /^.+:(\d+):(\d+)$/.exec(episodeId);
-    if (!m) return [];
-    season = Number(m[1]);
-    episode = Number(m[2]);
-  }
-  const hit = resolveMal(rows, season, episode, episodeId ?? null, item.seasons);
+  const hit = await malPlace(item, episodeId);
   if (!hit) return [];
   const ranges = await fetchSkips(hit.mal, hit.ep);
   if (ranges.length)

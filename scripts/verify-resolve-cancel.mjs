@@ -22,6 +22,10 @@
 // "playback started" is a fact from the native boundary rather than a guess
 // at the DOM.
 //
+// The same stub also answers which episode a Continue Watching card
+// resumes (a finished one rolls forward, audit ST1), and whether a palette
+// pick during a resolve cancels it (audit ST9).
+//
 // Run, from the REPO ROOT:
 //   node scripts/fake-aio.mjs                              # :8084
 //   cd apps/app && pnpm exec vite --port 4173 --strictPort # or build+preview
@@ -54,7 +58,7 @@ const ENTRY = {
   at: Date.now(),
 };
 
-const stub = `
+const stubFor = (entry) => `
   window.__tauriCalls = [];
   let cb = 0;
   window.__TAURI_INTERNALS__ = {
@@ -95,9 +99,10 @@ const stub = `
     JSON.stringify({ v: 1, data: AIO }),
   )});
   localStorage.setItem("blammytv.watching", ${JSON.stringify(
-    JSON.stringify({ v: 1, data: [ENTRY] }),
+    JSON.stringify({ v: 1, data: [entry] }),
   )});
 `;
+const stub = stubFor(ENTRY);
 
 const browser = await chromium.launch({
   executablePath: "/opt/pw-browsers/chromium",
@@ -111,9 +116,9 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
  * at the box it is about to leave — the same trap verify-cw-sources
  * documents. Wait for it to stop moving first.
  */
-async function toResolving() {
+async function toResolving(source = stub) {
   const page = await ctx.newPage();
-  await page.addInitScript(stub);
+  await page.addInitScript(source);
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   const skip = page.getByRole("button", { name: /skip setup/i }).first();
   if (await skip.isVisible().catch(() => false)) await skip.click();
@@ -203,6 +208,145 @@ for (const [label, dismiss] of [
     JSON.stringify(
       await page.evaluate(() => window.__tauriCalls.map((c) => c[0])),
     ),
+  );
+  await page.close();
+}
+
+// ---- A finished episode's card plays the next one (audit ST1) ----------
+// Leaving in the credits and clicking the card used to start the same
+// episode at 0:00. The card now rolls forward; a part-watched one still
+// resumes where it was, and a finished finale plays as it did. The stream
+// list comes from fake-aio, whose series have 2 seasons of 3 episodes and
+// whose urls carry the episode id, so inv_open says which one played.
+const SERIES = {
+  id: "tt200001",
+  title: "Fake Series One",
+  kind: "series",
+  at: Date.now(),
+};
+const episodeEntry = (s, e, posSec, durSec) => ({
+  ...SERIES,
+  episodeId: `tt200001:${s}:${e}`,
+  season: s,
+  episode: e,
+  epTitle: `S${s}E${e} Title`,
+  label: `S${s} · E${e}: S${s}E${e} Title`,
+  posSec,
+  durSec,
+});
+/** Click the card's artwork and report what played: the url mpv got, where
+ * it started, every source list asked for (by episode id), and the
+ * Continue Watching entry as the play left it, before any progress tick. */
+async function resumeOf(entry) {
+  const page = await toResolving(stubFor(entry));
+  await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "inv_open"), null, { timeout: 25_000 }).catch(() => {});
+  const seen = await page.evaluate(() => ({
+    open: window.__tauriCalls.find((c) => c[0] === "inv_open")?.[1] ?? null,
+    asked: window.__tauriCalls
+      .filter((c) => c[0] === "http_get" && /\/stream\//.test(c[1].url))
+      .map((c) => decodeURIComponent(c[1].url).replace(/^.*\/stream\/series\//, "").replace(/\.json.*$/, "")),
+    entry: JSON.parse(localStorage.getItem("blammytv.watching") ?? "null")?.data?.[0] ?? null,
+  }));
+  await page.close();
+  return seen;
+}
+{
+  const r = await resumeOf(episodeEntry(1, 1, 2700, 2800));
+  check(
+    "a finished episode's card plays the NEXT episode, from its start",
+    !!r.open && r.open.url.includes("tt200001:1:2-") && r.open.start == null,
+    JSON.stringify({ url: r.open?.url, start: r.open?.start }),
+  );
+  check(
+    "  and asks for the next episode's sources only, not the finished one's",
+    r.asked.length > 0 && r.asked.every((id) => id === "tt200001:1:2"),
+    JSON.stringify(r.asked),
+  );
+}
+{
+  const r = await resumeOf(episodeEntry(1, 3, 2700, 2800));
+  check(
+    "  a season's last episode rolls into the next season's first",
+    !!r.open && r.open.url.includes("tt200001:2:1-") && r.open.start == null,
+    JSON.stringify({ url: r.open?.url, start: r.open?.start }),
+  );
+}
+{
+  const r = await resumeOf(episodeEntry(1, 2, 600, 2800));
+  check(
+    "a part-watched episode's card still resumes the same episode at its point",
+    !!r.open && r.open.url.includes("tt200001:1:2-") && r.open.start === 597,
+    JSON.stringify({ url: r.open?.url, start: r.open?.start }),
+  );
+  check("  and asks for its sources at once", r.asked.length > 0 && r.asked.every((id) => id === "tt200001:1:2"), JSON.stringify(r.asked));
+  check(
+    "  and keeps its progress in the entry",
+    r.entry?.posSec === 600 && r.entry.durSec === 2800,
+    JSON.stringify({ posSec: r.entry?.posSec, durSec: r.entry?.durSec }),
+  );
+}
+{
+  const r = await resumeOf(episodeEntry(2, 3, 2700, 2800));
+  check(
+    "a finished finale plays as before: the same episode, from its start",
+    !!r.open && r.open.url.includes("tt200001:2:3-") && r.open.start == null,
+    JSON.stringify({ url: r.open?.url, start: r.open?.start }),
+  );
+  // Audit ST2: started over, it writes none of the old progress. The old
+  // 96% sat in the entry until the first tick, and a stop on leaving before
+  // that read it and told Trakt it was watched again.
+  check(
+    "  and starting it over leaves none of the finished watch's progress in its entry",
+    r.entry?.episodeId === "tt200001:2:3" && r.entry.posSec === undefined && r.entry.durSec === undefined,
+    JSON.stringify({ posSec: r.entry?.posSec, durSec: r.entry?.durSec }),
+  );
+}
+// The Sources chip lists the same episode a click on the artwork would play.
+for (const [what, entry, label] of [
+  ["a finished episode's", episodeEntry(1, 1, 2700, 2800), "S1 · E2: S1E2 Title"],
+  ["a part-watched one's", episodeEntry(1, 1, 600, 2800), "S1 · E1: S1E1 Title"],
+]) {
+  const page = await ctx.newPage();
+  await page.addInitScript(stubFor(entry));
+  await page.goto(URL, { waitUntil: "domcontentloaded" });
+  const skip = page.getByRole("button", { name: /skip setup/i }).first();
+  if (await skip.isVisible().catch(() => false)) await skip.click();
+  await page.getByRole("button", { name: /^stream$/i }).first().click({ timeout: 15_000 });
+  const chip = page.locator("button.continue-card__sources").first();
+  await chip.waitFor({ timeout: 20_000 });
+  let last = null;
+  let same = 0;
+  for (let i = 0; i < 25 && same < 2; i++) {
+    const box = await chip.boundingBox().catch(() => null);
+    const key = box && `${Math.round(box.x)},${Math.round(box.y)}`;
+    same = key && key === last ? same + 1 : 0;
+    last = key;
+    await page.waitForTimeout(80);
+  }
+  await chip.click({ timeout: 5000 });
+  const shown = await page.locator(".vod-detail__episode").first().innerText({ timeout: 15_000 }).catch(() => null);
+  check(`the Sources chip on ${what} card lists ${label.slice(0, 7)}`, shown === label, String(shown));
+  await page.close();
+}
+
+// ---- A palette pick during a resolve cancels it (audit ST9) -------------
+// The pick stopped a playing stream but not a resolving one, so the older
+// resolve landed after it and played the first title over the second.
+{
+  const page = await toResolving();
+  await page.keyboard.press("Control+k");
+  const up = await page.locator(".palette").waitFor({ timeout: 4000 }).then(() => true, () => false);
+  await page.keyboard.type("series one");
+  await page.waitForTimeout(400);
+  await page.keyboard.press("Enter");
+  const picked = await page.locator(".vod-detail").first().waitFor({ timeout: 10_000 }).then(() => true, () => false);
+  check("a palette pick during a resolve opens the picked title", up && picked, JSON.stringify({ up, picked }));
+  // Wait out the held request AND the round trip after it.
+  await page.waitForTimeout(HOLD_MS + 3000);
+  check(
+    "  and the resolve it overtook never starts playback",
+    (await opened(page)) === false,
+    JSON.stringify(await page.evaluate(() => window.__tauriCalls.map((c) => c[0]))),
   );
   await page.close();
 }

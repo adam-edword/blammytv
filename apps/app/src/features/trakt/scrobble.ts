@@ -29,7 +29,7 @@ import { loadWatching } from "../stream/watching";
 import { traktJson, traktStatus } from "./client";
 import type { HistoryBody } from "./history";
 import { episodeRef, imdbOf } from "./ids";
-import { loadTrakt, queueWatch, saveTrakt } from "./store";
+import { loadTrakt, queueWatch, saveTrakt, settled } from "./store";
 
 export interface ScrobbleTarget {
   itemId: string;
@@ -74,6 +74,13 @@ export function historyFor(t: Pick<ScrobbleTarget, "itemId" | "kind" | "episodeI
   return {
     shows: [{ ids: { imdb: ref.show }, seasons: [{ number: ref.season, episodes: [{ number: ref.number, watched_at }] }] }],
   };
+}
+
+/** Whether a stop that got this answer (null: none) leaves a finished watch
+ * to queue as history. Only what Trakt settled (store.ts `settled`) does
+ * not: a 401, 403 or 408 is "not now", and the drain keeps those too. */
+export function keepsStop(r: { status: number } | null, pct: number): boolean {
+  return pct > 80 && (!r || !settled(r.status));
 }
 
 const episodeIds = new Map<string, number | null>();
@@ -151,7 +158,7 @@ export function useTraktScrobble(t: ScrobbleTarget | null): void {
       // Trakt could not be reached, or refused for now: a finished watch is
       // kept and sent later, dated now. A 409 is Trakt saying it already
       // has this one.
-      if (pct > 80 && (!r || r.status >= 500 || r.status === 429)) {
+      if (keepsStop(r, pct)) {
         const body = historyFor(target, Date.now());
         if (body) queueWatch(body);
         counted(target);

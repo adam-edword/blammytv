@@ -17,11 +17,11 @@ import type { ListEntry } from "../stream/myList";
 import { loadLedger, replaceLedger } from "../stream/watched";
 import { loadWatching, onWatchingCleared, replaceWatching, retiredFromContinue } from "../stream/watching";
 import { traktJson, traktStatus } from "./client";
-import { historyToPush, ledgerFromTrakt, moviesFromTrakt, withQueued, type WatchedMovie, type WatchedShow } from "./history";
+import { historyToPush, ledgerFromTrakt, moviesFromTrakt, withQueued, type HistoryBody, type WatchedMovie, type WatchedShow } from "./history";
 import { imdbOf, type TraktIds } from "./ids";
 import { mergeWatchlist } from "./merge";
 import { mergeProgress, type Playback } from "./progress";
-import { dropFromQueue, forgetCount, loadQueue, loadTrakt, saveTrakt, TRAKT_SYNCED } from "./store";
+import { dropFromQueue, forgetCount, loadQueue, loadTrakt, saveTrakt, settled, TRAKT_SYNCED } from "./store";
 
 /** `/sync/watchlist/:type`, the fields used. */
 interface WatchlistItem {
@@ -55,6 +55,17 @@ export function moved(before: Record<string, string> | undefined, now: Record<st
   return keys.some((k) => before[k] !== now[k]);
 }
 
+/** Send the queued watches, one history entry each, and answer with the ones
+ * Trakt settled (store.ts `settled`). The rest stay queued for the next pass. */
+export async function sendQueued(queue: readonly HistoryBody[]): Promise<HistoryBody[]> {
+  const sent: HistoryBody[] = [];
+  for (const body of queue) {
+    const r = await traktJson("POST", "/sync/history", body).catch(() => null);
+    if (r && settled(r.status)) sent.push(body);
+  }
+  return sent;
+}
+
 let running: Promise<SyncResult> | null = null;
 
 /** One pass. Concurrent callers share it. Never throws. */
@@ -78,11 +89,7 @@ async function pass(): Promise<SyncResult> {
     // the ledger that comes back includes them.
     const queue = loadQueue();
     if (queue.length) {
-      const sent = [];
-      for (const body of queue) {
-        const r = await traktJson("POST", "/sync/history", body).catch(() => null);
-        if (r && r.status < 500 && r.status !== 429) sent.push(body);
-      }
+      const sent = await sendQueued(queue);
       if (gone()) return overtaken;
       dropFromQueue(sent);
     }

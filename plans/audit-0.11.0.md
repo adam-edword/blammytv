@@ -4,9 +4,9 @@ Morning summary: (written when the audit is done)
 
 **Progress:** all 10 auditors back, every finding checked. Fixed so far:
 Sports, the privacy page, CI's timeout and the changelog line (v0.11.2),
-the app shell (v0.11.3), Live TV (v0.11.4). Next through the builder:
-Stream, Multi-view, light mode, native, tooling, then a mop-up of what
-those leave (LV8). A session restart at 03:30 UTC killed seven
+the app shell (v0.11.3), Live TV (v0.11.4), Stream (v0.11.5). Next
+through the builder: Multi-view, light mode, native, tooling, then a
+mop-up of what those leave (LV8). A session restart at 03:30 UTC killed seven
 auditors and Sonnet's fullscreen run; the seven were started again and
 0.11.1 was finished here (`8e9b5ef0`).
 
@@ -367,27 +367,35 @@ nothing (`mvGames.ts:54-79`). Plan: a failed league keeps its last games.
 Confirmed by reading: `quickResume` resolves `entry.episodeId`, and
 `resumePoint` gives 0:00 for a finished one, so leaving in the credits and
 clicking the card starts the same episode over. The comment on
-`retiredFromContinue` promises it rolls forward. Plan: a finished series
-entry resumes the next episode.
+`retiredFromContinue` promises it rolls forward. Fixed in v0.11.5: a
+finished series card plays the next episode from its start (across a
+season too), and its Sources chip lists that episode's sources. Only on
+that path does the source request wait for the meta. A finale plays as
+before.
 
 **ST2. MEDIUM. A rewatch you leave in the first seconds is sent to Trakt
 as watched again.** Confirmed by reading: `setPlaying` keeps the old
 `posSec` for the same episode even when it was finished
 (`StreamScreen.tsx:309-311`), and the scrobble's cleanup prefers the entry
-over this session's own number, so it sends a stop at about 99%. Plan:
-progress is kept only when it's being resumed.
+over this session's own number, so it sends a stop at about 99%. Fixed in
+v0.11.5: progress carries over only on a real resume (`keptProgress`). A
+rewatched film now shows in Continue Watching from where the rewatch is,
+not as retired.
 
 **ST3. MEDIUM. Eight of Settings' 28 languages never match a coded
 track.** Confirmed, reproduced (`/tmp/audit-stream/lang.test.ts`, ten
 failures): `langKey` cuts a three-letter code to two letters
 (`playbackPrefs.ts:198-202`), so `pol`, `tur`, `swe`, `ind`, `cze`, `gre`,
-`dut` and `rum` miss, and `rum` matches Russian. Plan: a real ISO 639-2
-table.
+`dut` and `rum` miss, and `rum` matches Russian. Fixed in v0.11.5: an ISO
+639-2 table, both forms, for every language Settings offers; a test walks
+the list. Other three-letter codes keep the old cut.
 
 **ST4. LOW-MEDIUM. A Trakt 401 or 403 drops a queued watch.** Confirmed
 by reading: the drain treats anything under 500 but 429 as sent
 (`trakt/sync.ts:83-84`), and the app's own native code treats a 403 as
-Cloudflare's passing challenge. Plan: keep and retry 401, 403 and 408.
+Cloudflare's passing challenge. Fixed in v0.11.5: a watch leaves the
+queue only on 2xx, 404, 409 or 422 (`settled`), and the live stop queues on
+the same rule.
 
 **ST5. LOW. A new Trakt account gets the old account's watches.**
 Confirmed by reading. **Held**: the ledger is also the app's own watched
@@ -400,22 +408,25 @@ is about automatic paths. No change.
 
 **ST7. LOW. Kitsu-keyed anime never get exact skip ranges.** Confirmed by
 reading: AniSkip's index is IMDb-only (`aniskip.ts:75-76`) though the
-Kitsu to MAL mapping exists and MAL's writes use it. Plan: use it here
-too.
+Kitsu to MAL mapping exists and MAL's writes use it. Fixed in v0.11.5: a
+`kitsu:` title is placed the way MAL's writes place it.
 
 **ST8. LOW. A MAL tick is lost when the mapping data can't load.**
 Confirmed by reading: the item is marked handled before the lookup, which
-then answers nothing (`mal/sync.ts:98-111`). Plan: not handled until it's
-sent or queued.
+then answers nothing (`mal/sync.ts:98-111`). Fixed in v0.11.5: settled
+only once pushed, queued, or known to have no MAL entry. The mapping
+download, which failed for the whole session before, retries after a
+minute.
 
 **ST9. LOW. A palette pick during a resolve is overruled by it.**
 Confirmed by reading: `consume` stops a playing stream but not a resolving
-one (`StreamScreen.tsx:541-565`). Plan: it cancels the resolve.
+one (`StreamScreen.tsx:541-565`). Fixed in v0.11.5: it cancels it
+(verify-resolve-cancel picks from the palette mid-resolve).
 
 **ST10. LOW-MEDIUM. Long series lose their oldest checkmarks.** Confirmed
 by reading: `markWatched` cuts the ledger to 600 (`watched.ts:73`) while
 Trakt's sync writes it whole, so a 700-episode show loses 100 ticks and
-"next up" falls back to episode 1. Plan: no cap on what Trakt wrote.
+"next up" falls back to episode 1. Fixed in v0.11.5: the cap is 5,000.
 
 ### The HLS proxy (security first)
 

@@ -6,7 +6,11 @@ import { load, remove, save } from "../../lib/storage";
 
 const KEY = "watchedEpisodes";
 const VERSION = 1;
-const CAP_PER_SERIES = 600;
+/** Trakt's sync writes a long show whole (replaceLedger), and the next
+ * local mark trims to this. At 600 that cut the oldest ticks of anything
+ * longer (One Piece and Detective Conan are past 1,100) and "next up" fell
+ * back to episode 1. 5,000 is well past any show. */
+const CAP_PER_SERIES = 5000;
 /** Episodes MyAnimeList counts as watched (plan 021, D2 b), kept apart from
  * the ledger: Trakt replaces the ledger's IMDb series on every sync, and
  * MAL's ticks must survive that (D3, a tick from either counts). */

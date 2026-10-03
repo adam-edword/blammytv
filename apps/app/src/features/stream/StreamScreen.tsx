@@ -86,10 +86,13 @@ import {
 } from "../settings/cardMeta";
 import {
   clearWatching,
+  isFinished,
+  keptProgress,
   loadWatching,
   recordWatching,
   resumePoint,
   retiredFromContinue,
+  rolledForward,
   updateWatchingProgress,
   type WatchEntry,
 } from "./watching";
@@ -138,6 +141,16 @@ type Load =
   | { status: "loading" }
   | { status: "ready"; data: VodData }
   | { status: "error"; message: string };
+
+/** What a play of this episode is called and carries, as the Up Next roll
+ * names it. */
+function episodeTarget(season: Season, episode: Episode) {
+  return {
+    episodeId: episode.id,
+    label: `S${season.number} · E${episode.number}: ${episode.title}`,
+    episodeInfo: { season: season.number, episode: episode.number, title: episode.title },
+  };
+}
 
 export function StreamScreen() {
   const [load, setLoad] = useState<Load>(() => {
@@ -280,7 +293,6 @@ export function StreamScreen() {
       // before where it left off.
       const prev = loadWatching().find((e) => e.id === p.item.id);
       const resumeAt = resumePoint(prev, p.episodeId);
-      const sameEp = !p.episodeId || prev?.episodeId === p.episodeId;
       // Playback opens in THEATER (fills the app window); f goes OS-full.
       setPlayingRaw({ ...p, resumeAt, mode: "theater" });
       setWatching(
@@ -306,9 +318,9 @@ export function StreamScreen() {
                 epTitle: p.episodeInfo.title,
               }
             : {}),
-          // Same episode/title keeps its progress; switching episodes resets.
-          ...(sameEp && prev?.posSec ? { posSec: prev.posSec } : {}),
-          ...(sameEp && prev?.durSec ? { durSec: prev.durSec } : {}),
+          // A real resume keeps its progress. Switching episodes, and a
+          // rewatch of a finished one, start over and write none.
+          ...keptProgress(prev, resumeAt),
           at: Date.now(),
         }),
       );
@@ -546,6 +558,9 @@ export function StreamScreen() {
         // K11). The stage covers the pages, so the title opened unseen
         // underneath it; leave the player first, as its ✕ does.
         if (playingRef.current) stop();
+        // And any resolve still out: stopping the player leaves its ticket
+        // live, so it would land after this pick and play the first title.
+        cancelResolve();
         // Onto a page that owes a return already: that return stands.
         if (handoffRef.current && depth() > 0) keepEarlierReturn();
         // Arm for the duration of the open attempt: navigate() claims it on
@@ -562,7 +577,7 @@ export function StreamScreen() {
     };
     consume();
     return onOpenRequest(consume);
-  }, [cardOpen, stop, depth]);
+  }, [cardOpen, stop, depth, cancelResolve]);
 
   // Theater ↔ OS-fullscreen. State flips in the pure updater; the window
   // call rides outside it.
@@ -805,8 +820,18 @@ export function StreamScreen() {
        * await below is not an unhandled rejection; the real handling stays
        * at the await, which still throws.
        */
-      const sourcesPromise = resolveVodSources(kind, entry.episodeId ?? entry.id);
-      sourcesPromise.catch(() => {});
+      /**
+       * EXCEPT FOR A FINISHED EPISODE. That card rolls forward to the next
+       * episode (rolledForward), whose id is only knowable from the series'
+       * seasons, so on this path alone the request waits for the meta
+       * resolve below and then asks for the right episode. Every other
+       * resume still asks at once.
+       */
+      const rolling = kind === "series" && !!entry.episodeId && isFinished(entry);
+      let sourcesPromise = rolling
+        ? undefined
+        : resolveVodSources(kind, entry.episodeId ?? entry.id);
+      sourcesPromise?.catch(() => {});
 
       let item = known;
       if (!item || (kind === "series" && item.seasons.length === 0)) {
@@ -843,9 +868,21 @@ export function StreamScreen() {
               title: entry.epTitle ?? "",
             }
           : undefined;
+      // What plays: the card's own episode, or, when that was finished and
+      // another follows, the next from its start. A finale (or seasons that
+      // would not load) keeps the card's own, as before.
+      const next = rolling ? rolledForward(entry, item.seasons) : null;
+      const target = next
+        ? episodeTarget(next.season, next.episode)
+        : { episodeId: entry.episodeId, label: entry.label, episodeInfo };
+      if (!sourcesPromise) {
+        sourcesPromise = resolveVodSources(kind, target.episodeId ?? entry.id);
+        sourcesPromise.catch(() => {});
+      }
       try {
         // Already in flight since before the meta resolve above — by the
         // time we get here it is usually settled, so this await is free.
+        // (A rolled-forward card asked just now, after that resolve.)
         const sources = await sourcesPromise;
         if (gen !== resolveGen.current) return; // cancelled while we waited
         // Cached only — see watchNow. This is the path that got a real
@@ -856,9 +893,9 @@ export function StreamScreen() {
           setPlaying({
             url: sources[idx].streamUrl,
             item,
-            label: entry.label,
-            episodeId: entry.episodeId,
-            episodeInfo,
+            label: target.label,
+            episodeId: target.episodeId,
+            episodeInfo: target.episodeInfo,
             bingeGroup: sources[idx].bingeGroup,
             queue: sources.filter((s, i) => i !== idx && s.cached),
           });
@@ -867,14 +904,14 @@ export function StreamScreen() {
         // Nothing cached: land the episode's own source screen so the
         // pick (with its missing ⚡) is deliberate; movies get the detail
         // page below, which shows the same list.
-        if (entry.episodeId) {
+        if (target.episodeId) {
           setResolving(null);
           navigate({
             at: "sources",
             item,
-            episodeId: entry.episodeId,
-            episodeLabel: entry.label,
-            episodeInfo,
+            episodeId: target.episodeId,
+            episodeLabel: target.label,
+            episodeInfo: target.episodeInfo,
           });
           return;
         }
@@ -939,22 +976,31 @@ export function StreamScreen() {
         });
         return;
       }
+      // A finished episode's card lists the NEXT episode's sources, the
+      // one a click on its artwork would play (quickResume).
+      const next = rolledForward(entry, item.seasons);
+      const target = next
+        ? episodeTarget(next.season, next.episode)
+        : {
+            episodeId: entry.episodeId,
+            label: entry.label,
+            episodeInfo:
+              entry.season != null && entry.episode != null
+                ? {
+                    season: entry.season,
+                    episode: entry.episode,
+                    title: entry.epTitle ?? "",
+                  }
+                : undefined,
+          };
       navigate({
         at: "sources",
         item,
         // Movies have no episodeId; the sources view renders their own
         // list from the item, which is why episodeId is optional on it.
-        ...(entry.episodeId ? { episodeId: entry.episodeId } : {}),
-        ...(entry.label ? { episodeLabel: entry.label } : {}),
-        ...(entry.season != null && entry.episode != null
-          ? {
-              episodeInfo: {
-                season: entry.season,
-                episode: entry.episode,
-                title: entry.epTitle ?? "",
-              },
-            }
-          : {}),
+        ...(target.episodeId ? { episodeId: target.episodeId } : {}),
+        ...(target.label ? { episodeLabel: target.label } : {}),
+        ...(target.episodeInfo ? { episodeInfo: target.episodeInfo } : {}),
       });
     },
     [navigate, open, captureScroll, armResolve],

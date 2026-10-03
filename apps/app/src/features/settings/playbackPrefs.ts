@@ -159,6 +159,53 @@ const NAMES: Record<string, string> = {
   hungarian: "hu",
 };
 
+/** ISO 639-2 to ISO 639-1, both forms of a language that has two (the
+ * bibliographic `ger`, the terminology `deu`), for every language Settings
+ * offers (languagePrefs.ts LANGUAGES). A track in a Matroska or MP4 file
+ * carries the three-letter code. The old cut to its first two letters
+ * turned `pol` into `po` and `rum` into `ru`, which is Russian, so eight of
+ * Settings' languages never matched a coded track and Romanian matched the
+ * wrong one. A three-letter code that is not here still gets that cut. */
+const ISO2: Record<string, string> = {
+  eng: "en",
+  spa: "es",
+  fre: "fr",
+  fra: "fr",
+  ger: "de",
+  deu: "de",
+  ita: "it",
+  por: "pt",
+  jpn: "ja",
+  kor: "ko",
+  chi: "zh",
+  zho: "zh",
+  hin: "hi",
+  ara: "ar",
+  rus: "ru",
+  dut: "nl",
+  nld: "nl",
+  pol: "pl",
+  tur: "tr",
+  swe: "sv",
+  nor: "no",
+  nob: "no",
+  nno: "no",
+  dan: "da",
+  fin: "fi",
+  cze: "cs",
+  ces: "cs",
+  gre: "el",
+  ell: "el",
+  heb: "he",
+  tha: "th",
+  vie: "vi",
+  ind: "id",
+  ukr: "uk",
+  rum: "ro",
+  ron: "ro",
+  hun: "hu",
+};
+
 /** ISO-ish language normalization: "eng", "en", "en-US", and "English SDH"
  * all agree. Conservative: an empty or unrecognized value never matches
  * anything, so a wrong guess can't hijack a track the user didn't pick. */
@@ -175,23 +222,7 @@ function langKey(s: string): string {
     .split(/\s+/)[0];
   if (!head) return "";
   if (NAMES[head]) return NAMES[head];
-  // Two- and three-letter codes for the same language share a prefix in
-  // practice (en/eng, ja/jpn is the exception handled by the alias map).
-  const ALIAS: Record<string, string> = {
-    jpn: "ja",
-    ger: "de",
-    deu: "de",
-    fre: "fr",
-    fra: "fr",
-    spa: "es",
-    ita: "it",
-    por: "pt",
-    rus: "ru",
-    kor: "ko",
-    chi: "zh",
-    zho: "zh",
-  };
-  if (ALIAS[head]) return ALIAS[head];
+  if (ISO2[head]) return ISO2[head];
   // Only code-shaped leftovers are keys. A stray word ("commentary",
   // "forced") must NOT become a matchable key, or it would collide with
   // the same word on an unrelated track.

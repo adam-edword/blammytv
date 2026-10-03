@@ -94,30 +94,58 @@ export async function pushProgress(mal: number, ep: number): Promise<boolean> {
   return true;
 }
 
-/** Episodes already handled this run: the 90% tick repeats every 5s. */
+/** Episodes and films settled this run: the 90% tick repeats every 5s, and
+ * only a settled one stops being looked at. */
 const handled = new Set<string>();
+/** Being worked on now, so the next tick does not start a second pass. */
+const working = new Set<string>();
 
-export async function onEpisodeWatched(seriesId: string, episodeId: string): Promise<void> {
-  const key = `${seriesId}|${episodeId}`;
-  if (handled.has(key)) return;
-  handled.add(key);
-  // Connected first: the index is a download, and only MAL needs it here.
-  if (!(await malStatus()).connected) return;
-  const item = seen.get(seriesId);
-  const idx = await indexesFor(seriesId, item);
-  if (!idx) return;
-  const hit = malEpisodeOf(seriesId, episodeId, item?.seasons ?? [], idx);
-  if (hit) await pushProgress(hit.mal, hit.ep);
+/**
+ * Run `settle` for `key` until it answers true, one pass at a time. An
+ * episode is settled once it is pushed (or queued by pushProgress for the
+ * next sync), once there is nothing to push, or once the mapping loaded and
+ * says it has no MAL entry. A mapping that could not load settles nothing,
+ * so a later tick asks again (animemap holds a failed download off for a
+ * minute, so those asks do not each hit the network).
+ */
+async function once(key: string, settle: () => Promise<boolean>): Promise<void> {
+  if (handled.has(key) || working.has(key)) return;
+  working.add(key);
+  try {
+    if (await settle()) handled.add(key);
+  } finally {
+    working.delete(key);
+  }
 }
 
-export async function onFilmWatched(filmId: string): Promise<void> {
-  const key = `${filmId}|film`;
-  if (handled.has(key)) return;
-  handled.add(key);
-  if (!(await malStatus()).connected) return;
-  const idx = await indexesFor(filmId, seen.get(filmId));
-  const hit = idx && malFilmOf(filmId, idx);
-  if (hit) await pushProgress(hit.mal, hit.ep);
+/** Neither index in hand: indexesFor answers a null for the one the title
+ * needs, so both null says the download failed. */
+const unmapped = (idx: { imdb: unknown; kitsu: unknown }) => !idx.imdb && !idx.kitsu;
+
+export function onEpisodeWatched(seriesId: string, episodeId: string): Promise<void> {
+  return once(`${seriesId}|${episodeId}`, async () => {
+    // Connected first: the index is a download, and only MAL needs it here.
+    if (!(await malStatus()).connected) return true;
+    const item = seen.get(seriesId);
+    const idx = await indexesFor(seriesId, item);
+    if (!idx) return true;
+    if (unmapped(idx)) return false;
+    const hit = malEpisodeOf(seriesId, episodeId, item?.seasons ?? [], idx);
+    if (hit) await pushProgress(hit.mal, hit.ep);
+    return true;
+  });
+}
+
+export function onFilmWatched(filmId: string): Promise<void> {
+  return once(`${filmId}|film`, async () => {
+    if (!(await malStatus()).connected) return true;
+    const idx = await indexesFor(filmId, seen.get(filmId));
+    if (!idx) return true;
+    if (unmapped(idx)) return false;
+    const hit = malFilmOf(filmId, idx);
+    if (hit) await pushProgress(hit.mal, hit.ep);
+    return true;
+  });
 }
 
 let running: Promise<void> | null = null;

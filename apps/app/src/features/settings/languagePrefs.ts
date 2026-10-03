@@ -39,8 +39,9 @@ export interface LanguageOption {
 /**
  * What the pickers offer.
  *
- * Deliberately the same set playbackPrefs' NAMES table can normalise, so a
- * language offered here can always be recognised on a real track. Ordered
+ * Deliberately the same set playbackPrefs' NAMES and ISO2 tables can
+ * normalise, so a language offered here can always be recognised on a real
+ * track (playbackPrefs.test.ts walks this list to hold that). Ordered
  * by how often it is wanted rather than alphabetically: the top of a list
  * of thirty is the only part most people read.
  */

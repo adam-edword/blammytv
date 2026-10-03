@@ -1,4 +1,6 @@
 import { hasId, loadList, save } from "../../lib/storage";
+import { nextEpisode } from "./mapper";
+import type { Episode, Season } from "./model";
 
 /**
  * Continue Watching: a recency-ordered record of what was played in the
@@ -120,6 +122,41 @@ export function resumePoint(
   if (episodeId && e.episodeId !== episodeId) return undefined;
   if (e.durSec && e.posSec >= e.durSec * 0.9) return undefined;
   return Math.max(0, e.posSec - 3);
+}
+
+/** At or past 90% of a known duration: the same line resumePoint,
+ * retiredFromContinue and the watched ledger draw. */
+export function isFinished(e: Pick<WatchEntry, "posSec" | "durSec">): boolean {
+  return !!e.posSec && !!e.durSec && e.posSec >= e.durSec * 0.9;
+}
+
+/** The episode a click on a Continue Watching series card should start when
+ * that card's own is finished: the next one, from its start (the roll
+ * retiredFromContinue promises). Null when the card's own episode stands:
+ * it is not finished, or nothing follows it (a finale, or the seasons are
+ * not known). */
+export function rolledForward(
+  e: WatchEntry,
+  seasons: Season[],
+): { season: Season; episode: Episode } | null {
+  if (!e.episodeId || !isFinished(e)) return null;
+  return nextEpisode(seasons, e.episodeId);
+}
+
+/** The progress a new play carries over from the entry it replaces: only a
+ * real resume (resumePoint answered, so the same episode, mid-way). A play
+ * that starts over writes none. A finished watch that kept its numbers read
+ * ~99% to anything that looked before the first progress tick, and the
+ * scrobble's stop on leaving sent it to Trakt as another watch. */
+export function keptProgress(
+  prev: WatchEntry | undefined,
+  resumeAt: number | undefined,
+): Pick<WatchEntry, "posSec" | "durSec"> {
+  if (resumeAt === undefined || !prev) return {};
+  return {
+    ...(prev.posSec ? { posSec: prev.posSec } : {}),
+    ...(prev.durSec ? { durSec: prev.durSec } : {}),
+  };
 }
 
 /** Finished MOVIES leave the Continue Watching row (≥90% — the same

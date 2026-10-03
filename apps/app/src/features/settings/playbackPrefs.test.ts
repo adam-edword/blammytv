@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { LANGUAGES } from "./languagePrefs";
 import {
   loadPlaybackPrefs,
   matchTrack,
@@ -170,5 +171,92 @@ describe("per-show prefs", () => {
     expect(loadPlaybackPrefs("tt-129").subLang).toBe("l129");
     const raw = store.get("blammytv.playbackPrefsByShow")!;
     expect(Object.keys(JSON.parse(raw).data.byId).length).toBeLessThanOrEqual(120);
+  });
+});
+
+describe("Settings' languages against the codes real tracks carry", () => {
+  // ISO 639-2 as a Matroska or MP4 file writes it, both forms where a
+  // language has two, for every language Settings offers. Cutting a
+  // three-letter code to two letters missed pol, tur, swe, ind, cze, gre,
+  // dut and rum, and matched rum to Russian.
+  const CODES: Record<string, string[]> = {
+    en: ["eng"],
+    es: ["spa"],
+    fr: ["fre", "fra"],
+    de: ["ger", "deu"],
+    it: ["ita"],
+    pt: ["por"],
+    ja: ["jpn"],
+    ko: ["kor"],
+    zh: ["chi", "zho"],
+    hi: ["hin"],
+    ar: ["ara"],
+    ru: ["rus"],
+    nl: ["dut", "nld"],
+    pl: ["pol"],
+    tr: ["tur"],
+    sv: ["swe"],
+    no: ["nor", "nob", "nno"],
+    da: ["dan"],
+    fi: ["fin"],
+    cs: ["cze", "ces"],
+    el: ["gre", "ell"],
+    he: ["heb"],
+    th: ["tha"],
+    vi: ["vie"],
+    id: ["ind"],
+    uk: ["ukr"],
+    ro: ["rum", "ron"],
+    hu: ["hun"],
+  };
+
+  it("walks every language Settings offers, so a new one cannot go unchecked", () => {
+    expect(LANGUAGES.length).toBeGreaterThan(0);
+    for (const l of LANGUAGES) {
+      // A language added to Settings with no codes here fails this, not
+      // the walk below, which would otherwise skip it silently.
+      expect(CODES[l.code], `${l.label} has codes in this test`).toBeDefined();
+      for (const c of CODES[l.code]) {
+        // The three-letter code on a track, wanted as the Settings code...
+        expect(matchTrack([track(1, c)], l.code)?.id, `${l.label}: track '${c}'`).toBe(1);
+        // ...and the Settings code on a track, wanted as the three-letter one
+        // (a remembered pick is stored as whatever the track carried)...
+        expect(matchTrack([track(1, l.code)], c)?.id, `${l.label}: wanted '${c}'`).toBe(1);
+      }
+      // ...and a label-only track, the way a remux names it.
+      expect(matchTrack([track(1, "", l.label)], l.code)?.id, `${l.label}: label`).toBe(1);
+    }
+  });
+
+  it("keeps each language off the others' tracks", () => {
+    for (const a of LANGUAGES)
+      for (const b of LANGUAGES) {
+        if (a.code === b.code) continue;
+        for (const c of CODES[b.code])
+          expect(matchTrack([track(1, c)], a.code), `${a.label} vs '${c}'`).toBeUndefined();
+      }
+  });
+
+  it("does not read Romanian (rum) as Russian", () => {
+    expect(matchTrack([track(1, "rum")], "ru")).toBeUndefined();
+    expect(matchTrack([track(1, "rus")], "ro")).toBeUndefined();
+    expect(matchTrack([track(1, "rum")], "ro")?.id).toBe(1);
+  });
+
+  it("matches both forms of a language to each other", () => {
+    expect(matchTrack([track(1, "ces")], "cze")?.id).toBe(1);
+    expect(matchTrack([track(1, "nld")], "dut")?.id).toBe(1);
+    expect(matchTrack([track(1, "deu")], "ger")?.id).toBe(1);
+  });
+
+  it("still gives a three-letter code that is not in the table its first two letters", () => {
+    // Unchanged from before the table: not every code a file carries is one
+    // Settings offers, and a remembered one keeps matching as it did.
+    expect(matchTrack([track(1, "sco")], "sc")?.id).toBe(1);
+    expect(matchTrack([track(1, "sc")], "sco")?.id).toBe(1);
+  });
+
+  it("still keeps stray words out", () => {
+    expect(matchTrack([track(1, "", "Commentary")], "commentary")).toBeUndefined();
   });
 });

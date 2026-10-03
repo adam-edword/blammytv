@@ -81,19 +81,55 @@ export function looksAnime(item: Pick<VodItem, "genres">): boolean {
   return item.genres.some((g) => /anim/i.test(g));
 }
 
-let dataset: Promise<{ imdb: SlimIndex; kitsu: KitsuIndex } | null> | null = null;
+/** How long a failed download is remembered before the next try. MAL asks
+ * on every 5s tick of a watch past 90% and AniSkip at every episode start,
+ * so a dead network must not be hit that often; and a failure kept for the
+ * whole session meant a link that came back an hour later never helped. */
+const RETRY_MS = 60_000;
 
-/** The ~6MB dataset, once a session at most, built into both indexes. A
- * failed fetch retries next session (the memo is per-session only). */
+/** One load, kept for good once it works. A null answer (the download
+ * failed, nothing cached to fall back on) is kept only until RETRY_MS has
+ * passed, then asked again. */
+interface Memo<T> {
+  p: Promise<T | null> | null;
+  /** When the kept answer turned out null or rejected; 0 while it is good
+   * or still on its way. */
+  failedAt: number;
+}
+
+function memoized<T>(m: Memo<T>, load: () => Promise<T | null>): Promise<T | null> {
+  if (m.p && m.failedAt && Date.now() - m.failedAt >= RETRY_MS) m.p = null;
+  if (!m.p) {
+    m.failedAt = 0;
+    const p = load();
+    m.p = p;
+    p.then(
+      (v) => {
+        if (v === null) m.failedAt = Date.now();
+      },
+      () => {
+        m.failedAt = Date.now();
+      },
+    );
+  }
+  return m.p;
+}
+
+const datasetMemo: Memo<{ imdb: SlimIndex; kitsu: KitsuIndex }> = { p: null, failedAt: 0 };
+
+/** The ~6MB dataset, once a session at most while it works, built into
+ * both indexes. A failed fetch is tried again after RETRY_MS, and not
+ * remembered past the session. */
 function fetchDataset() {
-  dataset ??= httpGetJson<DatasetEntry[]>(DATASET_URL).then(
-    (raw) => ({ imdb: buildIndex(raw), kitsu: buildKitsuIndex(raw) }),
-    (err) => {
-      console.warn(`[anime] mapping dataset fetch failed: ${String(err)}`);
-      return null;
-    },
+  return memoized(datasetMemo, () =>
+    httpGetJson<DatasetEntry[]>(DATASET_URL).then(
+      (raw) => ({ imdb: buildIndex(raw), kitsu: buildKitsuIndex(raw) }),
+      (err) => {
+        console.warn(`[anime] mapping dataset fetch failed: ${String(err)}`);
+        return null;
+      },
+    ),
   );
-  return dataset;
 }
 
 function cachedOrFetched<T>(
@@ -114,20 +150,18 @@ function cachedOrFetched<T>(
   });
 }
 
-let imdbPromise: Promise<SlimIndex | null> | null = null;
-let kitsuPromise: Promise<KitsuIndex | null> | null = null;
+const imdbMemo: Memo<SlimIndex> = { p: null, failedAt: 0 };
+const kitsuMemo: Memo<KitsuIndex> = { p: null, failedAt: 0 };
 
 /** The cached IMDb index, refreshed weekly. Lazy: the first anime that
  * needs it pays the one download, everyone else never fetches. */
 export function ensureIndex(): Promise<SlimIndex | null> {
-  imdbPromise ??= cachedOrFetched(INDEX_KEY, INDEX_VERSION, (d) => d.imdb);
-  return imdbPromise;
+  return memoized(imdbMemo, () => cachedOrFetched(INDEX_KEY, INDEX_VERSION, (d) => d.imdb));
 }
 
 /** The cached Kitsu index, the same way, for Kitsu-keyed titles only. */
 export function ensureKitsuIndex(): Promise<KitsuIndex | null> {
-  kitsuPromise ??= cachedOrFetched(KITSU_KEY, KITSU_VERSION, (d) => d.kitsu);
-  return kitsuPromise;
+  return memoized(kitsuMemo, () => cachedOrFetched(KITSU_KEY, KITSU_VERSION, (d) => d.kitsu));
 }
 
 /**
