@@ -265,6 +265,152 @@ if (!FAST) {
   await page.close();
 }
 
+// 4b. Back, then Continue again (v0.11.3, audit S2). Back keeps the form
+//     filled, and the second Continue used to ADD the playlist again as
+//     "Xtream Playlist 2", so the Guide showed every channel twice. And a
+//     check still running when Back is pressed used to land, arm the
+//     auto-advance and push the step forward again.
+const toTvStep = async (page) => {
+  await page.goto("http://localhost:4173/?onboarding=1");
+  await page.waitForSelector(".onb");
+  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.waitForSelector(".onb-input", { timeout: 8000 });
+  await page.getByRole("button", { name: /later/ }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+};
+const fillXtream = async (page) => {
+  const fields = page.locator(".onb-fields .onb-input");
+  await fields.nth(0).fill("http://localhost:8081");
+  await fields.nth(1).fill("u");
+  await fields.nth(2).fill("p");
+};
+const savedPlaylists = (page) =>
+  page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.playlists") ?? "{}").data ?? []);
+if (!FAST) {
+  const page = await newPage();
+  await toTvStep(page);
+  await fillXtream(page);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 10000 });
+  const first = await savedPlaylists(page);
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  const kept = await page.locator(".onb-fields .onb-input").nth(0).inputValue();
+  check("Back keeps the form filled", kept === "http://localhost:8081", kept);
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 10000 });
+  const again = await savedPlaylists(page);
+  check("Continue again on the same form saves one playlist, not two",
+    first.length === 1 && again.length === 1 && again[0].id === first[0].id
+      && again[0].name === "Xtream Playlist 1",
+    JSON.stringify({ first: first.map((p) => p.name), again: again.map((p) => p.name) }));
+
+  // Changing the form between the two replaces that one playlist's fields.
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  await page.locator(".onb-fields .onb-input").nth(1).fill("u2");
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 10000 });
+  const edited = await savedPlaylists(page);
+  check("and an edited form replaces that playlist's fields",
+    edited.length === 1 && edited[0].id === first[0].id && edited[0].username === "u2",
+    JSON.stringify(edited.map((p) => [p.id === first[0].id, p.username])));
+  await page.close();
+}
+
+// The replay for an existing user: Continue on the TV step must add beside
+// what they have and leave it alone, even on a second Continue.
+if (!FAST) {
+  const page = await newPage({
+    "blammytv.playlists": JSON.stringify({ v: 1, data: [{ id: "mine", kind: "m3u", name: "Mine", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }),
+  });
+  await toTvStep(page);
+  await fillXtream(page);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 10000 });
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 10000 });
+  const list = await savedPlaylists(page);
+  check("a replay adds beside the existing playlist and never replaces it",
+    list.length === 2 && list[0].id === "mine" && list[0].name === "Mine" && list[1].kind === "xtream",
+    JSON.stringify(list.map((p) => [p.id.slice(0, 4), p.name])));
+  await page.close();
+}
+
+// Back while a check is still running: it lands, and the step stays put.
+if (!FAST) {
+  const page = await newPage();
+  await toTvStep(page);
+  await fillXtream(page);
+  let release;
+  const gate = new Promise((r) => (release = r));
+  let held = 0;
+  await page.route("http://localhost:8081/player_api.php*", async (route) => {
+    held++;
+    await gate;
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "Connecting…" }).waitFor({ timeout: 5000 });
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-input:not(.onb-fields .onb-input)", { timeout: 8000 });
+  release();
+  // The dwell (750ms) plus the swap (400ms) is the longest the old code
+  // needed to be on the next step; wait well past it.
+  await page.waitForTimeout(2500);
+  const saved = await savedPlaylists(page);
+  const where = await page.evaluate(() => ({
+    streams: !!document.querySelector(".onb-input") && !document.querySelector(".onb-fields"),
+    tv: !!document.querySelector(".onb-fields"),
+    prefs: !!document.querySelector(".onb-prefs"),
+  }));
+  check("the held check really landed (its playlist is saved)",
+    held > 0 && saved.length === 1, JSON.stringify({ held, saved: saved.length }));
+  check("Back during a Live TV check: the step stays on streams once it lands",
+    where.streams && !where.tv && !where.prefs, JSON.stringify(where));
+  await page.close();
+}
+
+if (!FAST) {
+  const page = await newPage();
+  await page.goto("http://localhost:4173/?onboarding=1");
+  await page.waitForSelector(".onb");
+  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.waitForSelector(".onb-input", { timeout: 8000 });
+  let release;
+  const gate = new Promise((r) => (release = r));
+  let held = 0;
+  await page.route("http://localhost:8084/**", async (route) => {
+    held++;
+    await gate;
+    await route.continue();
+  });
+  await page.locator(".onb-input").fill("http://localhost:8084/manifest.json");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "Connecting…" }).waitFor({ timeout: 5000 });
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-lockup", { timeout: 8000 });
+  release();
+  await page.waitForTimeout(2500);
+  const aio = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("blammytv.aiostreams") ?? "{}").data);
+  const where = await page.evaluate(() => ({
+    logo: !!document.querySelector(".onb-lockup"),
+    streams: !!document.querySelector(".onb-input"),
+    tv: !!document.querySelector(".onb-fields"),
+  }));
+  check("the held streams check really landed (the manifest is saved)",
+    held > 0 && aio === "http://localhost:8084/manifest.json", JSON.stringify({ held, aio }));
+  check("Back during a streams check: the step stays on the logo once it lands",
+    where.logo && !where.streams && !where.tv, JSON.stringify(where));
+  await page.close();
+}
+
 // 5. Blocked instance: the Cloudflare verdict surfaces IN onboarding,
 //    and "Continue anyway" saves + advances.
 if (!FAST) {

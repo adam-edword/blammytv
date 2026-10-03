@@ -182,7 +182,13 @@ async function buildVod(
     rowPools.set(cat.id, itemIds);
   }
 
-  const sourceIds = heroSources.length ? heroSources : defaultHero(rows);
+  // Only the saved keys this manifest still has. Customize prunes the saved
+  // list when its section opens and not before, so a new manifest without
+  // those catalogs pooled every key to nothing and the hero came up empty.
+  // None left means the default mix. The saved list is left as it is, for
+  // Customize to prune.
+  const saved = heroSources.filter((k) => catalogFor(manifest.catalogs, k));
+  const sourceIds = saved.length ? saved : defaultHero(rows);
   const picks = await buildFeatured(
     manifestUrl,
     manifest.catalogs,
@@ -347,6 +353,12 @@ function needsGenre(cat: CatalogDef): boolean {
   return (cat.extra ?? []).some((e) => e.isRequired && e.name === "genre");
 }
 
+/** The catalog a hero key names. Saved keys are `${type}/${id}` (Settings'
+ * picker); the default mix passes bare catalog ids. Accept both. */
+function catalogFor(catalogs: CatalogDef[], key: string): CatalogDef | undefined {
+  return catalogs.find((c) => `${c.type}/${c.id}` === key || c.id === key);
+}
+
 function defaultHero(rows: StreamRow[]): string[] {
   return rows.slice(0, DEFAULT_SOURCE_ROWS).map((r) => r.id.replace(/^aio:/, ""));
 }
@@ -367,11 +379,7 @@ async function buildFeatured(
       // reuse that pool instead of a duplicate round trip.
       const pooled = rowPools.get(cid);
       if (pooled) return [...pooled];
-      // Saved hero sources are `${type}/${id}` keys (Settings' picker);
-      // the default mix passes bare catalog ids. Accept both.
-      const def = catalogs.find(
-        (c) => `${c.type}/${c.id}` === cid || c.id === cid,
-      );
+      const def = catalogFor(catalogs, cid);
       if (!def) return [] as string[];
       try {
         const { metas = [] } = await fetchCatalog(

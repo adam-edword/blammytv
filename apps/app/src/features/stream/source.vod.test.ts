@@ -216,6 +216,30 @@ describe("stream source", () => {
     expect(data.featured.length).toBeGreaterThan(0);
   });
 
+  it("gives the default hero when none of the saved sources are in the manifest", async () => {
+    // A new manifest without the catalogs Customize last saved. Customize
+    // prunes them only when its section opens; until then every key pooled
+    // to nothing and the hero came up empty.
+    heroSources = ["movie/gone", "series/also-gone"];
+    const { loadVod } = await import("./source");
+    const data = await loadVod();
+    expect([...data.featured].sort()).toEqual(["tt1", "tt2", "tt9"]);
+  });
+
+  it("draws only from the saved sources the manifest still has", async () => {
+    heroSources = ["movie/gone", "series/top-series"];
+    const { loadVod } = await import("./source");
+    const data = await loadVod();
+    expect(data.featured).toEqual(["tt9"]);
+  });
+
+  it("keeps a saved source named by its bare catalog id", async () => {
+    heroSources = ["gone", "top-series"];
+    const { loadVod } = await import("./source");
+    const data = await loadVod();
+    expect(data.featured).toEqual(["tt9"]);
+  });
+
   it("ignores a version-1 mirror, which could hold a hero of bare previews", async () => {
     const store = new Map<string, string>();
     vi.stubGlobal("localStorage", {

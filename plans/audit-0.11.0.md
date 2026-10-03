@@ -3,9 +3,9 @@
 Morning summary: (written when the audit is done)
 
 **Progress:** all 10 auditors back, every finding checked. Fixed so far:
-Sports, the privacy page, CI's timeout and the changelog line (v0.11.2).
-Next through the builder: the app shell, Live TV, Stream, Multi-view,
-light mode, native, tooling. A session restart at 03:30 UTC killed seven
+Sports, the privacy page, CI's timeout and the changelog line (v0.11.2),
+the app shell (v0.11.3). Next through the builder: Live TV, Stream,
+Multi-view, light mode, native, tooling. A session restart at 03:30 UTC killed seven
 auditors and Sonnet's fullscreen run; the seven were started again and
 0.11.1 was finished here (`8e9b5ef0`).
 
@@ -92,8 +92,10 @@ inputs, held modifiers, a taken Escape, and a button's own keys, and nothing
 else. Settings focuses its card, so over a playing Guide preview the arrows
 seek and change volume, Space pauses, and M, F and the rest act, while
 `preventDefault` also stops the arrows scrolling Settings. `isModalOpen()`
-(`lib/modalOpen.ts`) is the bit made for this. Plan: stand down while a
-modal is open.
+(`lib/modalOpen.ts`) is the bit made for this. Fixed in v0.11.3: every key
+stands down while a modal is open. verify-live-idle sends a seek and a
+pause with Settings shut, and nothing with it open; without the line the
+open half fails.
 
 **S2. MEDIUM. Onboarding adds the same playlist twice.** Confirmed:
 `Onboarding.tsx` `continueTv` verifies and calls `addPlaylist`, which never
@@ -101,27 +103,33 @@ dedupes (`playlists.ts:149`); Back keeps the form filled, so Continue again
 adds "Xtream Playlist 2" with the same line, and the Guide shows every
 channel twice. Also confirmed, LOW: Back pressed while the check is still
 running doesn't stop it, and its `.then` arms `advance` after `retreat`
-cleared the timer, so the step jumps forward again. Plan: a repeat Continue
-replaces the playlist it saved instead of adding one, and a check that
-finishes after Back doesn't advance.
+cleared the timer, so the step jumps forward again. Fixed in v0.11.3: a
+repeat Continue replaces the playlist this run saved (`replacePlaylist`),
+a replay never touches one it didn't save, and a check that lands after
+any move saves but doesn't advance (streams step too). Eight new
+onboarding checks; each half's mutation fails them.
 
 **S3. LOW. A live pop-out doesn't count as playing.** Confirmed:
 `lib/playingNow.ts` looks for `.vod-stage`, `#inv-chrome` and a Multi-view
 tile; popping out a live channel unmounts the in-app player, so Restart now
 and Install pass their guard and end the PiP. `lib/tauri.ts` already tracks
-`livePopout`. Plan: count it.
+`livePopout`. Fixed in v0.11.3: it counts. A VOD pop-out already did
+(`.vod-stage--popped` stays mounted).
 
 **S4. LOW, accessibility. The header search has no focus ring.** Confirmed:
 `.navcap__searchinput` sets `outline: none` (`base.css:786`), ui.css opts
 text inputs out of the global ring, and settings.css's restore list
-(`:322-329`) doesn't include it. Plan 016 3.1 listed it. Plan: a ring on the
-search capsule while its input has keyboard focus.
+(`:322-329`) doesn't include it. Plan 016 3.1 listed it. Fixed in v0.11.3:
+the capsule wears the ring while its field has focus. A click shows it
+too: Chromium counts any focus on a text field as focus-visible (measured),
+and Settings' fields ring on a click the same way.
 
 **S5. LOW. A new AIOStreams manifest can empty the hero.** Confirmed: saved
 Hero Slider Sources are only pruned when Customize's section is opened, and
 `source.ts:185` uses them whenever any are saved; keys the new manifest
-doesn't have each pool to nothing, so no hero. Plan: use the saved keys the
-manifest has, and the default mix when it has none of them.
+doesn't have each pool to nothing, so no hero. Fixed in v0.11.3: only the
+saved keys the manifest has, and the default mix when none survive. The
+saved list is left for Customize to prune.
 
 ### Security, whole app (second pass)
 

@@ -788,6 +788,13 @@ button {
   color: inherit;
   font: 400 13px/1 var(--font-text);
 }
+/* The ring goes on the capsule, since the field inside it is borderless.
+ * A click shows it too: Chromium counts any focus on a text field as
+ * focus-visible, and Settings' fields ring on a click the same way. */
+.navcap__search:has(> input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
 .navcap__searchinput::placeholder {
   color: color-mix(in srgb, var(--text) 55%, transparent);
 }

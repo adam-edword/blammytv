@@ -13,7 +13,7 @@
  * dialogs now, and Radix marks every Escape it takes (`defaultPrevented`)
  * on the document before any window listener hears it. So the screens'
  * ESCAPE handlers read the mark instead; the tennis draw and the Sports
- * theater stopped asking here. Two readers still need the bit, because
+ * theater stopped asking here. These readers still need the bit, because
  * the mark cannot reach them:
  *
  * - `mouseNav`: the mouse's Back button is not a key, and Radix does not
@@ -23,6 +23,12 @@
  * - Multi-view's replace-a-tile Escape listens on WINDOW in the CAPTURE
  *   phase, ahead of Radix's document listener, so there is no mark yet
  *   when it hears the key.
+ * - The player's keys (`TheaterOverlay`'s `onDocKey`): Radix marks the
+ *   Escape it takes and nothing else, so over a playing preview the arrows
+ *   and Space reached the stream under Settings. Every key stands down
+ *   here, Escape included (its `defaultPrevented` line stays for a menu).
+ * - The header's `/` and Ctrl+F: Radix does not mark them either, and they
+ *   switched the tab behind the modal.
  *
  * Read at EVENT TIME, never during render, so nothing subscribes to it and
  * no component re-renders when it flips.

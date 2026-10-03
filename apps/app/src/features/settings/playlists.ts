@@ -144,6 +144,17 @@ export function playlistSource(p: Playlist): string {
   }
 }
 
+/** The draft's name, or a default like "Xtream Playlist 2": numbered per
+ * kind among the playlists already in `list`, like the design's examples. */
+function nameFor(list: Playlist[], draft: PlaylistDraft): string {
+  return (
+    draft.name.trim() ||
+    `${KIND_LABELS[draft.kind]} Playlist ${
+      list.filter((p) => p.kind === draft.kind).length + 1
+    }`
+  );
+}
+
 /** Add a draft to the list. A blank name gets a default like "Xtream
  * Playlist 2" — numbered per kind, like the design's examples. */
 export function addPlaylist(
@@ -151,12 +162,27 @@ export function addPlaylist(
   draft: PlaylistDraft,
   id: string = crypto.randomUUID(),
 ): Playlist[] {
-  const name =
-    draft.name.trim() ||
-    `${KIND_LABELS[draft.kind]} Playlist ${
-      list.filter((p) => p.kind === draft.kind).length + 1
-    }`;
-  return [...list, { ...draft, name, id, enabled: true }];
+  return [...list, { ...draft, name: nameFor(list, draft), id, enabled: true }];
+}
+
+/** Put a draft in the place of the playlist with this id: the same id and
+ * spot in the list, the draft's fields, and the enabled switch it had.
+ * Onboarding uses it so a second Continue on the same form replaces the
+ * playlist the first one saved rather than adding another. A blank name is
+ * numbered among the OTHER playlists, so the replaced one doesn't count
+ * itself. An id that isn't in the list leaves it unchanged. */
+export function replacePlaylist(
+  list: Playlist[],
+  id: string,
+  draft: PlaylistDraft,
+): Playlist[] {
+  const name = nameFor(
+    list.filter((p) => p.id !== id),
+    draft,
+  );
+  return list.map((p) =>
+    p.id === id ? { ...draft, name, id, enabled: p.enabled } : p,
+  );
 }
 
 export function removePlaylist(list: Playlist[], id: string): Playlist[] {

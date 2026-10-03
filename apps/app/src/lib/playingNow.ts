@@ -1,3 +1,5 @@
+import { isLivePopout } from "./tauri";
+
 /**
  * Is something playing right now?
  *
@@ -15,11 +17,18 @@
  * And multi-view's grid, whose tiles play in video elements of their own:
  * a restart from Settings over it tore every tile down (the app shell
  * audit). A grid with a tile in it counts; an empty one doesn't.
+ *
+ * And a LIVE pop-out, the one case with nothing in the DOM: popping a
+ * channel out unmounts the in-app player and its chrome host, so Restart
+ * now and Install passed this guard and ended the PiP. It is the one
+ * thing here read from state, `livePopout` in lib/tauri.ts. A VOD pop-out
+ * needs no flag: StreamScreen keeps `.vod-stage--popped` mounted for it.
  */
 export function isPlaying(): boolean {
   return (
     document.querySelector(".vod-stage") !== null ||
     document.getElementById("inv-chrome") !== null ||
-    document.querySelector(".mvtab .mvtile:not(.mvtile--empty)") !== null
+    document.querySelector(".mvtab .mvtile:not(.mvtile--empty)") !== null ||
+    isLivePopout()
   );
 }

@@ -9,6 +9,10 @@
 // verify-sports-theater uses, with http_get answered by the page's fetch
 // so the fake panel really loads.
 //
+// It also holds the player's keys (v0.11.3, audit S1): over a playing Guide
+// preview, Settings open, the arrows seeked and Space paused the stream under
+// it, because Radix marks the Escape it takes and nothing else.
+//
 //   node scripts/fake-panel.mjs   # :8081
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-live-idle.mjs
 import { createRequire } from "node:module";
@@ -44,6 +48,18 @@ await page.addInitScript(() => {
     invoke: (cmd, args) => {
       window.__tauriCalls.push(cmd);
       if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
+      // Answered only once a check asks for it (window.__presenting), so the
+      // checks above run against the stub they always did. A picture on
+      // screen is what lets Space pause: it is refused while tuning.
+      if (cmd === "mpv_status" && window.__presenting)
+        return Promise.resolve(
+          JSON.stringify({
+            pos: 10, dur: 0, presenting: true, ended: false,
+            buffering: false, seekable: true,
+            cacheDur: 0, dvrStart: 0, dvrEnd: 0,
+            audio: [], subs: [], chapters: [],
+          }),
+        );
       return Promise.resolve(undefined);
     },
   };
@@ -92,6 +108,65 @@ await page.locator(".guide__channel").first().waitFor({ timeout: 15_000 });
 await page.locator(".guide__channel button").first().click();
 await page.waitForTimeout(800);
 check("tuning a channel brings the host in", await host());
+
+// The player's keys, over the playing preview. Counted at the native
+// boundary: a seek is mpv_seek and Space is mpv_pause.
+await page.evaluate(() => {
+  window.__presenting = true;
+});
+await page.waitForFunction(() => !document.querySelector(".mini-overlay .tune"), null, {
+  timeout: 10_000,
+});
+const sent = (cmd) => page.evaluate((c) => window.__tauriCalls.filter((x) => x === c).length, cmd);
+const keysSent = async () => ({ seek: await sent("mpv_seek"), pause: await sent("mpv_pause") });
+const press = async (key) => {
+  await page.keyboard.press(key);
+  // Past the seek throttle (150ms), so a held-back flush would have landed.
+  await page.waitForTimeout(400);
+};
+
+await page.mouse.click(4, 450); // off any control, so the key is the page's
+let k0 = await keysSent();
+await press("ArrowRight");
+await press(" ");
+let k1 = await keysSent();
+check(
+  "with Settings closed, ArrowRight seeks and Space pauses the preview",
+  k1.seek === k0.seek + 1 && k1.pause === k0.pause + 1,
+  JSON.stringify({ k0, k1 }),
+);
+await press(" "); // play again, as it was
+
+await page.locator('.header__right [aria-label="Settings"]').click();
+await page.locator('[role="dialog"]').first().waitFor({ timeout: 5000 });
+await page.waitForTimeout(600);
+const focused = await page.evaluate(() => document.activeElement?.tagName ?? "");
+k0 = await keysSent();
+for (const key of ["ArrowRight", "ArrowLeft", " ", "k", "j", "m"]) await press(key);
+k1 = await keysSent();
+check(
+  "with Settings open over it, the arrows seek nothing and Space pauses nothing",
+  k1.seek === k0.seek && k1.pause === k0.pause,
+  JSON.stringify({ k0, k1, focused }),
+);
+check(
+  "and the key isn't one a focused button would have kept anyway",
+  focused !== "BUTTON" && focused !== "INPUT",
+  focused,
+);
+
+await page.keyboard.press("Escape");
+await page.locator('[role="dialog"]').first().waitFor({ state: "detached", timeout: 5000 });
+await page.waitForTimeout(600);
+await page.mouse.click(4, 450);
+k0 = await keysSent();
+await press("ArrowRight");
+k1 = await keysSent();
+check(
+  "and the keys are the player's again once Settings closes",
+  k1.seek === k0.seek + 1,
+  JSON.stringify({ k0, k1 }),
+);
 
 // ...and goes with it.
 await page.locator(".mini-overlay").hover();

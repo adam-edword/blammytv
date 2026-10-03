@@ -5,6 +5,7 @@ import {
   isHttpUrl,
   playlistSource,
   removePlaylist,
+  replacePlaylist,
   toggleHiddenCategory,
   togglePlaylist,
   type Playlist,
@@ -40,6 +41,47 @@ describe("addPlaylist", () => {
       "Xtream Playlist 2",
       "M3U Playlist 1",
     ]);
+  });
+});
+
+describe("replacePlaylist", () => {
+  it("keeps the id and the spot, and takes the draft's fields", () => {
+    let list: Playlist[] = addPlaylist([], draft("Other"), "a");
+    list = addPlaylist(list, draft("Mine"), "b");
+    list = addPlaylist(list, draft("Last"), "c");
+    const next = replacePlaylist(list, "b", {
+      kind: "m3u",
+      name: "Mine, again",
+      url: "https://x.example/l.m3u8",
+    });
+    expect(next.map((p) => p.id)).toEqual(["a", "b", "c"]);
+    expect(next[1]).toMatchObject({
+      kind: "m3u",
+      name: "Mine, again",
+      url: "https://x.example/l.m3u8",
+      enabled: true,
+    });
+    // The Xtream fields didn't carry over into the M3U entry.
+    expect(next[1]).not.toHaveProperty("server");
+    expect(next[0]).toBe(list[0]);
+    expect(next[2]).toBe(list[2]);
+  });
+
+  it("keeps the enabled switch", () => {
+    const list = togglePlaylist(addPlaylist([], draft(), "a"), "a");
+    expect(replacePlaylist(list, "a", draft())[0].enabled).toBe(false);
+  });
+
+  it("numbers a blank name among the others, not counting itself", () => {
+    let list: Playlist[] = addPlaylist([], draft(), "a");
+    expect(replacePlaylist(list, "a", draft())[0].name).toBe("Xtream Playlist 1");
+    list = addPlaylist(list, draft(), "b");
+    expect(replacePlaylist(list, "b", draft())[1].name).toBe("Xtream Playlist 2");
+  });
+
+  it("leaves the list alone for an id it doesn't have", () => {
+    const list = addPlaylist([], draft("Mine"), "a");
+    expect(replacePlaylist(list, "nope", draft("Other"))).toEqual(list);
   });
 });
 

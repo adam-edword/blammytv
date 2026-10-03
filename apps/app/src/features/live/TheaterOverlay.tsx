@@ -26,6 +26,7 @@ import {
   type SkipBehavior,
 } from "../settings/skipBehavior";
 import { useLogoInk } from "../../lib/logoInk";
+import { isModalOpen } from "../../lib/modalOpen";
 import { VodLoading } from "./VodLoading";
 import { Hint } from "../../ui/Hint";
 import { EYEBROW_ON_IMAGE } from "../../ui/eyebrow";
@@ -1386,6 +1387,12 @@ export function TheaterOverlay({
   useEffect(() => {
     const off = api()?.onKey?.(handleKey);
     const onDocKey = (e: KeyboardEvent) => {
+      // Settings and the palette sit over a screen that stays mounted, and
+      // Radix only marks the keys it takes (Escape). Arrows and Space are
+      // not marked, so over a playing preview they seeked, set the volume
+      // and paused the stream under the modal, and the preventDefault
+      // stopped the arrows scrolling Settings. Every key stands down.
+      if (isModalOpen()) return;
       // A focused control already acts on its own keys — don't ALSO fire the
       // global shortcut, or Space double-toggles play (net no-op) and an arrow
       // on the volume slider both nudges it and seeks. Buttons own Space/Enter;

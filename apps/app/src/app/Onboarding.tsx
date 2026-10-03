@@ -30,6 +30,7 @@ import {
   draftFrom,
   isFormComplete,
   loadPlaylists,
+  replacePlaylist,
   savePlaylists,
   type PlaylistDraft,
   type PlaylistFormState,
@@ -146,6 +147,12 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const swapTimer = useRef(0);
   const autoTimer = useRef(0);
+  /** Which verification may still arm the auto-advance. Every move bumps
+   * it, so a check that lands after Back (or any other move) saves what it
+   * verified but leaves the step where it is: its `.then` used to arm
+   * `advance` after `retreat` had cleared the timer, and the step jumped
+   * forward again. A check reads it at the start and compares on landing. */
+  const checkGen = useRef(0);
 
   useEffect(() => {
     const onResize = () => setVars(bootVars());
@@ -281,6 +288,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     // Enter had already moved on (its `advance` is the one from when the
     // check landed, and saw the old phase), and skipped the next step.
     window.clearTimeout(autoTimer.current);
+    checkGen.current++;
     if (phase === "out" || finale) return;
     think();
     setPhase("out");
@@ -295,6 +303,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     // Same in-flight guard as advance: Skip during a swap must not arm
     // a second timer over the first (step-flash + orphaned timeout).
     window.clearTimeout(autoTimer.current);
+    checkGen.current++;
     if (phase === "out" || finale) return;
     markOnboarded();
     onFinish?.();
@@ -307,6 +316,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
   /** One step back — no "thinking" burst; that's forward energy. */
   const retreat = () => {
     window.clearTimeout(autoTimer.current);
+    checkGen.current++;
     if (phase === "out" || finale || step === 0) return;
     setPhase("out");
     window.clearTimeout(swapTimer.current);
@@ -345,6 +355,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     setStreamsChecking(true);
     setStreamsMsg(null);
     thinkHard();
+    const gen = checkGen.current;
     raceTimeout(
       probeAioStreams(manifestTrimmed),
       "Couldn’t reach the instance. It didn’t answer in time.",
@@ -357,6 +368,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
             ok: true,
             text: `Connected${n ? `, ${n} catalogs found` : ""}. Nice.`,
           });
+          if (gen !== checkGen.current) return;
           window.clearTimeout(autoTimer.current);
           autoTimer.current = window.setTimeout(advance, VERIFIED_DWELL_MS);
         } else {
@@ -468,8 +480,24 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
         ).then((endpoint) => ({ ...draft, endpoint }));
     }
   };
+  /** The id of the playlist THIS run saved. A later save on the same run
+   * (Back, then Continue again on the filled form) replaces that playlist
+   * rather than adding another, which put every channel in the Guide twice.
+   * Null until a save, so a replay for someone who already has playlists
+   * never touches one it didn't save. */
+  const savedTvId = useRef<string | null>(null);
   const saveTvDraft = (draft: PlaylistDraft) => {
-    savePlaylists(addPlaylist(loadPlaylists(), draft));
+    const list = loadPlaylists();
+    const id = savedTvId.current;
+    // Gone from storage since (nothing in onboarding removes it, but the
+    // list is shared): add afresh rather than write nowhere.
+    if (id && list.some((p) => p.id === id)) {
+      savePlaylists(replacePlaylist(list, id, draft));
+      return;
+    }
+    const fresh = crypto.randomUUID();
+    savedTvId.current = fresh;
+    savePlaylists(addPlaylist(list, draft, fresh));
   };
   const continueTv = () => {
     if (tvChecking || phase === "out" || finale) return;
@@ -484,10 +512,12 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     setTvChecking(true);
     setTvMsg(null);
     thinkHard();
+    const gen = checkGen.current;
     verifyTv()
       .then((draft) => {
         saveTvDraft(draft);
         setTvMsg({ ok: true, text: "Connected. Your channels are in." });
+        if (gen !== checkGen.current) return;
         window.clearTimeout(autoTimer.current);
         autoTimer.current = window.setTimeout(advance, VERIFIED_DWELL_MS);
       })

@@ -89,6 +89,10 @@ let watchingPopout = false;
  * a screen hearing popout-closed can ask whether the stream was its own. */
 let popoutOwner: string | null = null;
 export const popoutOpenedBy = (): string | null => popoutOwner;
+/** Whether a live popout is up right now (see `livePopout`). Read-only, for
+ * playingNow: popping a channel out unmounts the in-app player, so nothing
+ * in the DOM says it is still playing. */
+export const isLivePopout = (): boolean => livePopout;
 
 export function tauriPopoutOpen(url: string, live: boolean, owner?: string): Promise<void> {
   livePopout = live;

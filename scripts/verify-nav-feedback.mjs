@@ -374,6 +374,23 @@ check("the header holds Search and Settings, not a disabled Profile beside them"
   }
 }
 
+// ---- The header search shows where focus is (audit S4, v0.11.3) --------
+// The field is borderless and opts out of the global ring, so the capsule
+// wears it. Chromium counts a click into a text field as focus-visible,
+// so a click shows it, as Settings' fields do.
+{
+  const ring = () =>
+    page.evaluate(() => {
+      const s = getComputedStyle(document.querySelector(".navcap__search"));
+      return `${s.outlineStyle} ${s.outlineWidth}`;
+    });
+  const before = await ring();
+  await page.locator(".navcap__searchinput").click();
+  const on = await ring();
+  check("the header search has no ring at rest, and one while its field has focus",
+    before.startsWith("none") && on === "solid 2px", `${before} -> ${on}`);
+}
+
 await ctx.close();
 
 // Reduced motion. The spin is decoration with no state behind it, so it
