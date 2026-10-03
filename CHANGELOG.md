@@ -2,6 +2,93 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.12.0: Multi-view on Discord, and a round of fixes (2026-10-03)
+
+Multi-view's sound reaches a Discord stream, and the fixes from a fresh
+look over all of 0.11.0. A full update, like 0.11.0: parts of it are in
+the app itself, so it installs.
+
+### Multi-view
+
+- **Its sound reaches Discord.** Share the BlammyTV window with sound and
+  your viewers hear Multi-view, as they already heard Live TV, Stream and
+  Sports. It now plays from the app itself; in Windows' volume mixer it
+  sits under BlammyTV, not Microsoft Edge WebView2.
+- **Two lines, each with its own room.** When one line is full, a channel
+  from it asks which of that line's tiles to replace (the others can't be
+  picked), and the picker marks it "Replaces a tile". The other line's
+  channels just add. An M3U beside a one-stream line no longer hides Add.
+- **Fill with live games** skips a game that's already on through another
+  feed.
+- **A tile from a playlist you deleted or switched off** goes once the
+  channels load, instead of holding a place.
+- **`.m3u8` tiles keep playing** past a few hours, and more of them play
+  at all.
+- Holding M, G, S or F toggles once, and one league's failed score update
+  keeps its last scores.
+
+### Stream
+
+- **Retry never starts an uncached source by itself.** With nothing
+  cached, it opens the Sources list over the player and plays what you
+  pick, from where you were. Picking the source that died tries it again.
+- **Continue Watching on a finished episode plays the next one**, across a
+  season too.
+- **Eight more of Settings' languages find their audio and subtitle
+  tracks**: Polish, Turkish, Swedish, Indonesian, Czech, Greek, Dutch and
+  Romanian (which used to pick Russian).
+- **Long series keep all their checkmarks**, past 600 episodes.
+- Leaving a rewatch in its first seconds no longer tells Trakt you watched
+  it again, and a watch Trakt refuses for a moment stays queued.
+- Kitsu anime get exact Skip Intro times, a MyAnimeList tick survives the
+  mapping data not loading, and a Ctrl+K pick while a title loads opens
+  what you picked.
+
+### Live TV
+
+- **A playlist that fails on a refresh keeps its channels**, and still says
+  it failed.
+- **Hiding a folder keeps the guide** instead of blanking it until the
+  guide downloads again.
+- A playlist change made on Sports or Multi-view takes effect there.
+- Stalker's Unhide list shows the folders' names, not numbers.
+
+### Sports
+
+- **Another league's team channel never leads a game.** A hidden "NFL
+  Teams: FOX Cardinals" station could lead a Cardinals baseball game, and
+  autoplay tuned it.
+- Finished games and two-hour doubleheaders no longer split a network's
+  chance.
+- **"Usually found on" plays in the theater too**, where it used to say no
+  broadcast was listed.
+
+### Around the app
+
+- **One copy of the app.** Opening it again brings the open window forward,
+  so a second copy can't sign Trakt out or roll back an update.
+- Going fullscreen fixes itself if the picture stays at the window's old
+  size.
+- **Light mode:** film and series pages read properly, and so do
+  Multi-view's channel names, the highlighted row in menus, and the
+  theater's corners.
+- The player's keys leave the stream alone while Settings is open.
+- Onboarding no longer adds the same playlist twice.
+- Restart and Install wait for a popped-out live channel too.
+- Pop out keeps your audio track and speed.
+- The header search shows a focus ring, and a new AIOStreams setup no
+  longer empties the Stream hero.
+
+### Safer
+
+- The player only opens web links. A network path handed to it could have
+  sent your Windows login to another machine.
+- Clear All Login Info can't be undone by a save that was already on its
+  way.
+- Login details never reach the app's log, and a download is capped at
+  512 MB.
+- An update that was rolled back isn't downloaded again on every launch.
+
 ## 0.11.0: Trakt, MyAnimeList, and the player (2026-10-02)
 
 Connect Trakt and MyAnimeList, a new look for the player, and a long round
