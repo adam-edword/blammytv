@@ -94,6 +94,8 @@ export function MultiviewPicker({
   inGrid,
   gamesInGrid,
   room,
+  several = false,
+  willReplace,
   onChoose,
   onFill,
   onCloseAutoFocus,
@@ -110,6 +112,12 @@ export function MultiviewPicker({
   /** And the ids of the games on it, whichever feed they are on. */
   gamesInGrid: ReadonlySet<string>;
   room: Room;
+  /** More than one source is enabled: the footer says what the grid has room
+   * for, since each channel is held to its own line (mvGrid.placeFor). */
+  several?: boolean;
+  /** Whether taking this channel would ask which tile it replaces. Asked of
+   * each row, so only with several sources, where it differs by channel. */
+  willReplace?: (channelId: string) => boolean;
   onChoose: (pick: Pick) => void;
   /** Fill the grid with these games, in this order. */
   onFill: (games: Fixture[]) => void;
@@ -349,7 +357,7 @@ export function MultiviewPicker({
             <span className="mvpick__target">
               {mode.kind === "replace" ? `Replaces ${mode.name}` : null}
             </span>
-            {mode.kind === "add" && !feedsOf && <span className="mvpick__room">{leftLine(room)}</span>}
+            {mode.kind === "add" && !feedsOf && <span className="mvpick__room">{leftLine(room, several)}</span>}
           </div>
 
           <div className="mvpick__body">
@@ -369,6 +377,14 @@ export function MultiviewPicker({
                   <Autocomplete.Collection>
                     {(row: Row) => {
                       const taken = isTaken(row, inGrid);
+                      // A game row opens its feeds, and a feed or a channel
+                      // is the one that joins the grid, so it says so.
+                      const replaces =
+                        !taken &&
+                        several &&
+                        mode.kind === "add" &&
+                        (row.kind === "channel" || row.kind === "feed") &&
+                        !!willReplace?.(row.channelId);
                       return (
                         <Autocomplete.Item
                           key={row.key}
@@ -397,6 +413,7 @@ export function MultiviewPicker({
                               In the grid
                             </span>
                           )}
+                          {replaces && <span className="mvpick__replaces">Replaces a tile</span>}
                         </Autocomplete.Item>
                       );
                     }}

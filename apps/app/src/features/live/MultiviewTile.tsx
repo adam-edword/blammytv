@@ -149,6 +149,7 @@ export function MultiviewTile({
   onWatch,
   onVolumeStep,
   picking,
+  pickable = true,
   onPick,
   onRetryResolve,
   onDead,
@@ -195,6 +196,9 @@ export function MultiviewTile({
    * it rather than taking the sound (plan 017, P6b). A failed tile too:
    * replacing one is the obvious use for it. */
   picking?: string | null;
+  /** While picking: whether this tile may be the one chosen. One that may
+   * not is dimmed, answers nothing and is passed over by Tab. */
+  pickable?: boolean;
   onPick?: () => void;
   /** Look the stream up again, after `unresolved`. */
   onRetryResolve: () => void;
@@ -722,7 +726,8 @@ export function MultiviewTile({
   // on it, or on where Sound here would be, would leave the grid silent.
   const dead = !!failure || (!url && !!unresolved);
   const takeSound = dead ? () => {} : onFocus;
-  const act = picking && onPick ? onPick : takeSound;
+  const off = !!picking && !pickable;
+  const act = picking && onPick ? (off ? () => {} : onPick) : takeSound;
   const onDeadRef = useRef(onDead);
   onDeadRef.current = onDead;
   useEffect(() => onDeadRef.current?.(dead), [dead]);
@@ -751,13 +756,14 @@ export function MultiviewTile({
         (focused ? " is-on" : "") +
         (flash ? " is-flash" : "") +
         (dead ? " is-failed" : "") +
-        (picking ? " is-picking" : "")
+        (picking ? " is-picking" : "") +
+        (off ? " is-pickoff" : "")
       }
       style={style}
       data-mv={mvId}
       role="group"
-      tabIndex={0}
-      aria-label={picking ? `${label}. Swap for ${picking}` : label}
+      tabIndex={off ? -1 : 0}
+      aria-label={picking ? `${label}. ${off ? `Can’t swap for ${picking}` : `Swap for ${picking}`}` : label}
       data-state={
         dead ? "failed" : recovering ? "reconnecting" : !playing ? "tuning" : stalled ? "stalled" : "playing"
       }
@@ -872,19 +878,21 @@ export function MultiviewTile({
       </div>
       {picking && (
         <div className="mvtile__pick" aria-hidden>
-          <span
-            className={
-              // A chip's look on a span: the whole tile is the target, so
-              // this only says what picking it does. Merged, so px-4 beats
-              // the chip size's px-[11px] (concatenated, it didn't: 11px).
-              cn(
-                buttonVariants({ variant: "chip", size: "chip" }),
-                "mvtile__pickword h-[38px] max-w-[calc(100%-24px)] px-4 text-[13.5px]",
-              )
-            }
-          >
-            <span className="mvtile__pickname">Swap for {picking}</span>
-          </span>
+          {!off && (
+            <span
+              className={
+                // A chip's look on a span: the whole tile is the target, so
+                // this only says what picking it does. Merged, so px-4 beats
+                // the chip size's px-[11px] (concatenated, it didn't: 11px).
+                cn(
+                  buttonVariants({ variant: "chip", size: "chip" }),
+                  "mvtile__pickword h-[38px] max-w-[calc(100%-24px)] px-4 text-[13.5px]",
+                )
+              }
+            >
+              <span className="mvtile__pickname">Swap for {picking}</span>
+            </span>
+          )}
         </div>
       )}
     </div>

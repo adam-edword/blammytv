@@ -1,21 +1,21 @@
 # Audit of 0.11.0, overnight 2026-10-02
 
 Morning summary: 56 findings from ten auditors, every one checked by
-hand. 46 are fixed across v0.11.2 to v0.11.9, CI green on each push (the
-last full board 56/56, 1,107 checks). v0.11.7 is native and needs a
-rebuild. The one HIGH: a hidden "NFL Teams: FOX Cardinals" station led
-MLB Cardinals cards and autoplayed Phoenix's game (SP1, v0.11.2). Three
-briefed fixes were built and then taken out, because building them showed
-they made things worse: MV1's first half (trapped a grid behind the line
-of one), NA1's single-instance plugin (would quarantine a staged update)
-and LV5 (a blank player for up to 30s). Those, and the other calls below
-under "Held for Adam", wait for you. Also tonight: 0.11.1's fullscreen
+hand. 51 are fixed (v0.11.2 to v0.11.11, plus the site, the docs and CI's
+Rust pin) and 5 kept as they are, on Adam's word or with his say-so; none
+is held. v0.11.7 and v0.11.10 are native and need a rebuild. The one
+HIGH: a hidden "NFL Teams: FOX Cardinals" station led MLB Cardinals cards
+and autoplayed Phoenix's game (SP1, v0.11.2). Three briefed fixes were
+built and taken out overnight because they made things worse; two came
+back done right on 2026-10-03 (MV1's room per line, NA1's single-instance
+check) and LV5 stays as it is. Also that night: 0.11.1's fullscreen
 check, finished here after a session restart killed its builder.
 
 **Progress:** done. Sports, the privacy page, CI's timeout and the
 changelog line (v0.11.2), the app shell (v0.11.3), Live TV (v0.11.4),
 Stream (v0.11.5), Multi-view (v0.11.6), native (v0.11.7, needs a
-rebuild), light mode (v0.11.8), tooling and LV8 (v0.11.9). A session
+rebuild), light mode (v0.11.8), tooling and LV8 (v0.11.9); then Adam's
+calls on the held items (v0.11.10 native, v0.11.11). A session
 restart at 03:30 UTC killed seven auditors and Sonnet's fullscreen run;
 the seven were started again and 0.11.1 was finished here (`8e9b5ef0`).
 One builder hung for two and a half hours on a script (10:28 to 13:03
@@ -370,11 +370,19 @@ each channel's own line. Fixed in v0.11.6, the second half: the grid is
 held to a line only when that line's source is the only one enabled, so an
 M3U beside a line of one no longer hides Add, a Guide channel joins at
 once, and A agrees with the Add button. The first half (every tile on
-one of two lines isn't capped) is **Held**: my briefed fix, "all tiles on
-one playlist means that line", was built and then stuck the grid behind
-"Your line allows one stream at a time" after a single tile on the line
-of one, with the other line unreachable. The real fix is room per line in
-the picker, a design of its own.
+one of two lines isn't capped) was held overnight: my briefed fix, "all
+tiles on one playlist means that line", stuck the grid behind "Your line
+allows one stream at a time" after a single tile on the line of one, with
+the other line unreachable. Fixed in v0.11.11, Adam's call handed to me:
+room is decided per channel, by its own line, as it joins
+(`mvGrid.placeFor`). A channel whose line is full asks which tile it
+replaces, and only that line's tiles can be chosen (the others dim, and
+the banner names the playlist); the other line's channels add; the
+picker marks a row that would replace with "Replaces a tile" and its
+footer counts the grid, not a line. One source enabled behaves exactly as
+before (a unit sweep over every limit, count and settled state). Fill
+adds only games that simply join, so with a full line it can add fewer
+than its row says.
 
 **MV2. MEDIUM. Fill with live games adds a game already on the grid
 through another feed.** Confirmed, reproduced: `fillFrom` skips channel
@@ -451,8 +459,17 @@ checkmarks. **Kept** on Adam's word (2026-10-03): "keep app checkmarks".
 A new account gets the old one's watches; that's the trade.
 
 **ST6. LOW. Retry with nothing cached plays an uncached source.**
-**Held**: it's your click on Retry, and the rule against uncached sources
-is about automatic paths. No change.
+Held overnight as a click. Adam, 2026-10-03: "never play an uncached
+source without explicit approval from viewer." Every path that starts a
+VOD stream was read: one-click play, Watch Now, Continue Watching, Up
+Next, the next-episode button and failover are cached only; the source
+lists are your click; Retry was the one leak (`?? list[0]`). Fixed in
+v0.11.11: with nothing cached, Retry plays nothing and opens the player's
+Sources panel on the list it just resolved (no second request), uncached
+rows labelled, and your pick there plays at the saved position. Picking
+the source that died opens it again, where the panel used to ignore a
+pick of the url already playing. An empty list still re-opens the url
+that was playing.
 
 **ST7. LOW. Kitsu-keyed anime never get exact skip ranges.** Confirmed by
 reading: AniSkip's index is IMDb-only (`aniskip.ts:75-76`) though the
@@ -553,43 +570,25 @@ Plausible, reasoned only (`lib.rs:819`). Fixed in v0.11.10, decided
 times the 95 MB guide, the largest measured), and a declared length over
 it fails before a byte is read. The error names the cap, never the URL.
 
-## Held for Adam
+## Decided, 2026-10-03
 
-- **T7, pinning Rust for CI.** Two ways: pin the CI jobs only
-  (`dtolnay/rust-toolchain@1.99.0`), which keeps your machine on whatever
-  rustup gives it; or a `rust-toolchain.toml`, which pins your machine too
-  and makes every build agree. I'd pin CI only: the gate is the thing that
-  breaks, and a repo-wide pin turns every Rust update into a chore.
-- **`mpv_snapshot` (plan 016 N6).** With X1 fixed it can only grab a
-  frame of a stream; it's a diagnostic, and removing it is the open N6
-  item you own.
-- **T1 and T8's deploys.** The docs and the site deploy from their own
-  branches. The fixed text lands on the dev branch; publishing it is a
-  merge you make.
-- **SP4, splitting "usually found on".** I'd leave it: it's a carriage
-  claim, and splitting it empties the card for leagues that list nothing.
-- **SP5, the guide match's nickname rule.** Wants your `btvPairing`
-  numbers before a rule is picked; it only feeds that report.
-- **MV1's first half, room per line.** Two lines, every tile on the line
-  of one: Add still offers four and the panel refuses or kicks. Holding
-  the grid to that line (what I tried) traps you when the other line could
-  fill it. The fix is the picker knowing each line's room: a full line's
-  channels ask which tile to replace, the other line's add. A design pass,
-  not a bug fix.
-- **NA1, one copy of the app.** The standard plugin can't be used as is:
-  the hot channel's `resolve()` runs before it, so a second launch would
-  quarantine a staged update. The fix is our own single-instance check at
-  the very top of `run()`, before `context()`, which then hands off to the
-  open window. A native change to the update failsafe, so it's yours.
-- **LV5, a Stalker switch.** A "resolving" state in the player hosts, so
-  the switch shows a spinner under the new name. Worth it if you use
-  Stalker; I'd leave it if you don't.
-- **ST5, the old Trakt account's watches.** Clearing the ledger at sign-out
-  loses your own checkmarks; keeping it pushes them to the next account.
-  I'd keep it as is: one person switching Trakt accounts is rare, losing
-  checkmarks isn't.
-- **ST6, Retry choosing an uncached source.** It's a click, so I'd leave
-  it.
-- **LV7, MV3's empty-answer half, NA4.** Each needs a number nobody has
-  measured (a big catalog's download time, how often a panel answers an
-  empty 200, a body size cap). Unchanged until there's one.
+Adam settled three and left the rest to me ("all the other stuff can be
+your decisions"):
+
+- **T8, the site's UI Scale line.** Adam: remove it. `website`
+  `27bd2445`, deployed by Coolify.
+- **ST5, the old Trakt account's watches.** Adam: keep the app's
+  checkmarks. Unchanged.
+- **ST6, Retry with nothing cached.** Adam: never play an uncached source
+  without the viewer's say-so. Fixed in v0.11.11.
+- **T1's deploy.** The corrected pages are on `docs` (`aebbe5be`).
+- **T7.** CI's Windows job pinned to Rust 1.99.0; your machine isn't.
+- **`mpv_snapshot`.** Removed in v0.11.10, with `screenshot_to_file` and
+  `tauriMpvSnapshot`. Dormant since v0.1.121 and called by nothing; git
+  history has it for channel thumbnails. `mpv_blur` stays.
+- **NA1.** Our own single-instance check, first thing in `run()`, release
+  builds only. v0.11.10.
+- **NA4.** `http_get` stops at 512 MiB. v0.11.10.
+- **MV1's first half.** Room per line in the picker. v0.11.11.
+- **SP4, SP5, LV5, LV7, MV3's empty-answer half.** Kept as they are, each
+  for the reason in its entry.

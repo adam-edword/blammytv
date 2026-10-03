@@ -33,7 +33,6 @@ import { isFixture, type Fixture } from "../sports/model";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
 import {
   addPick,
-  arrive,
   cellsFor,
   channelIndex,
   countKey,
@@ -44,6 +43,7 @@ import {
   lineOfChannel,
   meterLine,
   offPlaylist,
+  placeFor,
   removePick,
   replacePick,
   roomOn,
@@ -291,6 +291,10 @@ const LINE_WAIT_MS = 3000;
 /** The enabled playlists' ids, as saved. */
 const enabledPlaylistIds = (): string[] => loadPlaylists().filter((p) => p.enabled).map((p) => p.id);
 
+/** The name of the playlist a channel is on, for the words on the bar. */
+const playlistName = (channelId: string): string =>
+  loadPlaylists().find((p) => channelId.startsWith(`${p.id}:`))?.name ?? "that line";
+
 export function MultiviewTab() {
   // Where the first open's hang goes (v0.10.10): from the first render, so
   // a long one counts. Once per session, whatever this runs.
@@ -394,20 +398,26 @@ export function MultiviewTab() {
     take();
     return onAddRequest(take);
   }, []);
-  const [xtream] = useState(() => loadPlaylists().some((p) => p.kind === "xtream" && p.enabled));
   const [waited, setWaited] = useState(false);
   useEffect(() => {
     if (!incoming) return;
     const t = window.setTimeout(() => setWaited(true), LINE_WAIT_MS);
     return () => window.clearTimeout(t);
   }, [incoming]);
-  // One line that answered, several (no single cap, as `line` says), no
-  // panel to ask, more than one source enabled (there is no line to wait
-  // for), or the wait is over.
-  const lineKnown = line !== null || conns.size > 1 || !xtream || enabledIds.length > 1 || waited;
-  /** A channel waiting for you to pick the tile it replaces: the grid was
-   * full when it came. */
-  const [choosing, setChoosing] = useState<Pick | null>(null);
+  // Whether it fits is its own line's to say (mvGrid.placeFor), so it waits
+  // for that line's answer: a channel on an Xtream line waits for the line, or
+  // for the wait to be over; one on an M3U or a portal has no panel to ask.
+  const waitsOnLine = useMemo(
+    () =>
+      incoming !== null &&
+      loadPlaylists().some((p) => p.kind === "xtream" && p.enabled && incoming.channelId.startsWith(`${p.id}:`)),
+    [incoming],
+  );
+  const lineKnown =
+    incoming === null || !waitsOnLine || lineOfChannel(conns, incoming.channelId) !== null || waited;
+  /** A channel waiting for you to pick the tile it replaces: its line was
+   * full when it came, or the grid was. Only the tiles in `among` may go. */
+  const [choosing, setChoosing] = useState<{ pick: Pick; among: string[] } | null>(null);
   const cells = cellsFor(picks.length);
 
   const [kinds, setKinds] = useState(loadLayoutKinds);
@@ -697,16 +707,18 @@ export function MultiviewTab() {
       setPicks((was) => replacePick(was, picker.id, pick));
       // Same place, same sound.
       if (soundId === picker.id) setSoundId(pick.channelId);
-    } else if (room.left === 0) {
-      // The line filled while the picker was open (the count settled, a
-      // poll came in): pick the tile it replaces, as a channel sent from
-      // the Guide does. It used to close the picker and add nothing
-      // (plan 018, L8).
-      setPicker(null);
-      setChoosing(pick);
-      return;
     } else {
-      setPicks((was) => addPick(was, pick, room));
+      const place = placeFor(pick, picks, conns, changed.current.at);
+      if (place.kind === "replace") {
+        // Its line is full, or the grid is (a line that filled while the
+        // picker was open, a count that settled, a poll that came in): pick
+        // the tile it replaces, as a channel sent from the Guide does. It
+        // used to close the picker and add nothing (plan 018, L8).
+        setPicker(null);
+        setChoosing({ pick, among: place.among });
+        return;
+      }
+      if (place.kind === "add") setPicks((was) => addPick(was, pick));
     }
     // What you put in a grid is what you watched: the picker's Recent
     // section, and the Guide's, should know it.
@@ -715,55 +727,54 @@ export function MultiviewTab() {
     setPicker(null);
   };
   // Fill with live games (M9): the picker has already chosen them, as many
-  // as the line has room for, the ones you follow first (mvGames.fillFrom).
+  // as the grid has room for, the ones you follow first (mvGames.fillFrom).
+  // Each is added only where it would simply join the grid as it grows
+  // (placeFor says add): a fill never replaces a tile you chose.
   const fill = (list: Fixture[]) => {
+    const changedAt = changed.current.at;
     setPicks((was) =>
-      list.reduce(
-        (acc, g) =>
-          addPick(
-            acc,
-            {
-              channelId: g.channels[0].id,
-              label: gameLabel(g),
-              gameId: g.id,
-              league: g.leagueKey,
-              start: g.start.getTime(),
-            },
-            roomOn(line, acc.length, settled),
-          ),
-        was,
-      ),
+      list.reduce((acc, g) => {
+        const pick: Pick = {
+          channelId: g.channels[0].id,
+          label: gameLabel(g),
+          gameId: g.id,
+          league: g.leagueKey,
+          start: g.start.getTime(),
+        };
+        return placeFor(pick, acc, conns, changedAt).kind === "add" ? addPick(acc, pick) : acc;
+      }, was),
     );
     let recents = loadRecents();
     for (const g of list) recents = recordRecent(recents, g.channels[0].id);
     setPicker(null);
   };
 
-  // A channel sent from elsewhere, once the line has answered: it joins,
-  // or takes the sound, or waits for you to pick a tile (mvGrid.arrive).
+  // A channel sent from elsewhere, once its line has answered: it joins, or
+  // takes the sound, or waits for you to pick a tile (mvGrid.placeFor).
   useEffect(() => {
     if (!incoming || !lineKnown) return;
     setIncoming(null);
     // A line of one shows why multi-view can't run on it, not a grid.
     if (line !== null && line.max <= 1) return;
-    const a = arrive(picks, incoming, room);
-    if (a.kind === "full") {
-      setChoosing(incoming);
+    const place = placeFor(incoming, picks, conns, changed.current.at);
+    if (place.kind === "replace") {
+      setChoosing({ pick: incoming, among: place.among });
       return;
     }
-    if (a.kind === "add") {
-      setPicks(a.picks);
+    if (place.kind === "add") {
+      setPicks((was) => addPick(was, incoming));
       recordRecent(loadRecents(), incoming.channelId);
     }
     setSoundId(incoming.channelId);
-  }, [incoming, lineKnown, line, picks, room]);
+  }, [incoming, lineKnown, line, picks, conns]);
   /** The tile you picked for it: replaced in place, and it takes the sound
-   * (so in Focus it moves to the big spot, M2). */
+   * (so in Focus it moves to the big spot, M2). Only one of the tiles it
+   * may replace. */
   const chooseTile = (id: string) => {
-    if (!choosing) return;
-    setPicks((was) => replacePick(was, id, choosing));
-    setSoundId(choosing.channelId);
-    recordRecent(loadRecents(), choosing.channelId);
+    if (!choosing || !choosing.among.includes(id)) return;
+    setPicks((was) => replacePick(was, id, choosing.pick));
+    setSoundId(choosing.pick.channelId);
+    recordRecent(loadRecents(), choosing.pick.channelId);
     setChoosing(null);
   };
   // Escape lets it go, before the grid's own Escape or the app's full
@@ -863,6 +874,9 @@ export function MultiviewTab() {
 
   const full = fullReason(room);
   const dashes = room.max !== null ? Math.min(room.max, 8) : 0;
+  // The tiles a waiting channel may replace, when that is not all of them:
+  // its line is full, and the tiles on the other line would free nothing.
+  const choosable = choosing && choosing.among.length < picks.length ? choosing.among : null;
 
   return (
     <div className={"mvtab" + (idle ? " is-idle" : "") + (scores.on && !blocked ? " has-scores" : "")}>
@@ -874,7 +888,10 @@ export function MultiviewTab() {
             // way out.
             <span className="mvchoose" role="status">
               <span className="mvchoose__words">
-                Pick a tile<span className="mvchoose__for"> for {choosing.label}</span>
+                Pick a tile
+                <span className="mvchoose__for">
+                  {choosable ? ` on ${playlistName(choosing.among[0])}` : ""} for {choosing.pick.label}
+                </span>
               </span>
               {wordless(
                 compact,
@@ -1028,7 +1045,8 @@ export function MultiviewTab() {
             onSplit={chooseSplit}
             onVolumeStep={nudge}
             idle={idle}
-            choosing={choosing?.label ?? null}
+            choosing={choosing?.pick.label ?? null}
+            choosable={choosable}
             onChoose={chooseTile}
             conns={line}
             soundId={soundId}
@@ -1073,6 +1091,8 @@ export function MultiviewTab() {
         inGrid={inGrid}
         gamesInGrid={gamesInGrid}
         room={room}
+        several={enabledIds.length > 1}
+        willReplace={(id) => placeFor({ channelId: id, label: "" }, picks, conns, changed.current.at).kind === "replace"}
         onChoose={choose}
         onFill={fill}
         onCloseAutoFocus={pickerClosed}

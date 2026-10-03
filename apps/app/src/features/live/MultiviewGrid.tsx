@@ -101,6 +101,7 @@ export function MultiviewGrid({
   onVolumeStep,
   idle = false,
   choosing,
+  choosable,
   onChoose,
   conns,
   soundId,
@@ -133,6 +134,10 @@ export function MultiviewGrid({
    * then a target: a click, Space or Enter on one, or its number, picks it.
    * Nothing else in the grid answers until it is picked or let go. */
   choosing: string | null;
+  /** The only tiles it may replace, when its line is full and the tiles on
+   * the other line would free nothing on it (audit MV1). The rest are dimmed
+   * and answer nothing, and the keyboard passes over them. Null: all of them. */
+  choosable: readonly string[] | null;
   onChoose: (id: string) => void;
   conns: XtreamConnections | null;
   /** The stream with the sound. The tab owns it, so a Replace can hand it
@@ -308,18 +313,19 @@ export function MultiviewGrid({
     setFilledAt(cells);
   };
 
-  const keys = useRef({ shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt, choosing, onChoose });
-  keys.current = { shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt, choosing, onChoose };
+  const keys = useRef({ shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt, choosing, choosable, onChoose });
+  keys.current = { shown, sound, dead, chooseSound, onReplace, onRemove, seam, box, cells, onSplit, flashTip, fill, fillWith, setFilledAt, choosing, choosable, onChoose };
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
       if (!forMultiview(e)) return;
       const k = keys.current;
       const n = Number(e.key);
       // Picking a tile for a channel sent from elsewhere: its number picks
-      // it, and nothing else here moves the grid meanwhile.
+      // it, and nothing else here moves the grid meanwhile. A tile it may
+      // not replace is passed over.
       if (k.choosing) {
         const t = Number.isInteger(n) && n >= 1 && n <= 4 ? k.shown[n - 1] : undefined;
-        if (!t) return;
+        if (!t || (k.choosable && !k.choosable.includes(t.id))) return;
         e.preventDefault();
         k.onChoose(t.id);
         return;
@@ -514,6 +520,7 @@ export function MultiviewGrid({
                 onWatch={() => requestWatchInPlayer(s.id)}
                 onVolumeStep={onVolumeStep}
                 picking={choosing}
+                pickable={!choosable || choosable.includes(s.id)}
                 onPick={() => onChoose(s.id)}
                 onReplace={() => onReplace(s.id, s.name)}
                 onRetryResolve={() => onRetryResolve(s.id)}

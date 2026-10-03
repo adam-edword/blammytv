@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  arrive,
+  placeFor,
   swapToFront,
   stepSound,
   addPick,
@@ -105,16 +105,21 @@ describe("the words", () => {
     expect(leftLine(roomOn({ max: 3, active: 2 }, 2, true))).toBe("1 more fits on your line");
     expect(leftLine(roomOn({ max: 3, active: 3 }, 3, true))).toBe("Your line is full");
   });
+
+  it("says what the grid has room for when several sources are enabled, not a limit it can't state (MV1)", () => {
+    // Several sources: no single line, so roomOn has no limit to report.
+    expect(leftLine(roomOn(null, 2, true), true)).toBe("2 more fit in the grid");
+    expect(leftLine(roomOn(null, 3, true), true)).toBe("1 more fits in the grid");
+    expect(leftLine(roomOn(null, 4, true), true)).toBe("The grid is full");
+    // And one source says what it always did.
+    expect(leftLine(roomOn(null, 2, true), false)).toBe("Your provider doesn’t report a limit");
+  });
 });
 
 describe("picks", () => {
-  const room = roomOn({ max: 3, active: 1 }, 1, true);
-
-  it("adds at the end, never twice, never past the room", () => {
-    expect(addPick([pick("a")], pick("b"), room).map((p) => p.channelId)).toEqual(["a", "b"]);
-    expect(addPick([pick("a")], pick("a"), room)).toHaveLength(1);
-    const full = roomOn({ max: 3, active: 3 }, 3, true);
-    expect(addPick([pick("a"), pick("b"), pick("c")], pick("d"), full)).toHaveLength(3);
+  it("adds at the end, and never twice (whether there is room is placeFor's call)", () => {
+    expect(addPick([pick("a")], pick("b")).map((p) => p.channelId)).toEqual(["a", "b"]);
+    expect(addPick([pick("a")], pick("a"))).toHaveLength(1);
   });
 
   it("replaces in place, and refuses a channel already in the grid", () => {
@@ -128,32 +133,135 @@ describe("picks", () => {
   });
 });
 
-describe("arrive", () => {
-  const ids = (a: ReturnType<typeof arrive>) => (a.kind === "add" ? a.picks.map((p) => p.channelId) : a.kind);
+describe("placeFor on one source (arrive's rules, before MV1)", () => {
+  // The grid is on the one line "t": every tile is on it, and it is the grid's.
+  const grid = (...ids: string[]) => ids.map((i) => pick(`t:${i}`));
+  const reading = (max: number, active: number, settled = true) => new Map([["t", { max, active, at: settled ? SETTLED_AFTER_MS : 0 }]]);
+  const place = (list: Pick[], id: string, conns: ReturnType<typeof reading>) => placeFor(pick(`t:${id}`), list, conns, 0);
 
   it("joins the grid you left, at the end, while the line has room", () => {
-    expect(ids(arrive([pick("a"), pick("b")], pick("x"), roomOn({ max: 3, active: 2 }, 2, true)))).toEqual([
-      "a",
-      "b",
-      "x",
-    ]);
+    expect(place(grid("a", "b"), "x", reading(3, 2)).kind).toBe("add");
   });
   it("is only the sound when it is already there, full or not", () => {
-    const list = [pick("a"), pick("b"), pick("c")];
-    expect(arrive(list, pick("b"), roomOn({ max: 3, active: 3 }, 3, true)).kind).toBe("here");
+    expect(place(grid("a", "b", "c"), "b", reading(3, 3)).kind).toBe("here");
   });
   it("asks for a tile when the line is full, or at four", () => {
-    const three = [pick("a"), pick("b"), pick("c")];
-    expect(arrive(three, pick("x"), roomOn({ max: 3, active: 3 }, 3, true)).kind).toBe("full");
-    const four = [...three, pick("d")];
-    expect(arrive(four, pick("x"), roomOn(null, 4, true)).kind).toBe("full");
+    const three = grid("a", "b", "c");
+    expect(place(three, "x", reading(3, 3))).toEqual({ kind: "replace", among: ["t:a", "t:b", "t:c"] });
+    const four = grid("a", "b", "c", "d");
+    expect(place(four, "x", new Map())).toEqual({ kind: "replace", among: ["t:a", "t:b", "t:c", "t:d"] });
   });
   it("counts a stream elsewhere against the room", () => {
-    const two = [pick("a"), pick("b")];
-    expect(arrive(two, pick("x"), roomOn({ max: 3, active: 3 }, 2, true)).kind).toBe("full");
+    expect(place(grid("a", "b"), "x", reading(3, 3)).kind).toBe("replace");
+  });
+  it("does not blame a stream the grid just closed on someone else", () => {
+    expect(place(grid("a", "b"), "x", reading(3, 3, false)).kind).toBe("add");
   });
   it("always takes it into an empty grid, where there is no tile to choose", () => {
-    expect(ids(arrive([], pick("x"), roomOn({ max: 2, active: 2 }, 0, true)))).toEqual(["x"]);
+    expect(place([], "x", reading(2, 2)).kind).toBe("add");
+  });
+
+  it("gives what roomOn and the old arrive gave, over every grid, line and count", () => {
+    for (let max = 1; max <= 5; max++)
+      for (let active = 0; active <= max; active++)
+        for (let n = 0; n <= 4; n++)
+          for (const settled of [true, false]) {
+            const list = grid(...["a", "b", "c", "d"].slice(0, n));
+            const old = n === 0 ? "add" : roomOn({ max, active }, n, settled).left > 0 ? "add" : "replace";
+            const now = place(list, "x", reading(max, active, settled));
+            expect(now.kind, JSON.stringify({ max, active, n, settled })).toBe(old);
+            if (now.kind === "replace") expect(now.among).toEqual(list.map((p) => p.channelId));
+          }
+  });
+  it("and with no reading, what roomOn gives a provider with no limit", () => {
+    for (let n = 0; n <= 4; n++) {
+      const list = grid(...["a", "b", "c", "d"].slice(0, n));
+      const old = n === 0 || roomOn(null, n, true).left > 0 ? "add" : "replace";
+      expect(place(list, "x", new Map()).kind).toBe(old);
+    }
+  });
+});
+
+describe("placeFor, room per line (audit MV1)", () => {
+  // Two lines: "a" allows one stream, "b" allows five. "m" is an M3U, with no count.
+  const at = SETTLED_AFTER_MS;
+  const conns = (a: [number, number] = [0, 1], b: [number, number] = [0, 5]) =>
+    new Map([
+      ["a", { active: a[0], max: a[1], at }],
+      ["b", { active: b[0], max: b[1], at }],
+    ]);
+  const grid = (...ids: string[]) => ids.map((i) => pick(i));
+
+  it("is here for a channel already on the grid, whatever else is true", () => {
+    expect(placeFor(pick("a:1"), grid("a:1"), conns(), 0)).toEqual({ kind: "here" });
+  });
+
+  it("takes anything into an empty grid, even on a line that is full", () => {
+    expect(placeFor(pick("a:1"), [], conns([1, 1]), 0)).toEqual({ kind: "add" });
+  });
+
+  it("every tile on the line of one: another on that line replaces one of those tiles", () => {
+    expect(placeFor(pick("a:2"), grid("a:1"), conns(), 0)).toEqual({ kind: "replace", among: ["a:1"] });
+  });
+
+  it("and a channel on the other line is added", () => {
+    expect(placeFor(pick("b:1"), grid("a:1"), conns(), 0)).toEqual({ kind: "add" });
+  });
+
+  it("a full line replaces only its own tiles, not the ones on the other line", () => {
+    const list = grid("a:1", "b:1", "b:2");
+    expect(placeFor(pick("a:2"), list, conns(), 0)).toEqual({ kind: "replace", among: ["a:1"] });
+    // The roomy line still adds, and counts only its own tiles.
+    expect(placeFor(pick("b:3"), list, conns(), 0)).toEqual({ kind: "add" });
+  });
+
+  it("a line with room adds while the grid is under four, and replaces any tile at four", () => {
+    expect(placeFor(pick("b:3"), grid("a:1", "b:1", "b:2"), conns(), 0).kind).toBe("add");
+    expect(placeFor(pick("b:4"), grid("a:1", "b:1", "b:2", "b:3"), conns(), 0)).toEqual({
+      kind: "replace",
+      among: ["a:1", "b:1", "b:2", "b:3"],
+    });
+  });
+
+  it("a line of two with both tiles on the grid is full for a third of its channels", () => {
+    expect(placeFor(pick("a:3"), grid("a:1", "a:2", "b:1"), conns([0, 2]), 0)).toEqual({
+      kind: "replace",
+      among: ["a:1", "a:2"],
+    });
+  });
+
+  it("a line full of other devices' streams, with none of the grid's on it, adds while the grid has room", () => {
+    // Line a: one allowed, one in use, none of it the grid's (once settled).
+    expect(placeFor(pick("a:1"), grid("b:1"), conns([1, 1]), 0)).toEqual({ kind: "add" });
+    // And at four, any tile may go.
+    expect(placeFor(pick("a:1"), grid("b:1", "b:2", "b:3", "b:4"), conns([1, 1]), 0)).toEqual({
+      kind: "replace",
+      among: ["b:1", "b:2", "b:3", "b:4"],
+    });
+  });
+
+  it("believes a stream elsewhere only once the count has settled (L3)", () => {
+    // Line b allows two; the grid has one tile on it and the panel says two are open.
+    const list = grid("b:1");
+    const reading = (taken: number) => new Map([["b", { active: 2, max: 2, at: taken }]]);
+    expect(placeFor(pick("b:2"), list, reading(SETTLED_AFTER_MS), 0)).toEqual({ kind: "replace", among: ["b:1"] });
+    expect(placeFor(pick("b:2"), list, reading(SETTLED_AFTER_MS - 1), 0)).toEqual({ kind: "add" });
+  });
+
+  it("a channel with no line to count against has all the room it likes, until four", () => {
+    // The M3U, a portal, or a panel that hasn't answered.
+    expect(placeFor(pick("m:1"), grid("a:1"), conns(), 0)).toEqual({ kind: "add" });
+    expect(placeFor(pick("a:2"), grid("a:1"), new Map(), 0)).toEqual({ kind: "add" });
+    expect(placeFor(pick("m:1"), grid("a:1", "a:2", "b:1", "b:2"), conns(), 0).kind).toBe("replace");
+  });
+
+  it("a tile with no line is not on any line's count", () => {
+    // The M3U tile doesn't use up line a's one stream.
+    expect(placeFor(pick("a:1"), grid("m:1"), conns(), 0)).toEqual({ kind: "add" });
+  });
+
+  it("a playlist id that is only a prefix of the channel's is not its line", () => {
+    expect(placeFor(pick("ab:1"), grid("a:1"), conns(), 0)).toEqual({ kind: "add" });
   });
 });
 

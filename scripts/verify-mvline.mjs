@@ -12,6 +12,10 @@
 // - a line caps the grid only when it is the one source enabled (MV1): two
 //   lines, or a line beside an M3U, cap nothing and block nothing, and
 //   alone a line of one blocks, with A agreeing with Add;
+// - with two lines, room is decided per channel by its own line (MV1): a
+//   channel on the full line asks which of that line's tiles it replaces
+//   (only those can be chosen), one on the other line is added, and the
+//   picker marks the first kind;
 // - a saved tile whose playlist was deleted or switched off goes once the
 //   catalog has loaded, and not before (MV3).
 // The rules themselves are unit tested (mvGrid.test.ts, connections.test.ts);
@@ -412,7 +416,8 @@ const savedGrid = (page) =>
 //
 // Two Xtream lines, "t" (panel user u) and "v", answer different limits, and
 // neither caps the grid: every tile can sit on the line of one and Add is
-// still offered (what each line has room for is a design item, not built).
+// still offered. What each line has room for is decided per channel, by its
+// own line, as it joins (mvGrid.placeFor): see the sections below.
 // An empty grid with an M3U beside a line of one used to take that line,
 // which hid Add and dropped a channel sent from the Guide. Each case then
 // switches a source off from "Settings" and expects the cap to arrive, which
@@ -583,7 +588,9 @@ async function sendFromGuide(page, row) {
   await ctx.close();
 }
 {
-  // A channel sent from the Guide to a grid wholly on the line of one, with a second line enabled.
+  // A channel sent from the Guide to a grid wholly on the line of one, with a
+  // second line enabled: its line is full, so the grid asks which of that
+  // line's tiles it replaces. It used to join, past the line.
   const { page, ctx, errors } = await openTab({
     grid: [pickOf(101, ESPN)],
     sound: "t:101",
@@ -592,16 +599,167 @@ async function sendFromGuide(page, row) {
     start: "guide",
   });
   await sendFromGuide(page, page.locator('.guide__row[data-channel="t:103"]'));
-  const joined = await page
-    .waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 2, null, { timeout: 5000 })
-    .then(() => true, () => false);
-  await answered(page, 4);
-  const saved = (await savedGrid(page)).map((p) => p.channelId).sort();
+  const asked = await page.locator(".mvchoose").waitFor({ timeout: 8000 }).then(() => true, () => false);
+  const prompt = await page.locator(".mvchoose").textContent().catch(() => "");
+  const waiting = (await savedGrid(page)).map((p) => p.channelId);
   const after = await barState(page);
+  await page.locator('[data-mv="tile:t:101"]').click();
+  await page.waitForFunction(() => !document.querySelector(".mvchoose"), null, { timeout: 5000 }).catch(() => {});
+  const swapped = (await savedGrid(page)).map((p) => p.channelId);
   check(
-    "a channel sent from the Guide joins a grid on the line of one when a second line is enabled",
-    joined && JSON.stringify(saved) === JSON.stringify(["t:101", "t:103"]) && after.blocked === 0 && (await page.locator(".mvchoose").count()) === 0,
-    JSON.stringify({ joined, saved, ...after }),
+    "a channel sent from the Guide to a grid on the line of one asks which tile it replaces, and replaces it",
+    asked && /^Pick a tile for Fake News Channel/.test(prompt ?? "") && JSON.stringify(waiting) === JSON.stringify(["t:101"]) &&
+      after.blocked === 0 && JSON.stringify(swapped) === JSON.stringify(["t:103"]),
+    JSON.stringify({ asked, prompt, waiting, swapped, ...after }),
+  );
+  check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+// -------------------------------- MV1: room per line, decided per channel
+//
+// "t" allows one stream, "v" five, both enabled: no single cap (above). The
+// grid asks about a channel by ITS line: one on the full line asks which of
+// that line's tiles it replaces, one on the other line is added. Both lines
+// carry the same channels (one fake panel), so a name appears twice, the
+// first from "t" and the second from "v"; which is which is shown by what
+// each does, not taken on trust from the order.
+const LINES = { u: [0, 1], v: [0, 5] };
+/** Open the picker with A, search, and wait for the rows. */
+async function searchPicker(page, query) {
+  // The last one may still be fading out: its input is not the next one's.
+  await page.locator(".mvpick__input").waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+  await page.keyboard.press("a");
+  await page.locator(".mvpick__input").waitFor({ timeout: 5000 });
+  await page.locator(".mvpick__input").fill(query);
+  const rows = page.locator(".mvpick__row");
+  await rows.nth(1).waitFor({ timeout: 5000 });
+  return rows;
+}
+const tileIds = async (page) => (await savedGrid(page)).map((p) => p.channelId);
+{
+  const { page, ctx, errors } = await openTab({
+    grid: [pickOf(101, ESPN)],
+    sound: "t:101",
+    extra: [SECOND],
+    lineBy: LINES,
+    lax: true,
+  });
+  await answered(page, 2);
+  const nTiles = () => page.locator(".mvtile:not(.mvtile--empty)").count();
+
+  // Every tile on the line of one, a channel from that line: choose among its tiles.
+  let rows = await searchPicker(page, "sky");
+  const fullNote = await rows.nth(0).locator(".mvpick__replaces").count();
+  const roomyNote = await rows.nth(1).locator(".mvpick__replaces").count();
+  await rows.nth(0).click();
+  const asked = await page.locator(".mvchoose").waitFor({ timeout: 5000 }).then(() => true, () => false);
+  const prompt = await page.locator(".mvchoose").textContent().catch(() => "");
+  check(
+    "two lines, every tile on the line of one: a channel on that line asks which tile it replaces",
+    asked && /^Pick a tile for Fake Sky Sports FHD/.test(prompt ?? "") && (await tileIds(page)).join() === "t:101" && (await nTiles()) === 1,
+    JSON.stringify({ asked, prompt, grid: await tileIds(page) }),
+  );
+  check(
+    "  and the picker's row for it said so, where the other line's did not",
+    fullNote === 1 && roomyNote === 0,
+    JSON.stringify({ fullNote, roomyNote }),
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector(".mvchoose"), null, { timeout: 3000 }).catch(() => {});
+
+  // The same grid, the same name on the other line: added, nothing to choose.
+  rows = await searchPicker(page, "sky");
+  await rows.nth(1).click();
+  await page.waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 2, null, { timeout: 5000 }).catch(() => {});
+  check(
+    "  and a channel on the other line is added, with nothing to choose",
+    (await tileIds(page)).sort().join() === "t:101,v:102" && (await page.locator(".mvchoose").count()) === 0,
+    JSON.stringify({ grid: await tileIds(page) }),
+  );
+
+  // A tile on each line now: a channel from the full line may replace only the tile on its own.
+  rows = await searchPicker(page, "news");
+  const footer = await page.locator(".mvpick__room").textContent().catch(() => "");
+  const notes = [await rows.nth(0).locator(".mvpick__replaces").count(), await rows.nth(1).locator(".mvpick__replaces").count()];
+  await rows.nth(0).click();
+  await page.locator(".mvchoose").waitFor({ timeout: 5000 }).catch(() => {});
+  const subset = await page.locator(".mvchoose").textContent().catch(() => "");
+  const off = await page.locator(".mvtile.is-pickoff").evaluateAll((els) => els.map((e) => e.getAttribute("data-mv")));
+  const tabs = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll(".mvtile:not(.mvtile--empty)")].map((e) => [e.getAttribute("data-mv"), e.getAttribute("tabindex")])));
+  check(
+    "  with a tile on each line, only the full line's tiles can be chosen: the other line's is dimmed and skipped by Tab",
+    JSON.stringify(off) === JSON.stringify(["tile:v:102"]) && tabs["tile:v:102"] === "-1" && tabs["tile:t:101"] === "0",
+    JSON.stringify({ off, tabs }),
+  );
+  check(
+    "  and the bar says why, naming the line",
+    /^Pick a tile on Test for Fake News Channel/.test(subset ?? ""),
+    JSON.stringify(subset),
+  );
+  check(
+    "  and with several sources the picker says what the grid has room for, and marks the full line's row only",
+    /^2 more fit in the grid$/.test(footer ?? "") && notes.join() === "1,0",
+    JSON.stringify({ footer, notes }),
+  );
+  // Nothing happens on the tile it may not replace, by pointer or by key.
+  await page.locator('[data-mv="tile:v:102"]').click();
+  const order = await tileIds(page);
+  await page.keyboard.press(String(order.indexOf("v:102") + 1));
+  await page.waitForTimeout(400);
+  check(
+    "  a click on the tile it may not replace, or its number, changes nothing",
+    (await page.locator(".mvchoose").count()) === 1 && (await tileIds(page)).sort().join() === "t:101,v:102",
+    JSON.stringify({ grid: await tileIds(page) }),
+  );
+  await page.locator('[data-mv="tile:t:101"]').click();
+  await page.waitForFunction(() => !document.querySelector(".mvchoose"), null, { timeout: 5000 }).catch(() => {});
+  check(
+    "  and choosing its own replaces it",
+    (await tileIds(page)).sort().join() === "t:103,v:102" && (await nTiles()) === 2,
+    JSON.stringify({ grid: await tileIds(page) }),
+  );
+  check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+{
+  // A channel from the Guide on the other line joins, as one on the full line asks.
+  const { page, ctx, errors } = await openTab({
+    grid: [pickOf(101, ESPN)],
+    sound: "t:101",
+    extra: [SECOND],
+    lineBy: LINES,
+    start: "guide",
+  });
+  await sendFromGuide(page, page.locator('.guide__row[data-channel="v:103"]'));
+  const joined = await page
+    .waitForFunction(() => document.querySelectorAll(".mvtile:not(.mvtile--empty)").length === 2, null, { timeout: 8000 })
+    .then(() => true, () => false);
+  check(
+    "a channel sent from the Guide on the other line joins the grid, with nothing to choose",
+    joined && (await tileIds(page)).sort().join() === "t:101,v:103" && (await page.locator(".mvchoose").count()) === 0,
+    JSON.stringify({ joined, grid: await tileIds(page) }),
+  );
+  check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+{
+  // A tile on each line, a channel from the full line sent from the Guide: its tiles only.
+  const { page, ctx, errors } = await openTab({
+    grid: [pickOf(101, ESPN), { channelId: "v:102", label: SKY }],
+    sound: "t:101",
+    extra: [SECOND],
+    lineBy: LINES,
+    start: "guide",
+  });
+  await sendFromGuide(page, page.locator('.guide__row[data-channel="t:103"]'));
+  const asked = await page.locator(".mvchoose").waitFor({ timeout: 8000 }).then(() => true, () => false);
+  const prompt = await page.locator(".mvchoose").textContent().catch(() => "");
+  const off = await page.locator(".mvtile.is-pickoff").evaluateAll((els) => els.map((e) => e.getAttribute("data-mv")));
+  check(
+    "a channel sent from the Guide on the full line may replace only that line's tiles",
+    asked && /^Pick a tile on Test for Fake News Channel/.test(prompt ?? "") && JSON.stringify(off) === JSON.stringify(["tile:v:102"]),
+    JSON.stringify({ asked, prompt, off }),
   );
   check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();

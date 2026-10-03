@@ -741,8 +741,13 @@ export function StreamScreen() {
   // came back to a wiped Continue Watching entry. Resolving fresh gets a
   // live url and restarts where the user actually was — the same shape
   // tryNextSource/pickPanelSource already use, aimed at the BEST current
-  // candidate rather than the next one. Falls back to the plain mpv
-  // reload if resolution fails, so Retry is never a dead button.
+  // CACHED candidate rather than the next one. Retry follows the rule
+  // watchNow states: it never opens an uncached source on its own. With
+  // nothing cached it plays nothing and opens the Sources panel on the list
+  // it just resolved, so opening an uncached row is the viewer's own click
+  // there (audit ST6). An empty list or a failed resolve falls back to the
+  // plain mpv reload, which re-opens the url already playing, so Retry is
+  // never a dead button.
   const retrySource = useCallback(() => {
     const p = playingRef.current;
     if (!p) return;
@@ -761,9 +766,15 @@ export function StreamScreen() {
     void resolveVodSources(p.item.kind, p.episodeId ?? p.item.id).then(
       (list) => {
         if (!same()) return;
-        const pick = list.find((s) => s.cached) ?? list[0];
-        if (!pick) {
+        if (list.length === 0) {
           void tauriMpvGoLive().catch(() => {});
+          return;
+        }
+        const pick = list.find((s) => s.cached);
+        if (!pick) {
+          panelSeedRef.current = list;
+          setPanelSources(list);
+          setPanelState("open");
           return;
         }
         setPlayingRaw({
@@ -1042,6 +1053,12 @@ export function StreamScreen() {
   const [panelSources, setPanelSources] = useState<
     StreamSource[] | null | "failed"
   >(null);
+  // The list Retry just resolved when nothing in it was cached (retrySource,
+  // above): the panel opens on it rather than resolving a second time. Not
+  // cleared by the effect that reads it, because StrictMode replays that
+  // effect and the replay would resolve anyway. The Sources button clears it
+  // before a normal open, which resolves fresh.
+  const panelSeedRef = useRef<StreamSource[] | null>(null);
   useEffect(() => {
     // Playback gone = the portal host is gone: drop the panel instantly.
     if (!playing) setPanelState(null);
@@ -1078,6 +1095,8 @@ export function StreamScreen() {
     if (!panelOpen) return;
     const p = playingRef.current;
     if (!p) return;
+    // Retry already put its list in panelSources: keep it, resolve nothing.
+    if (panelSeedRef.current) return;
     let stale = false;
     setPanelSources(null);
     resolveVodSources(p.item.kind, p.episodeId ?? p.item.id).then(
@@ -1092,8 +1111,13 @@ export function StreamScreen() {
     (src: StreamSource, all: StreamSource[]) => {
     const p = playingRef.current;
     if (!p) return;
+    // Opened by Retry (the seed is only ever set there): the stream on screen
+    // is dead, so picking it again is asking to open it again, which a
+    // healthy one never needs. The addon can hand back the same url, and the
+    // source that died is the one the viewer had chosen.
+    const again = src.streamUrl === p.url;
     closePanel();
-    if (src.streamUrl === p.url) return; // already playing this one
+    if (again && !panelSeedRef.current) return; // already playing this one
     const entry = loadWatching().find((e) => e.id === p.item.id);
     const at =
       entry?.posSec && entry.posSec > 10
@@ -1105,6 +1129,8 @@ export function StreamScreen() {
       bingeGroup: src.bingeGroup,
       queue: all.filter((s) => s.id !== src.id && s.streamUrl !== p.url),
       resumeAt: at,
+      // The same url counts as a new stream only with a new tick (streamKey).
+      ...(again ? { reloadTick: (p.reloadTick ?? 0) + 1 } : {}),
     });
   },
     [closePanel],
@@ -1214,8 +1240,10 @@ export function StreamScreen() {
         const nxt = nextEpisode(p.item.seasons, p.episodeId);
         if (nxt) void playEpisode(p.item, nxt.season, nxt.episode);
       },
-      onSourcePanel: () =>
-        setPanelState((st) => (st === "open" ? "closing" : "open")),
+      onSourcePanel: () => {
+        panelSeedRef.current = null;
+        setPanelState((st) => (st === "open" ? "closing" : "open"));
+      },
       // Credits started/ended (overlay's AniSkip/chapter clock): pop the
       // corner Up Next while the episode still plays — never for movies,
       // never re-popping one the user dismissed this cycle.

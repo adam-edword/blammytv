@@ -104,16 +104,23 @@ export function fullReason(room: Room): string | null {
   return `Your line allows ${room.max}`;
 }
 
-/** The picker's footer: what is left. */
-export function leftLine(room: Room): string {
+/**
+ * The picker's footer: what is left. With several sources enabled there is
+ * no one line to speak for, and each channel is held to its own (`placeFor`),
+ * so it says what the grid has room for instead.
+ */
+export function leftLine(room: Room, several = false): string {
+  if (several) {
+    if (room.left === 0) return "The grid is full";
+    return room.left === 1 ? "1 more fits in the grid" : `${room.left} more fit in the grid`;
+  }
   if (room.left === 0) return "Your line is full";
   if (room.max === null) return "Your provider doesn’t report a limit";
   return room.left === 1 ? "1 more fits on your line" : `${room.left} more fit on your line`;
 }
 
-/** Add at the end. Never twice, never past the room. */
-export function addPick(list: Pick[], pick: Pick, room: Room): Pick[] {
-  if (room.left <= 0) return list;
+/** Add at the end. Never twice. Whether there is room is `placeFor`'s call. */
+export function addPick(list: Pick[], pick: Pick): Pick[] {
   if (list.some((p) => p.channelId === pick.channelId)) return list;
   return [...list, pick];
 }
@@ -133,26 +140,60 @@ export function removePick(list: Pick[], id: string): Pick[] {
   return list.filter((p) => p.channelId !== id);
 }
 
-/** What a channel sent from elsewhere does to the grid (`arrive`). */
-export type Arrival =
+/** What a channel joining the grid does to it (`placeFor`). */
+export type Placement =
   | { kind: "here" }
-  | { kind: "add"; picks: Pick[] }
-  | { kind: "full" };
+  | { kind: "add" }
+  /** The grid asks which tile it replaces, and only these may be chosen. */
+  | { kind: "replace"; among: string[] };
 
 /**
- * A channel sent from the Guide or the player (plan 017, P6b). It joins the
- * grid you left rather than replacing it (the grid is remembered on
- * purpose, M7), and takes the sound either way, so in Focus it is the big
- * tile. Already there, it only takes the sound. With no room left, the grid
- * asks which tile it replaces: nothing is dropped without you choosing.
- * An empty grid always takes it, since there is no tile to choose; a line
- * that refuses it says so on the tile.
+ * Where a channel joining the grid goes, whichever way it came: the picker,
+ * the Live Scores row, or sent from the Guide or the player (plan 017, P6b).
+ * It joins the grid you left rather than replacing it (the grid is
+ * remembered on purpose, M7), and nothing is dropped without you choosing.
+ *
+ * ROOM IS DECIDED PER CHANNEL, BY ITS OWN LINE (audit MV1). With two Xtream
+ * lines no one cap describes the grid (`lineFor`), so a grid wholly on a line
+ * of one still offered more, and holding the whole grid to that line trapped
+ * it with the other line out of reach. A channel is held to the line it is on
+ * and to four, and nothing else:
+ *
+ * - already on the grid: `here`, it only takes the sound;
+ * - an empty grid takes it, since there is no tile to choose, and a line that
+ *   refuses it says so on the tile;
+ * - its line has room (the line's limit, less what is open elsewhere once
+ *   that is believed (`settledOn`), less the grid's tiles on that line) and
+ *   the grid is under four: `add`; at four, `replace` any tile;
+ * - its line is full and the grid has tiles on it: `replace` one of THOSE.
+ *   Replacing a tile on another line would free nothing on this one;
+ * - its line is full of other devices' streams and the grid has none on it:
+ *   as before, `add` while the grid has room and let the tile say it was
+ *   refused, else `replace` any tile.
+ *
+ * A channel with no reading to count against (M3U, a portal, a panel that
+ * hasn't answered) has all the room it likes. One source enabled gives
+ * exactly what `roomOn` does: every tile is on its line.
  */
-export function arrive(list: Pick[], pick: Pick, room: Room): Arrival {
-  if (list.some((p) => p.channelId === pick.channelId)) return { kind: "here" };
-  if (list.length === 0) return { kind: "add", picks: [pick] };
-  if (room.left > 0) return { kind: "add", picks: [...list, pick] };
-  return { kind: "full" };
+export function placeFor(
+  pick: Pick,
+  picks: readonly Pick[],
+  conns: ReadonlyMap<string, { max: number; active: number; at: number }>,
+  changedAt: number,
+): Placement {
+  if (picks.some((p) => p.channelId === pick.channelId)) return { kind: "here" };
+  if (picks.length === 0) return { kind: "add" };
+  const ids = (list: readonly Pick[]) => list.map((p) => p.channelId);
+  const key = lineKey(conns, pick.channelId);
+  const line = key === null ? null : (conns.get(key) ?? null);
+  const onLine = key === null ? [] : picks.filter((p) => lineKey(conns, p.channelId) === key);
+  let full = false;
+  if (line) {
+    const elsewhere = settledOn(line, changedAt) ? Math.max(0, line.active - onLine.length) : 0;
+    full = line.max - elsewhere - onLine.length <= 0;
+  }
+  if (full && onLine.length > 0) return { kind: "replace", among: ids(onLine) };
+  return picks.length < MAX_TILES ? { kind: "add" } : { kind: "replace", among: ids(picks) };
 }
 
 /**
@@ -274,8 +315,8 @@ export function countKey(picks: readonly Pick[]): string {
  * than offering up to four and letting a tile say it was refused. It used to
  * be "one Xtream line answered", so a line of one stream capped an M3U beside
  * it too (plan 018, L4). That holds however the tiles are spread: a grid
- * wholly on one of two lines is not capped by it either (what each line has
- * room for is a design item of its own, not built).
+ * wholly on one of two lines is not capped by it either. What each line has
+ * room for is decided per channel, as it joins (`placeFor`).
  *
  * A tile on another playlist than the source's (one switched off a moment
  * ago, before the catalog reloads and MultiviewTab drops it) is not the
@@ -299,7 +340,13 @@ export function lineFor<L>(
  * the grid spans two sources.
  */
 export function lineOfChannel<L>(conns: ReadonlyMap<string, L>, channelId: string): L | null {
-  for (const [id, line] of conns) if (channelId.startsWith(`${id}:`)) return line;
+  const key = lineKey(conns, channelId);
+  return key === null ? null : (conns.get(key) ?? null);
+}
+
+/** Which playlist's reading a channel is on, by the playlist's id. */
+function lineKey(conns: ReadonlyMap<string, unknown>, channelId: string): string | null {
+  for (const id of conns.keys()) if (channelId.startsWith(`${id}:`)) return id;
   return null;
 }
 

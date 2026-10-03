@@ -1588,7 +1588,7 @@
   outline-color: color-mix(in srgb, var(--on-image) 40%, transparent);
 }
 .mvtile.is-on.is-flash,
-.mvtab:not(.is-idle) .mvtile.is-on:hover {
+.mvtab:not(.is-idle) .mvtile.is-on:not(.is-pickoff):hover {
   outline-width: 2px;
   outline-color: var(--accent);
   transition-duration: var(--dur-hover);
@@ -1766,13 +1766,21 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.mvtile.is-picking:hover .mvtile__pick,
-.mvtile.is-picking:focus-visible .mvtile__pick {
+.mvtile.is-picking:not(.is-pickoff):hover .mvtile__pick,
+.mvtile.is-picking:not(.is-pickoff):focus-visible .mvtile__pick {
   background: rgb(0 0 0 / 0.55);
 }
 .mvtile.is-picking:hover .mvtile__pickword,
 .mvtile.is-picking:focus-visible .mvtile__pickword {
   opacity: 1;
+}
+/* A tile the waiting channel may not replace (audit MV1): dimmed past the
+ * hover dim, and nothing under the pointer answers. */
+.mvtile.is-pickoff {
+  cursor: default;
+}
+.mvtile.is-pickoff .mvtile__pick {
+  background: rgb(0 0 0 / 0.6);
 }
 .mvtile.is-picking .mvtile__chrome,
 .mvtile.is-picking .mvtile__badge,
@@ -2137,7 +2145,8 @@
   line-height: 18px;
   color: var(--text-muted);
 }
-.mvpick__ingrid {
+.mvpick__ingrid,
+.mvpick__replaces {
   flex: none;
   display: inline-flex;
   align-items: center;
