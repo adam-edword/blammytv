@@ -135,8 +135,14 @@ jobs:
       - name: ffmpeg for the HEVC conversion tests
         run: node scripts/fetch-ffmpeg.mjs
 
+      # PINNED (0.11.0 audit, T7): clippy below is held to a warning count,
+      # and a new Rust release can add a default lint and turn this red with
+      # no code change. 1.99.0 is what stable was when pinned (2026-10-03).
+      # Moving it is a deliberate commit: bump, read clippy, adjust the
+      # baseline if a new lint is right. Only CI is pinned; your machine
+      # stays on whatever rustup gives it.
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: clippy
 
