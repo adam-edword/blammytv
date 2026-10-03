@@ -113,6 +113,28 @@ Hero Slider Sources are only pruned when Customize's section is opened, and
 doesn't have each pool to nothing, so no hero. Plan: use the saved keys the
 manifest has, and the default mix when it has none of them.
 
+### Security, whole app (second pass)
+
+Nothing HIGH or MEDIUM, and no way found for provider data to inject HTML
+or script (the CSP, the three vendored SVGs, every stream URL traced to an
+http(s) check). Its third finding is T1 again.
+
+**X1. LOW. The native player opens any path it's handed.** Confirmed:
+`inv_open` and `popout_open` (`src-tauri/src/lib.rs`) pass the string to
+mpv's `loadfile` unchecked; only the frontend's `validUrl`, `httpUrl` and
+Stalker's regex restrict it to http(s), and the frontend is the
+hot-swappable layer. `open_external` (`lib.rs:1135`) already refuses
+anything but https, and `tunable()` exists for exactly this threat. With
+script in the page, a UNC path would hand Windows' NTLM hash to another
+host. Needs script in the page first, and none was found. Plan: refuse
+anything but http and https natively.
+
+**X2. LOW. `http_get`'s timing line can print a password.** Confirmed:
+`lib.rs:782` keeps the first three `/`-pieces as "the origin", which for
+`http://user:pass@host/...` includes `user:pass@`. Dev terminal only
+(release has no stdout), but that output is what gets pasted into
+sessions. Plan: log the parsed origin.
+
 ## Held for Adam
 
 - **T7, pinning Rust for CI.** Two ways: pin the CI jobs only
@@ -120,6 +142,9 @@ manifest has, and the default mix when it has none of them.
   rustup gives it; or a `rust-toolchain.toml`, which pins your machine too
   and makes every build agree. I'd pin CI only: the gate is the thing that
   breaks, and a repo-wide pin turns every Rust update into a chore.
+- **`mpv_snapshot` (plan 016 N6).** With X1 fixed it can only grab a
+  frame of a stream; it's a diagnostic, and removing it is the open N6
+  item you own.
 - **T1 and T8's deploys.** The docs and the site deploy from their own
   branches. The fixed text lands on the dev branch; publishing it is a
   merge you make.
