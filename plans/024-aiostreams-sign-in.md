@@ -1,11 +1,12 @@
 # Plan 024: AIOStreams by sign-in
 
-**Status: CALLS TAKEN, 2026-10-04.** Adam took all four as recommended:
-the manifest stays as a fallback (D1), an adapter behind today's
-functions (D2), sources no older than 3 minutes on open (D3), and a saved
-manifest URL deleted once you've signed in (D4). B1 (native: sign-in from
-an address, `aiojf_sources`) and B2 (the adapter's pure half, every id kind
-AIOStreams packs) are built in v0.11.16, not wired yet. B3 next.
+**Status: BUILT, 2026-10-04, v0.11.16 to v0.11.18. Not yet run against a
+real AIOStreams.** Adam took all four decisions as recommended: the
+manifest stays as a fallback (D1), an adapter behind today's functions
+(D2), sources no older than 3 minutes on open (D3), and a saved manifest
+URL deleted once you've signed in (D4). B1 and B2 in v0.11.16, the data
+path (B3a) in v0.11.17, the sign-in screens, onboarding and docs (B3b, B5)
+in v0.11.18.
 
 Adam, 2026-10-04, after plan 023's sync worked on his instance: "we should
 have this be the default aiostreams connection method now". Asked whether
@@ -208,8 +209,9 @@ so keeping it buys little, and taking it off the disk is half the point.
      isn't in the build doesn't show; with neither, the step is skipped.
    - A short **tour** step before "You're all set": Multi-view (up to four
      channels at once, right-click one in the Guide), Discover (search your
-     catalogs, browse by genre) and Sports (today's games from the leagues
-     you follow, with the channels showing them), a line each.
+     catalogs, browse by genre) and Sports (today's games, with the channels
+     showing them), a line each. ("From the leagues you follow" was cut in
+     review: with nothing followed, Sports shows its default leagues.)
 4. **B4, harnesses**: plan 023's fake grows the browse routes and
    `PlaybackInfo`. A new `verify-signin` covers sign-in from onboarding,
    rows, a title's page, its sources (cache groups and badges from the

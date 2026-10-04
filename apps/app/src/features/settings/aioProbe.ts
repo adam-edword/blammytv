@@ -5,8 +5,12 @@ import {
   fetchManifest,
   fetchStreams,
 } from "../../data/stremio";
+import { aioManifest, aioStreams } from "../../data/aio";
 import { httpProbe } from "../../lib/http";
 import { scrubbedMessage } from "../../lib/errors";
+import { SEARCH_CATALOGS } from "../aiojf/browse";
+import type { AioConn, SignInConn } from "../aiojf/conn";
+import { forgetViews } from "../aiojf/remote";
 
 /**
  * Connection test for the AIOStreams settings tab — built for the
@@ -22,6 +26,11 @@ import { scrubbedMessage } from "../../lib/errors";
  * how the body starts). That's the line that turned the Bobby saga's
  * "403 somewhere" into "Cloudflare challenged him" — from one
  * screenshot, no terminal needed.
+ *
+ * Signed in (plan 024) the same steps run over the Jellyfin side
+ * (`probeSignIn`): the catalogs, then a search for the test title's sources.
+ * There is no forensic line there, which would need the address and has no
+ * token to send.
  */
 
 export interface ProbeStep {
@@ -182,4 +191,39 @@ export async function probeAioStreams(
   }
 
   return steps;
+}
+
+/**
+ * The connection test over the sign-in: the catalogs (the app's own
+ * `aioManifest`, so what the test reads is what Stream reads), then a stream
+ * search for a well-known title through `aioStreams`. The search asks for a
+ * fresh one, as the manifest path's always is, so the test cannot pass on a
+ * list AIOStreams kept from a minute ago. The held catalogs are let go first,
+ * for the same reason.
+ */
+export async function probeSignIn(conn: SignInConn): Promise<ProbeStep[]> {
+  const steps: ProbeStep[] = [];
+  forgetViews();
+  try {
+    const manifest = await aioManifest(conn);
+    // The two search catalogs the adapter adds are not the user's.
+    const n = (manifest.catalogs ?? []).filter((c) => !SEARCH_CATALOGS.some((s) => s.id === c.id)).length;
+    steps.push({ label: "Catalogs", ok: true, detail: `OK, ${n} catalog${n === 1 ? "" : "s"}` });
+  } catch (e) {
+    steps.push({ label: "Catalogs", ok: false, detail: scrubbedMessage(e) });
+    return steps; // nothing below can run without it
+  }
+  try {
+    const res = await aioStreams(conn, "movie", "tt0111161", { refresh: true });
+    const n = (res.streams ?? []).length;
+    steps.push({ label: "Sources (test title)", ok: true, detail: `OK, ${n} source${n === 1 ? "" : "s"}` });
+  } catch (e) {
+    steps.push({ label: "Sources (test title)", ok: false, detail: scrubbedMessage(e) });
+  }
+  return steps;
+}
+
+/** The test for whichever connection Stream reads now. */
+export function probeAioConn(conn: AioConn): Promise<ProbeStep[]> {
+  return conn.kind === "signin" ? probeSignIn(conn) : probeAioStreams(conn.url);
 }

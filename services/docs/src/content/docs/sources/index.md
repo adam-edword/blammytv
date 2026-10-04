@@ -11,7 +11,7 @@ yourself, and there are four kinds.
 | [Xtream Codes](/sources/xtream/) | A panel API | Server URL, username, password |
 | [M3U playlist](/sources/m3u/) | A plain playlist file over HTTP | A URL |
 | [Stalker / MAG portal](/sources/stalker/) | A portal endpoint | Portal URL and a MAC address |
-| [AIOStreams](/sources/aiostreams/) | A Stremio-style manifest | Your manifest URL |
+| [AIOStreams](/sources/aiostreams/) | Your own AIOStreams instance | Its address, and a code you approve on its configure page |
 
 The first three are **Live TV** sources. They fill the channel guide, and all
 three load through the same pipeline, so a mixed setup behaves as one list.

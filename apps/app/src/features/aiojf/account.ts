@@ -20,8 +20,9 @@ let signingOut: Promise<void> | null = null;
 /** Forget AIOStreams' sync on this device: the session (the token is the
  * native side's to drop), the bookkeeping, the queue, the ticks. Your
  * watch state on AIOStreams is not touched. Concurrent callers share one
- * sign-out: Clear All Login Info empties the AIOStreams URL, which signs out
- * too, and asks for it as well. */
+ * sign-out. Changing or clearing the manifest URL is not one of them (plan
+ * 024): the sign-in is its own connection, and Disconnect and Clear All Login
+ * Info are how it ends. */
 export function signOutOfAio(): Promise<void> {
   signingOut ??= (async () => {
     await aiojfDisconnect().catch(() => {});

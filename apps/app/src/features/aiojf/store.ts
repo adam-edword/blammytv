@@ -8,6 +8,7 @@
  */
 
 import { load, save } from "../../lib/storage";
+import { loadAioUrl, saveAioUrl } from "../settings/aiostreams";
 import { forgetAioWatched } from "../stream/watched";
 import type { AiojfStatus } from "./client";
 import type { UpNextCard } from "./rules";
@@ -70,6 +71,12 @@ export function forgetAiojf(): void {
  * that cannot search sources, which leaves Stream on its manifest. A status
  * that says the build has no sync at all tells nothing, so it changes
  * nothing.
+ *
+ * Going from no sign-in to one also deletes a stored manifest URL (plan 024,
+ * D4): the sign-in wins over any manifest, and the URL is a password in
+ * plain text that has no reason to stay. That covers a new approval and a
+ * plan 023 user who was connected already. It signs nobody out:
+ * `saveAioUrl` no longer does.
  */
 export function noteSignIn(s: AiojfStatus, canSource: boolean): void {
   if (!s.supported) return;
@@ -77,6 +84,7 @@ export function noteSignIn(s: AiojfStatus, canSource: boolean): void {
   if (s.connected && s.base && canSource) {
     if (now?.base === s.base && now.userName === s.userName) return;
     saveAiojf({ signedIn: { base: s.base, ...(s.userName ? { userName: s.userName } : {}) } });
+    if (!now && loadAioUrl()) saveAioUrl("");
   } else if (now) {
     saveAiojf({ signedIn: undefined });
   }

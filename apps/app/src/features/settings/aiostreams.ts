@@ -1,5 +1,4 @@
 import { isString, load, loadList, save } from "../../lib/storage";
-import { signOutOfAio } from "../aiojf/account";
 import { isHttpUrl } from "./playlists";
 
 /** The AIOStreams manifest URL — the single credential that powers the
@@ -14,19 +13,22 @@ export function loadAioUrl(): string {
   return typeof url === "string" ? url : "";
 }
 
-/** Said when the stored URL changes, for the screens that depend on there
- * being one (Settings' AIOStreams sync row). */
+/** Said when the stored URL changes, for the screens that show it
+ * (Settings' AIOStreams tab). */
 export const AIO_URL_CHANGED = "blammytv:aio-url-changed";
 
+/**
+ * Store the manifest URL, or remove it with an empty one. It signs out of
+ * nothing: since plan 024 the sign-in is its own connection and wins over any
+ * manifest (conn.ts), and the manifest goes once there is a sign-in
+ * (store.ts `noteSignIn`), which must not sign anyone out. Plan 023 tied the
+ * sync token to this URL; Disconnect is how you sign out now.
+ */
 export function saveAioUrl(url: string): void {
   const next = url.trim();
   const prev = loadAioUrl();
   save(KEY, VERSION, next);
   if (next === prev) return;
-  // AIOStreams' sync token belongs to the config this URL names (plan 023):
-  // another URL, or none, is another account. Nothing to sign out of before
-  // the first URL.
-  if (prev) void signOutOfAio();
   window.dispatchEvent(new Event(AIO_URL_CHANGED));
 }
 

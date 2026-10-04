@@ -15,9 +15,12 @@
 // the point here. Item ids are packed by an independent pack() below, not by
 // the app's.
 //
-// - Sign-in: the code shows and copies, pending then approved shows the
-//   user, expired, an instance with no Jellyfin side, an older native build,
-//   no row without an AIOStreams URL.
+// - Sign-in (Settings → General → Sources → Stream since plan 024; the sync
+//   used to have a row of its own under Accounts): the code shows and copies,
+//   pending then approved shows the user, expired, an instance with no
+//   Jellyfin side, an older native build, and the sign-in offered with no
+//   manifest URL stored (it no longer waits for one). verify-signin-ui has the
+//   rest of that tab.
 // - A film played: Playing, Progress (paused and resumed), Stopped with its
 //   packed id and positions; the played mark at the finished line, once,
 //   queued when AIOStreams is down and sent at the next sync. An episode the
@@ -27,7 +30,8 @@
 //   says Watched. Next Up and Upcoming rows render, and a card opens the show.
 // - A skip button from AIOStreams' marker on a film.
 // - A 401 shows disconnected; Disconnect clears; changing the AIOStreams URL
-//   disconnects; Clear All Login Info disconnects.
+//   leaves the sign-in alone (plan 023 signed out there); Clear All Login Info
+//   disconnects.
 // - Trakt's scrobble still fires alongside.
 //
 // Offline, as every harness is: every host but localhost is aborted.
@@ -491,6 +495,12 @@ const openSettings = async (p) => {
   await p.getByRole("button", { name: "Settings", exact: true }).first().click({ timeout: 15_000 });
   await p.locator(".trakt-row").first().waitFor({ timeout: 10_000 });
 };
+/** Settings on General → Sources → Stream, where the sign-in is. */
+const openAioTab = async (p) => {
+  await openSettings(p);
+  await p.locator(".customize-rail").getByRole("tab", { name: "Stream", exact: true }).click();
+  await p.locator(".settings-section").first().waitFor({ timeout: 10_000 });
+};
 const closeSettings = async (p) => {
   await p.keyboard.press("Escape");
   await p.locator(".trakt-row").first().waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
@@ -696,9 +706,10 @@ check(
 );
 
 // Sync now: the queued mark goes first, and what comes back includes it.
-await openSettings(page);
+await openAioTab(page);
 const row = page.locator(".aio-row");
-check("Settings names the account AIOStreams signed in", /AIOStreams sync: Adam/.test(await row.innerText()), (await row.innerText()).replace(/\n/g, " | "));
+await row.getByRole("button", { name: "Sync now" }).waitFor({ timeout: 8000 });
+check("Settings names the account AIOStreams signed in", /Signed in as Adam/.test(await row.innerText()), (await row.innerText()).replace(/\n/g, " | "));
 check(
   "  and says so once about Trakt trackers",
   /Leave any Trakt tracker out of your AIOStreams setup, or each play counts twice\./.test(await row.innerText()),
@@ -795,10 +806,10 @@ check(
 );
 
 // ------------------------------------------------------------ a 401
-await openSettings(page);
+await openAioTab(page);
 jf.signedOut = true;
 await page.locator(".aio-row").getByRole("button", { name: "Sync now" }).click();
-const off = await page.locator(".aio-row").getByRole("button", { name: "Connect", exact: true }).waitFor({ timeout: 8000 }).then(() => true, () => false);
+const off = await page.getByRole("button", { name: "Connect", exact: true }).waitFor({ timeout: 8000 }).then(() => true, () => false);
 const cleared = {
   played: await storeOf(page, "aioWatched"),
   aiojf: await storeOf(page, "aiojf"),
@@ -819,16 +830,19 @@ check("no page errors in the app", errors.length === 0, errors.slice(0, 2).join(
 await page.close();
 
 // ------------------------------------------------------------ connecting
-// Settings → General → Accounts, from signed out: the code, AIOStreams'
-// configure page opened, approved on the second poll, then the account and a
-// first sync.
+// Settings → General → Sources → Stream, from signed out: the address, the
+// code, AIOStreams' configure page opened, approved on the second poll, then
+// the account and a first sync. (These were the Accounts row's checks until
+// plan 024 folded it into the sign-in.)
 {
   const p = await openPage({ connected: false });
-  await openSettings(p);
+  await openAioTab(p);
   const before = calls.length;
+  const connect = p.getByRole("button", { name: "Connect", exact: true });
+  check("signed out, the tab offers an address field and Connect", (await p.getByPlaceholder("aiostreams.example.com", { exact: true }).count()) === 1 && (await connect.count()) === 1);
+  await p.getByPlaceholder("aiostreams.example.com", { exact: true }).fill("aiostreams.example.com");
+  await connect.click();
   const r = p.locator(".aio-row");
-  check("signed out, the row offers Connect and the Trakt line", (await r.getByRole("button", { name: "Connect", exact: true }).count()) === 1 && /Leave any Trakt tracker out/.test(await r.innerText()));
-  await r.getByRole("button", { name: "Connect", exact: true }).click();
   const code = await r.locator(".trakt-row__code").innerText({ timeout: 5000 }).catch(() => "");
   check("Connect shows the 6-digit code, large", code === "123456", code);
   if (process.env.SHOT_DIR) await p.locator(".aio-row").first().screenshot({ path: `${process.env.SHOT_DIR}/aiojf-code.png` });
@@ -844,19 +858,20 @@ await page.close();
     opened[0] === MANIFEST_URL.replace("manifest.json", "configure") && (await p.evaluate(() => window.__copied.length)) === 2,
     JSON.stringify(opened),
   );
-  const pending = (await r.getByRole("button", { name: "Connect", exact: true }).count()) === 0 && (await r.locator(".trakt-row__code").count()) === 1;
+  const pending = (await connect.count()) === 0 && (await r.locator(".trakt-row__code").count()) === 1;
   check("  while it is pending the code stays up", pending);
-  const on = await r.locator(".customize-row__title", { hasText: "AIOStreams sync: Adam" }).waitFor({ timeout: 12_000 }).then(() => true, () => false);
+  const on = await r.locator(".customize-row__title", { hasText: "Signed in as Adam" }).waitFor({ timeout: 12_000 }).then(() => true, () => false);
   const synced = await waitFor(p, async () => calls.slice(before).some((c) => c.path === "/UserItems/Resume"), 8000);
   await r.getByRole("button", { name: "Sync now" }).waitFor({ timeout: 8000 }).catch(() => {});
   const buttons = await r.getByRole("button").allInnerTexts();
   check("  approved on a later poll, it names the account, syncs, and offers Sync now and Disconnect", on && synced && buttons.includes("Sync now") && buttons.includes("Disconnect"), JSON.stringify({ on, synced, buttons }));
   check("  and it says when it last synced", /Synced (just now|a minute ago)/.test(await r.innerText()), (await r.innerText()).replace(/\n/g, " | "));
+  check("  and says once about Trakt trackers", /Leave any Trakt tracker out of your AIOStreams setup, or each play counts twice\./.test(await r.innerText()));
 
   // Disconnect: two clicks, the token dropped natively, everything kept goes.
   await r.getByRole("button", { name: "Disconnect", exact: true }).click();
   await r.getByRole("button", { name: /Click again to confirm/ }).click();
-  const gone = await r.getByRole("button", { name: "Connect", exact: true }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  const gone = await connect.waitFor({ timeout: 5000 }).then(() => true, () => false);
   const wiped = { played: await storeOf(p, "aioWatched"), aiojf: await storeOf(p, "aiojf"), dis: await p.evaluate(() => window.__calls.filter(([c]) => c === "aiojf_disconnect").length) };
   check(
     "Disconnect signs the device out and clears what it kept",
@@ -867,72 +882,94 @@ await page.close();
 }
 {
   const p = await openPage({ connected: false, poll: "expire" });
-  await openSettings(p);
-  const r = p.locator(".aio-row");
-  await r.getByRole("button", { name: "Connect", exact: true }).click();
-  await r.locator(".trakt-row__code").waitFor({ timeout: 5000 });
-  const gone = await r.getByText("The code ran out. Connect again for a new one.").waitFor({ timeout: 8000 }).then(() => true, () => false);
-  check("an expired code says so and offers Connect again", gone && (await r.getByRole("button", { name: "Connect", exact: true }).count()) === 1);
+  await openAioTab(p);
+  await p.getByPlaceholder("aiostreams.example.com", { exact: true }).fill("aiostreams.example.com");
+  await p.getByRole("button", { name: "Connect", exact: true }).click();
+  await p.locator(".aio-row .trakt-row__code").waitFor({ timeout: 5000 });
+  const gone = await p.getByText("The code ran out. Connect again for a new one.").waitFor({ timeout: 8000 }).then(() => true, () => false);
+  check("an expired code says so and offers Connect again", gone && (await p.getByRole("button", { name: "Connect", exact: true }).count()) === 1);
   await p.close();
 }
 {
   const p = await openPage({ connected: false, start: "unsupported" });
-  await openSettings(p);
-  const r = p.locator(".aio-row");
-  await r.getByRole("button", { name: "Connect", exact: true }).click();
-  const said = await r.getByText("Your AIOStreams needs version 2.35 or later, with its Jellyfin side on.").waitFor({ timeout: 5000 }).then(() => true, () => false);
+  await openAioTab(p);
+  await p.getByPlaceholder("aiostreams.example.com", { exact: true }).fill("aiostreams.example.com");
+  await p.getByRole("button", { name: "Connect", exact: true }).click();
+  const said = await p.getByText("Your AIOStreams needs version 2.35 or later, with its Jellyfin side on.").waitFor({ timeout: 5000 }).then(() => true, () => false);
   check("an instance with no Jellyfin side says it needs version 2.35, Jellyfin side on", said);
   await p.close();
 }
 {
   const p = await openPage({ old: true });
-  await openSettings(p);
-  const r = p.locator(".aio-row");
-  await r.waitFor({ timeout: 5000 });
-  const text = await r.innerText();
+  await openAioTab(p);
+  const field = p.getByPlaceholder(/manifest\.json/);
+  await field.waitFor({ timeout: 5000 });
+  const text = await p.locator(".settings-section").first().innerText();
   check(
     "a native build from before the sync says it needs the app update, and offers no Connect",
-    /Update the app/.test(text) && (await r.getByRole("button").count()) === 0,
+    /Update the app/.test(text) && (await p.getByRole("button", { name: "Connect", exact: true }).count()) === 0 && (await p.locator(".aio-row").count()) === 0,
     text.replace(/\n/g, " | "),
   );
   await p.close();
 }
 {
+  // Plan 023 hid the sync row until a manifest URL was stored, since its
+  // token belonged to that config. The sign-in is its own connection now.
   const p = await openPage({ connected: false, url: false });
-  await openSettings(p);
+  await openAioTab(p);
   check(
-    "with no AIOStreams URL there is no row",
-    (await p.locator(".aio-row").count()) === 0 && (await p.locator(".trakt-row").count()) === 1,
-    `${await p.locator(".aio-row").count()} aio rows, ${await p.locator(".trakt-row").count()} trakt rows, url ${JSON.stringify(await storeOf(p, "aiostreams"))}`,
+    "with no AIOStreams URL the sign-in is still there: an address field and Connect",
+    (await p.getByPlaceholder("aiostreams.example.com", { exact: true }).count()) === 1 &&
+      (await p.getByRole("button", { name: "Connect", exact: true }).count()) === 1 &&
+      (await p.getByPlaceholder(/manifest\.json/).count()) === 0 &&
+      (await p.locator(".trakt-row").count()) === 1,
+    `url ${JSON.stringify(await storeOf(p, "aiostreams"))}, ${await p.locator(".trakt-row").count()} trakt rows`,
   );
   await p.close();
 }
 
 // ------------------------------------------------------------ the URL
 {
+  // The stub here cannot open sources, so the manifest stays and its field
+  // is offered next to the sign-in. Plan 023 signed out when the URL changed;
+  // since plan 024 the sign-in is its own connection and the URL signs out
+  // of nothing.
   const p = await openPage({ connected: true });
-  await openSettings(p);
+  await openAioTab(p);
   const r = p.locator(".aio-row");
   await r.getByRole("button", { name: "Disconnect", exact: true }).waitFor({ timeout: 8000 });
-  await p.getByRole("tab", { name: "Stream" }).click();
-  const field = p.getByPlaceholder(/aiostreams\.example\.com/);
+  const field = p.getByPlaceholder(/manifest\.json/);
   await field.fill(MANIFEST_URL + "?x=1");
   await p.getByRole("button", { name: "Submit" }).click();
-  const off = await r.getByRole("button", { name: "Connect", exact: true }).waitFor({ timeout: 8000 }).then(() => true, () => false);
+  await waitFor(p, async () => (await storeOf(p, "aiostreams")) === MANIFEST_URL + "?x=1", 5000);
+  await p.waitForTimeout(800);
   const dis = await p.evaluate(() => window.__calls.filter(([c]) => c === "aiojf_disconnect").length);
-  check("changing the AIOStreams URL disconnects, since the token belongs to that config", off && dis === 1, JSON.stringify({ off, dis }));
+  check(
+    "changing the AIOStreams URL leaves the sign-in alone",
+    dis === 0 && (await r.getByRole("button", { name: "Disconnect", exact: true }).count()) === 1 && (await storeOf(p, "aiostreams")) === MANIFEST_URL + "?x=1",
+    JSON.stringify({ dis, url: await storeOf(p, "aiostreams") }),
+  );
+  // And emptying it does the same.
+  await field.fill("");
+  await p.getByRole("button", { name: "Submit" }).click();
+  await waitFor(p, async () => !(await storeOf(p, "aiostreams")), 5000);
+  await p.waitForTimeout(800);
+  check(
+    "  and so does removing it",
+    (await p.evaluate(() => window.__calls.filter(([c]) => c === "aiojf_disconnect").length)) === 0 && (await r.getByRole("button", { name: "Disconnect", exact: true }).count()) === 1,
+  );
   await p.close();
 }
 {
   const p = await openPage({ connected: true });
-  await openSettings(p);
+  await openAioTab(p);
   const r = p.locator(".aio-row");
   await r.getByRole("button", { name: "Disconnect", exact: true }).waitFor({ timeout: 8000 });
   await p.getByRole("button", { name: "Clear…" }).click();
   await p.getByRole("button", { name: "Click again to confirm" }).click();
   const gone = await waitFor(p, async () => (await p.locator(".aio-row").count()) === 0, 5000);
   const dis = await p.evaluate(() => window.__calls.filter(([c]) => c === "aiojf_disconnect").length);
-  check("Clear All Login Info signs out of the sync too, once, and the row goes with the URL", gone && dis === 1, JSON.stringify({ gone, dis }));
+  check("Clear All Login Info signs out of the sync too, once, and the signed-in row goes", gone && dis === 1 && !(await storeOf(p, "aiostreams")), JSON.stringify({ gone, dis }));
   await p.close();
 }
 

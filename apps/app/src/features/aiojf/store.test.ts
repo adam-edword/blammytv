@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadAioUrl, saveAioUrl } from "../settings/aiostreams";
 import { loadAioWatched, replaceAioWatched } from "../stream/watched";
 import {
   dropFromQueue,
@@ -120,5 +121,53 @@ describe("the sign-in this device holds", () => {
     expect(loadAiojf().signedIn).toEqual({ base: BASE, userName: "Adam" });
     forgetAiojf();
     expect(loadAiojf().signedIn).toBeUndefined();
+  });
+});
+
+describe("a manifest URL, once there is a sign-in (plan 024, D4)", () => {
+  const BASE = "https://aio.example.com/jellyfin";
+  const on = { supported: true, connected: true, userName: "Adam", userId: "u1", base: BASE };
+  const MANIFEST = "https://aio.example.com/stremio/abc/manifest.json";
+  // saveAioUrl says it changed on the window; there is none in these tests.
+  const said = vi.fn();
+  beforeEach(() => {
+    localStorage.clear();
+    said.mockClear();
+    vi.stubGlobal("window", { dispatchEvent: said });
+  });
+  // Only the window: unstubAllGlobals would take the localStorage above too.
+  afterEach(() => void Reflect.deleteProperty(globalThis, "window"));
+
+  it("is deleted when a sign-in first lands, and the sign-in is kept", () => {
+    saveAioUrl(MANIFEST);
+    said.mockClear();
+    noteSignIn(on, true);
+    expect(loadAioUrl()).toBe("");
+    expect(loadAiojf().signedIn).toEqual({ base: BASE, userName: "Adam" });
+    // It said the URL changed, so Settings' field lets go of it.
+    expect(said).toHaveBeenCalledTimes(1);
+  });
+
+  it("is kept on a build that cannot open sources, which records no sign-in", () => {
+    saveAioUrl(MANIFEST);
+    noteSignIn(on, false);
+    expect(loadAioUrl()).toBe(MANIFEST);
+    expect(loadAiojf().signedIn).toBeUndefined();
+  });
+
+  it("is only deleted going from no sign-in to one, never when the same account is read again", () => {
+    noteSignIn(on, true);
+    saveAioUrl(MANIFEST);
+    noteSignIn(on, true);
+    noteSignIn({ ...on, userName: "Eve" }, true);
+    expect(loadAioUrl()).toBe(MANIFEST);
+  });
+
+  it("is stored, changed and removed without touching the sign-in", () => {
+    noteSignIn(on, true);
+    saveAioUrl(MANIFEST);
+    saveAioUrl(MANIFEST + "?x=1");
+    saveAioUrl("");
+    expect(loadAiojf().signedIn).toEqual({ base: BASE, userName: "Adam" });
   });
 });

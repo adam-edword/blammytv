@@ -46,6 +46,15 @@ import { discoverEndpoint } from "../data/stalker";
 import { httpGetText } from "../lib/http";
 import { scrubbedMessage } from "../lib/errors";
 import { AccentPicker } from "../features/settings/AccentPicker";
+import { TraktSection } from "../features/settings/TraktSection";
+import { MalSection } from "../features/settings/MalSection";
+import { readSignIn } from "../features/aiojf/account";
+import { AioCode } from "../features/aiojf/AioCode";
+import { aiojfCanSource } from "../features/aiojf/client";
+import { syncAiojf } from "../features/aiojf/sync";
+import { APPROVE_NOTE, useAioSignIn } from "../features/aiojf/useSignIn";
+import { malStatus } from "../features/mal/client";
+import { traktStatus } from "../features/trakt/client";
 import { Segmented } from "../ui/Segmented";
 import { markOnboarded } from "./onboardingGate";
 import { bootVars, markWelcomePlayed } from "./welcome";
@@ -62,14 +71,22 @@ import { BootScene, BOOT_TIMELINE_MS, type BootSceneHandle } from "./BootScene";
  * animation and nothing ever mounts — see BootScene.tsx / boot.css.
  *
  * The source steps VERIFY, not just collect (v0.4.21): Continue runs
- * the real connection machinery (probeAioStreams for AIOStreams — the
- * same path as Settings' Connection Test, Cloudflare verdicts and all;
- * authenticate() for Xtream) while the sheet spins "thinking". Success
- * saves and auto-advances; failure shows the verdict and offers
- * "Continue anyway" — verification must never hard-wall onboarding.
+ * the real connection machinery (probeAioStreams for an AIOStreams
+ * manifest, the same path as Settings' Connection Test, Cloudflare
+ * verdicts and all; authenticate() for Xtream) while the sheet spins
+ * "thinking". Success saves and auto-advances; failure shows the verdict
+ * and offers "Continue anyway". Verification must never hard-wall
+ * onboarding.
  *
- * Steps: 0 logo · 1 streams · 2 live tv · 3 accent+clock · 4 startup
- * tab · 5 done (go-explore-Settings nudge).
+ * AIOStreams signs in by default (plan 024): the address, then a code
+ * approved on its configure page, which advances the step on its own. The
+ * manifest URL is "Use a manifest URL instead", and the whole step on a
+ * native build that cannot sign in.
+ *
+ * Steps: 0 logo · 1 sign in to AIOStreams · 2 live tv · 3 follow what you
+ * watch (Trakt, MyAnimeList; skipped both ways when this build has neither
+ * key) · 4 accent+clock · 5 startup tab · 6 tour · 7 done (go-explore-
+ * Settings nudge).
  *
  * Unlike a cold boot, the finale is NOT input-skippable (Adam's call:
  * it's the earned finale, not a wait).
@@ -90,7 +107,27 @@ const VERIFY_TIMEOUT_MS = 12_000;
 /** Success message dwell before the step auto-advances. */
 const VERIFIED_DWELL_MS = 750;
 
-const LAST_STEP = 5;
+/** The steps, in order (see the header). */
+const STEP = {
+  logo: 0,
+  signIn: 1,
+  tv: 2,
+  follow: 3,
+  look: 4,
+  start: 5,
+  tour: 6,
+  done: 7,
+} as const;
+const LAST_STEP = STEP.done;
+
+/** The tour's three lines. Each was checked against the app: the Guide's
+ * right-click menu, multi-view's four-tile ceiling, Discover's genre rail
+ * and search, Sports' games with the channels that carry them. */
+const TOUR = [
+  { name: "Multi-view", line: "Up to four channels at once. Right-click a channel in the Guide to add it." },
+  { name: "Discover", line: "Search your catalogs, or browse them by genre." },
+  { name: "Sports", line: "Today’s games, with the channels showing them." },
+] as const;
 
 const idx = (i: number) => ({ "--i": String(i) }) as CSSProperties;
 
@@ -283,6 +320,17 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  /** Whether this build has a Trakt or MyAnimeList app key to connect with.
+   * A ref: the swap reads it 400ms after the press, long after the status
+   * answered. */
+  const followAny = useRef(false);
+  /** The step `dir` away from `from`. The follow step is not there when the
+   * build has nothing to follow with, in either direction. */
+  const hop = (from: number, dir: 1 | -1) => {
+    const next = from + dir;
+    return next === STEP.follow && !followAny.current ? next + dir : next;
+  };
+
   const advance = () => {
     // Any move ends a verified step's dwell. Left armed, it fired after
     // Enter had already moved on (its `advance` is the one from when the
@@ -294,7 +342,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     setPhase("out");
     window.clearTimeout(swapTimer.current);
     swapTimer.current = window.setTimeout(() => {
-      setStep((s) => s + 1);
+      setStep((s) => hop(s, 1));
       setPhase("in");
     }, SWAP_MS);
   };
@@ -321,14 +369,92 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     setPhase("out");
     window.clearTimeout(swapTimer.current);
     swapTimer.current = window.setTimeout(() => {
-      setStep((s) => s - 1);
+      setStep((s) => hop(s, -1));
       setPhase("in");
     }, SWAP_MS);
   };
   const retreatRef = useRef(retreat);
   retreatRef.current = retreat;
 
-  // --- Streams step: input + REAL verification --------------------------
+  // --- Sign-in step (plan 024) ------------------------------------------
+  // The sign-in is on offer when the native side has the commands and can
+  // open sources by it (conn.ts); without that this step is the manifest step
+  // below, as it was. Null until the native side has answered, which is long
+  // before anyone reaches this step.
+  const [canSignIn, setCanSignIn] = useState<boolean | null>(null);
+  /** "Use a manifest URL instead". */
+  const [useManifest, setUseManifest] = useState(false);
+  const [aioAddress, setAioAddress] = useState("");
+  /** Signed in before onboarding (a replay), or by this step. */
+  const [signedIn, setSignedIn] = useState<{ name?: string } | null>(null);
+  /** The attempt's `checkGen`, so an approval that lands after a move saves
+   * the sign-in but leaves the step where it is. */
+  const signGen = useRef(0);
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const s = await readSignIn();
+      const usable = s.supported && (await aiojfCanSource());
+      if (!live) return;
+      setCanSignIn(usable);
+      if (usable && s.connected) setSignedIn({ name: s.userName });
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+  const flow = useAioSignIn((s) => {
+    if (!s.connected) return;
+    setSignedIn({ name: s.userName });
+    // The first sync runs on its own: what you watched elsewhere comes back.
+    void syncAiojf();
+    if (signGen.current !== checkGen.current) return;
+    window.clearTimeout(autoTimer.current);
+    autoTimer.current = window.setTimeout(advance, VERIFIED_DWELL_MS);
+  });
+  // A code under way belongs to this step: leaving it ends the attempt.
+  const cancelSignIn = flow.cancel;
+  useEffect(() => {
+    if (step !== STEP.signIn) cancelSignIn();
+  }, [step, cancelSignIn]);
+  // The sheet spins while the address is checked and the code asked for.
+  const signInStarting = flow.phase.at === "starting";
+  useEffect(() => {
+    if (!signInStarting) return;
+    const boot = bootRef.current;
+    boot?.thinkHard();
+    return () => boot?.thinkDone();
+  }, [signInStarting]);
+  const signInMode = canSignIn !== false && !useManifest;
+  const continueSignIn = () => {
+    if (signInStarting || phase === "out" || finale) return;
+    if (signedIn) {
+      advance();
+      return;
+    }
+    // Enter with the code up opens the page it is approved on.
+    if (flow.phase.at === "code") {
+      flow.openAio();
+      return;
+    }
+    const address = aioAddress.trim();
+    if (!address) {
+      advance();
+      return;
+    }
+    signGen.current = checkGen.current;
+    void flow.start(address);
+  };
+  const ghostSignIn = () => {
+    if (signInStarting) return;
+    flow.cancel();
+    advance();
+  };
+  const onAddressKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.repeat) continueSignIn();
+  };
+
+  // --- Streams step, the manifest way: input + REAL verification --------
   const [manifest, setManifest] = useState(loadAioUrl);
   // The invalid hint waits for a submit attempt or blur — flashing an
   // error while someone is mid-typing a URL is noise, not help.
@@ -539,6 +665,20 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     if (e.key === "Enter" && !e.repeat) continueTv();
   };
 
+  // --- Follow step: which of Trakt and MyAnimeList this build can connect ---
+  const [follow, setFollow] = useState<{ trakt: boolean; mal: boolean } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void Promise.all([traktStatus(), malStatus()]).then(([t, m]) => {
+      if (!live) return;
+      followAny.current = t.configured || m.configured;
+      setFollow({ trakt: t.configured, mal: m.configured });
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   // --- Clock step ---------------------------------------------------------
   const [clock, setClock] = useState<ClockFormat>(loadClockFormat);
   const pickClock = (next: ClockFormat) => {
@@ -554,15 +694,16 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
   };
 
   primaryRef.current =
-    step === 0 ? advance
-    : step === 1 ? continueStreams
-    : step === 2 ? continueTv
-    : step === 3 ? advance
-    : step === 4 ? advance
+    step === STEP.logo ? advance
+    : step === STEP.signIn ? (signInMode ? continueSignIn : continueStreams)
+    : step === STEP.tv ? continueTv
+    : step === STEP.follow || step === STEP.look || step === STEP.start || step === STEP.tour ? advance
     : finish;
 
+  const quick = flow.phase.at === "code" ? flow.phase.start : null;
+
   const content =
-    step === 0 ? (
+    step === STEP.logo ? (
       <>
         <div className="onb-lockup" style={idx(0)}>
           <span className="onb-mark">
@@ -579,69 +720,184 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
           Get started
         </Button>
       </>
-    ) : step === 1 ? (
-      <>
-        <h1 className="onb-title" style={idx(0)}>
-          Bring your streams
-        </h1>
-        <p className="onb-sub" style={idx(1)}>
-          Paste your AIOStreams manifest URL to power movies and series.
-          We&rsquo;ll check the connection for real before moving on.
-        </p>
-        <input
-          className={"onb-input" + (showManifestHint ? " is-invalid" : "")}
-          style={idx(2)}
-          type="text"
-          value={manifest}
-          onChange={(e) => {
-            setManifest(e.target.value);
-            setStreamsMsg(null);
-            setStreamsFailed(false);
-          }}
-          onKeyDown={onManifestKey}
-          onBlur={() => setManifestTouched(true)}
-          placeholder="https://aiostreams.example.com/…/manifest.json"
-          aria-invalid={showManifestHint || undefined}
-          spellCheck={false}
-          autoComplete="off"
-          {...PM_IGNORE}
-          disabled={streamsChecking}
-          autoFocus
-        />
-        {showManifestHint && (
-          <p className="onb-hint" role="alert">
-            That doesn&rsquo;t look like a manifest URL. It should start
-            with http(s) and end in /manifest.json.
+    ) : step === STEP.signIn ? (
+      signInMode ? (
+        signedIn ? (
+          <>
+            <h1 className="onb-title" style={idx(0)}>
+              Sign in to AIOStreams
+            </h1>
+            <p className="onb-hint onb-hint--ok" role="status" style={idx(1)}>
+              {signedIn.name ? `Signed in as ${signedIn.name}.` : "Signed in."} Nice.
+            </p>
+            <div className="onb-row" style={idx(2)}>
+              <Button variant="default" size="lg" type="button" className="onb-btn" onClick={advance}>
+                Continue
+              </Button>
+            </div>
+          </>
+        ) : quick ? (
+          <>
+            <h1 className="onb-title" style={idx(0)}>
+              Sign in to AIOStreams
+            </h1>
+            <div style={idx(1)}>
+              <AioCode
+                variant="onboarding"
+                code={quick.code}
+                copied={flow.copied}
+                onCopy={() => void flow.copyCode(quick.code)}
+              />
+            </div>
+            <p className="onb-sub" style={idx(2)}>
+              {APPROVE_NOTE}
+            </p>
+            <div className="onb-row" style={idx(3)}>
+              <Button variant="default" size="lg" type="button" className="onb-btn" onClick={flow.openAio}>
+                Open AIOStreams
+              </Button>
+              <Button variant="ghost" type="button" className="onb-ghost" onClick={flow.cancel}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="onb-title" style={idx(0)}>
+              Sign in to AIOStreams
+            </h1>
+            <p className="onb-sub" style={idx(1)}>
+              Type your AIOStreams address and approve the code it gives you. No manifest URL to
+              paste. Signing in also syncs what you watch with your other AIOStreams apps.
+            </p>
+            <input
+              className="onb-input"
+              style={idx(2)}
+              type="text"
+              value={aioAddress}
+              onChange={(e) => setAioAddress(e.target.value)}
+              onKeyDown={onAddressKey}
+              placeholder="aiostreams.example.com"
+              spellCheck={false}
+              autoComplete="off"
+              {...PM_IGNORE}
+              disabled={signInStarting}
+              autoFocus
+            />
+            {flow.phase.at === "idle" && flow.phase.note && (
+              <p className="onb-hint" role="alert">
+                {flow.phase.note}
+              </p>
+            )}
+            <div className="onb-row" style={idx(3)}>
+              <Button
+                variant="default"
+                size="lg"
+                type="button"
+                className="onb-btn"
+                disabled={signInStarting}
+                onClick={continueSignIn}
+              >
+                {signInStarting ? "Connecting…" : "Continue"}
+              </Button>
+              <Button
+                variant="ghost"
+                type="button"
+                className="onb-ghost"
+                disabled={signInStarting}
+                onClick={ghostSignIn}
+              >
+                I’ll do this later
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                className="onb-link"
+                disabled={signInStarting}
+                onClick={() => setUseManifest(true)}
+              >
+                Use a manifest URL instead
+              </Button>
+            </div>
+          </>
+        )
+      ) : (
+        <>
+          <h1 className="onb-title" style={idx(0)}>
+            Bring your streams
+          </h1>
+          <p className="onb-sub" style={idx(1)}>
+            Paste your AIOStreams manifest URL to power movies and series.
+            We&rsquo;ll check the connection for real before moving on.
           </p>
-        )}
-        {streamsMsg && (
-          <p
-            className={"onb-hint" + (streamsMsg.ok ? " onb-hint--ok" : "")}
-            role={streamsMsg.ok ? "status" : "alert"}
-          >
-            {streamsMsg.text}
-          </p>
-        )}
-        <div className="onb-row" style={idx(3)}>
-          <Button variant="default" size="lg"
-            type="button"
-            className="onb-btn"
-            disabled={!manifestOk || streamsChecking}
-            onClick={continueStreams}
-          >
-            {streamsChecking ? "Connecting…" : "Continue"}
-          </Button>
-          <Button variant="ghost"
-            type="button"
-            className="onb-ghost"
+          <input
+            className={"onb-input" + (showManifestHint ? " is-invalid" : "")}
+            style={idx(2)}
+            type="text"
+            value={manifest}
+            onChange={(e) => {
+              setManifest(e.target.value);
+              setStreamsMsg(null);
+              setStreamsFailed(false);
+            }}
+            onKeyDown={onManifestKey}
+            onBlur={() => setManifestTouched(true)}
+            placeholder="https://aiostreams.example.com/…/manifest.json"
+            aria-invalid={showManifestHint || undefined}
+            spellCheck={false}
+            autoComplete="off"
+            {...PM_IGNORE}
             disabled={streamsChecking}
-            onClick={ghostStreams}
-          >
-            {streamsFailed ? "Continue anyway" : "I’ll do this later"}
-          </Button>
-        </div>
-      </>
-    ) : step === 2 ? (
+            autoFocus
+          />
+          {showManifestHint && (
+            <p className="onb-hint" role="alert">
+              That doesn&rsquo;t look like a manifest URL. It should start
+              with http(s) and end in /manifest.json.
+            </p>
+          )}
+          {streamsMsg && (
+            <p
+              className={"onb-hint" + (streamsMsg.ok ? " onb-hint--ok" : "")}
+              role={streamsMsg.ok ? "status" : "alert"}
+            >
+              {streamsMsg.text}
+            </p>
+          )}
+          <div className="onb-row" style={idx(3)}>
+            <Button variant="default" size="lg"
+              type="button"
+              className="onb-btn"
+              disabled={!manifestOk || streamsChecking}
+              onClick={continueStreams}
+            >
+              {streamsChecking ? "Connecting…" : "Continue"}
+            </Button>
+            <Button variant="ghost"
+              type="button"
+              className="onb-ghost"
+              disabled={streamsChecking}
+              onClick={ghostStreams}
+            >
+              {streamsFailed ? "Continue anyway" : "I’ll do this later"}
+            </Button>
+            {canSignIn && (
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                className="onb-link"
+                disabled={streamsChecking}
+                onClick={() => setUseManifest(false)}
+              >
+                Sign in with an address instead
+              </Button>
+            )}
+          </div>
+        </>
+      )
+    ) : step === STEP.tv ? (
       <>
         <h1 className="onb-title" style={idx(0)}>
           Connect Live TV
@@ -785,7 +1041,32 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
           </Button>
         </div>
       </>
-    ) : step === 3 ? (
+    ) : step === STEP.follow ? (
+      <>
+        <h1 className="onb-title" style={idx(0)}>
+          Follow what you watch
+        </h1>
+        <p className="onb-sub" style={idx(1)}>
+          Trakt and MyAnimeList keep track of what you watch here, and bring
+          back what you watched elsewhere.
+        </p>
+        {/* Settings' own rows (TraktSection, MalSection), not copies: the
+            same sign-in flow, so what works there works here. A service this
+            build has no key for is not offered. */}
+        <div className="onb-accounts" style={idx(2)}>
+          {follow?.trakt && <TraktSection />}
+          {follow?.mal && <MalSection />}
+        </div>
+        <Button variant="default" size="lg"
+          type="button"
+          className="onb-btn"
+          style={idx(3)}
+          onClick={advance}
+        >
+          Continue
+        </Button>
+      </>
+    ) : step === STEP.look ? (
       <>
         <h1 className="onb-title" style={idx(0)}>
           Make it yours
@@ -815,7 +1096,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
           Continue
         </Button>
       </>
-    ) : step === 4 ? (
+    ) : step === STEP.start ? (
       <>
         <h1 className="onb-title" style={idx(0)}>
           Where should we start?
@@ -836,6 +1117,28 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
           type="button"
           className="onb-btn"
           style={idx(3)}
+          onClick={advance}
+        >
+          Continue
+        </Button>
+      </>
+    ) : step === STEP.tour ? (
+      <>
+        <h1 className="onb-title" style={idx(0)}>
+          A few things to find
+        </h1>
+        <ul className="onb-tour" style={idx(1)}>
+          {TOUR.map((t) => (
+            <li key={t.name}>
+              <span className="onb-tour__name">{t.name}</span>
+              <span className="onb-tour__line">{t.line}</span>
+            </li>
+          ))}
+        </ul>
+        <Button variant="default" size="lg"
+          type="button"
+          className="onb-btn"
+          style={idx(2)}
           onClick={advance}
         >
           Continue

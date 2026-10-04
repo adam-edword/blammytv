@@ -1957,7 +1957,7 @@ function Home({
         className="stream__note"
         icon={<StreamIcon size={28} />}
         title="Movies and shows, one tab over from live"
-        sub="Paste your AIOStreams manifest URL in Settings → General → Sources and the catalog appears here."
+        sub="Sign in to your AIOStreams in Settings → General → Sources → Stream and the catalog appears here."
       />
     );
   }
@@ -1977,7 +1977,14 @@ function Home({
         role="alert"
         icon={<WarnIcon size={28} />}
         title="Couldn’t load your catalog"
-        sub={<>{load.message}. Check the manifest URL in Settings → General → Sources.</>}
+        sub={
+          <>
+            {load.message}.{" "}
+            {loadAioConn()?.kind === "signin"
+              ? "Check your AIOStreams sign-in in Settings → General → Sources → Stream."
+              : "Check the manifest URL in Settings → General → Sources → Stream."}
+          </>
+        }
         // Live's error states retry; siblings match (the audit's dead-end
         // finding).
         actions={

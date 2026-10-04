@@ -330,6 +330,92 @@
   background: rgba(255, 255, 255, 0.07);
 }
 
+/* The AIOStreams sign-in's code (plan 024): the one Settings shows
+ * (settings.css .trakt-row__code), white on black here. Onboarding is a dark
+ * world of its own, so it cannot borrow the page's text token. */
+.onb-codeline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px 0 2px;
+}
+.onb-code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #fff;
+  /* The page is unselectable (base.css); this is the one thing on it a
+   * user needs to copy. */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+/* A quiet text button under a step's actions ("Use a manifest URL
+ * instead"): there if you need it, nothing to compete with Continue. */
+.onb-link {
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.onb-link:hover {
+  color: #fff;
+}
+
+/* Follow what you watch (plan 024): Settings' own Trakt and MyAnimeList
+ * rows, set on black. They are written for the settings card, so the text
+ * tokens they read are given the onboarding's white, and each row gets the
+ * glass the inputs wear. */
+.onb-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(560px, 82vw);
+  margin-top: 10px;
+  text-align: left;
+  --text: #fff;
+  --text-muted: rgba(255, 255, 255, 0.62);
+  --text-faint: rgba(255, 255, 255, 0.5);
+}
+.onb-accounts .customize-row {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-chip);
+  background: rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(10px);
+}
+
+/* The tour: three things to find, a name and a line each. */
+.onb-tour {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(560px, 82vw);
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.onb-tour li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.onb-tour__name {
+  font-family: var(--font-headline);
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+.onb-tour__line {
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.62);
+}
+
 /* The startup-tab rail: the shared segmented control, given a touch of
  * air. Its glass reads right on black as it is. */
 .onb-chips {

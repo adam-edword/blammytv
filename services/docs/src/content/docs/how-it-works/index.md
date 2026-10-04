@@ -35,12 +35,12 @@ the app is down with it and nothing could have cached it for you.
 | `api.themoviedb.org` | Asking **Discover** for ideas (REC) | The words you typed, and a lookup for the title it suggests back. Never your library or what you watch. |
 | `auth.trakt.tv`, `api.trakt.tv` | **Only if you connect Trakt** | Your sign-in, then what you play and how far in, and your watch history, paused positions and watchlist, both ways |
 | `myanimelist.net`, `api.myanimelist.net` | **Only if you connect MyAnimeList** | Your sign-in, then the episode count of an anime when you finish an episode, and your list's counts back |
-| Your AIOStreams instance | **Only if you connect AIOStreams sync** | Your sign-in, then what you play and how far in, and a played mark when you finish something. It sends back what you watched in its other apps, where you left off, and what's next. |
+| Your AIOStreams instance | Browsing **Stream**, once you've set it up | Signed in: your sign-in, then requests for your catalogs, a title's details and, when you open a title, the search for its sources. It also gets what you play and how far in, and a played mark when you finish something, and it sends back what you watched in its other apps, where you left off, and what's next. With a manifest URL instead: that URL, for the same requests, and no reports of what you play. |
 
-If you connect AIOStreams sync, AIOStreams looks up skip markers for what you
-play. That lookup is the instance's own setting, not BlammyTV's: it sends the
-title, season and episode to IntroDB, AniSkip and PMDB, and BlammyTV only
-reads the answer.
+If you sign in to AIOStreams, it looks up skip markers for what you play. That
+lookup is the instance's own setting, not BlammyTV's: it sends the title,
+season and episode to IntroDB, AniSkip and PMDB, and BlammyTV only reads the
+answer.
 
 ## Nothing of ours
 
@@ -51,11 +51,12 @@ to report to.
 
 - It doesn't host, index or supply any content.
 - **It has no account of its own.** There is nothing to sign up for. Trakt
-  and MyAnimeList are optional, and they're your accounts with them. AIOStreams
-  sync is optional too, and it's your own instance.
+  and MyAnimeList are optional, and they're your accounts with them. Signing in
+  to AIOStreams is optional too, and it's your own instance.
 - **It sends your credentials nowhere.** Playlist passwords, portal MAC
-  addresses and your AIOStreams URL never leave your machine. They're scrubbed
-  out of error messages too, so a diagnostic can't carry one by accident.
+  addresses and your AIOStreams manifest URL, if you use one, never leave your
+  machine. They're scrubbed out of error messages too, so a diagnostic can't
+  carry one by accident.
 - **It has no analytics.** No page views, no session tracking, no third-party
   analytics service. The only things that report what you watch are Trakt,
   MyAnimeList and your AIOStreams instance, if you connect them, because that's
@@ -76,14 +77,17 @@ Windows user account, alongside the rest of BlammyTV's per-user data in
 the settings.
 
 :::caution[Credentials are stored in the clear]
-Playlist passwords, portal MAC addresses and your AIOStreams URL are saved as
-plain text, not encrypted. Anything running as your Windows user can read
-them. That's the same posture as most desktop IPTV clients, but you should
-know rather than assume otherwise. If your machine is shared, your provider
-credentials are shared.
+Playlist passwords, portal MAC addresses and, if you use one, your AIOStreams
+manifest URL are saved as plain text, not encrypted. Anything running as your
+Windows user can read them. That's the same posture as most desktop IPTV
+clients, but you should know rather than assume otherwise. If your machine is
+shared, your provider credentials are shared.
 
-Trakt, MyAnimeList and AIOStreams sync are the exception: their sign-ins are
-kept in Windows Credential Manager, not in the app's profile.
+Trakt, MyAnimeList and your AIOStreams sign-in are the exception: they're kept
+in Windows Credential Manager, not in the app's profile. Signed in, none of
+AIOStreams' credentials are stored in the clear. The manifest URL is, and only
+when you use it instead. The profile does hold your instance's address and
+your user name, and neither opens anything on its own.
 :::
 
 ## Playback

@@ -1,6 +1,13 @@
 // E2E: first-run onboarding — gate behavior, full walk with REAL
 // verification (fake-aio :8084 + fake-panel :8081), blocked-instance
 // verdict, saves, finale hand-off, reduced-motion, skip.
+//
+// The walk runs in a plain browser, which is a build that cannot sign in, so
+// step 1 is the manifest step it always was. The AIOStreams sign-in (plan 024),
+// the follow step and the tour are walked in a page with the native side
+// stubbed (section 11 on): a code and its approval, the manifest fallback
+// verifying for real, the follow step shown with configured stubs and skipped
+// both ways with none, Back across the skipped step.
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
@@ -8,6 +15,13 @@ const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromi
 const FAST = process.env.FAST === "1"; // FAST=1: core walk only (iteration); full suite = pre-push gate
 const results = [];
 const check = (n, ok, x = "") => { results.push(ok); console.log(`${ok ? "✓" : "✗"} ${n}${x ? " — " + x : ""}`); };
+
+/** The tour's three things, as the step says them. */
+const TOUR = [
+  ["Multi-view", "Up to four channels at once. Right-click a channel in the Guide to add it."],
+  ["Discover", "Search your catalogs, or browse them by genre."],
+  ["Sports", "Today\u2019s games, with the channels showing them."],
+];
 
 const newPage = async (init = {}, opts = {}) => {
   const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 }, ...opts });
@@ -150,6 +164,16 @@ if (!FAST) {
     JSON.parse(localStorage.getItem("blammytv.startupTab") ?? "{}").data);
   check("startup pill saves the choice", startup === "stream", String(startup));
   await page.locator(".onb").getByRole("button", { name: "Live TV", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+  // The tour (plan 024): a few things to find, a line each, before the finale.
+  await page.waitForSelector(".onb-tour", { timeout: 8000 });
+  const tourTitle = await page.$eval(".onb-title", (el) => el.textContent);
+  const tour = await page.$$eval(".onb-tour li", (lis) =>
+    lis.map((li) => [li.querySelector(".onb-tour__name")?.textContent, li.querySelector(".onb-tour__line")?.textContent]));
+  check("the tour is titled and has exactly three things to find, a line each",
+    tourTitle === "A few things to find" && JSON.stringify(tour) === JSON.stringify(TOUR),
+    JSON.stringify({ tourTitle, tour }));
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
   // Done: the Settings nudge, then the hand-off.
@@ -543,6 +567,10 @@ if (!FAST) {
   await page.keyboard.press("Escape");
   const stepped = await page.waitForSelector(".onb-fields", { timeout: 8000 }).then(() => true).catch(() => false);
   check("with it closed, Escape steps back as before", stepped);
+  // Plain browser: no Trakt or MyAnimeList key, so the follow step between
+  // Live TV and this one is not there. Back lands on Live TV, not on it.
+  check("  across the skipped follow step: Live TV, not an empty step between",
+    !(await page.$(".onb-accounts")) && (await page.$eval(".onb-title", (el) => el.textContent)) === "Connect Live TV");
   await page.close();
 
 }
@@ -603,6 +631,8 @@ if (!FAST) {
   await page.waitForSelector(".onb-prefs", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-tour", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
   // No timeline for reduced motion: the finale is a quick fade to the app.
@@ -694,6 +724,318 @@ if (!FAST) {
     .then(() => true)
     .catch(() => false);
   check("cold boot: input skips it immediately", gone);
+  await page.close();
+}
+
+// 11. The AIOStreams sign-in, the follow step and the tour (plan 024), in a
+//     page with the native side stubbed. `o`: connected (the vault holds a
+//     sign-in), old (a build from before the sign-in), noSources (one from
+//     before aiojf_sources), start ("unsupported"), trakt / mal (this build
+//     has the app key), poll ("never": the code is never approved).
+const BASE = "http://127.0.0.1:9/jellyfin";
+const CONFIGURE = "http://127.0.0.1:9/stremio/configure";
+const tauriStub = ({ o, base, configure }) => {
+  window.__calls = [];
+  window.__copied = [];
+  window.__connected = !!o.connected;
+  let polls = 0;
+  let cb = 0;
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: (t) => (window.__copied.push(t), Promise.resolve()) },
+  });
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: (f) => {
+      const id = ++cb;
+      window["_" + id] = f;
+      return id;
+    },
+    convertFileSrc: (p) => p,
+    metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main", windowLabel: "main" } },
+    invoke: (cmd, args) => {
+      window.__calls.push([cmd, args]);
+      if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
+      // The forensic GET behind a failed step: what answered, and how its body starts.
+      if (cmd === "http_probe")
+        return fetch(args.url).then(async (r) => {
+          const headers = {};
+          r.headers.forEach((v, k) => (headers[k] = v));
+          return JSON.stringify({ status: r.status, headers, bodyHead: (await r.text()).slice(0, 600) });
+        });
+      if (cmd.startsWith("aiojf_") && o.old) return Promise.reject(`Command ${cmd} not found`);
+      if (cmd === "aiojf_status")
+        return Promise.resolve(window.__connected ? { connected: true, userName: "Adam", userId: "u1", base } : { connected: false });
+      if (cmd === "aiojf_sources") {
+        if (o.noSources) return Promise.reject("Command aiojf_sources not found");
+        // As aiojf.rs: an id that is not 32 lower case hex is refused before a request.
+        return Promise.reject("refused: not an AIOStreams item id");
+      }
+      if (cmd === "aiojf_start") {
+        if (o.start === "unsupported") return Promise.reject("unsupported: no Jellyfin side on this instance");
+        return Promise.resolve({ code: "654321", expiresIn: 600, configureUrl: configure });
+      }
+      if (cmd === "aiojf_poll") {
+        if (o.poll === "never") return Promise.resolve("pending");
+        if (++polls < 2) return Promise.resolve("pending");
+        window.__connected = true;
+        return Promise.resolve("approved");
+      }
+      if (cmd === "aiojf_request") return Promise.resolve({ status: 200, body: JSON.stringify({ Items: [], TotalRecordCount: 0 }) });
+      if (cmd === "aiojf_disconnect") {
+        window.__connected = false;
+        return Promise.resolve();
+      }
+      if (cmd === "trakt_status") return Promise.resolve({ configured: !!o.trakt, connected: false });
+      if (cmd === "mal_status") return Promise.resolve({ configured: !!o.mal, connected: false });
+      if (cmd === "trakt_device_start")
+        return Promise.resolve({ user_code: "TRAKT123", verification_url: "https://trakt.tv/activate", expires_in: 600, interval: 5 });
+      if (cmd === "trakt_device_poll") return Promise.resolve("pending");
+      if (cmd === "mal_sign_in_start") return Promise.resolve("https://myanimelist.net/v1/oauth2/authorize?x=1");
+      if (cmd === "mal_sign_in_poll") return Promise.resolve({ at: "waiting" });
+      return Promise.resolve(undefined);
+    },
+  };
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+};
+const newTauriPage = async (o = {}, init = {}) => {
+  const page = await newPage(init);
+  // Offline, as every harness is: only localhost answers.
+  await page.context().route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+  await page.addInitScript(tauriStub, { o, base: BASE, configure: CONFIGURE });
+  await page.goto("http://localhost:4173/?onboarding=1");
+  await page.waitForSelector(".onb");
+  return page;
+};
+const titleOf = (page) => page.$eval(".onb-title", (el) => el.textContent).catch(() => "");
+const callsOf = (page, cmd) => page.evaluate((c) => window.__calls.filter(([n]) => n === c).map(([, a]) => a), cmd);
+const stored = (page, key) => page.evaluate((k) => JSON.parse(localStorage.getItem(`blammytv.${k}`) ?? "null")?.data ?? null, key);
+/** The screen the overlay is on, by what only it has. */
+const whereIs = (page) =>
+  page.evaluate(() => {
+    const t = document.querySelector(".onb-title")?.textContent ?? "";
+    return t || (document.querySelector(".onb-lockup") ? "logo" : "");
+  });
+const toStep1 = async (page) => {
+  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.locator(".onb-title", { hasText: /Sign in to AIOStreams|Bring your streams/ }).waitFor({ timeout: 8000 });
+};
+
+// 11a. The sign-in: the address, a code, an approval that advances on its own.
+if (!FAST) {
+  const page = await newTauriPage({ trakt: true, mal: true });
+  await toStep1(page);
+  const sub = await page.$$eval(".onb-sub", (els) => els.map((e) => e.textContent).join(" "));
+  const input = page.getByPlaceholder("aiostreams.example.com", { exact: true });
+  check("step 1 is the sign-in: a title, the syncs-too line, an address field",
+    (await titleOf(page)) === "Sign in to AIOStreams" && /Signing in also syncs what you watch with your other AIOStreams apps\./.test(sub) && (await input.count()) === 1,
+    JSON.stringify({ title: await titleOf(page), sub }));
+  check("  the manifest and \"I'll do this later\" are one click away, quietly",
+    (await page.getByRole("button", { name: "Use a manifest URL instead" }).count()) === 1 &&
+      (await page.getByRole("button", { name: /later/ }).count()) === 1 &&
+      (await page.locator(".onb-input[placeholder*='manifest']").count()) === 0);
+  await input.fill("aiostreams.example.com");
+  await input.press("Enter");
+  const code = await page.locator(".onb-code").innerText({ timeout: 8000 }).catch(() => "");
+  const starts = await callsOf(page, "aiojf_start");
+  check("Enter on the address starts the code with it, shown large",
+    code === "654321" && starts.length === 1 && starts[0].manifestUrl === "aiostreams.example.com", JSON.stringify({ code, starts }));
+  const selectable = await page.locator(".onb-code").evaluate((el) => getComputedStyle(el).userSelect);
+  const fontSize = await page.locator(".onb-code").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  await page.getByRole("button", { name: "Copy code" }).click();
+  check("  the code is big, can be selected, and its button copies it",
+    fontSize >= 32 && selectable === "text" && JSON.stringify(await page.evaluate(() => window.__copied)) === JSON.stringify(["654321"]),
+    JSON.stringify({ fontSize, selectable }));
+  check("  and says where to approve it",
+    /Save & Install, Jellyfin apps, Connect/.test(await page.$eval(".onb-sub", (e) => e.textContent)));
+  if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/onb-signin-code.png` });
+  await page.getByRole("button", { name: "Open AIOStreams" }).click();
+  const opened = await callsOf(page, "open_external");
+  check("  Open AIOStreams copies it and opens the configure page through the app",
+    opened[0]?.url === CONFIGURE && (await page.evaluate(() => window.__copied.length)) === 2, JSON.stringify(opened));
+  // Approved on the second poll: no click, it moves on by itself.
+  const ok = await page.waitForSelector(".onb-hint--ok", { timeout: 14_000 }).then((el) => el.textContent()).catch(() => null);
+  check("an approval says who signed in", /Signed in as Adam/.test(String(ok)), String(ok));
+  const advanced = await page.waitForSelector(".onb-fields", { timeout: 8000 }).then(() => true).catch(() => false);
+  check("  and advances on its own, as a verified step does", advanced);
+  const si = (await stored(page, "aiojf"))?.signedIn;
+  check("  the sign-in is recorded on this device, with no token", si?.userName === "Adam" && JSON.stringify(si) === JSON.stringify({ base: BASE, userName: "Adam" }), JSON.stringify(si));
+  check("  and nothing was written for a manifest", !(await stored(page, "aiostreams")));
+  // Back to the step: it says so, rather than asking again.
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-hint--ok", { timeout: 8000 });
+  check("Back to a signed-in step shows Continue, not another code",
+    (await page.getByRole("button", { name: "Continue", exact: true }).count()) === 1 && (await page.locator(".onb-input").count()) === 0 && (await callsOf(page, "aiojf_start")).length === 1);
+  await page.close();
+}
+
+// 11b. The follow step: shown with configured stubs, one Connect each, and
+//      Back across it. Then the tour, and Back from the tour.
+if (!FAST) {
+  const page = await newTauriPage({ trakt: true, mal: true });
+  await toStep1(page);
+  await page.getByRole("button", { name: /later/ }).click(); // sign in later
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  await page.getByRole("button", { name: /later/ }).click(); // live tv later
+  await page.waitForSelector(".onb-accounts", { timeout: 8000 });
+  check("with Trakt and MyAnimeList keys, the step after Live TV is Follow what you watch",
+    (await titleOf(page)) === "Follow what you watch", await titleOf(page));
+  const sub = await page.$eval(".onb-sub", (e) => e.textContent);
+  check("  one line on why", sub.replace(/\s+/g, " ") === "Trakt and MyAnimeList keep track of what you watch here, and bring back what you watched elsewhere.", sub);
+  const rows = page.locator(".onb-accounts .customize-row__title");
+  await rows.first().waitFor({ timeout: 8000 });
+  await page.locator(".onb-accounts .mal-row").waitFor({ timeout: 8000 });
+  check("  a Trakt row and a MyAnimeList row, each with a Connect, and Continue is there",
+    JSON.stringify(await rows.allInnerTexts()) === JSON.stringify(["Trakt", "MyAnimeList"]) &&
+      (await page.locator(".onb-accounts").getByRole("button", { name: "Connect", exact: true }).count()) === 2 &&
+      (await page.getByRole("button", { name: "Continue", exact: true }).count()) === 1,
+    JSON.stringify(await rows.allInnerTexts()));
+  if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/onb-follow.png` });
+  // The rows are Settings' own: Trakt's Connect shows its code here too.
+  await page.locator(".onb-accounts .trakt-row").getByRole("button", { name: "Connect", exact: true }).click();
+  const traktCode = await page.locator(".onb-accounts .trakt-row__code").innerText({ timeout: 5000 }).catch(() => "");
+  check("  Trakt's Connect is Settings' flow: its code, here", traktCode === "TRAKT123", traktCode);
+  // MyAnimeList's Connect opens its page and waits, as in Settings.
+  await page.locator(".onb-accounts .mal-row").getByRole("button", { name: "Connect", exact: true }).click();
+  const malOpen = await page.locator(".onb-accounts .mal-row").getByRole("button", { name: "Open MyAnimeList" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  check("  and so is MyAnimeList's", malOpen && (await callsOf(page, "mal_sign_in_start")).length === 1);
+  // Continue always works, with nothing connected.
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 });
+  check("Continue with nothing connected goes on to Make it yours", (await titleOf(page)) === "Make it yours");
+  // The tour's Back lands on the start step, and Back from there on this one.
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-accounts", { timeout: 8000 });
+  check("Back from Make it yours returns to Follow what you watch", (await titleOf(page)) === "Follow what you watch");
+  // A sign-in left half done is closed with the step: MAL's port is given back.
+  check("  leaving it cancelled the MyAnimeList sign-in that was waiting", (await callsOf(page, "mal_sign_in_cancel")).length >= 1);
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  check("  and Back again, Live TV", (await titleOf(page)) === "Connect Live TV");
+  await page.close();
+}
+
+// 11c. Only one of the two has a key: only that one shows.
+if (!FAST) {
+  const page = await newTauriPage({ mal: true });
+  await toStep1(page);
+  await page.getByRole("button", { name: /later/ }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  await page.getByRole("button", { name: /later/ }).click();
+  await page.waitForSelector(".onb-accounts", { timeout: 8000 });
+  await page.locator(".onb-accounts .mal-row").waitFor({ timeout: 8000 });
+  check("a service whose app key is not in the build does not show",
+    (await page.locator(".onb-accounts .trakt-row").count()) === 0 && (await page.locator(".onb-accounts .mal-row").count()) === 1);
+  await page.close();
+}
+
+// 11d. Neither has a key: the step is skipped, going forward and going back.
+if (!FAST) {
+  const page = await newTauriPage({});
+  await toStep1(page);
+  await page.getByRole("button", { name: /later/ }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  await page.getByRole("button", { name: /later/ }).click();
+  // The step after Live TV is the one on screen, not an empty one in between.
+  // (A miss is a failed check here, not a throw: a step that is not skipped
+  // never shows the next one's controls.)
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 }).catch(() => null);
+  check("with neither key, the step after Live TV is Make it yours",
+    (await titleOf(page)) === "Make it yours" && (await page.locator(".onb-accounts").count()) === 0, await titleOf(page));
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 8000 }).catch(() => null);
+  check("  and Back from it is Live TV", (await titleOf(page)) === "Connect Live TV" && (await page.locator(".onb-accounts").count()) === 0);
+  await page.close();
+}
+
+// 11e. "Use a manifest URL instead" is today's step, verifying for real.
+if (!FAST) {
+  const page = await newTauriPage({});
+  await toStep1(page);
+  await page.getByRole("button", { name: "Use a manifest URL instead" }).click();
+  const manifestField = page.getByPlaceholder(/manifest\.json/);
+  await manifestField.waitFor({ timeout: 8000 });
+  check("\"Use a manifest URL instead\" swaps in the manifest field, with a way back",
+    (await page.getByPlaceholder("aiostreams.example.com", { exact: true }).count()) === 0 &&
+      (await page.getByRole("button", { name: "Sign in with an address instead" }).count()) === 1);
+  await manifestField.fill("http://localhost:8084/manifest.json");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const okMsg = await page.waitForSelector(".onb-hint--ok", { timeout: 10000 }).then((el) => el.textContent()).catch(() => null);
+  check("  the manifest still verifies for real: the catalog count", !!okMsg && /Connected, 5 catalogs found/.test(okMsg), String(okMsg));
+  const advanced = await page.waitForSelector(".onb-fields", { timeout: 8000 }).then(() => true).catch(() => false);
+  check("  saves, and advances", advanced && (await stored(page, "aiostreams")) === "http://localhost:8084/manifest.json");
+  check("  and started no sign-in", (await callsOf(page, "aiojf_start")).length === 0);
+  await page.close();
+}
+if (!FAST) {
+  // The blocked instance's verdict still shows over the fallback.
+  const page = await newTauriPage({});
+  await toStep1(page);
+  await page.getByRole("button", { name: "Use a manifest URL instead" }).click();
+  await page.getByPlaceholder(/manifest\.json/).fill("http://localhost:8084/cf/manifest.json");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const verdict = await page.waitForSelector(".onb-hint:not(.onb-hint--ok)", { timeout: 12000 }).then((el) => el.textContent()).catch(() => null);
+  check("a blocked instance behind the fallback names bot protection and offers Continue anyway",
+    !!verdict && /bot protection/.test(verdict) && (await page.getByRole("button", { name: "Continue anyway" }).count()) === 1, String(verdict).slice(0, 80));
+  await page.close();
+}
+
+// 11f. The sign-in's edges.
+if (!FAST) {
+  // A build from before the sign-in: today's manifest step, nothing else.
+  const page = await newTauriPage({ old: true });
+  await toStep1(page);
+  check("a native build from before the sign-in gets today's manifest step",
+    (await titleOf(page)) === "Bring your streams" && (await page.getByPlaceholder("aiostreams.example.com", { exact: true }).count()) === 0 &&
+      (await page.getByRole("button", { name: "Use a manifest URL instead" }).count()) === 0 && (await page.getByPlaceholder(/manifest\.json/).count()) === 1,
+    await titleOf(page));
+  await page.close();
+}
+if (!FAST) {
+  // Signed in before onboarding (a replay): it says so and goes on.
+  const page = await newTauriPage({ connected: true });
+  await toStep1(page);
+  await page.waitForSelector(".onb-hint--ok", { timeout: 8000 });
+  const msg = await page.$eval(".onb-hint--ok", (e) => e.textContent);
+  check("a replay for someone already signed in says so, with no address to type",
+    /Signed in as Adam/.test(msg) && (await page.locator(".onb-input").count()) === 0 && (await page.getByRole("button", { name: "Continue", exact: true }).count()) === 1, msg);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  check("  and Continue goes on to Live TV", await page.waitForSelector(".onb-fields", { timeout: 8000 }).then(() => true).catch(() => false));
+  await page.close();
+}
+if (!FAST) {
+  // An instance with no Jellyfin side: the reason, and the step is not stuck.
+  const page = await newTauriPage({ start: "unsupported" });
+  await toStep1(page);
+  await page.getByPlaceholder("aiostreams.example.com", { exact: true }).fill("aiostreams.example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const said = await page.waitForSelector(".onb-hint", { timeout: 8000 }).then((el) => el.textContent()).catch(() => null);
+  check("an instance with no Jellyfin side says it needs 2.35 with its Jellyfin side on",
+    /needs version 2\.35 or later, with its Jellyfin side on/.test(String(said)), String(said));
+  await page.getByRole("button", { name: /later/ }).click();
+  check("  and \"I'll do this later\" still goes on", await page.waitForSelector(".onb-fields", { timeout: 8000 }).then(() => true).catch(() => false));
+  await page.close();
+}
+if (!FAST) {
+  // Back with a code up ends the attempt: it never approves anything later.
+  const page = await newTauriPage({ poll: "never" });
+  await toStep1(page);
+  await page.getByPlaceholder("aiostreams.example.com", { exact: true }).fill("aiostreams.example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.locator(".onb-code").waitFor({ timeout: 8000 });
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-lockup", { timeout: 8000 });
+  const polls = (await callsOf(page, "aiojf_poll")).length;
+  await page.waitForTimeout(7000);
+  check("Back with a code up leaves the step and stops polling for it",
+    (await callsOf(page, "aiojf_poll")).length === polls && (await whereIs(page)) === "logo", `${polls} polls at Back`);
+  await page.close();
+}
+if (!FAST) {
+  // Skip setup and the finale are what they were with the sign-in step in.
+  const page = await newTauriPage({ trakt: true });
+  await page.getByRole("button", { name: "Skip setup" }).click();
+  const landing = await page.waitForSelector(".boot-scene.is-landing", { timeout: 10000 }).then(() => true).catch(() => false);
+  check("with the sign-in step in the flow, Skip setup still goes straight to the finale", landing);
   await page.close();
 }
 
