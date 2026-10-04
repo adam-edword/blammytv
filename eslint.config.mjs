@@ -23,7 +23,7 @@ export default tseslint.config(
     // globals no rule set here knows about. Linting it would report dozens of
     // errors about code that deliberately is not part of the app. See
     // old/themes/README.md.
-    ignores: ["**/dist/**", "**/node_modules/**", "**/.astro/**", "old/**"],
+    ignores: ["**/dist/**", "**/node_modules/**", "**/.astro/**", "old/**", ".claude/worktrees/**"],
   },
 
   // Base JS rules everywhere.
