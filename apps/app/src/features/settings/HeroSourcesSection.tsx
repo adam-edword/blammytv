@@ -11,10 +11,11 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "../../components/ui/combobox";
-import { fetchAioCatalogs, type AioCatalog } from "../../data/aiostreams";
+import { aioCatalogDefs } from "../../data/aio";
+import type { AioCatalog } from "../../data/aiostreams";
+import { loadAioConn } from "../aiojf/conn";
 import {
   isValidManifestUrl,
-  loadAioUrl,
   loadHeroSources,
   saveHeroSources,
 } from "./aiostreams";
@@ -24,8 +25,9 @@ import {
  *
  * Lives under Customize, not with the manifest: picking what the hero
  * shows is a decision about how the home screen LOOKS, not about the
- * connection that makes it possible. It reads the saved manifest to list
- * the catalogs on offer, which is the only thing it needs from Media.
+ * connection that makes it possible. It reads the saved connection (the
+ * manifest, or the sign-in) to list the catalogs on offer, which is the
+ * only thing it needs from Media.
  */
 
 type Catalogs =
@@ -38,20 +40,20 @@ function typeLabel(type: string): string {
 }
 
 export function HeroSourcesSection() {
-  // Read once per mount: this panel is not where the manifest is edited, so
-  // there is nothing here that can change it under us.
-  const savedUrl = useRef(loadAioUrl()).current;
+  // Read once per mount: this panel is not where the connection is edited,
+  // so there is nothing here that can change it under us.
+  const conn = useRef(loadAioConn()).current;
   const [catalogs, setCatalogs] = useState<Catalogs>({ status: "idle" });
   const [selected, setSelected] = useState<string[]>(loadHeroSources);
 
   useEffect(() => {
-    if (!isValidManifestUrl(savedUrl)) {
+    if (!conn || (conn.kind === "manifest" && !isValidManifestUrl(conn.url))) {
       setCatalogs({ status: "idle" });
       return;
     }
     let alive = true;
     setCatalogs({ status: "loading" });
-    fetchAioCatalogs(savedUrl)
+    aioCatalogDefs(conn)
       .then((items) => {
         if (!alive) return;
         setCatalogs({ status: "ready", items });
@@ -72,7 +74,7 @@ export function HeroSourcesSection() {
     return () => {
       alive = false;
     };
-  }, [savedUrl]);
+  }, [conn]);
 
   const update = (keys: string[]) => {
     setSelected(keys);

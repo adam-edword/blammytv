@@ -22,8 +22,7 @@ import { loadWatching, replaceWatching } from "../stream/watching";
 import { replaceAioWatched } from "../stream/watched";
 import { TRAKT_SYNCED } from "../trakt/store";
 import { scrubbedMessage } from "../../lib/errors";
-import { aioCall } from "./account";
-import { aiojfStatus } from "./client";
+import { aioCall, readSignIn } from "./account";
 import { itemRef, mergeAioProgress, playedFrom, resumeFrom, upNextFrom, type BaseItem } from "./rules";
 import {
   AIOJF_SYNCED,
@@ -90,7 +89,8 @@ async function list(path: string, query: Record<string, string>): Promise<Listed
 const undecoded = (items: readonly BaseItem[]) => items.filter((i) => itemRef(i) === null).length;
 
 async function pass(): Promise<SyncResult> {
-  const status = await aiojfStatus();
+  // Also brings the sign-in this device holds (plan 024) in step with it.
+  const status = await readSignIn();
   if (!status.connected) {
     // The vault is empty but this device still holds an account's data: the
     // token was dropped outside the app (or a 401 was missed).

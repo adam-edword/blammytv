@@ -4,8 +4,16 @@
  * through `aioCall`, so a 401 is seen in one place.
  */
 
-import { aiojfDisconnect, aiojfJson, aiojfStatus } from "./client";
-import { AIOJF_SYNCED, forgetAiojf } from "./store";
+import {
+  aiojfCanSource,
+  aiojfDisconnect,
+  aiojfJson,
+  aiojfSources,
+  aiojfStatus,
+  type AiojfStatus,
+  type SourcesReply,
+} from "./client";
+import { AIOJF_SYNCED, forgetAiojf, forgetCount, noteSignIn } from "./store";
 
 let signingOut: Promise<void> | null = null;
 
@@ -37,6 +45,20 @@ export async function reconcile(): Promise<void> {
   window.dispatchEvent(new Event(AIOJF_SYNCED));
 }
 
+/**
+ * The native side's status, and the sign-in this device holds brought in step
+ * with it (store.ts `noteSignIn`): Stream reads AIOStreams over the sign-in
+ * only while that is recorded. A sign-out that lands while the status is on
+ * its way wins, so a stale "connected" never writes it back.
+ */
+export async function readSignIn(): Promise<AiojfStatus> {
+  const gen = forgetCount();
+  const s = await aiojfStatus();
+  const canSource = s.connected ? await aiojfCanSource() : false;
+  if (gen === forgetCount()) noteSignIn(s, canSource);
+  return s;
+}
+
 /** A request to AIOStreams' Jellyfin side, with a 401 reconciled. */
 export async function aioCall<T>(
   method: "GET" | "POST" | "DELETE",
@@ -44,6 +66,14 @@ export async function aioCall<T>(
   opts: { query?: Record<string, string>; body?: unknown } = {},
 ) {
   const r = await aiojfJson<T>(method, path, opts);
+  if (r.status === 401) void reconcile().catch(() => {});
+  return r;
+}
+
+/** The stream search for one title (`aiojf_sources`), with a 401 reconciled
+ * as `aioCall` does. */
+export async function aioSources(itemId: string, refresh: boolean): Promise<SourcesReply> {
+  const r = await aiojfSources(itemId, refresh);
   if (r.status === 401) void reconcile().catch(() => {});
   return r;
 }

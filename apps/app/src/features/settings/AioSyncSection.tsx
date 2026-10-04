@@ -4,8 +4,8 @@ import { scrubbedMessage } from "../../lib/errors";
 import { isTauri, openExternal } from "../../lib/tauri";
 import { CheckIcon, CopyIcon } from "../../ui/icons";
 import { Hint } from "../../ui/Hint";
-import { signOutOfAio } from "../aiojf/account";
-import { aiojfPoll, aiojfStart, aiojfStatus, type QuickConnect } from "../aiojf/client";
+import { readSignIn, signOutOfAio } from "../aiojf/account";
+import { aiojfPoll, aiojfStart, type QuickConnect } from "../aiojf/client";
 import { AIOJF_SYNCED, loadAiojf } from "../aiojf/store";
 import { syncAiojf } from "../aiojf/sync";
 import { ago } from "../trakt/account";
@@ -50,7 +50,8 @@ export function AioSyncSection() {
   const attempt = useRef({ n: 0 });
 
   const refresh = useCallback(async () => {
-    const s = await aiojfStatus();
+    // Also records the sign-in Stream reads AIOStreams by (plan 024).
+    const s = await readSignIn();
     if (!s.supported) return setPhase({ at: "update" });
     setUser(s.connected ? (s.userName ?? null) : null);
     if (!s.connected) return setPhase((p) => (p.at === "code" ? p : { at: "off" }));

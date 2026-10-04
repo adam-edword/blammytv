@@ -1,12 +1,8 @@
-import {
-  fetchCatalog,
-  fetchManifest,
-  fetchMeta,
-  type CatalogDef,
-} from "../../data/stremio";
+import { aioCatalog, aioManifest, aioMeta } from "../../data/aio";
+import { fetchCatalog, type CatalogDef } from "../../data/stremio";
 import { load, save } from "../../lib/storage";
 import { broaden, rank } from "./match";
-import { loadAioUrl } from "../settings/aiostreams";
+import { loadAioConn, type AioConn } from "../aiojf/conn";
 import { metaPreviewToVod } from "../stream/mapper";
 import type { VodItem } from "../stream/model";
 import { peekVod } from "../stream/source";
@@ -30,7 +26,8 @@ export interface DiscoverCatalog {
 }
 
 export interface DiscoverConfig {
-  manifestUrl: string;
+  /** Where the user's AIOStreams is read from: its manifest, or the sign-in. */
+  conn: AioConn;
   catalogs: DiscoverCatalog[];
   /** Rail order: movie catalog's genres first, series-only ones appended. */
   genres: string[];
@@ -113,9 +110,9 @@ export function unionGenres(catalogs: DiscoverCatalog[]): string[] {
 }
 
 export async function loadDiscover(): Promise<DiscoverConfig> {
-  const manifestUrl = loadAioUrl();
-  if (!manifestUrl) throw new Error("no addon configured");
-  const manifest = await fetchManifest(manifestUrl);
+  const conn = loadAioConn();
+  if (!conn) throw new Error("no addon configured");
+  const manifest = await aioManifest(conn);
   const catalogs = pickCatalogs(manifest.catalogs ?? []);
   const searchCatalogs = pickSearchCatalogs(manifest.catalogs ?? []);
   if (catalogs.length === 0)
@@ -138,7 +135,7 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
         .join(" | "),
   );
   return {
-    manifestUrl,
+    conn,
     catalogs,
     genres: unionGenres(catalogs),
     searchCatalogs,
@@ -175,8 +172,8 @@ async function askCatalogs(
   );
   const pages = await Promise.all(
     cats.map((c) =>
-      fetchCatalog(
-        cfg.manifestUrl,
+      aioCatalog(
+        cfg.conn,
         c.type,
         c.id,
         `search=${encodeURIComponent(query)}`,
@@ -364,8 +361,8 @@ export async function fetchDiscoverPage(
   genre: string | null,
   skip: number,
 ): Promise<VodItem[]> {
-  const res = await fetchCatalog(
-    cfg.manifestUrl,
+  const res = await aioCatalog(
+    cfg.conn,
     cat.type,
     cat.id,
     catalogExtra(genreForCatalog(cat, genre), skip),
@@ -557,8 +554,8 @@ export async function resolveGenreArt(
     let metaBudget = 12;
     for (let hop = 0; hop < serving.length && metaBudget > 0; hop++, n++) {
       const cat = artCatalogFor(serving, genre, n);
-      const res = await fetchCatalog(
-        cfg.manifestUrl,
+      const res = await aioCatalog(
+        cfg.conn,
         cat.type,
         cat.id,
         catalogExtra(genreForCatalog(cat, genre), 0),
@@ -574,7 +571,8 @@ export async function resolveGenreArt(
         if (!known) metaBudget--;
         const url =
           known ??
-          (await fetchMeta(cfg.manifestUrl, cat.type, pick.id)
+          // Only the backdrop is read, so a show's episodes are not asked for.
+          (await aioMeta(cfg.conn, cat.type, pick.id, { episodes: false })
             .then((r) => r.meta?.background)
             .catch(() => undefined));
         if (url) {

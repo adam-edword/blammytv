@@ -4,7 +4,7 @@ import { EYEBROW } from "../../ui/eyebrow";
 import { Segmented } from "../../ui/Segmented";
 import { Combobox, type ComboboxOption } from "../../ui/Combobox";
 import { Toggle } from "../../ui/Toggle";
-import { loadAioUrl } from "./aiostreams";
+import { loadAioConn } from "../aiojf/conn";
 import { loadOneClickPlay, saveOneClickPlay } from "./oneClickPlay";
 import { loadSourceFailover, saveSourceFailover } from "./failover";
 import {
@@ -142,7 +142,7 @@ export function CustomizeTab() {
   // gated on a configured manifest, because with none there are no cards,
   // no VOD overlay and no rows for them to govern. Read once per mount, so
   // adding a manifest reveals them the next time Settings opens.
-  const hasAddon = useRef(loadAioUrl() !== "").current;
+  const hasAddon = useRef(!!loadAioConn()).current;
 
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   const toggleMeta = (key: CardMetaField) => {

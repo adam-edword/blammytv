@@ -49,7 +49,7 @@ import {
   resetRecommend,
   takeRecommendRequest,
 } from "./recommend";
-import { loadAioUrl } from "../settings/aiostreams";
+import { loadAioConn } from "../aiojf/conn";
 import { readDiscoverSession, saveDiscoverSession } from "./session";
 
 /**
@@ -82,7 +82,7 @@ type Cfg =
 export function DiscoverScreen() {
   // Where this tab was when it was last unmounted (a tab flip). Read once,
   // at mount: everything below seeds from it instead of starting over.
-  const sessionRef = useRef(readDiscoverSession(loadAioUrl()));
+  const sessionRef = useRef(readDiscoverSession(loadAioConn()?.key ?? ""));
   const session = sessionRef.current;
   const [cfg, setCfg] = useState<Cfg>({ status: "loading" });
   // Picking a genre or a type is a PAGE change here, not just a filter
@@ -448,7 +448,7 @@ export function DiscoverScreen() {
   useEffect(
     () => () => {
       saveDiscoverSession({
-        key: loadAioUrl(),
+        key: loadAioConn()?.key ?? "",
         filter: viewRef.current.filter,
         genre: viewRef.current.genre,
         items: itemsRef.current,

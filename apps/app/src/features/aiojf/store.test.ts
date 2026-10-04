@@ -6,6 +6,7 @@ import {
   forgetCount,
   loadAiojf,
   loadQueue,
+  noteSignIn,
   playedSettled,
   queuePlayed,
   saveAiojf,
@@ -68,5 +69,56 @@ describe("signing out", () => {
     expect(loadAiojf()).toEqual({});
     expect(loadQueue()).toEqual([]);
     expect(loadAioWatched()).toEqual({ episodes: {}, films: [] });
+  });
+});
+
+describe("the sign-in this device holds", () => {
+  beforeEach(() => localStorage.clear());
+  const BASE = "https://aio.example.com/jellyfin";
+  const on = { supported: true, connected: true, userName: "Adam", userId: "u1", base: BASE };
+
+  it("is recorded from a connected status, with the user's name and no id", () => {
+    noteSignIn(on, true);
+    expect(loadAiojf().signedIn).toEqual({ base: BASE, userName: "Adam" });
+    expect(JSON.stringify(loadAiojf())).not.toContain("u1");
+  });
+
+  it("follows a changed user or base", () => {
+    noteSignIn(on, true);
+    noteSignIn({ ...on, userName: "Eve" }, true);
+    expect(loadAiojf().signedIn).toEqual({ base: BASE, userName: "Eve" });
+  });
+
+  it("is cleared by a status that is not connected", () => {
+    noteSignIn(on, true);
+    noteSignIn({ supported: true, connected: false }, false);
+    expect(loadAiojf().signedIn).toBeUndefined();
+  });
+
+  it("is not recorded for a build that cannot open sources, and is cleared on one that stops", () => {
+    noteSignIn(on, false);
+    expect(loadAiojf().signedIn).toBeUndefined();
+    noteSignIn(on, true);
+    noteSignIn(on, false);
+    expect(loadAiojf().signedIn).toBeUndefined();
+  });
+
+  it("is not touched by a build that has no sync at all, which can tell nothing", () => {
+    noteSignIn(on, true);
+    noteSignIn({ supported: false, connected: false }, false);
+    expect(loadAiojf().signedIn).toEqual({ base: BASE, userName: "Adam" });
+  });
+
+  it("is not recorded without a base to read from", () => {
+    noteSignIn({ supported: true, connected: true, userName: "Adam" }, true);
+    expect(loadAiojf().signedIn).toBeUndefined();
+  });
+
+  it("stays through a sync's saves and goes with a sign-out", () => {
+    noteSignIn(on, true);
+    saveAiojf({ lastSync: 5, problem: undefined });
+    expect(loadAiojf().signedIn).toEqual({ base: BASE, userName: "Adam" });
+    forgetAiojf();
+    expect(loadAiojf().signedIn).toBeUndefined();
   });
 });

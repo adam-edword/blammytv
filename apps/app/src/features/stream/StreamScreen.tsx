@@ -69,7 +69,7 @@ import {
   takeResumeRequest,
 } from "./openRequest";
 import { filmWatched, loadAioWatched, loadWatched, markWatched } from "./watched";
-import { loadAioUrl } from "../settings/aiostreams";
+import { loadAioConn } from "../aiojf/conn";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
 import {
@@ -767,7 +767,9 @@ export function StreamScreen() {
       const now = playingRef.current;
       return !!now && now.item.id === p.item.id && now.episodeId === p.episodeId && now.url === p.url;
     };
-    void resolveVodSources(p.item.kind, p.episodeId ?? p.item.id).then(
+    // Refresh: the dead link came from a list AIOStreams may still hold, and
+    // Retry's whole job is a new search (plan 024, D3).
+    void resolveVodSources(p.item.kind, p.episodeId ?? p.item.id, { refresh: true }).then(
       (list) => {
         if (!same()) return;
         if (list.length === 0) {
@@ -1949,7 +1951,7 @@ function Home({
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   useEffect(() => onCardMetaChange(setMetaFields), []);
   // The tab's states are the StateCard (plan 019, K8).
-  if (!loadAioUrl()) {
+  if (!loadAioConn()) {
     return (
       <StateCard
         className="stream__note"
@@ -2386,16 +2388,16 @@ function HeroTitle({ item }: { item: VodItem }) {
 // ---------------------------------------------------------------------------
 
 /** One Discover-config resolve per session for the More Like This rows
- * (loadDiscover refetches the manifest otherwise). Keyed by the stored
- * AIOStreams URL: a session-lifetime memo kept querying a REPLACED
- * manifest — resending the old credential-bearing URL — until app
+ * (loadDiscover refetches the manifest otherwise). Keyed by the connection
+ * (its manifest URL, or the sign-in): a session-lifetime memo kept querying
+ * a REPLACED manifest, resending the old credential-bearing URL, until app
  * restart (fleet finding). Failures clear the entry for retry. */
 let discoverCfgCache: {
   url: string;
   promise: Promise<DiscoverConfig>;
 } | null = null;
 function discoverCfg(): Promise<DiscoverConfig> {
-  const url = loadAioUrl();
+  const url = loadAioConn()?.key ?? "";
   if (!discoverCfgCache || discoverCfgCache.url !== url) {
     const promise = loadDiscover().catch((e: unknown) => {
       if (discoverCfgCache?.promise === promise) discoverCfgCache = null;

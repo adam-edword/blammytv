@@ -9,6 +9,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../../lib/tauri";
+import type { SourceItem } from "./browse";
 
 export interface AiojfStatus {
   /** The build has the commands. False on a native build from before them
@@ -86,6 +87,67 @@ export function aiojfRequest(
   body?: unknown,
 ): Promise<Reply> {
   return invoke<Reply>("aiojf_request", { method, path, query: query ?? null, body: body ?? null });
+}
+
+/** What `aiojf_sources` answers: AIOStreams' status for the search, and the
+ * sources cut down to the fields `SourceItem` reads (the full answer carries
+ * the token in its subtitle URLs, so the native side drops them). */
+export interface SourcesReply {
+  status: number;
+  sources: SourceItem[];
+  /** `NoCompatibleStream` or `NotAllowed` when AIOStreams gave one. */
+  errorCode?: string;
+}
+
+/** Rejects with `refused:` for an id that is not 32 lower case hex, and with
+ * `unsupported-build:` when this native build has no such command (the
+ * frontend ships apart from the binary). The only call that starts
+ * AIOStreams' stream search: `aiojfRequest` refuses that path. `refresh`
+ * searches again; without it a list from the last 3 minutes is taken as it
+ * is. */
+export async function aiojfSources(itemId: string, refresh: boolean): Promise<SourcesReply> {
+  let r: Record<string, unknown> | null | undefined;
+  try {
+    r = await invoke<Record<string, unknown> | null | undefined>("aiojf_sources", { itemId, refresh });
+  } catch (e) {
+    if (lacksCommand(e)) throw new Error(NO_SOURCES, { cause: e });
+    throw e;
+  }
+  // A stub that answers nothing is a build that cannot, as for the status.
+  if (!r || typeof r !== "object") throw new Error(NO_SOURCES);
+  return {
+    status: typeof r.status === "number" ? r.status : 0,
+    sources: Array.isArray(r.sources) ? (r.sources as SourceItem[]) : [],
+    ...(typeof r.errorCode === "string" ? { errorCode: r.errorCode } : {}),
+  };
+}
+
+/** The text a build without `aiojf_sources` is answered with. */
+export const NO_SOURCES =
+  "unsupported-build: this BlammyTV needs its update to open AIOStreams sources by sign-in";
+
+const lacksCommand = (e: unknown): boolean => /not found|unknown command/i.test(e instanceof Error ? e.message : String(e));
+
+let canSource: Promise<boolean> | null = null;
+
+/**
+ * Whether this native build has `aiojf_sources`. Asked once, by calling it
+ * with an id it refuses before any request goes out: a build that has the
+ * command rejects with `refused:`, one that lacks it says so, and a stub that
+ * answers nothing is a build that cannot. Sign-in only carries Stream when
+ * the build can open sources too (conn.ts), else the manifest does.
+ */
+export function aiojfCanSource(): Promise<boolean> {
+  canSource ??= (async () => {
+    if (!isTauri()) return false;
+    try {
+      const r = await invoke<unknown>("aiojf_sources", { itemId: "", refresh: false });
+      return !!r && typeof r === "object";
+    } catch (e) {
+      return !lacksCommand(e);
+    }
+  })();
+  return canSource;
 }
 
 /** A request whose 2xx body is JSON. Anything else comes back with its

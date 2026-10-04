@@ -9,6 +9,7 @@
 
 import { load, save } from "../../lib/storage";
 import { forgetAioWatched } from "../stream/watched";
+import type { AiojfStatus } from "./client";
 import type { UpNextCard } from "./rules";
 
 export interface AiojfLocal {
@@ -23,6 +24,14 @@ export interface AiojfLocal {
   /** Plays whose ids AIOStreams cannot pack, so nothing was reported. Counted
    * since connecting, for the sync's log line. */
   unpackable?: number;
+  /**
+   * The sign-in this device holds (plan 024), kept so Stream can choose its
+   * data source without asking the native side: with this set, Stream reads
+   * AIOStreams over the Jellyfin side (conn.ts). Nothing secret, the token
+   * stays native. Written by `noteSignIn`, and gone with everything else
+   * `forgetAiojf` clears.
+   */
+  signedIn?: { base: string; userName?: string };
 }
 
 const KEY = "aiojf";
@@ -51,6 +60,26 @@ export function forgetAiojf(): void {
   save(KEY, VERSION, {});
   save(QUEUE, VERSION, []);
   forgetAioWatched();
+}
+
+/**
+ * Keep `signedIn` in step with what the native side says (`account.ts`
+ * `readSignIn` calls this with every status it reads). A status that is
+ * connected, with a base, on a build that can open sources (`canSource`),
+ * records the sign-in. Anything else clears it: not connected, or a build
+ * that cannot search sources, which leaves Stream on its manifest. A status
+ * that says the build has no sync at all tells nothing, so it changes
+ * nothing.
+ */
+export function noteSignIn(s: AiojfStatus, canSource: boolean): void {
+  if (!s.supported) return;
+  const now = loadAiojf().signedIn;
+  if (s.connected && s.base && canSource) {
+    if (now?.base === s.base && now.userName === s.userName) return;
+    saveAiojf({ signedIn: { base: s.base, ...(s.userName ? { userName: s.userName } : {}) } });
+  } else if (now) {
+    saveAiojf({ signedIn: undefined });
+  }
 }
 
 /** Packed ids of titles finished here whose played mark could not be sent,

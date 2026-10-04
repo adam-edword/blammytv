@@ -1,13 +1,8 @@
 import { scrubbedMessage } from "../../lib/errors";
-import {
-  fetchCatalog,
-  fetchManifest,
-  fetchMeta,
-  fetchStreams,
-  isSeriesType,
-  type CatalogDef,
-} from "../../data/stremio";
-import { loadAioUrl, loadHeroSources } from "../settings/aiostreams";
+import { aioCatalog, aioManifest, aioMeta, aioStreams } from "../../data/aio";
+import { fetchMeta, isSeriesType, type CatalogDef } from "../../data/stremio";
+import { loadAioConn, type AioConn } from "../aiojf/conn";
+import { loadHeroSources } from "../settings/aiostreams";
 import { loadRowCap } from "../settings/rowCap";
 import { load as loadStored, save as saveStored } from "../../lib/storage";
 import { mapStreams, metaPreviewToVod, metaToVod } from "./mapper";
@@ -41,9 +36,10 @@ let inflight: { key: string; promise: Promise<VodData> } | null = null;
 
 /** The identity of the catalog a screen is showing. Exported because the
  * home tab's remembered scroll offset is only meaningful against the same
- * one: a changed addon, hero set or row cap re-lays the whole page. */
+ * one: a changed addon (or a sign-in in its place), hero set or row cap
+ * re-lays the whole page. */
 export const configKey = () =>
-  JSON.stringify([loadAioUrl(), loadHeroSources(), loadRowCap()]);
+  JSON.stringify([loadAioConn()?.key ?? "", loadHeroSources(), loadRowCap()]);
 
 const DISK_KEY = "vodCache";
 /** 2 since v0.9.123: a version-1 mirror could hold a hero of bare catalog
@@ -129,31 +125,31 @@ export async function loadVod(force = false): Promise<VodData> {
 }
 
 async function doLoad(): Promise<VodData> {
-  const manifestUrl = loadAioUrl();
-  if (!manifestUrl) {
+  const conn = loadAioConn();
+  if (!conn) {
     return { items: new Map(), rows: [], featured: [] };
   }
   try {
-    return await buildVod(manifestUrl, loadHeroSources(), loadRowCap());
+    return await buildVod(conn, loadHeroSources(), loadRowCap());
   } catch (err) {
     console.error(`[stream] catalog failed: ${msg(err)}`);
     return { items: new Map(), rows: [], featured: [], error: msg(err) };
   }
 }
 
-/** Build the whole browse surface from the addon manifest. */
+/** Build the whole browse surface from the addon's catalogs. */
 async function buildVod(
-  manifestUrl: string,
+  conn: AioConn,
   heroSources: string[] = [],
   rowCap = 40,
 ): Promise<VodData> {
-  const manifest = await fetchManifest(manifestUrl);
+  const manifest = await aioManifest(conn);
   const browseable = manifest.catalogs.filter(isBrowseable);
 
   const fetched = await Promise.all(
     browseable.map(async (cat) => {
       try {
-        const { metas = [] } = await fetchCatalog(manifestUrl, cat.type, cat.id);
+        const { metas = [] } = await aioCatalog(conn, cat.type, cat.id, undefined, rowCap);
         return {
           cat,
           items: metas.slice(0, rowCap).map(metaPreviewToVod),
@@ -190,14 +186,14 @@ async function buildVod(
   const saved = heroSources.filter((k) => catalogFor(manifest.catalogs, k));
   const sourceIds = saved.length ? saved : defaultHero(rows);
   const picks = await buildFeatured(
-    manifestUrl,
+    conn,
     manifest.catalogs,
     sourceIds,
     items,
     rowPools,
     rowCap,
   );
-  const featured = await enrichFeatured(manifestUrl, picks, items);
+  const featured = await enrichFeatured(conn, picks, items);
   return { items, rows, featured };
 }
 
@@ -216,7 +212,7 @@ async function buildVod(
  * at FEATURED_WAIT_MS, whichever is first; a late answer is dropped.
  */
 async function enrichFeatured(
-  manifestUrl: string,
+  conn: AioConn,
   picks: string[],
   items: Map<string, VodItem>,
 ): Promise<string[]> {
@@ -226,7 +222,7 @@ async function enrichFeatured(
     const timer = setTimeout(resolve, FEATURED_WAIT_MS);
     let answered = 0;
     for (const id of picks) {
-      fetchMeta(manifestUrl, items.get(id)?.kind ?? "movie", id)
+      aioMeta(conn, items.get(id)?.kind ?? "movie", id)
         .then(
           ({ meta }) => {
             const full = meta ? metaToVod(meta) : null;
@@ -275,9 +271,9 @@ export async function resolveVodItem(
   type: "movie" | "series",
   id: string,
 ): Promise<VodItem | null> {
-  const manifestUrl = loadAioUrl();
-  if (!manifestUrl) return null;
-  const { meta } = await fetchMeta(manifestUrl, type, id);
+  const conn = loadAioConn();
+  if (!conn) return null;
+  const { meta } = await aioMeta(conn, type, id);
   const primary = meta ? metaToVod(meta) : null;
   if (isSparse(primary)) {
     const fallback = await cinemetaVod(type, id);
@@ -331,14 +327,19 @@ function mergeVod(primary: VodItem, fb: VodItem): VodItem {
 }
 
 /** Ranked playable sources for a title (`tt123`) or episode (`tt123:1:2`).
- * Resolved fresh on every open — debrid links can be short-lived. */
+ * Resolved fresh on every open, since debrid links can be short-lived. Signed in,
+ * a list AIOStreams found in the last 3 minutes is taken as it is (going
+ * back and forth on a title is instant), and `refresh` searches again: Retry
+ * asks for it, because the link that died is the thing to replace. The
+ * manifest's addon searches on every ask, so it ignores the flag. */
 export async function resolveVodSources(
   kind: "movie" | "series",
   id: string,
+  opts: { refresh?: boolean } = {},
 ): Promise<StreamSource[]> {
-  const manifestUrl = loadAioUrl();
-  if (!manifestUrl) return [];
-  const { streams = [] } = await fetchStreams(manifestUrl, kind, id);
+  const conn = loadAioConn();
+  if (!conn) return [];
+  const { streams = [] } = await aioStreams(conn, kind, id, opts);
   return mapStreams(streams);
 }
 
@@ -366,7 +367,7 @@ function defaultHero(rows: StreamRow[]): string[] {
 /** Pool each selected catalog, then draw FEATURED_DRAW spread evenly
  * (round-robin over shuffled pools, deduped). */
 async function buildFeatured(
-  manifestUrl: string,
+  conn: AioConn,
   catalogs: CatalogDef[],
   sourceIds: string[],
   items: Map<string, VodItem>,
@@ -382,11 +383,12 @@ async function buildFeatured(
       const def = catalogFor(catalogs, cid);
       if (!def) return [] as string[];
       try {
-        const { metas = [] } = await fetchCatalog(
-          manifestUrl,
+        const { metas = [] } = await aioCatalog(
+          conn,
           def.type,
           def.id,
           needsGenre(def) ? "genre=None" : undefined,
+          rowCap,
         );
         return metas.slice(0, rowCap).map((m) => {
           const item = metaPreviewToVod(m);

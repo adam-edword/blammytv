@@ -29,7 +29,7 @@ import {
   requestWatchInPlayer,
 } from "../features/live/multiviewEntry";
 import { Palette, type GoTarget } from "../features/palette/Palette";
-import { loadAioUrl } from "../features/settings/aiostreams";
+import { loadAioConn } from "../features/aiojf/conn";
 import { saveSettingsTab } from "../features/settings/settingsTab";
 import {
   loadPlaylists,
@@ -514,7 +514,7 @@ export function App() {
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
         hasLive={hasLiveSource}
-        hasStream={!!loadAioUrl()}
+        hasStream={!!loadAioConn()}
         // Found, not played full-screen: the Guide tunes it in its preview.
         onChannel={(id) => requestWatchInPlayer(id, false)}
         // Backing out of it returns to the grid it was found over, like a
