@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { packedFor } from "./report";
+import { jellyfinIdOf, unpack } from "./ids";
 
 // Vectors from ids.test.ts (AIOStreams' own `tryPack`): tt0111161 as a movie.
 describe("packedFor", () => {
@@ -29,10 +30,17 @@ describe("packedFor", () => {
     // Short of the seven digits it pads to, so the id does not rebuild.
     expect(packedFor({ itemId: "tt123", kind: "movie" })).toBeNull();
     expect(packedFor({ itemId: "tt100002", kind: "series", episodeId: "tt100002:1:1" })).toBeNull();
-    // Not an IMDb or Kitsu id.
-    expect(packedFor({ itemId: "tmdb:603", kind: "movie" })).toBeNull();
+    // An id type AIOStreams does not pack.
+    expect(packedFor({ itemId: "animeplanet:603", kind: "movie" })).toBeNull();
     // A zero-padded episode number is not the id AIOStreams would write.
     expect(packedFor({ itemId: "tt0903747", kind: "series", episodeId: "tt0903747:3:07" })).toBeNull();
+  });
+
+  it("packs every anime-only id's episode as anime, as jellyfinIdOf does (plan 024)", () => {
+    // Kitsu was the only one before; MAL's is served under the same type.
+    const mal = packedFor({ itemId: "mal:16498", kind: "series", episodeId: "mal:16498:3", season: 1 });
+    expect(mal).toBe(jellyfinIdOf("mal:16498:3", "series", { season: 1 }));
+    expect(mal && unpack(mal)?.type).toBe("anime");
   });
 
   it("is null for a series play without an episode", () => {

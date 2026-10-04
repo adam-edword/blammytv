@@ -199,9 +199,9 @@ describe("itemRef", () => {
     expect(itemRef(episode({ Id: "b2" + "0".repeat(30) }))).toBeNull();
     expect(itemRef(episode({ Id: undefined }))).toBeNull();
     expect(itemRef(episode({ Id: "not an id" }))).toBeNull();
-    // A film's id on an episode, and an id type BlammyTV does not have.
+    // A film's id on an episode, and an id type AIOStreams does not assign.
     expect(itemRef(episode({ Id: must(packMovie("tt0903747")) }))).toBeNull();
-    expect(itemRef(episode({ Id: "a14202" + "00000000025b" + "00030007" + "000000" }))).toBeNull();
+    expect(itemRef(episode({ Id: "a14209" + "00000000025b" + "00030007" + "000000" }))).toBeNull();
   });
 
   it("an episode with no season or number in its id: null", () => {

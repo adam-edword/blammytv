@@ -25,7 +25,7 @@ import { tauriMpvStatus } from "../../lib/tauri";
 import { isFinished, loadWatching } from "../stream/watching";
 import { aioCall } from "./account";
 import { aiojfStatus } from "./client";
-import { packEpisode, packMovie } from "./ids";
+import { jellyfinIdOf } from "./ids";
 import { reportBody } from "./rules";
 import { loadAiojf, playedSettled, queuePlayed, saveAiojf } from "./store";
 
@@ -41,16 +41,14 @@ export interface ReportTarget {
 
 /**
  * AIOStreams' packed id for what is playing, or null for one it cannot
- * pack. A Kitsu episode is packed as `anime`, because the Stremio type is
- * part of the id and its meta is served under that type.
+ * pack. One rule with the browse side (ids.ts `jellyfinIdOf`): an episode of
+ * an anime-only id (Kitsu, MAL, AniList, AniDB) is packed as `anime`, because
+ * the Stremio type is part of the id and its meta is served under that type.
  */
 export function packedFor(t: Pick<ReportTarget, "itemId" | "kind" | "episodeId" | "season">): string | null {
-  if (t.kind === "movie") return packMovie(t.itemId);
+  if (t.kind === "movie") return jellyfinIdOf(t.itemId, "movie");
   if (!t.episodeId) return null;
-  return packEpisode(t.episodeId, {
-    ...(t.season != null ? { season: t.season } : {}),
-    ...(t.episodeId.startsWith("kitsu:") ? { type: "anime" as const } : {}),
-  });
+  return jellyfinIdOf(t.episodeId, "series", t.season != null ? { season: t.season } : {});
 }
 
 /** How often the player is looked at. AIOStreams treats a playback with no

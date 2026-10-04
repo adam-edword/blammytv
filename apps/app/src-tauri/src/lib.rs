@@ -1092,8 +1092,9 @@ async fn mal_disconnect() {
 
 /// AIOStreams' Jellyfin side (plan 023): one client for the run, the same
 /// shape as Trakt's. Nothing is compiled in: Quick Connect needs no app key,
-/// and the address is the AIOStreams manifest URL the page already holds. A
-/// dev run keeps its session under its own name, as Trakt's does.
+/// and the address is the AIOStreams one the page already holds, a manifest
+/// URL or the instance's own. A dev run keeps its session under its own
+/// name, as Trakt's does.
 fn aiojf_client() -> &'static std::sync::Arc<aiojf::Aiojf> {
     static CLIENT: OnceLock<std::sync::Arc<aiojf::Aiojf>> = OnceLock::new();
     CLIENT.get_or_init(|| {
@@ -1123,9 +1124,12 @@ fn aiojf_status() -> aiojf::Status {
     aiojf_client().status()
 }
 
-/// Start signing in from the AIOStreams manifest URL: the code to show and
-/// the configure page where it is approved. Rejects with `unsupported: ...`
-/// when that AIOStreams has no Jellyfin side.
+/// Start signing in from an AIOStreams address: the code to show and the
+/// configure page where it is approved. The address is a manifest URL as
+/// before, or a configure URL, or just the instance's own (`aio.example.com`
+/// will do). The argument keeps its name, `manifestUrl`, for a frontend that
+/// sends it that way. Rejects with `unsupported: ...` when that AIOStreams
+/// has no Jellyfin side.
 #[tauri::command]
 async fn aiojf_start(manifest_url: String) -> Result<aiojf::Started, String> {
     aiojf_client().start(&manifest_url).await
@@ -1149,6 +1153,20 @@ async fn aiojf_request(
     body: Option<serde_json::Value>,
 ) -> Result<aiojf::Reply, String> {
     aiojf_client().request(&method, &path, query, body).await
+}
+
+/// The stream search for one title, started by name (plan 024): the sources
+/// AIOStreams finds, with `Id`, `Path`, `Name`, `Type`, `Size`, `Container`,
+/// `RunTimeTicks`, `IsInfiniteStream` and `aiostreams` and nothing else, as
+/// the full answer carries the token. `refresh` searches again; without it a
+/// list from the last 3 minutes is taken as it is. `aiojf_request` refuses
+/// this path, so nothing starts a search by accident. Rejects with
+/// `refused: ...` for an `itemId` that is not 32 lower case hex.
+#[tauri::command]
+async fn aiojf_sources(item_id: String, refresh: Option<bool>) -> Result<aiojf::Sources, String> {
+    aiojf_client()
+        .sources(&item_id, refresh.unwrap_or(false))
+        .await
 }
 
 /// Sign out of AIOStreams, here and, best effort, there.
@@ -1403,6 +1421,7 @@ pub fn run() {
             aiojf_start,
             aiojf_poll,
             aiojf_request,
+            aiojf_sources,
             aiojf_disconnect,
             check_update,
             install_update,

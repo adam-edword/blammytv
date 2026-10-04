@@ -63,6 +63,25 @@ export interface BaseItem {
   ProviderIds?: Record<string, string>;
   ImageTags?: Record<string, string>;
   SeriesPrimaryImageTag?: string;
+  /** The catalog's address: `/aiostreams/<type>/<catalogId>` on a view
+   * (dto.ts:352), `/aiostreams/<type>/<id>/<name>` on a film or a show
+   * (dto.ts:555, `.mkv` on the end of a film's name). browse.ts reads it. */
+  Path?: string;
+  /** The synopsis (dto.ts:514). */
+  Overview?: string;
+  /** Genre names (dto.ts:524). */
+  Genres?: string[];
+  /** The IMDb rating, 0 to 10 (dto.ts:519). */
+  CommunityRating?: number;
+  /** Cast and crew (dto.ts:538, `peopleDtos` at :274): `Type` is `Actor`,
+   * `Director`, `Writer` and so on. */
+  People?: { Name?: string; Type?: string }[];
+  /** The backdrop's tag, an array of at most one (dto.ts:547, and
+   * `imageTagsFor` in core/src/jellyfin/images.ts:86). */
+  BackdropImageTags?: string[];
+  /** AIOStreams' own marker on a view: its genre extra is required
+   * (dto.ts:354). */
+  aiostreams?: { genreRequired?: boolean };
   UserData?: {
     PlaybackPositionTicks?: number;
     Played?: boolean;

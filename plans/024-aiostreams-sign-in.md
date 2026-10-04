@@ -3,7 +3,9 @@
 **Status: CALLS TAKEN, 2026-10-04.** Adam took all four as recommended:
 the manifest stays as a fallback (D1), an adapter behind today's
 functions (D2), sources no older than 3 minutes on open (D3), and a saved
-manifest URL deleted once you've signed in (D4). B1 and B2 building.
+manifest URL deleted once you've signed in (D4). B1 (native: sign-in from
+an address, `aiojf_sources`) and B2 (the adapter's pure half, every id kind
+AIOStreams packs) are built in v0.11.16, not wired yet. B3 next.
 
 Adam, 2026-10-04, after plan 023's sync worked on his instance: "we should
 have this be the default aiostreams connection method now". Asked whether

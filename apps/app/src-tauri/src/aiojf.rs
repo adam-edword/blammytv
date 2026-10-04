@@ -10,9 +10,11 @@
 //! What AIOStreams' own source says, and this follows (v2.35.9, read
 //! 2026-10-04; paths under packages/):
 //! - Every configuration is a Jellyfin-compatible server at `/jellyfin`
-//!   (server/src/app.ts:243-246), so the base is the manifest URL's origin
-//!   and prefix, with `/jellyfin` where `/stremio/...` was. The token names
-//!   the configuration, so no uuid goes in the path.
+//!   (server/src/app.ts:243-246), so the base is the address's origin and
+//!   prefix, with `/jellyfin` after it. The address is a manifest URL, a
+//!   configure URL, anything with `/stremio/` in it, one ending `/jellyfin`,
+//!   or the bare host (plan 024). `derive` says how each is read. The token
+//!   names the configuration, so no uuid goes in the path.
 //! - `GET /System/Info/Public` needs no sign-in and carries an `aiostreams`
 //!   object, which a real Jellyfin server has not (routes/jellyfin/system.ts).
 //!   An instance on an older release, or with its Jellyfin side off (every
@@ -39,6 +41,15 @@
 //!   `GET /Items?Ids=<one id>&Fields=MediaSources` (library.ts:454). The page
 //!   asks by path, and `guard` refuses these whatever the page asks.
 //! - Calls are rate limited by kind and answer 429 (routes/jellyfin/index.ts).
+//! - THE STREAM SEARCH, ON PURPOSE (plan 024): `POST /Items/{id}/PlaybackInfo`
+//!   is the one call that runs it, and `sources` is the one way to make it.
+//!   The body says how old a kept list may be: `Fresh` takes one up to the
+//!   reuse window (180 s), `Refresh` searches again
+//!   (routes/jellyfin/playback.ts `listingOptions`). The search waits on the
+//!   addons up to MAX_TIMEOUT (50 s by default), so it has its own timeout.
+//!   The answer holds each source's subtitle `DeliveryUrl` with `ApiKey=<the
+//!   token>` in it (core/src/jellyfin/media.ts `buildMediaStreams`), so what
+//!   goes back to the page is a whitelist of fields, never the answer.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -158,6 +169,21 @@ pub struct Reply {
     pub body: String,
 }
 
+/// What a stream search found, trimmed to the fields the page reads: AIOStreams'
+/// own answer carries the token, and this does not. `sources` hold their keys
+/// as AIOStreams spells them (`Id`, `Path`, `aiostreams`), so the page reads
+/// them as it reads any Jellyfin item. A 4xx is data here too: `status` says
+/// it, with no sources, and `errorCode` is the answer's own `ErrorCode`
+/// (`NoCompatibleStream`, `NotAllowed`) when it gave one.
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Sources {
+    pub status: u16,
+    pub sources: Vec<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+}
+
 /// What `start` fails with when the address is not an AIOStreams with its
 /// Jellyfin side on (older than 2.35, or switched off). The page tells this
 /// one apart by the `unsupported:` it starts with, and no other failure
@@ -175,6 +201,25 @@ const BLOB_MAX: usize = 2560;
 const MAX_RETRY_WAIT: u64 = 15;
 /// How long sign-out waits on AIOStreams. It is best effort.
 const LOGOUT_WAIT: Duration = Duration::from_secs(5);
+/// How long a stream search is waited for. AIOStreams gives its addons up to
+/// 50 s (MAX_TIMEOUT, core/src/config/schema/user-limits.ts), which is more
+/// than the 30 s the shared client allows a call.
+const SOURCES_WAIT: Duration = Duration::from_secs(60);
+/// The keys a source keeps on its way to the page. `MediaStreams` is not here:
+/// its subtitle `DeliveryUrl`s hold the token. The `aiostreams` object is
+/// kept whole, and none of its fields is the token (core/src/jellyfin/media.ts
+/// `extensionFor`: the formatter's text, the addon, the service, the file).
+const SOURCE_KEEPS: [&str; 9] = [
+    "Id",
+    "Path",
+    "Name",
+    "Type",
+    "Size",
+    "Container",
+    "RunTimeTicks",
+    "IsInfiniteStream",
+    "aiostreams",
+];
 
 const JSON: &str = "application/json";
 const BAD_ANSWER: &str = "AIOStreams sent an answer this app does not understand";
@@ -206,6 +251,8 @@ pub struct Aiojf {
     state: Mutex<State>,
     /// One poll at a time, so two cannot both trade the one-use secret.
     polling: AsyncMutex<()>,
+    /// How long `sources` waits. A field only so a test can shorten it.
+    sources_wait: Duration,
 }
 
 #[derive(Deserialize)]
@@ -275,39 +322,107 @@ fn esc(v: &str) -> String {
     out
 }
 
-/// What a manifest URL tells: the Jellyfin base and the configure page.
+/// What an address tells: the Jellyfin base and the configure page.
 #[derive(Debug, PartialEq)]
 struct Derived {
     base: String,
     configure_url: String,
 }
 
-/// `https://host[/prefix]/stremio/<uuid>/<password>/manifest.json` gives
-/// `https://host[/prefix]/jellyfin` and the same address ending `/configure`.
-/// http or https only, as everything handed to mpv is (mpvurl.rs). The last
-/// `/stremio/` is the one, so a prefix that holds the word is safe. A user
-/// name in the address is refused: the Authorization header is the token's,
-/// and AIOStreams' own login is not something this holds.
-fn derive(manifest_url: &str) -> Result<Derived, String> {
-    let bad = || "not an AIOStreams manifest address".to_string();
-    crate::mpvurl::http_only(manifest_url).map_err(|_| bad())?;
-    let mut url = reqwest::Url::parse(manifest_url).map_err(|_| bad())?;
+/// `address` with a scheme: a bare `host[:port][/prefix]` gets `https://`.
+/// A colon belongs to a scheme unless a port follows it, so `localhost:3000`
+/// is a host, while `ftp://h` and `javascript:x` are left as they are for
+/// the http check to refuse.
+fn with_scheme(address: &str) -> String {
+    let head = address.find(['/', '?', '#']).unwrap_or(address.len());
+    let has_scheme = !address.starts_with('[')
+        && address[..head].find(':').is_some_and(|i| {
+            let after = &address[i + 1..head];
+            after.is_empty() || !after.bytes().all(|b| b.is_ascii_digit())
+        });
+    if has_scheme {
+        address.to_string()
+    } else {
+        format!("https://{address}")
+    }
+}
+
+/// Where an AIOStreams is and where its sign-in is approved, from an address
+/// the user typed or pasted (plan 024). Trimmed, and any of:
+/// - a manifest URL, `https://host[/prefix]/stremio/<uuid>/<password>/manifest.json`;
+/// - a configure URL, `.../stremio/<uuid>/<password>/configure` or
+///   `.../stremio/configure`;
+/// - anything with `/stremio/` in its path: the address is what is before the
+///   last one, so a prefix that holds the word is safe;
+/// - one ending `/jellyfin`, or `/jellyfin/...`: what is before the last one;
+/// - the bare `https://host[/prefix]`, closing slash or not.
+///
+/// The base is `{origin}{prefix}/jellyfin`. The configure page is the
+/// address's own `.../stremio/<uuid>/<password>/configure` when the address
+/// carries that uuid and password (a manifest URL's, as it always was, query
+/// and all), and else `{origin}{prefix}/stremio/configure`, the plain mount's
+/// own answer. A fragment is always dropped, and a query never reaches the
+/// base. With no scheme, https is assumed; any scheme but http and https is
+/// refused, as everything handed to mpv is (mpvurl.rs). A user name in the
+/// address is refused: the Authorization header is the token's, and
+/// AIOStreams' own login is not something this holds.
+fn derive(address: &str) -> Result<Derived, String> {
+    let bad = || "not an AIOStreams address".to_string();
+    let address = with_scheme(address.trim());
+    crate::mpvurl::http_only(&address).map_err(|_| bad())?;
+    let url = reqwest::Url::parse(&address).map_err(|_| bad())?;
     if !url.username().is_empty() || url.password().is_some() {
         return Err("the AIOStreams address cannot carry a user name or password".into());
     }
-    let head = url
-        .path()
-        .strip_suffix("/manifest.json")
-        .ok_or_else(bad)?
-        .to_string();
-    let at = head.rfind("/stremio/").ok_or_else(bad)?;
     let origin = url.origin().ascii_serialization();
-    let base = format!("{origin}{}/jellyfin", &head[..at]);
-    url.set_path(&format!("{head}/configure"));
-    url.set_fragment(None);
+    // A closing slash, so `/stremio` and `/stremio/` read alike. Markers are
+    // found in lower case (the server's routes are not case sensitive), and
+    // cut from the path as written.
+    let mut path = url.path().to_string();
+    if !path.ends_with('/') {
+        path.push('/');
+    }
+    let lower = path.to_ascii_lowercase();
+    let (prefix, configure_url) = if let Some(at) = lower.rfind("/stremio/") {
+        let prefix = &path[..at];
+        let segs: Vec<&str> = path[at + "/stremio/".len()..]
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .collect();
+        // A manifest or a configure page ends the config's own path; with
+        // neither, the config is its first two segments.
+        let ends = segs.last().is_some_and(|s| {
+            s.eq_ignore_ascii_case("manifest.json") || s.eq_ignore_ascii_case("configure")
+        });
+        let named = if ends {
+            &segs[..segs.len() - 1]
+        } else {
+            &segs[..segs.len().min(2)]
+        };
+        let configure = if named.len() >= 2 {
+            let query = url
+                .query()
+                .filter(|q| !q.is_empty())
+                .map(|q| format!("?{q}"))
+                .unwrap_or_default();
+            format!(
+                "{origin}{prefix}/stremio/{}/configure{query}",
+                named.join("/")
+            )
+        } else {
+            format!("{origin}{prefix}/stremio/configure")
+        };
+        (prefix, configure)
+    } else {
+        let prefix = match lower.rfind("/jellyfin/") {
+            Some(at) => &path[..at],
+            None => path.trim_end_matches('/'),
+        };
+        (prefix, format!("{origin}{prefix}/stremio/configure"))
+    };
     Ok(Derived {
-        base,
-        configure_url: url.to_string(),
+        base: format!("{origin}{prefix}/jellyfin"),
+        configure_url,
     })
 }
 
@@ -413,6 +528,50 @@ fn retry_after(res: &reqwest::Response) -> Option<u64> {
         .ok()
 }
 
+/// A PlaybackInfo answer, cut down to `SOURCE_KEEPS` per source and its
+/// `ErrorCode`. What is not listed is dropped, so a field AIOStreams adds
+/// later is not carried either. A 2xx that is not a JSON object is an error;
+/// any other status is data, with no sources.
+fn trim_sources(reply: Reply) -> Result<Sources, String> {
+    let status = reply.status;
+    let answer = match serde_json::from_str::<serde_json::Value>(&reply.body) {
+        Ok(serde_json::Value::Object(o)) => o,
+        _ if !(200..300).contains(&status) => {
+            return Ok(Sources {
+                status,
+                sources: Vec::new(),
+                error_code: None,
+            })
+        }
+        _ => return Err(BAD_ANSWER.into()),
+    };
+    let sources = answer
+        .get("MediaSources")
+        .and_then(|m| m.as_array())
+        .map(|list| {
+            list.iter()
+                .filter_map(|s| s.as_object())
+                .map(|s| {
+                    let kept = SOURCE_KEEPS
+                        .iter()
+                        .filter_map(|k| s.get(*k).map(|v| (k.to_string(), v.clone())))
+                        .collect();
+                    serde_json::Value::Object(kept)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let error_code = answer
+        .get("ErrorCode")
+        .and_then(|c| c.as_str())
+        .map(str::to_string);
+    Ok(Sources {
+        status,
+        sources,
+        error_code,
+    })
+}
+
 #[cfg(any(windows, test))]
 fn encode(s: &Session) -> Result<Vec<u8>, String> {
     let blob = serde_json::to_vec(s).map_err(|e| e.to_string())?;
@@ -437,6 +596,7 @@ impl Aiojf {
                 ..Default::default()
             }),
             polling: AsyncMutex::new(()),
+            sources_wait: SOURCES_WAIT,
         })
     }
 
@@ -508,9 +668,11 @@ impl Aiojf {
     }
 
     /// Start signing in: check the address, ask for a code, and keep its
-    /// secret here. The page gets the code and where to approve it.
-    pub async fn start(&self, manifest_url: &str) -> Result<Started, String> {
-        let d = derive(manifest_url)?;
+    /// secret here. The page gets the code and where to approve it. The
+    /// address is any `derive` reads: a manifest URL, a configure page, or
+    /// just the instance's own.
+    pub async fn start(&self, address: &str) -> Result<Started, String> {
+        let d = derive(address)?;
         let device_id = random_hex(16)?;
         self.probe(&d.base, &device_id).await?;
         let res = self
@@ -673,7 +835,8 @@ impl Aiojf {
     /// the session's token added here. `query` is the query string, so that
     /// what `guard` reads is what goes out. `body` is sent as JSON, and a
     /// `null` is no body. The answer comes back as data, a 4xx included, but
-    /// a 401 also ends the session.
+    /// a 401 also ends the session. Never the stream search: that is
+    /// `sources`, by name.
     pub async fn request(
         &self,
         method: &str,
@@ -691,6 +854,52 @@ impl Aiojf {
         let query = query.unwrap_or_default();
         guard(&method, path, &query)?;
         let body = body.filter(|b| !b.is_null()).map(|b| b.to_string());
+        self.call(&verb, path, &query, body.as_deref(), None).await
+    }
+
+    /// The stream search for one title (`/Items/{id}/PlaybackInfo`), the call
+    /// `request` never makes, and the answer cut down to the sources' own
+    /// fields (`trim_sources`). `refresh` searches the addons again, else a
+    /// list from the last 3 minutes is taken as it is. `item_id` is 32 lower
+    /// case hex, as every id AIOStreams gives out is, and anything else is
+    /// refused before a request. A 429 is waited out once and a 401 signs out,
+    /// as for `request`; the wait on the search is longer.
+    pub async fn sources(&self, item_id: &str, refresh: bool) -> Result<Sources, String> {
+        let id_ok = item_id.len() == 32
+            && item_id
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+        if !id_ok {
+            return Err("refused: not an AIOStreams item id".into());
+        }
+        let body = if refresh {
+            serde_json::json!({ "Refresh": true })
+        } else {
+            serde_json::json!({ "Fresh": true })
+        };
+        let reply = self
+            .call(
+                &reqwest::Method::POST,
+                &format!("/Items/{item_id}/PlaybackInfo"),
+                &HashMap::new(),
+                Some(&body.to_string()),
+                Some(self.sources_wait),
+            )
+            .await?;
+        trim_sources(reply)
+    }
+
+    /// One call with the session's token, past the guard: a 429 waited out
+    /// once, a 401 ending the session. `wait` is how long to hold the line,
+    /// where the shared client's own limit is not enough.
+    async fn call(
+        &self,
+        verb: &reqwest::Method,
+        path: &str,
+        query: &HashMap<String, String>,
+        body: Option<&str>,
+        wait: Option<Duration>,
+    ) -> Result<Reply, String> {
         let session = self
             .state
             .lock()
@@ -698,17 +907,12 @@ impl Aiojf {
             .session
             .clone()
             .ok_or_else(|| "not signed in to AIOStreams".to_string())?;
-        let (mut reply, wait) = self
-            .send(&session, &verb, path, &query, body.as_deref())
-            .await?;
+        let (mut reply, retry) = self.send(&session, verb, path, query, body, wait).await?;
         // Rate limited: wait out what AIOStreams asks, once.
         if reply.status == 429 {
-            if let Some(secs) = wait.filter(|s| *s <= MAX_RETRY_WAIT) {
+            if let Some(secs) = retry.filter(|s| *s <= MAX_RETRY_WAIT) {
                 tokio::time::sleep(Duration::from_secs(secs)).await;
-                reply = self
-                    .send(&session, &verb, path, &query, body.as_deref())
-                    .await?
-                    .0;
+                reply = self.send(&session, verb, path, query, body, wait).await?.0;
             }
         }
         if reply.status == 401 {
@@ -724,6 +928,7 @@ impl Aiojf {
         path: &str,
         query: &HashMap<String, String>,
         body: Option<&str>,
+        wait: Option<Duration>,
     ) -> Result<(Reply, Option<u64>), String> {
         let mut req = self
             .http
@@ -733,6 +938,9 @@ impl Aiojf {
                 self.header(&s.device_id, Some(&s.token)),
             )
             .header(reqwest::header::ACCEPT, JSON);
+        if let Some(w) = wait {
+            req = req.timeout(w);
+        }
         if !query.is_empty() {
             req = req.query(query);
         }
@@ -863,8 +1071,8 @@ mod tests {
     }
 
     /// A fake AIOStreams Jellyfin side: the probe, Quick Connect, Logout, and
-    /// a few API routes, recording what it was asked. The one token it
-    /// accepts is TOKEN1.
+    /// a few API routes (PlaybackInfo among them), recording what it was
+    /// asked. The one token it accepts is TOKEN1.
     #[derive(Default)]
     struct Fake {
         probe: Probe,
@@ -879,10 +1087,19 @@ mod tests {
         gate: Gate,
         connects: AtomicUsize,
         auths: AtomicUsize,
-        /// `/limited` answers 429 this many times, then 200.
+        /// `/limited` and PlaybackInfo answer 429 this many times, then 200.
         limit_for: AtomicUsize,
         /// The `Retry-After` of those 429s, when set.
         retry_after: Option<&'static str>,
+        /// What PlaybackInfo answers, when set: `playback()` otherwise.
+        playback: Option<serde_json::Value>,
+        /// The status it answers with, when set (200 otherwise).
+        playback_status: Option<u16>,
+        /// A raw body for PlaybackInfo, when set: for the answers that are
+        /// not JSON.
+        playback_raw: Option<&'static str>,
+        /// A request to a path ending so is answered after this long.
+        delay: Option<(&'static str, Duration)>,
         seen: Mutex<Vec<Seen>>,
     }
 
@@ -896,6 +1113,70 @@ mod tests {
                 .filter(|s| s.uri.contains(needle))
                 .count()
         }
+        /// A 429, while `limit_for` lasts.
+        fn limited(&self) -> Option<Response<Full<Bytes>>> {
+            let left = self.limit_for.load(Ordering::SeqCst);
+            if left == 0 {
+                return None;
+            }
+            self.limit_for.store(left - 1, Ordering::SeqCst);
+            let mut r = Response::builder().status(429);
+            if let Some(s) = self.retry_after {
+                r = r.header("retry-after", s);
+            }
+            Some(r.body(Full::new(Bytes::from("{}"))).unwrap())
+        }
+    }
+
+    /// The item the sources tests ask about.
+    const ITEM: &str = "a1110100000001b239ffffffff000000";
+
+    /// A PlaybackInfo answer as AIOStreams gives it: whole sources, with the
+    /// streams and the subtitle URLs that carry the token, and fields this
+    /// app never reads.
+    fn playback() -> serde_json::Value {
+        serde_json::json!({
+            "MediaSources": [
+                {
+                    "Protocol": "Http", "Id": ITEM, "Path": "https://cdn.example/a/1.mkv",
+                    "Type": "Default", "Container": "mkv", "Size": 8123456789u64,
+                    "Name": "4K HDR\nRD cached", "IsRemote": true, "ETag": "m1",
+                    "RunTimeTicks": 72000000000u64, "IsInfiniteStream": false,
+                    "Bitrate": 9000000, "SupportsDirectPlay": true,
+                    "MediaAttachments": [], "Formats": [], "RequiredHttpHeaders": {},
+                    "MediaStreams": [
+                        { "Type": "Video", "Index": 0, "Codec": "hevc" },
+                        {
+                            "Type": "Subtitle", "Index": 2, "IsExternal": true,
+                            "DeliveryUrl": "/Videos/x/m1/Subtitles/2/0/Stream.srt?ApiKey=TOKEN1&PlaySessionId=PS1",
+                            "Path": "/Videos/x/m1/Subtitles/2/0/Stream.srt",
+                        },
+                    ],
+                    "aiostreams": {
+                        "name": "4K HDR", "description": "RD cached", "addon": "Torrentio",
+                        "service": "realdebrid", "cached": true, "resolution": "2160p",
+                        "size": 8123456789u64, "filename": "Movie.2160p.mkv",
+                        "bingeGroup": "torrentio|2160p", "visualTags": ["HDR10"],
+                        "type": "debrid", "id": "m1",
+                    },
+                },
+                {
+                    "Protocol": "Http", "Id": "m2", "Path": "https://cdn.example/b/2.mp4",
+                    "Type": "Default", "Container": "mp4", "Name": "1080p\nTorBox",
+                    "IsRemote": true, "IsInfiniteStream": false,
+                    "MediaStreams": [{
+                        "Type": "Subtitle", "Index": 1, "IsExternal": true,
+                        "DeliveryUrl": "/Videos/x/m2/Subtitles/1/0/Stream.vtt?ApiKey=TOKEN1",
+                    }],
+                    "aiostreams": {
+                        "name": "1080p", "description": "TorBox", "addon": "Comet",
+                        "service": "torbox", "cached": false, "visualTags": [],
+                        "type": "debrid", "id": "m2",
+                    },
+                },
+            ],
+            "PlaySessionId": "PS1",
+        })
     }
 
     async fn serve(fake: Arc<Fake>) -> String {
@@ -966,6 +1247,11 @@ mod tests {
         if fake.hold == Some(p) {
             fake.gate.acquire().await.unwrap().forget();
         }
+        if let Some((end, wait)) = fake.delay {
+            if p.ends_with(end) {
+                tokio::time::sleep(wait).await;
+            }
+        }
         match (method.as_str(), p) {
             ("GET", "/System/Info/Public") => match fake.probe {
                 Probe::Aio => json(
@@ -1024,17 +1310,24 @@ mod tests {
                 }
                 match p {
                     "/dead" => json(401, serde_json::json!({ "Message": "Invalid credentials" })),
-                    "/limited" => {
-                        let left = fake.limit_for.load(Ordering::SeqCst);
-                        if left > 0 {
-                            fake.limit_for.store(left - 1, Ordering::SeqCst);
-                            let mut r = Response::builder().status(429);
-                            if let Some(s) = fake.retry_after {
-                                r = r.header("retry-after", s);
-                            }
-                            return r.body(Full::new(Bytes::from("{}"))).unwrap();
+                    "/limited" => fake
+                        .limited()
+                        .unwrap_or_else(|| json(200, serde_json::json!({ "ok": true }))),
+                    p if method == "POST"
+                        && p.starts_with("/Items/")
+                        && p.ends_with("/PlaybackInfo") =>
+                    {
+                        if let Some(r) = fake.limited() {
+                            return r;
                         }
-                        json(200, serde_json::json!({ "ok": true }))
+                        let status = fake.playback_status.unwrap_or(200);
+                        if let Some(raw) = fake.playback_raw {
+                            return Response::builder()
+                                .status(status)
+                                .body(Full::new(Bytes::from(raw)))
+                                .unwrap();
+                        }
+                        json(status, fake.playback.clone().unwrap_or_else(playback))
                     }
                     _ => json(200, serde_json::json!({ "ok": true })),
                 }
@@ -1074,9 +1367,17 @@ mod tests {
 
     /// Signed in the real way, through the fake.
     async fn signed_in(fake: &Arc<Fake>) -> (Arc<Aiojf>, Shared, String) {
+        signed_in_with(fake, reqwest::Client::new()).await
+    }
+
+    /// The same, on a client of the test's own.
+    async fn signed_in_with(
+        fake: &Arc<Fake>,
+        http: reqwest::Client,
+    ) -> (Arc<Aiojf>, Shared, String) {
         let base = serve(fake.clone()).await;
         let vault = Shared::default();
-        let a = client(&vault);
+        let a = Aiojf::new(cfg(), http, Box::new(vault.clone()));
         a.start(&manifest(&base)).await.unwrap();
         while a.poll().await.unwrap() == Poll::Pending {}
         assert!(a.status().connected);
@@ -1469,6 +1770,494 @@ mod tests {
     }
 
     #[test]
+    fn a_search_asks_for_a_fresh_list_or_a_new_one_by_name() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (a, vault, _) = signed_in(&fake).await;
+            let device = vault.load().unwrap().device_id;
+            a.sources(ITEM, false).await.unwrap();
+            a.sources(ITEM, true).await.unwrap();
+            let seen = fake.seen();
+            let (fresh, again) = (&seen[seen.len() - 2], &seen[seen.len() - 1]);
+            let want = format!(
+                "MediaBrowser Client=\"BlammyTV\", Device=\"TEST-PC\", DeviceId=\"{device}\", Version=\"9.9.9\", Token=\"TOKEN1\""
+            );
+            for s in [fresh, again] {
+                assert_eq!(s.method, "POST");
+                assert_eq!(s.uri, format!("/jellyfin/Items/{ITEM}/PlaybackInfo"));
+                // The signed-in header, as every call, and no query.
+                assert_eq!(s.auth.as_deref(), Some(want.as_str()));
+            }
+            assert_eq!(fresh.body, r#"{"Fresh":true}"#);
+            assert_eq!(again.body, r#"{"Refresh":true}"#);
+        })
+    }
+
+    #[test]
+    fn the_generic_call_still_refuses_the_search_beside_it() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (a, _, _) = signed_in(&fake).await;
+            a.sources(ITEM, false).await.unwrap();
+            assert_eq!(fake.hits("PlaybackInfo"), 1);
+            let path = format!("/Items/{ITEM}/PlaybackInfo");
+            for (method, body) in [
+                ("POST", Some(serde_json::json!({ "Fresh": true }))),
+                ("POST", Some(serde_json::json!({ "Refresh": true }))),
+                ("POST", None),
+                ("GET", None),
+            ] {
+                let e = a.request(method, &path, None, body).await.unwrap_err();
+                assert!(e.starts_with("refused:"), "{method}: {e}");
+            }
+            // Only the named call reached AIOStreams.
+            assert_eq!(fake.hits("PlaybackInfo"), 1);
+        })
+    }
+
+    #[test]
+    fn a_search_comes_back_with_only_the_sources_own_fields() {
+        run(async {
+            // The fake's answer does carry what must not get out, or the
+            // checks below would pass on an answer that never had it.
+            let whole = playback().to_string();
+            for leak in [
+                "TOKEN1",
+                "ApiKey",
+                "MediaStreams",
+                "DeliveryUrl",
+                "MediaAttachments",
+                "PlaySessionId",
+                "Bitrate",
+                "ETag",
+            ] {
+                assert!(whole.contains(leak), "the fixture lost {leak}");
+            }
+            let fake = Arc::new(Fake::default());
+            let (a, _, _) = signed_in(&fake).await;
+            let r = a.sources(ITEM, false).await.unwrap();
+            let made = playback()["MediaSources"].clone();
+            assert_eq!(
+                serde_json::to_value(&r).unwrap(),
+                serde_json::json!({
+                    "status": 200,
+                    "sources": [
+                        {
+                            "Id": ITEM,
+                            "Path": "https://cdn.example/a/1.mkv",
+                            "Name": "4K HDR\nRD cached",
+                            "Type": "Default",
+                            "Size": 8123456789u64,
+                            "Container": "mkv",
+                            "RunTimeTicks": 72000000000u64,
+                            "IsInfiniteStream": false,
+                            // As it came, every field of it.
+                            "aiostreams": made[0]["aiostreams"].clone(),
+                        },
+                        {
+                            "Id": "m2",
+                            "Path": "https://cdn.example/b/2.mp4",
+                            "Name": "1080p\nTorBox",
+                            "Type": "Default",
+                            "Container": "mp4",
+                            "IsInfiniteStream": false,
+                            "aiostreams": made[1]["aiostreams"].clone(),
+                        },
+                    ],
+                })
+            );
+            assert_eq!(r.sources[0]["aiostreams"]["visualTags"][0], "HDR10");
+            // And nowhere in what is handed over, whatever it is called.
+            let out = serde_json::to_string(&r).unwrap();
+            for gone in [
+                "TOKEN1",
+                "ApiKey",
+                "MediaStreams",
+                "DeliveryUrl",
+                "MediaAttachments",
+                "PlaySessionId",
+                "PS1",
+                "Bitrate",
+                "ETag",
+                "SupportsDirectPlay",
+                "Subtitles",
+                "errorCode",
+            ] {
+                assert!(!out.contains(gone), "{gone} got out: {out}");
+            }
+            // The play URL did: it is what the page is asking for.
+            assert!(out.contains("https://cdn.example/a/1.mkv"));
+        })
+    }
+
+    #[test]
+    fn a_search_that_found_nothing_is_data_and_one_that_made_no_sense_is_an_error() {
+        run(async {
+            let placeholder = serde_json::json!({
+                "Id": ITEM, "Path": "https://aio.example/static/none.mp4",
+                "Type": "Placeholder", "Name": "No streams found", "Container": "mp4",
+                "IsInfiniteStream": false, "ETag": ITEM,
+                "MediaStreams": [{ "Type": "Video", "Index": 0 }],
+            });
+            // (status, body, what the page is told)
+            let cases: Vec<(u16, serde_json::Value, Sources)> = vec![
+                (
+                    404,
+                    serde_json::json!({
+                        "MediaSources": [], "PlaySessionId": "", "ErrorCode": "NotAllowed",
+                    }),
+                    Sources {
+                        status: 404,
+                        sources: vec![],
+                        error_code: Some("NotAllowed".into()),
+                    },
+                ),
+                // The placeholder is the page's to tell from a stream: it is
+                // kept, `Type` and all, down to its own fields.
+                (
+                    200,
+                    serde_json::json!({
+                        "MediaSources": [placeholder], "PlaySessionId": "PS1",
+                        "ErrorCode": "NoCompatibleStream",
+                    }),
+                    Sources {
+                        status: 200,
+                        sources: vec![serde_json::json!({
+                            "Id": ITEM, "Path": "https://aio.example/static/none.mp4",
+                            "Type": "Placeholder", "Name": "No streams found",
+                            "Container": "mp4", "IsInfiniteStream": false,
+                        })],
+                        error_code: Some("NoCompatibleStream".into()),
+                    },
+                ),
+                // An object with nothing usable in it, and what is not one.
+                (
+                    200,
+                    serde_json::json!({ "MediaSources": "nope", "ErrorCode": 7 }),
+                    Sources {
+                        status: 200,
+                        sources: vec![],
+                        error_code: None,
+                    },
+                ),
+                (
+                    200,
+                    serde_json::json!({ "MediaSources": [null, 5, "x", { "Id": "m1" }] }),
+                    Sources {
+                        status: 200,
+                        sources: vec![serde_json::json!({ "Id": "m1" })],
+                        error_code: None,
+                    },
+                ),
+                (
+                    500,
+                    serde_json::json!({ "Message": "oops" }),
+                    Sources {
+                        status: 500,
+                        sources: vec![],
+                        error_code: None,
+                    },
+                ),
+            ];
+            for (status, body, want) in cases {
+                let fake = Arc::new(Fake {
+                    playback_status: Some(status),
+                    playback: Some(body.clone()),
+                    ..Default::default()
+                });
+                let (a, _, _) = signed_in(&fake).await;
+                assert_eq!(a.sources(ITEM, false).await.unwrap(), want, "{body}");
+                assert!(a.status().connected);
+            }
+
+            // Not JSON at all: a page from something in front of it. A 2xx
+            // of that is no answer; any other status is the status.
+            for (status, raw, ok) in [
+                (200, "<!doctype html>", false),
+                (200, "[]", false),
+                (200, "", false),
+                (500, "<html>oops</html>", true),
+                (502, "", true),
+            ] {
+                let fake = Arc::new(Fake {
+                    playback_status: Some(status),
+                    playback_raw: Some(raw),
+                    ..Default::default()
+                });
+                let (a, _, _) = signed_in(&fake).await;
+                let r = a.sources(ITEM, false).await;
+                if ok {
+                    assert_eq!(
+                        r,
+                        Ok(Sources {
+                            status,
+                            sources: vec![],
+                            error_code: None
+                        }),
+                        "{status} {raw}"
+                    );
+                } else {
+                    assert_eq!(r, Err(BAD_ANSWER.to_string()), "{status} {raw}");
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn an_id_that_is_not_32_lower_case_hex_makes_no_request() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (a, _, _) = signed_in(&fake).await;
+            let sent = fake.seen().len();
+            let bad: Vec<String> = vec![
+                String::new(),
+                "abc".into(),
+                ITEM[..31].into(),
+                format!("{ITEM}0"),
+                ITEM.to_uppercase(),
+                // A uuid with its dashes, which AIOStreams would take.
+                "a1110100-0000-01b2-39ff-ffffffff0000".into(),
+                format!("{}g", &ITEM[..31]),
+                format!("{} ", &ITEM[..31]),
+                format!("{}\n", &ITEM[..31]),
+                format!("{}/", &ITEM[..31]),
+                format!("../{}", &ITEM[..29]),
+                format!("{}?x=1", &ITEM[..26]),
+                format!("{}%2f", &ITEM[..29]),
+                // 32 bytes, 16 characters.
+                "\u{e9}".repeat(16),
+                format!("{}\u{e9}", &ITEM[..30]),
+            ];
+            for id in &bad {
+                for refresh in [false, true] {
+                    let e = a.sources(id, refresh).await.unwrap_err();
+                    assert!(e.starts_with("refused:"), "{id:?}: {e}");
+                }
+            }
+            assert_eq!(fake.seen().len(), sent, "something reached AIOStreams");
+            assert!(a.status().connected);
+
+            // Signed out, a good id goes nowhere either, and it is not a
+            // refusal: the page reads this one as "disconnected".
+            let fake = Arc::new(Fake::default());
+            let _ = serve(fake.clone()).await;
+            let e = client(&Shared::default())
+                .sources(ITEM, false)
+                .await
+                .unwrap_err();
+            assert!(!e.starts_with("refused:"), "{e}");
+            assert!(fake.seen().is_empty());
+        })
+    }
+
+    #[test]
+    fn a_search_401_signs_out_and_clears_the_vault() {
+        run(async {
+            let fake = Arc::new(Fake {
+                playback_status: Some(401),
+                playback: Some(serde_json::json!({ "Message": "Invalid credentials" })),
+                ..Default::default()
+            });
+            let (a, vault, _) = signed_in(&fake).await;
+            let r = a.sources(ITEM, false).await.unwrap();
+            // The answer still comes back as data.
+            assert_eq!(
+                r,
+                Sources {
+                    status: 401,
+                    sources: vec![],
+                    error_code: None
+                }
+            );
+            assert!(!a.status().connected);
+            assert!(vault.load().is_none());
+            // Signed out: nothing more is sent.
+            let before = fake.seen().len();
+            assert!(a.sources(ITEM, false).await.is_err());
+            assert_eq!(fake.seen().len(), before);
+        })
+    }
+
+    #[test]
+    fn a_search_429_is_waited_out_once() {
+        run(async {
+            // One 429 with a Retry-After: wait it, ask again, get the sources.
+            let fake = Arc::new(Fake {
+                retry_after: Some("1"),
+                ..Default::default()
+            });
+            fake.limit_for.store(1, Ordering::SeqCst);
+            let (a, _, _) = signed_in(&fake).await;
+            let t0 = Instant::now();
+            let r = a.sources(ITEM, true).await.unwrap();
+            assert_eq!(r.status, 200);
+            assert_eq!(r.sources.len(), 2);
+            assert!(
+                t0.elapsed() >= Duration::from_millis(950),
+                "{:?}",
+                t0.elapsed()
+            );
+            assert_eq!(fake.hits("PlaybackInfo"), 2);
+            // The second ask is the first one again.
+            let seen = fake.seen();
+            let (first, second) = (&seen[seen.len() - 2], &seen[seen.len() - 1]);
+            assert_eq!(first.body, r#"{"Refresh":true}"#);
+            assert_eq!(second.body, first.body);
+            assert_eq!(second.uri, first.uri);
+
+            // Always limited: one more ask and no more, and the 429 goes back.
+            fake.limit_for.store(99, Ordering::SeqCst);
+            let r = a.sources(ITEM, false).await.unwrap();
+            assert_eq!(
+                r,
+                Sources {
+                    status: 429,
+                    sources: vec![],
+                    error_code: None
+                }
+            );
+            assert_eq!(fake.hits("PlaybackInfo"), 4);
+            assert!(a.status().connected);
+        })
+    }
+
+    #[test]
+    fn a_search_429_with_nothing_to_wait_for_is_not_asked_again() {
+        run(async {
+            // No Retry-After.
+            let fake = Arc::new(Fake::default());
+            fake.limit_for.store(99, Ordering::SeqCst);
+            let (a, _, _) = signed_in(&fake).await;
+            assert_eq!(a.sources(ITEM, false).await.unwrap().status, 429);
+            assert_eq!(fake.hits("PlaybackInfo"), 1);
+
+            // A Retry-After past what is worth waiting for.
+            let fake = Arc::new(Fake {
+                retry_after: Some("3600"),
+                ..Default::default()
+            });
+            fake.limit_for.store(99, Ordering::SeqCst);
+            let (a, _, _) = signed_in(&fake).await;
+            let t0 = Instant::now();
+            assert_eq!(a.sources(ITEM, false).await.unwrap().status, 429);
+            assert_eq!(fake.hits("PlaybackInfo"), 1);
+            assert!(t0.elapsed() < Duration::from_secs(5));
+        })
+    }
+
+    #[test]
+    fn a_search_waits_longer_than_the_shared_client_does() {
+        run(async {
+            assert_eq!(SOURCES_WAIT, Duration::from_secs(60));
+            // A client that gives a call 300 ms, as the app's gives it 30 s.
+            let short = || {
+                reqwest::Client::builder()
+                    .timeout(Duration::from_millis(300))
+                    .build()
+                    .unwrap()
+            };
+            // The control: that limit is live, and cuts a plain call short.
+            let slow = Arc::new(Fake {
+                delay: Some(("/slow", Duration::from_millis(900))),
+                ..Default::default()
+            });
+            let (a, _, _) = signed_in_with(&slow, short()).await;
+            assert_eq!(
+                a.request("GET", "/slow", None, None).await.unwrap_err(),
+                "timed out"
+            );
+            // The same wait on a search is let be.
+            let search = Arc::new(Fake {
+                delay: Some(("/PlaybackInfo", Duration::from_millis(900))),
+                ..Default::default()
+            });
+            let (a, _, _) = signed_in_with(&search, short()).await;
+            let r = a.sources(ITEM, false).await.unwrap();
+            assert_eq!((r.status, r.sources.len()), (200, 2));
+        })
+    }
+
+    #[test]
+    fn a_search_that_never_answers_gives_up_and_stays_signed_in() {
+        run(async {
+            let fake = Arc::new(Fake {
+                delay: Some(("/PlaybackInfo", Duration::from_secs(30))),
+                ..Default::default()
+            });
+            let (mut a, vault, base) = signed_in(&fake).await;
+            Arc::get_mut(&mut a).unwrap().sources_wait = Duration::from_millis(400);
+            let t0 = Instant::now();
+            let e = a.sources(ITEM, false).await.unwrap_err();
+            assert_eq!(e, "timed out");
+            assert!(t0.elapsed() < Duration::from_secs(5), "{:?}", t0.elapsed());
+            assert!(!e.contains(&base) && !e.contains(ITEM) && !e.contains("TOKEN1"));
+            // A slow search is not a sign-out.
+            assert!(a.status().connected);
+            assert!(vault.load().is_some());
+        })
+    }
+
+    #[test]
+    fn a_failed_search_names_neither_the_token_nor_the_address() {
+        run(async {
+            // Nothing listening, and a listener that hangs up (reqwest words
+            // that one with the URL in it).
+            let hangs_up = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = hangs_up.local_addr().unwrap().port();
+            tokio::spawn(async move {
+                loop {
+                    let _ = hangs_up.accept().await;
+                }
+            });
+            for host in ["127.0.0.1:9".to_string(), format!("127.0.0.1:{port}")] {
+                let vault = Shared::default();
+                vault
+                    .save(&Session {
+                        base: format!("http://{host}/jellyfin"),
+                        token: "THE-TOKEN-VALUE".into(),
+                        user_id: "UID".into(),
+                        user_name: "Adam".into(),
+                        server_id: "SRV".into(),
+                        device_id: "d".repeat(32),
+                    })
+                    .unwrap();
+                let a = client(&vault);
+                let e = a.sources(ITEM, false).await.unwrap_err();
+                assert!(
+                    !e.contains("THE-TOKEN-VALUE")
+                        && !e.contains("127.0.0.1")
+                        && !e.contains("jellyfin")
+                        && !e.contains(ITEM),
+                    "{host}: {e}"
+                );
+                assert!(a.status().connected, "{host}");
+            }
+        })
+    }
+
+    #[test]
+    fn the_sources_go_to_the_page_in_camel_case() {
+        let none = Sources {
+            status: 404,
+            sources: vec![],
+            error_code: None,
+        };
+        assert_eq!(
+            serde_json::to_string(&none).unwrap(),
+            r#"{"status":404,"sources":[]}"#
+        );
+        let some = Sources {
+            status: 200,
+            sources: vec![serde_json::json!({ "Id": "x" })],
+            error_code: Some("NoCompatibleStream".into()),
+        };
+        assert_eq!(
+            serde_json::to_string(&some).unwrap(),
+            r#"{"status":200,"sources":[{"Id":"x"}],"errorCode":"NoCompatibleStream"}"#
+        );
+    }
+
+    #[test]
     fn disconnect_logs_out_and_forgets() {
         run(async {
             let fake = Arc::new(Fake::default());
@@ -1811,19 +2600,15 @@ mod tests {
             d("https://h.example/stremio/U/P/manifest.json?x=1#top").configure_url,
             "https://h.example/stremio/U/P/configure?x=1"
         );
+        // Plan 024 widened what is read: a leading space, a manifest with no
+        // uuid, a path that is none of the forms are addresses now, and
+        // `every_form_of_address_reads_the_same_way` has them.
         for bad in [
             "",
             "not a url",
             "ftp://h.example/stremio/U/P/manifest.json",
             "file:///stremio/U/P/manifest.json",
             "javascript:alert(1)",
-            " https://h.example/stremio/U/P/manifest.json",
-            // Not a configured manifest.
-            "https://h.example/stremio/manifest.json",
-            "https://h.example/manifest.json",
-            "https://h.example/stremio/U/P/",
-            "https://h.example/stremio/U/P/manifest.jsonx",
-            "https://h.example/u/P/manifest.json",
             // A login in the address.
             "https://user:pass@h.example/stremio/U/P/manifest.json",
             "https://user@h.example/stremio/U/P/manifest.json",
@@ -1832,6 +2617,400 @@ mod tests {
             assert!(!e.contains("pass") || e.contains("password"), "{e}");
             assert!(derive(bad).is_err(), "took {bad:?}");
         }
+    }
+
+    #[test]
+    fn every_form_of_address_reads_the_same_way() {
+        // (address, the Jellyfin base, the configure page)
+        let cases: &[(&str, &str, &str)] = &[
+            // A manifest URL, as it was.
+            (
+                "https://aio.example.com/stremio/U/P/manifest.json",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/U/P/configure",
+            ),
+            (
+                "https://aio.example.com/aio/stremio/U/P/manifest.json",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/U/P/configure",
+            ),
+            (
+                "http://192.168.1.5:3000/stremio/U/P/manifest.json",
+                "http://192.168.1.5:3000/jellyfin",
+                "http://192.168.1.5:3000/stremio/U/P/configure",
+            ),
+            // A variant or an alias after the password keeps its own page.
+            (
+                "https://aio.example.com/stremio/U/P/v/two/manifest.json",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/U/P/v/two/configure",
+            ),
+            (
+                "https://aio.example.com/stremio/u/alice/manifest.json",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/u/alice/configure",
+            ),
+            // A configure URL, with the uuid and password or without.
+            (
+                "https://aio.example.com/stremio/U/P/configure",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/U/P/configure",
+            ),
+            (
+                "https://aio.example.com/aio/stremio/U/P/configure",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/U/P/configure",
+            ),
+            (
+                "https://aio.example.com/stremio/configure",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/aio/stremio/configure/",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            // Anything with /stremio/ in it. The uuid and password, when
+            // they are there, give the configure page.
+            (
+                "https://aio.example.com/stremio/U/P/",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/U/P/configure",
+            ),
+            (
+                "https://aio.example.com/stremio/U/P",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/U/P/configure",
+            ),
+            (
+                "https://aio.example.com/stremio/U/P/stream/movie/tt0111161.json",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/U/P/configure",
+            ),
+            // The unconfigured manifest, and the mount alone, name no config.
+            (
+                "https://aio.example.com/stremio/manifest.json",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/stremio/U/manifest.json",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/stremio/",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/aio/stremio",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            // The last /stremio/ is the one.
+            (
+                "https://aio.example.com/stremio/stremio/U/P/manifest.json",
+                "https://aio.example.com/stremio/jellyfin",
+                "https://aio.example.com/stremio/stremio/U/P/configure",
+            ),
+            (
+                "https://aio.example.com/stremio/x/stremio/configure",
+                "https://aio.example.com/stremio/x/jellyfin",
+                "https://aio.example.com/stremio/x/stremio/configure",
+            ),
+            // The routes are not case sensitive, so the marker is not.
+            (
+                "https://aio.example.com/Stremio/U/P/Manifest.json",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/U/P/configure",
+            ),
+            // One ending /jellyfin, or going on from it.
+            (
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/jellyfin/",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/jellyfin/System/Info/Public",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/jellyfin/u/alice",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/Jellyfin",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            // The last one, so a prefix that holds the word is safe.
+            (
+                "https://aio.example.com/jellyfin/jellyfin",
+                "https://aio.example.com/jellyfin/jellyfin",
+                "https://aio.example.com/jellyfin/stremio/configure",
+            ),
+            // The bare address, closing slash or not.
+            (
+                "https://aio.example.com",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/aio",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/aio/",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            (
+                "http://192.168.1.5:3000",
+                "http://192.168.1.5:3000/jellyfin",
+                "http://192.168.1.5:3000/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/my%20aio",
+                "https://aio.example.com/my%20aio/jellyfin",
+                "https://aio.example.com/my%20aio/stremio/configure",
+            ),
+            (
+                "HTTPS://AIO.Example.com:443/aio",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            // No scheme: https.
+            (
+                "aio.example.com",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "aio.example.com/",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "aio.example.com/aio",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            (
+                "aio.example.com:8443/aio",
+                "https://aio.example.com:8443/aio/jellyfin",
+                "https://aio.example.com:8443/aio/stremio/configure",
+            ),
+            (
+                "localhost:3000",
+                "https://localhost:3000/jellyfin",
+                "https://localhost:3000/stremio/configure",
+            ),
+            (
+                "192.168.1.5:3000/stremio/U/P/manifest.json",
+                "https://192.168.1.5:3000/jellyfin",
+                "https://192.168.1.5:3000/stremio/U/P/configure",
+            ),
+            (
+                "aio.example.com/stremio/configure",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "aio.example.com/jellyfin",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "[::1]:3000",
+                "https://[::1]:3000/jellyfin",
+                "https://[::1]:3000/stremio/configure",
+            ),
+            // Whitespace around it is not part of it.
+            (
+                "  https://aio.example.com/aio/  ",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            (
+                "\t aio.example.com\r\n",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                " https://aio.example.com/stremio/U/P/manifest.json",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/U/P/configure",
+            ),
+            // A query and a fragment never reach the base, nor a configure
+            // page that is not the address's own.
+            (
+                "https://aio.example.com/aio?token=1#top",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/aio/jellyfin?x=1",
+                "https://aio.example.com/aio/jellyfin",
+                "https://aio.example.com/aio/stremio/configure",
+            ),
+            (
+                "https://aio.example.com/stremio/configure?x=1#y",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            (
+                "aio.example.com?x=1",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/configure",
+            ),
+            // A manifest URL's own configure page keeps its query, as it did.
+            (
+                "https://aio.example.com/stremio/U/P/manifest.json?x=1#top",
+                "https://aio.example.com/jellyfin",
+                "https://aio.example.com/stremio/U/P/configure?x=1",
+            ),
+        ];
+        for (address, base, configure_url) in cases {
+            assert_eq!(
+                derive(address),
+                Ok(Derived {
+                    base: base.to_string(),
+                    configure_url: configure_url.to_string(),
+                }),
+                "{address:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_address_that_is_not_plain_http_is_refused_without_a_word_of_it() {
+        for bad in [
+            "",
+            "   ",
+            "not a url",
+            "https://",
+            "http://",
+            "://aio.example.com",
+            "https://aio .example.com",
+            "aio.example.com:99999",
+            // Any scheme but http and https.
+            "ftp://aio.example.com",
+            "ws://aio.example.com/stremio/U/P/manifest.json",
+            "file:///stremio/U/P/manifest.json",
+            "file:/etc/passwd",
+            "javascript:alert(1)",
+            "data:text/html,x",
+            "mailto:a@b.example",
+            // A scheme that is not written as one: mpv's check, the same.
+            "HTTPS:aio.example.com",
+            // A login in the address, with or without the scheme.
+            "https://user:pass@aio.example.com",
+            "https://user@aio.example.com/stremio/U/P/manifest.json",
+            "user:pass@aio.example.com",
+            "user@aio.example.com",
+        ] {
+            let e = derive(bad).expect_err(&format!("took {bad:?}"));
+            // The address can be a password (a manifest URL is), so no refusal
+            // quotes any of it.
+            assert!(!e.contains("example"), "{bad:?}: {e}");
+            assert!(
+                !e.contains("pass") || e.contains("password"),
+                "{bad:?}: {e}"
+            );
+        }
+    }
+
+    #[test]
+    fn signing_in_from_an_address_asks_the_jellyfin_mount_and_nothing_else() {
+        run(async {
+            // Each way of naming one instance, and where it is approved.
+            let forms: [(&str, &str); 6] = [
+                ("", "/stremio/configure"),
+                ("/", "/stremio/configure"),
+                ("/jellyfin", "/stremio/configure"),
+                ("/stremio/configure", "/stremio/configure"),
+                ("/stremio/U/P/configure", "/stremio/U/P/configure"),
+                // Spaces round it, and a query on the manifest.
+                (
+                    "/stremio/U/P/manifest.json?x=1#f ",
+                    "/stremio/U/P/configure?x=1",
+                ),
+            ];
+            for (tail, configure) in forms {
+                let fake = Arc::new(Fake::default());
+                let base = serve(fake.clone()).await;
+                let vault = Shared::default();
+                let a = client(&vault);
+                let started = a.start(&format!("  {base}{tail}")).await.unwrap();
+                assert_eq!(
+                    started.configure_url,
+                    format!("{base}{configure}"),
+                    "{tail}"
+                );
+                assert_eq!(started.code, "123456", "{tail}");
+                let order: Vec<String> = fake
+                    .seen()
+                    .iter()
+                    .map(|s| format!("{} {}", s.method, s.uri))
+                    .collect();
+                assert_eq!(
+                    order,
+                    vec![
+                        "GET /jellyfin/System/Info/Public",
+                        "POST /jellyfin/QuickConnect/Initiate"
+                    ],
+                    "{tail}"
+                );
+                // And it finishes as it always did, on that base.
+                while a.poll().await.unwrap() == Poll::Pending {}
+                assert_eq!(
+                    vault.load().unwrap().base,
+                    format!("{base}/jellyfin"),
+                    "{tail}"
+                );
+            }
+        })
+    }
+
+    #[test]
+    fn a_refused_address_sends_nothing() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let base = serve(fake.clone()).await;
+            let a = client(&Shared::default());
+            let port = base.rsplit(':').next().unwrap();
+            for bad in [
+                format!("ftp://127.0.0.1:{port}/stremio/U/P/manifest.json"),
+                format!("http://user:pass@127.0.0.1:{port}"),
+                "file:///etc/passwd".to_string(),
+                String::new(),
+            ] {
+                let e = a.start(&bad).await.unwrap_err();
+                assert!(!e.starts_with("unsupported:"), "{bad}: {e}");
+            }
+            assert!(fake.seen().is_empty());
+            assert_eq!(a.poll().await.unwrap(), Poll::Error);
+        })
     }
 
     #[test]
