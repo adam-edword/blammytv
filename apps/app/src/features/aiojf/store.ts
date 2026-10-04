@@ -72,19 +72,23 @@ export function forgetAiojf(): void {
  * that says the build has no sync at all tells nothing, so it changes
  * nothing.
  *
- * Going from no sign-in to one also deletes a stored manifest URL (plan 024,
- * D4): the sign-in wins over any manifest, and the URL is a password in
- * plain text that has no reason to stay. That covers a new approval and a
- * plan 023 user who was connected already. It signs nobody out:
- * `saveAioUrl` no longer does.
+ * A sign-in also deletes a stored manifest URL (plan 024, D4): the sign-in
+ * wins over any manifest, and the URL is a password in plain text that has
+ * no reason to stay. That covers a new approval, a plan 023 user who was
+ * connected already, and a sign-in recorded before D4 shipped. It signs
+ * nobody out: `saveAioUrl` no longer does.
  */
 export function noteSignIn(s: AiojfStatus, canSource: boolean): void {
   if (!s.supported) return;
   const now = loadAiojf().signedIn;
   if (s.connected && s.base && canSource) {
-    if (now?.base === s.base && now.userName === s.userName) return;
-    saveAiojf({ signedIn: { base: s.base, ...(s.userName ? { userName: s.userName } : {}) } });
-    if (!now && loadAioUrl()) saveAioUrl("");
+    if (now?.base !== s.base || now.userName !== s.userName) {
+      saveAiojf({ signedIn: { base: s.base, ...(s.userName ? { userName: s.userName } : {}) } });
+    }
+    // Every read that finds the sign-in, not only the first: a sign-in
+    // recorded before D4 (v0.11.17) still has its manifest. Settings offers
+    // no manifest field while signed in, so nothing new lands here to lose.
+    if (loadAioUrl()) saveAioUrl("");
   } else if (now) {
     saveAiojf({ signedIn: undefined });
   }

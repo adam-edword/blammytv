@@ -155,12 +155,13 @@ describe("a manifest URL, once there is a sign-in (plan 024, D4)", () => {
     expect(loadAiojf().signedIn).toBeUndefined();
   });
 
-  it("is only deleted going from no sign-in to one, never when the same account is read again", () => {
+  it("is deleted for a sign-in recorded before D4 too, the next time it is read", () => {
+    // v0.11.17 recorded sign-ins without deleting anything.
     noteSignIn(on, true);
     saveAioUrl(MANIFEST);
     noteSignIn(on, true);
-    noteSignIn({ ...on, userName: "Eve" }, true);
-    expect(loadAioUrl()).toBe(MANIFEST);
+    expect(loadAioUrl()).toBe("");
+    expect(loadAiojf().signedIn).toEqual({ base: BASE, userName: "Adam" });
   });
 
   it("is stored, changed and removed without touching the sign-in", () => {
