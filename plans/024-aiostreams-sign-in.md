@@ -1,7 +1,9 @@
 # Plan 024: AIOStreams by sign-in
 
-**Status: PLAN, 2026-10-04. Four decisions below, each with a
-recommendation.** Nothing built.
+**Status: CALLS TAKEN, 2026-10-04.** Adam took all four as recommended:
+the manifest stays as a fallback (D1), an adapter behind today's
+functions (D2), sources no older than 3 minutes on open (D3), and a saved
+manifest URL deleted once you've signed in (D4). B1 and B2 building.
 
 Adam, 2026-10-04, after plan 023's sync worked on his instance: "we should
 have this be the default aiostreams connection method now". Asked whether
@@ -190,7 +192,9 @@ so keeping it buys little, and taking it off the disk is half the point.
 3. **B3, wiring**: `data/stremio.ts` asks the adapter when signed in, the
    manifest otherwise (D1). Onboarding and Settings → AIOStreams get the
    address field and the code; plan 023's sync row folds into it; the
-   Connection Test checks the sign-in path; D4 on success.
+   Connection Test checks the sign-in path; D4 on success. Careful there:
+   since plan 023, changing or clearing the manifest URL signs out of
+   sync (`saveAioUrl`), so D4's delete must not.
 4. **B4, harnesses**: plan 023's fake grows the browse routes and
    `PlaybackInfo`. A new `verify-signin` covers sign-in from onboarding,
    rows, a title's page, its sources (cache groups and badges from the

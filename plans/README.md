@@ -38,7 +38,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [021](021-mal.md) | MyAnimeList: sign in, your finished anime episodes counted on MAL, your MAL counts ticking episodes here | MEDIUM | BUILT (v0.10.39 to v0.10.44, films included, 2026-09-27); waiting on Adam's MAL app for a real run |
 | [022](022-glass-and-light.md) | The glass in two tiers, and light mode back with its control | MEDIUM | CALLS TAKEN 2026-09-29 (glass B, grey page, Appearance control); not built yet |
 | [023](023-aiostreams-jellyfin.md) | AIOStreams' Jellyfin side: sync what you watch with AIOStreams' own watch state, skip intros and credits for every film and show, Next Up and Upcoming rows | MEDIUM | BUILT (2026-10-04): v0.11.13, 595c29a1 (native), v0.11.14; not yet run against a real AIOStreams |
-| [024](024-aiostreams-sign-in.md) | AIOStreams by sign-in: the instance's address and a code instead of a pasted manifest URL, with Stream's catalogs, details, sources and playback over the Jellyfin side | MEDIUM | PLAN (2026-10-04): four decisions, each with a recommendation |
+| [024](024-aiostreams-sign-in.md) | AIOStreams by sign-in: the instance's address and a code instead of a pasted manifest URL, with Stream's catalogs, details, sources and playback over the Jellyfin side | MEDIUM | CALLS TAKEN (2026-10-04): all four as recommended; B1 and B2 building |
 
 ## 001 to 007: execution order & dependencies
 
