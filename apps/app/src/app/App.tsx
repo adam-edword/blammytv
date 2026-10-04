@@ -19,6 +19,7 @@ import { LiveScreen } from "../features/live/LiveScreen";
 import { SportsScreen } from "../features/sports/SportsScreen";
 import { MultiviewTab } from "../features/live/MultiviewTab";
 import { watchPlaylists } from "../features/live/source";
+import { useAiojfSync } from "../features/aiojf/sync";
 import { useMalSync } from "../features/mal/sync";
 import { useTraktSync } from "../features/trakt/sync";
 import {
@@ -65,9 +66,10 @@ export function App() {
   // Trakt (plan 015): sync at launch, on coming back, and soon after the
   // Trakt Watchlist changes. Here, not in Root: Root mounts the pop-out and
   // overlay windows too, and one sync per app is the point. MyAnimeList
-  // (plan 021) the same way.
+  // (plan 021) and AIOStreams' sync (plan 023) the same way.
   useTraktSync();
   useMalSync();
+  useAiojfSync();
   // Nav is two facts, not one: which SIDE of the app (Live TV vs Stream)
   // and which Stream PAGE (the pill rail). streamTab survives a trip to
   // Live TV — coming back lands where you were; the startup setting only

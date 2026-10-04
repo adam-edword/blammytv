@@ -15,13 +15,44 @@ const CAP_PER_SERIES = 5000;
  * the ledger: Trakt replaces the ledger's IMDb series on every sync, and
  * MAL's ticks must survive that (D3, a tick from either counts). */
 const MAL_KEY = "malWatched";
+/** What AIOStreams counts as played (plan 023, D3), apart from the ledger for
+ * the same reason as MAL's: Trakt replaces the ledger's IMDb series on every
+ * sync. Replaced whole on each AIOStreams sync, so un-marking in another of
+ * its apps un-ticks here too. Episodes by series, and the films. */
+const AIO_KEY = "aioWatched";
 
 type WatchedMap = Record<string, string[]>;
 
+export interface AioPlayed {
+  episodes: WatchedMap;
+  films: string[];
+}
+
+export function loadAioWatched(): AioPlayed {
+  const v = load<Partial<AioPlayed>>(AIO_KEY, VERSION, {});
+  return { episodes: v.episodes ?? {}, films: v.films ?? [] };
+}
+
+/** A tick shows if any store has it: yours, Trakt's (the ledger), MAL's or
+ * AIOStreams' (D3). */
 export function loadWatched(seriesId: string): Set<string> {
   const map = load<WatchedMap>(KEY, VERSION, {});
   const mal = load<WatchedMap>(MAL_KEY, VERSION, {});
-  return new Set([...(map[seriesId] ?? []), ...(mal[seriesId] ?? [])]);
+  const aio = loadAioWatched().episodes;
+  return new Set([...(map[seriesId] ?? []), ...(mal[seriesId] ?? []), ...(aio[seriesId] ?? [])]);
+}
+
+/** AIOStreams' played list, in place of the last one. True when it changed. */
+export function replaceAioWatched(next: AioPlayed): boolean {
+  const before = JSON.stringify(loadAioWatched());
+  if (before === JSON.stringify(next)) return false;
+  save(AIO_KEY, VERSION, next);
+  return true;
+}
+
+/** AIOStreams disconnected: its ticks go with it. */
+export function forgetAioWatched(): void {
+  remove(AIO_KEY);
 }
 
 /** MAL's ticks for one series. True when they changed. */

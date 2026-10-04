@@ -58,7 +58,7 @@ import {
 import { readStreamScroll, saveStreamScroll } from "./session";
 import { SaveButton } from "./SaveButton";
 import { nextEpisode, nextUpEpisode, pickCachedIndex } from "./mapper";
-import { getAniskipRanges, type SkipRange } from "./aniskip";
+import type { SkipRange } from "./aniskip";
 import {
   keepEarlierReturn,
   onOpenRequest,
@@ -68,7 +68,7 @@ import {
   takeOpenRequest,
   takeResumeRequest,
 } from "./openRequest";
-import { filmWatched, loadWatched, markWatched } from "./watched";
+import { filmWatched, loadAioWatched, loadWatched, markWatched } from "./watched";
 import { loadAioUrl } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
@@ -106,6 +106,10 @@ import {
 } from "../../lib/tauri";
 import { BackButton } from "../../ui/BackButton";
 import { useTraktScrobble } from "../trakt/scrobble";
+import { useAiojfReport } from "../aiojf/report";
+import { playSkips } from "../aiojf/skips";
+import { useAioTicks } from "../aiojf/ticks";
+import { UpNextRows } from "../aiojf/UpNextRows";
 import { rememberForMal } from "../mal/sync";
 import { useMalTicks } from "../mal/ticks";
 import { loadTrakt, TRAKT_SYNCED } from "../trakt/store";
@@ -1019,14 +1023,16 @@ export function StreamScreen() {
 
   // Skip Intro Phase 2: exact AniSkip intervals for the playing episode,
   // resolved async (imdb → MAL via the cached mapping index, then one API
-  // call). Everything fails soft to the chapter heuristics in the overlay.
+  // call). Where AniSkip has nothing, AIOStreams' own markers when its sync
+  // is connected (plan 023, A4). Everything fails soft to the chapter
+  // heuristics in the overlay.
   const [aniSkips, setAniSkips] = useState<SkipRange[] | null>(null);
   useEffect(() => {
     setAniSkips(null);
     const p = playingRef.current;
     if (!p) return;
     let stale = false;
-    getAniskipRanges(p.item, p.episodeId).then(
+    playSkips(p.item, p.episodeId, p.episodeInfo?.season).then(
       (r) => {
         if (!stale && r.length) setAniSkips(r);
       },
@@ -1430,6 +1436,20 @@ export function StreamScreen() {
           title: playing.item.title,
           year: playing.item.year,
           episodeId: playing.episodeId,
+          popped: playing.popped,
+        }
+      : null,
+  );
+
+  // AIOStreams (plan 023, A2): what plays here is reported to it too, so its
+  // other apps show it. Does nothing until its sync is connected.
+  useAiojfReport(
+    playing
+      ? {
+          itemId: playing.item.id,
+          kind: playing.item.kind,
+          episodeId: playing.episodeId,
+          season: playing.episodeInfo?.season,
           popped: playing.popped,
         }
       : null,
@@ -2013,6 +2033,9 @@ function Home({
             </RowScroller>
           </section>
         )}
+        {/* What AIOStreams has next for you (plan 023, A5): its own rows
+          * under Continue Watching, empty ones not drawn. */}
+        <UpNextRows catalog={data.items} metaFields={metaFields} onOpen={onOpen} />
         {data.rows.map((row) => (
           <section key={row.id} className="media-row">
             <h3 className="media-row__title">{row.title}</h3>
@@ -2412,10 +2435,11 @@ function GenrePills({ genres }: { genres: string[] }) {
  * For an episode, `episodeId` scopes the source resolve. Sources re-resolve
  * on every open — debrid links can be short-lived. */
 /** "Watched Sep 12" for a film Trakt has as watched, or null. The year
- * too when it was not this year. */
+ * too when it was not this year. A film only AIOStreams has as played says
+ * "Watched" (plan 023): its list carries no day. */
 function watchedOn(id: string): string | null {
   const at = loadTrakt().movies?.[id];
-  if (at == null) return null;
+  if (at == null) return loadAioWatched().films.includes(id) ? "Watched" : null;
   if (!at) return "Watched";
   const d = new Date(at);
   const sameYear = d.getFullYear() === new Date().getFullYear();
@@ -2665,8 +2689,11 @@ function Episodes({
   // MAL's counts tick episodes too (plan 021, D2 b). The hook's number
   // moves when it has written new ones for loadWatched to read.
   const malTicks = useMalTicks(item);
+  // And AIOStreams' (plan 023, D3): the union of yours, Trakt's, MAL's and
+  // its own, re-read after each of its syncs.
+  const aioTicks = useAioTicks();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const watched = useMemo(() => loadWatched(item.id), [item.id, malTicks]);
+  const watched = useMemo(() => loadWatched(item.id), [item.id, malTicks, aioTicks]);
   // Next up: the episode after the last one watched/played (the CW entry
   // knows exactly where you are; the ledger covers checkmark-only state).
   const entry = useMemo(

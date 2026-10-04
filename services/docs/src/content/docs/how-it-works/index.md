@@ -35,6 +35,12 @@ the app is down with it and nothing could have cached it for you.
 | `api.themoviedb.org` | Asking **Discover** for ideas (REC) | The words you typed, and a lookup for the title it suggests back. Never your library or what you watch. |
 | `auth.trakt.tv`, `api.trakt.tv` | **Only if you connect Trakt** | Your sign-in, then what you play and how far in, and your watch history, paused positions and watchlist, both ways |
 | `myanimelist.net`, `api.myanimelist.net` | **Only if you connect MyAnimeList** | Your sign-in, then the episode count of an anime when you finish an episode, and your list's counts back |
+| Your AIOStreams instance | **Only if you connect AIOStreams sync** | Your sign-in, then what you play and how far in, and a played mark when you finish something. It sends back what you watched in its other apps, where you left off, and what's next. |
+
+If you connect AIOStreams sync, AIOStreams looks up skip markers for what you
+play. That lookup is the instance's own setting, not BlammyTV's: it sends the
+title, season and episode to IntroDB, AniSkip and PMDB, and BlammyTV only
+reads the answer.
 
 ## Nothing of ours
 
@@ -45,13 +51,15 @@ to report to.
 
 - It doesn't host, index or supply any content.
 - **It has no account of its own.** There is nothing to sign up for. Trakt
-  and MyAnimeList are optional, and they're your accounts with them.
+  and MyAnimeList are optional, and they're your accounts with them. AIOStreams
+  sync is optional too, and it's your own instance.
 - **It sends your credentials nowhere.** Playlist passwords, portal MAC
   addresses and your AIOStreams URL never leave your machine. They're scrubbed
   out of error messages too, so a diagnostic can't carry one by accident.
 - **It has no analytics.** No page views, no session tracking, no third-party
-  analytics service. The only thing that reports what you watch is Trakt or
-  MyAnimeList, if you connect them, because that's their job.
+  analytics service. The only things that report what you watch are Trakt,
+  MyAnimeList and your AIOStreams instance, if you connect them, because that's
+  their job.
 
 Viewing activity does reach two third parties as a side effect of features:
 Cinemeta learns the id of a title whose artwork was missing, and AniSkip
@@ -74,8 +82,8 @@ them. That's the same posture as most desktop IPTV clients, but you should
 know rather than assume otherwise. If your machine is shared, your provider
 credentials are shared.
 
-Trakt and MyAnimeList are the exception: their sign-ins are kept in Windows
-Credential Manager, not in the app's profile.
+Trakt, MyAnimeList and AIOStreams sync are the exception: their sign-ins are
+kept in Windows Credential Manager, not in the app's profile.
 :::
 
 ## Playback

@@ -17,10 +17,14 @@ export const Card = memo(function Card({
   item,
   metaFields,
   onOpen,
+  meta: metaLine,
 }: {
   item: VodItem;
   metaFields: CardMetaField[];
   onOpen: (i: VodItem) => void;
+  /** Said in place of the chosen fields: a row whose cards are about
+   * something else than the title (Next Up names the episode). */
+  meta?: string;
 }) {
   // Real catalogs carry poster URLs of wildly varying health — a broken
   // one falls back to the lettermark like a missing one does, instead of
@@ -36,6 +40,7 @@ export const Card = memo(function Card({
     genre: item.genres[0],
     kind: item.kind,
   });
+  const shown = metaLine ?? meta;
   // Apple TV-style pointer tilt on the poster only — the title/meta below
   // stay planted. Angles well under the library's 20° default: the real
   // thing is a gentle lean, not a flip. OS-level reduced-motion wins.
@@ -75,7 +80,7 @@ export const Card = memo(function Card({
         )}
       </Tilt>
       <span className="stream-card__name">{item.title}</span>
-      {meta && <span className="stream-card__meta">{meta}</span>}
+      {shown && <span className="stream-card__meta">{shown}</span>}
     </button>
   );
 });

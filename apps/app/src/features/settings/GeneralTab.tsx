@@ -3,8 +3,10 @@ import { Button } from "../../components/ui/button";
 import { remove as removeStored } from "../../lib/storage";
 import { Segmented } from "../../ui/Segmented";
 import { UpdatesSection } from "./UpdatesSection";
+import { AioSyncSection } from "./AioSyncSection";
 import { MalSection } from "./MalSection";
 import { TraktSection } from "./TraktSection";
+import { signOutOfAio } from "../aiojf/account";
 import { signOutOfMal } from "../mal/account";
 import { signOutOfTrakt } from "../trakt/account";
 import { PlaylistsTab } from "./PlaylistsTab";
@@ -65,10 +67,11 @@ export function GeneralTab() {
     // The guide's copy on disk, the same way (Xtream credentials in its key
     // and in every stream URL).
     void diskClear();
-    // And the Trakt and MyAnimeList sign-ins (plans 015, 021), which are
-    // logins like the others.
+    // And the Trakt, MyAnimeList and AIOStreams sync sign-ins (plans 015,
+    // 021, 023), which are logins like the others.
     void signOutOfTrakt();
     void signOutOfMal();
+    void signOutOfAio();
     setClears((n) => n + 1);
   };
 
@@ -82,11 +85,12 @@ export function GeneralTab() {
       </div>
       {source === "live" ? <PlaylistsTab key={clears} /> : <AioStreamsTab key={clears} />}
 
-      {/* Accounts elsewhere that follow what you watch (plans 015, 021). */}
+      {/* Accounts elsewhere that follow what you watch (plans 015, 021, 023). */}
       <h3 className={`settings__group ${EYEBROW}`}>Accounts</h3>
       <section className="settings-section">
         <TraktSection />
         <MalSection />
+        <AioSyncSection />
       </section>
 
       {/* Same shape as Customize: a group heading, then ONE section holding
@@ -120,8 +124,8 @@ export function GeneralTab() {
             <div>
               <h4 className="customize-row__title">Clear All Login Info</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Removes every playlist, your AIOStreams manifest and your Trakt
-                and MyAnimeList sign-ins from this device.
+                Removes every playlist, your AIOStreams manifest and your Trakt,
+                MyAnimeList and AIOStreams sync sign-ins from this device.
               </p>
             </div>
             <Button

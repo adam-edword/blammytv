@@ -814,9 +814,11 @@ input.rowcap__value--edit:focus-visible {
   gap: 8px;
   margin: 6px 0 4px;
 }
-/* MyAnimeList's row (plan 021) keeps the same pair. */
+/* MyAnimeList's row (plan 021) keeps the same pair, and so does AIOStreams'
+ * (plan 023), which borrows Trakt's code line above as well. */
 .trakt-row__actions,
-.mal-row__actions {
+.mal-row__actions,
+.aio-row__actions {
   display: flex;
   flex: none;
   gap: 8px;

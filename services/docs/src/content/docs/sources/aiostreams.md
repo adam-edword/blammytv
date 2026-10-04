@@ -77,6 +77,42 @@ your manifest.
 One bad catalog never sinks the tab. Rows are fetched independently, so a
 single failing one goes missing while everything else loads.
 
+## Sync with AIOStreams
+
+Every AIOStreams config is also a Jellyfin-compatible server, and BlammyTV can
+sign in to it. Once it's connected:
+
+- **What you play here shows in AIOStreams' other apps**, with how far you got.
+  Something you finish is marked played.
+- **What you watched there comes back.** Where you left off joins Continue
+  Watching, episodes you've played tick in the episode grid, and **Next Up**
+  and **Upcoming** rows appear under Continue Watching on the Stream home.
+- **Skip Intro, Skip Recap and Skip Credits** for films and shows, from
+  AIOStreams' markers. Anime keeps BlammyTV's own AniSkip timings.
+
+It's optional, and it needs AIOStreams 2.35 or later with its Jellyfin side
+on, which it is by default.
+
+To connect, go to **Settings → General → Accounts → AIOStreams sync** and
+press **Connect**. BlammyTV shows a 6-digit code. Press **Open AIOStreams**,
+then on your configure page choose **Save & Install**, **Jellyfin apps**,
+**Connect**, and enter the code. If your config has household users, you pick
+yours there. BlammyTV notices on its own.
+
+Your sign-in is kept in Windows Credential Manager, never in the app's
+profile. Changing or clearing the manifest URL disconnects it, since the
+sign-in belongs to that config. **Disconnect** signs this device out and
+leaves your watch state on AIOStreams alone.
+
+:::caution[Leave Trakt trackers out of your AIOStreams setup]
+If you connect Trakt in BlammyTV, it already reports what you play. A Trakt
+tracker in your AIOStreams config would count every play twice.
+:::
+
+The skip markers come from IntroDB, AniSkip and PMDB, looked up by AIOStreams
+with the title, season and episode. That's your instance's setting. See
+[where your data goes](/how-it-works/).
+
 ## Tuning
 
 - **Catalog Row Size** (Settings) sets how many titles each row holds. The
