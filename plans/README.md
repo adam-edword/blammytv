@@ -37,6 +37,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [020](020-player-language.md) | The player in the redesign's language: its controls in two capsules like the nav, Play the white circle, times as eyebrows, menus on the chip fill | LOW | BUILT v0.10.22 (2026-09-27), option B, with a tooltip on every player button |
 | [021](021-mal.md) | MyAnimeList: sign in, your finished anime episodes counted on MAL, your MAL counts ticking episodes here | MEDIUM | BUILT (v0.10.39 to v0.10.44, films included, 2026-09-27); waiting on Adam's MAL app for a real run |
 | [022](022-glass-and-light.md) | The glass in two tiers, and light mode back with its control | MEDIUM | CALLS TAKEN 2026-09-29 (glass B, grey page, Appearance control); not built yet |
+| [023](023-aiostreams-jellyfin.md) | AIOStreams' Jellyfin side: sync what you watch with AIOStreams' own watch state, skip intros and credits for every film and show, Next Up and Upcoming rows | MEDIUM | PLAN (2026-10-04): six decisions, each with a recommendation |
 
 ## 001 to 007: execution order & dependencies
 
