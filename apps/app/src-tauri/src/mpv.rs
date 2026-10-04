@@ -499,6 +499,14 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         // composition windowed vs independent-flip/overlay fullscreen). The real
         // fix is rendering mpv into a DComp composition swapchain (render API).
         set("audio-channels", "stereo");
+        // The app's name in Windows' sound settings. mpv hands its window
+        // title to its audio session (AOCONTROL_UPDATE_STREAM_TITLE), and the
+        // default title is the stream's name plus " - mpv": Adam's read
+        // "107885.ts - mpv", and multi-view's sound (mvaudio_out.rs, the same
+        // process) sat under it. The window is embedded (wid), so the title
+        // shows nowhere else. "Player" keeps it apart from the other
+        // "BlammyTV" entry Windows lists.
+        set("title", "BlammyTV Player");
         set("terminal", "no");
         // THE BACK BUFFER, which is what makes a short back-seek instant or
         // a fresh HTTP range request against the user's debrid account.
