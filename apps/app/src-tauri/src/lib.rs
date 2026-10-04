@@ -1,3 +1,4 @@
+mod aiojf;
 mod frontend;
 mod mal;
 mod mpv;
@@ -1089,6 +1090,73 @@ async fn mal_disconnect() {
     mal_client().disconnect().await
 }
 
+/// AIOStreams' Jellyfin side (plan 023): one client for the run, the same
+/// shape as Trakt's. Nothing is compiled in: Quick Connect needs no app key,
+/// and the address is the AIOStreams manifest URL the page already holds. A
+/// dev run keeps its session under its own name, as Trakt's does.
+fn aiojf_client() -> &'static std::sync::Arc<aiojf::Aiojf> {
+    static CLIENT: OnceLock<std::sync::Arc<aiojf::Aiojf>> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        let cfg = aiojf::Config {
+            app_version: env!("CARGO_PKG_VERSION").to_string(),
+            // Windows sets it; the header says "Windows" when it is absent.
+            device_name: std::env::var("COMPUTERNAME").unwrap_or_default(),
+        };
+        #[cfg(windows)]
+        let vault: Box<dyn aiojf::Vault> = Box::new(aiojf::WindowsVault {
+            target: if tauri::is_dev() {
+                "BlammyTV/aiostreams-dev"
+            } else {
+                "BlammyTV/aiostreams"
+            }
+            .into(),
+        });
+        #[cfg(not(windows))]
+        let vault: Box<dyn aiojf::Vault> = Box::new(aiojf::MemoryVault::default());
+        aiojf::Aiojf::new(cfg, http_client().clone(), vault)
+    })
+}
+
+/// Whether a session is kept, and whose.
+#[tauri::command]
+fn aiojf_status() -> aiojf::Status {
+    aiojf_client().status()
+}
+
+/// Start signing in from the AIOStreams manifest URL: the code to show and
+/// the configure page where it is approved. Rejects with `unsupported: ...`
+/// when that AIOStreams has no Jellyfin side.
+#[tauri::command]
+async fn aiojf_start(manifest_url: String) -> Result<aiojf::Started, String> {
+    aiojf_client().start(&manifest_url).await
+}
+
+/// One poll of the sign-in: approved, pending, expired or error.
+#[tauri::command]
+async fn aiojf_poll() -> Result<aiojf::Poll, String> {
+    aiojf_client().poll().await
+}
+
+/// A Jellyfin API call by path (`/UserItems/Resume`), with the session's
+/// token added here. Calls that would make AIOStreams search for streams
+/// reject with `refused: ...` and send nothing. The answer comes back as
+/// data, a 4xx included, and a 401 signs out here.
+#[tauri::command]
+async fn aiojf_request(
+    method: String,
+    path: String,
+    query: Option<std::collections::HashMap<String, String>>,
+    body: Option<serde_json::Value>,
+) -> Result<aiojf::Reply, String> {
+    aiojf_client().request(&method, &path, query, body).await
+}
+
+/// Sign out of AIOStreams, here and, best effort, there.
+#[tauri::command]
+async fn aiojf_disconnect() {
+    aiojf_client().disconnect().await
+}
+
 /// Forensic GET for the settings Connection Test. Unlike `http_get`, a
 /// non-2xx status is DATA here, not an error: the point is to answer "WHO
 /// rejected this request" from a tester's screenshot — a WAF in front of
@@ -1331,6 +1399,11 @@ pub fn run() {
             mal_sign_in_cancel,
             mal_request,
             mal_disconnect,
+            aiojf_status,
+            aiojf_start,
+            aiojf_poll,
+            aiojf_request,
+            aiojf_disconnect,
             check_update,
             install_update,
             frontend::frontend_ready,

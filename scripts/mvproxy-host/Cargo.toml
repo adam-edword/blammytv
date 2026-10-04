@@ -1,5 +1,6 @@
 # Runs the app's stream proxy tests (mvproxy.rs, mvconvert.rs), Trakt's
-# (trakt.rs, plan 015), MAL's (mal.rs, plan 021), the URL check mpv's
+# (trakt.rs, plan 015), MAL's (mal.rs, plan 021), AIOStreams' Jellyfin
+# side's (aiojf.rs, plan 023), the URL check mpv's
 # commands make (mpvurl.rs) and multi-view's audio listener and jitter buffer
 # (mvaudio.rs; its cpal output, mvaudio_out.rs, is not here) on a Linux box,
 # where the app crate itself will not build (gdk-sys; see CLAUDE.md). The
@@ -25,6 +26,6 @@ http-body-util = "0.1"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 tokio = { version = "1", features = ["net", "rt-multi-thread", "time", "process", "io-util", "sync"] }
 getrandom = "0.3"
-# trakt.rs and mal.rs
+# trakt.rs, mal.rs and aiojf.rs
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"

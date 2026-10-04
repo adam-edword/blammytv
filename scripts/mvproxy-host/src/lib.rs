@@ -7,6 +7,8 @@ pub mod mvconvert;
 pub mod trakt;
 #[path = "../../../apps/app/src-tauri/src/mal.rs"]
 pub mod mal;
+#[path = "../../../apps/app/src-tauri/src/aiojf.rs"]
+pub mod aiojf;
 #[path = "../../../apps/app/src-tauri/src/mpvurl.rs"]
 pub mod mpvurl;
 #[path = "../../../apps/app/src-tauri/src/mvaudio.rs"]

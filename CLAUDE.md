@@ -66,15 +66,16 @@ anything about libmpv's runtime behaviour.
 mvconvert.rs, HEVC conversion through an actual ffmpeg included), and so
 do Trakt's and MAL's (trakt.rs and mal.rs, against fakes) and multi-view's
 sound listener and jitter buffer (mvaudio.rs; its cpal output, mvaudio_out.rs,
-needs a device and is type-checked only), from a host crate that includes the
-files as they are:
+needs a device and is type-checked only) and AIOStreams' Jellyfin side
+(aiojf.rs, against a fake), from a host crate that includes the files as they
+are:
 
 ```
 curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz | tar xJ -C /tmp
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 101 tests (v0.11.12): 46 for the proxy (30 mvproxy, 16 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 20 for mvaudio. On CI the Windows job runs the same tests with the
+Baseline 125 tests (v0.11.13+): 46 for the proxy (30 mvproxy, 16 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 20 for mvaudio, 24 for AIOStreams' Jellyfin side (aiojf.rs). On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 
