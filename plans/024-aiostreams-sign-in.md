@@ -197,6 +197,19 @@ so keeping it buys little, and taking it off the disk is half the point.
    Connection Test checks the sign-in path; D4 on success. Careful there:
    since plan 023, changing or clearing the manifest URL signs out of
    sync (`saveAioUrl`), so D4's delete must not.
+   **Onboarding, while it's open** (Adam, 2026-10-04: "we should update
+   onboarding now that we have all of these new features", then two
+   calls):
+   - Step 1 becomes **Sign in to AIOStreams**: the address, the code, a
+     line that signing in also syncs what you watch with your other
+     AIOStreams apps, and "Use a manifest URL instead" for today's paste.
+   - A new optional step after Live TV, **Follow what you watch**: Connect
+     for Trakt and for MyAnimeList, each skippable. A service whose app key
+     isn't in the build doesn't show; with neither, the step is skipped.
+   - A short **tour** step before "You're all set": Multi-view (up to four
+     channels at once, right-click one in the Guide), Discover (search your
+     catalogs, browse by genre) and Sports (today's games from the leagues
+     you follow, with the channels showing them), a line each.
 4. **B4, harnesses**: plan 023's fake grows the browse routes and
    `PlaybackInfo`. A new `verify-signin` covers sign-in from onboarding,
    rows, a title's page, its sources (cache groups and badges from the
