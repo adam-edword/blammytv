@@ -1,7 +1,43 @@
 # Plan 023: AIOStreams' Jellyfin side
 
-**Status: PLAN, 2026-10-04. Six decisions below, each with a
-recommendation.** Nothing built.
+**Status: BUILT, 2026-10-04, overnight. Not yet run against a real
+AIOStreams.** Adam took all six decisions as recommended and asked for it
+built overnight ("Can you proceed during the night?").
+
+## Where it landed (morning of 2026-10-04)
+
+- **B2, v0.11.13** (`86d275ae`): `features/aiojf/ids.ts` (the packed ids,
+  against AIOStreams' own vectors) and `rules.ts`, pure, 122 tests.
+- **B1, `595c29a1`**: `src-tauri/src/aiojf.rs`, Quick Connect, the session
+  in Credential Manager (`BlammyTV/aiostreams`), every call from Rust, and
+  the guard that refuses the stream-search paths whatever the page asks.
+  24 host tests (host crate 125). Native: needs a rebuild.
+- **B3 to B6, v0.11.14** (`30d66746`): the Settings row, the reports, the
+  sync, the Next Up and Upcoming rows and the skip markers.
+  `verify-aiojf`, 57 checks, including zero `GET /Items/<id>`.
+
+Calls made on the way, any of them one message to undo:
+- **A rewatch you leave early un-plays it on AIOStreams.** Its rule, not
+  ours: any stop under 90% writes `played: false`
+  (`core/src/watch-state/local-provider.ts`, `stopPatch`), and so does its
+  own idle sweep five minutes after a client goes quiet. Every AIOStreams
+  app does the same. Fighting it means re-sending the played mark after
+  every partial rewatch, which bumps its play count and reaches its
+  tracker addons as a new watch. Left alone; BlammyTV's own ticks keep
+  the union either way. This bends D3's "never removed" for the one case
+  the server decides.
+- **Sync triggers are Trakt's real ones**: launch, back after 15 minutes,
+  Sync now. "After playback" was in this plan but not in Trakt's code.
+- **`Limit=500` on the played list and `Limit=20` on Resume.** Unasked,
+  AIOStreams answers 100 and 12; it never lists more than 500 played.
+- **Upcoming's date is a calendar day** (`calendarDay`), as episode dates
+  are elsewhere since v0.10.45.
+- **Leaving past the line between two 10s looks is a finish** (stop, then
+  the mark), as Trakt's scrobble reads it.
+
+Still to see on a real build: the code approving on the configure page,
+a play showing in AIOStreams' own apps, a Next Up row with real art, and
+a Skip Intro from AIOStreams' markers on a show.
 
 Adam, 2026-10-04: "next up we should plan for jellyfin", then, on
 AIOStreams' v2.35 update: "make sure you're fully caught up". Asked which
