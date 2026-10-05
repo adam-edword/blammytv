@@ -7,7 +7,7 @@
  * (stream/watched.ts `aioWatched`).
  */
 
-import { load, save } from "../../lib/storage";
+import { load, remove, save } from "../../lib/storage";
 import { loadAioUrl, saveAioUrl } from "../settings/aiostreams";
 import { forgetAioWatched } from "../stream/watched";
 import type { AiojfStatus } from "./client";
@@ -76,7 +76,9 @@ export function forgetAiojf(): void {
  * wins over any manifest, and the URL is a password in plain text that has
  * no reason to stay. That covers a new approval, a plan 023 user who was
  * connected already, and a sign-in recorded before D4 shipped. It signs
- * nobody out: `saveAioUrl` no longer does.
+ * nobody out: `saveAioUrl` no longer does. The catalog mirror on disk goes
+ * with it, as Clear All Login Info takes it: its key held `manifest:<url>`
+ * (stream/source.ts `configKey`).
  */
 export function noteSignIn(s: AiojfStatus, canSource: boolean): void {
   if (!s.supported) return;
@@ -88,7 +90,10 @@ export function noteSignIn(s: AiojfStatus, canSource: boolean): void {
     // Every read that finds the sign-in, not only the first: a sign-in
     // recorded before D4 (v0.11.17) still has its manifest. Settings offers
     // no manifest field while signed in, so nothing new lands here to lose.
-    if (loadAioUrl()) saveAioUrl("");
+    if (loadAioUrl()) {
+      saveAioUrl("");
+      remove("vodCache");
+    }
   } else if (now) {
     saveAiojf({ signedIn: undefined });
   }

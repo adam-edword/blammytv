@@ -4,7 +4,7 @@ import { isTauri } from "../../lib/tauri";
 import { CheckIcon, CloseIcon, CopyIcon } from "../../ui/icons";
 import { readSignIn, signOutOfAio } from "../aiojf/account";
 import { AioCode } from "../aiojf/AioCode";
-import type { AiojfStatus } from "../aiojf/client";
+import { aiojfCanSource, type AiojfStatus } from "../aiojf/client";
 import { loadAioConn } from "../aiojf/conn";
 import { AIOJF_SYNCED, loadAiojf } from "../aiojf/store";
 import { syncAiojf } from "../aiojf/sync";
@@ -47,6 +47,11 @@ export function AioStreamsTab() {
   const [status, setStatus] = useState<AiojfStatus | null>(() =>
     isTauri() ? null : { supported: false, connected: false },
   );
+  // Whether this native build can open sources by sign-in (client.ts
+  // `aiojfCanSource`). A build from before plan 024 has the sync but its
+  // `aiojf_start` refuses a plain address, so a new sign-in is not offered on
+  // it, as onboarding does. Null until it has answered.
+  const [canSource, setCanSource] = useState<boolean | null>(() => (isTauri() ? null : false));
   const [address, setAddress] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -81,6 +86,15 @@ export function AioStreamsTab() {
 
   const refresh = useCallback(async () => {
     setStatus(await readSignIn());
+  }, []);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let live = true;
+    void aiojfCanSource().then((ok) => live && setCanSource(ok));
+    return () => {
+      live = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -146,10 +160,12 @@ export function AioStreamsTab() {
     void signOutOfAio();
   };
 
-  if (!status) return null;
+  if (!status || canSource === null) return null;
 
-  const signInOffered = status.supported;
   const connected = status.supported && status.connected;
+  // A sign-in this device holds always shows (Sync now, Disconnect); a new one
+  // is offered only where the build can use it.
+  const signInOffered = connected || (status.supported && canSource);
   // Stream browses by the sign-in only on a build that can open sources
   // (conn.ts); a connected one that cannot still syncs.
   const browses = connected && !!loadAiojf().signedIn;

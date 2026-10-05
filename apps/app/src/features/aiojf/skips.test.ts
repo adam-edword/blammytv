@@ -1,5 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { VodItem } from "../stream/model";
+import { rememberIds } from "./idmap";
+
+// An in-memory localStorage: the unit tests run without a DOM. The id map
+// (idmap.ts) and the store's sign-in are kept in it.
+const mem = new Map<string, string>();
+vi.stubGlobal("localStorage", {
+  getItem: (k: string) => mem.get(k) ?? null,
+  setItem: (k: string, v: string) => void mem.set(k, v),
+  removeItem: (k: string) => void mem.delete(k),
+  clear: () => mem.clear(),
+});
 
 const aniskip = vi.hoisted(() => vi.fn());
 const status = vi.hoisted(() => vi.fn());
@@ -18,6 +29,7 @@ const intro = { Items: [{ Type: "Intro", StartTicks: 300_000_000, EndTicks: 900_
 const ok = (data: unknown) => ({ status: 200, data, reply: { status: 200, body: "" } });
 
 beforeEach(() => {
+  mem.clear();
   aniskip.mockReset().mockResolvedValue([]);
   status.mockReset().mockResolvedValue({ supported: true, connected: true });
   call.mockReset();
@@ -47,6 +59,25 @@ describe("getAioSkips", () => {
     expect(await getAioSkips(other, undefined)).toEqual([]);
     call.mockResolvedValueOnce(ok(intro));
     expect(await getAioSkips(other, undefined)).toHaveLength(1);
+  });
+
+  it("signed in, a title only the id map can name is asked by the id its list gave (plan 024)", async () => {
+    const BASE = "https://aio.example.com/jellyfin";
+    const HASHED = "b2" + "7".repeat(30);
+    const odd = { id: "custom:abc", kind: "movie" } as VodItem;
+    rememberIds(BASE, [["custom:abc", "movie", HASHED]]);
+    // No sign-in: nothing names it.
+    expect(await getAioSkips(odd, undefined)).toEqual([]);
+    expect(call).not.toHaveBeenCalled();
+    mem.set("blammytv.aiojf", JSON.stringify({ v: 1, data: { signedIn: { base: BASE } } }));
+    call.mockResolvedValue(ok(intro));
+    expect(await getAioSkips(odd, undefined)).toEqual([{ type: "op", start: 30, end: 90 }]);
+    expect(call).toHaveBeenCalledWith("GET", `/MediaSegments/${HASHED}`, { query: { includeSegmentTypes: "Intro,Recap,Outro" } });
+    // And an episode AIOStreams hashed, by its own hex.
+    const EP = "b2" + "8".repeat(30);
+    call.mockClear();
+    await getAioSkips(show, `aiojf:${EP}`, 1);
+    expect(call).toHaveBeenCalledWith("GET", `/MediaSegments/${EP}`, { query: { includeSegmentTypes: "Intro,Recap,Outro" } });
   });
 
   it("asks nothing for an id it cannot pack, or when the sync is not connected", async () => {

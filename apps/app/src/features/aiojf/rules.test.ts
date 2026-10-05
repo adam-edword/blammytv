@@ -132,9 +132,34 @@ describe("itemRef", () => {
     expect(itemRef(film())).toEqual({ id: "tt0111161", kind: "movie" });
   });
 
-  it("a film takes ProviderIds.Imdb before the packed id", () => {
+  // Plan 023 took ProviderIds.Imdb before the packed id. Since plan 024 every
+  // title that syncs is also a Stream title, and Stream keys it by the id in
+  // its Path (browse.ts), so the Stremio id comes first and the IMDb id is the
+  // fallback.
+  it("a film takes its Stremio id before ProviderIds.Imdb", () => {
     const kitsuFilm = film({ Id: must(packMovie("kitsu:1555", "anime")), ProviderIds: { Imdb: "tt0123456", Kitsu: "1555" } });
-    expect(itemRef(kitsuFilm)).toEqual({ id: "tt0123456", kind: "movie" });
+    expect(itemRef(kitsuFilm)).toEqual({ id: "kitsu:1555", kind: "movie" });
+  });
+
+  it("a film's Stremio id comes from its Path, and from the packed id when there is none", () => {
+    const tmdb = film({
+      Id: must(packMovie("tmdb:603")),
+      Path: "/aiostreams/movie/tmdb:603/The Matrix.mkv",
+      ProviderIds: { Imdb: "tt0133093", Tmdb: "603" },
+    });
+    expect(itemRef(tmdb)).toEqual({ id: "tmdb:603", kind: "movie" });
+    expect(itemRef({ ...tmdb, Path: undefined })).toEqual({ id: "tmdb:603", kind: "movie" });
+    // A hashed id says nothing: its Path does.
+    expect(itemRef({ ...tmdb, Id: "b2" + "0".repeat(30) })).toEqual({ id: "tmdb:603", kind: "movie" });
+    expect(
+      itemRef(film({ Id: "b2" + "0".repeat(30), Path: "/aiostreams/movie/custom:abc/Odd.mkv", ProviderIds: { Imdb: "tt0123456" } })),
+    ).toEqual({ id: "custom:abc", kind: "movie" });
+  });
+
+  it("a Path and a packed id that disagree are not trusted: the IMDb id stands in", () => {
+    const split = film({ Path: "/aiostreams/movie/tt0068646/The Godfather.mkv", ProviderIds: { Imdb: "tt0068646" } });
+    expect(itemRef(split)).toEqual({ id: "tt0068646", kind: "movie" });
+    expect(itemRef({ ...split, ProviderIds: {} })).toBeNull();
   });
 
   it("a film with no IMDb id: the packed id's", () => {
@@ -230,6 +255,18 @@ describe("resumeFrom", () => {
         at: T("2026-09-21T08:00:00Z"),
       },
     ]);
+  });
+
+  it("a film under another id scheme is keyed by it, so it meets Stream's own card (not a second one)", () => {
+    const tmdb = film({
+      Id: must(packMovie("tmdb:603")),
+      Path: "/aiostreams/movie/tmdb:603/The Matrix.mkv",
+      ProviderIds: { Imdb: "tt0133093" },
+    });
+    const [r] = resumeFrom([tmdb], now);
+    expect(r.id).toBe("tmdb:603");
+    const merged = mergeAioProgress([{ id: "tmdb:603", title: "The Matrix", kind: "movie", at: T("2026-09-01T00:00:00Z"), posSec: 100, durSec: 8000 }], [r]);
+    expect(merged.map((e) => e.id)).toEqual(["tmdb:603"]);
   });
 
   it("an episode: under its series, with its own id, season and number", () => {
@@ -574,9 +611,12 @@ describe("playedFrom", () => {
     expect(out.skipped).toBe(3);
   });
 
-  it("a film takes its IMDb id when it has one", () => {
-    const out = playedFrom([played(film({ Id: must(packMovie("kitsu:1555", "anime")), ProviderIds: { Imdb: "tt0123456" } }))]);
-    expect(out.films).toEqual(["tt0123456"]);
+  it("a film is listed under its Stremio id, as Stream keys it, not its IMDb id", () => {
+    const out = playedFrom([
+      played(film({ Id: must(packMovie("kitsu:1555", "anime")), ProviderIds: { Imdb: "tt0123456" } })),
+      played(film({ Id: must(packMovie("tmdb:603")), Path: "/aiostreams/movie/tmdb:603/The Matrix.mkv", ProviderIds: { Imdb: "tt0133093" } })),
+    ]);
+    expect(out.films).toEqual(["kitsu:1555", "tmdb:603"]);
   });
 
   it("an item the server says is not played is not played", () => {

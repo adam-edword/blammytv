@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SourcesReply } from "./client";
 import { packEpisode, packMovie, packSeries } from "./ids";
 import type { BaseItem } from "./rules";
+import { pickCatalogs, servesGenre } from "../discover/data";
 
 // An in-memory localStorage: the unit tests run without a DOM. The id map
 // (idmap.ts) is kept in it.
@@ -40,6 +41,7 @@ vi.mock("./account", () => ({
 }));
 
 import { forgetViews, remoteCatalog, remoteManifest, remoteMeta, remoteStreams } from "./remote";
+import { rememberIds } from "./idmap";
 import type { SignInConn } from "./conn";
 
 const conn: SignInConn = { kind: "signin", base: "https://aio.example.com/jellyfin", key: "signin:https://aio.example.com/jellyfin|Adam" };
@@ -150,7 +152,36 @@ describe("remoteManifest", () => {
     serve = (c) => (c.path === "/UserViews" ? list(VIEWS) : { status: 500 });
     const m = await remoteManifest(conn);
     expect(m.catalogs.length).toBe(VIEWS.length + 2);
-    expect(m.catalogs[0].extra).toEqual([{ name: "skip" }]);
+    // A genre extra with no options: Discover reads it as "serves any genre".
+    expect(m.catalogs[0].extra).toEqual([{ name: "genre" }, { name: "skip" }]);
+  });
+
+  it("a movie or series view with no genres to list still takes a genre, so Discover does not bench it", async () => {
+    serve = (c) => (c.path === "/UserViews" ? list(VIEWS) : list([]));
+    const m = await remoteManifest(conn);
+    expect(m.catalogs[0].extra).toEqual([{ name: "genre" }, { name: "skip" }]);
+    expect(m.catalogs[1].extra).toEqual([{ name: "genre" }, { name: "skip" }]);
+    const picked = pickCatalogs(m.catalogs);
+    expect(picked.map((c) => [c.id, servesGenre(c, "Action")])).toEqual([
+      ["tmdb.top", true],
+      ["trakt.shows", true],
+    ]);
+  });
+
+  it("a required-genre view of a type Discover does not browse is read for its genres too", async () => {
+    const odd = view({ Id: "a2" + "5".repeat(30), Name: "Odd", Path: "/aiostreams/other/odd.cat", aiostreams: { genreRequired: true } });
+    serve = (c) => {
+      if (c.path === "/UserViews") return list([odd]);
+      if (c.path === "/Genres") return list(c.query.ParentId === odd.Id ? [{ Name: "Noir" }, { Name: "Western" }] : []);
+      if (c.path === "/Items") return list([film()]);
+      return { status: 404 };
+    };
+    const m = await remoteManifest(conn);
+    expect(calls.filter((c) => c.path === "/Genres").map((c) => c.query.ParentId)).toEqual([odd.Id]);
+    expect(m.catalogs[0].extra).toEqual([{ name: "genre", isRequired: true, options: ["Noir", "Western"] }, { name: "skip" }]);
+    // The hero asks it by "None", and it answers nothing without a genre: its first one stands in.
+    await remoteCatalog(conn, "other", "odd.cat", "genre=None", 40);
+    expect(calls.find((c) => c.path === "/Items")?.query.Genres).toBe("Noir");
   });
 
   it("a views list that fails is an error, and is not held", async () => {
@@ -329,6 +360,63 @@ describe("remoteMeta", () => {
     const r = await remoteMeta(conn, "movie", "custom:abc");
     expect(r.meta?.name).toBe("Addon Only");
     expect(calls.some((c) => c.path === `/Items/${HASHED}`)).toBe(true);
+  });
+
+  describe("a film a catalog lists as a BoxSet (plan 024: a catalog named for collections)", () => {
+    // AIOStreams lists a movie in any catalog whose type, id or name matches
+    // /collection/i as a BoxSet with a packed boxset id (items.ts isBoxsetEntry).
+    // That id 404s on /Items and never starts a stream search, so it must not
+    // become the film's id.
+    const FILM = must(packMovie("tt0111161"));
+    const BOXSET = FILM.replace(/^a111/, "a151");
+    const asBoxSet = film({ Id: BOXSET, Type: "BoxSet", Path: "/aiostreams/movie/tt0111161/The Shawshank Redemption" });
+    const library = (listed: BaseItem[]) => {
+      serve = (c) => {
+        if (c.path === "/UserViews") return list(VIEWS);
+        if (c.path === "/Genres") return list([]);
+        if (c.path === "/Items") return list(listed);
+        // The real thing: the boxset id of a plain film is not an item.
+        if (c.path === `/Items/${BOXSET}`) return { status: 404 };
+        return c.path === `/Items/${FILM}` ? { data: film() } : { status: 404 };
+      };
+    };
+
+    it("is still a title in the catalog, but its boxset id is not learned", async () => {
+      library([asBoxSet]);
+      const page = await remoteCatalog(conn, "movie", "tmdb.top");
+      expect(page.metas?.map((m) => [m.id, m.name])).toEqual([["tt0111161", "The Shawshank Redemption"]]);
+      expect(mem.get("blammytv.aiojfIds")).toBeUndefined();
+    });
+
+    it("drops a boxset id stored by an earlier version, so the film opens by its own", async () => {
+      // v0.11.17 to v0.11.19 learned these.
+      rememberIds(conn.base, [["tt0111161", "movie", BOXSET]]);
+      library([asBoxSet]);
+      await remoteCatalog(conn, "movie", "tmdb.top");
+      await remoteMeta(conn, "movie", "tt0111161");
+      expect(calls.some((c) => c.path === `/Items/${BOXSET}`)).toBe(false);
+      expect(calls.some((c) => c.path === `/Items/${FILM}`)).toBe(true);
+    });
+
+    it("opens and plays by the id its Stremio id computes", async () => {
+      library([asBoxSet]);
+      await remoteCatalog(conn, "movie", "tmdb.top");
+      const r = await remoteMeta(conn, "movie", "tt0111161");
+      expect(r.meta?.name).toBe("The Shawshank Redemption");
+      expect(calls.some((c) => c.path === `/Items/${BOXSET}`)).toBe(false);
+      expect(calls.some((c) => c.path === `/Items/${FILM}`)).toBe(true);
+      await remoteStreams(conn, "movie", "tt0111161");
+      expect(sourcesAsked.at(-1)?.id).toBe(FILM);
+    });
+
+    it("a stale boxset id stored by an earlier build is dropped once the film arrives with its ordinary id", async () => {
+      mem.set("blammytv.aiojfIds", JSON.stringify({ v: 1, data: { base: conn.base, pairs: [["tt0111161", BOXSET]] } }));
+      library([film()]);
+      await remoteCatalog(conn, "movie", "tmdb.top");
+      expect(JSON.parse(mem.get("blammytv.aiojfIds") ?? "null").data.pairs).toEqual([]);
+      await remoteStreams(conn, "movie", "tt0111161");
+      expect(sourcesAsked.at(-1)?.id).toBe(FILM);
+    });
   });
 
   it("a Kitsu-style episode is found by the id its show's episode list gave, season and all", async () => {

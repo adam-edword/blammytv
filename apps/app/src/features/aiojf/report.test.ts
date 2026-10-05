@@ -1,6 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { packedFor } from "./report";
+import { rememberIds } from "./idmap";
 import { jellyfinIdOf, unpack } from "./ids";
+
+// An in-memory localStorage: the unit tests run without a DOM. The id map
+// (idmap.ts) and the store's sign-in are kept in it.
+const mem = new Map<string, string>();
+vi.stubGlobal("localStorage", {
+  getItem: (k: string) => mem.get(k) ?? null,
+  setItem: (k: string, v: string) => void mem.set(k, v),
+  removeItem: (k: string) => void mem.delete(k),
+  clear: () => mem.clear(),
+});
+beforeEach(() => mem.clear());
 
 // Vectors from ids.test.ts (AIOStreams' own `tryPack`): tt0111161 as a movie.
 describe("packedFor", () => {
@@ -45,5 +57,48 @@ describe("packedFor", () => {
 
   it("is null for a series play without an episode", () => {
     expect(packedFor({ itemId: "tt0903747", kind: "series" })).toBeNull();
+  });
+});
+
+describe("packedFor signed in (plan 024)", () => {
+  const BASE = "https://aio.example.com/jellyfin";
+  const HASHED = "b2" + "7".repeat(30);
+  const signIn = () => mem.set("blammytv.aiojf", JSON.stringify({ v: 1, data: { signedIn: { base: BASE } } }));
+
+  it("a title from an addon's own id scheme is named by the id its list gave, and is not packed without a sign-in", () => {
+    rememberIds(BASE, [["custom:abc", "movie", HASHED]]);
+    const t = { itemId: "custom:abc", kind: "movie" as const };
+    expect(packedFor(t)).toBeNull();
+    signIn();
+    expect(packedFor(t)).toBe(HASHED);
+    expect(packedFor(t, BASE)).toBe(HASHED);
+  });
+
+  it("an episode AIOStreams hashed (aiojf:<hex>) is its own hex", () => {
+    const t = { itemId: "tt0903747", kind: "series" as const, episodeId: `aiojf:${HASHED}` };
+    expect(packedFor(t)).toBeNull();
+    signIn();
+    expect(packedFor(t)).toBe(HASHED);
+  });
+
+  it("a Kitsu episode the episode list named, season and all, is that id", () => {
+    const learned = jellyfinIdOf("kitsu:7442:3", "series", { season: 2 }) as string;
+    rememberIds(BASE, [["kitsu:7442:3", "series", learned]]);
+    signIn();
+    expect(packedFor({ itemId: "kitsu:7442", kind: "series", episodeId: "kitsu:7442:3" })).toBe(learned);
+  });
+
+  it("what the ids compute still packs, with the season it is given, and is the same as without a sign-in", () => {
+    const t = { itemId: "kitsu:1555", kind: "series" as const, episodeId: "kitsu:1555:4", season: 2 };
+    const bare = packedFor(t);
+    signIn();
+    expect(packedFor(t)).toBe(bare);
+    expect(packedFor({ itemId: "tt0111161", kind: "movie" })).toBe("a1110100000001b239ffffffff000000");
+  });
+
+  it("a map entry belongs to the instance it was read from", () => {
+    rememberIds("https://other.example.com/jellyfin", [["custom:abc", "movie", HASHED]]);
+    signIn();
+    expect(packedFor({ itemId: "custom:abc", kind: "movie" })).toBeNull();
   });
 });

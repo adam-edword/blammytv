@@ -32,6 +32,14 @@
 // - Discover: a genre page asks Genres and StartIndex, a search asks
 //   SearchTerm.
 // - Opens ask Fresh, Retry (the dead card's) asks Refresh.
+// - A film a catalog named for collections lists as a BoxSet (AIOStreams'
+//   items.ts isBoxsetEntry) opens and plays by the id its Stremio id
+//   computes: the boxset id 404s on /Items and never starts a search, so it
+//   is never learned. A catalog with no genre options is still asked by a
+//   Discover genre page (AIOStreams answers an empty page for a genre it
+//   cannot serve, so claiming the extra is safe).
+// - Every catalog empty, signed in: the empty state talks about the sign-in,
+//   not a manifest.
 // - Signed out, or on a build that cannot open sources by sign-in, with a
 //   manifest stored: Stream reads the manifest.
 //
@@ -58,7 +66,7 @@ const check = (n, ok, d = "") => {
 // three zero bytes. Written here on its own, not with the app's ids.ts, so a
 // slip there cannot hide behind itself. tt0111161 as a movie is
 // a1110100000001b239ffffffff000000.
-const KIND = { movie: 1, series: 2, episode: 4 };
+const KIND = { movie: 1, series: 2, episode: 4, boxset: 5 };
 const MEDIA = { movie: 1, series: 2 };
 function pack(kind, imdb, media, season = 0xffff, episode = 0xffff) {
   const b = Buffer.alloc(16);
@@ -97,7 +105,20 @@ const VIEWS = [
   { id: "a2" + "2".repeat(30), type: "series", cid: "fake.shows", name: "Popular Shows", genres: ["Comedy", "Drama"], items: [SERIES_ONE, SERIES_TWO] },
   { id: "a2" + "3".repeat(30), type: "movie", cid: "fake.bygenre", name: "By Genre", genres: ["Western", "Noir"], required: true, items: [WESTERN] },
 ];
-const ALL_TITLES = [...VIEWS.flatMap((v) => v.items)];
+// Two more catalogs, shown only to the scenes that ask for them (`jf.extras`),
+// so the checks on the three above keep their counts. The first is named for
+// collections: AIOStreams lists a movie in any catalog whose type, id or name
+// matches /collection/i as a BoxSet with a packed boxset id (items.ts
+// isBoxsetEntry). The second lists no genres at all.
+const COLLECTED = film("tt0400001", "Collected Film", ["Drama"]);
+const BAGGED = film("tt0400002", "Bagged Film", ["Action"]);
+const EXTRA_VIEWS = [
+  { id: "a2" + "4".repeat(30), type: "movie", cid: "fake.collections", name: "Movie Collections", genres: [], boxset: true, items: [COLLECTED] },
+  { id: "a2" + "5".repeat(30), type: "movie", cid: "fake.nooptions", name: "Plain Picks", genres: [], items: [BAGGED] },
+];
+const ALL_TITLES = [...VIEWS.flatMap((v) => v.items), ...EXTRA_VIEWS.flatMap((v) => v.items)];
+/** The boxset id AIOStreams gives a plain film in a catalog named for collections. */
+const boxsetJid = (t) => pack("boxset", t.stremio, "movie");
 
 const episodeJid = (s, season, n) => pack("episode", s.stremio, "series", season, n);
 const episodesOf = (s) =>
@@ -169,6 +190,10 @@ const jf = {
   searches: 0,
   /** PlaybackInfo calls, with their body. */
   playbackInfo: [],
+  /** Show the two extra catalogs above. */
+  extras: false,
+  /** Answer every catalog page with nothing. */
+  empty: false,
 };
 const resetFake = () => {
   calls.length = 0;
@@ -177,7 +202,10 @@ const resetFake = () => {
   jf.memo.clear();
   jf.searches = 0;
   jf.playbackInfo.length = 0;
+  jf.extras = false;
+  jf.empty = false;
 };
+const viewsNow = () => (jf.extras ? [...VIEWS, ...EXTRA_VIEWS] : VIEWS);
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==", "base64");
 const list = (items, total = items.length, start = 0) => ({ Items: items, TotalRecordCount: total, StartIndex: start });
@@ -185,11 +213,11 @@ const qlist = (q, name) => (q.get(name) ?? "").split(/[,|]/).map((s) => s.trim()
 const clamp = (q, name, dflt, lo, hi) => Math.min(Math.max(Number(q.get(name) ?? dflt) || dflt, lo), hi);
 
 const tagOf = (jid) => `tag${jid.slice(0, 8)}`;
-function titleDto(t) {
+function titleDto(t, asBoxset = false) {
   const isShow = t.kind === "series";
   return {
-    Id: t.jid,
-    Type: isShow ? "Series" : "Movie",
+    Id: asBoxset ? boxsetJid(t) : t.jid,
+    Type: isShow ? "Series" : asBoxset ? "BoxSet" : "Movie",
     Name: t.name,
     Overview: `${t.name}: a perfectly fake ${isShow ? "show" : "film"}.`,
     ProductionYear: 2024,
@@ -205,7 +233,7 @@ function titleDto(t) {
     ImageTags: { Primary: tagOf(t.jid) },
     BackdropImageTags: [tagOf(t.jid)],
     // dto.ts:555: the Stremio id is the third segment, a film's name carries the extension.
-    Path: `/aiostreams/${isShow ? "series" : "movie"}/${t.stremio}/${t.name}${isShow ? "" : ".mkv"}`,
+    Path: `/aiostreams/${isShow ? "series" : "movie"}/${t.stremio}/${t.name}${isShow || asBoxset ? "" : ".mkv"}`,
     UserData: { PlaybackPositionTicks: 0, PlayCount: 0, IsFavorite: false, Played: false },
   };
 }
@@ -236,12 +264,16 @@ function episodeDto(s, e) {
 }
 
 const byJid = new Map(ALL_TITLES.map((t) => [t.jid, t]));
+const boxsetByJid = new Map(ALL_TITLES.filter((t) => t.kind === "movie").map((t) => [boxsetJid(t), t]));
 const episodeByJid = new Map(
   [SERIES_ONE, SERIES_TWO].flatMap((s) => episodesOf(s).map((e) => [e.jid, e])),
 );
 
 /** playback.ts, in the part this app depends on. */
 function playbackInfo(jid, body) {
+  // A boxset is not resolvable: it never starts a search, and answers a
+  // placeholder with NoCompatibleStream (playback.ts ensureMemo).
+  if (boxsetByJid.has(jid)) return { status: 200, payload: { MediaSources: [], PlaySessionId: "", ErrorCode: "NoCompatibleStream" } };
   if (!byJid.has(jid) && !episodeByJid.has(jid)) return { status: 404, payload: { MediaSources: [], PlaySessionId: "", ErrorCode: "NotAllowed" } };
   const kept = jf.memo.get(jid);
   const fresh = body?.Fresh === true;
@@ -269,9 +301,9 @@ function jellyfin(rq, rs, path, q, body) {
   calls.push({ method: rq.method, path, query: Object.fromEntries(q), body });
 
   let m;
-  if (rq.method === "GET" && path === "/UserViews") return send(200, list(VIEWS.map(viewDto)));
+  if (rq.method === "GET" && path === "/UserViews") return send(200, list(viewsNow().map(viewDto)));
   if (rq.method === "GET" && path === "/Genres") {
-    const v = VIEWS.find((x) => x.id === q.get("ParentId"));
+    const v = viewsNow().find((x) => x.id === q.get("ParentId"));
     return send(200, list((v?.genres ?? []).map((Name) => ({ Name, Type: "Genre" }))));
   }
   if (rq.method === "GET" && path === "/Items") {
@@ -279,13 +311,13 @@ function jellyfin(rq, rs, path, q, body) {
     const start = Math.max(0, Number(q.get("StartIndex") ?? 0) || 0);
     const parent = q.get("ParentId");
     if (parent) {
-      const v = VIEWS.find((x) => x.id === parent);
-      if (!v) return send(200, list([], 0, start));
+      const v = viewsNow().find((x) => x.id === parent);
+      if (!v || jf.empty) return send(200, list([], 0, start));
       const genre = qlist(q, "Genres")[0];
       // A library that requires a genre answers nothing without one.
       if (v.required && !genre) return send(200, list([], 0, start));
       const pool = genre ? v.items.filter((t) => t.genres.includes(genre)) : v.items;
-      return send(200, list(pool.slice(start, start + limit).map(titleDto), pool.length, start));
+      return send(200, list(pool.slice(start, start + limit).map((t) => titleDto(t, !!v.boxset)), pool.length, start));
     }
     const term = (q.get("SearchTerm") ?? "").trim().toLowerCase();
     if (term) {
@@ -733,6 +765,14 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
   await page.locator('.srclist__group[aria-label^="Cached"] .vod-source').first().click();
   await waitFor(page, async () => (await inv(page)).length > before2, 15_000);
   check("  and plays through it, the Path as it came", (await inv(page)).at(-1)?.url === pathOf(HASHED, "a"), (await inv(page)).at(-1)?.url);
+  // Plan 023's reports name the play by the same id: a title only the id map can
+  // name was never reported before the sign-in's lists were consulted.
+  const reported = await waitFor(page, async () => asked("POST", "/Sessions/Playing", (c) => c.body?.ItemId === HASHED).length > 0, 15_000);
+  check(
+    "  and the play is reported to AIOStreams by that id, so it shows in its other apps",
+    reported,
+    JSON.stringify(asked("POST", "/Sessions/Playing").map((c) => c.body?.ItemId)),
+  );
   await leavePlayer(page);
 
   // ------------------------------------------------------------ the totals
@@ -754,6 +794,79 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
       Object.keys(localStorage).some((k) => (localStorage.getItem(k) ?? "").includes("SECRET-TOKEN")),
   );
   check("  and the page never carried a token, nor holds one it was not given", credentials.length === 0 && !secret, JSON.stringify(credentials));
+  await page.context().close();
+}
+
+// ============================================================ a catalog named for collections
+// AIOStreams lists a plain film in such a catalog as a BoxSet with a packed
+// boxset id. That id is not an item (/Items 404s) and never starts a stream
+// search, so the app must open and play the film by the id its Stremio id
+// computes, and must not learn the boxset id for it.
+{
+  resetFake();
+  jf.extras = true;
+  const page = await openPage({ connected: true, signedIn: true });
+  await page.locator(".media-row__title", { hasText: /^Movie Collections$/ }).first().waitFor({ timeout: 30_000 }).catch(() => {});
+  const names = await rowOf(page, "Movie Collections").locator(".stream-card__name").allInnerTexts();
+  check("A film in a catalog named for collections is still a title on the row", JSON.stringify(names) === JSON.stringify(["Collected Film"]), JSON.stringify(names));
+  await page.locator('.stream-card[data-hint="Collected Film"]').first().click({ timeout: 10_000 });
+  await page.locator(".vod-source").first().waitFor({ timeout: 20_000 }).catch(() => {});
+  const opened = await page.locator(".vod-detail__title, .vod-detail__logo").first().evaluate((e) => e.textContent || e.getAttribute("alt")).catch(() => "");
+  check(
+    "  it opens: its page is asked by the film's own id, never the boxset id, and has its sources",
+    opened === "Collected Film" &&
+      asked("GET", `/Items/${COLLECTED.jid}`).length > 0 &&
+      asked("GET", `/Items/${boxsetJid(COLLECTED)}`).length === 0 &&
+      (await page.locator(".vod-source").count()) > 0,
+    JSON.stringify({ opened, asks: calls.filter((c) => /^\/Items\/[0-9a-f]{32}$/.test(c.path)).map((c) => c.path.slice(7, 19)), sources: await page.locator(".vod-source").count() }),
+  );
+  const before = (await inv(page)).length;
+  await page.locator('.srclist__group[aria-label^="Cached"] .vod-source').first().click({ timeout: 5000 }).catch(() => {});
+  await waitFor(page, async () => (await inv(page)).length > before, 15_000);
+  check(
+    "  and plays: the stream search ran for the film's id, and none for the boxset's",
+    (await inv(page)).at(-1)?.url === pathOf(COLLECTED.jid, "a") &&
+      jf.playbackInfo.some((p) => p.id === COLLECTED.jid) &&
+      !jf.playbackInfo.some((p) => p.id === boxsetJid(COLLECTED)),
+    JSON.stringify(jf.playbackInfo.map((p) => p.id.slice(0, 8))),
+  );
+  const learned = (await storeOf(page, "aiojfIds"))?.pairs ?? [];
+  check("  and no id was remembered for it, so a stale boxset id cannot stick", !learned.some(([id]) => id === COLLECTED.stremio), JSON.stringify(learned));
+  if ((await inv(page)).length > before) await leavePlayer(page);
+
+  // Discover: a catalog that lists no genres is asked by a genre page too.
+  await goTo(page, "discover");
+  await page.locator(".genre-card").first().waitFor({ timeout: 20_000 });
+  await page.locator(".genre-card", { hasText: "Action" }).first().click();
+  await page.waitForFunction(() => document.querySelectorAll(".disc-grid .stream-card").length >= 40, null, { timeout: 20_000 }).catch(() => {});
+  const plain = asked("GET", "/Items", (c) => c.query.ParentId === EXTRA_VIEWS[1].id && c.query.Genres === "Action")[0];
+  check(
+    "Discover: a genre page also asks a catalog that lists no genres, which serves any",
+    !!plain && plain.query.StartIndex === "0",
+    JSON.stringify(plain?.query),
+  );
+  const grid = await page.locator(".disc-grid .stream-card__name").allInnerTexts();
+  check("  and its title is on the page", grid.includes("Bagged Film"), `${grid.length} cards`);
+  await page.context().close();
+}
+
+// ============================================================ every catalog empty
+{
+  resetFake();
+  jf.empty = true;
+  const page = await openPage({ connected: true, signedIn: true });
+  // The loading card is a .stream__note too: wait for the one that says so.
+  const note = page.locator(".stream__note", { hasText: "Nothing came back" });
+  await note.waitFor({ timeout: 30_000 }).catch(() => {});
+  const text = (await note.first().innerText().catch(() => "")).replace(/\n/g, " | ");
+  check(
+    "Signed in with every catalog empty: the empty state talks about the sign-in, not a manifest",
+    /Nothing came back from your catalogs/.test(text) &&
+      /signed in/.test(text) &&
+      /Check your AIOStreams sign-in in Settings → General → Sources → Stream/.test(text) &&
+      !/manifest/i.test(text),
+    text,
+  );
   await page.context().close();
 }
 

@@ -126,16 +126,61 @@ function episodeParts(item: BaseItem): EpisodeParts | null {
   };
 }
 
+const PREFIX = "/aiostreams/";
+
+/** A `Path` split after `/aiostreams/` into its type and everything after it.
+ * Null for a path that is not one of AIOStreams' or has no type. */
+export function splitPath(path: string | undefined): { type: string; rest: string } | null {
+  if (typeof path !== "string" || !path.startsWith(PREFIX)) return null;
+  const tail = path.slice(PREFIX.length);
+  const cut = tail.indexOf("/");
+  if (cut <= 0) return null;
+  return { type: tail.slice(0, cut), rest: tail.slice(cut + 1) };
+}
+
+/** The kinds of item that are a title: what `buildContentItem` makes
+ * (dto.ts:455-468). A BoxSet is a movie-typed meta shown as a collection, and
+ * a catalog named for collections lists plain films as BoxSets
+ * (server items.ts:208-216), so it is a title here, as it is on the Stremio
+ * side. */
+const TITLES = new Set(["Movie", "Series", "BoxSet"]);
+
+const PACKED_TITLES = new Set(["movie", "series", "boxset"]);
+
 /**
- * A film's or show's id: its IMDb id when the item carries one, else the id
- * packed in its own. Not for an episode, whose `ProviderIds.Imdb` is the
- * episode's, not the show's.
+ * A film's or show's Stremio type and id. From its `Path`,
+ * `/aiostreams/<type>/<id>/<name>` (dto.ts:555): the id is the third segment,
+ * and the name after it can hold a `/`. When the item's own id is packed
+ * (ids.ts) it says the same thing, and the two are checked against each other;
+ * a pair that disagrees is not trusted. Either alone is enough. Null for
+ * anything that is not a film or a show, and when neither reads.
+ */
+export function stremioIdOf(item: BaseItem): { type: string; id: string } | null {
+  if (!item.Type || !TITLES.has(item.Type)) return null;
+  const p = splitPath(item.Path);
+  const first = p ? p.rest.split("/")[0] : "";
+  const fromPath = p && first ? { type: p.type, id: first } : null;
+  const packed = unpack(item.Id);
+  const fromId = packed && PACKED_TITLES.has(packed.kind) ? { type: packed.type, id: packed.id } : null;
+  if (fromPath && fromId) return fromPath.type === fromId.type && fromPath.id === fromId.id ? fromPath : null;
+  return fromPath ?? fromId;
+}
+
+/**
+ * A film's or show's id, the one Stream keys it by: its Stremio id, from its
+ * `Path` or the id packed in its own (`stremioIdOf`), else its IMDb id when
+ * the item carries one. Since plan 024 every title that syncs is also a Stream
+ * title, and Stream's ids come from the `Path` (browse.ts `metaPreviewOf`),
+ * so a film under a TMDB or Kitsu id must read as that, not as the IMDb id
+ * AIOStreams also knows it by: the Continue Watching card and the Watched mark
+ * are found by the Stream id. Not for an episode, whose `ProviderIds.Imdb` is
+ * the episode's, not the show's.
  */
 function titleId(item: BaseItem): string | null {
+  const ref = stremioIdOf(item);
+  if (ref) return ref.id;
   const imdb = item.ProviderIds?.Imdb;
-  if (typeof imdb === "string" && IMDB.test(imdb)) return imdb;
-  const p = unpack(item.Id);
-  return p && (p.kind === "movie" || p.kind === "series") ? p.id : null;
+  return typeof imdb === "string" && IMDB.test(imdb) ? imdb : null;
 }
 
 /** An item in BlammyTV's ids. Null for anything that is not a film, a show

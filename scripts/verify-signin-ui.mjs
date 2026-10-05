@@ -17,7 +17,8 @@
 //   shows red with no address in it.
 // - A build that is connected but cannot open sources says so and keeps the
 //   manifest field; a native build from before the sign-in offers the
-//   manifest field and says it needs the update.
+//   manifest field and says it needs the update, and so does one that has the
+//   sync but cannot open sources, signed out (no address sign-in there).
 // - Stream's empty state points at signing in, not at pasting a manifest.
 //
 // Offline, as every harness is: every host but localhost is aborted.
@@ -525,6 +526,26 @@ const shot = async (p, name) => {
   check(
     "A native build from before the sign-in offers the manifest field and says it needs the update",
     (await addr(p).count()) === 0 && (await p.getByRole("button", { name: "Connect", exact: true }).count()) === 0 && /needs the latest BlammyTV/.test(await p.locator(".settings-section").first().innerText()),
+  );
+  await p.close();
+}
+
+// A native build with the sync but not aiojf_sources (plan 023's): its
+// `aiojf_start` refuses a plain address, so a new sign-in is not offered on it
+// (onboarding gates the same way). The manifest field is, with the update line.
+{
+  reset();
+  const p = await openPage({ noSources: true });
+  await toStreamTab(p);
+  await p.getByPlaceholder(MANIFEST_FIELD).waitFor({ timeout: 8000 }).catch(() => {});
+  const text = (await p.locator(".settings-section").first().innerText()).replace(/\n/g, " | ");
+  check(
+    "A build that has the sync but cannot open sources offers no address sign-in, signed out: the manifest field, and the update line",
+    (await addr(p).count()) === 0 &&
+      (await p.getByRole("button", { name: "Connect", exact: true }).count()) === 0 &&
+      (await p.locator(".aio-row").count()) === 0 &&
+      /needs the latest BlammyTV/.test(text),
+    text,
   );
   await p.close();
 }

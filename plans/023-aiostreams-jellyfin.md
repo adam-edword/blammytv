@@ -28,8 +28,11 @@ Calls made on the way, any of them one message to undo:
   the server decides.
 - **Sync triggers are Trakt's real ones**: launch, back after 15 minutes,
   Sync now. "After playback" was in this plan but not in Trakt's code.
-- **`Limit=500` on the played list and `Limit=20` on Resume.** Unasked,
-  AIOStreams answers 100 and 12; it never lists more than 500 played.
+- **The played list is read a page at a time, and `Limit=20` on Resume.**
+  Unasked, AIOStreams answers 100 and 12. Asked for 500 played it still cuts
+  at its `browseLimit`, 250 by default and 100 when the instance sets
+  `maxCatalogItems` to 0, and it holds at most 500 played rows per user. So
+  the sync pages by `StartIndex` until the total, an empty page or 500.
 - **Upcoming's date is a calendar day** (`calendarDay`), as episode dates
   are elsewhere since v0.10.45.
 - **Leaving past the line between two 10s looks is a finish** (stop, then

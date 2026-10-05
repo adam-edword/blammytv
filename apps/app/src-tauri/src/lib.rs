@@ -1142,9 +1142,11 @@ async fn aiojf_poll() -> Result<aiojf::Poll, String> {
 }
 
 /// A Jellyfin API call by path (`/UserItems/Resume`), with the session's
-/// token added here. Calls that would make AIOStreams search for streams
-/// reject with `refused: ...` and send nothing. The answer comes back as
-/// data, a 4xx included, and a 401 signs out here.
+/// token added here. Only the calls the app makes are sent (aiojf.rs
+/// `on_the_list`), never one that would make AIOStreams search for streams;
+/// anything else rejects with `refused: ...` and sends nothing. The answer
+/// comes back as data, a 4xx included, with the token taken out of it, and a
+/// 401 signs out here.
 #[tauri::command]
 async fn aiojf_request(
     method: String,

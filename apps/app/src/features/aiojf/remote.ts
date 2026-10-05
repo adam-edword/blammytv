@@ -28,7 +28,7 @@ import { aioCall, aioSources } from "./account";
 import { catalogOf, metaDetailOf, metaPreviewOf, SEARCH_CATALOGS, streamsOf } from "./browse";
 import type { SignInConn } from "./conn";
 import { jellyfinIdFor, rememberIds } from "./idmap";
-import { blammyId, unpack } from "./ids";
+import { blammyId, jellyfinIdOf, unpack } from "./ids";
 import type { BaseItem } from "./rules";
 
 /** Titles per catalog page when the caller names no number: Discover's
@@ -92,9 +92,10 @@ async function fetchViews(): Promise<Views> {
       const bare = catalogOf(view);
       if (!bare || !view.Id) return null;
       // Discover's genre filter needs the options, and only for the types it
-      // browses.
+      // browses. A required genre is the exception: the hero asks such a view
+      // by its first genre, whatever its type.
       let genres: string[] | undefined;
-      if (bare.type === "movie" || bare.type === "series") {
+      if (bare.type === "movie" || bare.type === "series" || view.aiostreams?.genreRequired === true) {
         const g = await aioCall<List<BaseItem>>("GET", "/Genres", { query: { ParentId: view.Id } }).catch(() => null);
         genres = (g?.data?.Items ?? []).flatMap((i) => (typeof i.Name === "string" && i.Name ? [i.Name] : []));
       }
@@ -167,7 +168,13 @@ const SEARCH_TYPES: Record<string, string> = {
   [SEARCH_CATALOGS[1].id]: "Series",
 };
 
-/** What a list taught: each title's Stremio id, kind and Jellyfin id. */
+/** What a list taught: each title's Stremio id, kind and Jellyfin id. A
+ * BoxSet's own id is never learned: a catalog named for collections lists
+ * plain films as BoxSets with a packed boxset id, and the id that opens and
+ * plays the film is the one its Stremio id computes (a boxset id 404s on
+ * `/Items` and never starts a stream search). That computed id is passed on
+ * instead, which drops a boxset id stored before this rule (v0.11.17 to
+ * v0.11.19 learned them). */
 function previews(conn: SignInConn, items: readonly BaseItem[]): MetaPreview[] {
   const metas: MetaPreview[] = [];
   const learned: [string, string, string][] = [];
@@ -175,7 +182,10 @@ function previews(conn: SignInConn, items: readonly BaseItem[]): MetaPreview[] {
     const m = metaPreviewOf(item, conn.base);
     if (!m) continue;
     metas.push(m);
-    if (item.Id) learned.push([m.id, isSeriesType(m.type) ? "series" : "movie", item.Id]);
+    if (item.Type === "BoxSet") {
+      const film = jellyfinIdOf(m.id, "movie");
+      if (film) learned.push([m.id, "movie", film]);
+    } else if (item.Id) learned.push([m.id, isSeriesType(m.type) ? "series" : "movie", item.Id]);
   }
   rememberIds(conn.base, learned);
   return metas;
@@ -276,7 +286,7 @@ export async function remoteMeta(
   // a season only the episode list knows for a Kitsu-style show, so the ones
   // that do not compute are kept.
   const learned: [string, string, string][] = [];
-  if (item.Id) learned.push([meta.id, isSeriesType(meta.type) ? "series" : "movie", item.Id]);
+  if (item.Id && item.Type !== "BoxSet") learned.push([meta.id, isSeriesType(meta.type) ? "series" : "movie", item.Id]);
   for (const ep of episodes) {
     const packed = unpack(ep.Id);
     const videoId = packed ? blammyId(packed) : null;

@@ -12,17 +12,20 @@
  *
  *  1. the played marks that could not be sent go first;
  *  2. resume points join Continue Watching (newest wins, D3);
- *  3. the played list replaces `aioWatched`, the AIOStreams ticks (D3);
+ *  3. the played list, read a page at a time, replaces `aioWatched`, the
+ *     AIOStreams ticks (D3);
  *  4. Next Up and Upcoming are stored for the rows under Continue Watching;
  *  5. one log line: counts, and how many items did not decode.
  */
 
 import { useEffect } from "react";
-import { loadWatching, replaceWatching } from "../stream/watching";
-import { replaceAioWatched } from "../stream/watched";
+import { isFinished, loadWatching, onWatchingCleared, replaceWatching, type WatchEntry } from "../stream/watching";
+import { loadAioWatched, replaceAioWatched } from "../stream/watched";
 import { TRAKT_SYNCED } from "../trakt/store";
 import { scrubbedMessage } from "../../lib/errors";
 import { aioCall, readSignIn } from "./account";
+import { aiojfStatus } from "./client";
+import { packedFor } from "./report";
 import { itemRef, mergeAioProgress, playedFrom, resumeFrom, upNextFrom, type BaseItem } from "./rules";
 import {
   AIOJF_SYNCED,
@@ -43,10 +46,12 @@ export interface SyncResult {
   problem?: string;
 }
 
-/** How many played items AIOStreams will list in one answer. Its default is
- * 100; it reads at most 500 played rows per user whatever is asked
- * (watch-state.ts `listPlayed`), so this is the whole list. */
-const PLAYED_LIMIT = "500";
+/** The most played items one pass reads. AIOStreams reads at most 500 played
+ * rows per user (watch-state.ts `listPlayed`) and answers any one request with
+ * no more than its `browseLimit`: 250 by default, 100 when the instance sets
+ * `maxCatalogItems` to 0 (library.ts). One request is not the whole list, so
+ * it is read a page at a time (`readPlayed`). */
+export const PLAYED_MAX = 500;
 /** Continue Watching keeps 20 (watching.ts), AIOStreams answers 12 unasked. */
 const RESUME_LIMIT = "20";
 const UP_LIMIT = "20";
@@ -78,11 +83,38 @@ export function syncAiojf(): Promise<SyncResult> {
 interface Listed {
   items: BaseItem[] | null;
   status: number;
+  /** `TotalRecordCount`, when the answer had one. */
+  total?: number;
 }
 
 async function list(path: string, query: Record<string, string>): Promise<Listed> {
-  const r = await aioCall<{ Items?: BaseItem[] }>("GET", path, { query });
-  return { items: Array.isArray(r.data?.Items) ? r.data.Items : null, status: r.status };
+  const r = await aioCall<{ Items?: BaseItem[]; TotalRecordCount?: number }>("GET", path, { query });
+  const total = r.data?.TotalRecordCount;
+  return {
+    items: Array.isArray(r.data?.Items) ? r.data.Items : null,
+    status: r.status,
+    ...(typeof total === "number" ? { total } : {}),
+  };
+}
+
+/**
+ * The played list, a page at a time: `StartIndex` from 0, each page's items
+ * added, until a page comes back empty, the total is reached, or `PLAYED_MAX`
+ * items are in. A page that fails ends the read with no list at all, never a
+ * partial one: the caller replaces the ledger whole, and the missing pages
+ * would un-tick everything past them.
+ */
+export async function readPlayed(page: (startIndex: number, limit: number) => Promise<Listed>): Promise<Listed> {
+  const items: BaseItem[] = [];
+  let status = 200;
+  while (items.length < PLAYED_MAX) {
+    const r = await page(items.length, PLAYED_MAX - items.length);
+    status = r.status;
+    if (!r.items) return { items: null, status };
+    items.push(...r.items);
+    if (r.items.length === 0 || (r.total !== undefined && items.length >= r.total)) break;
+  }
+  return { items: items.slice(0, PLAYED_MAX), status };
 }
 
 /** What did not decode: not a film, a show or an episode in this app's ids. */
@@ -144,14 +176,17 @@ async function pass(): Promise<SyncResult> {
     } else note("what you were watching", resume.status);
 
     // 3. What was watched. Replaced whole, so un-marking elsewhere un-ticks.
-    const played = await list("/Items", {
-      ...user,
-      ...fields,
-      Recursive: "true",
-      IsPlayed: "true",
-      IncludeItemTypes: "Movie,Episode",
-      Limit: PLAYED_LIMIT,
-    });
+    const played = await readPlayed((startIndex, limit) =>
+      list("/Items", {
+        ...user,
+        ...fields,
+        Recursive: "true",
+        IsPlayed: "true",
+        IncludeItemTypes: "Movie,Episode",
+        StartIndex: String(startIndex),
+        Limit: String(limit),
+      }),
+    );
     if (gone()) return overtaken;
     if (played.status === 401) return fail("Signed out of AIOStreams");
     let ticks = 0;
@@ -213,6 +248,42 @@ async function pass(): Promise<SyncResult> {
   }
 }
 
+/**
+ * Clear AIOStreams' resume point for the cards cleared here, or the next sync
+ * brings them back (as trakt/sync.ts `forgetPaused` does for Trakt: a card
+ * cleared here clears there). A stop at position 0 is how a Jellyfin client
+ * clears one, and AIOStreams records it as that (playstate.ts, local-provider.ts
+ * `stopPatch`). The id is the episode's for a show, else the title's.
+ *
+ * Never for a finished card, one with no position, or one AIOStreams has as
+ * played: a stop below the line writes `played: false`, and a played mark is
+ * never removed from here (plan 023, D3). Best effort: a
+ * failure is silent, and nothing goes out when not signed in.
+ */
+export async function forgetResume(gone: readonly WatchEntry[]): Promise<void> {
+  // Only a card with a position to clear. One AIOStreams counts as played is
+  // left alone too: a stop at 0 on it would un-play it there (D3).
+  const played = loadAioWatched();
+  const playedThere = (e: WatchEntry) =>
+    e.episodeId ? (played.episodes[e.id] ?? []).includes(e.episodeId) : played.films.includes(e.id);
+  const open = gone.filter((e) => !!e.posSec && !isFinished(e) && !playedThere(e));
+  if (!open.length) return;
+  const status = await aiojfStatus();
+  if (!status.connected) return;
+  for (const e of open) {
+    const id = packedFor(
+      {
+        itemId: e.id,
+        kind: e.episodeId || e.kind === "series" ? "series" : "movie",
+        episodeId: e.episodeId,
+        season: e.season,
+      },
+      status.base,
+    );
+    if (id) await aioCall("POST", `/UserItems/${id}/UserData`, { body: { PlaybackPositionTicks: 0 } }).catch(() => null);
+  }
+}
+
 /** How long away before coming back syncs again. */
 const AWAY_MS = 15 * 60_000;
 
@@ -225,7 +296,12 @@ export function useAiojfSync(): void {
       const last = loadAiojf().lastSync ?? 0;
       if (Date.now() - last > AWAY_MS) void syncAiojf();
     };
+    // A card cleared here: its resume point goes on AIOStreams too.
+    const offCleared = onWatchingCleared((gone) => void forgetResume(gone).catch(() => {}));
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      offCleared();
+    };
   }, []);
 }

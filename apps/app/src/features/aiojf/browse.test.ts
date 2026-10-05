@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { catalogsFromManifest } from "../../data/aiostreams";
 import type { CatalogDef } from "../../data/stremio";
-import { pickCatalogs, pickSearchCatalogs } from "../discover/data";
+import { pickCatalogs, pickSearchCatalogs, servesGenre } from "../discover/data";
 import { groupSources, mapSeasons, mapStreams, metaPreviewToVod, metaToVod } from "../stream/mapper";
-import { catalogOf, metaDetailOf, metaPreviewOf, SEARCH_CATALOGS, stremioIdOf, streamsOf, type SourceItem } from "./browse";
+import { catalogOf, metaDetailOf, metaPreviewOf, SEARCH_CATALOGS, streamsOf, type SourceItem } from "./browse";
 import { packEpisode, packMovie, packSeries } from "./ids";
-import type { BaseItem } from "./rules";
+import { stremioIdOf, type BaseItem } from "./rules";
 
 function must<V>(v: V | null | undefined): V {
   if (v == null) throw new Error("a fixture did not decode");
@@ -96,7 +96,7 @@ describe("catalogOf", () => {
       type: "movie",
       id: "tmdb.top",
       name: "Popular Movies",
-      extra: [{ name: "skip" }],
+      extra: [{ name: "genre" }, { name: "skip" }],
     });
   });
 
@@ -124,10 +124,27 @@ describe("catalogOf", () => {
     });
   });
 
-  it("no genres, or an empty list, and none required: no genre extra is claimed", () => {
-    expect(catalogOf(view())?.extra).toEqual([{ name: "skip" }]);
-    expect(catalogOf(view(), [])?.extra).toEqual([{ name: "skip" }]);
+  it("no genres, or an empty list, and none required: a movie or series view still takes a genre, with no options", () => {
+    // Discover reads a genre extra with no options as "serves any genre"; with
+    // none it benches the catalog from every genre page. AIOStreams answers an
+    // empty page for a genre a catalog cannot serve, so claiming it is safe.
+    for (const type of ["movie", "series"]) {
+      const v = view({ Path: `/aiostreams/${type}/some.catalog` });
+      expect(catalogOf(v)?.extra, type).toEqual([{ name: "genre" }, { name: "skip" }]);
+      expect(catalogOf(v, [])?.extra, type).toEqual([{ name: "genre" }, { name: "skip" }]);
+    }
     expect(catalogOf(view(), ["", "Action"])?.extra?.[0]).toEqual({ name: "genre", options: ["Action"] });
+  });
+
+  it("a type Discover does not browse claims a genre only with options, or when it is required", () => {
+    const anime = view({ Path: "/aiostreams/anime/kitsu.trending" });
+    expect(catalogOf(anime)?.extra).toEqual([{ name: "skip" }]);
+    expect(catalogOf(anime, [])?.extra).toEqual([{ name: "skip" }]);
+    expect(catalogOf(anime, ["Mecha"])?.extra).toEqual([{ name: "genre", options: ["Mecha"] }, { name: "skip" }]);
+    expect(catalogOf({ ...anime, aiostreams: { genreRequired: true } })?.extra).toEqual([
+      { name: "genre", isRequired: true },
+      { name: "skip" },
+    ]);
   });
 
   it("never a search extra: search is SEARCH_CATALOGS", () => {
@@ -160,7 +177,18 @@ describe("catalogOf", () => {
     const picked = pickCatalogs([plain, series, needsGenre]);
     expect(picked.map((c) => c.id)).toEqual(["a", "b"]);
     expect(picked[0]).toEqual({ type: "movie", id: "a", genreCapable: true, genres: ["Action", "Drama"] });
-    expect(picked[1]).toEqual({ type: "series", id: "b", genreCapable: false, genres: [] });
+    expect(picked[1]).toEqual({ type: "series", id: "b", genreCapable: true, genres: [] });
+  });
+
+  it("a catalog with no options is not benched from a genre page: Discover reads it as any genre", () => {
+    // The bug data.ts `servesGenre` was written against: a genre extra with no
+    // options, read as one that serves nothing, left Discover's genre pages to
+    // the few catalogs that listed their genres.
+    const bare = must(pickCatalogs([must(catalogOf(view({ Path: "/aiostreams/movie/bare" })))])[0]);
+    const listed = must(pickCatalogs([must(catalogOf(view({ Path: "/aiostreams/movie/listed" }), ["Drama"]))])[0]);
+    expect(servesGenre(bare, "Action")).toBe(true);
+    expect(servesGenre(listed, "Action")).toBe(false);
+    expect(servesGenre(listed, "Drama")).toBe(true);
   });
 });
 

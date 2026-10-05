@@ -39,7 +39,17 @@
 //!   debrid checks included, the same work as pressing play
 //!   (routes/jellyfin/items.ts:702-713, library.ts:100-106). So does
 //!   `GET /Items?Ids=<one id>&Fields=MediaSources` (library.ts:454). The page
-//!   asks by path, and `guard` refuses these whatever the page asks.
+//!   asks by path, and `guard` is an allow list: it sends the calls the app
+//!   makes and refuses every other path, so a route AIOStreams adds later, or
+//!   one that does more than it looks (`POST /AIOStreams/Token` mints a token
+//!   that never expires, `POST /QuickConnect/Authorize` approves another
+//!   device's code), is refused until it is added here.
+//! - THE TOKEN IN A REPLY: a detail read is answered with full `MediaSources`
+//!   when AIOStreams holds a fresh search for the title (items.ts:838-869),
+//!   and each external subtitle's `DeliveryUrl` carries `ApiKey=<the request's
+//!   own token>` (media.ts `buildMediaStreams`). So every reply body that
+//!   leaves `call` has the token taken out, as it is and as
+//!   `encodeURIComponent` writes it (`scrub`).
 //! - Calls are rate limited by kind and answer 429 (routes/jellyfin/index.ts).
 //! - THE STREAM SEARCH, ON PURPOSE (plan 024): `POST /Items/{id}/PlaybackInfo`
 //!   is the one call that runs it, and `sources` is the one way to make it.
@@ -162,7 +172,8 @@ pub struct Status {
 }
 
 /// An AIOStreams answer, handed to the page as data: a 4xx is not an error
-/// here, the page decides what a 404 means for what it asked.
+/// here, the page decides what a 404 means for what it asked. The session's
+/// token is taken out of the body (`scrub`).
 #[derive(Serialize, Debug)]
 pub struct Reply {
     pub status: u16,
@@ -444,77 +455,145 @@ fn plain_path(path: &str) -> Result<(), String> {
     }
 }
 
-/// Paths that fetch or resolve streams, whatever else is asked of them
-/// (lower case, with the slash that opens the segment).
-const STREAM_PATHS: [&str; 6] = [
-    "playbackinfo",
-    "mediasources",
-    "/videos",
-    "/audio",
-    "/download",
-    "/file",
-];
-
-/// `/Items/<word>` that are not items: AIOStreams sends these on to other
-/// routes (library.ts RESERVED_ITEM_IDS).
-const NOT_ITEMS: [&str; 8] = [
-    "filters",
-    "filters2",
-    "counts",
-    "latest",
-    "resume",
-    "intros",
-    "root",
-    "suggestions",
-];
-
-/// What `Fields` asks for, as AIOStreams reads it: any key case, repeated,
-/// split on commas and bars (context.ts qlist).
-fn fields_of(query: &HashMap<String, String>) -> Vec<String> {
-    query
-        .iter()
-        .filter(|(k, _)| k.eq_ignore_ascii_case("fields"))
-        .flat_map(|(_, v)| v.split([',', '|']))
-        .map(|f| f.trim().to_ascii_lowercase())
-        .filter(|f| !f.is_empty())
-        .collect()
+/// An item id as AIOStreams gives them out: 16 bytes as 32 lower case hex
+/// (core/src/jellyfin/ids.ts), and nothing before or after.
+fn is_item_id(id: &str) -> bool {
+    id.len() == 32
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-/// Ok when the call cannot make AIOStreams search for streams. `method` is
-/// upper case. Refuses, with nothing sent:
+/// Whether the app makes this call: the method and the path both. `path` is
+/// plain (`plain_path`), and a segment is matched exactly: a different case, a
+/// trailing slash, a prefix (`/emby`, `/u/<alias>`, `/<uuid>/<password>`) or a
+/// longer path is not on the list. `{id}` is `is_item_id`.
+///
+/// A "Load versions" marker id is 32 lower case hex too, and `GET
+/// /Items/<marker>` with `Fields` makes AIOStreams search (items.ts:905-911).
+/// Nothing here can tell a marker from an item.
+fn on_the_list(method: &str, path: &str) -> bool {
+    let segs: Vec<&str> = path.strip_prefix('/').unwrap_or("").split('/').collect();
+    match (method, segs.as_slice()) {
+        (
+            "GET",
+            ["UserViews"]
+            | ["Genres"]
+            | ["Items"]
+            | ["UserItems", "Resume"]
+            | ["Shows", "NextUp"]
+            | ["Shows", "Upcoming"],
+        )
+        | (
+            "POST",
+            ["Sessions", "Playing"]
+            | ["Sessions", "Playing", "Progress"]
+            | ["Sessions", "Playing", "Stopped"],
+        ) => true,
+        ("GET", ["Items", id] | ["MediaSegments", id] | ["Shows", id, "Episodes"])
+        | ("POST", ["UserPlayedItems", id] | ["UserItems", id, "UserData"]) => is_item_id(id),
+        _ => false,
+    }
+}
+
+/// A `Fields` entry the server reads as the name it looks like: a letter, then
+/// letters and digits.
+fn is_field_name(f: &str) -> bool {
+    let mut b = f.bytes();
+    b.next().is_some_and(|c| c.is_ascii_alphabetic()) && b.all(|c| c.is_ascii_alphanumeric())
+}
+
+/// What `Fields` asks for, as AIOStreams reads it: any key case, repeated,
+/// split on commas and bars (context.ts qlist). It then trims each entry with
+/// JS `trim()`, which strips more than ASCII whitespace (U+FEFF, U+00A0, the
+/// vertical tab...), so an entry that Rust's ASCII trim leaves non-empty can be
+/// empty there: a `Fields` that looks set here and is unset to the server.
+/// Every entry is therefore trimmed of ASCII whitespace only, and then must be
+/// a plain field name (`is_field_name`) or the whole request is refused. An
+/// empty entry is none, and an empty `Fields` is no `Fields`.
+fn fields_of(query: &HashMap<String, String>) -> Result<Vec<String>, String> {
+    let mut out = Vec::new();
+    for (_, v) in query
+        .iter()
+        .filter(|(k, _)| k.eq_ignore_ascii_case("fields"))
+    {
+        for part in v.split([',', '|']) {
+            let f = part.trim_matches(|c: char| c.is_ascii_whitespace());
+            if f.is_empty() {
+                continue;
+            }
+            if !is_field_name(f) {
+                return Err("refused: Fields holds an entry that is not a plain field name".into());
+            }
+            out.push(f.to_ascii_lowercase());
+        }
+    }
+    Ok(out)
+}
+
+/// Ok when the app makes this call and it cannot make AIOStreams search for
+/// streams. `method` is upper case. Refuses, with nothing sent:
 /// - a path that is not plain (`plain_path`);
-/// - PlaybackInfo, MediaSources, Videos, Audio, Download, File, in any case,
-///   and behind the `/emby` and `/mediabrowser` prefixes the server drops;
+/// - any method and path `on_the_list` does not name;
+/// - a `Fields` with an entry that is not a plain field name (`fields_of`);
 /// - `Fields` naming MediaSources, on any path;
-/// - a single item GET (`/Items/<id>`, `/Users/<uid>/Items/<id>`) with no
-///   `Fields`, which AIOStreams answers by resolving streams.
+/// - `GET /Items/<id>` with no `Fields`, which AIOStreams answers by
+///   resolving streams.
 fn guard(method: &str, path: &str, query: &HashMap<String, String>) -> Result<(), String> {
     plain_path(path)?;
     let refused = |why: &str| Err(format!("refused: {why}"));
-    let lower = path.to_ascii_lowercase();
-    if STREAM_PATHS.iter().any(|p| lower.contains(p)) {
-        return refused("that path makes AIOStreams search for streams");
+    if !on_the_list(method, path) {
+        return refused("not a call this app makes");
     }
-    let fields = fields_of(query);
+    let fields = fields_of(query)?;
     if fields.iter().any(|f| f.contains("mediasources")) {
         return refused("Fields names MediaSources, which makes AIOStreams search for streams");
     }
-    if method == "GET" {
-        let mut segs: Vec<&str> = lower.split('/').filter(|s| !s.is_empty()).collect();
-        while matches!(segs.first(), Some(&"emby" | &"mediabrowser")) {
-            segs.remove(0);
-        }
-        let item = match segs.as_slice() {
-            ["items", id] | ["users", _, "items", id] => Some(*id),
-            _ => None,
-        };
-        if let Some(id) = item {
-            if !NOT_ITEMS.contains(&id) && fields.is_empty() {
-                return refused("a single item needs Fields, or AIOStreams searches for streams");
-            }
-        }
+    // The list has one GET under `/Items/`, and it is a single item.
+    if method == "GET" && path.starts_with("/Items/") && fields.is_empty() {
+        return refused("a single item needs Fields, or AIOStreams searches for streams");
     }
     Ok(())
+}
+
+/// `encodeURIComponent`: the letters, digits and `-_.!~*'()` as they are, every
+/// other byte of the UTF-8 as `%` and two upper case hex digits. How AIOStreams
+/// writes a token into a URL (media.ts `buildMediaStreams`).
+fn uri_component(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'!'
+            | b'~'
+            | b'*'
+            | b'\''
+            | b'('
+            | b')' => out.push(b as char),
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
+/// `body` with the token taken out, as it is and as `uri_component` writes it,
+/// each replaced by nothing. Until neither is left: taking one out can join
+/// what was either side of it into another. A body without the token comes back
+/// as it was.
+fn scrub(mut body: String, token: &str) -> String {
+    if token.is_empty() {
+        return body;
+    }
+    let forms = [token.to_string(), uri_component(token)];
+    while let Some(form) = forms.iter().find(|f| body.contains(f.as_str())) {
+        body = body.replace(form.as_str(), "");
+    }
+    body
 }
 
 /// Seconds, from a `Retry-After` that gives them (not the date form).
@@ -834,9 +913,10 @@ impl Aiojf {
     /// A call to AIOStreams' Jellyfin API by path (`/UserItems/Resume`), with
     /// the session's token added here. `query` is the query string, so that
     /// what `guard` reads is what goes out. `body` is sent as JSON, and a
-    /// `null` is no body. The answer comes back as data, a 4xx included, but
-    /// a 401 also ends the session. Never the stream search: that is
-    /// `sources`, by name.
+    /// `null` is no body. Only the calls `guard` lists are made, and any other
+    /// is refused with nothing sent. The answer comes back as data, a 4xx
+    /// included, with the token taken out of it, but a 401 also ends the
+    /// session. Never the stream search: that is `sources`, by name.
     pub async fn request(
         &self,
         method: &str,
@@ -848,8 +928,7 @@ impl Aiojf {
         let verb = match method.as_str() {
             "GET" => reqwest::Method::GET,
             "POST" => reqwest::Method::POST,
-            "DELETE" => reqwest::Method::DELETE,
-            _ => return Err("refused: only GET, POST and DELETE".into()),
+            _ => return Err("refused: only GET and POST".into()),
         };
         let query = query.unwrap_or_default();
         guard(&method, path, &query)?;
@@ -865,11 +944,7 @@ impl Aiojf {
     /// refused before a request. A 429 is waited out once and a 401 signs out,
     /// as for `request`; the wait on the search is longer.
     pub async fn sources(&self, item_id: &str, refresh: bool) -> Result<Sources, String> {
-        let id_ok = item_id.len() == 32
-            && item_id
-                .bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
-        if !id_ok {
+        if !is_item_id(item_id) {
             return Err("refused: not an AIOStreams item id".into());
         }
         let body = if refresh {
@@ -891,7 +966,9 @@ impl Aiojf {
 
     /// One call with the session's token, past the guard: a 429 waited out
     /// once, a 401 ending the session. `wait` is how long to hold the line,
-    /// where the shared client's own limit is not enough.
+    /// where the shared client's own limit is not enough. Every reply leaves
+    /// here with the token taken out of its body (`scrub`), so no caller, and
+    /// no route added later, can hand it back.
     async fn call(
         &self,
         verb: &reqwest::Method,
@@ -918,6 +995,7 @@ impl Aiojf {
         if reply.status == 401 {
             self.drop_session(&session.token);
         }
+        reply.body = scrub(std::mem::take(&mut reply.body), &session.token);
         Ok(reply)
     }
 
@@ -1072,9 +1150,16 @@ mod tests {
 
     /// A fake AIOStreams Jellyfin side: the probe, Quick Connect, Logout, and
     /// a few API routes (PlaybackInfo among them), recording what it was
-    /// asked. The one token it accepts is TOKEN1.
+    /// asked. The one token it accepts is TOKEN1, or `token` when that is set.
     #[derive(Default)]
     struct Fake {
+        /// The token the trade hands out and the calls must carry, when not
+        /// TOKEN1.
+        token: Option<&'static str>,
+        /// What `GET /Items/<id>` answers, when set: a raw body, as sent.
+        item_body: Option<String>,
+        /// `DEAD` answers 401, as for a token AIOStreams no longer knows.
+        dead: bool,
         probe: Probe,
         /// Connect answers `Authenticated: false` this many times first.
         pending_for: usize,
@@ -1087,7 +1172,7 @@ mod tests {
         gate: Gate,
         connects: AtomicUsize,
         auths: AtomicUsize,
-        /// `/limited` and PlaybackInfo answer 429 this many times, then 200.
+        /// `LIMITED` and PlaybackInfo answer 429 this many times, then 200.
         limit_for: AtomicUsize,
         /// The `Retry-After` of those 429s, when set.
         retry_after: Option<&'static str>,
@@ -1104,6 +1189,9 @@ mod tests {
     }
 
     impl Fake {
+        fn token(&self) -> &'static str {
+            self.token.unwrap_or("TOKEN1")
+        }
         fn seen(&self) -> Vec<Seen> {
             self.seen.lock().unwrap().clone()
         }
@@ -1130,6 +1218,14 @@ mod tests {
 
     /// The item the sources tests ask about.
     const ITEM: &str = "a1110100000001b239ffffffff000000";
+
+    /// Calls the app makes that the fake answers in its own way when a test
+    /// asks it to (`dead`, `limit_for`, `delay`): a 401, a 429 then a 200, a
+    /// slow one. They are real routes because `request` sends no other,
+    /// whatever a test would like to name.
+    const DEAD: &str = "/Genres";
+    const LIMITED: &str = "/UserViews";
+    const SLOW: &str = "/Shows/Upcoming";
 
     /// A PlaybackInfo answer as AIOStreams gives it: whole sources, with the
     /// streams and the subtitle URLs that carry the token, and fields this
@@ -1299,20 +1395,33 @@ mod tests {
                     200,
                     serde_json::json!({
                         "User": { "Id": "UID", "Name": "Adam" },
-                        "AccessToken": "TOKEN1", "ServerId": "SRV",
+                        "AccessToken": fake.token(), "ServerId": "SRV",
                     }),
                 )
             }
             ("POST", "/Sessions/Logout") => empty(204),
             _ => {
-                if !auth.as_deref().unwrap_or("").contains("Token=\"TOKEN1\"") {
+                let want = format!("Token=\"{}\"", esc(fake.token()));
+                if !auth.as_deref().unwrap_or("").contains(&want) {
                     return json(401, serde_json::json!({ "Message": "Unauthorized" }));
                 }
                 match p {
-                    "/dead" => json(401, serde_json::json!({ "Message": "Invalid credentials" })),
-                    "/limited" => fake
+                    DEAD if fake.dead => {
+                        json(401, serde_json::json!({ "Message": "Invalid credentials" }))
+                    }
+                    LIMITED => fake
                         .limited()
                         .unwrap_or_else(|| json(200, serde_json::json!({ "ok": true }))),
+                    p if method == "GET"
+                        && p.starts_with("/Items/")
+                        && fake.item_body.is_some() =>
+                    {
+                        Response::builder()
+                            .status(200)
+                            .header("content-type", "application/json")
+                            .body(Full::new(Bytes::from(fake.item_body.clone().unwrap())))
+                            .unwrap()
+                    }
                     p if method == "POST"
                         && p.starts_with("/Items/")
                         && p.ends_with("/PlaybackInfo") =>
@@ -1681,9 +1790,12 @@ mod tests {
     #[test]
     fn a_401_signs_out_and_clears_the_vault() {
         run(async {
-            let fake = Arc::new(Fake::default());
+            let fake = Arc::new(Fake {
+                dead: true,
+                ..Default::default()
+            });
             let (a, vault, _) = signed_in(&fake).await;
-            let r = a.request("GET", "/dead", None, None).await.unwrap();
+            let r = a.request("GET", DEAD, None, None).await.unwrap();
             // The answer still comes back as data.
             assert_eq!(r.status, 401);
             assert!(!a.status().connected);
@@ -1725,20 +1837,20 @@ mod tests {
             fake.limit_for.store(1, Ordering::SeqCst);
             let (a, _, _) = signed_in(&fake).await;
             let t0 = Instant::now();
-            let r = a.request("GET", "/limited", None, None).await.unwrap();
+            let r = a.request("GET", LIMITED, None, None).await.unwrap();
             assert_eq!(r.status, 200);
             assert!(
                 t0.elapsed() >= Duration::from_millis(950),
                 "{:?}",
                 t0.elapsed()
             );
-            assert_eq!(fake.hits("/limited"), 2);
+            assert_eq!(fake.hits(LIMITED), 2);
 
             // Always limited: one retry and no more, and the 429 goes back.
             fake.limit_for.store(99, Ordering::SeqCst);
-            let r = a.request("GET", "/limited", None, None).await.unwrap();
+            let r = a.request("GET", LIMITED, None, None).await.unwrap();
             assert_eq!(r.status, 429);
-            assert_eq!(fake.hits("/limited"), 4);
+            assert_eq!(fake.hits(LIMITED), 4);
             assert!(a.status().connected);
         })
     }
@@ -1750,9 +1862,9 @@ mod tests {
             let fake = Arc::new(Fake::default());
             fake.limit_for.store(99, Ordering::SeqCst);
             let (a, _, _) = signed_in(&fake).await;
-            let r = a.request("GET", "/limited", None, None).await.unwrap();
+            let r = a.request("GET", LIMITED, None, None).await.unwrap();
             assert_eq!(r.status, 429);
-            assert_eq!(fake.hits("/limited"), 1);
+            assert_eq!(fake.hits(LIMITED), 1);
 
             // A Retry-After past what is worth waiting for.
             let fake = Arc::new(Fake {
@@ -1762,9 +1874,9 @@ mod tests {
             fake.limit_for.store(99, Ordering::SeqCst);
             let (a, _, _) = signed_in(&fake).await;
             let t0 = Instant::now();
-            let r = a.request("GET", "/limited", None, None).await.unwrap();
+            let r = a.request("GET", LIMITED, None, None).await.unwrap();
             assert_eq!(r.status, 429);
-            assert_eq!(fake.hits("/limited"), 1);
+            assert_eq!(fake.hits(LIMITED), 1);
             assert!(t0.elapsed() < Duration::from_secs(5));
         })
     }
@@ -2158,12 +2270,12 @@ mod tests {
             };
             // The control: that limit is live, and cuts a plain call short.
             let slow = Arc::new(Fake {
-                delay: Some(("/slow", Duration::from_millis(900))),
+                delay: Some((SLOW, Duration::from_millis(900))),
                 ..Default::default()
             });
             let (a, _, _) = signed_in_with(&slow, short()).await;
             assert_eq!(
-                a.request("GET", "/slow", None, None).await.unwrap_err(),
+                a.request("GET", SLOW, None, None).await.unwrap_err(),
                 "timed out"
             );
             // The same wait on a search is let be.
@@ -2500,8 +2612,8 @@ mod tests {
         ok("GET", &format!("/Items/{id}"), &[("Fields", "ProviderIds")]);
         ok(
             "GET",
-            &format!("/Users/UID/Items/{id}"),
-            &[("Fields", "ProviderIds,Overview")],
+            &format!("/Items/{id}"),
+            &[("Fields", "Overview,Genres,People,Path,ProviderIds")],
         );
         ok(
             "GET",
@@ -2510,21 +2622,499 @@ mod tests {
         );
         ok("GET", "/Items", &[("Ids", id)]);
         ok("GET", "/Items", &[("Ids", id), ("Fields", "ProviderIds")]);
+        ok("GET", "/UserViews", &[]);
+        ok("GET", "/Genres", &[("ParentId", id)]);
         ok("GET", "/UserItems/Resume", &[]);
-        ok("GET", "/Users/UID/Items/Resume", &[]);
         ok("GET", "/Shows/NextUp", &[("Limit", "20")]);
         ok("GET", "/Shows/Upcoming", &[]);
-        ok("GET", "/Items/Latest", &[]);
-        ok("GET", "/Items/Filters", &[]);
+        ok(
+            "GET",
+            &format!("/Shows/{id}/Episodes"),
+            &[("Limit", "500"), ("StartIndex", "0")],
+        );
         ok("GET", &format!("/MediaSegments/{id}"), &[]);
-        ok("GET", &format!("/Items/{id}/Ancestors"), &[]);
         ok("POST", "/Sessions/Playing", &[]);
         ok("POST", "/Sessions/Playing/Progress", &[]);
         ok("POST", "/Sessions/Playing/Stopped", &[]);
         ok("POST", &format!("/UserPlayedItems/{id}"), &[]);
-        ok("DELETE", &format!("/UserPlayedItems/{id}"), &[]);
-        // A POST to an item is not the GET that resolves streams.
-        ok("POST", &format!("/Items/{id}"), &[]);
+        ok("POST", &format!("/UserItems/{id}/UserData"), &[]);
+    }
+
+    /// One request for each call the app makes, and each one reaches AIOStreams
+    /// as asked: the other half of the refusals below.
+    #[test]
+    fn every_call_the_app_makes_goes_through() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (a, _, _) = signed_in(&fake).await;
+            let body = Some(serde_json::json!({ "ItemId": ITEM, "PositionTicks": 10 }));
+            type Made = (
+                &'static str,
+                String,
+                Vec<(&'static str, &'static str)>,
+                Option<serde_json::Value>,
+            );
+            let calls: Vec<Made> = vec![
+                ("GET", "/UserViews".into(), vec![], None),
+                ("GET", "/Genres".into(), vec![("ParentId", ITEM)], None),
+                ("GET", "/Items".into(), vec![("ParentId", ITEM)], None),
+                (
+                    "GET",
+                    format!("/Items/{ITEM}"),
+                    vec![("Fields", "Overview,Genres,People,Path,ProviderIds")],
+                    None,
+                ),
+                (
+                    "GET",
+                    format!("/Shows/{ITEM}/Episodes"),
+                    vec![("Limit", "500")],
+                    None,
+                ),
+                ("GET", "/Shows/NextUp".into(), vec![("Limit", "20")], None),
+                ("GET", "/Shows/Upcoming".into(), vec![("Limit", "20")], None),
+                (
+                    "GET",
+                    "/UserItems/Resume".into(),
+                    vec![("Limit", "20")],
+                    None,
+                ),
+                ("GET", format!("/MediaSegments/{ITEM}"), vec![], None),
+                ("POST", "/Sessions/Playing".into(), vec![], body.clone()),
+                (
+                    "POST",
+                    "/Sessions/Playing/Progress".into(),
+                    vec![],
+                    body.clone(),
+                ),
+                (
+                    "POST",
+                    "/Sessions/Playing/Stopped".into(),
+                    vec![],
+                    body.clone(),
+                ),
+                ("POST", format!("/UserPlayedItems/{ITEM}"), vec![], None),
+                (
+                    "POST",
+                    format!("/UserItems/{ITEM}/UserData"),
+                    vec![],
+                    Some(serde_json::json!({ "PlaybackPositionTicks": 0 })),
+                ),
+            ];
+            for (method, path, query, body) in &calls {
+                let before = fake.seen().len();
+                let r = a
+                    .request(method, path, q(query), body.clone())
+                    .await
+                    .unwrap_or_else(|e| panic!("{method} {path} was refused: {e}"));
+                assert_eq!(r.status, 200, "{method} {path}");
+                let seen = fake.seen();
+                assert_eq!(seen.len(), before + 1, "{method} {path}");
+                let got = &seen[before];
+                assert_eq!(got.method, *method, "{path}");
+                let sent = format!("/jellyfin{path}");
+                assert!(
+                    got.uri == sent || got.uri.starts_with(&format!("{sent}?")),
+                    "{path}: {}",
+                    got.uri
+                );
+            }
+        })
+    }
+
+    /// What the block list let through and the allow list does not: another
+    /// route behind the same auth, another mount, another method, an id that
+    /// is not exactly 32 lower case hex. Not one reaches AIOStreams.
+    #[test]
+    fn what_the_old_guard_let_through_is_refused_and_nothing_is_sent() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (a, _, _) = signed_in(&fake).await;
+            let sent = fake.seen().len();
+            let id = ITEM;
+            let uuid = "0a1b2c3d-4e5f-6789-abcd-ef0123456789";
+            let fields = || Some(vec![("Fields", "ProviderIds")]);
+            let mut cases: Vec<Case> = vec![
+                // A token that never expires for the caller, and a code for
+                // another device approved.
+                ("POST", "/AIOStreams/Token".into(), None),
+                ("POST", "/QuickConnect/Authorize".into(), None),
+                (
+                    "POST",
+                    "/QuickConnect/Authorize".into(),
+                    Some(vec![("code", "123456")]),
+                ),
+                ("POST", "/Sessions/Logout".into(), None),
+                ("GET", "/System/Info".into(), None),
+                // AIOStreams' other mounts, whatever Fields says.
+                ("GET", format!("/{uuid}/x/Items/{id}"), None),
+                ("GET", format!("/{uuid}/x/Items/{id}"), fields()),
+                ("GET", format!("/u/alias/Items/{id}"), None),
+                ("GET", format!("/u/alias/Items/{id}"), fields()),
+                ("GET", format!("/Users/UID/Items/{id}"), fields()),
+                ("GET", "/Users/UID/Items/Resume".into(), None),
+                (
+                    "GET",
+                    format!("/emby/Items/{id}"),
+                    Some(vec![("Fields", "x")]),
+                ),
+                ("GET", "/mediabrowser/UserItems/Resume".into(), None),
+                // Reserved words under /Items, and what hangs off an item.
+                ("GET", "/Items/Latest".into(), None),
+                ("GET", "/Items/Filters".into(), None),
+                ("GET", "/Items/Resume".into(), fields()),
+                ("GET", format!("/Items/{id}/Ancestors"), None),
+                ("GET", format!("/Items/{id}/Similar"), None),
+                // The right path under the wrong method, and the methods the
+                // list has no call for.
+                ("POST", format!("/Items/{id}"), None),
+                ("POST", format!("/Items/{id}"), fields()),
+                ("POST", "/UserViews".into(), None),
+                ("POST", "/Items".into(), None),
+                ("POST", "/UserItems/Resume".into(), None),
+                ("GET", "/Sessions/Playing".into(), None),
+                ("GET", "/Sessions/Playing/Progress".into(), None),
+                ("GET", format!("/UserPlayedItems/{id}"), None),
+                ("GET", format!("/UserItems/{id}/UserData"), None),
+                ("POST", format!("/MediaSegments/{id}"), None),
+                ("DELETE", format!("/UserPlayedItems/{id}"), None),
+                ("DELETE", "/Sessions/Playing".into(), None),
+                ("DELETE", format!("/Items/{id}"), fields()),
+                ("PUT", format!("/UserItems/{id}/UserData"), None),
+                // A path with more or less than the list's own, and a case the
+                // list does not spell.
+                ("GET", "/UserViews/".into(), None),
+                ("GET", "/Items/".into(), fields()),
+                ("GET", "/UserItems/Resume/x".into(), None),
+                ("GET", "/Shows/NextUp/x".into(), None),
+                ("GET", format!("/Shows/{id}/Episodes/x"), None),
+                ("GET", format!("/Shows/{id}"), None),
+                ("POST", "/Sessions/Playing/Progress/x".into(), None),
+                ("POST", "/Sessions".into(), None),
+                ("GET", "/userviews".into(), None),
+                ("GET", "/USERVIEWS".into(), None),
+                ("GET", "/items".into(), None),
+                ("GET", "/Shows/nextup".into(), None),
+                ("POST", "/Sessions/playing".into(), None),
+                ("POST", "/Sessions/Playing/progress".into(), None),
+            ];
+            // An id that is not exactly 32 lower case hex, on every route
+            // that takes one.
+            let upper = id.to_uppercase();
+            let dashed = "a1110100-0000-01b2-39ff-ffffffff0000".to_string();
+            let bad: Vec<String> = vec![
+                // 33 characters, and 31.
+                format!("{id}0"),
+                id[..31].to_string(),
+                upper.clone(),
+                format!("A{}", &id[1..]),
+                dashed.clone(),
+                format!("{}g", &id[..31]),
+                format!("{id}.json"),
+                "UID".into(),
+                "latest".into(),
+                // 32 bytes, 16 characters.
+                "\u{e9}".repeat(16),
+            ];
+            for x in &bad {
+                cases.push(("GET", format!("/Items/{x}"), fields()));
+                cases.push(("GET", format!("/MediaSegments/{x}"), None));
+                cases.push(("GET", format!("/Shows/{x}/Episodes"), None));
+                cases.push(("POST", format!("/UserPlayedItems/{x}"), None));
+                cases.push(("POST", format!("/UserItems/{x}/UserData"), None));
+            }
+            for (method, path, query) in &cases {
+                let query = query.as_ref().map(|p| q(p).unwrap());
+                let r = a.request(method, path, query.clone(), None).await;
+                let e = r.expect_err(&format!("sent {method} {path:?} {query:?}"));
+                assert!(e.starts_with("refused:"), "{method} {path:?}: {e}");
+            }
+            assert_eq!(fake.seen().len(), sent, "something reached AIOStreams");
+            // A refusal is a plain error: still signed in, and a call on the
+            // list is still sent.
+            assert!(a.status().connected);
+            assert!(a
+                .request("POST", &format!("/UserPlayedItems/{id}"), None, None)
+                .await
+                .is_ok());
+            assert_eq!(fake.seen().len(), sent + 1);
+        })
+    }
+
+    /// A `Fields` that holds anything but plain field names is refused, on any
+    /// route: AIOStreams trims with JS `trim()`, which strips U+FEFF and more
+    /// than Rust's ASCII trim does, so such an entry can be empty there.
+    #[test]
+    fn a_fields_that_is_not_plain_names_is_refused_and_nothing_is_sent() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (a, _, _) = signed_in(&fake).await;
+            let sent = fake.seen().len();
+            let odd = [
+                // Only a byte order mark: no Fields to the server, one here.
+                "\u{feff}",
+                " \u{feff} ",
+                "\u{feff},\u{feff}",
+                "\u{feff}|\u{feff}",
+                "ProviderIds,\u{feff}",
+                "\u{feff}|ProviderIds",
+                "\u{feff}ProviderIds",
+                "ProviderIds\u{feff}",
+                // The rest of what JS strips and Rust's ASCII trim does not.
+                "\u{a0}",
+                "\u{2028}",
+                "\u{3000}",
+                "\u{0b}",
+                "ProviderIds,\u{0b}",
+                // Not zero-width or white, and still not a name.
+                "\u{200b}",
+                "Pro\u{e9}ids",
+                "Provider-Ids",
+                "Provider Ids",
+                "Provider\tIds",
+                "1ProviderIds",
+                "_ProviderIds",
+                "ProviderIds;",
+                "Provider\0Ids",
+                "ProviderIds,%",
+                "../x",
+            ];
+            let id = ITEM;
+            for f in odd {
+                for key in ["Fields", "fields", "FIELDS"] {
+                    // The single item, where an unset Fields starts a search.
+                    let r = a
+                        .request("GET", &format!("/Items/{id}"), q(&[(key, f)]), None)
+                        .await;
+                    let e = r.expect_err(&format!("sent {key}={f:?} on an item"));
+                    assert!(e.starts_with("refused:"), "{key}={f:?}: {e}");
+                    // And a route that never needed Fields: no entry is let by.
+                    let r = a
+                        .request("GET", "/UserItems/Resume", q(&[(key, f)]), None)
+                        .await;
+                    let e = r.expect_err(&format!("sent {key}={f:?} on Resume"));
+                    assert!(e.starts_with("refused:"), "{key}={f:?}: {e}");
+                }
+            }
+            // Every key that reads as Fields is read, not just one.
+            let r = a
+                .request(
+                    "GET",
+                    &format!("/Items/{id}"),
+                    q(&[("Fields", "ProviderIds"), ("fields", "\u{feff}")]),
+                    None,
+                )
+                .await;
+            assert!(r.unwrap_err().starts_with("refused:"));
+            assert_eq!(fake.seen().len(), sent, "something reached AIOStreams");
+
+            // Plain names are still let by, with ASCII whitespace round them,
+            // and an empty Fields is no Fields.
+            let ok =
+                |query: &[(&str, &str)]| guard("GET", &format!("/Items/{id}"), &q(query).unwrap());
+            for f in [
+                "ProviderIds",
+                " ProviderIds , Overview\t",
+                "ProviderIds|Overview",
+                "Overview,,Genres,",
+                "a",
+                "\r\nPath\r\n",
+            ] {
+                assert_eq!(ok(&[("Fields", f)]), Ok(()), "{f:?}");
+            }
+            for f in ["", " ", " , |", ",", "|"] {
+                assert!(ok(&[("Fields", f)]).is_err(), "{f:?} is no Fields");
+                // On a route that needs none, it is just no Fields.
+                assert_eq!(
+                    guard("GET", "/UserItems/Resume", &q(&[("Fields", f)]).unwrap()),
+                    Ok(()),
+                    "{f:?}"
+                );
+            }
+        })
+    }
+
+    /// The token, in the two forms AIOStreams writes it, and what both do
+    /// to a body.
+    const TOKEN: &str = "a+b/c=d:e~f";
+    const TOKEN_ENCODED: &str = "a%2Bb%2Fc%3Dd%3Ae~f";
+
+    #[test]
+    fn a_token_is_written_as_encode_uri_component_writes_it() {
+        // Each pair as node's encodeURIComponent gives it.
+        for (raw, enc) in [
+            ("abcXYZ019-_.!~*'()", "abcXYZ019-_.!~*'()"),
+            ("a b", "a%20b"),
+            ("+/=:@&?#%", "%2B%2F%3D%3A%40%26%3F%23%25"),
+            ("\u{e9}", "%C3%A9"),
+            ("\u{1F600}", "%F0%9F%98%80"),
+            (",;$", "%2C%3B%24"),
+            ("\"<>[]{}|\\^`", "%22%3C%3E%5B%5D%7B%7D%7C%5C%5E%60"),
+            (TOKEN, TOKEN_ENCODED),
+            ("", ""),
+        ] {
+            assert_eq!(uri_component(raw), enc, "{raw:?}");
+        }
+    }
+
+    #[test]
+    fn scrub_takes_out_the_token_in_both_forms_and_changes_nothing_else() {
+        let go = |body: &str, token: &str| scrub(body.to_string(), token);
+        // Both forms, once each and more than once, and in a longer text.
+        assert_eq!(go(&format!("x{TOKEN}y"), TOKEN), "xy");
+        assert_eq!(go(&format!("x{TOKEN_ENCODED}y"), TOKEN), "xy");
+        assert_eq!(
+            go(
+                &format!("?ApiKey={TOKEN_ENCODED}&b={TOKEN}&c={TOKEN_ENCODED}{TOKEN}"),
+                TOKEN
+            ),
+            "?ApiKey=&b=&c="
+        );
+        // Taking one out joins its neighbours: that is a token too.
+        assert_eq!(go("aabb", "ab"), "");
+        assert_eq!(go(&format!("a+{TOKEN}b/c=d:e~f"), TOKEN), "");
+        // A body without it is the same bytes, whatever is in it.
+        for body in [
+            "",
+            "{}",
+            "{ \"Name\": \"caf\u{e9}\",\n \"x\" : [1, 2] }\n",
+            "a+b/c=d:e",
+            "a%2Bb%2Fc%3Dd%3Ae",
+            "A+B/C=D:E~F",
+        ] {
+            assert_eq!(go(body, TOKEN), body);
+        }
+        // No token to look for is no change, not a body cut to pieces.
+        assert_eq!(go("some body", ""), "some body");
+    }
+
+    #[test]
+    fn the_token_is_taken_out_of_every_answer_in_both_forms() {
+        run(async {
+            // A detail read, as AIOStreams answers one it holds a fresh search
+            // for: whole MediaSources, and an external subtitle whose
+            // DeliveryUrl carries `ApiKey=<the request's own token>`.
+            let detail = |key: &str, echo: &str| {
+                serde_json::json!({
+                    "Id": ITEM, "Type": "Movie", "Name": "A film",
+                    "MediaSources": [{
+                        "Id": "m1", "Path": "https://cdn.example/a/1.mkv",
+                        "MediaStreams": [{
+                            "Type": "Subtitle", "Index": 2, "IsExternal": true,
+                            "DeliveryUrl": format!(
+                                "/Videos/x/m1/Subtitles/2/0/Stream.srt?ApiKey={key}&PlaySessionId=PS1"
+                            ),
+                            "Path": "/Videos/x/m1/Subtitles/2/0/Stream.srt",
+                        }],
+                    }],
+                    "Echo": format!("the token was {echo} here"),
+                })
+                .to_string()
+            };
+            let whole = detail(TOKEN_ENCODED, TOKEN);
+            // The fixture does carry both, or the checks below would pass on
+            // an answer that never had them.
+            assert!(whole.contains(TOKEN) && whole.contains(TOKEN_ENCODED));
+            let fake = Arc::new(Fake {
+                token: Some(TOKEN),
+                item_body: Some(whole),
+                ..Default::default()
+            });
+            let (a, vault, _) = signed_in(&fake).await;
+            assert_eq!(vault.load().unwrap().token, TOKEN);
+            let r = a
+                .request(
+                    "GET",
+                    &format!("/Items/{ITEM}"),
+                    q(&[("Fields", "ProviderIds")]),
+                    None,
+                )
+                .await
+                .unwrap();
+            assert_eq!(r.status, 200);
+            assert!(!r.body.contains(TOKEN), "{}", r.body);
+            assert!(!r.body.contains(TOKEN_ENCODED), "{}", r.body);
+            assert!(!r.body.contains("ApiKey=a"), "{}", r.body);
+            // Everything else is as it was.
+            assert_eq!(r.body, detail("", ""));
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(&r.body).unwrap()["MediaSources"][0]
+                    ["Path"],
+                "https://cdn.example/a/1.mkv"
+            );
+
+            // The same on a token that needs no encoding.
+            let fake = Arc::new(Fake {
+                item_body: Some(detail("TOKEN1", "TOKEN1")),
+                ..Default::default()
+            });
+            let (a, _, _) = signed_in(&fake).await;
+            let r = a
+                .request(
+                    "GET",
+                    &format!("/Items/{ITEM}"),
+                    q(&[("Fields", "ProviderIds")]),
+                    None,
+                )
+                .await
+                .unwrap();
+            assert!(!r.body.contains("TOKEN1"), "{}", r.body);
+            assert_eq!(r.body, detail("", ""));
+
+            // A body without the token comes back byte for byte.
+            for body in [
+                "{ \"Id\": \"x\",\n \"Name\" : \"caf\u{e9} a+b/c=d:e\" }\n",
+                "{}",
+                "",
+                "not json at all, with TOKEN2 in it",
+            ] {
+                let fake = Arc::new(Fake {
+                    item_body: Some(body.to_string()),
+                    ..Default::default()
+                });
+                let (a, _, _) = signed_in(&fake).await;
+                let r = a
+                    .request(
+                        "GET",
+                        &format!("/Items/{ITEM}"),
+                        q(&[("Fields", "ProviderIds")]),
+                        None,
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(r.body, body);
+            }
+        })
+    }
+
+    #[test]
+    fn a_search_answer_has_the_token_taken_out_too() {
+        run(async {
+            // The fields a source keeps are the sources' own, and none is the
+            // token. If AIOStreams ever put it in one, it still does not get
+            // out: the scrub is in the one place both calls go through.
+            let mut answer = playback();
+            answer["MediaSources"][0]["Path"] = serde_json::json!(format!(
+                "https://cdn.example/a/1.mkv?ApiKey={TOKEN_ENCODED}"
+            ));
+            answer["MediaSources"][0]["aiostreams"]["filename"] =
+                serde_json::json!(format!("{TOKEN}.mkv"));
+            let whole = answer.to_string();
+            assert!(whole.contains(TOKEN) && whole.contains(TOKEN_ENCODED));
+            let fake = Arc::new(Fake {
+                token: Some(TOKEN),
+                playback: Some(answer),
+                ..Default::default()
+            });
+            let (a, _, _) = signed_in(&fake).await;
+            let r = a.sources(ITEM, false).await.unwrap();
+            let out = serde_json::to_string(&r).unwrap();
+            assert!(
+                !out.contains(TOKEN) && !out.contains(TOKEN_ENCODED),
+                "{out}"
+            );
+            assert_eq!(r.sources[0]["Path"], "https://cdn.example/a/1.mkv?ApiKey=");
+            assert_eq!(r.sources[0]["aiostreams"]["filename"], ".mkv");
+        })
     }
 
     #[test]

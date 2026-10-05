@@ -148,11 +148,32 @@ describe("a manifest URL, once there is a sign-in (plan 024, D4)", () => {
     expect(said).toHaveBeenCalledTimes(1);
   });
 
+  it("takes the catalog mirror with it: its key held the URL (stream/source.ts configKey)", () => {
+    saveAioUrl(MANIFEST);
+    // As diskSave writes it: keyed by `manifest:<url>` inside configKey.
+    const mirror = JSON.stringify({ v: 2, data: { key: JSON.stringify([`manifest:${MANIFEST}`, [], 40]), at: 1, items: [], rows: [], featured: [] } });
+    localStorage.setItem("blammytv.vodCache", mirror);
+    noteSignIn(on, true);
+    expect(localStorage.getItem("blammytv.vodCache")).toBeNull();
+    expect([...mem.values()].some((v) => v.includes(MANIFEST))).toBe(false);
+  });
+
+  it("leaves the catalog mirror alone when there was no URL to delete (a sign-in's own mirror)", () => {
+    const mirror = JSON.stringify({ v: 2, data: { key: JSON.stringify([`signin:${BASE}|Adam`, [], 40]), at: 1, items: [], rows: [], featured: [] } });
+    localStorage.setItem("blammytv.vodCache", mirror);
+    noteSignIn(on, true);
+    noteSignIn(on, true);
+    expect(localStorage.getItem("blammytv.vodCache")).toBe(mirror);
+  });
+
   it("is kept on a build that cannot open sources, which records no sign-in", () => {
     saveAioUrl(MANIFEST);
+    localStorage.setItem("blammytv.vodCache", "{}");
     noteSignIn(on, false);
     expect(loadAioUrl()).toBe(MANIFEST);
     expect(loadAiojf().signedIn).toBeUndefined();
+    // Its mirror is the manifest's, still in use.
+    expect(localStorage.getItem("blammytv.vodCache")).toBe("{}");
   });
 
   it("is deleted for a sign-in recorded before D4 too, the next time it is read", () => {

@@ -26,8 +26,13 @@
 //   queued when AIOStreams is down and sent at the next sync. An episode the
 //   same with its packed episode id. An id that cannot pack sends nothing.
 // - A resume point joins Continue Watching; played episodes tick, in a store
-//   of their own (more than the 100 AIOStreams lists unasked); a played film
-//   says Watched. Next Up and Upcoming rows render, and a card opens the show.
+//   of their own, read a page at a time (AIOStreams answers at most 250 played
+//   items to a request, and holds 500); a played film says Watched. Next Up and
+//   Upcoming rows render, and a card opens the show.
+// - A Continue Watching card cleared here clears its resume point on AIOStreams
+//   (a stop at position 0 through UserItems/<id>/UserData), so the next sync
+//   does not bring it back. A finished card is never posted (a stop below the
+//   line would un-play it), and signed out nothing is.
 // - A skip button from AIOStreams' marker on a film.
 // - A 401 shows disconnected; Disconnect clears; changing the AIOStreams URL
 //   leaves the sign-in alone (plan 023 signed out there); Clear All Login Info
@@ -84,6 +89,8 @@ const FILMS = {
   tt0100001: { name: "Fake Movie One", year: 2024 },
   tt0100002: { name: "Fake Movie Two", year: 2024 },
   tt555: { name: "Odd Movie", year: 2024 },
+  // Only ever a resume point: in no catalog.
+  tt0100003: { name: "Fake Movie Three", year: 2024 },
 };
 // 7-digit ids; Series Two has four episodes in season one, One has a second
 // season, Three has one episode that has not aired.
@@ -97,6 +104,8 @@ const ID = {
   one: pack("movie", "tt0100001", "movie"),
   two: pack("movie", "tt0100002", "movie"),
   epOne21: pack("episode", "tt0200001", "series", 2, 1),
+  three: pack("movie", "tt0100003", "movie"),
+  epTwo14: pack("episode", "tt0200002", "series", 1, 4),
 };
 
 // The Jellyfin side's state, one user.
@@ -109,8 +118,9 @@ const jf = {
     ["movie:tt0100001", NOW - 5 * 3600_000],
     ["ep:tt0200002:1:1", NOW - 6 * 3600_000],
     ["ep:tt0200002:1:2", NOW - 7 * 3600_000],
-    // More than the 100 an unasked /Items answers with, oldest last.
-    ...Array.from({ length: 130 }, (_, i) => [`ep:tt0300001:1:${i + 1}`, NOW - (10 + i) * 86400_000]),
+    // More than one /Items answer holds (250 at most), oldest last: the list is
+    // read in two pages.
+    ...Array.from({ length: 300 }, (_, i) => [`ep:tt0300001:1:${i + 1}`, NOW - (10 + i) * 86400_000]),
   ]),
   // key → { posSec, runSec, at }
   resume: new Map([
@@ -184,11 +194,13 @@ function jellyfin(rq, rs, path, q, body) {
     return send(200, list(items.slice(0, clampLimit(q, 12, 100)), items.length));
   }
   if (rq.method === "GET" && path === "/Items" && q.get("IsPlayed") === "true") {
-    // listPlayed is newest first and never more than 500 (watch-state.ts);
-    // the answer is cut at Limit, 100 unasked (library.ts browseLimit).
+    // listPlayed is newest first and never more than 500 (watch-state.ts); a
+    // request is answered with at most browseLimit of them (library.ts: 100
+    // unasked, 250 at most by default), from StartIndex, with the total.
     const rows = [...jf.played].sort((a, b) => b[1] - a[1]).slice(0, 500);
     const items = rows.map(([key, at]) => itemOfKey(key, ud({ Played: true, PlayCount: 1, LastPlayedDate: iso(at) })));
-    return send(200, list(items.slice(0, clampLimit(q, 100, 500)), items.length));
+    const start = Math.max(0, Number(q.get("StartIndex") ?? 0) || 0);
+    return send(200, { Items: items.slice(start, start + clampLimit(q, 100, 250)), TotalRecordCount: items.length, StartIndex: start });
   }
   if (rq.method === "GET" && path === "/Shows/NextUp") {
     return send(
@@ -239,6 +251,17 @@ function jellyfin(rq, rs, path, q, body) {
     jf.resume.delete(key);
     return send(200, { Played: true, PlaybackPositionTicks: 0 });
   }
+  if (rq.method === "POST" && (m = /^\/UserItems\/([0-9a-f]{32})\/UserData$/.exec(path))) {
+    // playstate.ts: a PlaybackPositionTicks is a stop at that position. At 0 it
+    // clears the resume point, and a stop under the line writes played: false
+    // (local-provider.ts stopPatch), so the item is un-played too.
+    if (typeof body?.PlaybackPositionTicks === "number") {
+      const key = keyOf(m[1]);
+      if (body.PlaybackPositionTicks === 0) jf.resume.delete(key);
+      jf.played.delete(key);
+    }
+    return send(200, { PlaybackPositionTicks: 0, PlayCount: 0, IsFavorite: false, Played: false });
+  }
   return send(404, { Message: "fake jellyfin has no " + path });
 }
 
@@ -275,7 +298,7 @@ const allSeries = () =>
     .map(([id, s]) => preview(id, "series", s.name));
 // Series Three is in no catalog: its Upcoming card has only AIOStreams' art.
 // Nor is Odd Movie, whose id cannot be packed.
-const catalogMovies = () => movieMetas().filter((m) => m.id !== "tt555");
+const catalogMovies = () => movieMetas().filter((m) => m.id !== "tt555" && m.id !== "tt0100003");
 const catalogSeries = () => allSeries().filter((m) => m.id !== "tt0200003");
 function metaOf(type, id) {
   const base = (type === "movie" ? movieMetas() : allSeries()).find((m) => m.id === id);
@@ -372,7 +395,11 @@ const BASE = `http://127.0.0.1:${PORT}/jellyfin`;
 // ----------------------------------------------------------- the page
 // One stub for every page. `o`: connected (the vault holds a token), start
 // (what aiojf_start does), poll (what the Quick Connect poll does), old (a
-// native build from before aiojf.rs), trakt (a fake Trakt that records).
+// native build from before aiojf.rs), canSource (a build that has
+// aiojf_sources, so a new sign-in is on offer: aiojfCanSource() calls it with
+// an id it refuses; the default build here cannot, and stays on the manifest),
+// watching (Continue Watching entries to start with), trakt (a fake Trakt that
+// records).
 const stub = ({ base, manifest, o }) => {
   window.__pos = 2400;
   window.__dur = 6000;
@@ -441,6 +468,7 @@ const stub = ({ base, manifest, o }) => {
         return Promise.resolve();
       }
       if (cmd === "aiojf_request") return forward(args);
+      if (cmd === "aiojf_sources" && o.canSource) return Promise.reject("refused: not an AIOStreams item id");
       if (o.trakt && cmd === "trakt_status") return Promise.resolve({ configured: true, connected: true });
       if (o.trakt && cmd === "trakt_request") return Promise.resolve(traktReply(args));
       if (cmd === "mpv_status")
@@ -457,6 +485,7 @@ const stub = ({ base, manifest, o }) => {
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "stream" }));
   if (o.url !== false) localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: manifest }));
+  if (o.watching) localStorage.setItem("blammytv.watching", JSON.stringify({ v: 1, data: o.watching }));
   if (o.seedWatching)
     localStorage.setItem(
       "blammytv.watching",
@@ -554,9 +583,16 @@ check(
   JSON.stringify({ two: played?.episodes?.tt0200002, films: played?.films }),
 );
 check(
-  "  past the 100 it lists when not told how many (Limit asked for)",
-  played?.episodes?.tt0300001?.length === 130,
-  `${played?.episodes?.tt0300001?.length} of 130`,
+  "  past the 250 AIOStreams answers at once: all 300 of a long show's are there",
+  played?.episodes?.tt0300001?.length === 300,
+  `${played?.episodes?.tt0300001?.length} of 300`,
+);
+const playedAsks = seen("GET", "/Items").filter((c) => c.query.IsPlayed === "true");
+check(
+  "  because the list is read a page at a time: StartIndex 0, then 250, and no third",
+  JSON.stringify(playedAsks.slice(0, 2).map((c) => [c.query.StartIndex, c.query.Limit])) === JSON.stringify([["0", "500"], ["250", "250"]]) &&
+    playedAsks.length === 2,
+  JSON.stringify(playedAsks.map((c) => [c.query.StartIndex, c.query.Limit])),
 );
 check("  and the ledger Trakt replaces is not where they are", !(await storeOf(page, "watchedEpisodes"))?.tt0200002);
 
@@ -569,7 +605,7 @@ check(
 const line = page.logs.find((l) => l.startsWith("[aiojf] sync:"));
 check(
   "the sync logs one line: counts, and how many items did not decode",
-  !!line && /2 resume/.test(line) && /132 episodes and 1 films played/.test(line) && /1 didn't decode/.test(line),
+  !!line && /2 resume/.test(line) && /302 episodes and 1 films played/.test(line) && /1 didn't decode/.test(line),
   line,
 );
 
@@ -809,7 +845,10 @@ check(
 await openAioTab(page);
 jf.signedOut = true;
 await page.locator(".aio-row").getByRole("button", { name: "Sync now" }).click();
-const off = await page.getByRole("button", { name: "Connect", exact: true }).waitFor({ timeout: 8000 }).then(() => true, () => false);
+// This stub is a build that cannot open sources, so a new sign-in is not offered
+// once it is signed out (plan 024): the signed-in row going is how it shows.
+// The connecting scenes below, whose stub can, check for Connect.
+const off = await page.locator(".aio-row").waitFor({ state: "detached", timeout: 8000 }).then(() => true, () => false);
 const cleared = {
   played: await storeOf(page, "aioWatched"),
   aiojf: await storeOf(page, "aiojf"),
@@ -829,13 +868,107 @@ check(
 check("no page errors in the app", errors.length === 0, errors.slice(0, 2).join(" | "));
 await page.close();
 
+// ------------------------------------------------------------ clearing a card
+// A card cleared here clears its resume point on AIOStreams: a stop at
+// position 0 through UserItems/<id>/UserData, the film's own id or the
+// episode's. Left, the next sync brings the card straight back.
+const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\/[0-9a-f]{32}\/UserData$/.test(c.path));
+{
+  // Two resume points nothing above touches: a film, and a show's episode.
+  jf.resume.set("movie:tt0100003", { posSec: 1800, runSec: 6000, at: NOW - 30 * 60_000 });
+  jf.resume.set("ep:tt0200002:1:4", { posSec: 900, runSec: 3000, at: NOW - 40 * 60_000 });
+  const p = await openPage({ connected: true });
+  const filmCard = p.locator(".continue-card", { hasText: "Fake Movie Three" }).first();
+  const showCard = p.locator(".continue-card", { hasText: "Fake Series Two" }).first();
+  await filmCard.waitFor({ timeout: 20_000 });
+  await showCard.waitFor({ timeout: 20_000 });
+  const asksBefore = userData().length;
+  await filmCard.focus();
+  await p.keyboard.press("Delete");
+  await waitFor(p, async () => userData().length > asksBefore, 8000);
+  const film = userData()[asksBefore];
+  check(
+    "clearing a film's card posts position 0 to its own id on AIOStreams",
+    userData().length === asksBefore + 1 && film?.path === `/UserItems/${ID.three}/UserData` && film.body?.PlaybackPositionTicks === 0,
+    JSON.stringify(film),
+  );
+  await showCard.focus();
+  await p.keyboard.press("Delete");
+  await waitFor(p, async () => userData().length > asksBefore + 1, 8000);
+  const ep = userData()[asksBefore + 1];
+  check(
+    "  and a show's card clears the episode's id, not the show's",
+    userData().length === asksBefore + 2 && ep?.path === `/UserItems/${ID.epTwo14}/UserData` && ep.body?.PlaybackPositionTicks === 0,
+    JSON.stringify(ep),
+  );
+  check("  AIOStreams took them: neither resume point is left there", !jf.resume.has("movie:tt0100003") && !jf.resume.has("ep:tt0200002:1:4"));
+  // Sync now: with the points cleared there, the cards stay gone.
+  await openAioTab(p);
+  const resumeReads = seen("GET", "/UserItems/Resume").length;
+  await p.locator(".aio-row").getByRole("button", { name: "Sync now" }).click();
+  await waitFor(p, async () => seen("GET", "/UserItems/Resume").length > resumeReads, 10_000);
+  await p.waitForTimeout(800);
+  await closeSettings(p);
+  const left = ((await storeOf(p, "watching")) ?? []).filter((w) => w.id === "tt0100003" || w.id === "tt0200002");
+  check(
+    "a cleared card stays gone after Sync now",
+    seen("GET", "/UserItems/Resume").length > resumeReads && left.length === 0 && (await p.locator(".continue-card", { hasText: /Fake Movie Three|Fake Series Two/ }).count()) === 0,
+    JSON.stringify(left),
+  );
+  await p.close();
+}
+{
+  // Library → clear history takes every card at once, finished ones included.
+  // A finished one is never posted: a stop below the line would write
+  // played: false, and a played mark is never removed from here (plan 023, D3).
+  const watching = [
+    { id: "tt0100001", title: "Fake Movie One", kind: "movie", at: NOW - 3600_000, posSec: 5700, durSec: 6000 },
+    { id: "tt0100003", title: "Fake Movie Three", kind: "movie", at: NOW - 7200_000, posSec: 1800, durSec: 6000 },
+  ];
+  const p = await openPage({ connected: true, watching });
+  await goTo(p, "mylist");
+  await p.locator('.library__card[data-hint="Library"]').first().click({ timeout: 15_000 });
+  const before = userData().length;
+  const clear = p.getByRole("button", { name: "Clear history", exact: true });
+  await clear.click();
+  await p.getByRole("button", { name: "Click again to confirm" }).click();
+  await waitFor(p, async () => userData().length > before, 8000);
+  await p.waitForTimeout(1200);
+  const posted = userData().slice(before);
+  check(
+    "clearing the history posts only the unfinished card: the finished film is never posted",
+    JSON.stringify(posted.map((c) => c.path)) === JSON.stringify([`/UserItems/${ID.three}/UserData`]),
+    JSON.stringify(posted.map((c) => c.path)),
+  );
+  check("  and the history is empty", ((await storeOf(p, "watching")) ?? []).length === 0);
+  await p.close();
+}
+{
+  // Signed out: nothing is posted, whatever is cleared.
+  const watching = [{ id: "tt0100003", title: "Fake Movie Three", kind: "movie", at: NOW - 7200_000, posSec: 1800, durSec: 6000 }];
+  const p = await openPage({ connected: false, watching });
+  await goTo(p, "mylist");
+  await p.locator('.library__card[data-hint="Library"]').first().click({ timeout: 15_000 });
+  const before = userData().length;
+  await p.getByRole("button", { name: "Clear history", exact: true }).click();
+  await p.getByRole("button", { name: "Click again to confirm" }).click();
+  await waitFor(p, async () => ((await storeOf(p, "watching")) ?? []).length === 0, 8000);
+  await p.waitForTimeout(1200);
+  check(
+    "signed out, clearing the history posts nothing to AIOStreams",
+    userData().length === before && ((await storeOf(p, "watching")) ?? []).length === 0,
+    JSON.stringify(userData().slice(before)),
+  );
+  await p.close();
+}
+
 // ------------------------------------------------------------ connecting
 // Settings → General → Sources → Stream, from signed out: the address, the
 // code, AIOStreams' configure page opened, approved on the second poll, then
 // the account and a first sync. (These were the Accounts row's checks until
 // plan 024 folded it into the sign-in.)
 {
-  const p = await openPage({ connected: false });
+  const p = await openPage({ connected: false, canSource: true });
   await openAioTab(p);
   const before = calls.length;
   const connect = p.getByRole("button", { name: "Connect", exact: true });
@@ -881,7 +1014,7 @@ await page.close();
   await p.close();
 }
 {
-  const p = await openPage({ connected: false, poll: "expire" });
+  const p = await openPage({ connected: false, poll: "expire", canSource: true });
   await openAioTab(p);
   await p.getByPlaceholder("aiostreams.example.com", { exact: true }).fill("aiostreams.example.com");
   await p.getByRole("button", { name: "Connect", exact: true }).click();
@@ -891,7 +1024,7 @@ await page.close();
   await p.close();
 }
 {
-  const p = await openPage({ connected: false, start: "unsupported" });
+  const p = await openPage({ connected: false, start: "unsupported", canSource: true });
   await openAioTab(p);
   await p.getByPlaceholder("aiostreams.example.com", { exact: true }).fill("aiostreams.example.com");
   await p.getByRole("button", { name: "Connect", exact: true }).click();
@@ -915,7 +1048,7 @@ await page.close();
 {
   // Plan 023 hid the sync row until a manifest URL was stored, since its
   // token belonged to that config. The sign-in is its own connection now.
-  const p = await openPage({ connected: false, url: false });
+  const p = await openPage({ connected: false, url: false, canSource: true });
   await openAioTab(p);
   check(
     "with no AIOStreams URL the sign-in is still there: an address field and Connect",

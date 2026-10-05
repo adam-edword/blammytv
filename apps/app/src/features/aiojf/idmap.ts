@@ -9,10 +9,12 @@
  * Those are read off the lists they arrive in (a catalog page, a show's
  * episodes), remembered here, and looked up before anything is computed.
  *
- * Only an id the computation gets wrong is stored, so the map stays small.
- * It belongs to the instance it was read from (`base`): another sign-in
- * starts it empty. Kept on disk, oldest out past `CAP`, since a Continue
- * Watching card is opened long after the list that named it.
+ * Only an id the computation gets wrong is stored, so the map stays small,
+ * and an id the computation gets right clears what was stored for that title
+ * (a stale entry would be looked up first). It belongs to the instance it was
+ * read from (`base`): another sign-in starts it empty. Kept on disk, oldest
+ * out past `CAP`, since a Continue Watching card is opened long after the list
+ * that named it.
  */
 
 import { load, save } from "../../lib/storage";
@@ -40,27 +42,38 @@ function read(base: string): Map<string, string> {
  * The Jellyfin id for a Stremio id, or null when there is none to be had.
  * `kind` is the type the title is held under (`movie` or `series`). An
  * `aiojf:<hex>` id is an episode AIOStreams hashed, whose own hex is its id;
- * the map comes next, then the computation.
+ * the map comes next, then the computation, which takes `opts.season` for an
+ * episode whose id carries none (ids.ts `jellyfinIdOf`).
  */
-export function jellyfinIdFor(base: string, kind: string, id: string): string | null {
+export function jellyfinIdFor(
+  base: string,
+  kind: string,
+  id: string,
+  opts: { season?: number } = {},
+): string | null {
   if (id.startsWith("aiojf:")) {
     const hex = id.slice("aiojf:".length).toLowerCase();
     return HEX32.test(hex) ? hex : null;
   }
-  return read(base).get(id) ?? jellyfinIdOf(id, kind);
+  return read(base).get(id) ?? jellyfinIdOf(id, kind, opts);
 }
 
 /**
  * Remember what a list named. Each entry is `[stremioId, kind, jellyfinId]`;
- * an id the computation already gets right is not stored.
+ * an id the computation already gets right is not stored, and one stored for
+ * that title before is dropped: the list has just said the computed id is the
+ * title's, and the stored one is looked up first.
  */
 export function rememberIds(base: string, entries: Iterable<readonly [string, string, string]>): void {
   let map: Map<string, string> | null = null;
   let changed = false;
   for (const [id, kind, jid] of entries) {
     if (!HEX32.test(jid) || id.startsWith("aiojf:")) continue;
-    if (jellyfinIdOf(id, kind) === jid) continue;
     map ??= read(base);
+    if (jellyfinIdOf(id, kind) === jid) {
+      if (map.delete(id)) changed = true;
+      continue;
+    }
     if (map.get(id) === jid) continue;
     // Delete first so a changed or repeated id moves to the newest end.
     map.delete(id);

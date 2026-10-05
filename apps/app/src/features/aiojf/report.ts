@@ -25,6 +25,7 @@ import { tauriMpvStatus } from "../../lib/tauri";
 import { isFinished, loadWatching } from "../stream/watching";
 import { aioCall } from "./account";
 import { aiojfStatus } from "./client";
+import { jellyfinIdFor } from "./idmap";
 import { jellyfinIdOf } from "./ids";
 import { reportBody } from "./rules";
 import { loadAiojf, playedSettled, queuePlayed, saveAiojf } from "./store";
@@ -44,11 +45,23 @@ export interface ReportTarget {
  * pack. One rule with the browse side (ids.ts `jellyfinIdOf`): an episode of
  * an anime-only id (Kitsu, MAL, AniList, AniDB) is packed as `anime`, because
  * the Stremio type is part of the id and its meta is served under that type.
+ *
+ * Signed in (`base`, store.ts `signedIn.base` unless one is passed), the ids
+ * Stream remembers from the lists they arrived in answer too (idmap.ts
+ * `jellyfinIdFor`): a title from an addon's own id scheme, which AIOStreams
+ * hashed, and an episode it hashed (`aiojf:<hex>`). With no sign-in only what
+ * the ids compute.
  */
-export function packedFor(t: Pick<ReportTarget, "itemId" | "kind" | "episodeId" | "season">): string | null {
-  if (t.kind === "movie") return jellyfinIdOf(t.itemId, "movie");
-  if (!t.episodeId) return null;
-  return jellyfinIdOf(t.episodeId, "series", t.season != null ? { season: t.season } : {});
+export function packedFor(
+  t: Pick<ReportTarget, "itemId" | "kind" | "episodeId" | "season">,
+  base: string | undefined = loadAiojf().signedIn?.base,
+): string | null {
+  const movie = t.kind === "movie";
+  const id = movie ? t.itemId : t.episodeId;
+  if (!id) return null;
+  const kind = movie ? "movie" : "series";
+  const opts = !movie && t.season != null ? { season: t.season } : {};
+  return base ? jellyfinIdFor(base, kind, id, opts) : jellyfinIdOf(id, kind, opts);
 }
 
 /** How often the player is looked at. AIOStreams treats a playback with no

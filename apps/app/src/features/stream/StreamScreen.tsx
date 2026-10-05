@@ -2014,7 +2014,11 @@ function Home({
         className="stream__note"
         icon={<MoviesIcon size={28} />}
         title="Nothing came back from your catalogs"
-        sub="The manifest loaded but every catalog returned empty. Check the manifest in Settings → General → Sources, or just try again in a minute."
+        sub={
+          loadAioConn()?.kind === "signin"
+            ? "You’re signed in, but every catalog came back empty. Check your AIOStreams sign-in in Settings → General → Sources → Stream, or just try again in a minute."
+            : "The manifest loaded but every catalog returned empty. Check the manifest in Settings → General → Sources, or just try again in a minute."
+        }
       />
     );
   return (

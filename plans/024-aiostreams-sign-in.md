@@ -6,7 +6,13 @@ manifest stays as a fallback (D1), an adapter behind today's functions
 (D2), sources no older than 3 minutes on open (D3), and a saved manifest
 URL deleted once you've signed in (D4). B1 and B2 in v0.11.16, the data
 path (B3a) in v0.11.17, the sign-in screens, onboarding and docs (B3b, B5)
-in v0.11.18.
+in v0.11.18. **Audited 2026-10-05** (plans 023 and 024 together, three
+passes: security, the data path, sync and screens): 14 findings held up
+against AIOStreams' source and were fixed in v0.11.20, the worst a film in
+a "collection" catalog that couldn't play over the sign-in, the token
+reaching the page inside a title's subtitle links, cleared Continue
+Watching cards coming back, and the played list stopping at 250. The
+native guard is an allow list of the fourteen calls the app makes.
 
 Adam, 2026-10-04, after plan 023's sync worked on his instance: "we should
 have this be the default aiostreams connection method now". Asked whether
@@ -237,3 +243,7 @@ so keeping it buys little, and taking it off the disk is half the point.
   or show from what it has seen of the catalog (`isLeafEntry`,
   `dto.ts:428-441`), and the id changes with it. The adapter keys on the
   Stremio id from `Path`, which doesn't.
+- **A show whose videos use another id scheme than the show** (a `tmdb:`
+  show with `tt…:S:E` videos) gets `aiojf:<hex>` episode ids over the
+  sign-in, because the episode's `Path` doesn't carry the video id. Known,
+  not fixed.

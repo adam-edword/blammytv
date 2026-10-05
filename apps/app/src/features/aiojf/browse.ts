@@ -25,19 +25,7 @@ import type {
   StremioVideo,
 } from "../../data/stremio";
 import { blammyId, unpack } from "./ids";
-import { ticksToSec, type BaseItem } from "./rules";
-
-const PREFIX = "/aiostreams/";
-
-/** A `Path` split after `/aiostreams/` into its type and everything after it.
- * Null for a path that is not one of AIOStreams' or has no type. */
-function splitPath(path: string | undefined): { type: string; rest: string } | null {
-  if (typeof path !== "string" || !path.startsWith(PREFIX)) return null;
-  const tail = path.slice(PREFIX.length);
-  const cut = tail.indexOf("/");
-  if (cut <= 0) return null;
-  return { type: tail.slice(0, cut), rest: tail.slice(cut + 1) };
-}
+import { splitPath, stremioIdOf, ticksToSec, type BaseItem } from "./rules";
 
 // ---------------------------------------------------------------------------
 // Catalogs
@@ -51,12 +39,16 @@ function splitPath(path: string | undefined): { type: string; rest: string } | n
  *
  * The extras are what the Jellyfin side can do with any catalog, not what the
  * addon declared: `skip` always (every catalog pages with `StartIndex`), and
- * `genre` when there is something to say about it. `genres` is the catalog's
- * own options (`/Genres?ParentId=`); `aiostreams.genreRequired` (dto.ts:354)
- * makes the extra required, which keeps the catalog off the browse rows as it
- * does in the manifest. A catalog with no genres given and none required has
- * no genre extra: nothing is claimed that was not read. No `search` extra on a
- * view: search is `SEARCH_CATALOGS`.
+ * `genre` on every movie and series view, the two types Discover browses.
+ * `genres` is the catalog's own options (`/Genres?ParentId=`), listed when
+ * there are any; a genre extra with none is how Discover reads "serves any
+ * genre" (discover/data.ts `servesGenre`). Leaving it off instead benches the
+ * catalog from every genre page, and AIOStreams answers an empty page, not an
+ * error, for a genre a catalog cannot serve (library.ts `getCatalogPage`). The
+ * other types claim one only with options or when
+ * `aiostreams.genreRequired` (dto.ts:354) makes it required, which keeps the
+ * catalog off the browse rows as it does in the manifest. No `search` extra on
+ * a view: search is `SEARCH_CATALOGS`.
  */
 export function catalogOf(view: BaseItem, genres?: readonly string[]): CatalogDef | null {
   const p = splitPath(view.Path);
@@ -64,7 +56,7 @@ export function catalogOf(view: BaseItem, genres?: readonly string[]): CatalogDe
   const required = view.aiostreams?.genreRequired === true;
   const options = (genres ?? []).filter((g): g is string => typeof g === "string" && g.length > 0);
   const extra: NonNullable<CatalogDef["extra"]> = [];
-  if (options.length > 0 || required) {
+  if (options.length > 0 || required || p.type === "movie" || p.type === "series") {
     extra.push({
       name: "genre",
       ...(required ? { isRequired: true } : {}),
@@ -92,34 +84,6 @@ export const SEARCH_CATALOGS: CatalogDef[] = [
 // ---------------------------------------------------------------------------
 // Titles
 // ---------------------------------------------------------------------------
-
-/** The kinds of item that are a title: what `buildContentItem` makes
- * (dto.ts:455-468). A BoxSet is a movie-typed meta shown as a collection, and
- * a catalog named for collections lists plain films as BoxSets
- * (server items.ts:208-216), so it is a title here, as it is on the Stremio
- * side. */
-const TITLES = new Set(["Movie", "Series", "BoxSet"]);
-
-const PACKED_TITLES = new Set(["movie", "series", "boxset"]);
-
-/**
- * A film's or show's Stremio type and id. From its `Path`,
- * `/aiostreams/<type>/<id>/<name>` (dto.ts:555): the id is the third segment,
- * and the name after it can hold a `/`. When the item's own id is packed
- * (ids.ts) it says the same thing, and the two are checked against each other;
- * a pair that disagrees is not trusted. Either alone is enough. Null for
- * anything that is not a film or a show, and when neither reads.
- */
-export function stremioIdOf(item: BaseItem): { type: string; id: string } | null {
-  if (!item.Type || !TITLES.has(item.Type)) return null;
-  const p = splitPath(item.Path);
-  const first = p ? p.rest.split("/")[0] : "";
-  const fromPath = p && first ? { type: p.type, id: first } : null;
-  const packed = unpack(item.Id);
-  const fromId = packed && PACKED_TITLES.has(packed.kind) ? { type: packed.type, id: packed.id } : null;
-  if (fromPath && fromId) return fromPath.type === fromId.type && fromPath.id === fromId.id ? fromPath : null;
-  return fromPath ?? fromId;
-}
 
 /** `${base}/Items/<id>/Images/<kind>?tag=<tag>`. Images need no token (server
  * images.ts:234-264); the tag carries the image's address. Undefined when the

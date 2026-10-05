@@ -75,7 +75,7 @@ curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 141 tests (v0.11.16+): 46 for the proxy (30 mvproxy, 16 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 20 for mvaudio, 40 for AIOStreams' Jellyfin side (aiojf.rs). On CI the Windows job runs the same tests with the
+Baseline 148 tests (v0.11.20+): 46 for the proxy (30 mvproxy, 16 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 20 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs). On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 
@@ -90,7 +90,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **60/60 harnesses clean, 1353 checks** (v0.11.18), or one
+Baseline is **60/60 harnesses clean, 1370 checks** (v0.11.20), or one
 fewer: verify-cw-sources' last check only runs when the catalog is still
 loading at the click; the script says so and it is not a failure. verify-kit
 (plan 019) has one section per shared primitive, so a later change that
