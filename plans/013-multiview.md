@@ -50,6 +50,11 @@ than a measured win, and it is written down as convention.
 
 ## What Telly does: SETTLED, and it is a web player
 
+**Superseded on Windows by Telly 2.0.5 (read 2026-10-09).** Each tile is now
+its own libmpv instance; the web player is Linux's fallback only and the
+"web-based player" notice is gone. What follows is true of the version Adam
+screenshotted, not of 2.0.5. See [telly-2.0.5.md](telly-2.0.5.md).
+
 **Telly's own multiview modal says so outright: "Multi-view uses a
 web-based player instead of the native player."** Adam had the screenshot;
 this section previously reasoned its way to the opposite answer and was

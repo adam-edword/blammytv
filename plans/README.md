@@ -2,6 +2,8 @@
 
 Every plan, with where it stands (refreshed 2026-09-28, v0.10.61). The
 week of 2026-09-28's log is [week-2026-09-28.md](week-2026-09-28.md).
+Telly 2.0.5 read against ours, feature by feature, with what is worth
+borrowing: [telly-2.0.5.md](telly-2.0.5.md) (2026-10-09).
 
 001 to 007 came out of the `improve-animations` audit at commit `018a8f4` (2026-07-22). The full
 verified findings table is in [audit-report.md](audit-report.md), 71 findings that
