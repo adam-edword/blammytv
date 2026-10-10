@@ -541,6 +541,17 @@ export function SeriesIcon({ size = 22, className, filled }: NavIconProps) {
   );
 }
 
+/** User / Profile: a head over its shoulders, for Settings' Accounts page.
+ * Drawn here, in the set's own geometry, because the set had no person. */
+export function UserIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" />
+    </Svg>
+  );
+}
+
 /** Devices / TV — the playlist mode chip. */
 export function TvIcon({ size = 16, className }: IconProps) {
   return (

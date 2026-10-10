@@ -1,11 +1,17 @@
-// E2E: Settings → General → Danger Zone, Clear All Login Info, takes
-// everything it says it does and nothing comes back (week of 2026-09-28,
-// the app shell audit).
+// E2E: Settings → App, Clear All Login Info, takes everything it says it
+// does and nothing comes back (week of 2026-09-28, the app shell audit).
 //
 // The Sources pane beside it read its list once, at mount. After a clear it
 // still showed the playlist, and its next save (a toggle, an add) wrote the
 // playlist and its password back. The guide's copy in IndexedDB, keyed by
 // the Xtream server, username and password, stayed too.
+//
+// Since the five pages (v0.11.26) the button is on the App page and the
+// Sources pane is on its own page, so "beside the button" is not a thing
+// that can happen: a page is mounted only while it shows. What can still go
+// wrong is the same bug a page away: a pane that comes back from the stale
+// list. So each pane is opened first, the clear is made from App, and the
+// pane is opened again, which is where it has to show nothing.
 //
 //   node scripts/fake-panel.mjs     # :8081
 //   (vite on :4173)
@@ -104,21 +110,28 @@ const before = await onTab();
 await page.keyboard.press("/");
 await page.waitForTimeout(500);
 check("`/` under Settings doesn't switch the tab behind it", (await onTab()) === before, `${before} -> ${await onTab()}`);
+const goTab = (name) => page.getByRole("tab", { name, exact: true }).click();
 const clear = page.getByRole("button", { name: "Clear…" });
+await goTab("App");
 await clear.click();
 await page.getByRole("button", { name: "Click again to confirm" }).click();
 await page.waitForTimeout(500);
 
 check("the playlist leaves storage", (await stored("playlists"))?.length === 0, JSON.stringify(await stored("playlists")));
+// The pane was showing the playlist (the waitFor above). Back on Sources it
+// has to read what the clear left, so nothing there can save it back.
+await goTab("Sources");
+await page.waitForTimeout(500);
 check(
-  "and leaves the Sources pane beside the button, so nothing there can save it back",
+  "and leaves the Sources pane when you go back to it, so nothing there can save it back",
   (await toggle.count()) === 0,
   `${await toggle.count()} "Test enabled" switches`,
 );
 const gone = await waitFor(async () => (await diskRecord()) === null, 5000);
 check("the guide's copy on disk goes too", gone, JSON.stringify(await diskRecord()));
 
-// The Stream pane, cleared while it is the one showing.
+// The Stream pane, cleared while it was the one showing: opened first, so
+// it holds the manifest, then the clear from App, then opened again.
 await page.getByRole("tab", { name: "Stream" }).click();
 const manifest = page.getByPlaceholder(/aiostreams\.example\.com/);
 await manifest.waitFor({ timeout: 5000 });
@@ -128,9 +141,13 @@ await page.getByRole("tab", { name: "Live TV" }).click();
 await page.getByRole("tab", { name: "Stream" }).click();
 await manifest.waitFor({ timeout: 5000 });
 const shown = await manifest.inputValue();
+await goTab("App");
 await clear.click();
 await page.getByRole("button", { name: "Click again to confirm" }).click();
 await page.waitForTimeout(500);
+await goTab("Sources");
+await page.getByRole("tab", { name: "Stream" }).click();
+await manifest.waitFor({ timeout: 5000 });
 check(
   "the manifest leaves storage and the Stream pane showing it",
   shown === MANIFEST && (await stored("aiostreams")) === "" && (await manifest.inputValue()) === "",

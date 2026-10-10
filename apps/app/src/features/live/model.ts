@@ -75,14 +75,14 @@ export interface LiveGroup {
    * but the other sources still render. */
   error?: string;
   /** Set when channels loaded but the GUIDE didn't (download failed, no EPG
-   * ids, zero matches). Surfaced in Settings → Playlists so installed users
+   * ids, zero matches). Surfaced in Settings → Sources so installed users
    * can report why everything says "No Information" — the console.warn
    * behind it is invisible in a packaged build. */
   epgError?: string;
   /** When this source's guide was downloaded and parsed, with programmes and
    * no epgError (ms since epoch). A load reuses a guide younger than
    * GUIDE_REFRESH_MS instead of downloading it again (source.ts), and
-   * Settings → Playlists reads it for "Last refreshed". Absent when the
+   * Settings → Sources reads it for "Last refreshed". Absent when the
    * guide has never landed or failed the last time, so the next load
    * retries it. A disk record from before this field gets the record's own
    * `at` at the hydrate. */

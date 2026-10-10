@@ -492,7 +492,7 @@ export function DiscoverScreen() {
           <StateCard
             icon={<DiscoverIcon size={28} />}
             title="Something new to watch"
-            sub="Connect your AIOStreams manifest in Settings → General → Sources and this tab fills itself."
+            sub="Sign in to your AIOStreams in Settings → Sources → Stream and this tab fills itself."
           />
         ) : (
           <StateCard

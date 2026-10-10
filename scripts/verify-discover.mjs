@@ -456,9 +456,10 @@ check("genre pill wins over a stale search",
 // Row-cap fine-tune: click the number, type an exact value, Enter.
 await page4.locator("button[aria-label='Settings']").click();
 await page4.waitForTimeout(400);
-// The row cap moved to Customize; there is no AIOStreams tab any more
-// (the rail is General / Customize, with sources split inside General).
-await page4.getByRole("tab", { name: "Customize", exact: true }).click();
+// The row cap is on Appearance; there is no AIOStreams tab any more (the
+// rail is Sources / Playback / Appearance / Accounts / App, with the
+// sources split by a pill inside Sources).
+await page4.getByRole("tab", { name: "Appearance", exact: true }).click();
 await page4.waitForTimeout(400);
 await page4.locator(".rowcap__value--btn").click();
 await page4.fill(".rowcap__value--edit", "37");
@@ -469,7 +470,7 @@ check("row-cap number is click-to-edit (exact 37 sticks)",
   (await page4.evaluate(() => JSON.parse(localStorage.getItem("blammytv.rowCap") ?? "{}").data)) === 37);
 await page4.close();
 
-// The Aurora easter-egg walk stood here: Settings -> Customize -> the Themes
+// The Aurora easter-egg walk stood here: Settings -> Customize (then) -> the Themes
 // launcher -> spam the Custom swatch x10. All three of those surfaces went to
 // old/themes/ in v0.9.58, so there is no path to the egg to walk any more.
 // The aurora TOKENS still exist and still paint when data-accent-style is set

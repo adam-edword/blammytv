@@ -146,7 +146,7 @@ check(
 // emit `var(--accent)` rather than a snapshot of whatever red was in
 // tokens.css at build time. Drop the `inline` keyword and everything above
 // still passes while every custom accent silently stops reaching anything
-// written with a utility. The Customize picker writes --accent onto :root,
+// written with a utility. The Appearance picker writes --accent onto :root,
 // which is exactly what this does.
 const before = await computed("text-primary", "color");
 await page.evaluate(() =>

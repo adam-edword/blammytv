@@ -8,7 +8,7 @@ import { syncMal } from "../mal/sync";
 import { ago } from "../trakt/account";
 
 /**
- * Settings → General → Accounts: connect MyAnimeList (plan 021, B5).
+ * Settings → Accounts: connect MyAnimeList (plan 021, B5).
  *
  * MAL signs in in the browser: Connect opens MAL's page, and once you
  * approve, MAL sends the browser back to BlammyTV on localhost (mal.rs

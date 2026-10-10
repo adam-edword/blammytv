@@ -25,7 +25,7 @@ import { applyThemePref, loadThemePref } from "./features/settings/theme";
 // Apply saved appearance before first paint so nothing flashes.
 //
 // A STORED ACCENT IS HONOURED AGAIN, because the picker is back
-// (Settings → Customize, v0.9.79). v0.9.60 removed this line for a good
+// (Settings → Appearance now, the Customize tab in v0.9.79). v0.9.60 removed this line for a good
 // reason: with the picker parked in old/themes, a stored `#c22727` repainted
 // the brand red on every launch and nothing in the app could clear it. Now
 // something can, so the choice is the user's again.
@@ -44,7 +44,7 @@ if (accent) applyAccent(accent);
 // this was dark whatever was stored (plan 016, D1): light had no control
 // and several broken surfaces, so a light setting carried over from 0.9.0
 // painted a broken app with no way out but Reset. v0.10.64 fixed the
-// surfaces and Settings → Customize → Appearance is the control, so a
+// surfaces and Settings → Appearance is the control, so a
 // stored choice, 0.9.0's included, applies again. Dark is the default.
 applyThemePref(loadThemePref());
 // UI Scale is gone (v0.10.24, Adam: "remove it entirely"): it zoomed the

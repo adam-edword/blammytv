@@ -122,25 +122,65 @@
   place-items: center;
 }
 
-/* Scrolls only as a fallback (tabs with no inner scroller on a short
+/* Under the header: the rail of pages beside the page (plan 025). The page
+ * scrolls on its own and the rail stays put, so the layout takes the room the
+ * card leaves and the body, not the card, is what overflows.
+ *
+ * The bleed below used to be the body's own. Bleed through the card's bottom
+ * padding and carry the same 32px INSIDE the scroller instead: scrolling
+ * content then runs to the card's bottom edge rather than being guillotined
+ * 32px short of it, while the last row still comes to rest clear of the edge.
+ *
+ * A negative margin rather than editing .settings: the Themes panel wears
+ * that class too and scrolls itself, so dropping the padding there would
+ * shove ITS last row against the card edge. */
+.settings__layout {
+  display: flex;
+  gap: 28px;
+  margin-top: 40px;
+  margin-bottom: -32px;
+  flex: 1;
+  min-height: 0;
+}
+/* Narrow: the pages are the segmented row above the page, not a column
+ * beside it (SettingsModal's NARROW). */
+.settings__layout--narrow {
+  flex-direction: column;
+  gap: 24px;
+}
+.settings__rail {
+  flex: none;
+  width: 180px;
+  /* Its own height, not the page's: the thumb is measured in it. */
+  align-self: flex-start;
+  /* The 32px the body carries inside its scroller (below), so the last item
+   * comes to rest where the last row does and not past the card's edge. */
+  margin-bottom: 32px;
+}
+/* Five names in a row can be wider than a narrow card: the track scrolls
+ * sideways rather than wrapping, the season bar's answer (stream.css). */
+.seg.settings__pages {
+  flex: none;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.seg.settings__pages .seg__opt {
+  flex-shrink: 0;
+}
+
+/* Scrolls only as a fallback (pages with no inner scroller on a short
  * window); when a folder list is open, the list itself absorbs the squeeze. */
 .settings__body {
   display: flex;
   flex-direction: column;
   gap: 40px;
-  margin-top: 40px;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  /* Bleed through the card's bottom padding and carry the same 32px INSIDE
-   * the scroller instead. Scrolling content then runs to the card's bottom
-   * edge rather than being guillotined 32px short of it, while the last row
-   * still comes to rest clear of the edge.
-   *
-   * A negative margin rather than editing .settings: the Themes panel wears
-   * that class too and scrolls itself, so dropping the padding there would
-   * shove ITS last row against the card edge. */
-  margin-bottom: -32px;
   padding-bottom: 32px;
   /* ROOM FOR A FOCUS RING, by the same trick sideways.
    *
@@ -390,7 +430,7 @@ input.rowcap__value--edit:focus-visible {
   background: color-mix(in srgb, var(--text) 9%, transparent);
 }
 
-/* Divides Customize into General/Theme/Display pills (Adam: "like m3u/
+/* Divides a page into its Live TV / Stream pills (Adam: "like m3u/
  * xtream/stalker"). Sits above the active section rather than inside it
  * (PlaylistsTab's kind rail is the inline variant) — display:flex keeps
  * the segmented track shrink-wrapped instead of stretching the settings__body
@@ -406,6 +446,13 @@ input.rowcap__value--edit:focus-visible {
   justify-content: space-between;
   width: 100%;
   gap: 20px;
+}
+
+/* A switch keeps its 32px. At the page's width (the rail takes 208px of the
+ * card) a row's note at its full 52ch and its switch no longer both fit, and
+ * the switch was the one that gave: 31.6px. The note wraps instead. */
+.customize-row > .toggle {
+  flex: none;
 }
 
 .customize-row__title {
@@ -456,30 +503,15 @@ input.rowcap__value--edit:focus-visible {
   width: 100%;
 }
 
-/* Danger zone: destructive actions live behind a red hairline. The red is
- * fixed (not the accent) so danger reads as danger under any theme. */
-.danger-zone {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 18px 22px 22px;
-  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
-  border-radius: var(--radius-card);
-}
-
-.danger-zone__title {
-  font-family: var(--font-headline);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--danger-text);
-  margin: 0;
-}
-
-/* `.btn-danger--armed` is gone: the armed state is a ring utility at the
- * call site (GeneralTab.tsx). A deeper fill has nowhere to go now that the
- * unarmed face is `destructive`'s solid red, and a fill written here would
- * lose to the variant's utility anyway. */
+/* The red hairline "Danger Zone" box is gone (the five pages, v0.11.26):
+ * Clear All Login Info and Reset Appearance are rows at the foot of their
+ * pages, and the red is the button's (`destructive`, fixed rather than the
+ * accent, so danger reads as danger under any theme).
+ *
+ * `.btn-danger--armed` is gone too: the armed state is a ring utility in
+ * ConfirmButton.tsx. A deeper fill has nowhere to go now that the unarmed
+ * face is `destructive`'s solid red, and a fill written here would lose to
+ * the variant's utility anyway. */
 
 /* -------------------------------------------------------- playlist list */
 
@@ -598,7 +630,7 @@ input.rowcap__value--edit:focus-visible {
   gap: 10px;
 }
 
-/* The pressed look is `variant="secondary"` now, chosen in CustomizeTab.tsx
+/* The pressed look is `variant="secondary"` now, chosen in AppearancePage.tsx
  * from the same boolean that sets aria-pressed. It cannot live here: the
  * variant paints colour with utilities, and `utilities` outranks `app`. */
 
@@ -656,7 +688,7 @@ input.rowcap__value--edit:focus-visible {
 }
 
 /* Armed (first click): the ✕ becomes a "Sure?" in the danger voice —
- * the Customize clear-logins arm/confirm language, on the row scale. */
+ * the Clear All Login Info arm/confirm language, on the row scale. */
 .playlist-row__delete--armed {
   font-family: var(--font-headline);
 }
@@ -697,7 +729,7 @@ input.rowcap__value--edit:focus-visible {
 }
 
 /* Row-cap number: click to fine-tune (the slider steps by 5). A ghost
- * Button now — see CustomizeTab.tsx for why it dropped `.rowcap__value`. */
+ * Button now, see AppearancePage.tsx for why it dropped `.rowcap__value`. */
 .rowcap__value--edit {
   width: 64px;
   padding: 2px 6px;

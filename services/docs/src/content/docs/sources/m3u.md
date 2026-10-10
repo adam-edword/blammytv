@@ -9,7 +9,8 @@ is the kind you want.
 
 ## What you need
 
-One field, the **playlist URL**. Add it under **Settings → Playlists → M3U**.
+One field, the **playlist URL**. Add it under **Settings → Sources → Live TV →
+M3U**.
 
 BlammyTV downloads the playlist and reads it in place. There's no separate
 sign-in step, because an M3U has no API to sign in to. Whatever credentials

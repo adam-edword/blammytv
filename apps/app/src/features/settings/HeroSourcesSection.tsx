@@ -23,7 +23,7 @@ import {
 /**
  * Which catalogs feed the Stream tab's hero carousel.
  *
- * Lives under Customize, not with the manifest: picking what the hero
+ * Lives on the Appearance page, not with the manifest: picking what the hero
  * shows is a decision about how the home screen LOOKS, not about the
  * connection that makes it possible. It reads the saved connection (the
  * manifest, or the sign-in) to list the catalogs on offer, which is the
@@ -105,7 +105,7 @@ export function HeroSourcesSection() {
     .filter((c): c is AioCatalog => !!c);
 
   // Renders as a stack, not a section: it is one control among several in
-  // Customize's Stream panel, and its own rule and 21px heading made a
+  // Appearance's Stream panel, and its own rule and 21px heading made a
   // list of settings read as a list of pages.
   return (
     <div className="customize-stack">

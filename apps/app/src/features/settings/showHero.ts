@@ -9,7 +9,7 @@ import { load, save } from "../../lib/storage";
  * a recommendation is looking past ~90vh of it every time.
  *
  * The hero-sources picker only makes sense while there is a hero to pick
- * sources FOR, so CustomizeTab hides that setting when this is off.
+ * sources FOR, so AppearancePage hides that setting when this is off.
  */
 
 const KEY = "showHero";

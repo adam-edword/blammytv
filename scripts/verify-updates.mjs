@@ -1,4 +1,4 @@
-// E2E: Settings → General's update row reports a hot-channel bundle that is
+// E2E: Settings → App's update row reports a hot-channel bundle that is
 // waiting, however it got there (v0.10.4).
 //
 // 0.10.3 was the hot channel's first real update. The launch-time check
@@ -68,6 +68,7 @@ await page.addInitScript(() => {
 });
 await page.goto(URL, { waitUntil: "domcontentloaded" });
 await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+await page.getByRole("tab", { name: "App", exact: true }).click();
 const row = page.locator(".customize-row", { hasText: "BlammyTV v" });
 await row.waitFor({ timeout: 15_000 });
 const note = () => row.locator(".settings__section-note").innerText();

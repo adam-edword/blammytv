@@ -4,7 +4,7 @@
 // ~95MB xmltv included (60 to 77s on a big provider), and so did a Guide
 // remount after the 30 minute memory TTL. Now a source reuses its guide for
 // 12 hours while the CHANNEL half of the load still runs, so a provider that
-// renames an event channel at noon is read fresh. Settings → Playlists says
+// renames an event channel at noon is read fresh. Settings → Sources says
 // when the guide was last refreshed and has a Refresh now button.
 //
 // This drives the real app in the plain browser (no IPC stub), with the fake
@@ -12,7 +12,7 @@
 // - cold load: one get_live_streams, one xmltv.php;
 // - a page reload hydrates from IndexedDB: get_live_streams again, xmltv.php
 //   NOT again, and the guide still shows programmes;
-// - Settings → Playlists says when the guide was last refreshed, to the minute;
+// - Settings → Sources says when the guide was last refreshed, to the minute;
 // - Refresh now downloads a fresh guide, the button reads Refreshing… until
 //   it has landed, and the record's stamp moves on;
 // - a record whose guide is 13 hours old (the record itself fresh) downloads
@@ -164,7 +164,7 @@ check(
 const stamp1 = oldest(await readRecord());
 check("the stamp is carried, not renewed", stamp1 === stamp0, `${stamp0} -> ${stamp1}`);
 
-// ---- Settings → Playlists
+// ---- Settings → Sources
 await page.getByRole("button", { name: "Settings", exact: true }).first().click();
 await page.getByRole("switch", { name: "Test enabled" }).waitFor({ timeout: 15_000 });
 const note = page.getByText(/Guides refresh every 12 hours\./);

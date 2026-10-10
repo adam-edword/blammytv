@@ -42,12 +42,12 @@ can't lock you out of your own app.
 Optional. **Connect** Trakt, MyAnimeList, or both, and they keep track of what
 you watch here and bring back what you watched elsewhere. Each has its own
 button, and **Continue** is always there. You can connect them later in
-**Settings → General → Accounts**.
+**Settings → Accounts**.
 
 ## 4. Accent colour and clock
 
 Cosmetic. Pick an accent from the presets and choose 12- or 24-hour time. Both
-are changeable any time in **Settings → Customize**.
+are changeable any time in **Settings → Appearance**.
 
 ## 5. Which tab to open on
 
@@ -68,7 +68,7 @@ A nudge towards Settings. That's it.
 
 ## After setup
 
-If you skipped a source, add it in **Settings → General → Sources**: **Live
+If you skipped a source, add it in **Settings → Sources**: **Live
 TV** for a playlist, **Stream** for movies and shows. The Live TV pane has the
 same form the setup flow used. The Stream pane has the same sign-in, and adds
 a **Connection Test** that reports which request failed rather than just that

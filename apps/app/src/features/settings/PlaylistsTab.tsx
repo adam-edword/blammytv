@@ -75,7 +75,7 @@ export function PlaylistsTab() {
   // fetched category list (kept per id so re-expanding is instant).
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Deleting a playlist takes stored credentials + folder curation with it —
-  // same destructive class as Customize's "Clear All Login Info", so it
+  // same destructive class as App's "Clear All Login Info", so it
   // speaks the same two-click arm/confirm language (4s to change your mind).
   const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null);
   const armTimer = useRef(0);

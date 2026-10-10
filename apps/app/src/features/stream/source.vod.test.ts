@@ -217,7 +217,7 @@ describe("stream source", () => {
   });
 
   it("gives the default hero when none of the saved sources are in the manifest", async () => {
-    // A new manifest without the catalogs Customize last saved. Customize
+    // A new manifest without the catalogs Appearance last saved. Appearance
     // prunes them only when its section opens; until then every key pooled
     // to nothing and the hero came up empty.
     heroSources = ["movie/gone", "series/also-gone"];

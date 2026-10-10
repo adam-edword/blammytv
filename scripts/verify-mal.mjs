@@ -10,7 +10,7 @@
 // - Where two entries share a season, the TV one is written (D5).
 // - An anime film finished here marks its entry completed.
 // - Progress MAL can't take right now waits, and goes at the next sync.
-// - Settings → General → Accounts: Connect opens MAL in the browser and
+// - Settings → Accounts: Connect opens MAL in the browser and
 //   notices the approval; a decline says so; Disconnect forgets the
 //   counts and their ticks. A build without a MAL key offers nothing.
 //
@@ -278,6 +278,7 @@ check(
 // now sends what waited.
 await leavePlayer();
 await page.getByRole("button", { name: "Settings", exact: true }).first().click({ timeout: 15_000 });
+await page.getByRole("tab", { name: "Accounts", exact: true }).click();
 const title = await page
   .locator(".mal-row .customize-row__title", { hasText: "MyAnimeList: adam" })
   .waitFor({ timeout: 8000 })
@@ -295,6 +296,7 @@ await page.close();
 // ------------------------------------------------------------ connecting
 const openSettings = async (p) => {
   await p.getByRole("button", { name: "Settings", exact: true }).first().click({ timeout: 15_000 });
+  await p.getByRole("tab", { name: "Accounts", exact: true }).click();
   await p.locator(".mal-row").first().waitFor({ timeout: 10_000 });
 };
 {

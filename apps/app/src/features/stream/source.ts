@@ -178,11 +178,11 @@ async function buildVod(
     rowPools.set(cat.id, itemIds);
   }
 
-  // Only the saved keys this manifest still has. Customize prunes the saved
+  // Only the saved keys this manifest still has. Appearance prunes the saved
   // list when its section opens and not before, so a new manifest without
   // those catalogs pooled every key to nothing and the hero came up empty.
   // None left means the default mix. The saved list is left as it is, for
-  // Customize to prune.
+  // Appearance to prune.
   const saved = heroSources.filter((k) => catalogFor(manifest.catalogs, k));
   const sourceIds = saved.length ? saved : defaultHero(rows);
   const picks = await buildFeatured(

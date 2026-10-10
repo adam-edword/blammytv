@@ -284,7 +284,7 @@ export function LibraryScreen() {
                 // Variant BY STATE: destructive once armed, and the danger
                 // colour on hover before that. The `--danger`/`--armed`
                 // rules were parked by v0.9.56's prune, which left both
-                // buttons plain outline in every state (General's Clear has
+                // buttons plain outline in every state (App's Clear has
                 // done it this way all along).
                 variant={armed === "history" ? "destructive" : "outline"}
                 size="sm"

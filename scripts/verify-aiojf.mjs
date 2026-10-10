@@ -15,7 +15,7 @@
 // the point here. Item ids are packed by an independent pack() below, not by
 // the app's.
 //
-// - Sign-in (Settings → General → Sources → Stream since plan 024; the sync
+// - Sign-in (Settings → Sources → Stream since plan 024; the sync
 //   used to have a row of its own under Accounts): the code shows and copies,
 //   pending then approved shows the user, expired, an instance with no
 //   Jellyfin side, an older native build, and the sign-in offered with no
@@ -520,19 +520,25 @@ const waitFor = async (p, fn, ms = 10_000) => {
   }
   return false;
 };
+// The page body is the marker for "Settings is open". It was the Trakt row,
+// which sat on the same tab as the Sources pill until the five pages
+// (v0.11.26); Trakt is on Accounts now.
 const openSettings = async (p) => {
   await p.getByRole("button", { name: "Settings", exact: true }).first().click({ timeout: 15_000 });
-  await p.locator(".trakt-row").first().waitFor({ timeout: 10_000 });
+  await p.locator(".settings__body").first().waitFor({ timeout: 10_000 });
 };
-/** Settings on General → Sources → Stream, where the sign-in is. */
+/** Settings on Sources → Stream, where the sign-in is. */
 const openAioTab = async (p) => {
   await openSettings(p);
+  // Sources, by name: Settings opens where it was left, and a page in this
+  // file may have left it elsewhere.
+  await p.getByRole("tab", { name: "Sources", exact: true }).click();
   await p.locator(".customize-rail").getByRole("tab", { name: "Stream", exact: true }).click();
   await p.locator(".settings-section").first().waitFor({ timeout: 10_000 });
 };
 const closeSettings = async (p) => {
   await p.keyboard.press("Escape");
-  await p.locator(".trakt-row").first().waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+  await p.locator(".settings__body").first().waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
 };
 /** Wake the chrome and leave the player by its Back. */
 const leavePlayer = async (p) => {
@@ -963,7 +969,7 @@ const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\
 }
 
 // ------------------------------------------------------------ connecting
-// Settings → General → Sources → Stream, from signed out: the address, the
+// Settings → Sources → Stream, from signed out: the address, the
 // code, AIOStreams' configure page opened, approved on the second poll, then
 // the account and a first sync. (These were the Accounts row's checks until
 // plan 024 folded it into the sign-in.)
@@ -1050,12 +1056,17 @@ const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\
   // token belonged to that config. The sign-in is its own connection now.
   const p = await openPage({ connected: false, url: false, canSource: true });
   await openAioTab(p);
+  const signIn =
+    (await p.getByPlaceholder("aiostreams.example.com", { exact: true }).count()) === 1 &&
+    (await p.getByRole("button", { name: "Connect", exact: true }).count()) === 1 &&
+    (await p.getByPlaceholder(/manifest\.json/).count()) === 0;
+  // The Trakt row was on this same tab, so counting it asked whether there
+  // was one account row and not two. It is on Accounts now: counted there.
+  await p.getByRole("tab", { name: "Accounts", exact: true }).click();
+  await p.locator(".trakt-row").first().waitFor({ timeout: 10_000 });
   check(
     "with no AIOStreams URL the sign-in is still there: an address field and Connect",
-    (await p.getByPlaceholder("aiostreams.example.com", { exact: true }).count()) === 1 &&
-      (await p.getByRole("button", { name: "Connect", exact: true }).count()) === 1 &&
-      (await p.getByPlaceholder(/manifest\.json/).count()) === 0 &&
-      (await p.locator(".trakt-row").count()) === 1,
+    signIn && (await p.locator(".trakt-row").count()) === 1,
     `url ${JSON.stringify(await storeOf(p, "aiostreams"))}, ${await p.locator(".trakt-row").count()} trakt rows`,
   );
   await p.close();
@@ -1098,8 +1109,14 @@ const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\
   await openAioTab(p);
   const r = p.locator(".aio-row");
   await r.getByRole("button", { name: "Disconnect", exact: true }).waitFor({ timeout: 8000 });
+  // The signed-in row was showing (above). Clear All Login Info is on App
+  // since the five pages (v0.11.26), so the clear is made from there and the
+  // Stream pane is opened again, which is where the row has to be gone.
+  await p.getByRole("tab", { name: "App", exact: true }).click();
   await p.getByRole("button", { name: "Clear…" }).click();
   await p.getByRole("button", { name: "Click again to confirm" }).click();
+  await p.getByRole("tab", { name: "Sources", exact: true }).click();
+  await p.locator(".customize-rail").getByRole("tab", { name: "Stream", exact: true }).click();
   const gone = await waitFor(p, async () => (await p.locator(".aio-row").count()) === 0, 5000);
   const dis = await p.evaluate(() => window.__calls.filter(([c]) => c === "aiojf_disconnect").length);
   check("Clear All Login Info signs out of the sync too, once, and the signed-in row goes", gone && dis === 1 && !(await storeOf(p, "aiostreams")), JSON.stringify({ gone, dis }));

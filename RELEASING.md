@@ -239,7 +239,7 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    `TRAKT_CLIENT_ID` and `MAL_CLIENT_ID` (Trakt no longer issues a secret,
    and the app sends none). These are
    read by the native build (`src-tauri/build.rs`), not Vite, so they only
-   reach an installer release. Build without them and Settings → General →
+   reach an installer release. Build without them and Settings →
    Accounts says this build has no keys and offers no Connect, for everyone
    who installs it.
 

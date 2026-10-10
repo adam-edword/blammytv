@@ -32,7 +32,7 @@ export function markOnboarded(): void {
   }
 }
 
-/** Settings → Customize → "Replay Onboarding". Deliberately does NOT
+/** Settings → App → "Replay Onboarding". Deliberately does NOT
  * clear the completed flag: quitting mid-replay must not re-trap the
  * user at next launch — finishing simply re-stamps. */
 export function requestOnboardingReplay(): void {

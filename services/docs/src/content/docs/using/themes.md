@@ -3,7 +3,7 @@ title: Themes
 description: Nine looks, five free, three paid, one for Pass holders.
 ---
 
-BlammyTV ships nine theme packs. Change them under **Settings → Customize**.
+BlammyTV ships nine theme packs. Change them under **Settings → Appearance**.
 Accent colour is a separate control and works with any of them.
 
 ## Free
@@ -42,7 +42,7 @@ reverts on restart rather than being locked away behind a screenshot.
 
 There's no account and no login. Your key arrives by email the moment you buy,
 so check your inbox and your spam folder. Enter it under **Settings →
-Customize**.
+Appearance**.
 
 One key activates on up to **3 devices**.
 
@@ -65,4 +65,4 @@ It involves a server, so here's what it does:
 - **Corner style**, the squircle profile the interface uses
 - **Clock format**, 12- or 24-hour
 
-All under **Settings → Customize**, all changeable any time.
+All under **Settings → Appearance**, all changeable any time.

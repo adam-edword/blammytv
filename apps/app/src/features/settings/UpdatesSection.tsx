@@ -13,7 +13,7 @@ import { isPlaying } from "../../lib/playingNow";
 import { Hint } from "../../ui/Hint";
 
 /**
- * Settings → Updates: the manual sibling of the header's UpdateChip. Shows
+ * Settings → App, Updates: the manual sibling of the header's UpdateChip. Shows
  * the running version and a "Check for updates" button; a found update
  * turns the button into a one-click install (download + relaunch). The
  * chip's silent launch check covers the ambient case — this row exists so
@@ -92,7 +92,7 @@ export function UpdatesSection() {
   };
 
   // A row, not a section with its own 32px heading: it sits inside
-  // General's "App" group, whose heading already does that job.
+  // the App page's group, whose heading already does that job.
   return (
     <div className="customize-row">
       <div>

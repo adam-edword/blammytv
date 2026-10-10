@@ -231,6 +231,29 @@ const mvAdd = async (p, name) => {
   await p.locator(".mvpick__input").waitFor({ state: "detached" });
 };
 
+/** The native side, as far as a Settings page reads it: Trakt and MyAnimeList
+ * have keys and no sign-in, nothing is staged, and a request goes to the
+ * network like a browser's. Runs in the page. */
+const NATIVE = () => {
+  let cb = 0;
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: (f) => {
+      const id = ++cb;
+      window["_" + id] = f;
+      return id;
+    },
+    convertFileSrc: (x) => x,
+    metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main", windowLabel: "main" } },
+    invoke: (cmd, args) => {
+      if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
+      if (cmd === "trakt_status" || cmd === "mal_status") return Promise.resolve({ configured: true, connected: false });
+      if (cmd === "frontend_status") return Promise.resolve({ serving: "", pending: "" });
+      return Promise.resolve(undefined);
+    },
+  };
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+};
+
 const SCENES = [
   { name: "guide", store: { playlists: XTREAM, startupTab: "live" }, ready: (p) => p.waitForFunction(() => document.body.innerText.includes("ESPN Hour"), null, { timeout: 30_000 }) },
   { name: "stream", store: { aiostreams: AIO, startupTab: "stream" }, ready: (p) => p.locator(".stream-card").first().waitFor({ timeout: 30_000 }) },
@@ -243,24 +266,30 @@ const SCENES = [
     ready: (p) => p.locator(".sports__grid > *").first().waitFor({ timeout: 30_000 }),
   },
   { name: "multiview", store: { playlists: XTREAM, startupTab: "live" }, go: "multiview", ready: (p) => p.locator(".mvtab").waitFor({ timeout: 30_000 }) },
-  {
-    name: "settings-general",
-    store: { playlists: XTREAM, aiostreams: AIO, startupTab: "stream" },
+  // Settings, one scene per page since the five pages (v0.11.26; it was
+  // settings-general and settings-customize). Seeded as those were: a playlist,
+  // an AIOStreams, Stream as the startup tab, and the page stored, so the card
+  // opens on it. Each waits for a control only that page has.
+  ...[
+    ["sources", (p) => p.getByRole("switch", { name: "Test enabled" })],
+    ["playback", (p) => p.getByRole("combobox", { name: "Preferred audio language" })],
+    ["appearance", (p) => p.getByRole("group", { name: "Accent color" })],
+    // Trakt, MyAnimeList and the update row answer from the native side: in
+    // a plain browser Accounts is a heading over nothing, and App has no
+    // update row. The stub says "keys present, not connected, nothing
+    // staged", which is what a fresh install says.
+    ["accounts", (p) => p.locator(".mal-row").first(), NATIVE],
+    ["app", (p) => p.locator(".customize-row", { hasText: "BlammyTV v" }), NATIVE],
+  ].map(([page, landmark, init]) => ({
+    name: `settings-${page}`,
+    store: { playlists: XTREAM, aiostreams: AIO, startupTab: "stream", settingsTab: page },
+    init,
     ready: async (p) => {
       await p.locator(".stream-card").first().waitFor({ timeout: 30_000 });
       await p.getByRole("button", { name: "Settings", exact: true }).first().click();
-      await p.getByRole("switch", { name: "Test enabled" }).waitFor({ timeout: 15_000 });
+      await landmark(p).waitFor({ timeout: 15_000 });
     },
-  },
-  {
-    name: "settings-customize",
-    store: { playlists: XTREAM, aiostreams: AIO, startupTab: "stream", settingsTab: "customize" },
-    ready: async (p) => {
-      await p.locator(".stream-card").first().waitFor({ timeout: 30_000 });
-      await p.getByRole("button", { name: "Settings", exact: true }).first().click();
-      await p.getByRole("group", { name: "Accent color" }).waitFor({ timeout: 15_000 });
-    },
-  },
+  })),
   {
     name: "palette",
     store: { playlists: XTREAM, aiostreams: AIO, startupTab: "live" },

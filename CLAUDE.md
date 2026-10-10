@@ -90,7 +90,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **63/63 harnesses clean, 1459 checks** (v0.11.25), or one
+Baseline is **64/64 harnesses clean, 1510 checks** (v0.11.26), or one
 fewer: verify-cw-sources' last check only runs when the catalog is still
 loading at the click; the script says so and it is not a failure. verify-kit
 (plan 019) has one section per shared primitive, so a later change that
@@ -223,7 +223,7 @@ comments, UI copy.
   when I get there. This is not narration and not a recap of the diff. It is
   the part I cannot get from the commit, because you looked at the running
   app and I have not yet.
-  - **Name the screen and the path to it.** "Settings → Customize → Stream,
+  - **Name the screen and the path to it.** "Settings → Appearance → Stream,
     the Hero Slider Sources field", not "the combobox".
   - **Say what changed AND what should not have.** A conversion that also
     quietly moved something is the failure I most want to catch early, so

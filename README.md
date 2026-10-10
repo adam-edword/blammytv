@@ -14,9 +14,9 @@
 1. **Download** the latest installer from the [**Releases page**](https://github.com/adam-edword/blammytv/releases/latest): grab `BlammyTV_<version>_x64-setup.exe` under *Assets*.
 2. **Run it.** Windows SmartScreen will say *"Windows protected your PC"* because the build isn't code-signed, click **More info → Run anyway**. (It's an unsigned indie app, not malware.)
 3. **On first launch,** paste your **AIOStreams manifest URL** when prompted. That's all you need to start watching movies & shows.
-4. **For live TV (optional):** add your Xtream playlist under **Settings → Playlists** (server URL + username + password). It's kept separate from your AIOStreams setup.
+4. **For live TV (optional):** add your Xtream playlist under **Settings → Sources** (server URL + username + password). It's kept separate from your AIOStreams setup.
 
-From there the app **updates itself**: new versions install on launch, or via **Settings → Updates → Check for updates**. Each person uses their own AIOStreams URL; nothing is shared.
+From there the app **updates itself**: new versions install on launch, or via **Settings → App → Check for updates**. Each person uses their own AIOStreams URL; nothing is shared.
 
 ## What it is
 
@@ -46,7 +46,7 @@ Everything you configure lives in **localStorage** on the device:
 
 - **AIOStreams**: your manifest URL (it embeds your debrid/provider config, so treat it as a secret).
 - **Playlists**: your Xtream sources (server URL + username + password), kept entirely separate from AIOStreams.
-- **Customize**: accent color, light mode, carousel sources, and "hide channels with no info".
+- **Appearance**: accent color, light mode, carousel sources, and "hide channels with no info".
 - **Profile**: a cosmetic name + avatar.
 
 > **Security:** your AIOStreams URL, debrid keys, and Xtream credentials never leave the device. They're only used to fetch directly from the providers. Keep your AIOStreams URL private; it's effectively a password.

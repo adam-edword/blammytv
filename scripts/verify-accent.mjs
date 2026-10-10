@@ -1,4 +1,4 @@
-// E2E: the accent picker in Settings → Customize (v0.9.79).
+// E2E: the accent picker in Settings → Appearance (v0.9.79; the Customize tab then).
 //
 // The picker came back from old/themes on its own (ROADMAP decision 1), and
 // the parts of it that can break do so SILENTLY, which is why this exists:
@@ -48,15 +48,15 @@ const root = () =>
       .getPropertyValue("--accent-ink")
       .trim(),
   }));
-const openCustomize = async () => {
+const openAppearance = async () => {
   await page.locator("button[aria-label='Settings']").click();
-  await page.getByRole("tab", { name: "Customize", exact: true }).click();
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   const group = page.getByRole("group", { name: "Accent color" });
   await group.waitFor({ timeout: 10_000 });
   return group;
 };
 
-let group = await openCustomize();
+let group = await openAppearance();
 
 // 1. A fresh profile applies NOTHING: the default is the token, which flips
 //    with the theme, not a stored hex.
@@ -156,7 +156,7 @@ check(
 await page.evaluate(() => localStorage.removeItem("blammytv.accent-custom"));
 await page.reload({ waitUntil: "domcontentloaded" });
 await page.waitForSelector(".navcap", { timeout: 20_000 });
-group = await openCustomize();
+group = await openAppearance();
 const chipFill = await group
   .getByRole("button", { name: /Custom/ })
   .locator("span")
@@ -165,7 +165,9 @@ const chipFill = await group
 check("Custom chip draws the active colour", chipFill === "rgb(255, 106, 0)", chipFill);
 
 // 6. Reset clears storage, the DOM and the picker's tick together.
+// Two presses since the pages (v0.11.26): Reset arms, then confirms.
 await page.getByRole("button", { name: "Reset", exact: true }).click();
+await page.getByRole("button", { name: "Click again to confirm" }).click();
 check("Reset removes the inline accent", (await root()).inline === "");
 check(
   "Reset re-ticks Default",

@@ -869,7 +869,7 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
     "Signed in with every catalog empty: the empty state talks about the sign-in, not a manifest",
     /Nothing came back from your catalogs/.test(text) &&
       /signed in/.test(text) &&
-      /Check your AIOStreams sign-in in Settings → General → Sources → Stream/.test(text) &&
+      /Check your AIOStreams sign-in in Settings → Sources → Stream/.test(text) &&
       !/manifest/i.test(text),
     text,
   );
@@ -907,14 +907,14 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
 }
 
 // ============================================================ the hero picker
-// Settings → Customize → Hero Slider Sources lists the catalogs on offer, and
+// Settings → Appearance → Hero Slider Sources lists the catalogs on offer, and
 // a required-genre catalog picked as a source is asked with a genre, since
 // AIOStreams answers nothing for one without.
 {
   resetFake();
   const page = await openPage({ connected: true, signedIn: true });
   await page.locator("button[aria-label='Settings']").click();
-  await page.getByRole("tab", { name: "Customize", exact: true }).click();
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   const input = page.getByPlaceholder("Add sources…");
   await input.waitFor({ timeout: 15_000 });
   await input.click();

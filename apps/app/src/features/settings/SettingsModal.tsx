@@ -1,39 +1,70 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { Button } from "../../components/ui/button";
-import { loadSettingsTab, saveSettingsTab } from "./settingsTab";
-import { CloseIcon } from "../../ui/icons";
+import {
+  SETTINGS_PAGES,
+  loadSettingsTab,
+  saveSettingsTab,
+  type SettingsTab,
+} from "./settingsTab";
+import {
+  CloseIcon,
+  EyeDropperIcon,
+  PlayIcon,
+  SettingsIcon,
+  TvIcon,
+  UserIcon,
+} from "../../ui/icons";
 import { useClosingExit } from "./useClosingExit";
+import { Rail } from "../../ui/Rail";
 import { Segmented } from "../../ui/Segmented";
-import { CustomizeTab } from "./CustomizeTab";
-import { GeneralTab } from "./GeneralTab";
+import { SourcesPage } from "./SourcesPage";
+import { PlaybackPage } from "./PlaybackPage";
+import { AppearancePage } from "./AppearancePage";
+import { AccountsPage } from "./AccountsPage";
+import { AppPage } from "./AppPage";
 import { returnFocus } from "../../lib/returnFocus";
 
 /**
- * Two questions, one tab each: what the app DOES (General) and how it LOOKS
- * (Customize). Everything is filed by that question, never by which screen
- * it happens to affect.
+ * Five questions, one page each: what you WATCH (Sources), how it PLAYS
+ * (Playback), how it LOOKS (Appearance), WHO you are (Accounts), and the APP
+ * itself (App). Everything is filed by that question, never by which screen
+ * it happens to affect. The words are in settingsTab.ts.
  *
- * The rail was Playlists / AIOStreams / Customize once, which asked the
- * user to know that "the place your app updates live" was under Customize,
- * next to accent colours. Then Media / General / Customize, which still
- * spent a third of the rail on a screen most people touch once. Sources is
- * a section inside General now.
+ * The rule is 0.8.0's, and it has held through three shapes. The rail was
+ * Playlists / AIOStreams / Customize once, which asked the user to know that
+ * "the place your app updates live" was under Customize, next to accent
+ * colours. Then Media / General / Customize, which still spent a third of the
+ * rail on a screen most people touch once. Then two tabs, General and
+ * Customize, which filed four playback rows under "how it looks" and had
+ * nowhere to put anything new about playback or the app (plan 025). Five
+ * questions fixes that without stretching the rule.
  *
- * Both tabs carry the same Live TV / Stream pill for the parts that differ
- * per world (General: where content comes from; Customize: how that content
- * looks). One mental model, said twice, rather than two filing systems.
+ * The pages that differ per world carry the same Live TV / Stream pill
+ * (Sources: where content comes from; Appearance: how that content looks).
+ * One mental model, said twice, rather than two filing systems.
  */
-export type SettingsTab = "general" | "customize";
 
-const TABS: Array<{ key: SettingsTab; label: string }> = [
-  { key: "general", label: "General" },
-  { key: "customize", label: "Customize" },
-];
+/** What each page wears in the rail. The set had no person, so Accounts' is
+ * drawn beside the others (ui/icons). */
+const ICONS: Record<SettingsTab, ReactNode> = {
+  sources: <TvIcon size={18} />,
+  playback: <PlayIcon size={18} />,
+  appearance: <EyeDropperIcon size={18} />,
+  accounts: <UserIcon size={18} />,
+  app: <SettingsIcon size={18} />,
+};
+const RAIL = SETTINGS_PAGES.map((p) => ({ ...p, icon: ICONS[p.key] }));
+
+/** Under this card width the rail would leave the page too little, and it
+ * becomes the segmented row the tabs were before the rail. Measured on the
+ * card, not the window: the card is `min(786px, 100%)` of a window less its
+ * margins, and it is the card the page has to fit in. */
+const NARROW = 640;
 
 /**
- * The floating settings card from the redesign: title left, the tabs in the
- * middle, close right.
+ * The floating settings card from the redesign: title left, close right, and
+ * under them the rail of pages with the page beside it.
  *
  * ON RADIX'S DIALOG since v0.10.33 (plan 014 phase 1, ROADMAP M2), behind
  * the markup it always had: the same `.modal-backdrop` and `section.settings`,
@@ -58,11 +89,33 @@ export function SettingsModal({
   returnTo?: HTMLElement | null;
 }) {
   // Where you left off. The modal unmounts on close, so without this
-  // every visit started at General.
+  // every visit started at the first page.
   const [tab, setTab] = useState<SettingsTab>(loadSettingsTab);
+  const pick = (t: SettingsTab) => {
+    saveSettingsTab(t);
+    setTab(t);
+  };
   // The exit beat: Radix's `open` stays true until the card has faded, and
   // App unmounts it after (useClosingExit).
   const { closing, requestClose } = useClosingExit(onClose);
+
+  // Whether the card is narrow enough for the pages to be a row. The card
+  // lives in a portal that mounts a beat after this component does, so it is
+  // taken by a callback ref into state rather than read from a ref in an
+  // effect, which would find nothing. The first read is in a layout effect:
+  // the narrow card never paints as a wide one.
+  const [card, setCard] = useState<HTMLElement | null>(null);
+  const [narrow, setNarrow] = useState(false);
+  useLayoutEffect(() => {
+    if (!card) return;
+    // offsetWidth, not the bounding box: the entrance scales the card, and
+    // the layout width is the one the page has to fit.
+    const read = () => setNarrow(card.offsetWidth < NARROW);
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(card);
+    return () => ro.disconnect();
+  }, [card]);
 
   // Top-fade flag, written straight to the DOM: this fires on every scroll
   // frame, and routing it through state would re-render the whole settings
@@ -72,7 +125,7 @@ export function SettingsModal({
     if (el.scrollTop > 4) el.dataset.scrolled = "1";
     else delete el.dataset.scrolled;
   };
-  // A new tab starts at the top, and its flag starts clear: shrinking
+  // A new page starts at the top, and its flag starts clear: shrinking
   // content can leave scrollTop clamped without firing a scroll event, and
   // a stale flag fades the first row of a page nobody scrolled.
   useEffect(() => {
@@ -91,6 +144,8 @@ export function SettingsModal({
     const a = document.activeElement;
     opener.current = a instanceof HTMLElement && a !== document.body ? a : null;
   }, []);
+
+  const label = SETTINGS_PAGES.find((p) => p.key === tab)?.label;
 
   // Portalled OUT of .app-shell, as before: with the inverted player the
   // shell carries a clip-path hole where the video shows, and a modal
@@ -141,6 +196,7 @@ export function SettingsModal({
             }}
           >
             <section
+              ref={setCard}
               className={"settings" + (closing ? " settings--closing" : "")}
               aria-label="Settings"
               // The kit's name for an open dialog: Multi-view's keys stand
@@ -153,16 +209,6 @@ export function SettingsModal({
                 <DialogPrimitive.Title className="settings__title">
                   Settings
                 </DialogPrimitive.Title>
-                <Segmented
-                  role="tabs"
-                  label="Settings"
-                  options={TABS}
-                  value={tab}
-                  onChange={(t) => {
-                    saveSettingsTab(t);
-                    setTab(t);
-                  }}
-                />
                 <Button variant="ghost" size="icon"
                   type="button"
                   className="settings__close"
@@ -173,13 +219,33 @@ export function SettingsModal({
                 </Button>
               </header>
 
-              <div
-                className="settings__body"
-                ref={bodyRef}
-                onScroll={(e) => markScrolled(e.currentTarget)}
-              >
-                {tab === "general" && <GeneralTab />}
-                {tab === "customize" && <CustomizeTab />}
+              <div className={"settings__layout" + (narrow ? " settings__layout--narrow" : "")}>
+                {narrow ? (
+                  // Names only, the row the tabs were before the rail.
+                  <Segmented
+                    role="tabs"
+                    label="Settings"
+                    className="settings__pages"
+                    options={SETTINGS_PAGES}
+                    value={tab}
+                    onChange={pick}
+                  />
+                ) : (
+                  <Rail className="settings__rail" label="Settings" items={RAIL} value={tab} onChange={pick} />
+                )}
+                <div
+                  className="settings__body"
+                  role="tabpanel"
+                  aria-label={label}
+                  ref={bodyRef}
+                  onScroll={(e) => markScrolled(e.currentTarget)}
+                >
+                  {tab === "sources" && <SourcesPage />}
+                  {tab === "playback" && <PlaybackPage />}
+                  {tab === "appearance" && <AppearancePage />}
+                  {tab === "accounts" && <AccountsPage />}
+                  {tab === "app" && <AppPage />}
+                </div>
               </div>
             </section>
           </DialogPrimitive.Content>

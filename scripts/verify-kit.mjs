@@ -236,7 +236,14 @@ const dimmedText = () =>
   await page.locator(".header__right button").last().click();
   await page.locator(".settings").waitFor();
   await page.waitForTimeout(900);
-  for (const d of await dimmedText()) found.push(`settings ${d}`);
+  // Every page: Settings is five of them since v0.11.26, and the one it
+  // opens on is wherever it was left.
+  for (const name of ["Sources", "Playback", "Appearance", "Accounts", "App"]) {
+    await page.getByRole("tab", { name, exact: true }).click();
+    await page.waitForTimeout(500);
+    for (const d of await dimmedText()) found.push(`settings ${name} ${d}`);
+  }
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
   await page.keyboard.press("Escape");
   await page.waitForTimeout(500);
   const kinds = [...new Set(found.map((f) => f.replace(/:".*$/, "")))];
@@ -265,10 +272,12 @@ const dimmedText = () =>
   await page.locator(".header__right button").last().click();
   await page.locator(".settings").waitFor();
   await page.waitForTimeout(700);
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.waitForTimeout(300);
   where.settings = await page.locator(".settings .seg").count();
   const old = await page.evaluate(() => document.querySelectorAll(".chip-tabs, .mode-rail, .season-chip").length);
   check(
-    "the sidebars' rails and Settings' tabs are the one segmented control",
+    "the sidebars' rails and Settings' pills are the one segmented control",
     where.guide === 1 && where.sports === 1 && where.settings >= 2 && old === 0,
     `${JSON.stringify(where)}, old ${old}`,
   );
@@ -283,12 +292,14 @@ const dimmedText = () =>
 
   // TABS, for a control that switches what the panel shows (016 3.4): a
   // tablist, the chosen tab the only tab stop, and the arrows move the
-  // choice and the focus together.
-  const tabs = page.getByRole("tablist", { name: "Settings" });
-  const general = tabs.getByRole("tab", { name: "General", exact: true });
-  const customize = tabs.getByRole("tab", { name: "Customize", exact: true });
+  // choice and the focus together. Read on Sources' Live TV / Stream pill:
+  // Settings' own pages were this control until the rail (v0.11.26), and are
+  // checked as the Rail in K2b.
+  const tabs = page.getByRole("tablist", { name: "Sources", exact: true });
+  const general = tabs.getByRole("tab", { name: "Live TV", exact: true });
+  const customize = tabs.getByRole("tab", { name: "Stream", exact: true });
   check(
-    "Settings' sections are a tablist with one tab stop",
+    "a segmented control that switches a panel is a tablist with one tab stop (Settings' Sources pill)",
     (await general.getAttribute("aria-selected")) === "true" &&
       (await general.getAttribute("tabindex")) === "0" &&
       (await customize.getAttribute("tabindex")) === "-1",
@@ -339,6 +350,128 @@ const dimmedText = () =>
   await page.waitForTimeout(400);
 }
 
+// ======================================================================= K2b
+// The rail (ui/Rail.tsx, plan 025): Settings' five pages, a vertical tablist.
+// It shares Segmented's keys and its chip, and none of its capsule.
+{
+  await goTo(page, "guide");
+  await page.locator(".header__right button").last().click();
+  await page.locator(".settings").waitFor();
+  await page.waitForTimeout(700);
+  const rail = page.getByRole("tablist", { name: "Settings" });
+  const tab = (n) => rail.getByRole("tab", { name: n, exact: true });
+  const PAGES = ["Sources", "Playback", "Appearance", "Accounts", "App"];
+  const BLURBS = ["What you watch", "How it plays", "How it looks", "Who you are", "The app itself"];
+  await tab("Sources").click();
+  const shape = await rail.evaluate((el, blurbs) => {
+    const tabs = [...el.querySelectorAll("[role=tab]")];
+    return {
+      orient: el.getAttribute("aria-orientation"),
+      names: tabs.map((t) => t.getAttribute("aria-label")),
+      // The name is the label alone; the line under it is its description.
+      described: tabs.map((t) => document.getElementById(t.getAttribute("aria-describedby") ?? "")?.textContent),
+      blurbsOk: blurbs.every((b, i) => document.getElementById(tabs[i].getAttribute("aria-describedby") ?? "")?.textContent === b),
+      stops: tabs.map((t) => t.tabIndex),
+      selected: tabs.map((t) => t.getAttribute("aria-selected")),
+      // One column: each item sits below the last.
+      column: tabs.every((t, i) => i === 0 || t.getBoundingClientRect().top >= tabs[i - 1].getBoundingClientRect().bottom - 0.5),
+      width: Math.round(el.getBoundingClientRect().width),
+    };
+  }, BLURBS);
+  check(
+    "K2b. the rail is a vertical tablist of the five pages, in order, 180px wide",
+    shape.orient === "vertical" && JSON.stringify(shape.names) === JSON.stringify(PAGES) && shape.column && shape.width === 180,
+    JSON.stringify(shape),
+  );
+  check(
+    "  each page's line is its description, not part of its name",
+    shape.blurbsOk,
+    JSON.stringify(shape.described),
+  );
+  check(
+    "  one tab stop: the chosen page's",
+    shape.stops.join() === "0,-1,-1,-1,-1" && shape.selected.join() === "true,false,false,false,false",
+    JSON.stringify({ stops: shape.stops, selected: shape.selected }),
+  );
+  const tintOn = await token("--tint-on");
+  const muted = await token("--text-muted", "color");
+  const paint = await rail.evaluate((el) => {
+    const th = el.querySelector(".rail__thumb");
+    const blurb = el.querySelector(".rail__blurb");
+    return { thumb: getComputedStyle(th).backgroundColor, blurb: getComputedStyle(blurb).color, radius: getComputedStyle(th).borderTopLeftRadius };
+  });
+  check(
+    "  the chosen page is Segmented's chip (the 16% tint) and its line is the muted text",
+    paint.thumb === tintOn && paint.blurb === muted,
+    JSON.stringify({ ...paint, tintOn, muted }),
+  );
+
+  // The arrows move the choice and the focus together, and the thumb slides.
+  await tab("Sources").focus();
+  const path = await page.evaluate(
+    () =>
+      new Promise((done) => {
+        document.documentElement.style.setProperty("--sheet-blur", "none");
+        const t = document.querySelector(".settings .rail__thumb");
+        const ys = [t.getBoundingClientRect().top];
+        document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+        const t0 = performance.now();
+        const tick = () => {
+          ys.push(t.getBoundingClientRect().top);
+          if (performance.now() - t0 < 700) requestAnimationFrame(tick);
+          else {
+            document.documentElement.style.removeProperty("--sheet-blur");
+            done(ys);
+          }
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+  const playTop = (await tab("Playback").boundingBox()).y;
+  const from = path[0];
+  const to = path.at(-1);
+  const between = path.filter((y) => Math.abs(y - from) > 1 && Math.abs(y - to) > 1).length;
+  const on = async (n) => (await tab(n).getAttribute("aria-selected")) === "true" && (await tab(n).evaluate((e) => e === document.activeElement));
+  check("  ↓ moves the choice and the focus to the next page", await on("Playback"));
+  check(
+    "  and the thumb SLIDES there, frame by frame (the thumb stays, Adam 2026-09-06)",
+    between >= 4 && Math.abs(to - playTop) < 1.5,
+    `${between} frames in motion from ${from.toFixed(1)} to ${to.toFixed(1)} (target ${playTop.toFixed(1)})`,
+  );
+  await page.keyboard.press("ArrowUp");
+  const up = await on("Sources");
+  await page.keyboard.press("End");
+  const end = await on("App");
+  await page.keyboard.press("ArrowDown");
+  const wrap = await on("Sources");
+  await page.keyboard.press("End");
+  await page.keyboard.press("Home");
+  const home = await on("Sources");
+  check("  ↑ goes back, End jumps to App, ↓ from there wraps to Sources, Home jumps to Sources", up && end && wrap && home, JSON.stringify({ up, end, wrap, home }));
+  // And the page follows the tab.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(300);
+  const panel = await page.evaluate(() => {
+    const p = document.querySelector(".settings [role=tabpanel]");
+    return { name: p?.getAttribute("aria-label"), rows: [...(p?.querySelectorAll(".customize-row__title") ?? [])].map((h) => h.textContent).slice(0, 2) };
+  });
+  check("  the page beside it is a tabpanel for the chosen page", panel.name === "Appearance" && panel.rows.includes("Appearance"), JSON.stringify(panel));
+  // It stays put while the page scrolls: it is a sibling of the scroller.
+  const stay = await page.evaluate(async () => {
+    const body = document.querySelector(".settings__body");
+    const r = document.querySelector(".settings .rail");
+    const before = r.getBoundingClientRect().top;
+    body.scrollTop = 300;
+    await new Promise((d) => setTimeout(d, 200));
+    return { moved: body.scrollTop > 0, same: Math.abs(r.getBoundingClientRect().top - before) < 0.5 };
+  });
+  check("  and the rail stays put while the page scrolls", stay.moved && stay.same, JSON.stringify(stay));
+  await tab("Sources").click();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+}
+
 // ======================================================================= K3
 // Buttons in multi-view's shapes, from Button's own variants.
 {
@@ -381,12 +514,19 @@ const dimmedText = () =>
   await goTo(page, "guide");
   await page.locator(".header__right button").last().click();
   await page.locator(".settings").waitFor();
-  // General, where the pane's one pill is (K2's check left Settings on
-  // Customize, and Settings remembers).
-  await page.getByRole("tab", { name: "General", exact: true }).click();
-  await page.waitForTimeout(800);
-  for (const b of await buttons()) if (!b.round && b.v !== "link") square.push(`settings:${b.name}`);
-  whites.settings = (await buttons()).filter((b) => b.v === "default").map((b) => b.name);
+  // The three pages General became (v0.11.26): its buttons (Add Playlist,
+  // Connect, Replay, Clear) are what this has always read. Sources first,
+  // where the pane's one pill is, and the screen the one-pill count reads.
+  // Customize's two (Playback and Appearance) were never read here, and
+  // Playback's Combobox has two nameless square buttons (the audit's SE5).
+  for (const name of ["Sources", "Accounts", "App"]) {
+    await page.getByRole("tab", { name, exact: true }).click();
+    await page.waitForTimeout(800);
+    for (const b of await buttons()) if (!b.round && b.v !== "link") square.push(`settings ${name}:${b.name}`);
+    whites[name === "Sources" ? "settings" : `settings ${name}`] = (await buttons()).filter((b) => b.v === "default").map((b) => b.name);
+  }
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.waitForTimeout(400);
   const text = await token("--text");
   const pill = await page.evaluate(() => {
     const b = [...document.querySelectorAll(".settings button[data-variant=default]")][0];
@@ -518,7 +658,7 @@ const dimmedText = () =>
   );
   await page.locator(".header__right button").last().click();
   await page.locator(".settings").waitFor();
-  await page.getByRole("tab", { name: "General", exact: true }).click();
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
   const rowMeter = await page
     .locator(".playlist-row .meter")
     .first()
@@ -862,7 +1002,7 @@ const dimmedText = () =>
 
   await page.locator(".header__right button").last().click();
   await page.locator(".settings").waitFor();
-  await page.getByRole("tab", { name: "General", exact: true }).click();
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
   const sec = await eyebrowOf(".settings__group");
   check("Settings' section labels are eyebrows", isEyebrow(sec) && sec.text === "Sources", JSON.stringify(sec));
   const pl = await page.evaluate(() => {
@@ -1175,15 +1315,16 @@ const dimmedText = () =>
   const home = await page.evaluate(() => !document.querySelector(".vod-detail") && !!document.querySelector(".media-row, .shero, .stream"));
   check("  Back from it lands on Stream's rows", home, String(home));
 
-  // A place: Customize opens Settings on that tab.
+  // A place: Playback opens Settings on that page.
   await page.keyboard.press("Control+k");
   await pal.waitFor({ timeout: 4000 });
-  await page.keyboard.type("customize");
+  await page.keyboard.type("playback");
   await page.waitForTimeout(300);
   await page.keyboard.press("Enter");
   await page.locator(".settings").waitFor({ timeout: 5000 }).catch(() => {});
-  const tab = await page.evaluate(() => document.querySelector(".settings [role=tab][aria-selected=true]")?.textContent);
-  check("  and a place goes there: Customize opens Settings on Customize", tab === "Customize", String(tab));
+  // The rail's tab is named by its label; its text is the label and the line.
+  const tab = await page.evaluate(() => document.querySelector(".settings .rail [role=tab][aria-selected=true]")?.getAttribute("aria-label"));
+  check("  and a place goes there: Playback opens Settings on Playback", tab === "Playback", String(tab));
   // Escape straight away: the palette, closed from the keyboard, is gone at
   // once, so the key is Settings'. (Its fading layer used to take it.)
   await page.keyboard.press("Escape");
@@ -1276,7 +1417,7 @@ const dimmedText = () =>
   };
   const clockTo = async (f) => {
     await page.locator("button[aria-label='Settings']").click();
-    await page.getByRole("tab", { name: "Customize", exact: true }).click();
+    await page.getByRole("tab", { name: "Appearance", exact: true }).click();
     await page.locator(`.settings button[aria-label='${f}']`).click();
     await page.keyboard.press("Escape");
     await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
@@ -1564,7 +1705,7 @@ const dimmedText = () =>
   // G. Settings: fields are 40px, a tint, no edge.
   await page.locator(".header__right button[aria-label='Settings']").click();
   await page.locator(".settings").waitFor();
-  await page.getByRole("tab", { name: "General", exact: true }).click();
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
   const field = await page.evaluate(() => {
     const i = document.querySelector(".settings .settings-input");
     const s = getComputedStyle(i);
@@ -1725,20 +1866,24 @@ const dimmedText = () =>
   await page.waitForTimeout(600);
   await page.locator(".header__action[aria-label='Settings']").click();
   await page.locator(".settings").waitFor();
-  await page.getByRole("tab", { name: "Customize", exact: true }).click();
-  await page.getByRole("tablist", { name: "Media" }).getByRole("tab", { name: "Stream", exact: true }).click();
-  await page.waitForTimeout(600);
-  const sw = await page.evaluate(() => {
-    const read = (label) => {
+  // The two switches are on two pages now (One-Click Play on Playback, the
+  // Featured Carousel on Appearance), so each is read where it is.
+  const readSwitch = (label) =>
+    page.evaluate((label) => {
       const el = document.querySelector(`.settings [role=switch][aria-label='${label}']`);
       if (!el) return null;
       const s = getComputedStyle(el);
       const t = getComputedStyle(el.querySelector(".toggle__thumb"));
       const r = el.getBoundingClientRect();
       return { on: el.getAttribute("aria-checked"), bg: s.backgroundColor, shadow: s.boxShadow, size: `${r.width}x${Math.round(r.height * 10) / 10}`, thumb: t.transition };
-    };
-    return { off: read("One-click play"), on: read("Featured carousel") };
-  });
+    }, label);
+  await page.getByRole("tab", { name: "Playback", exact: true }).click();
+  await page.waitForTimeout(600);
+  const swOff = await readSwitch("One-click play");
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await page.getByRole("tablist", { name: "Media" }).getByRole("tab", { name: "Stream", exact: true }).click();
+  await page.waitForTimeout(600);
+  const sw = { off: swOff, on: await readSwitch("Featured carousel") };
   const accent = await token("--accent");
   check(
     "M2. the Switch's track is shadcn's: input at 80% off, the accent on, shadow-xs, 32 by 18.4",
@@ -1856,8 +2001,7 @@ const dimmedText = () =>
   await page.mouse.move(W / 2, H - 4);
   await page.locator(gearSel).click();
   await page.locator(".settings").waitFor();
-  await page.getByRole("tab", { name: "Customize", exact: true }).click();
-  await page.getByRole("tablist", { name: "Media" }).getByRole("tab", { name: "Stream", exact: true }).click();
+  await page.getByRole("tab", { name: "Playback", exact: true }).click();
   await page.waitForTimeout(500);
   const sub = page.getByRole("combobox", { name: "Preferred subtitle language" });
   await sub.scrollIntoViewIfNeeded();

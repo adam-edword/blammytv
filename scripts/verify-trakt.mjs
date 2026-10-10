@@ -311,7 +311,7 @@ check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await page.close();
 
 // ------------------------------------------------------------ connecting
-// Settings → General → Accounts, from signed out: the code, Trakt opened,
+// Settings → Accounts, from signed out: the code, Trakt opened,
 // approved on the second poll, then the account and a first sync.
 const connectStub = ({ port, configured }) => {
   window.__calls = [];
@@ -364,6 +364,7 @@ const connectStub = ({ port, configured }) => {
 };
 const openSettings = async (p) => {
   await p.getByRole("button", { name: "Settings", exact: true }).first().click({ timeout: 15_000 });
+  await p.getByRole("tab", { name: "Accounts", exact: true }).click();
   await p.locator(".trakt-row").first().waitFor({ timeout: 10_000 });
 };
 {

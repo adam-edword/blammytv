@@ -4,7 +4,7 @@
 // way verify-signin and verify-aiojf stub them: aiojf.rs's own tests cover the
 // token, the guard and `derive`; this covers what the page shows and does.
 //
-// - Settings → General → Sources → Stream leads with the sign-in: an address
+// - Settings → Sources → Stream leads with the sign-in: an address
 //   field, Connect, the code (large, copyable, approved on the configure
 //   page, noticed on its own), then "Signed in as", the host (origin only),
 //   when it last synced, Sync now, the Trakt line, the Connection Test and
@@ -287,9 +287,10 @@ const waitFor = async (p, fn, ms = 12_000) => {
   return false;
 };
 const callsOf = (p, cmd) => p.evaluate((c) => window.__calls.filter(([n]) => n === c).map(([, a]) => a), cmd);
-/** Settings, on General → Sources → Stream. */
+/** Settings, on Sources → Stream. */
 const toStreamTab = async (p) => {
   await p.locator("button[aria-label='Settings']").click({ timeout: 20_000 });
+  await p.getByRole("tab", { name: "Sources", exact: true }).click();
   await p.locator(".customize-rail").getByRole("tab", { name: "Stream", exact: true }).click();
   await p.locator(".settings-section").first().waitFor({ timeout: 10_000 });
 };
@@ -611,7 +612,7 @@ const shot = async (p, name) => {
   const text = (await note.innerText()).replace(/\n/g, " | ");
   check(
     "With no connection, Stream's empty state points at signing in",
-    /Sign in to your AIOStreams in Settings → General → Sources → Stream/.test(text) && !/manifest/i.test(text),
+    /Sign in to your AIOStreams in Settings → Sources → Stream/.test(text) && !/manifest/i.test(text),
     text,
   );
   await p.close();

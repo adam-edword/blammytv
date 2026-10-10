@@ -15,7 +15,7 @@ import { loadTrakt, TRAKT_SYNCED } from "../trakt/store";
 import { syncTrakt } from "../trakt/sync";
 
 /**
- * Settings → General → Accounts: connect Trakt (plan 015, B2).
+ * Settings → Accounts: connect Trakt (plan 015, B2).
  *
  * Trakt's device sign-in: the app shows a short code, you enter it at
  * trakt.tv/activate on any device, and the app notices on its own. The code

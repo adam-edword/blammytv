@@ -6,7 +6,7 @@
  * `bg-surface` does not exist and `bg-zinc-900` is a colour this app has
  * never used. Anything written with stock utilities would be off-palette,
  * and worse, would not follow the theme: the accent is user-picked at
- * runtime (the Customize picker writes `--accent` onto `:root`) and every
+ * runtime (the Appearance picker writes `--accent` onto `:root`) and every
  * token below it re-derives, which a hardcoded oklch cannot do.
  *
  * WHY IT IS `inline`. `@theme inline` makes the generated utility use the
@@ -155,7 +155,7 @@
   --color-popover: var(--float-bg);
   --color-popover-foreground: var(--text);
 
-  /* The brand. A reference, not a copy, so the Customize picker still
+  /* The brand. A reference, not a copy, so the Appearance picker still
    * reaches it: `@theme inline` is what keeps that true. */
   --color-primary: var(--accent);
   /* THEME-DEPENDENT, and it has to be. This was a fixed #fff, which was

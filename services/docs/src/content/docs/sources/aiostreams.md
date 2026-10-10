@@ -17,7 +17,7 @@ You need one thing: your instance's address, like `aiostreams.example.com`.
 It's the address your configure page lives at. A pasted manifest URL or
 configure URL works too, and BlammyTV takes the address out of it.
 
-Go to **Settings → General → Sources → Stream**, type the address and press
+Go to **Settings → Sources → Stream**, type the address and press
 **Connect**. You can do the same during [first launch](/start/first-launch/).
 
 1. BlammyTV shows a 6-digit code.
@@ -61,7 +61,7 @@ Signing in also syncs what you watch with your other AIOStreams apps:
 - **Skip Intro, Skip Recap and Skip Credits** for films and shows, from
   AIOStreams' markers. Anime keeps BlammyTV's own AniSkip timings.
 
-**Settings → General → Sources → Stream** shows when it last synced, and
+**Settings → Sources → Stream** shows when it last synced, and
 **Sync now** runs one on the spot.
 
 :::caution[Leave Trakt trackers out of your AIOStreams setup]
@@ -78,7 +78,7 @@ with the title, season and episode. That's your instance's setting. See
 Some instances can't sign in. ElfHosted ships with the Jellyfin side off, and
 a sign-in needs it. For those, there's still the manifest URL.
 
-Under **Settings → General → Sources → Stream**, press **Use a manifest URL
+Under **Settings → Sources → Stream**, press **Use a manifest URL
 instead**. It's one field, your **manifest URL**, from your instance's
 configure page. It looks something like:
 
@@ -103,7 +103,7 @@ more.
 
 ## The Connection Test
 
-**Settings → General → Sources → Stream → Connection Test** runs real
+**Settings → Sources → Stream → Connection Test** runs real
 requests, in order, and tells you which one failed. It uses the same network
 path the app itself uses, so it can't pass while the app fails.
 
@@ -148,7 +148,8 @@ server hosting your manifest.
 - **Catalog rows** on the Stream home tab, one per browsable catalog your
   config exposes.
 - **A featured hero**, drawn from your catalogs. You can pin which ones it
-  uses under **Settings → Hero Sources**, or leave it on the default mix.
+  uses under **Settings → Appearance → Stream → Hero Slider Sources**, or
+  leave it on the default mix.
 - **Search**, on the Discover tab.
 - **Artwork and synopses**, filled in from Cinemeta where your catalog is
   sparse.

@@ -8,7 +8,7 @@ export type Theme = "dark" | "light";
  * WebView2 passes through as `prefers-color-scheme`. */
 export type ThemePref = Theme | "system";
 
-/** The picker's options, in Settings → Customize → Interface. */
+/** The picker's options, in Settings → Appearance → Interface. */
 export const THEME_TABS: Array<{ key: ThemePref; label: string }> = [
   { key: "dark", label: "Dark" },
   { key: "light", label: "Light" },

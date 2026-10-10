@@ -271,7 +271,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     null,
   );
   /** The folder context menu (right-click → Hide): cursor-anchored, one
-   * action. Unhide lives in Settings → General → Sources' folder editor. */
+   * action. Unhide lives in Settings → Sources' folder editor. */
   const [folderMenu, setFolderMenu] = useState<{
     x: number;
     y: number;
@@ -985,7 +985,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               id="folder-menu-hint"
               role="none"
             >
-              Unhide any time in Settings &rarr; General &rarr; Sources.
+              Unhide any time in Settings &rarr; Sources.
             </p>
           </div>,
           document.body,
@@ -1033,7 +1033,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 {live.status === "error"
                   ? live.message
                   : ready!.groups.find((g) => g.error)!.error}
-                . Check them in Settings → General → Sources.
+                . Check them in Settings → Sources.
               </>
             }
             actions={
@@ -1054,7 +1054,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             role="status"
             icon={<TvIcon size={28} />}
             title="No channels here yet"
-            sub="Add a playlist in Settings → General → Sources."
+            sub="Add a playlist in Settings → Sources."
           />
         )}
         {ready && shownChannel && (

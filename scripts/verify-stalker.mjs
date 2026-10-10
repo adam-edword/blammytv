@@ -103,7 +103,7 @@ check("EPG listings from get_epg_info render", epg);
   );
   await hiddenPage.locator(".header__right button").last().click();
   await hiddenPage.locator(".settings").waitFor();
-  await hiddenPage.getByRole("tab", { name: "General", exact: true }).click();
+  await hiddenPage.getByRole("tab", { name: "Sources", exact: true }).click();
   await hiddenPage.getByRole("button", { name: "Edit Test Portal folders" }).click();
   const rows = await hiddenPage
     .locator(".source-row__name")

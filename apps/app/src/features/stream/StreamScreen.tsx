@@ -1957,7 +1957,7 @@ function Home({
         className="stream__note"
         icon={<StreamIcon size={28} />}
         title="Movies and shows, one tab over from live"
-        sub="Sign in to your AIOStreams in Settings → General → Sources → Stream and the catalog appears here."
+        sub="Sign in to your AIOStreams in Settings → Sources → Stream and the catalog appears here."
       />
     );
   }
@@ -1981,8 +1981,8 @@ function Home({
           <>
             {load.message}.{" "}
             {loadAioConn()?.kind === "signin"
-              ? "Check your AIOStreams sign-in in Settings → General → Sources → Stream."
-              : "Check the manifest URL in Settings → General → Sources → Stream."}
+              ? "Check your AIOStreams sign-in in Settings → Sources → Stream."
+              : "Check the manifest URL in Settings → Sources → Stream."}
           </>
         }
         // Live's error states retry; siblings match (the audit's dead-end
@@ -2016,8 +2016,8 @@ function Home({
         title="Nothing came back from your catalogs"
         sub={
           loadAioConn()?.kind === "signin"
-            ? "You’re signed in, but every catalog came back empty. Check your AIOStreams sign-in in Settings → General → Sources → Stream, or just try again in a minute."
-            : "The manifest loaded but every catalog returned empty. Check the manifest in Settings → General → Sources, or just try again in a minute."
+            ? "You’re signed in, but every catalog came back empty. Check your AIOStreams sign-in in Settings → Sources → Stream, or just try again in a minute."
+            : "The manifest loaded but every catalog returned empty. Check the manifest in Settings → Sources, or just try again in a minute."
         }
       />
     );

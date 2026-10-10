@@ -15,7 +15,7 @@ import { AIO_URL_CHANGED, isValidManifestUrl, loadAioUrl, saveAioUrl } from "./a
 import { Hint } from "../../ui/Hint";
 
 /**
- * Settings → General → Sources → Stream: how the app reaches AIOStreams.
+ * Settings → Sources → Stream: how the app reaches AIOStreams.
  *
  * Signing in leads (plan 024): your instance's address and a code you approve
  * on its configure page, the way plan 023's sync always did. Signed in, this

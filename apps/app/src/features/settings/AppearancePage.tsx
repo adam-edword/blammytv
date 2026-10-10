@@ -2,25 +2,8 @@ import { useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { EYEBROW } from "../../ui/eyebrow";
 import { Segmented } from "../../ui/Segmented";
-import { Combobox, type ComboboxOption } from "../../ui/Combobox";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioConn } from "../aiojf/conn";
-import { loadOneClickPlay, saveOneClickPlay } from "./oneClickPlay";
-import { loadSourceFailover, saveSourceFailover } from "./failover";
-import {
-  AUTO,
-  LANGUAGES,
-  SUBS_OFF,
-  loadAudioLang,
-  loadSubLang,
-  saveAudioLang,
-  saveSubLang,
-} from "./languagePrefs";
-import {
-  loadSkipBehavior,
-  saveSkipBehavior,
-  type SkipBehavior,
-} from "./skipBehavior";
 import { HeroSourcesSection } from "./HeroSourcesSection";
 import { loadShowHero, saveShowHero } from "./showHero";
 import {
@@ -65,47 +48,31 @@ import {
   loadShowChannelNumber,
   saveShowChannelNumber,
 } from "./channelNumber";
+import { ConfirmButton } from "./ConfirmButton";
+import { SignInNote } from "./SignInNote";
 import { Hint } from "../../ui/Hint";
 
-// CLOCK_TABS lives in clockFormat.ts — one list shared with onboarding.
+// CLOCK_TABS lives in clockFormat.ts: one list shared with onboarding.
 
-/** The same Live TV / Stream split General's Sources uses. One mental
- * model: the app has two content worlds, and each tab says its piece about
+/** The same Live TV / Stream split the Sources page uses. One mental
+ * model: the app has two content worlds, and each page says its piece about
  * both. */
 const WORLD_TABS = [
   { key: "stream", label: "Stream" },
   { key: "live", label: "Live TV" },
 ] as const;
 
-// STARTUP_TABS lives in startupTab.ts — one list shared with onboarding.
+// STARTUP_TABS lives in startupTab.ts: one list shared with onboarding.
 
 /**
- * The language pickers' options. Built once at module scope, not per render:
- * the list is 28 entries and never changes, and rebuilding it every render
- * would hand Combobox a new array identity each time for nothing.
- *
- * The code rides along as a search keyword so typing "es" finds Spanish as
- * well as typing "Spanish" does. That is the one thing the native <select>
- * did that a plain label list would have lost.
+ * Appearance: how it looks. The accent, light or dark, the clock, and what
+ * each world's screens show. What the app DOES when you press play is on the
+ * Playback page, not here (the 0.8.0 filing rule); Reset Appearance is the
+ * page's footer, behind the same two-press button as Clear All Login Info.
  */
-const LANG_OPTIONS: ComboboxOption[] = LANGUAGES.map((l) => ({
-  value: l.code,
-  label: l.label,
-  keywords: [l.code],
-}));
-const AUDIO_OPTIONS: ComboboxOption[] = [
-  { value: AUTO, label: "No preference" },
-  ...LANG_OPTIONS,
-];
-const SUB_OPTIONS: ComboboxOption[] = [
-  { value: AUTO, label: "No preference" },
-  { value: SUBS_OFF, label: "Off" },
-  ...LANG_OPTIONS,
-];
-
 // The accent picker lives here again (ROADMAP decision 1). Theme packs and
 // the Themes Pass are parked in old/themes and come back later with new looks.
-export function CustomizeTab() {
+export function AppearancePage() {
   // Appearance (plan 022): Dark, Light, or Windows' own setting.
   const [theme, setTheme] = useState<ThemePref>(loadThemePref);
   const pickTheme = (next: ThemePref) => {
@@ -120,7 +87,7 @@ export function CustomizeTab() {
     saveStartupTab(next);
   };
 
-  // Ephemeral, like General's Sources: always opens on Stream.
+  // Ephemeral, like Sources' pill: always opens on Stream.
   const [world, setWorld] = useState<"stream" | "live">("stream");
 
   const [clock, setClock] = useState<ClockFormat>(loadClockFormat);
@@ -140,8 +107,9 @@ export function CustomizeTab() {
   // What the catalog surfaces SHOW, moved off the AIOStreams tab: these
   // describe the app's appearance, not the connection that feeds it. Still
   // gated on a configured manifest, because with none there are no cards,
-  // no VOD overlay and no rows for them to govern. Read once per mount, so
-  // adding a manifest reveals them the next time Settings opens.
+  // no VOD overlay and no rows for them to govern. Read once per mount, and
+  // a page mounts each time you arrive, so signing in on Sources reveals
+  // them on your way here.
   const hasAddon = useRef(!!loadAioConn()).current;
 
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
@@ -167,16 +135,7 @@ export function CustomizeTab() {
     );
   };
 
-  // Playback behaviour for the Stream side. It lives with the rest of the
-  // Stream world rather than in General: everything that belongs to ONE
-  // side of the app is in one place, and hunting across two tabs to tune
-  // Stream was the thing this whole rail is meant to stop.
   const [hero, setHero] = useState<boolean>(loadShowHero);
-  const [oneClick, setOneClick] = useState<boolean>(loadOneClickPlay);
-  const [failover, setFailover] = useState<boolean>(loadSourceFailover);
-  const [skip, setSkip] = useState<SkipBehavior>(loadSkipBehavior);
-  const [audioLang, setAudioLang] = useState<string>(loadAudioLang);
-  const [subLang, setSubLang] = useState<string>(loadSubLang);
 
   // The slider steps by 5; clicking the number swaps it for a type-in field.
   const [rowCap, setRowCap] = useState<number>(loadRowCap);
@@ -197,7 +156,7 @@ export function CustomizeTab() {
 
   /** Back to factory appearance: default accent (custom slot cleared),
    * dark appearance, 12h clock, channel numbers shown. Startup Tab is
-   * NOT reset, even though it is displayed on this tab: it decides where the
+   * NOT reset, even though it is displayed on this page: it decides where the
    * app OPENS, which is behaviour, and this button promises appearance. */
   const reset = () => {
     // The factory accent is NO accent since v0.9.57: --accent then resolves
@@ -221,8 +180,8 @@ export function CustomizeTab() {
           Adam's call: the pack engine was outranking the shadcn palette on
           every launch and it is easier to redesign without it in the way. */}
       {/* Applies everywhere, whichever side of the app you are on. Named
-        * Interface rather than General so it does not collide with the
-        * General TAB one level up. */}
+        * Interface rather than Appearance so it does not collide with the
+        * Appearance PAGE one level up (or the Appearance row below). */}
       <h3 className={`settings__group ${EYEBROW}`}>Interface</h3>
       <section className="settings-section">
         {/* Stacked, not a row: nine swatches do not fit beside a label. */}
@@ -269,27 +228,19 @@ export function CustomizeTab() {
 
       </section>
 
-      {/* Per-world look, behind the same pill General's Sources uses. */}
+      {/* Per-world look, behind the same pill Sources uses. */}
       <h3 className={`settings__group ${EYEBROW}`}>Media</h3>
       <div className="customize-rail">
         <Segmented role="tabs" label="Media" options={WORLD_TABS} value={world} onChange={setWorld} />
       </div>
 
-      {world === "stream" && !hasAddon && (
-        <section className="settings-section">
-          <p className="settings__section-note settings__section-note--dim">
-            Connect an AIOStreams manifest under General &rarr; Sources and
-            these appear.
-          </p>
-        </section>
-      )}
+      {world === "stream" && !hasAddon && <SignInNote />}
 
-      {/* One section, not five. Each control keeps its own label, but the
+      {/* One section, not four. Each control keeps its own label, but the
         * 21px block headings and the rule between every one of them made a
-        * seven-item panel read like seven pages. ONE section for the whole
-        * panel: look first, then playback, with no rule between them —
-        * they are one list of Stream settings, not two topics. Chip groups
-        * stack (too wide to sit beside a label); the rest are normal rows. */}
+        * four-item panel read like four pages. ONE section for the whole
+        * panel. Chip groups stack (too wide to sit beside a label); the rest
+        * are normal rows. How Stream PLAYS is on the Playback page. */}
       {world === "stream" && hasAddon && (
         <section className="settings-section">
           {/* Above the sources picker, because it decides whether that
@@ -437,110 +388,6 @@ export function CustomizeTab() {
               )}
             </div>
           </div>
-
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">One-Click Play Movies</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                Clicking a movie plays the best cached source right away.
-                Uncached is never auto-played.
-              </p>
-            </div>
-            <Toggle
-              on={oneClick}
-              onChange={() => {
-                const next = !oneClick;
-                setOneClick(next);
-                saveOneClickPlay(next);
-              }}
-              label="One-click play"
-            />
-          </div>
-
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Auto Source Failover</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                A source dying mid-play jumps to the next cached one. Off shows
-                a button instead.
-              </p>
-            </div>
-            <Toggle
-              on={failover}
-              onChange={() => {
-                const next = !failover;
-                setFailover(next);
-                saveSourceFailover(next);
-              }}
-              label="Auto source failover"
-            />
-          </div>
-
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Preferred Language</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                Every stream tries to load these. A track you pick by hand on a
-                particular show still wins for that show, and anything the
-                stream doesn&rsquo;t carry is left alone.
-              </p>
-            </div>
-            <div className="customize-langs">
-              <div className="customize-lang">
-                <span>Audio</span>
-                <Combobox
-                  className="customize-lang__select w-44"
-                  ariaLabel="Preferred audio language"
-                  options={AUDIO_OPTIONS}
-                  value={audioLang}
-                  placeholder="No preference"
-                  emptyText="No language found."
-                  onChange={(v) => {
-                    setAudioLang(v);
-                    saveAudioLang(v);
-                  }}
-                />
-              </div>
-              <div className="customize-lang">
-                <span>Subtitles</span>
-                <Combobox
-                  className="customize-lang__select w-44"
-                  ariaLabel="Preferred subtitle language"
-                  options={SUB_OPTIONS}
-                  value={subLang}
-                  placeholder="No preference"
-                  emptyText="No language found."
-                  onChange={(v) => {
-                    setSubLang(v);
-                    saveSubLang(v);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Skip Behavior</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                The Skip Intro/Recap/Credits button, from the file&rsquo;s
-                chapters. Combine merges credits and preview into one jump.
-              </p>
-            </div>
-            <Segmented
-              label="Skip button"
-              options={[
-                { key: "hidden", label: "Hidden" },
-                { key: "normal", label: "Normal" },
-                { key: "combine", label: "Combine Credits & Preview" },
-              ]}
-              value={skip}
-              onChange={(k: SkipBehavior) => {
-                setSkip(k);
-                saveSkipBehavior(k);
-              }}
-            />
-          </div>
         </section>
       )}
 
@@ -562,28 +409,17 @@ export function CustomizeTab() {
         </section>
       )}
 
-      {/* Danger Zone is always the last section in a tab. Reset Appearance
-        * stays here with the things it resets. Updates, Replay Onboarding and
-        * Clear All Login Info moved to General: app management, not
-        * personalization. */}
+      {/* The page's footer: Reset Appearance stays with the things it
+        * resets. */}
       <section className="settings-section">
-        <div className="danger-zone">
-          <h3 className="danger-zone__title">Danger Zone</h3>
-          <div className="customize-row">
-            <div>
-              <h4 className="customize-row__title">Reset Appearance</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                Accent, appearance and clock back to defaults.
-              </p>
-            </div>
-            <Button
-              variant="destructive"
-              type="button"
-              onClick={reset}
-            >
-              Reset
-            </Button>
+        <div className="customize-row">
+          <div>
+            <h4 className="customize-row__title">Reset Appearance</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Accent, appearance and clock back to defaults.
+            </p>
           </div>
+          <ConfirmButton label="Reset" onConfirm={reset} />
         </div>
       </section>
     </>

@@ -762,7 +762,7 @@ async function buildXtreamSource(
 
     // EPG is best-effort — channels still render "No Information" without
     // it. Whatever goes wrong lands on group.epgError so an installed user
-    // can read the reason in Settings → Playlists (the console is invisible
+    // can read the reason in Settings → Sources (the console is invisible
     // in a packaged build).
     // NOT awaited: this is the minute-long half. The channel list below
     // returns without it and doLoad merges the programmes when they land.
@@ -975,7 +975,7 @@ async function buildM3uSource(
 
     // EPG is best-effort — only when the playlist declares one AND some
     // channel carries a tvg-id to match against. Reasons land on epgError
-    // for Settings → Playlists.
+    // for Settings → Sources.
     const epgUrl = m3uEpgUrl(text);
     const epg = (async (): Promise<EpgPhase> => {
       const none = new Map<string, Programme[]>();

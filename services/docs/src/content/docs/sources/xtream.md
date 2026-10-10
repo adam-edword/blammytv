@@ -17,7 +17,7 @@ Three things, from whoever supplies your service.
 | **Username** | your panel username |
 | **Password** | your panel password |
 
-Add it under **Settings → Playlists → Xtream**, or during
+Add it under **Settings → Sources → Live TV → Xtream**, or during
 [first launch](/start/first-launch/). Leaving the name blank is fine. You get
 a numbered default like "Xtream Playlist 2".
 
@@ -34,7 +34,7 @@ password out of it and use those here.
   channels appear. Empty lanes read "No Information" until it does. It's
   downloaded once every 12 hours, not on every launch, while the channel list
   still reloads each time. **Refresh now**, under your playlists in
-  **Settings → General → Sources**, fetches a fresh one sooner.
+  **Settings → Sources**, fetches a fresh one sooner.
 - **Connection limits** in the sidebar. See
   [Connection limits](/troubleshooting/connections/).
 
@@ -51,7 +51,7 @@ provider order until you say otherwise.
 
 ## If it fails to connect
 
-The setup flow and the Playlists tab both report the real error. The common
+The setup flow and Settings → Sources both report the real error. The common
 ones:
 
 - **Wrong server format.** It needs a scheme and usually a port:

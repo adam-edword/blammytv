@@ -288,7 +288,7 @@ await closeAll();
 
 // The combobox, in Settings.
 await openSettings();
-await page.getByRole("tab", { name: "Customize", exact: true }).click();
+await page.getByRole("tab", { name: "Playback", exact: true }).click();
 await page.getByRole("combobox", { name: "Preferred audio language" }).click();
 await page.locator("[data-slot='combobox-content']").waitFor({ timeout: 5_000 });
 await page.keyboard.press("ArrowDown");

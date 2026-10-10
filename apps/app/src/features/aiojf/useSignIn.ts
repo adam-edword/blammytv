@@ -6,7 +6,7 @@ import { aiojfPoll, aiojfStart, type AiojfStatus, type QuickConnect } from "./cl
 
 /**
  * Signing in to AIOStreams by Quick Connect (plan 023, B3, moved here for
- * plan 024): the one flow Settings → General → Sources → Stream and
+ * plan 024): the one flow Settings → Sources → Stream and
  * onboarding's sign-in step both run, each in its own look.
  *
  * The app shows a 6-digit code, you approve it on your AIOStreams configure

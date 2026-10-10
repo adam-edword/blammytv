@@ -133,6 +133,83 @@
   }
 }
 
+/* ---- The rail (plan 025; ui/Rail.tsx): Settings' pages, a column of
+ * two-line items. The chosen one is the segmented control's own chip
+ * (--tint-on) on the same sliding thumb, at the field radius because a
+ * two-line item in a pill reads as a lozenge. The name keeps the text colour
+ * whether chosen or not: every item carries a line under it, and a muted
+ * name over a muted line is one grey block. The line is --text-muted. */
+.rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rail__thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-radius: var(--radius);
+  background: var(--tint-on);
+  pointer-events: none;
+  will-change: transform, height;
+  transition:
+    transform 380ms var(--spring),
+    height 380ms var(--spring);
+}
+.rail__thumb--snap {
+  transition: none;
+}
+.rail__opt {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rail__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  /* The name's line box, so the mark sits on the name and not between the
+   * two lines. */
+  height: 20px;
+  color: var(--text-muted);
+  transition: color var(--dur-hover) var(--ease-out);
+}
+.rail__opt:hover .rail__icon,
+.rail__opt.is-on .rail__icon {
+  color: var(--text);
+}
+.rail__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.rail__name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.rail__blurb {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+.rail__opt:active {
+  transform: scale(0.98);
+}
+
 /* ---- LIVE (plan 019, K4; ui/LivePill.tsx): multi-view's tile pill. The
  * dot is the accent, the app's signal for live; the fill is a tint of the
  * ink it sits in, so it reads on a picture and on the page. */
@@ -566,6 +643,7 @@ button.place:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .seg__thumb,
+  .rail__thumb,
   .toggle__thumb {
     transition: none;
   }

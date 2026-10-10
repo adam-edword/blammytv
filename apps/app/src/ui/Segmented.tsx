@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Hint } from "./Hint";
 import { REDUCED_MOTION } from "../lib/reducedMotion";
+import { tabKeyTarget } from "./tabKeys";
 
 /** One option: its key, its word (also its accessible name) and its mark. */
 export interface SegOption<K extends string> {
@@ -189,13 +190,8 @@ export function Segmented<K extends string>({
   const onKey = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (role !== "tabs") return;
     const i = options.findIndex((o) => o.key === value);
-    let next: number;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (i + 1) % options.length;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
-      next = (i - 1 + options.length) % options.length;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = options.length - 1;
-    else return;
+    const next = tabKeyTarget(e.key, i, options.length);
+    if (next === null) return;
     e.preventDefault();
     const key = options[next].key;
     onChange(key);

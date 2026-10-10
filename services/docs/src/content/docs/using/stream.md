@@ -12,9 +12,9 @@ The **Stream** tab is movies and shows, served by your own
 Rows of posters, one per browsable catalog your addon exposes, with a featured
 hero at the top.
 
-- **Catalog Row Size** (Settings) controls how many titles each row holds. 40
+- **Catalog Row Size** (Settings → Appearance) controls how many titles each row holds. 40
   by default.
-- **Hero Sources** (Settings) pins which catalogs the hero draws from. Leave it
+- **Hero Slider Sources** (Settings → Appearance) pins which catalogs the hero draws from. Leave it
   empty for the default mix.
 - Rows load independently, so one failing catalog goes missing rather than
   taking the page down with it.

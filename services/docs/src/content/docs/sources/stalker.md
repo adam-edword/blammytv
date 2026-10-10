@@ -14,7 +14,7 @@ don't need the box.
 | **Portal URL** | `http://example.com` or `http://example.com/c/` |
 | **MAC address** | `00:1A:79:XX:XX:XX` |
 
-Add it under **Settings → Playlists → Stalker/MAG**.
+Add it under **Settings → Sources → Live TV → Stalker/MAG**.
 
 The MAC is the credential here. Portals authorise a device address rather than
 a username and password, so anyone with your MAC has your subscription. Treat

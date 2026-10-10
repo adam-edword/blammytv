@@ -1,4 +1,4 @@
-// E2E: Settings → Customize → Appearance, light mode's way back (plan 022).
+// E2E: Settings → Appearance → Appearance, light mode's way back (plan 022).
 //
 // Dark, Light, or Match Windows (prefers-color-scheme, which WebView2 takes
 // from Windows). From v0.9.58 to v0.10.64 main.tsx forced dark whatever was
@@ -50,9 +50,9 @@ const state = () =>
     };
   });
 const group = () => page.getByRole("group", { name: "Appearance" });
-const openCustomize = async () => {
+const openAppearance = async () => {
   await page.locator("button[aria-label='Settings']").click();
-  await page.getByRole("tab", { name: "Customize", exact: true }).click();
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await group().waitFor({ timeout: 10_000 });
 };
 const pick = async (label) => {
@@ -66,7 +66,7 @@ await boot();
 const fresh = await state();
 check("a fresh profile opens dark", fresh.theme === "dark" && fresh.page === "oklch(0.145 0 0)", JSON.stringify(fresh));
 
-await openCustomize();
+await openAppearance();
 check("Dark is the chosen option on a fresh profile", (await pressed()) === "Dark");
 await pick("Light");
 const light = await state();
@@ -105,7 +105,7 @@ await boot();
 check("and it is still light after a restart", (await state()).theme === "light");
 
 // Match Windows: follows the OS at launch and while open.
-await openCustomize();
+await openAppearance();
 check("the restarted Settings shows Light chosen", (await pressed()) === "Light");
 await pick("Match Windows");
 const withDarkOs = (await state()).theme;
@@ -129,7 +129,7 @@ check("and at launch", (await state()).theme === "light");
 // change event, so this passed with the listener still attached. Windows goes
 // dark first (Match Windows follows it), Dark is picked, and only then does
 // Windows go light.
-await openCustomize();
+await openAppearance();
 await page.emulateMedia({ colorScheme: "dark" });
 await page.waitForTimeout(150);
 const followedDark = (await state()).theme;
@@ -145,7 +145,9 @@ check(
 
 // Reset Appearance goes back to Dark.
 await pick("Light");
+// Two presses since the pages (v0.11.26): Reset arms, then confirms.
 await page.getByRole("button", { name: "Reset", exact: true }).click();
+await page.getByRole("button", { name: "Click again to confirm" }).click();
 await page.waitForTimeout(150);
 check(
   "Reset Appearance goes back to Dark",

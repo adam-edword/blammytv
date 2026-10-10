@@ -158,7 +158,7 @@ export function App() {
     () => !shouldShowOnboarding() && shouldPlayWelcome(),
   );
 
-  // Settings → Customize → "Replay Onboarding": mount the flow over the
+  // Settings → App → "Replay Onboarding": mount the flow over the
   // app on demand (the completed flag stays — see onboardingGate).
   useEffect(
     () =>
@@ -530,7 +530,7 @@ export function App() {
             setSection("stream");
             setStreamTab(to.tab);
           } else {
-            saveSettingsTab(to.tab);
+            if (to.tab) saveSettingsTab(to.tab);
             setSettingsFrom(from);
             setSettingsOpen(true);
           }

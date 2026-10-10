@@ -16,6 +16,7 @@ import {
 } from "../../ui/icons";
 import { formatClock } from "../../lib/time";
 import { loadClockFormat, onClockFormatChange } from "../settings/clockFormat";
+import { SETTINGS_PAGES, type SettingsTab } from "../settings/settingsTab";
 import { lookupLive } from "../live/source";
 import { channelIndex, searchChannels } from "../live/mvGrid";
 import { airing } from "../live/mvTile";
@@ -50,7 +51,9 @@ import { lastInputWasKey } from "../live/mvMotion";
 export type GoTarget =
   | { kind: "live"; tab: LiveTab }
   | { kind: "stream"; tab: StreamTab }
-  | { kind: "settings"; tab: "general" | "customize" };
+  // No page: open Settings where it was left. A page: open on it (App saves
+  // it, so a later open without one finds it too).
+  | { kind: "settings"; tab?: SettingsTab };
 
 type Row =
   | { key: string; kind: "channel"; label: string; channel: Channel }
@@ -185,9 +188,11 @@ export function Palette({
             go("Library", "Movies and shows", <LibraryIcon size={16} />, { kind: "stream", tab: "mylist" }),
           ]
         : []),
-      go("Settings", "General", <SettingsIcon size={16} />, { kind: "settings", tab: "general" }),
-      go("Sources", "Settings · General", <SettingsIcon size={16} />, { kind: "settings", tab: "general" }),
-      go("Customize", "Settings", <SettingsIcon size={16} />, { kind: "settings", tab: "customize" }),
+      go("Settings", "Where you left off", <SettingsIcon size={16} />, { kind: "settings" }),
+      // One place per page, in the rail's order and in the rail's words.
+      ...SETTINGS_PAGES.map((p) =>
+        go(p.label, `Settings · ${p.blurb}`, <SettingsIcon size={16} />, { kind: "settings", tab: p.key }),
+      ),
     ];
   }, [hasLive, hasStream]);
 
