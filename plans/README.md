@@ -3,7 +3,9 @@
 Every plan, with where it stands (refreshed 2026-09-28, v0.10.61). The
 week of 2026-09-28's log is [week-2026-09-28.md](week-2026-09-28.md).
 Telly 2.0.5 read against ours, feature by feature, with what is worth
-borrowing: [telly-2.0.5.md](telly-2.0.5.md) (2026-10-09).
+borrowing: [telly-2.0.5.md](telly-2.0.5.md) (2026-10-09). The AIOStreams
+desktop app, read from its source the same way:
+[aiostreams-app.md](aiostreams-app.md) (2026-10-10).
 
 001 to 007 came out of the `improve-animations` audit at commit `018a8f4` (2026-07-22). The full
 verified findings table is in [audit-report.md](audit-report.md), 71 findings that
@@ -41,6 +43,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [022](022-glass-and-light.md) | The glass in two tiers, and light mode back with its control | MEDIUM | CALLS TAKEN 2026-09-29 (glass B, grey page, Appearance control); not built yet |
 | [023](023-aiostreams-jellyfin.md) | AIOStreams' Jellyfin side: sync what you watch with AIOStreams' own watch state, skip intros and credits for every film and show, Next Up and Upcoming rows | MEDIUM | BUILT (2026-10-04): v0.11.13, 595c29a1 (native), v0.11.14; not yet run against a real AIOStreams |
 | [024](024-aiostreams-sign-in.md) | AIOStreams by sign-in: the instance's address and a code instead of a pasted manifest URL, with Stream's catalogs, details, sources and playback over the Jellyfin side | MEDIUM | BUILT (2026-10-04): v0.11.16 to v0.11.18, sign-in, Stream over it, the sign-in screens and onboarding; not yet run against a real AIOStreams |
+| [025](025-settings.md) | Settings, replanned: five pages filed by question (Sources, Playback, Appearance, Accounts, App), the palette finding any setting, and what to add from the Telly and AIOStreams comparisons | MEDIUM | PROPOSAL (2026-10-10): nine calls are Adam's, nothing built |
 
 ## 001 to 007: execution order & dependencies
 
