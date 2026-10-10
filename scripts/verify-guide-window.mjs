@@ -60,7 +60,24 @@ await page.addInitScript(() => {
   localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "live" }));
   // React commits, through a devtools hook installed before React loads
   // (verify-overlay-renders does the same).
+  //
+  // Counted: commits in which the GUIDE rendered, not every commit in the
+  // app. Counting every commit read a header clock rolling over, or any
+  // other screen's timer, as the scrub rendering: CI read 2 on v0.11.25,
+  // a passing run here. The Guide's fiber is cloned only when React visits
+  // it, and React sets PerformedWork (flag 1) only when it actually rendered
+  // it, not when memo bailed out. The name is "Guide2" in vite's dev build
+  // (esbuild renames `memo(function Guide…)` away from the const it sits in).
   window.__commits = 0;
+  let guideFiber = null;
+  const findGuide = (f) => {
+    for (let n = f; n; n = n.sibling) {
+      if (typeof n.type === "function" && /^Guide\d*$/.test(n.type.name)) return n;
+      const inner = n.child && findGuide(n.child);
+      if (inner) return inner;
+    }
+    return null;
+  };
   window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
     supportsFiber: true,
     renderers: new Map(),
@@ -69,8 +86,10 @@ await page.addInitScript(() => {
       this.renderers.set(id, r);
       return id;
     },
-    onCommitFiberRoot() {
-      window.__commits++;
+    onCommitFiberRoot(_id, root) {
+      const f = findGuide(root.current);
+      if (f && f !== guideFiber && (f.flags & 1)) window.__commits++;
+      if (f) guideFiber = f;
     },
     onCommitFiberUnmount() {},
     onPostCommitFiberRoot() {},
@@ -251,6 +270,11 @@ const c0 = await page.evaluate(() => window.__commits);
 await page.evaluate(() => window.dispatchEvent(new CustomEvent("blammytv:clock-format", { detail: "24h" })));
 await settle();
 await page.evaluate(() => window.dispatchEvent(new CustomEvent("blammytv:clock-format", { detail: "12h" })));
+await settle();
+await page.waitForTimeout(100);
+// The Guide renders itself every 30 seconds (its now-line). Run the clock
+// past that tick here, so a slow machine's scrub can't straddle it.
+await page.clock.runFor(30_000);
 await settle();
 await page.waitForTimeout(100);
 const c1 = await page.evaluate(() => window.__commits);
