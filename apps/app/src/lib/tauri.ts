@@ -374,6 +374,10 @@ export interface MpvStats {
   videoBitrate?: number;
   audioCodec?: string;
   audioBitrate?: number;
+  /** The source's channel count (audio-params/channel-count). */
+  audioChannels?: number;
+  /** The layout written to the device, readable: "stereo", "5.1". */
+  audioOut?: string;
   hwdec?: string;
   dropped?: number;
   cache?: number;

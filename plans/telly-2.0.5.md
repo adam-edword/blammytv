@@ -13,6 +13,17 @@ for the pop-out and `ffmpeg.exe` for recording. Its Rust side holds a
 SQLite database and answers the UI over JSON-RPC through Tauri events, not
 HTTP.
 
+## Decided 2026-10-10 (Adam)
+
+- **Multi-view stays on web tiles.** Native tiles would buy any codec and
+  faster HEVC starts; they would cost the tile motion and a refactor already
+  reverted once (v0.9.94), for a multi-view that works. Adam: "I like how it
+  works now."
+- **Guide downloads:** stop re-downloading the guide on every launch, and add
+  Refresh now.
+- **Surround:** stop forcing stereo. Done in v0.11.21, with a Channels row in
+  the stats overlay to read what reached the device.
+
 ## The short version
 
 Telly is broader: 13 settings tabs to our 2, recording, catch-up, Emby,

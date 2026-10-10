@@ -311,7 +311,8 @@ pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {
         // Borderless — a clean PiP, no Windows title bar (still drag/resizable).
         set("border", "no");
         set("hwdec", "auto-safe");
-        set("audio-channels", "stereo");
+        // No `audio-channels`, as the main player (ensure_player): 5.1
+        // reaches a surround device.
         set("title", "BlammyTV — Popout");
         set("osc", "yes");
         // KEYS, not just the OSC bar. `osc` is a Lua script, so if it does
@@ -498,7 +499,14 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         // (verified via diagnostics). It's a Windows presentation quirk (DWM
         // composition windowed vs independent-flip/overlay fullscreen). The real
         // fix is rendering mpv into a DComp composition swapchain (render API).
-        set("audio-channels", "stereo");
+        //
+        // No `audio-channels`: mpv's default, auto-safe, opens the device at
+        // the layout Windows has it set to. 5.1 or 7.1 for speakers or Windows
+        // Sonic, so a 5.1 source plays as 5.1; stereo for headphones, which
+        // mpv downmixes to. This used to force "stereo", with no reason
+        // recorded, and every surround source was downmixed for everyone.
+        // The stats overlay's Channels row shows what reached the device.
+        //
         // The app's name in Windows' sound settings. mpv hands its window
         // title to its audio session (AOCONTROL_UPDATE_STREAM_TITLE), and the
         // default title is the stream's name plus " - mpv": Adam's read

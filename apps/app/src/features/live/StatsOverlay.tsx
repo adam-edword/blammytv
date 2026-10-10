@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { tauriMpvStats, type MpvStats } from "../../lib/tauri";
 import { StatsIcon } from "../../ui/icons";
+import { channels } from "./audioLayout";
 
 /**
  * "Stats for nerds" — a compact glass panel of live playback telemetry for the
@@ -33,6 +34,8 @@ function buildRows(s: MpvStats): Array<[string, string]> {
   if (s.videoBitrate != null) rows.push(["Video rate", mbps(s.videoBitrate)]);
   if (s.audioCodec) rows.push(["Audio", s.audioCodec]);
   if (s.audioBitrate != null) rows.push(["Audio rate", mbps(s.audioBitrate)]);
+  const ch = channels(s);
+  if (ch) rows.push(["Channels", ch]);
   if (s.hwdec) rows.push(["Hardware decode", s.hwdec]);
   if (s.dropped != null) rows.push(["Dropped frames", String(s.dropped)]);
   if (s.cache != null) rows.push(["Buffer", `${s.cache.toFixed(1)} s`]);

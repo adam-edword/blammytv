@@ -700,6 +700,10 @@ fn mpv_stats() -> String {
     put_num(&mut m, "videoBitrate", get_num("video-bitrate"));
     put_str(&mut m, "audioCodec", "audio-codec");
     put_num(&mut m, "audioBitrate", get_num("audio-bitrate"));
+    // What the source carries, and what reached the device: "6" against
+    // "5.1" is surround playing as surround, against "stereo" a downmix.
+    put_num(&mut m, "audioChannels", get_num("audio-params/channel-count"));
+    put_str(&mut m, "audioOut", "audio-out-params/hr-channels");
     put_str(&mut m, "hwdec", "hwdec-current");
     put_num(
         &mut m,
