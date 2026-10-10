@@ -186,8 +186,12 @@ export function AioStreamsTab() {
 
   return (
     <>
+      {/* The sign-in and the manifest are two ways into one place, so both
+        * sections are the "aiostreams" row. Usually one renders; the manifest
+        * can sit under the sign-in (Use a manifest URL instead), and a find
+        * lands on whichever comes first. */}
       {signInOffered && (
-        <section className="settings-section">
+        <section className="settings-section" data-setting="aiostreams">
           <h3 className="settings-section__list-title">AIOStreams</h3>
           {connected ? (
             <div className="customize-row aio-row">
@@ -288,7 +292,7 @@ export function AioStreamsTab() {
       )}
 
       {showManifest && (
-        <section className="settings-section">
+        <section className="settings-section" data-setting="aiostreams">
           <h3 className="settings-section__list-title">AIOStreams Manifest</h3>
           <p className="settings__section-note">
             Paste your AIOStreams manifest URL. It powers the movies and series
@@ -352,7 +356,7 @@ export function AioStreamsTab() {
       )}
 
       {conn && (
-        <section className="settings-section">
+        <section className="settings-section" data-setting="connection-test">
           <h3 className="settings-section__list-title">Connection Test</h3>
           <p className="settings__section-note settings__section-note--dim">
             {conn.kind === "signin"

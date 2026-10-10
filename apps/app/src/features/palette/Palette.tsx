@@ -17,6 +17,8 @@ import {
 import { formatClock } from "../../lib/time";
 import { loadClockFormat, onClockFormatChange } from "../settings/clockFormat";
 import { SETTINGS_PAGES, type SettingsTab } from "../settings/settingsTab";
+import { findSettings } from "../settings/settingsIndex";
+import { pageIcon } from "../settings/pageIcons";
 import { lookupLive } from "../live/source";
 import { channelIndex, searchChannels } from "../live/mvGrid";
 import { airing } from "../live/mvTile";
@@ -33,8 +35,9 @@ import { lastInputWasKey } from "../live/mvMotion";
  * the whole app, which is what ROADMAP has asked for since plan 017 ("its
  * first shape"), and the Ctrl+K channel search the Live slate ranked first.
  *
- * Channels, what is on later, films and series, and places to go, from one
- * field. Ctrl+K anywhere, or the round search button beside Settings.
+ * Channels, what is on later, films and series, places to go, and the rows
+ * of Settings (plan 025), from one field. Ctrl+K anywhere, or the round
+ * search button beside Settings.
  *
  * Built exactly as the picker is: Base UI's Autocomplete rendered `inline
  * open` inside the app's Radix Dialog, so the list, its keyboard (arrows
@@ -52,8 +55,9 @@ export type GoTarget =
   | { kind: "live"; tab: LiveTab }
   | { kind: "stream"; tab: StreamTab }
   // No page: open Settings where it was left. A page: open on it (App saves
-  // it, so a later open without one finds it too).
-  | { kind: "settings"; tab?: SettingsTab };
+  // it, so a later open without one finds it too). A row: open on its page,
+  // scrolled to it and lit (settingsIndex's id).
+  | { kind: "settings"; tab?: SettingsTab; row?: string };
 
 type Row =
   | { key: string; kind: "channel"; label: string; channel: Channel }
@@ -69,6 +73,8 @@ interface Section {
 const CHANNELS = 6;
 const LATER = 4;
 const TITLES = 6;
+/** The most rows of Settings one query lists. */
+const SETTINGS = 5;
 /** What "On later" looks ahead over. */
 const LATER_H = 24;
 
@@ -288,6 +294,22 @@ export function Palette({
       (r) => r.label.toLowerCase().includes(q) || (r.kind === "go" && r.sub.toLowerCase().includes(q)),
     );
     if (go.length) out.push({ value: "Go to", items: go });
+
+    // Settings' own rows, after the places: "subtitle" finds Preferred
+    // Language and Enter opens Settings on it. Only once something is typed;
+    // the list before typing is places, not every row of Settings.
+    const rows = findSettings(q, SETTINGS).map((s): Row => {
+      const page = SETTINGS_PAGES.find((p) => p.key === s.page)?.label ?? s.page;
+      return {
+        key: `s:${s.id}`,
+        kind: "go",
+        label: s.label,
+        sub: `Settings · ${page}`,
+        icon: pageIcon(s.page, 16),
+        to: { kind: "settings", tab: s.page, row: s.id },
+      };
+    });
+    if (rows.length) out.push({ value: "Settings", items: rows });
     return out;
   }, [open, query, hasLive, hasStream, places]);
 

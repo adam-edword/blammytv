@@ -75,7 +75,7 @@ export function PlaybackPage() {
 
       {hasAddon && (
         <section className="settings-section">
-          <div className="customize-row">
+          <div className="customize-row" data-setting="one-click-play">
             <div>
               <h4 className="customize-row__title">One-Click Play Movies</h4>
               <p className="settings__section-note settings__section-note--dim">
@@ -94,7 +94,7 @@ export function PlaybackPage() {
             />
           </div>
 
-          <div className="customize-row">
+          <div className="customize-row" data-setting="source-failover">
             <div>
               <h4 className="customize-row__title">Auto Source Failover</h4>
               <p className="settings__section-note settings__section-note--dim">
@@ -116,7 +116,7 @@ export function PlaybackPage() {
           {/* Stacked, not a row: two pickers do not fit beside a label in the
             * page's column (the rail takes 208px of the card), and the label
             * was squeezed to a sliver. */}
-          <div className="customize-stack">
+          <div className="customize-stack" data-setting="preferred-language">
             <div>
               <h4 className="customize-row__title">Preferred Language</h4>
               <p className="settings__section-note settings__section-note--dim">
@@ -160,7 +160,7 @@ export function PlaybackPage() {
           </div>
 
           {/* Stacked for the same reason: three options, one of them long. */}
-          <div className="customize-stack">
+          <div className="customize-stack" data-setting="skip-behavior">
             <div>
               <h4 className="customize-row__title">Skip Behavior</h4>
               <p className="settings__section-note settings__section-note--dim">

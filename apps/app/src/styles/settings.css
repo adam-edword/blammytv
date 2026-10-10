@@ -503,6 +503,41 @@ input.rowcap__value--edit:focus-visible {
   width: 100%;
 }
 
+/* A row the palette found (SettingsModal, plan 025 P2): lit for a moment,
+ * then the glass again. The class is written to the DOM and lifted by a timer
+ * as long as the fade, so no row's markup carries it. The halo is a shadow,
+ * not padding, so lighting a row moves nothing; it stays inside the 4px of
+ * ring room the body leaves each side (.settings__body) or its edge would be
+ * clipped. Reduced motion keeps the light and drops the fade. */
+.setting--found {
+  border-radius: var(--radius-track);
+  animation: setting-found 1600ms var(--ease-out) both;
+}
+@keyframes setting-found {
+  0%,
+  55% {
+    background-color: var(--accent-surface);
+    box-shadow:
+      0 0 0 3px var(--accent-surface),
+      0 0 0 4px var(--accent-border);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow:
+      0 0 0 3px transparent,
+      0 0 0 4px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .setting--found {
+    animation: none;
+    background-color: var(--accent-surface);
+    box-shadow:
+      0 0 0 3px var(--accent-surface),
+      0 0 0 4px var(--accent-border);
+  }
+}
+
 /* The red hairline "Danger Zone" box is gone (the five pages, v0.11.26):
  * Clear All Login Info and Reset Appearance are rows at the foot of their
  * pages, and the red is the button's (`destructive`, fixed rather than the

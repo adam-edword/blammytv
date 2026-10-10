@@ -1,6 +1,6 @@
 # Plan 025: Settings, replanned
 
-**Status: P1 BUILT (v0.11.26), P2 to P5 next.** Calls taken 2026-10-10. Adam: "go with all your
+**Status: P1 and P2 BUILT (v0.11.26, v0.11.27), P3 to P5 next.** Calls taken 2026-10-10. Adam: "go with all your
 recommendations on the settings calls. I don't care about rich presence
 though", so every call below is the recommended one, and D7 is never
 (Discord presence is off the list, not deferred). Asked for by Adam: "replan our settings and think about

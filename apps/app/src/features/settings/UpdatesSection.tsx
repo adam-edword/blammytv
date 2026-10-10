@@ -94,7 +94,7 @@ export function UpdatesSection() {
   // A row, not a section with its own 32px heading: it sits inside
   // the App page's group, whose heading already does that job.
   return (
-    <div className="customize-row">
+    <div className="customize-row" data-setting="updates">
       <div>
         <h4 className="customize-row__title">BlammyTV v{APP_VERSION}</h4>
         <p className="settings__section-note settings__section-note--dim">

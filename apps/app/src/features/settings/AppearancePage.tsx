@@ -72,7 +72,7 @@ const WORLD_TABS = [
  */
 // The accent picker lives here again (ROADMAP decision 1). Theme packs and
 // the Themes Pass are parked in old/themes and come back later with new looks.
-export function AppearancePage() {
+export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stream" }) {
   // Appearance (plan 022): Dark, Light, or Windows' own setting.
   const [theme, setTheme] = useState<ThemePref>(loadThemePref);
   const pickTheme = (next: ThemePref) => {
@@ -87,8 +87,9 @@ export function AppearancePage() {
     saveStartupTab(next);
   };
 
-  // Ephemeral, like Sources' pill: always opens on Stream.
-  const [world, setWorld] = useState<"stream" | "live">("stream");
+  // Ephemeral, like Sources' pill: always opens on Stream, unless a find
+  // from the palette names the pill its row is under.
+  const [world, setWorld] = useState<"stream" | "live">(initialWorld ?? "stream");
 
   const [clock, setClock] = useState<ClockFormat>(loadClockFormat);
   const pickClock = (next: ClockFormat) => {
@@ -185,7 +186,7 @@ export function AppearancePage() {
       <h3 className={`settings__group ${EYEBROW}`}>Interface</h3>
       <section className="settings-section">
         {/* Stacked, not a row: nine swatches do not fit beside a label. */}
-        <div className="customize-stack">
+        <div className="customize-stack" data-setting="accent">
           <div>
             <h4 className="customize-row__title">Accent</h4>
             <p className="settings__section-note settings__section-note--dim">
@@ -195,7 +196,7 @@ export function AppearancePage() {
           <AccentPicker key={accentKey} />
         </div>
 
-        <div className="customize-row">
+        <div className="customize-row" data-setting="color-mode">
           <div>
             <h4 className="customize-row__title">Appearance</h4>
             <p className="settings__section-note settings__section-note--dim">
@@ -205,7 +206,7 @@ export function AppearancePage() {
           <Segmented label="Appearance" options={THEME_TABS} value={theme} onChange={pickTheme} />
         </div>
 
-        <div className="customize-row">
+        <div className="customize-row" data-setting="startup-tab">
           <div>
             <h4 className="customize-row__title">Startup Tab</h4>
             <p className="settings__section-note settings__section-note--dim">
@@ -215,7 +216,7 @@ export function AppearancePage() {
           <Segmented label="Start on" options={STARTUP_TABS} value={startup} onChange={pickStartup} />
         </div>
 
-        <div className="customize-row">
+        <div className="customize-row" data-setting="clock-format">
           <div>
             <h4 className="customize-row__title">Clock Format</h4>
             <p className="settings__section-note settings__section-note--dim">
@@ -246,7 +247,7 @@ export function AppearancePage() {
           {/* Above the sources picker, because it decides whether that
             * picker means anything: sources FOR a hero that is not there
             * is a setting with no effect, so it goes away with it. */}
-          <div className="customize-row">
+          <div className="customize-row" data-setting="featured-carousel">
             <div>
               <h4 className="customize-row__title">Featured Carousel</h4>
               <p className="settings__section-note settings__section-note--dim">
@@ -267,7 +268,7 @@ export function AppearancePage() {
 
           {hero && <HeroSourcesSection />}
 
-          <div className="customize-stack">
+          <div className="customize-stack" data-setting="card-details">
             <div>
               <h4 className="customize-row__title">Card Details</h4>
               <p className="settings__section-note settings__section-note--dim">
@@ -308,7 +309,7 @@ export function AppearancePage() {
             </div>
           </div>
 
-          <div className="customize-stack">
+          <div className="customize-stack" data-setting="player-overlay">
             <div>
               <h4 className="customize-row__title">Player Overlay</h4>
               <p className="settings__section-note settings__section-note--dim">
@@ -336,7 +337,7 @@ export function AppearancePage() {
             </div>
           </div>
 
-          <div className="customize-row">
+          <div className="customize-row" data-setting="row-size">
             <div>
               <h4 className="customize-row__title">Catalog Row Size</h4>
               <p className="settings__section-note settings__section-note--dim">
@@ -393,7 +394,7 @@ export function AppearancePage() {
 
       {world === "live" && (
         <section className="settings-section">
-          <div className="customize-row">
+          <div className="customize-row" data-setting="channel-numbers">
             <div>
               <h4 className="customize-row__title">Channel Numbers</h4>
               <p className="settings__section-note settings__section-note--dim">
@@ -412,7 +413,7 @@ export function AppearancePage() {
       {/* The page's footer: Reset Appearance stays with the things it
         * resets. */}
       <section className="settings-section">
-        <div className="customize-row">
+        <div className="customize-row" data-setting="reset-appearance">
           <div>
             <h4 className="customize-row__title">Reset Appearance</h4>
             <p className="settings__section-note settings__section-note--dim">

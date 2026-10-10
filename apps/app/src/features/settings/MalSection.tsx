@@ -155,7 +155,7 @@ export function MalSection() {
               : "Syncing for the first time.";
 
   return (
-    <div className="customize-row mal-row">
+    <div className="customize-row mal-row" data-setting="mal">
       <div>
         <h4 className="customize-row__title">
           {phase.at === "on" ? (user ? `MyAnimeList: ${user}` : "MyAnimeList: connected") : "MyAnimeList"}

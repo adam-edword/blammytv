@@ -116,7 +116,7 @@ export function PlaylistsTab() {
 
   return (
     <>
-      <section className="settings-section">
+      <section className="settings-section" data-setting="add-playlist">
         <Segmented role="tabs" label="Playlist type" options={KIND_TABS} value={kind} onChange={setKind} />
         <h3 className="settings-section__list-title">
           Add {KIND_LABELS[kind]} Playlist
@@ -211,7 +211,7 @@ export function PlaylistsTab() {
         </Button>
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" data-setting="playlists">
         <h3 className={`settings-section__list-title ${EYEBROW}`}>Your playlists</h3>
         {playlists.length === 0 ? (
           <p className="settings__section-note settings__section-note--dim">
@@ -334,7 +334,7 @@ export function PlaylistsTab() {
         {enabledIds.size > 0 && <GuideRefresh stamps={guideStamps} />}
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" data-setting="content">
         <h3 className="settings-section__list-title">Content</h3>
         <div className="playlist-item">
           <div className="playlist-row">

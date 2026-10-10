@@ -41,6 +41,7 @@ import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { setModalOpen } from "../lib/modalOpen";
 import { setFullscreenChecked } from "../lib/fullscreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
+import { settingById, type SettingsFind } from "../features/settings/settingsIndex";
 import { loadStartupTab } from "../features/settings/startupTab";
 import {
   onGenreRequest,
@@ -141,6 +142,12 @@ export function App() {
   // Where Settings hands focus back when the palette opened it: the element
   // the palette was opened from. From the gear, Settings finds its own.
   const [settingsFrom, setSettingsFrom] = useState<HTMLElement | null>(null);
+  // The row the palette found, for Settings to land on (plan 025, P2). Set by
+  // the palette's pick, cleared when Settings closes; the gear sets none, so
+  // a stale one can never ride a later open. `n` makes the same row asked
+  // twice a new request.
+  const [settingsFind, setSettingsFind] = useState<SettingsFind | null>(null);
+  const findCount = useRef(0);
   // The app palette (plan 019, K11): Ctrl+K anywhere, or the search button
   // beside Settings. Not over onboarding, and not over Settings, which is
   // its own modal (Ctrl+K there closes Settings' way first).
@@ -485,6 +492,7 @@ export function App() {
         }}
         onOpenSettings={() => {
           setSettingsFrom(null);
+          setSettingsFind(null);
           setSettingsOpen(true);
         }}
         onOpenSearch={() => setPaletteOpen(true)}
@@ -508,7 +516,14 @@ export function App() {
         )}
       </main>
       {settingsOpen && (
-        <SettingsModal returnTo={settingsFrom} onClose={() => setSettingsOpen(false)} />
+        <SettingsModal
+          returnTo={settingsFrom}
+          find={settingsFind ?? undefined}
+          onClose={() => {
+            setSettingsOpen(false);
+            setSettingsFind(null);
+          }}
+        />
       )}
       <Palette
         open={paletteOpen}
@@ -532,6 +547,11 @@ export function App() {
           } else {
             if (to.tab) saveSettingsTab(to.tab);
             setSettingsFrom(from);
+            // A row: the pill it sits under rides along, and the registry is
+            // where that is written down.
+            setSettingsFind(
+              to.row ? { row: to.row, world: settingById(to.row)?.world, n: ++findCount.current } : null,
+            );
             setSettingsOpen(true);
           }
         }}

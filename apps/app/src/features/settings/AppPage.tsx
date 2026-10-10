@@ -47,7 +47,7 @@ export function AppPage() {
       <section className="settings-section">
         <UpdatesSection />
 
-        <div className="customize-row">
+        <div className="customize-row" data-setting="replay-onboarding">
           <div>
             <h4 className="customize-row__title">Replay Onboarding</h4>
             <p className="settings__section-note settings__section-note--dim">
@@ -65,7 +65,7 @@ export function AppPage() {
       </section>
 
       <section className="settings-section">
-        <div className="customize-row">
+        <div className="customize-row" data-setting="clear-logins">
           <div>
             <h4 className="customize-row__title">Clear All Login Info</h4>
             <p className="settings__section-note settings__section-note--dim">

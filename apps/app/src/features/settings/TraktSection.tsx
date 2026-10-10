@@ -154,7 +154,7 @@ export function TraktSection() {
                 : "Syncing for the first time.";
 
   return (
-    <div className="customize-row trakt-row">
+    <div className="customize-row trakt-row" data-setting="trakt">
       <div>
         <h4 className="customize-row__title">
           {phase.at === "on" ? (user ? `Trakt: ${user}` : "Trakt: connected") : "Trakt"}

@@ -20,10 +20,12 @@ const SOURCE_TABS = [
   { key: "stream", label: "Stream" },
 ] as const;
 
-export function SourcesPage() {
+export function SourcesPage({ initialWorld }: { initialWorld?: "live" | "stream" }) {
   // Ephemeral: Sources always opens on Live TV rather than remembering
-  // where you were, the same rule the old Media rail followed.
-  const [source, setSource] = useState<"live" | "stream">("live");
+  // where you were, the same rule the old Media rail followed. The one
+  // exception is a find from the palette, which opens on the pill its row is
+  // under (SettingsModal hands it over for that first mount only).
+  const [source, setSource] = useState<"live" | "stream">(initialWorld ?? "live");
 
   return (
     <>

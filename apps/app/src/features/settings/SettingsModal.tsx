@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { Button } from "../../components/ui/button";
 import {
@@ -7,14 +7,8 @@ import {
   saveSettingsTab,
   type SettingsTab,
 } from "./settingsTab";
-import {
-  CloseIcon,
-  EyeDropperIcon,
-  PlayIcon,
-  SettingsIcon,
-  TvIcon,
-  UserIcon,
-} from "../../ui/icons";
+import { CloseIcon } from "../../ui/icons";
+import { pageIcon } from "./pageIcons";
 import { useClosingExit } from "./useClosingExit";
 import { Rail } from "../../ui/Rail";
 import { Segmented } from "../../ui/Segmented";
@@ -24,6 +18,8 @@ import { AppearancePage } from "./AppearancePage";
 import { AccountsPage } from "./AccountsPage";
 import { AppPage } from "./AppPage";
 import { returnFocus } from "../../lib/returnFocus";
+import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { settingById, type SettingsFind } from "./settingsIndex";
 
 /**
  * Five questions, one page each: what you WATCH (Sources), how it PLAYS
@@ -45,22 +41,34 @@ import { returnFocus } from "../../lib/returnFocus";
  * One mental model, said twice, rather than two filing systems.
  */
 
-/** What each page wears in the rail. The set had no person, so Accounts' is
- * drawn beside the others (ui/icons). */
-const ICONS: Record<SettingsTab, ReactNode> = {
-  sources: <TvIcon size={18} />,
-  playback: <PlayIcon size={18} />,
-  appearance: <EyeDropperIcon size={18} />,
-  accounts: <UserIcon size={18} />,
-  app: <SettingsIcon size={18} />,
-};
-const RAIL = SETTINGS_PAGES.map((p) => ({ ...p, icon: ICONS[p.key] }));
+/** What each page wears in the rail (the palette wears the same, smaller). */
+const RAIL = SETTINGS_PAGES.map((p) => ({ ...p, icon: pageIcon(p.key, 18) }));
 
 /** Under this card width the rail would leave the page too little, and it
  * becomes the segmented row the tabs were before the rail. Measured on the
  * card, not the window: the card is `min(786px, 100%)` of a window less its
  * margins, and it is the card the page has to fit in. */
 const NARROW = 640;
+
+/** The class a found row wears (settings.css), and how long it wears it. The
+ * fade in the CSS is this long too, so the class is gone as the colour is. */
+const FOUND = "setting--found";
+const FOUND_MS = 1600;
+/** How long a find waits for a row that isn't there yet (AIOStreams asks the
+ * native side before it draws anything) before it takes it as not rendered. */
+const FOUND_WAIT_MS = 2000;
+
+/** The first thing in a row you can put focus on: not disabled, not out of
+ * the tab order (a segmented tablist's other tabs), and drawn. */
+function firstControl(row: HTMLElement): HTMLElement | null {
+  for (const el of row.querySelectorAll<HTMLElement>("a[href], button, input, select, textarea, [tabindex]")) {
+    if (el.tabIndex < 0 || el.matches(":disabled")) continue;
+    if (el instanceof HTMLInputElement && el.type === "hidden") continue;
+    if (el.getClientRects().length === 0) continue;
+    return el;
+  }
+  return null;
+}
 
 /**
  * The floating settings card from the redesign: title left, close right, and
@@ -82,18 +90,31 @@ const NARROW = 640;
 export function SettingsModal({
   onClose,
   returnTo,
+  find,
 }: {
   onClose: () => void;
   /** Where focus goes on close, when whatever opened Settings is about to
    * go itself: the palette hands over the element it was opened from. */
   returnTo?: HTMLElement | null;
+  /** A row the palette found. Settings opens on its page (and its pill),
+   * scrolls to it, lights it and focuses it. No request is the usual open. */
+  find?: SettingsFind;
 }) {
   // Where you left off. The modal unmounts on close, so without this
-  // every visit started at the first page.
-  const [tab, setTab] = useState<SettingsTab>(loadSettingsTab);
+  // every visit started at the first page. A find opens on its row's page
+  // whatever was saved: App saves it too, but this does not lean on storage
+  // being there.
+  const [tab, setTab] = useState<SettingsTab>(
+    () => (find && settingById(find.row)?.page) || loadSettingsTab(),
+  );
+  // The pill a find asked for, for the first showing of its page only. Going
+  // to another page ends it: coming back to Sources or Appearance later
+  // opens on their usual pill, not on the one a find wanted once.
+  const [seed, setSeed] = useState(find?.world);
   const pick = (t: SettingsTab) => {
     saveSettingsTab(t);
     setTab(t);
+    setSeed(undefined);
   };
   // The exit beat: Radix's `open` stays true until the card has faded, and
   // App unmounts it after (useClosingExit).
@@ -134,6 +155,49 @@ export function SettingsModal({
     el.scrollTop = 0;
     delete el.dataset.scrolled;
   }, [tab]);
+
+  // A find from the palette. The card mounts a beat after this component (see
+  // `card`), so this waits for it, and then the page and its row are in the
+  // DOM. The row is scrolled to the middle of the body, lit for FOUND_MS, and
+  // takes focus from the card, which Radix gave it on opening. A row that
+  // isn't there is not an error: Playback without an AIOStreams shows a note
+  // in its place, a hidden carousel has no sources row. The page just opens,
+  // with nothing lit and focus on the card.
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!card || !body || !find) return;
+    let row: HTMLElement | null = null;
+    let lit = 0;
+    let giveUp = 0;
+    let watch: MutationObserver | null = null;
+    const land = (): boolean => {
+      row = body.querySelector<HTMLElement>(`[data-setting="${CSS.escape(find.row)}"]`);
+      if (!row) return false;
+      const shown = row;
+      shown.scrollIntoView({ block: "center", behavior: REDUCED_MOTION ? "auto" : "smooth" });
+      shown.classList.add(FOUND);
+      lit = window.setTimeout(() => shown.classList.remove(FOUND), FOUND_MS);
+      firstControl(shown)?.focus({ preventScroll: true });
+      return true;
+    };
+    const stop = () => {
+      watch?.disconnect();
+      window.clearTimeout(giveUp);
+    };
+    if (!land()) {
+      // A row that draws late: wait for the page to add it.
+      watch = new MutationObserver(() => {
+        if (land()) stop();
+      });
+      watch.observe(body, { childList: true, subtree: true });
+      giveUp = window.setTimeout(stop, FOUND_WAIT_MS);
+    }
+    return () => {
+      stop();
+      window.clearTimeout(lit);
+      row?.classList.remove(FOUND);
+    };
+  }, [card, find]);
 
   // Where focus was when Settings opened (the gear, usually), to hand it
   // back on close. Taken in a layout effect, ahead of the focus scope
@@ -240,9 +304,9 @@ export function SettingsModal({
                   ref={bodyRef}
                   onScroll={(e) => markScrolled(e.currentTarget)}
                 >
-                  {tab === "sources" && <SourcesPage />}
+                  {tab === "sources" && <SourcesPage initialWorld={seed} />}
                   {tab === "playback" && <PlaybackPage />}
-                  {tab === "appearance" && <AppearancePage />}
+                  {tab === "appearance" && <AppearancePage initialWorld={seed} />}
                   {tab === "accounts" && <AccountsPage />}
                   {tab === "app" && <AppPage />}
                 </div>

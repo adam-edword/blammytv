@@ -108,7 +108,7 @@ export function HeroSourcesSection() {
   // Appearance's Stream panel, and its own rule and 21px heading made a
   // list of settings read as a list of pages.
   return (
-    <div className="customize-stack">
+    <div className="customize-stack" data-setting="hero-sources">
       <div>
         <h4 className="customize-row__title">Hero Slider Sources</h4>
         <p className="settings__section-note settings__section-note--dim">
