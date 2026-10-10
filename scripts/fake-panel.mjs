@@ -227,7 +227,59 @@ function pinsXmltv() {
   );
 }
 
-const LINES = { dups: DUPS, pins: PINS };
+// username "fix": a line with ONE channel whose guide id matches nothing in
+// its guide, what verify-guide-fix hand-matches. The guide has the right
+// listings under another id ("mm.guide", named "Mismatched News"), beside a
+// few decoys, and one channel that matches properly (the control).
+const FIX = [
+  {
+    num: 1,
+    name: "Fix Matched Sports HD",
+    stream_type: "live",
+    stream_id: 7000,
+    stream_icon: null,
+    epg_channel_id: "fixsports.fake",
+    category_id: "1",
+  },
+  {
+    num: 2,
+    name: "US: Mismatched News FHD",
+    stream_type: "live",
+    stream_id: 7001,
+    stream_icon: null,
+    epg_channel_id: "news.wrong.id", // the guide has no channel by this id
+    category_id: "1",
+  },
+];
+const FIX_GUIDE = [
+  ["fixsports.fake", "Fix Matched Sports", "Matched Hour"],
+  ["mm.guide", "Mismatched News", "Mapped Hour"],
+  ["news.wire", "News Wire", "Wire Hour"],
+  ["weather.guide", "Weather Now", "Weather Hour"],
+  ["cooking.guide", "Cooking Hour", "Cooking Show"],
+  ["movies.guide", "Retro Movies", "Retro Feature"],
+];
+
+function fixXmltv() {
+  const now = Number(process.env.FAKE_NOW) || Date.now();
+  const HOUR = 3600_000;
+  const base = Math.floor(now / (30 * 60_000)) * 30 * 60_000;
+  const progs = [];
+  for (const [id, , title] of FIX_GUIDE)
+    for (let i = -1; i < 27; i++)
+      progs.push(
+        `<programme start="${fmt(base + i * HOUR)}" stop="${fmt(base + (i + 1) * HOUR)}" channel="${id}">` +
+          `<title>${title} ${i + 2}</title><desc>${title}, hour ${i + 2}.</desc></programme>`,
+      );
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?><tv>` +
+    FIX_GUIDE.map(([id, name]) => `<channel id="${id}"><display-name>${name}</display-name></channel>`).join("") +
+    progs.join("") +
+    `</tv>`
+  );
+}
+
+const LINES = { dups: DUPS, pins: PINS, fix: FIX };
 
 http
   .createServer((req, res) => {
@@ -262,7 +314,8 @@ http
     }
     if (url.pathname === "/xmltv.php") {
       res.setHeader("Content-Type", "application/xml");
-      return res.end(url.searchParams.get("username") === "pins" ? pinsXmltv() : xmltv());
+      const user = url.searchParams.get("username");
+      return res.end(user === "pins" ? pinsXmltv() : user === "fix" ? fixXmltv() : xmltv());
     }
     if (url.pathname === "/logo.png") {
       res.setHeader("Content-Type", "image/png");

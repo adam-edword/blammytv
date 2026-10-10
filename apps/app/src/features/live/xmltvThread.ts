@@ -1,5 +1,5 @@
-import type { Programme } from "./model";
-import { parseXmltv, type XmltvStats } from "./xmltv";
+import type { GuideChannel, Programme } from "./model";
+import { parseGuide, type XmltvStats } from "./xmltv";
 import type { XmltvDone, XmltvJob, XmltvReady } from "./xmltv.worker";
 
 /**
@@ -16,7 +16,9 @@ import type { XmltvDone, XmltvJob, XmltvReady } from "./xmltv.worker";
  * froze, the Guide included, and so did every later refresh.
  *
  * The bytes are handed over, not copied (the download is ours to give
- * away), and the programmes come back as a structured clone.
+ * away), and the programmes come back as a structured clone, with the
+ * guide's own channel list (id and name) beside them: the names a channel
+ * the guide didn't match is matched by hand against.
  *
  * Where there is no Worker (the unit tests), or one does not start, the
  * parse runs here, as it always did: slower, and the guide still arrives.
@@ -32,8 +34,16 @@ export async function parseXmltvOffThread(
   byEpgId: Map<string, string[]>,
   now: Date,
   stats?: XmltvStats,
-): Promise<{ programmes: Map<string, Programme[]>; chars: number; onWorker: boolean }> {
+): Promise<ParsedGuide> {
   return parseInflated(await inflateGuide(bytes), byEpgId, now, stats);
+}
+
+export interface ParsedGuide {
+  programmes: Map<string, Programme[]>;
+  /** Every channel the guide declares (xmltv.ts#parseGuide). */
+  channels: GuideChannel[];
+  chars: number;
+  onWorker: boolean;
 }
 
 /**
@@ -56,10 +66,11 @@ function parseInflated(
   byEpgId: Map<string, string[]>,
   now: Date,
   stats?: XmltvStats,
-): Promise<{ programmes: Map<string, Programme[]>; chars: number; onWorker: boolean }> {
+): Promise<ParsedGuide> {
   const here = () => {
     const xml = new TextDecoder().decode(bytes);
-    return { programmes: parseXmltv(xml, byEpgId, now, stats), chars: xml.length, onWorker: false };
+    const { programmes, channels } = parseGuide(xml, byEpgId, now, stats);
+    return { programmes, channels, chars: xml.length, onWorker: false };
   };
   let worker: Worker;
   try {
@@ -91,7 +102,7 @@ function parseInflated(
       worker.terminate();
       if ("error" in msg) return reject(new Error(msg.error));
       if (stats && msg.stats) Object.assign(stats, msg.stats);
-      resolve({ programmes: msg.programmes, chars: msg.chars, onWorker: true });
+      resolve({ programmes: msg.programmes, channels: msg.channels, chars: msg.chars, onWorker: true });
     };
     worker.onerror = (e) => {
       if (!started) {

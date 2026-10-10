@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LiveData, LiveGroup } from "./model";
+import type { GuideChannel, LiveData, LiveGroup } from "./model";
 import { EPG_KEEP_AHEAD_MS, GUIDE_REFRESH_MS, VISIBLE_WINDOW_MS } from "./epgWindow";
+import { fixKey, saveGuideFix } from "./guideFix";
 
 /**
  * The guide is reused, not downloaded, on a load that doesn't need a new one.
@@ -544,6 +545,229 @@ describe("refreshLiveNow", () => {
     await until(() => group(m, "A").guideAt === T + 5 * MIN, 3000);
     stop();
     expect(fetchedFor(fetchXmltv)).toEqual(["A"]);
+  });
+});
+
+describe("the guide's own channel list, for Fix guide…", () => {
+  // The fixes live in localStorage. An in-memory one, stubbed per test:
+  // refreshLiveNow's tests above unstub every global when they finish.
+  const mem = new Map<string, string>();
+  beforeEach(() => {
+    mem.clear();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+      removeItem: (k: string) => void mem.delete(k),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** A guide that declares its channels, as a real one does, with a
+   * programme covering `at` for each id in `programmesFor`. */
+  const declaring = (at: number, channels: [id: string, name: string][], programmesFor: string[]) =>
+    "<tv>" +
+    channels.map(([id, name]) => `<channel id="${id}"><display-name>${name}</display-name></channel>`).join("") +
+    guideFor(at, programmesFor).slice("<tv>".length);
+  const LIST: GuideChannel[] = [
+    { id: "A.epg", name: "Alpha" },
+    { id: "other.epg", name: "Other" },
+  ];
+  const BOTH: [string, string][] = [
+    ["A.epg", "Alpha"],
+    ["other.epg", "Other"],
+  ];
+
+  it("a downloaded guide puts its channels on the source's group, matched or not", async () => {
+    fetchXmltv.mockImplementation(async () => bytes(declaring(Date.now(), BOTH, ["A.epg"])));
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => group(m, "A").guideAt);
+    expect(group(m, "A").guideChannels).toEqual(LIST);
+    // And the channel knows which one of them it matched.
+    expect(m.lookupLive()!.channels[0].epgId).toBe("A.epg");
+  });
+
+  it("a guide that matched none of our channels still lists its own", async () => {
+    // Our channel says A.epg. The guide has never heard of it.
+    fetchXmltv.mockImplementation(async () =>
+      bytes(declaring(Date.now(), [["x.epg", "Ex"], ["y.epg", "Why"]], ["x.epg"])),
+    );
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => group(m, "A").epgError);
+    expect(group(m, "A").epgError).toMatch(/matched none/);
+    expect(group(m, "A").guideAt).toBeUndefined();
+    expect(group(m, "A").guideChannels).toEqual([
+      { id: "x.epg", name: "Ex" },
+      { id: "y.epg", name: "Why" },
+    ]);
+  });
+
+  it("a reused guide carries its list forward, as it carries its stamp", async () => {
+    disk = {
+      at: T - HOUR,
+      data: snapshot(T, ["A"], { A: { guideAt: T - 5 * HOUR, guideChannels: LIST } }),
+      normalized: true,
+    };
+    const m = await launch();
+    await until(() => m.lookupLive()?.channels[0]?.name === "new A");
+    expect(fetchXmltv).not.toHaveBeenCalled();
+    expect(group(m, "A").guideAt).toBe(T - 5 * HOUR);
+    expect(group(m, "A").guideChannels).toEqual(LIST);
+    await delay(null, 1600); // scheduleDiskPut's 1.5s
+    const written = diskPut.mock.calls.at(-1)?.[0] as { data: LiveData };
+    expect(written.data.groups[0].guideChannels).toEqual(LIST);
+  });
+
+  it("a new guide replaces the list the source held", async () => {
+    disk = {
+      at: T - HOUR,
+      data: snapshot(T, ["A"], { A: { guideAt: T - 13 * HOUR, guideChannels: LIST } }),
+      normalized: true,
+    };
+    fetchXmltv.mockImplementation(async () =>
+      bytes(declaring(Date.now(), [["A.epg", "Alpha Renamed"]], ["A.epg"])),
+    );
+    const m = await launch();
+    await until(() => group(m, "A").guideAt === T);
+    expect(group(m, "A").guideChannels).toEqual([{ id: "A.epg", name: "Alpha Renamed" }]);
+  });
+
+  it("a guide that fails to download leaves the list the source had", async () => {
+    disk = {
+      at: T - HOUR,
+      data: snapshot(T, ["A"], { A: { guideAt: T - 13 * HOUR, guideChannels: LIST } }),
+      normalized: true,
+    };
+    fetchXmltv.mockRejectedValue(new Error("timed out"));
+    const m = await launch();
+    await until(() => group(m, "A").epgError);
+    expect(group(m, "A").guideChannels).toEqual(LIST);
+  });
+
+  it("another login on the same playlist id does not inherit it", async () => {
+    fetchXmltv.mockImplementation(async () => bytes(declaring(Date.now(), BOTH, ["A.epg"])));
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => group(m, "A").guideChannels);
+    // Same id, another password: another account's guide.
+    playlists = [{ ...(xtream("A") as TestPlaylist & { kind: "xtream" }), password: "other" }];
+    fetchXmltv.mockRejectedValue(new Error("timed out"));
+    await m.loadLive(new Date());
+    await until(() => group(m, "A").epgError);
+    expect(group(m, "A").guideChannels).toBeUndefined();
+  });
+
+  it("the half-built catalog of a refresh keeps it while the guide downloads", async () => {
+    // The first guide matched nothing, so it holds no programmes, and the
+    // catalog a refresh publishes before its guide lands is the builders'.
+    fetchXmltv.mockImplementation(async () => bytes(declaring(Date.now(), [["x.epg", "Ex"]], ["x.epg"])));
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => group(m, "A").epgError);
+    fetchXmltv.mockImplementation(async () => {
+      await delay(null, 200);
+      return bytes(declaring(Date.now(), [["x.epg", "Ex"]], ["x.epg"]));
+    });
+    const data = await m.loadLive(new Date(), undefined, true);
+    expect(data.guidePending).toBe(true);
+    expect(data.groups[0].guideChannels).toEqual([{ id: "x.epg", name: "Ex" }]);
+    expect(m.lookupLive()!.groups[0].guideChannels).toEqual([{ id: "x.epg", name: "Ex" }]);
+  });
+
+  it("an M3U's url-tvg guide lists its channels too", async () => {
+    playlists = [m3u("M")];
+    httpGetBytes.mockImplementation(async () =>
+      bytes(declaring(Date.now(), [["m1", "BBC One"], ["m2", "BBC Two"]], ["m1"])),
+    );
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => group(m, "M").guideAt);
+    expect(group(m, "M").guideChannels).toEqual([
+      { id: "m1", name: "BBC One" },
+      { id: "m2", name: "BBC Two" },
+    ]);
+    expect(m.lookupLive()!.channels[0].epgId).toBe("m1");
+  });
+
+  it("a Stalker source has none: its guide comes per channel", async () => {
+    playlists = [stalker("S")];
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => group(m, "S").guideAt);
+    expect(group(m, "S").guideChannels).toBeUndefined();
+  });
+
+  it("a fix is in the index the forced refresh parses with: the lane fills", async () => {
+    // Our channel says A.epg and the guide has no such channel; its listings
+    // are under other.epg.
+    fetchXmltv.mockImplementation(async () => bytes(declaring(Date.now(), BOTH.slice(1), ["other.epg"])));
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => group(m, "A").epgError);
+    expect(m.lookupLive()!.programmes.get("A:1")).toBeUndefined();
+    saveGuideFix("A", "A:1", "other.epg");
+    await m.loadLive(new Date(), undefined, true);
+    await until(() => m.lookupLive()?.programmes.get("A:1"));
+    expect(m.lookupLive()!.programmes.get("A:1")?.[0].title).toBe("fresh other.epg");
+    expect(group(m, "A").epgError).toBeUndefined();
+    expect(group(m, "A").guideAt).toBe(T);
+  });
+
+  it("and a channel the provider gave no id at all can be given one", async () => {
+    fetchLiveStreams.mockResolvedValue([{ stream_id: 1, name: "No id", category_id: "1" }]);
+    fetchXmltv.mockImplementation(async () => bytes(declaring(Date.now(), BOTH, ["A.epg"])));
+    saveGuideFix("A", "A:1", "A.epg");
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => m.lookupLive()?.programmes.get("A:1"));
+    expect(m.lookupLive()!.programmes.get("A:1")?.[0].title).toBe("fresh A.epg");
+  });
+
+  it("an M3U channel can be given another guide id the same way", async () => {
+    playlists = [m3u("M")];
+    httpGetBytes.mockImplementation(async () => bytes(declaring(Date.now(), [["m2", "BBC Two"]], ["m2"])));
+    saveGuideFix("M", "M:m1", "m2");
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => m.lookupLive()?.programmes.get("M:m1"));
+    expect(m.lookupLive()!.programmes.get("M:m1")?.[0].title).toBe("fresh m2");
+  });
+
+  it("a fix saved since the guide was parsed is not left out by reuse", async () => {
+    // A fresh guide on disk, parsed with no fixes; a fix saved after it whose
+    // forced refresh never landed (the app was closed). The next launch must
+    // download the guide with the fix in the index, not reuse it for 12h.
+    disk = { at: T - HOUR, data: snapshot(T, ["A"], { A: { guideAt: T - HOUR } }), normalized: true };
+    fetchXmltv.mockImplementation(async () => bytes(declaring(Date.now(), BOTH.slice(1), ["other.epg"])));
+    saveGuideFix("A", "A:1", "other.epg");
+    const m = await launch();
+    await until(() => m.lookupLive()?.programmes.get("A:1")?.[0].title === "fresh other.epg");
+    expect(fetchXmltv).toHaveBeenCalledTimes(1);
+    expect(group(m, "A").guideFixKey).toBe(fixKey({ "A:1": "other.epg" }));
+  });
+
+  it("and a guide parsed with the fixes that still stand is reused as before", async () => {
+    saveGuideFix("A", "A:1", "other.epg");
+    const key = fixKey({ "A:1": "other.epg" });
+    disk = {
+      at: T - HOUR,
+      data: snapshot(T, ["A"], { A: { guideAt: T - HOUR, guideFixKey: key } }),
+      normalized: true,
+    };
+    const m = await launch();
+    await until(() => m.lookupLive()?.channels[0]?.name === "new A");
+    expect(fetchXmltv).not.toHaveBeenCalled();
+    expect(group(m, "A").guideFixKey).toBe(key);
+  });
+
+  it("a fix for another playlist's channel does nothing here", async () => {
+    fetchXmltv.mockImplementation(async () => bytes(declaring(Date.now(), BOTH.slice(1), ["other.epg"])));
+    saveGuideFix("B", "A:1", "other.epg");
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => group(m, "A").epgError);
+    expect(m.lookupLive()!.programmes.get("A:1")).toBeUndefined();
   });
 });
 

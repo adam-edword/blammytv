@@ -31,6 +31,18 @@ export interface Channel {
    * Derived from the panel's tv_archive / tv_archive_duration fields (both
    * arrive string-typed, so this is the coerced, guarded number). */
   archiveDays: number;
+  /** The guide id the provider gave this channel (Xtream `epg_channel_id`,
+   * M3U `tvg-id`), as written. The guide-fix dialog reads it to say which
+   * guide channel this one matched. Absent when the provider gave none, and
+   * on a disk record from before this field. */
+  epgId?: string;
+}
+
+/** One channel a guide declares: its `<channel id>` and first
+ * `<display-name>` (the id when it has none). */
+export interface GuideChannel {
+  id: string;
+  name: string;
 }
 
 export interface Programme {
@@ -75,6 +87,20 @@ export interface LiveGroup {
    * retries it. A disk record from before this field gets the record's own
    * `at` at the hydrate. */
   guideAt?: number;
+  /** Every channel this source's guide declares, from the last guide that
+   * downloaded. It exists so a channel the guide didn't match can be matched
+   * by hand (Guide → right-click → Fix guide…): the parse used to drop the
+   * programmes of every guide channel nobody matched, and with them the
+   * names to pick from. Xtream and M3U only; Stalker's guide comes per
+   * channel and has no such list. Carried like `guideAt` when the guide is
+   * reused, and kept when a download fails. */
+  guideChannels?: GuideChannel[];
+  /** The hand fixes this source's guide was parsed with (guideFix.ts,
+   * `fixKey`). A guide is only reused while they still stand: a fix saved
+   * after it, whose refresh never landed (the app was closed first), makes
+   * the next load download it again instead of reusing it for up to 12
+   * hours without the fix. Absent means none. */
+  guideFixKey?: string;
 }
 
 export interface LiveData {

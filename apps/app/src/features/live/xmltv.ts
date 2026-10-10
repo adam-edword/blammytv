@@ -1,4 +1,4 @@
-import type { Programme } from "./model";
+import type { GuideChannel, Programme } from "./model";
 import { EPG_KEEP_AHEAD_MS } from "./epgWindow";
 
 /**
@@ -73,7 +73,7 @@ export interface XmltvStats {
  * and collapsing them would start matching channels to the wrong guide,
  * which is worse than no guide at all.
  */
-const loose = (id: string): string =>
+export const loose = (id: string): string =>
   id.trim().toLowerCase().replace(/\s+/g, " ");
 
 /**
@@ -89,8 +89,47 @@ export function parseXmltv(
   now: Date,
   stats?: XmltvStats,
 ): Map<string, Programme[]> {
+  return parseGuide(xml, byEpgId, now, stats).programmes;
+}
+
+/**
+ * The guide's own channel list: each `<channel>`'s `id` and its first
+ * `<display-name>`, trimmed, decoded as a title is. A channel with no
+ * display-name is named by its id. Distinct ids, the first one wins. In
+ * document order, which is the provider's.
+ *
+ * It is what a channel the guide didn't match is matched BY HAND against:
+ * the programmes of every channel nobody matched are dropped below, and
+ * without this their names went with them.
+ */
+export function readGuideChannels(xml: string): GuideChannel[] {
+  const out: GuideChannel[] = [];
+  const seen = new Set<string>();
+  for (const tag of tags(xml, "channel")) {
+    const id = attrs(tag.head).get("id");
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name: child(tag.body(), "display-name")?.trim() || id });
+  }
+  return out;
+}
+
+/**
+ * The parse, with the guide's channel list beside the programmes (the Fix
+ * guide dialog's source). One scan of the `<channel>` elements serves both
+ * that list and the stats' count, where the stats alone used to read them.
+ * Read even when none of our channels carries a guide id, so a playlist
+ * with no ids at all still gets a list to match from.
+ */
+export function parseGuide(
+  xml: string,
+  byEpgId: Map<string, string[]>,
+  now: Date,
+  stats?: XmltvStats,
+): { programmes: Map<string, Programme[]>; channels: GuideChannel[] } {
   const out = new Map<string, Programme[]>();
-  if (byEpgId.size === 0) return out;
+  const channels = readGuideChannels(xml);
+  if (byEpgId.size === 0) return { programmes: out, channels };
 
   /**
    * Exact first, loose second.
@@ -124,12 +163,7 @@ export function parseXmltv(
   // Only when asked: which of their ids we never used. Cheap (a Set of the
   // document's <channel> ids), and it is the difference between a thin
   // guide and a matching bug.
-  const theirs = stats ? new Set<string>() : null;
-  if (theirs)
-    for (const tag of tags(xml, "channel")) {
-      const id = attrs(tag.head).get("id");
-      if (id) theirs.add(id);
-    }
+  const theirs = stats ? new Set(channels.map((c) => c.id)) : null;
   if (stats && theirs) stats.guideChannels = theirs.size;
 
   /** Programmes that came with no stop: they run until the next one on
@@ -199,7 +233,7 @@ export function parseXmltv(
       if (!byLoose.has(loose(id))) stats.unmatchedTheirs.push(id);
     }
   }
-  return out;
+  return { programmes: out, channels };
 }
 
 /**

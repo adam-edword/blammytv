@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadGuideFixes, saveGuideFix } from "../live/guideFix";
 import {
   addPlaylist,
   hiddenFolderLabel,
@@ -7,6 +8,7 @@ import {
   playlistSource,
   removePlaylist,
   replacePlaylist,
+  savePlaylists,
   toggleHiddenCategory,
   togglePlaylist,
   type Playlist,
@@ -214,5 +216,48 @@ describe("hiddenFolderLabel", () => {
 
   it("leaves an M3U's folder name alone: its id already is the name", () => {
     expect(hiddenFolderLabel("Sports HD", undefined)).toBe("Sports HD");
+  });
+});
+
+describe("a playlist's hand-matched guide channels go with it", () => {
+  // savePlaylists is where every way out of the list comes through: Delete in
+  // Settings, Clear All Login Info, a replace in onboarding.
+  const mem = new Map<string, string>();
+  beforeEach(() => {
+    mem.clear();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+      removeItem: (k: string) => void mem.delete(k),
+    });
+    vi.stubGlobal("window", new EventTarget());
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("are dropped when the playlist is deleted, and only its own", () => {
+    const list = addPlaylist(addPlaylist([], draft("A"), "a"), draft("B"), "b");
+    savePlaylists(list);
+    saveGuideFix("a", "a:1", "g1");
+    saveGuideFix("b", "b:1", "g2");
+    savePlaylists(removePlaylist(list, "a"));
+    expect(loadGuideFixes("a")).toEqual({});
+    expect(loadGuideFixes("b")).toEqual({ "b:1": "g2" });
+  });
+
+  it("are dropped by clearing every playlist", () => {
+    const list = addPlaylist([], draft("A"), "a");
+    savePlaylists(list);
+    saveGuideFix("a", "a:1", "g1");
+    savePlaylists([]);
+    expect(loadGuideFixes("a")).toEqual({});
+  });
+
+  it("are kept through a toggle, an edit and a replace: the playlist is still there", () => {
+    const list = addPlaylist([], draft("A"), "a");
+    savePlaylists(list);
+    saveGuideFix("a", "a:1", "g1");
+    savePlaylists(togglePlaylist(list, "a"));
+    savePlaylists(replacePlaylist(list, "a", draft("Renamed")));
+    expect(loadGuideFixes("a")).toEqual({ "a:1": "g1" });
   });
 });

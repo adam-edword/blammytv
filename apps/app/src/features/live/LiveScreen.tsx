@@ -59,7 +59,7 @@ import { loadFavorites, toggleFavorite } from "./favorites";
 import { Hint } from "../../ui/Hint";
 import { Guide } from "./Guide";
 import { Hero } from "./Hero";
-import type { Channel, LiveData, Programme } from "./model";
+import type { Channel, GuideChannel, LiveData, Programme } from "./model";
 import { loadRecents, recordRecent } from "./recents";
 import {
   onWatchRequest,
@@ -325,12 +325,18 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   const [pendingHidden, setPendingHidden] = useState<Set<string>>(
     () => new Set(),
   );
-  /** Bottom-center toast — one at a time, 5s, Undo restores the folder. */
-  const [toast, setToast] = useState<{ msg: string; undo: () => void } | null>(
+  /** Bottom-center toast, one at a time, 5s. Undo restores the folder. A
+   * toast with nothing to undo (a Fix guide…) is only its line. */
+  const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(
     null,
   );
   const toastTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+  const notice = useCallback((msg: string) => {
+    setToast({ msg });
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 5000);
+  }, []);
   const hideFolderNow = useCallback(
     (groupId: string, folderId: string, name: string) => {
       // A group without a stored playlist has nothing to persist into —
@@ -632,6 +638,16 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   }, [live, mode, folder, favorites, recents, pendingHidden]);
 
   const ready = live.status === "ready" ? live.data : null;
+  // Each source's guide channels, for the Guide's Fix guide… item. Only an
+  // Xtream or M3U source whose guide has been read carries a list (Stalker's
+  // guide comes per channel), so a source with one is the source to offer it
+  // for.
+  const guideLists = useMemo(() => {
+    const lists = new Map<string, readonly GuideChannel[]>();
+    for (const g of ready?.groups ?? [])
+      if (g.guideChannels?.length) lists.set(g.id, g.guideChannels);
+    return lists;
+  }, [ready]);
   // The sidebar's groups with pending-hidden folders already gone.
   const visibleGroups = useMemo(() => {
     if (!ready) return null;
@@ -979,13 +995,15 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         createPortal(
           <div className="live-toast" role="status">
             <span className="live-toast__msg">{toast.msg}</span>
-            <Button variant="link" size="sm"
-              type="button"
-              className="live-toast__undo"
-              onClick={toast.undo}
-            >
-              Undo
-            </Button>
+            {toast.undo && (
+              <Button variant="link" size="sm"
+                type="button"
+                className="live-toast__undo"
+                onClick={toast.undo}
+              >
+                Undo
+              </Button>
+            )}
           </div>,
           document.body,
         )}
@@ -1116,6 +1134,8 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 onToggleFavorite={handleToggleFavorite}
                 onPreview={setPreview}
                 guidePending={live.status === "ready" && !!live.data.guidePending}
+                guideLists={guideLists}
+                onNotice={notice}
               />
             )}
             {/* The catalog no longer waits on the guide (a big provider's

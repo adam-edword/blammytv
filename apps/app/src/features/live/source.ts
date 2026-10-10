@@ -24,8 +24,9 @@ import { httpGetBytes, httpGetText } from "../../lib/http";
 import { isAdultCategory, isAdultStream, nameLooksAdult } from "./adult";
 import { diskGet, diskPut } from "./diskCache";
 import { normalizeProgrammes } from "./epg";
+import { applyGuideFixes, fixKey, loadGuideFixes } from "./guideFix";
 import { parseM3U } from "./m3u";
-import type { Channel, LiveData, LiveGroup, Programme } from "./model";
+import type { Channel, GuideChannel, LiveData, LiveGroup, Programme } from "./model";
 import { extractQuality } from "./quality";
 import type { XmltvStats } from "./xmltv";
 import { parseXmltvOffThread } from "./xmltvThread";
@@ -136,7 +137,16 @@ function refreshInBackground(playlists: LoadableSource[], key: string) {
  * as a promise instead of awaiting it, doLoad returns the channels
  * immediately, and the programmes are merged in when they land (same
  * announce-and-re-read path the disk hydrate already uses). */
-type EpgPhase = { programmes: Map<string, Programme[]>; epgError?: string };
+type EpgPhase = {
+  programmes: Map<string, Programme[]>;
+  epgError?: string;
+  /** The channels the guide declares, when one was downloaded and read. Set
+   * even when none matched, which is when it is most wanted (Fix guide…). */
+  guideChannels?: GuideChannel[];
+  /** The hand fixes the guide was parsed with (guideFix.ts `fixKey`), stamped
+   * on the group so a guide parsed without a later fix isn't reused. */
+  fixKey?: string;
+};
 type SourceBuild = {
   group: LiveGroup;
   channels: Channel[];
@@ -470,6 +480,10 @@ function canReuseGuide(
   if (force || !prior || prior.key !== key) return false;
   const g = prior.data.groups.find((x) => x.id === id);
   if (!g || g.guideAt === undefined || g.error || g.epgError) return false;
+  // A fix saved since this guide was parsed: its refresh never landed (the
+  // app was closed first), so reusing it would leave the fix unapplied for up
+  // to GUIDE_REFRESH_MS. Download it with the fix in the index.
+  if ((g.guideFixKey ?? "") !== fixKey(loadGuideFixes(id))) return false;
   // A guide stamped in the future (the clock was set back) isn't fresh, it is
   // unknowable. Download it.
   const age = now.getTime() - g.guideAt;
@@ -557,6 +571,14 @@ async function doLoad(
     if (prior) {
       built.forEach((b, i) => {
         if (!sameFeed(prior, current, playlists[i].id)) return;
+        // The guide's channel list rides the same way. It is what a reused
+        // guide keeps (below), what a failed download falls back on, and
+        // what the half-built catalog shows until the real guide lands: a
+        // source whose guide matched nothing has no programmes to hold the
+        // catalog's guide in place, and its Fix guide… would vanish for
+        // the length of the download.
+        const held = prior.data.groups.find((g) => g.id === b.group.id)?.guideChannels;
+        if (held && !b.group.guideChannels) b.group.guideChannels = held;
         for (const list of [b.channels, b.hidden ?? []])
           for (const c of list) {
             const kept = prior.data.programmes.get(c.id);
@@ -579,15 +601,22 @@ async function doLoad(
       // next load retries it.
       const landed = Date.now();
       const groups = built.map((b, i) => {
+        // The channels this guide declares replace the list the source held
+        // (seeded above, so a reused or failed guide keeps its old one). An
+        // empty list is a guide with no <channel> elements, not news.
+        const own = phases[i].guideChannels;
+        const g = own?.length ? { ...b.group, guideChannels: own } : b.group;
         if (phases[i].epgError)
-          return { ...b.group, epgError: phases[i].epgError };
+          return { ...g, epgError: phases[i].epgError };
         if (reuse[i]) {
-          const guideAt = prior?.data.groups.find((g) => g.id === b.group.id)?.guideAt;
-          return guideAt === undefined ? b.group : { ...b.group, guideAt };
+          const had = prior?.data.groups.find((x) => x.id === b.group.id);
+          return had?.guideAt === undefined
+            ? g
+            : { ...g, guideAt: had.guideAt, guideFixKey: had.guideFixKey };
         }
         return phases[i].programmes.size > 0
-          ? { ...b.group, guideAt: landed }
-          : b.group;
+          ? { ...g, guideAt: landed, guideFixKey: phases[i].fixKey || undefined }
+          : g;
       });
       // A source whose guide didn't come this time (a timeout, an error
       // page, a feed that matched nothing) keeps the one it had. A launch
@@ -745,7 +774,8 @@ async function buildXtreamSource(
         const fetched = performance.now();
         // Read before the worker takes the bytes, which empties this view.
         const mb = (bytes.byteLength / 1e6).toFixed(1);
-        const index = epgIndex(streams, p, hidden, !showAdult);
+        const fixes = loadGuideFixes(p.id);
+        const index = epgIndex(streams, p, hidden, !showAdult, fixes);
         const stats: XmltvStats = {
           guideChannels: 0,
           unmatchedOurs: [],
@@ -754,7 +784,12 @@ async function buildXtreamSource(
         };
         // On a worker: 3.3 seconds of a frozen app on Adam's 106MB guide,
         // every refresh, when it ran here (xmltvThread.ts).
-        const { programmes, onWorker } = await parseXmltvOffThread(bytes, index, now, stats);
+        const { programmes, channels: guideChannels, onWorker } = await parseXmltvOffThread(
+          bytes,
+          index,
+          now,
+          stats,
+        );
         console.info(
           `[live] ${p.name}: xmltv ${mb}MB in ${Math.round(fetched - xmlT0)}ms (overlapped), parsed EPG for ${programmes.size} channels in ${Math.round(performance.now() - fetched)}ms (${onWorker ? "off the page's thread" : "on the page"})`,
         );
@@ -781,14 +816,16 @@ async function buildXtreamSource(
         if (index.size === 0)
           return {
             programmes,
+            guideChannels,
             epgError: "the panel's channels carry no EPG ids to match a guide",
           };
         if (programmes.size === 0)
           return {
             programmes,
+            guideChannels,
             epgError: `the guide downloaded (${mb}MB) but matched none of the channels`,
           };
-        return { programmes };
+        return { programmes, guideChannels, fixKey: fixKey(fixes) };
       } catch (err) {
         console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
         return {
@@ -867,7 +904,7 @@ async function buildM3uSource(
     // Distinct groups in first-appearance order (folders), skipping hidden.
     const folders: { id: string; name: string }[] = [];
     const seen = new Set<string>();
-    const epgIdx = new Map<string, string[]>();
+    const epgRaw = new Map<string, string[]>();
     const channels: Channel[] = [];
     // tvg-id is the EPG feed id and is legitimately SHARED across HD/SD/
     // backup variants — it can't be the channel id alone (duplicate React
@@ -917,6 +954,7 @@ async function buildM3uSource(
         archiveDays: 0,
         number: e.channelNumber,
         url: safe,
+        epgId: e.tvgId || undefined,
       };
       if (aside) {
         hiddenChannels.push(channel);
@@ -924,11 +962,16 @@ async function buildM3uSource(
       }
       channels.push(channel);
       if (e.tvgId) {
-        const list = epgIdx.get(e.tvgId) ?? [];
+        const list = epgRaw.get(e.tvgId) ?? [];
         list.push(id);
-        epgIdx.set(e.tvgId, list);
+        epgRaw.set(e.tvgId, list);
       }
     }
+    // The channels the user has matched by hand (guideFix.ts) move to the
+    // guide id they were given. After the loop: a channel with no tvg-id is
+    // in no list yet and is the commonest one to fix.
+    const fixes = loadGuideFixes(p.id);
+    const epgIdx = applyGuideFixes(epgRaw, fixes, new Set(channels.map((c) => c.id)));
 
     // EPG is best-effort — only when the playlist declares one AND some
     // channel carries a tvg-id to match against. Reasons land on epgError
@@ -951,13 +994,18 @@ async function buildM3uSource(
       try {
         const bytes = await httpGetBytes(epgUrl, undefined, 180);
         // On a worker, as the Xtream guide is (xmltvThread.ts).
-        const { programmes } = await parseXmltvOffThread(bytes, epgIdx, now);
+        const { programmes, channels: guideChannels } = await parseXmltvOffThread(
+          bytes,
+          epgIdx,
+          now,
+        );
         return programmes.size === 0
           ? {
               programmes,
+              guideChannels,
               epgError: "the guide downloaded but matched none of the channels",
             }
-          : { programmes };
+          : { programmes, guideChannels, fixKey: fixKey(fixes) };
       } catch (err) {
         console.warn(`[live] EPG failed for "${p.name}": ${msg(err)}`);
         return {
@@ -1219,6 +1267,7 @@ function toChannel(s: XtreamStream, p: XtreamPlaylist): Channel {
     logo: validUrl(s.stream_icon),
     archiveDays: archiveDaysOf(s),
     number: channelNumber(s),
+    epgId: s.epg_channel_id || undefined,
   };
 }
 
@@ -1239,22 +1288,32 @@ export function archiveDaysOf(s: XtreamStream): number {
   return Number.isFinite(days) && days > 0 ? days : 0;
 }
 
-/** epg_channel_id → our channel ids (one feed can back several channels). */
+/** epg_channel_id → our channel ids (one feed can back several channels).
+ * `fixes` are the channels the user matched by hand, our channel id → the
+ * guide's: they move to the guide id they were given (guideFix.ts). */
 export function epgIndex(
   streams: XtreamStream[],
   p: XtreamPlaylist,
   hidden: Set<string> = new Set(p.hiddenCategories ?? []),
   hideAdult = true,
+  fixes: Readonly<Record<string, string>> = {},
 ): Map<string, string[]> {
   const byEpg = new Map<string, string[]>();
+  // Every channel the build has, with or without a guide id: a fix is for the
+  // ones the guide did not match, and a channel with no id is in no list.
+  const known = new Set<string>();
+  const fixing = Object.keys(fixes).length > 0;
   for (const s of streams) {
-    if (!s.epg_channel_id || hidden.has(String(s.category_id ?? ""))) continue;
+    if (hidden.has(String(s.category_id ?? ""))) continue;
     if (hideAdult && isAdultStream(s)) continue;
+    const id = channelId(p.id, s.stream_id);
+    if (fixing) known.add(id);
+    if (!s.epg_channel_id) continue;
     const list = byEpg.get(s.epg_channel_id) ?? [];
-    list.push(channelId(p.id, s.stream_id));
+    list.push(id);
     byEpg.set(s.epg_channel_id, list);
   }
-  return byEpg;
+  return applyGuideFixes(byEpg, fixes, known);
 }
 
 function validUrl(s?: string | null): string | undefined {

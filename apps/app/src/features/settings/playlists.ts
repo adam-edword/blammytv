@@ -1,4 +1,5 @@
 import { hasId, loadList, save } from "../../lib/storage";
+import { keepGuideFixesFor } from "../live/guideFix";
 
 /**
  * Live-TV sources. Three kinds share the list; each carries its own
@@ -281,9 +282,13 @@ export function loadPlaylists(): Playlist[] {
 }
 
 /** Saving notifies listeners (the Live tab) so its data refreshes without
- * a restart. */
+ * a restart. A playlist that is no longer in the list takes its hand-matched
+ * guide channels (live/guideFix.ts) with it, as it takes its credentials and
+ * its hidden folders: every way out of the list comes through here, Delete
+ * and Clear All Login Info alike. */
 export function savePlaylists(list: Playlist[]): void {
   save(KEY, VERSION, list);
+  keepGuideFixesFor(list.map((p) => p.id));
   emitPlaylistsChange();
 }
 

@@ -225,6 +225,66 @@ describe("epgIndex", () => {
     );
     expect(idx.size).toBe(0);
   });
+
+  describe("with channels the user matched by hand", () => {
+    const streams = [
+      { stream_id: 1, epg_channel_id: "espn.us", category_id: "7" },
+      { stream_id: 2, epg_channel_id: "espn.us", category_id: "8" },
+      { stream_id: 3, epg_channel_id: "wrong.id", category_id: "7" },
+      { stream_id: 4, epg_channel_id: null, category_id: "7" },
+      { stream_id: 5, epg_channel_id: "hid.den", category_id: "13" },
+    ];
+    const hidden = playlist({ hiddenCategories: ["13"] });
+
+    it("moves a mismatched channel, and takes one the provider gave no id", () => {
+      const idx = epgIndex(streams, hidden, undefined, true, {
+        "pl1:3": "sky.uk",
+        "pl1:4": "sky.uk",
+      });
+      expect(Object.fromEntries(idx)).toEqual({
+        "espn.us": ["pl1:1", "pl1:2"],
+        "sky.uk": ["pl1:3", "pl1:4"],
+      });
+    });
+
+    it("leaves the channels that shared its old guide id where they were", () => {
+      const idx = epgIndex(streams, hidden, undefined, true, { "pl1:2": "bbc.uk" });
+      expect(idx.get("espn.us")).toEqual(["pl1:1"]);
+      expect(idx.get("bbc.uk")).toEqual(["pl1:2"]);
+    });
+
+    it("ignores a fix for a channel that is not in the build: hidden, adult or gone", () => {
+      const idx = epgIndex(streams, hidden, undefined, true, {
+        "pl1:5": "sky.uk", // in a hidden folder
+        "pl1:99": "sky.uk", // gone from the provider
+      });
+      expect(idx.has("sky.uk")).toBe(false);
+      expect(idx.size).toBe(2);
+    });
+
+    it("is the index it always was with no fixes", () => {
+      expect(Object.fromEntries(epgIndex(streams, hidden))).toEqual({
+        "espn.us": ["pl1:1", "pl1:2"],
+        "wrong.id": ["pl1:3"],
+      });
+    });
+  });
+});
+
+describe("a channel carries the guide id its provider gave it", () => {
+  it("as epgId, and none when there is none", () => {
+    const [a, b, c] = mapStreams(
+      [
+        { stream_id: 1, name: "A", epg_channel_id: "a.tv", category_id: "7" },
+        { stream_id: 2, name: "B", epg_channel_id: "", category_id: "7" },
+        { stream_id: 3, name: "C", epg_channel_id: null, category_id: "7" },
+      ],
+      playlist(),
+    );
+    expect(a.epgId).toBe("a.tv");
+    expect(b.epgId).toBeUndefined();
+    expect(c.epgId).toBeUndefined();
+  });
 });
 
 describe("mapHiddenStreams", () => {

@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
-import { parseXmltv, type XmltvStats } from "./xmltv";
+import type { GuideChannel } from "./model";
+import { parseGuide, type XmltvStats } from "./xmltv";
 
 /**
  * The guide's parse, off the page's thread (v0.10.11). See xmltvThread.ts
@@ -17,7 +18,13 @@ export interface XmltvJob {
 }
 
 export type XmltvDone =
-  | { programmes: ReturnType<typeof parseXmltv>; stats?: XmltvStats; chars: number }
+  | {
+      programmes: ReturnType<typeof parseGuide>["programmes"];
+      /** The guide's own channels, beside its programmes (xmltv.ts#parseGuide). */
+      channels: GuideChannel[];
+      stats?: XmltvStats;
+      chars: number;
+    }
   | { error: string };
 
 /** Said once this file has loaded: the page hands the bytes over only
@@ -34,7 +41,8 @@ self.onmessage = (e: MessageEvent<XmltvJob>) => {
     const stats: XmltvStats | undefined = want
       ? { guideChannels: 0, unmatchedOurs: [], unmatchedTheirs: [], recovered: 0 }
       : undefined;
-    reply = { programmes: parseXmltv(xml, new Map(ids), new Date(now), stats), stats, chars: xml.length };
+    const { programmes, channels } = parseGuide(xml, new Map(ids), new Date(now), stats);
+    reply = { programmes, channels, stats, chars: xml.length };
   } catch (err) {
     reply = { error: err instanceof Error ? err.message : String(err) };
   }

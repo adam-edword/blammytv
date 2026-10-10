@@ -16,6 +16,7 @@ import { load, save } from "../../lib/storage";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import {
   ChevronIcon,
+  GuideIcon,
   MultiviewIcon,
   RainbowStarIcon,
   StarGhostIcon,
@@ -28,6 +29,7 @@ import {
   ContextMenuLabel,
   ContextMenuTrigger,
 } from "../../components/ui/context-menu";
+import { GuideFixDialog } from "./GuideFixDialog";
 import { requestAddToMultiview } from "./multiviewEntry";
 import { formatClock } from "../../lib/time";
 import {
@@ -45,7 +47,7 @@ import {
   windowStart,
   xForTime,
 } from "./epg";
-import type { Channel, Programme } from "./model";
+import type { Channel, GuideChannel, Programme } from "./model";
 import { Hint } from "../../ui/Hint";
 import {
   clipsTitle,
@@ -181,6 +183,12 @@ interface Block {
   key: string;
 }
 
+/** The channel Fix guide… is for, with its source and that source's guide. */
+interface Fixing {
+  channel: Channel;
+  playlistId: string;
+  list: readonly GuideChannel[];
+}
 
 /* memo: hover previews re-render LiveScreen constantly while the cursor
  * crosses cells; the guide's own props stay stable, so it must not be
@@ -194,6 +202,8 @@ export const Guide = memo(function Guide({
   onToggleFavorite,
   onPreview,
   guidePending = false,
+  guideLists,
+  onNotice,
 }: {
   channels: Array<{ channel: Channel; programmes: Programme[] }>;
   selectedId: string;
@@ -214,6 +224,12 @@ export const Guide = memo(function Guide({
   onPreview: (
     preview: { channel: Channel; programme: Programme | null } | null,
   ) => void;
+  /** Each source's guide channels, by playlist id, for Fix guide…. Only an
+   * Xtream or M3U source whose guide has been read has an entry, and the
+   * menu item is only for a channel of one. */
+  guideLists?: ReadonlyMap<string, readonly GuideChannel[]>;
+  /** A line for the screen's toast. */
+  onNotice?: (message: string) => void;
 }) {
   // The now-line creeps and the window jumps at half-hour boundaries.
   const [now, setNow] = useState(() => new Date());
@@ -633,7 +649,20 @@ export const Guide = memo(function Guide({
    * ruler, the gaps) opens nothing.
    */
   const [menuFor, setMenuFor] = useState<Channel | null>(null);
+  /** Fix guide… (guideFix.ts): which channel and source it was picked on.
+   * Taken from the menu, and opened once the menu has closed (below). */
+  const [fixing, setFixing] = useState<(Fixing & { n: number }) | null>(null);
+  const [fixOpen, setFixOpen] = useState(false);
+  const fixAsked = useRef<Fixing | null>(null);
+  const fixFor = (ch: Channel): Fixing | null => {
+    for (const [playlistId, list] of guideLists ?? [])
+      if (ch.id.startsWith(`${playlistId}:`)) return { channel: ch, playlistId, list };
+    return null;
+  };
+  const menuFix = menuFor ? fixFor(menuFor) : null;
   const onGuideMenu = (e: ReactMouseEvent<HTMLElement>) => {
+    // An ask the last menu never closed on must not open a dialog from this one.
+    fixAsked.current = null;
     const row = (e.target as Element).closest<HTMLElement>("[data-channel]");
     const ch = row && channels.find((c) => c.channel.id === row.dataset.channel)?.channel;
     if (!row || !ch) {
@@ -868,7 +897,20 @@ export const Guide = memo(function Guide({
       </div>
       </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="min-w-52">
+      <ContextMenuContent
+        className="min-w-52"
+        // The dialog opens once the menu is gone. Opened from the item
+        // itself, the two modal layers overlap and the page can be left
+        // with pointer events off.
+        onCloseAutoFocus={(e) => {
+          const asked = fixAsked.current;
+          if (!asked) return;
+          fixAsked.current = null;
+          e.preventDefault();
+          setFixing((f) => ({ ...asked, n: (f?.n ?? 0) + 1 }));
+          setFixOpen(true);
+        }}
+      >
         {menuFor && (
           <>
             <ContextMenuLabel className="truncate text-xs text-muted-foreground">
@@ -882,10 +924,41 @@ export const Guide = memo(function Guide({
               <MultiviewIcon size={16} />
               Add to multi-view
             </ContextMenuItem>
+            {menuFix && (
+              <ContextMenuItem
+                onSelect={() => {
+                  fixAsked.current = menuFix;
+                }}
+              >
+                <GuideIcon size={16} />
+                Fix guide…
+              </ContextMenuItem>
+            )}
           </>
         )}
       </ContextMenuContent>
       </ContextMenu>
+      {/* A fresh dialog for each opening (its search, its pick), kept
+       * mounted after it closes so it can fade out. */}
+      {fixing && (
+        <GuideFixDialog
+          key={fixing.n}
+          open={fixOpen}
+          onOpenChange={setFixOpen}
+          channel={fixing.channel}
+          playlistId={fixing.playlistId}
+          guideChannels={fixing.list}
+          onNotice={(m) => onNotice?.(m)}
+          // No trigger to go back to: the channel's card, if it is drawn.
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            const row = [...document.querySelectorAll<HTMLElement>("[data-channel]")].find(
+              (r) => r.dataset.channel === fixing.channel.id,
+            );
+            row?.querySelector<HTMLElement>(".guide__card")?.focus({ preventScroll: true });
+          }}
+        />
+      )}
 
       {/* Drag the channel-card column wider/narrower; double-click resets it
        * to the default width. */}

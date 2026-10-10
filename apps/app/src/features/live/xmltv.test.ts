@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isFillerTitle, parseXmltv, parseXmltvTime, type XmltvStats } from "./xmltv";
+import { isFillerTitle, parseGuide, parseXmltv, parseXmltvTime, readGuideChannels, type XmltvStats } from "./xmltv";
 import { parseXmltvOffThread } from "./xmltvThread";
 
 // The full parse is tested here since v0.10.11: it reads the text itself
@@ -120,6 +120,77 @@ describe("parseXmltv", () => {
   });
 });
 
+describe("the guide's own channel list", () => {
+  it("is each channel's id and first display-name, in the guide's order", () => {
+    const list = readGuideChannels(
+      doc(
+        `<channel id="espn.us"><display-name>ESPN</display-name><display-name>ESPN HD</display-name></channel>` +
+          `<channel id="sky.uk"><display-name lang="en">  Sky Sports  </display-name></channel>` +
+          `<programme channel="espn.us" start="${at(0)}" stop="${at(1)}"><title>x</title></programme>`,
+      ),
+    );
+    expect(list).toEqual([
+      { id: "espn.us", name: "ESPN" },
+      { id: "sky.uk", name: "Sky Sports" },
+    ]);
+  });
+
+  it("names a channel by its id when it has no display-name", () => {
+    const list = readGuideChannels(
+      doc(`<channel id="bare.id"/><channel id="empty.name"><display-name>  </display-name></channel><channel id="no.name"></channel>`),
+    );
+    expect(list).toEqual([
+      { id: "bare.id", name: "bare.id" },
+      { id: "empty.name", name: "empty.name" },
+      { id: "no.name", name: "no.name" },
+    ]);
+  });
+
+  it("decodes entities and CDATA in a name as it does in a title", () => {
+    const list = readGuideChannels(
+      doc(
+        `<channel id="a&amp;b"><display-name>Tom &amp; Jerry &#8211; &#x2019;Cats&apos;</display-name></channel>` +
+          `<channel id="c"><display-name><![CDATA[Fish & <chips>]]></display-name></channel>`,
+      ),
+    );
+    expect(list).toEqual([
+      { id: "a&b", name: "Tom & Jerry \u2013 \u2019Cats'" },
+      { id: "c", name: "Fish & <chips>" },
+    ]);
+  });
+
+  it("lists an id once, skips a channel with none, and is not fooled by programmes or a longer tag", () => {
+    const list = readGuideChannels(
+      doc(
+        `<channels><channel id="one"><display-name>First</display-name></channel>` +
+          `<channel id="one"><display-name>Again</display-name></channel>` +
+          `<channel><display-name>No id</display-name></channel></channels>` +
+          `<programme channel="one" start="${at(0)}" stop="${at(1)}"><title>x</title></programme>`,
+      ),
+    );
+    expect(list).toEqual([{ id: "one", name: "First" }]);
+  });
+
+  it("comes back with the programmes, and without them when none of ours carries a guide id", () => {
+    const xml = doc(
+      `<channel id="espn.us"><display-name>ESPN</display-name></channel>` +
+        `<channel id="other"><display-name>Other</display-name></channel>` +
+        `<programme channel="espn.us" start="${at(0)}" stop="${at(1)}"><title>Live</title></programme>` +
+        `<programme channel="other" start="${at(0)}" stop="${at(1)}"><title>Dropped</title></programme>`,
+    );
+    const both = parseGuide(xml, ids({ "espn.us": ["p:1"] }), NOW);
+    expect(titles(both.programmes, "p:1")).toEqual(["Live"]);
+    // The programmes of a channel nobody matched are still dropped. The names are not.
+    expect(both.programmes.size).toBe(1);
+    expect(both.channels.map((c) => c.id)).toEqual(["espn.us", "other"]);
+    const none = parseGuide(xml, ids({}), NOW);
+    expect(none.programmes.size).toBe(0);
+    expect(none.channels.map((c) => c.name)).toEqual(["ESPN", "Other"]);
+    // parseXmltv is the same parse, programmes only.
+    expect(titles(parseXmltv(xml, ids({ "espn.us": ["p:1"] }), NOW), "p:1")).toEqual(["Live"]);
+  });
+});
+
 describe("parseXmltvOffThread", () => {
   it("with no Worker (as here) parses on this thread, from the bytes, to the same answer", async () => {
     const xml = doc(`<programme channel="a" start="${at(0)}" stop="${at(1)}"><title>Caf\u00e9</title></programme>`);
@@ -127,6 +198,19 @@ describe("parseXmltvOffThread", () => {
     const { programmes, chars } = await parseXmltvOffThread(bytes, ids({ a: ["p:a"] }), NOW);
     expect(titles(programmes, "p:a")).toEqual(["Caf\u00e9"]);
     expect(chars).toBe(xml.length);
+  });
+
+  it("brings the guide's channel list back with the programmes", async () => {
+    const xml = doc(
+      `<channel id="a"><display-name>Caf\u00e9 One</display-name></channel><channel id="z"/>` +
+        `<programme channel="a" start="${at(0)}" stop="${at(1)}"><title>x</title></programme>`,
+    );
+    const bytes = new TextEncoder().encode(xml).buffer as ArrayBuffer;
+    const { channels } = await parseXmltvOffThread(bytes, ids({ a: ["p:a"] }), NOW);
+    expect(channels).toEqual([
+      { id: "a", name: "Caf\u00e9 One" },
+      { id: "z", name: "z" },
+    ]);
   });
 });
 
