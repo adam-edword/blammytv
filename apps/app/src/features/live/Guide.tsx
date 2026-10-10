@@ -44,6 +44,12 @@ import {
 } from "./epg";
 import type { Channel, Programme } from "./model";
 import { Hint } from "../../ui/Hint";
+import {
+  clipsTitle,
+  createTitleMeter,
+  loadedFaceCount,
+  probeTitleFont,
+} from "./titleFit";
 
 /** Pointer spotlight on programme cells: writes the cursor's cell-local
  * position into CSS vars; the ::after light circle rides them via
@@ -103,13 +109,32 @@ function pinnedMetrics(b: Block, scroll: number) {
   };
 }
 
-/** Fade masks only where text actually overflows (measured, not blind).
- * All reads, then all writes: interleaving them forces a reflow per
- * element, which row-window shifts would pay every 68px. */
-function clipTitles(els: Iterable<HTMLElement>) {
-  const list = Array.from(els);
-  const clipped = list.map((t) => t.scrollWidth > t.clientWidth + 1);
-  list.forEach((t, i) => t.classList.toggle("is-clipped", clipped[i]));
+/** One meter for every guide: programme titles are faded from their text and
+ * the cell's width, not from the DOM (see titleFit). */
+const titleMeter = createTitleMeter();
+
+/** The font a title is measured in, read once from the CSS (see titleFit),
+ * before the first programmes are drawn. */
+function ensureTitleFont() {
+  if (titleMeter.ready() || titleMeter.unavailable()) return;
+  const font = probeTitleFont();
+  if (font) titleMeter.setFont(font);
+}
+
+/** A clock time, spelled once per minute and format. A programme's range
+ * is two of these and the Guide drew four per cell on every render. The
+ * label only has minutes in it, so the cache is bounded by the minutes the
+ * schedule spans, not by how many programmes there are. */
+const clockLabels = new Map<string, string>();
+function clockLabel(t: Date, fmt: "12h" | "24h"): string {
+  const key = `${fmt}${Math.floor(t.getTime() / 60_000)}`;
+  let label = clockLabels.get(key);
+  if (label === undefined) {
+    if (clockLabels.size > 8000) clockLabels.clear();
+    label = formatClock(t, fmt);
+    clockLabels.set(key, label);
+  }
+  return label;
 }
 
 /** Restore a cell to its natural place. The true left comes from the
@@ -140,6 +165,11 @@ interface Block {
   left: number;
   width: number;
   right: number;
+  /** "7:30 PM – 8:30 PM", in the chosen clock. */
+  range: string;
+  /** The title runs past the cell, so it fades at the edge (unpinned; a
+   * pinned title's fade is the pin's). */
+  clip: boolean;
   /** Unique within a lane. Carries the lane index so a provider that ships
    * two programmes with the same start time can't collide React keys or the
    * `[data-key]` pin lookup. */
@@ -198,8 +228,10 @@ export const Guide = memo(function Guide({
   // setCardW during a column-resize drag).
   const start = useMemo(() => windowStart(now), [now]);
   const laneW = GUIDE_HOURS * 60 * PX_PER_MIN;
-  const range = (from: Date, to: Date) =>
-    `${formatClock(from, clockFmt)} – ${formatClock(to, clockFmt)}`;
+
+  /* Bumps when a font face lands after the titles were measured: what they
+   * measure against changed. `lanes` and the card names depend on it. */
+  const [fit, setFit] = useState(0);
 
   // Resizable channel-card column, remembered (the old build's mechanics:
   // pointer-capture drag, clamped, persisted).
@@ -288,8 +320,9 @@ export const Guide = memo(function Guide({
   }, [channels]);
 
   const lanes = useMemo(
-    () =>
-      channels.slice(renderFrom, renderTo).map(({ channel, programmes }, row) => {
+    () => {
+      ensureTitleFont();
+      return channels.slice(renderFrom, renderTo).map(({ channel, programmes }, row) => {
         const blocks: Block[] = programmes
           .map((p) => ({ p, rect: cellRect(p.start, p.end, start) }))
           .filter((b) => b.rect !== null)
@@ -301,12 +334,23 @@ export const Guide = memo(function Guide({
               left: rect!.x,
               width,
               right: rect!.x + width,
+              range: `${clockLabel(p.start, clockFmt)} – ${clockLabel(p.end, clockFmt)}`,
+              clip:
+                titleMeter.ready() &&
+                clipsTitle(
+                  titleMeter.width(p.title),
+                  width - titleMeter.chrome(),
+                ),
               key: `${p.start.getTime()}:${i}`,
             };
           });
         return { channel, blocks, rowKey: rowKeys[renderFrom + row] };
-      }),
-    [channels, rowKeys, renderFrom, renderTo, now, start],
+      });
+    },
+    // `fit` is not read above: it is here so a new font measures every title
+    // again (the meter is a module, not a prop).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [channels, rowKeys, renderFrom, renderTo, now, start, clockFmt, fit],
   );
 
   /* Pinning is fully imperative — React never renders it. With 14+ lanes a
@@ -317,6 +361,8 @@ export const Guide = memo(function Guide({
   const pinsRef = useRef<(string | null)[]>([]);
   const pinnedElsRef = useRef<(HTMLElement | null)[]>([]);
   const laneElsRef = useRef<HTMLElement[]>([]);
+  /** What each rendered card's name was last measured against, by row. */
+  const cardSigsRef = useRef(new Map<string, string>());
 
   const computePins = useCallback(
     (scroll: number) =>
@@ -330,13 +376,14 @@ export const Guide = memo(function Guide({
   /** Reconcile which cell is pinned per lane, then drive the pinned cells:
    * trailing clip-path (+ slide/fade near the handoff) only — no width
    * writes, no layout. Pinning swaps the cell to position:sticky with the
-   * lane edge as its constraint (`left` becomes the sticky offset). Title
-   * natural widths are measured once per pin (cached) so the per-frame
-   * clip check is pure arithmetic. */
+   * lane edge as its constraint (`left` becomes the sticky offset). A pinned
+   * title's natural width comes from the meter, so the per-frame clip check
+   * is pure arithmetic and reads nothing. */
   const syncPins = useCallback(
-    /** `clip`: more titles whose fade to re-measure in the same read pass
-     * (after a render, all of them). */
-    (scroll: number, clip: HTMLElement[] = []) => {
+    /** `names`: channel card names whose fade to re-measure in the read
+     * pass. They are the one fade still asked of the DOM: their room is the
+     * card's, not a cell's. */
+    (scroll: number, names: HTMLElement[] = []) => {
       // Every write, then every read, then the class writes the reads
       // decide. A read after a write forces a layout, and doing both per
       // lane cost one per pinned lane, twice: 60 to 72 layouts on a 3-row
@@ -344,14 +391,14 @@ export const Guide = memo(function Guide({
       // channels).
       const next = computePins(scroll);
       const prev = pinsRef.current;
-      const released: HTMLElement[] = [];
+      const released: { t: HTMLElement; cell: HTMLElement }[] = [];
       next.forEach((key, i) => {
         const el = pinnedElsRef.current[i];
         if (prev[i] === key && el?.isConnected) return;
         if (el?.isConnected) {
           unpin(el);
           const t = el.querySelector<HTMLElement>(".guide__cell-title");
-          if (t) released.push(t);
+          if (t) released.push({ t, cell: el });
         }
         const target = key
           ? laneElsRef.current[i]?.querySelector<HTMLElement>(
@@ -382,39 +429,47 @@ export const Guide = memo(function Guide({
         if (t) pinned.push({ el, t, room: width - 28 });
       });
 
-      // Reads. A title's natural width is kept on its cell for as long as
-      // the title is the same text, across pins and renders, so a pinned
-      // lane is measured once, not on every row the window moves.
+      // Reads: the card names, and a pinned title's width only when there
+      // is no canvas to measure it with.
       const overflows = (t: HTMLElement) => t.scrollWidth > t.clientWidth + 1;
-      const releasedClipped = released.map(overflows);
-      const clipClipped = clip.map(overflows);
-      const widths = pinned.map(({ el, t }) =>
-        el.dataset.twFor === t.textContent ? Number(el.dataset.tw) : t.scrollWidth,
+      const namesClipped = names.map(overflows);
+      const widths = pinned.map(({ t }) =>
+        titleMeter.ready()
+          ? titleMeter.width(t.textContent ?? "")
+          : t.scrollWidth,
       );
 
       // Writes.
-      released.forEach((t, i) => t.classList.toggle("is-clipped", releasedClipped[i]));
-      clip.forEach((t, i) => t.classList.toggle("is-clipped", clipClipped[i]));
+      // A released title goes back to the fade its cell was rendered with.
+      released.forEach(({ t, cell }) =>
+        t.classList.toggle("is-clipped", cell.dataset.clip === "1"),
+      );
+      names.forEach((n, i) => n.classList.toggle("is-clipped", namesClipped[i]));
       // Pinned last: a pinned title's fade is its pin's, not its box's.
-      pinned.forEach(({ el, t, room }, i) => {
-        el.dataset.tw = String(widths[i]);
-        el.dataset.twFor = t.textContent ?? "";
-        t.classList.toggle("is-clipped", widths[i] > room);
-      });
+      pinned.forEach(({ t, room }, i) =>
+        t.classList.toggle("is-clipped", widths[i] > room),
+      );
     },
     [computePins, lanes, laneX],
   );
 
-  const CLIP_SELECTOR = ".guide__cell-title, .guide__card-name";
   useLayoutEffect(() => {
     // After a render: purge every pin artifact FIRST (a render resets only
     // the styles whose props changed, so imperative pin styles linger —
     // across renders AND across HMR module swaps), then refresh lane
-    // handles, re-measure fades, and re-pin cleanly.
-    scrollRef.current
+    // handles, and re-pin cleanly.
+    const root = scrollRef.current;
+    root
       ?.querySelectorAll<HTMLElement>(".guide__cell--pinned")
-      .forEach(unpin);
-    scrollRef.current
+      .forEach((el) => {
+        unpin(el);
+        // The pin owned its title's fade; hand it back to the render's.
+        el.querySelector(".guide__cell-title")?.classList.toggle(
+          "is-clipped",
+          el.dataset.clip === "1",
+        );
+      });
+    root
       ?.querySelectorAll<HTMLElement>(
         ".guide__cell:not(.guide__cell--blank) .guide__cell-body[style]",
       )
@@ -422,39 +477,49 @@ export const Guide = memo(function Guide({
         body.style.transform = "";
       });
     laneElsRef.current = Array.from(
-      scrollRef.current?.querySelectorAll<HTMLElement>(".guide__lane") ?? [],
+      root?.querySelectorAll<HTMLElement>(".guide__lane") ?? [],
     );
     pinsRef.current = [];
     pinnedElsRef.current = [];
-    // Re-pin and re-measure every fade in one pass of reads, after every
+    // Card names are measured against the DOM, and only for the rows whose
+    // card changed since the last render: a new row, a starred one, a
+    // renamed one, a resized column, a new font. Every render used to
+    // measure every title and name on screen.
+    const rowEls = root?.querySelectorAll<HTMLElement>(".guide__row");
+    const sigs = new Map<string, string>();
+    const names: HTMLElement[] = [];
+    lanes.forEach(({ channel, rowKey }, i) => {
+      const sig = `${channel.name}\n${favorites.includes(channel.id)}\n${laneX}\n${fit}`;
+      sigs.set(rowKey, sig);
+      if (cardSigsRef.current.get(rowKey) === sig) return;
+      const name = rowEls?.[i]?.querySelector<HTMLElement>(".guide__card-name");
+      if (name) names.push(name);
+    });
+    cardSigsRef.current = sigs;
+    // Re-pin and measure the names in one pass of reads, after every
     // write above: one forced layout a render, where there were three.
-    syncPins(
-      scrollXRef.current,
-      Array.from(
-        scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ?? [],
-      ),
-    );
+    syncPins(scrollXRef.current, names);
     // Row-window drift check (channels changed, container resized): a
     // corrected window re-renders once; the equality guard stops the loop.
     measureRowWindow();
   });
   useEffect(() => {
     let alive = true;
-    document.fonts?.ready.then(() => {
-      if (!alive) return;
-      // A pinned title measured before the font arrived was measured in
-      // the fallback: forget it, and the next sync measures it again.
-      scrollRef.current
-        ?.querySelectorAll<HTMLElement>("[data-tw-for]")
-        .forEach((el) => delete el.dataset.twFor);
-      clipTitles(
-        scrollRef.current?.querySelectorAll<HTMLElement>(CLIP_SELECTOR) ?? [],
-      );
-    });
+    // A face that lands after the first measure was measured in its
+    // fallback. Re-measure only if one did: ready also settles when
+    // nothing was loading, and a render for that would be for nothing.
+    const refit = () => {
+      if (!alive || loadedFaceCount() === titleMeter.faces()) return;
+      titleMeter.invalidate();
+      setFit((n) => n + 1);
+    };
+    void document.fonts?.ready.then(refit);
+    document.fonts?.addEventListener("loadingdone", refit);
     const ro = new ResizeObserver(measureRowWindow);
     if (scrollRef.current) ro.observe(scrollRef.current);
     return () => {
       alive = false;
+      document.fonts?.removeEventListener("loadingdone", refit);
       ro.disconnect();
     };
   }, [measureRowWindow]);
@@ -493,8 +558,12 @@ export const Guide = memo(function Guide({
   const cellBody = (b: Block) => (
     <span className="guide__cell-shine" onMouseMove={shineMove}>
       <span className="guide__cell-body">
-        <span className="guide__cell-title">{b.p.title}</span>
-        <span className="guide__cell-time">{range(b.p.start, b.p.end)}</span>
+        <span
+          className={"guide__cell-title" + (b.clip ? " is-clipped" : "")}
+        >
+          {b.p.title}
+        </span>
+        <span className="guide__cell-time">{b.range}</span>
       </span>
     </span>
   );
@@ -676,10 +745,11 @@ export const Guide = memo(function Guide({
                       data-key={b.key}
                       data-left={b.left}
                       data-width={b.width}
+                      data-clip={b.clip ? "1" : undefined}
                       className={cellClass(b)}
                       style={{ left: b.left, width: b.width }}
                       data-hint={b.p.title}
-                      aria-label={`${channel.name}, ${b.p.title}, ${range(b.p.start, b.p.end)}${b.live ? ", on now" : ""}`}
+                      aria-label={`${channel.name}, ${b.p.title}, ${b.range}${b.live ? ", on now" : ""}`}
                       onClick={() => onSelect(channel.id)}
                       onMouseEnter={() =>
                         onPreview({ channel, programme: b.p })

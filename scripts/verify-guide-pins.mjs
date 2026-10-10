@@ -10,6 +10,11 @@
 // after every render did it three times over. It now writes every lane,
 // reads once, and writes the fades.
 //
+// Programme titles are faded from their text and the cell's width (a canvas
+// measure, no DOM read); channel card names are still measured in the DOM,
+// but only for a row whose card changed. The last two checks hold that:
+// starring a channel and widening the column each re-measure a name.
+//
 // Against the fake panel's "pins" line: forty channels, programme lengths
 // staggered so lanes hand off at different scrolls, titles from "News" to
 // far wider than any cell.
@@ -148,6 +153,37 @@ check(
   "a row step costs one layout pass, not one per lane per read",
   steps.every((s) => s.lanes >= 10) && worst < 2,
   steps.map((s) => `${s.layouts}/${s.lanes}`).join(" "),
+);
+
+// Card names: measured against the DOM, but only for a row whose card
+// changed since the last render (new, starred, renamed, a resized column,
+// a new font). Starring Pin Channel 1 takes 30px off its name's room, which
+// fades it; widening the column gives that back.
+await scrollTo(0, 0);
+const nameFade = (name) =>
+  page.evaluate((name) => {
+    const el = [...document.querySelectorAll(".guide__card-name")].find((e) => e.textContent === name);
+    return { faded: el.classList.contains("is-clipped"), over: el.scrollWidth > el.clientWidth + 1 };
+  }, name);
+const plain = await nameFade("Pin Channel 1");
+await page.getByRole("button", { name: "Add Pin Channel 1 to favorites" }).click({ force: true });
+await settle();
+await page.waitForTimeout(150);
+const starred = await nameFade("Pin Channel 1");
+check(
+  "starring a channel re-measures its name's fade",
+  !plain.faded && !plain.over && starred.faded && starred.over,
+  `unstarred ${JSON.stringify(plain)}, starred ${JSON.stringify(starred)}`,
+);
+await page.locator(".guide-resize").focus();
+await page.keyboard.press("ArrowRight");
+await settle();
+await page.waitForTimeout(150);
+const wide = await nameFade("Pin Channel 1");
+check(
+  "widening the card column re-measures it again",
+  !wide.faded && !wide.over,
+  JSON.stringify(wide),
 );
 
 await browser.close();
