@@ -1,10 +1,14 @@
 /** Pure time-grid math for the EPG. All positions derive from PX_PER_MIN so
  * the guide's density is one knob. */
 
+import { formatClock } from "../../lib/time";
 import type { Programme } from "./model";
 
 export const PX_PER_MIN = 9.5;
-export const GUIDE_HOURS = 4;
+/** How far ahead the guide scrolls. Memory holds 44 hours of schedule and a
+ * guide is reused for 12 (epgWindow.ts), so at least 32 hours ahead of now
+ * is always there to fill it. */
+export const GUIDE_HOURS = 24;
 
 /** The guide window opens at the last half-hour boundary. */
 export function windowStart(now: Date): Date {
@@ -24,6 +28,18 @@ export function ticks(start: Date): Date[] {
     { length: GUIDE_HOURS * 2 },
     (_, i) => new Date(start.getTime() + i * 30 * 60_000),
   );
+}
+
+const WEEKDAY = new Intl.DateTimeFormat("en-US", { weekday: "short" });
+
+/** A ruler tick's words: the time, and at local midnight the weekday in
+ * front of it ("Sun 12:00 AM", "Sun 00:00"). A day long ruler crosses a
+ * midnight, and a bare "12:00 AM" would not say which day it starts. */
+export function tickLabel(t: Date, format: "12h" | "24h" = "12h"): string {
+  const time = formatClock(t, format);
+  return t.getHours() === 0 && t.getMinutes() === 0
+    ? `${WEEKDAY.format(t)} ${time}`
+    : time;
 }
 
 /** Horizontal position of a moment, in px from the window's left edge. */

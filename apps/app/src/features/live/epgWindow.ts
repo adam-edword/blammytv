@@ -18,7 +18,11 @@
 /** Longest a disk snapshot may be and still hydrate the guide. */
 export const DISK_MAX_AGE_MS = 40 * 3600_000;
 
-/** The guide shows now..now+4h. */
+/** The first screen a hydrated guide has to cover: now..now+4h. The guide
+ * scrolls further than that (GUIDE_HOURS, 24), and the far end is kept
+ * filled by the refresh below, not by this: a guide is reused for 12 hours
+ * and keeps EPG_KEEP_AHEAD_MS (44) ahead of its download, so at least 32
+ * hours ahead of now is in memory. */
 export const VISIBLE_WINDOW_MS = 4 * 3600_000;
 
 /** Future listings a snapshot retains, from the moment it was fetched.

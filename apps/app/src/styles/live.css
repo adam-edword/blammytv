@@ -360,12 +360,44 @@
 
 /* Keeps ticks' sticky geometry over the channel column; transparent like
  * the ruler (ticks now just slide across the band, over the theme). Kept
- * as an element for packs that restyle it. */
+ * as an element for packs that restyle it. It holds Earlier, Now and Later,
+ * right-aligned to end where the channel cards do (the 8px gutter). */
 .guide__corner {
   position: sticky;
   left: 0;
   z-index: 1;
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+/* 24px buttons in the 28px ruler: Button's `icon-xs` and `xs`, in a capsule
+ * of the cards' own surface. The corner is transparent and the ticks slide
+ * through it, so a tick passing the bare buttons read straight through
+ * them; the capsule is opaque, and the ticks pass behind it as the cells
+ * pass behind the channel cards. (Glass was tried: a tick still shows
+ * through it.) Quiet like the ticks they sit beside, and the chevron is the
+ * app's one (pointing down) turned, as the media rows turn it. */
+.guide__jump {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+}
+.guide__jump button:not(:disabled):hover {
+  color: var(--text);
+}
+.guide__jump-earlier svg {
+  transform: rotate(90deg);
+}
+.guide__jump-later svg {
+  transform: rotate(-90deg);
 }
 
 .guide__row {

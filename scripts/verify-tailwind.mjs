@@ -1053,6 +1053,71 @@ check(
   );
 }
 
+// ---- 10. NO :has() WHOSE SUBJECT IS "ANYTHING UNDER IT" ------------------
+//
+// Found 2026-10-10 (v0.11.24), measuring the Guide at 24 hours. A row step
+// spent 30 to 45ms in style recalculation, and the cost grew with the size of
+// the DOCUMENT, not with what the step touched: Chromium restyled all 2,500
+// elements on every insertion. The cause was a handful of `:has()` rules in
+// the sheets, and the shape that does it is a :has() anchor with a universal
+// subject, `.u:is(:where(.group\/item):has(...) *)` (Tailwind's
+// `group-has-*` utilities) and `.mvtile:has(:focus-visible) .mvtile__chrome *`.
+// With one of those in the sheet, pulling every :has() rule out took the
+// restyle from 45ms to 1.6ms; pulling out those five and one more took it to
+// 3.4ms. The same rules written with a specific subject
+// (`[data-slot=item]:has([data-slot=item-description]) > .x`) cost nothing.
+//
+// Nothing about such a rule looks wrong, and it does not matter until a
+// screen inserts a lot of DOM, so it is read off the GENERATED sheets rather
+// than the source: a `group-has-*` class anywhere in a component puts the
+// rule back, and so does a hand-written one in styles/.
+{
+  const hits = await page.evaluate(() => {
+    /** The selector text after a `:has(...)` group, up to the next comma. */
+    const afterHas = (sel) => {
+      const out = [];
+      for (let i = sel.indexOf(":has("); i >= 0; i = sel.indexOf(":has(", i + 5)) {
+        let depth = 0;
+        let j = i + 4;
+        for (; j < sel.length; j++) {
+          if (sel[j] === "(") depth++;
+          else if (sel[j] === ")" && --depth === 0) break;
+        }
+        out.push(sel.slice(j + 1).split(",")[0]);
+      }
+      return out;
+    };
+    /** A bare `*` as a compound selector: after a space or a combinator, and
+     * not an attribute operator (`[style*=...]`). */
+    const universal = (rest) => /(^|[\s>+~(])\*(?![\w=-])/.test(rest);
+    const found = [];
+    const walk = (rules, parent) => {
+      for (const r of rules) {
+        let sel = r.selectorText;
+        if (sel && parent) sel = sel.includes("&") ? sel.split("&").join(parent) : `${parent} ${sel}`;
+        if (sel?.includes(":has(") && afterHas(sel).some(universal)) found.push(sel);
+        if (r.cssRules) walk(r.cssRules, sel ?? parent);
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      try {
+        walk(sheet.cssRules, "");
+      } catch {
+        /* cross-origin sheet, not ours */
+      }
+    }
+    return found;
+  });
+  check(
+    "no :has() rule has a universal subject, which restyles the whole page on any insertion",
+    hits.length === 0,
+    hits.length
+      ? `${hits.length} rule(s), first: ${hits[0].slice(0, 140)}. Give it a specific subject, ` +
+        "e.g. [data-slot=item]:has([data-slot=item-description]) > .x (see this check's comment)"
+      : "none in the generated sheets",
+  );
+}
+
 if (process.env.SHOT_DIR)
   await page.screenshot({ path: `${process.env.SHOT_DIR}/tailwind.png` });
 await browser.close();

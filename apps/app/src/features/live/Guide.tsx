@@ -13,7 +13,9 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { load, save } from "../../lib/storage";
+import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import {
+  ChevronIcon,
   MultiviewIcon,
   RainbowStarIcon,
   StarGhostIcon,
@@ -38,6 +40,7 @@ import {
   GUIDE_HOURS,
   PX_PER_MIN,
   cellRect,
+  tickLabel,
   ticks,
   windowStart,
   xForTime,
@@ -79,6 +82,8 @@ const CELL_GAP = 8;
 const ROW_STEP = ROW_H + ROW_GAP;
 /** Extra rows rendered beyond each viewport edge. */
 const OVERSCAN = 5;
+/** How near an end counts as being at it, for Earlier, Now and Later. */
+const JUMP_EDGE = 3;
 
 /** Once a pinned cell's visible width shrinks below this, it stops pinning
  * at the edge and instead slides under the channel column (fading) — while
@@ -282,6 +287,53 @@ export const Guide = memo(function Guide({
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollXRef = useRef(0);
   const rafRef = useRef(0);
+
+  /* Earlier, Now and Later, in the ruler's corner. Whether each is disabled
+   * is written straight to the button, from the scroll handler and after a
+   * render, as the pins are: state that followed the scroll would render the
+   * Guide on every frame of a scrub, which the row window (below) exists to
+   * avoid. React never sets `disabled`, so a render leaves it alone. */
+  const earlierRef = useRef<HTMLButtonElement>(null);
+  const nowBtnRef = useRef<HTMLButtonElement>(null);
+  const laterRef = useRef<HTMLButtonElement>(null);
+  const syncJump = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const x = el.scrollLeft;
+    const set = (b: HTMLButtonElement | null, off: boolean) => {
+      if (b && b.disabled !== off) b.disabled = off;
+    };
+    set(earlierRef.current, x <= JUMP_EDGE);
+    set(nowBtnRef.current, x <= JUMP_EDGE);
+    set(laterRef.current, x >= el.scrollWidth - el.clientWidth - JUMP_EDGE);
+  }, []);
+  // A programmatic scroll is smooth, unless the OS asks for less motion
+  // (Chromium does not honour that on its own).
+  const behavior = REDUCED_MOTION ? "auto" : "smooth";
+  /** Earlier and Later move by the lane that is showing (the view less the
+   * channel column). */
+  const jumpBy = (dir: 1 | -1) => {
+    const el = scrollRef.current;
+    if (el) el.scrollBy({ left: dir * (el.clientWidth - laneX), behavior });
+  };
+  const jumpNow = () =>
+    scrollRef.current?.scrollTo({ left: 0, behavior });
+
+  /* The window moves 30 minutes on every half hour (`start`), which moves
+   * every cell 285px left under a viewer who has scrolled ahead. Moving
+   * scrollLeft with them, in the same layout pass, keeps the programme they
+   * were looking at where it was. At the start (following now) there is
+   * nothing to keep. It runs before the pins' effect below, so they are
+   * placed for the new scroll. */
+  const startRef = useRef(start);
+  useLayoutEffect(() => {
+    const was = startRef.current;
+    startRef.current = start;
+    const el = scrollRef.current;
+    if (!el || start.getTime() <= was.getTime() || el.scrollLeft <= 0) return;
+    el.scrollLeft = Math.max(0, el.scrollLeft - xForTime(start, was));
+    scrollXRef.current = el.scrollLeft;
+  }, [start]);
 
   /* Vertical row window: real playlists run to six figures of channels, so
    * only the rows near the viewport render (spacer divs keep the scroll
@@ -502,6 +554,7 @@ export const Guide = memo(function Guide({
     // Row-window drift check (channels changed, container resized): a
     // corrected window re-renders once; the equality guard stops the loop.
     measureRowWindow();
+    syncJump();
   });
   useEffect(() => {
     let alive = true;
@@ -515,14 +568,17 @@ export const Guide = memo(function Guide({
     };
     void document.fonts?.ready.then(refit);
     document.fonts?.addEventListener("loadingdone", refit);
-    const ro = new ResizeObserver(measureRowWindow);
+    const ro = new ResizeObserver(() => {
+      measureRowWindow();
+      syncJump();
+    });
     if (scrollRef.current) ro.observe(scrollRef.current);
     return () => {
       alive = false;
       document.fonts?.removeEventListener("loadingdone", refit);
       ro.disconnect();
     };
-  }, [measureRowWindow]);
+  }, [measureRowWindow, syncJump]);
 
   const onScroll = useCallback(() => {
     if (rafRef.current) return;
@@ -536,8 +592,9 @@ export const Guide = memo(function Guide({
       // window change is about to land; the post-render effect re-syncs.
       measureRowWindow();
       syncPins(sl);
+      syncJump();
     });
-  }, [measureRowWindow, syncPins]);
+  }, [measureRowWindow, syncPins, syncJump]);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   // Folder/mode switch → a different (often shorter) list; start it at the
@@ -631,10 +688,45 @@ export const Guide = memo(function Guide({
               className="guide__tick"
               style={{ left: laneX + xForTime(t, start) }}
             >
-              {formatClock(t, clockFmt)}
+              {tickLabel(t, clockFmt)}
             </span>
           ))}
-          <div className="guide__corner" style={{ width: laneX }} />
+          <div className="guide__corner" style={{ width: laneX }}>
+            <div className="guide__jump" role="group" aria-label="Guide time">
+              <Button
+                ref={earlierRef}
+                variant="ghost"
+                size="icon-xs"
+                type="button"
+                className="guide__jump-earlier"
+                aria-label="Earlier"
+                onClick={() => jumpBy(-1)}
+              >
+                <ChevronIcon className="size-3.5" />
+              </Button>
+              <Button
+                ref={nowBtnRef}
+                variant="ghost"
+                size="xs"
+                type="button"
+                aria-label="Back to now"
+                onClick={jumpNow}
+              >
+                Now
+              </Button>
+              <Button
+                ref={laterRef}
+                variant="ghost"
+                size="icon-xs"
+                type="button"
+                className="guide__jump-later"
+                aria-label="Later"
+                onClick={() => jumpBy(1)}
+              >
+                <ChevronIcon className="size-3.5" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Off-window rows exist only as scroll height. */}

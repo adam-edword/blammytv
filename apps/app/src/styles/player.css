@@ -1729,9 +1729,20 @@
   opacity: 1;
   transition-duration: var(--dur-hover);
 }
+/* No `.mvtile:has(:focus-visible) .mvtile__chrome *` here, though the
+ * opacity rule above has one. Pointer events only matter to a pointer, and a
+ * pointer over a chrome child is over the tile, so `.mvtile:hover` already
+ * covers it. Keyboard focus never needed this rule: Tab and Enter ignore
+ * pointer-events.
+ *
+ * It also cost the whole page. This selector was one of six :has() rules
+ * over "everything under it" (the others were Tailwind `group-has-*`
+ * utilities), and with them in the sheet Chromium restyled every element on
+ * any DOM insertion: the insertions of a Guide row step took 39ms of style,
+ * and 3.4ms with all six gone (2026-10-10, verify-tailwind check 10). The
+ * opacity rule's :has() has a specific subject and measured harmless. */
 .mvtab:not(.is-idle) .mvtile:hover .mvtile__chrome *,
-.mvtab:not(.is-idle) .mvtile:focus-visible .mvtile__chrome *,
-.mvtab:not(.is-idle) .mvtile:has(:focus-visible) .mvtile__chrome * {
+.mvtab:not(.is-idle) .mvtile:focus-visible .mvtile__chrome * {
   pointer-events: auto;
 }
 /* A failed tile already says what happened in the middle; the chrome only

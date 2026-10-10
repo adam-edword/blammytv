@@ -123,7 +123,9 @@ function xmltv() {
       `<programme start="${fmt(startMs)}" stop="${fmt(endMs)}" channel="${ch}">` +
         `<title>${title}</title><desc>${desc}</desc></programme>`,
     );
-  for (let i = -1; i < 8; i++) {
+  // Out to +26h, so a programme 10+ hours ahead exists for the guide's
+  // 24 hour window (verify-guide-window).
+  for (let i = -1; i < 27; i++) {
     add(
       "espn.fake",
       base + i * HOUR,

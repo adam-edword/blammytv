@@ -76,7 +76,11 @@ function ComboboxInput({
             variant="ghost"
             asChild
             data-slot="input-group-button"
-            className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
+            // Hidden when the clear button sits beside it in the addon. Written with a
+            // specific subject: `group-has-*` compiles to a :has() over "anything
+            // under it", which restyles the whole page on every insertion
+            // (verify-tailwind, check 10).
+            className="[[data-slot=input-group-addon]:has([data-slot=combobox-clear])>&]:hidden data-pressed:bg-transparent"
             disabled={disabled}
           >
             <ComboboxTrigger />

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  GUIDE_HOURS,
   PX_PER_MIN,
   cellRect,
   normalizeProgrammes,
   progress,
+  tickLabel,
   ticks,
   windowStart,
   xForTime,
@@ -28,8 +30,10 @@ describe("layout", () => {
 
   it("emits a tick per half hour", () => {
     const t = ticks(start);
-    expect(t).toHaveLength(8);
+    expect(t).toHaveLength(GUIDE_HOURS * 2);
     expect(t[1]).toEqual(at(21, 0));
+    // 24 hours: the last tick is the half hour before the window closes.
+    expect(t[t.length - 1]).toEqual(at(44, 0));
   });
 
   it("clamps cells to the window and drops off-window ones", () => {
@@ -40,10 +44,28 @@ describe("layout", () => {
     });
     // Fully before the window: gone.
     expect(cellRect(at(19, 0), at(20, 30), start)).toBeNull();
-    // Runs past the window: clamped to the right edge.
-    const clipped = cellRect(at(23, 30), at(25, 0), start)!;
-    expect(clipped.x).toBe(180 * PX_PER_MIN);
-    expect(clipped.w).toBe(60 * PX_PER_MIN);
+    // Runs past the window: clamped to the right edge. The window is 24
+    // hours, so it closes at 20:30 the next day.
+    const clipped = cellRect(at(44, 0), at(46, 0), start)!;
+    expect(clipped.x).toBe(23.5 * 60 * PX_PER_MIN);
+    expect(clipped.w).toBe(30 * PX_PER_MIN);
+    // Beyond it: gone.
+    expect(cellRect(at(45, 0), at(46, 0), start)).toBeNull();
+  });
+});
+
+describe("tickLabel", () => {
+  it("is just the time, except at midnight", () => {
+    expect(tickLabel(at(20, 30))).toBe("8:30 PM");
+    expect(tickLabel(at(20, 30), "24h")).toBe("20:30");
+    expect(tickLabel(at(0, 30))).toBe("12:30 AM");
+  });
+
+  it("names the day at local midnight, in either clock", () => {
+    // 30 June 2026 was a Tuesday, 1 July a Wednesday.
+    expect(tickLabel(at(0, 0))).toBe("Tue 12:00 AM");
+    expect(tickLabel(at(0, 0), "24h")).toBe("Tue 00:00");
+    expect(tickLabel(at(24, 0))).toBe("Wed 12:00 AM");
   });
 });
 
