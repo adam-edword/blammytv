@@ -318,6 +318,14 @@ two calls taken by Adam the same day (below).
   commit's job.
 - Signed, with the reputation M3's installs have built, if decision 3
   says sign.
+- **A public roadmap, out with 1.0** (Adam, 2026-10-10: "a cool looking
+  roadmap with features big and small planned"). A page on the site
+  (`services/site`), in its FAQ voice. Now / Next / Later, no dates: a date
+  on a public page is a promise that goes stale. The big ones as cards
+  (recording, the post-1.0 headliner), the small ones as a list. Only what
+  we'd actually build; catch-up stays off it until a provider that serves
+  it exists to test against. Drawn from "After 1.0" below and
+  `plans/telly-2.0.5.md`'s borrow list.
 
 ### Alongside, whenever there is room
 
