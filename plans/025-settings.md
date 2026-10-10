@@ -1,7 +1,9 @@
 # Plan 025: Settings, replanned
 
-**Status: PROPOSAL, 2026-10-10. Nine calls are Adam's (end of this file);
-nothing is built.** Asked for by Adam: "replan our settings and think about
+**Status: CALLS TAKEN 2026-10-10, not built yet.** Adam: "go with all your
+recommendations on the settings calls. I don't care about rich presence
+though", so every call below is the recommended one, and D7 is never
+(Discord presence is off the list, not deferred). Asked for by Adam: "replan our settings and think about
 what we should add, how to organize it & whatever else. I think comparing
 to Telly is smart." Read against Desktop Telly 2.0.5 (`telly-2.0.5.md`) and
 the AIOStreams desktop app (`aiostreams-app.md`), whose settings screens
@@ -133,26 +135,18 @@ in the background until recording does).
    release log, Copy diagnostics and Export/import together.
 5. **P5, Sources advanced:** guide URL and User-Agent per playlist.
 
-## Calls for Adam
+## Calls, taken 2026-10-10
 
-Recommendations first; each is one reply.
+Adam took every recommendation, and dropped Discord presence outright.
 
-- **D1. Structure.** **(a) Five pages in a rail (recommended).** (b) Keep two
-  tabs and only move the four playback rows under General: smallest change,
-  but General becomes very long and every addition lands there. (c) One
-  scrolling page with a jump list: findable, but long and flat.
-- **D2. Up Next settings** (autoplay, prompt timing, countdown):
-  **yes (recommended)** / no.
-- **D3. Skipping** becomes per type with "automatic", keeping "Combine
-  credits and preview": **yes (recommended)** / keep today's three options.
-- **D4. Audio channels control:** **yes, Automatic by default
-  (recommended)** / no.
-- **D5. Subtitles:** **size and delay now, styling later (recommended)** /
-  full styling now / neither.
-- **D6. Export settings:** **logins left out (recommended)**, or included
-  with a password, or included plain.
-- **D7. Discord presence:** off by default if ever added. **Later
-  (recommended)**, now, or never.
-- **D8. Keyboard:** **a list now, remapping later (recommended)** / remap now.
-- **D9. Per-playlist guide URL and User-Agent:** **yes, under Advanced
-  (recommended)** / no.
+- **D1. Structure:** five pages in a rail (Sources, Playback, Appearance,
+  Accounts, App).
+- **D2. Up Next settings:** yes (autoplay, when the prompt shows, countdown).
+- **D3. Skipping:** per type, with "automatic"; "Combine credits and
+  preview" stays.
+- **D4. Audio channels:** yes, Automatic by default.
+- **D5. Subtitles:** size and delay now, styling later.
+- **D6. Export settings:** logins left out.
+- **D7. Discord presence:** never. Adam: "I don't care about rich presence."
+- **D8. Keyboard:** a list now, remapping later.
+- **D9. Per-playlist guide URL and User-Agent:** yes, under Advanced.
