@@ -130,7 +130,12 @@ check("typing a full hex applies it", (await root()).inline === "#ff6a00");
 await page.keyboard.press("Escape");
 // ONE Escape closes the top layer only. Settings' own Escape listener used
 // to close the whole sheet too, from inside the popover (v0.9.91).
-await page.waitForTimeout(300);
+// Waited for, not slept: Radix keeps the content mounted until its 150ms
+// exit animation ends, and as the board's first harness on a busy machine a
+// fixed 300ms read it still there (2026-10-10, once in 6 runs).
+await page
+  .waitForFunction(() => document.querySelectorAll("[data-slot='popover-content']").length === 0, null, { timeout: 3000 })
+  .catch(() => {});
 check(
   "Escape closes the popover and leaves Settings open",
   (await page.locator("[data-slot='popover-content']").count()) === 0 &&
