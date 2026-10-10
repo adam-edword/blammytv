@@ -24,7 +24,10 @@ import {
 } from "./playlists";
 import { loadShowAdult, saveShowAdult } from "./adultFilter";
 import { isAdultCategory } from "../live/adult";
-import { lookupLive, onLiveRefreshed } from "../live/source";
+import { lookupLive, onLiveRefreshed, refreshLiveNow } from "../live/source";
+import { GUIDE_REFRESH_MS } from "../live/epgWindow";
+import { formatWhen } from "../../lib/time";
+import { loadClockFormat } from "./clockFormat";
 import { LineMeter } from "../../ui/LineMeter";
 import { useConnections } from "../live/connections";
 import { EYEBROW } from "../../ui/eyebrow";
@@ -61,6 +64,12 @@ export function PlaylistsTab() {
   useEffect(() => onLiveRefreshed(() => setLiveTick((t) => t + 1)), []);
   void liveTick;
   const liveGroups = lookupLive()?.groups ?? [];
+  // When each enabled playlist's guide last landed. The OLDEST is what the
+  // line below reports: it is when the next automatic refresh falls due.
+  const enabledIds = new Set(playlists.filter((p) => p.enabled).map((p) => p.id));
+  const guideStamps = liveGroups.flatMap((g) =>
+    enabledIds.has(g.id) && g.guideAt !== undefined ? [g.guideAt] : [],
+  );
 
   // Per-playlist folder editor: which row is expanded, and each row's
   // fetched category list (kept per id so re-expanding is instant).
@@ -322,6 +331,7 @@ export function PlaylistsTab() {
             </div>
           ))
         )}
+        {enabledIds.size > 0 && <GuideRefresh stamps={guideStamps} />}
       </section>
 
       <section className="settings-section">
@@ -560,6 +570,54 @@ function FolderEditor({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/** How long Refresh now may say "Refreshing…" with no word from the load. A
+ * guide that never settles (a wedged download) must not leave the button
+ * dead; the load itself carries on. */
+const REFRESH_SAFETY_MS = 5 * 60_000;
+
+/**
+ * Under the playlists: when their guides were last downloaded, and a button
+ * to download them now. A guide is reused for GUIDE_REFRESH_MS (source.ts), so
+ * this is also the way to get a fresher one sooner. The button stays
+ * "Refreshing…" until the guide has landed, not just the channels.
+ */
+function GuideRefresh({ stamps }: { stamps: number[] }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const safety = useRef(0);
+  const presses = useRef(0);
+  useEffect(() => () => window.clearTimeout(safety.current), []);
+  const press = () => {
+    const mine = ++presses.current;
+    const stop = () => {
+      window.clearTimeout(safety.current);
+      if (mine === presses.current) setRefreshing(false);
+    };
+    setRefreshing(true);
+    window.clearTimeout(safety.current);
+    safety.current = window.setTimeout(stop, REFRESH_SAFETY_MS);
+    void refreshLiveNow().then(stop);
+  };
+  const hours = GUIDE_REFRESH_MS / 3600_000;
+  return (
+    <div className="playlists-refresh">
+      <p className="settings__section-note settings__section-note--dim">
+        Guides refresh every {hours} hours.
+        {stamps.length > 0 &&
+          ` Last refreshed ${formatWhen(new Date(Math.min(...stamps)), new Date(), loadClockFormat())}.`}
+      </p>
+      <Button
+        variant="secondary"
+        size="sm"
+        type="button"
+        disabled={refreshing}
+        onClick={press}
+      >
+        {refreshing ? "Refreshing…" : "Refresh now"}
+      </Button>
     </div>
   );
 }

@@ -42,6 +42,10 @@ vi.mock("./diskCache", () => ({
 }));
 
 const MIN = 60_000;
+/** A record whose guide is past GUIDE_REFRESH_MS: the revalidation behind a
+ * hydrate downloads it. Inside that window it is reused and nothing fetches
+ * (source.guide.test.ts), so a test about a download in the air needs this. */
+const STALE_GUIDE = 13 * 60 * MIN;
 const delay = <T,>(v: T, ms: number) =>
   new Promise<T>((r) => setTimeout(() => r(v), ms));
 const never = () => new Promise<never>(() => {});
@@ -137,9 +141,9 @@ describe("the live cache's clock", () => {
 
   it("a stale guide is not downgraded while its reload is in flight (F2)", async () => {
     const key = await diskKey();
-    // Relaunch with a guide on disk; the revalidation's XMLTV never lands.
+    // Relaunch with a stale guide on disk; the revalidation's XMLTV never lands.
     vi.resetModules();
-    disk = { key, at: Date.now(), data: snapshot(Date.now()) };
+    disk = { key, at: Date.now() - STALE_GUIDE, data: snapshot(Date.now()) };
     fetchXmltv.mockImplementation(never);
     const { loadLive, lookupLive } = await import("./source");
     await loadLive(new Date()); // hydrate, revalidation behind it
@@ -152,10 +156,10 @@ describe("the live cache's clock", () => {
 
   it("a guide refresh that fails keeps the guide that was here, on disk too", async () => {
     const key = await diskKey();
-    // Relaunch with a guide on disk; the revalidation's XMLTV fails (the
+    // Relaunch with a stale guide on disk; the revalidation's XMLTV fails (the
     // default here: a timeout, an error page).
     vi.resetModules();
-    disk = { key, at: Date.now(), data: snapshot(Date.now()) };
+    disk = { key, at: Date.now() - STALE_GUIDE, data: snapshot(Date.now()) };
     const { loadLive, lookupLive } = await import("./source");
     await loadLive(new Date());
     await delay(null, 30); // the channel phase lands, the guide phase fails

@@ -20,7 +20,9 @@ HTTP.
   reverted once (v0.9.94), for a multi-view that works. Adam: "I like how it
   works now."
 - **Guide downloads:** stop re-downloading the guide on every launch, and add
-  Refresh now.
+  Refresh now. Done in v0.11.22: each source reuses its guide for 12 hours
+  (`GUIDE_REFRESH_MS`) while its channel list still reloads every time, so
+  event channels renamed during the day are read fresh for sports.
 - **Surround:** stop forcing stereo. Done in v0.11.21, with a Channels row in
   the stats overlay to read what reached the device.
 

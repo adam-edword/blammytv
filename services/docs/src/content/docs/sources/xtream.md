@@ -31,7 +31,10 @@ password out of it and use those here.
 - **Channels and categories**, as the panel organises them.
 - **A programme guide**, downloaded separately from the channel list. It's the
   largest download of the three and often lands a few seconds after the
-  channels appear. Empty lanes read "No Information" until it does.
+  channels appear. Empty lanes read "No Information" until it does. It's
+  downloaded once every 12 hours, not on every launch, while the channel list
+  still reloads each time. **Refresh now**, under your playlists in
+  **Settings → General → Sources**, fetches a fresh one sooner.
 - **Connection limits** in the sidebar. See
   [Connection limits](/troubleshooting/connections/).
 

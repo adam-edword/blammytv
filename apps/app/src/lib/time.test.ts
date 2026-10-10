@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calendarDay, formatClock } from "./time";
+import { calendarDay, formatClock, formatWhen } from "./time";
 
 describe("calendarDay", () => {
   /** A local date as numbers, and its hour, which must be midnight. */
@@ -38,5 +38,25 @@ describe("formatClock", () => {
   it("formats 24h with leading zeros", () => {
     expect(formatClock(new Date(2026, 0, 1, 20, 38), "24h")).toBe("20:38");
     expect(formatClock(new Date(2026, 0, 1, 0, 5), "24h")).toBe("00:05");
+  });
+});
+
+describe("formatWhen", () => {
+  const now = new Date(2026, 9, 10, 15, 0);
+
+  it("is just the time today", () => {
+    expect(formatWhen(new Date(2026, 9, 10, 9, 14), now)).toBe("9:14 AM");
+    expect(formatWhen(new Date(2026, 9, 10, 21, 14), now, "24h")).toBe("21:14");
+  });
+
+  it("names the day for any other", () => {
+    expect(formatWhen(new Date(2026, 9, 9, 21, 14), now)).toBe("Oct 9, 9:14 PM");
+    expect(formatWhen(new Date(2026, 9, 9, 21, 14), now, "24h")).toBe("Oct 9, 21:14");
+    // Same day of the month, another month and year: not today.
+    expect(formatWhen(new Date(2025, 9, 10, 9, 14), now)).toBe("Oct 10, 9:14 AM");
+  });
+
+  it("says nothing for an invalid date", () => {
+    expect(formatWhen(new Date(Number.NaN), now)).toBe("");
   });
 });

@@ -34,6 +34,24 @@ export function formatClock(date: Date, format: "12h" | "24h" = "12h"): string {
   return fmt.format(date);
 }
 
+const DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+
+/**
+ * A moment that may not be today: "9:14 AM" when it is, "Oct 9, 9:14 PM"
+ * when it isn't, in the clock the user chose. For a stamp the reader needs
+ * to place ("last refreshed"), where a bare time would say nothing about
+ * which day. Local time, like formatClock. Empty for an invalid date.
+ */
+export function formatWhen(date: Date, now: Date, format: "12h" | "24h" = "12h"): string {
+  const clock = formatClock(date, format);
+  if (!clock) return "";
+  const today =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  return today ? clock : `${DAY.format(date)}, ${clock}`;
+}
+
 /**
  * A calendar date that a feed sends as an instant, as LOCAL midnight of
  * that date: formatted or filed by day in local time, it is then the same

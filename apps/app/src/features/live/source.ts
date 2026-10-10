@@ -69,7 +69,12 @@ let inflight: {
  * and how much schedule it keeps so that stays true. See epgWindow.ts: the
  * two are a pair, and were previously not (an 8h cache carrying 12h of
  * listings happened to work; a 40h one carrying 12h would not). */
-import { DISK_MAX_AGE_MS, EPG_KEEP_AHEAD_MS } from "./epgWindow";
+import {
+  DISK_MAX_AGE_MS,
+  EPG_KEEP_AHEAD_MS,
+  GUIDE_REFRESH_MS,
+  VISIBLE_WINDOW_MS,
+} from "./epgWindow";
 
 /** Fired after a BACKGROUND refresh lands fresh data in the memory cache —
  * the Live screen re-reads it silently (same path as playlist edits). */
@@ -195,7 +200,7 @@ const isCurrent = (key: string) => cacheKey(enabledSources()) === key;
 
 /** What a load started from: the memory cache, or the disk record a launch
  * hydrated into it. Its per-source config is read back out of its key. */
-type Prior = { data: LiveData; parts: KeyParts | null };
+type Prior = { key: string; data: LiveData; parts: KeyParts | null };
 type KeyParts = { entries: Map<string, unknown[]>; adult: unknown };
 
 function keyParts(key: string): KeyParts | null {
@@ -323,12 +328,33 @@ export async function loadLive(
         if (!disk.normalized)
           for (const [id, list] of disk.data.programmes)
             disk.data.programmes.set(id, normalizeProgrammes(list));
+        // A record from before `guideAt` existed doesn't say when its guide
+        // landed. The disk was written only by the guide phase then, so the
+        // record's own `at` IS that moment. A group with an error or an
+        // epgError never had a guide land, and a new-format one without a
+        // `guideAt` always has one of the two, so this can't mislabel it.
+        for (const g of disk.data.groups)
+          if (!g.error && !g.epgError) g.guideAt ??= disk.at;
         // A snapshot old enough to have run out of schedule renders as a
         // screen of "No Information" — the exact thing a cold load looks
         // like, with nothing to say a refresh is in flight. Say it. A guide
         // that still covers now stays quiet: the refresh behind it is
         // genuinely nothing the user needs to know about.
-        if (!coversNow(disk.data, now)) disk.data.guidePending = true;
+        //
+        // The record's age is no longer the guide's age: a launch inside
+        // GUIDE_REFRESH_MS rewrites the record with a fresh `at` and the same
+        // guide. EPG_KEEP_AHEAD_MS was sized so a snapshot DISK_MAX_AGE_MS
+        // old still covers the visible window, and a guide older than that
+        // has less schedule left than the screen shows. It is stale by the
+        // refresh rule too, so the load behind it downloads it, and the note
+        // above is true.
+        const oldest = Math.min(
+          ...disk.data.groups.map((g) => g.guideAt ?? Infinity),
+        );
+        const pastSchedule =
+          Date.now() - oldest > EPG_KEEP_AHEAD_MS - VISIBLE_WINDOW_MS;
+        if (!coversNow(disk.data, now) || pastSchedule)
+          disk.data.guidePending = true;
         // Stamped NOW, not with the snapshot's age. `at` is only the
         // in-memory TTL's clock, and a hydrate always has its revalidation
         // running behind it (below). Stamped with `disk.at`, a snapshot
@@ -341,8 +367,12 @@ export async function loadLive(
         return disk.data;
       }
     }
-    return doLoad(playlists, key, now, (label) =>
-      stages.forEach((cb) => cb(label)),
+    return doLoad(
+      playlists,
+      key,
+      now,
+      (label) => stages.forEach((cb) => cb(label)),
+      force,
     );
   })();
   inflight = record;
@@ -350,6 +380,32 @@ export async function loadLive(
     return await record.promise;
   } finally {
     if (inflight === record) inflight = null;
+  }
+}
+
+/** The guide phases still in the air, by the catalog their load returned.
+ * loadLive resolves with the channels; this is how refreshLiveNow waits for
+ * the guide behind them, which lands (or fails, or is dropped) on its own. */
+const guideSettled = new WeakMap<LiveData, Promise<void>>();
+
+/**
+ * A forced reload of the catalog, announced when its channels land. A forced
+ * load downloads every guide whatever its age (see doLoad), so this is both
+ * the playlist-change reload (watchPlaylists) and Settings' Refresh now: one
+ * function, so the two can't drift.
+ *
+ * Resolves once the guide has settled too: landed, failed, or dropped because
+ * the config moved on. Never rejects; a load that finds nothing announces
+ * nothing, and the caller just stops waiting.
+ */
+export async function refreshLiveNow(): Promise<void> {
+  if (enabledSources().length === 0) return;
+  try {
+    const data = await loadLive(new Date(), undefined, true);
+    if (peekLive()) announceRefresh();
+    await guideSettled.get(data);
+  } catch {
+    // doLoad catches per source; this is the belt for anything it doesn't.
   }
 }
 
@@ -377,14 +433,7 @@ export function watchPlaylists(): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const off = onPlaylistsChange(() => {
     clearTimeout(timer);
-    timer = setTimeout(() => {
-      if (enabledSources().length === 0) return;
-      loadLive(new Date(), undefined, true)
-        .then(() => {
-          if (peekLive()) announceRefresh();
-        })
-        .catch(() => {});
-    }, PLAYLIST_SETTLE_MS);
+    timer = setTimeout(() => void refreshLiveNow(), PLAYLIST_SETTLE_MS);
   });
   return () => {
     off();
@@ -392,11 +441,47 @@ export function watchPlaylists(): () => void {
   };
 }
 
+/**
+ * Can this source's guide be reused instead of downloaded again?
+ *
+ * Only the guide half of a load is skipped; the channel half always reloads.
+ * A guide is reused when ALL of these hold:
+ *  1. the load isn't forced (a playlist edit, a hidden folder, Refresh now
+ *     all want a fresh one);
+ *  2. what the load starts from has exactly this key, so it is this same
+ *     config's guide and not another's;
+ *  3. this source's group there has a `guideAt` younger than
+ *     GUIDE_REFRESH_MS and no `error` or `epgError` (a guide that failed is
+ *     retried by the next load, never pinned);
+ *  4. that catalog still covers now, so a guide that has run out of schedule
+ *     is downloaded whatever its age.
+ *
+ * A source with nothing to download (an M3U with no url-tvg) carries an
+ * epgError, so it "downloads", which costs nothing, and it never stops
+ * another source from reusing its own.
+ */
+function canReuseGuide(
+  prior: Prior | null,
+  key: string,
+  id: string,
+  force: boolean,
+  now: Date,
+): boolean {
+  if (force || !prior || prior.key !== key) return false;
+  const g = prior.data.groups.find((x) => x.id === id);
+  if (!g || g.guideAt === undefined || g.error || g.epgError) return false;
+  // A guide stamped in the future (the clock was set back) isn't fresh, it is
+  // unknowable. Download it.
+  const age = now.getTime() - g.guideAt;
+  return age >= 0 && age < GUIDE_REFRESH_MS && coversNow(prior.data, now);
+}
+
 async function doLoad(
   playlists: LoadableSource[],
   key: string,
   now: Date,
   onStage: (label: string) => void,
+  force = false,
 ): Promise<LiveData> {
   let data: LiveData;
   // What this load started from: the memory cache, or the disk record a
@@ -404,7 +489,7 @@ async function doLoad(
   // else lands in the cache. A failed source keeps its channels from it, and
   // every channel's programmes are seeded from it (below).
   const prior: Prior | null = cache
-    ? { data: cache.data, parts: keyParts(cache.key) }
+    ? { key: cache.key, data: cache.data, parts: keyParts(cache.key) }
     : null;
   const current = keyParts(key);
   // Every source failed. Its channels may all be carried (keepIfFailed), but
@@ -423,14 +508,26 @@ async function doLoad(
     // different one is the one actually wedged) — fall back to the generic
     // "Loading channels…" the caller shows when no stage is reported.
     const narrate = playlists.length === 1 ? onStage : undefined;
+    // Per source, which guides this load downloads. Decided now, from what
+    // the load started from, before the builds run and anything lands.
+    const reuse = playlists.map((p) =>
+      canReuseGuide(prior, key, p.id, force, now),
+    );
+    reuse.forEach((r, i) => {
+      if (!r) return;
+      const at = prior?.data.groups.find((g) => g.id === playlists[i].id)?.guideAt;
+      console.info(
+        `[live] ${playlists[i].name}: reusing its guide, ${at === undefined ? "?" : Math.round((now.getTime() - at) / 60_000)}min old`,
+      );
+    });
     const built = (
       await Promise.all(
-        playlists.map((p) =>
+        playlists.map((p, i) =>
           p.kind === "m3u"
-            ? buildM3uSource(p, now, narrate)
+            ? buildM3uSource(p, now, !reuse[i], narrate)
             : p.kind === "stalker"
-              ? buildStalkerSource(p, now, narrate)
-              : buildXtreamSource(p, now, narrate),
+              ? buildStalkerSource(p, now, !reuse[i], narrate)
+              : buildXtreamSource(p, now, !reuse[i], narrate),
         ),
       )
     ).map((b, i) => keepIfFailed(b, playlists[i], prior, current));
@@ -474,23 +571,39 @@ async function doLoad(
     // screen holds this one in state and would never see an in-place edit.
     // `guidePending` still says the real guide is coming, whatever was seeded.
     data.guidePending = true;
-    void Promise.all(built.map((b) => b.epg)).then((phases) => {
-      const groups = built.map((b, i) =>
-        phases[i].epgError
-          ? { ...b.group, epgError: phases[i].epgError }
-          : b.group,
-      );
+    const settled = Promise.all(built.map((b) => b.epg)).then((phases) => {
+      // When each source's guide was last good. A source that downloaded and
+      // got programmes without an epgError is stamped now. One that reused
+      // its guide keeps the stamp it had, which is how the guide ages across
+      // loads that don't touch it. One whose guide failed gets none, so the
+      // next load retries it.
+      const landed = Date.now();
+      const groups = built.map((b, i) => {
+        if (phases[i].epgError)
+          return { ...b.group, epgError: phases[i].epgError };
+        if (reuse[i]) {
+          const guideAt = prior?.data.groups.find((g) => g.id === b.group.id)?.guideAt;
+          return guideAt === undefined ? b.group : { ...b.group, guideAt };
+        }
+        return phases[i].programmes.size > 0
+          ? { ...b.group, guideAt: landed }
+          : b.group;
+      });
       // A source whose guide didn't come this time (a timeout, an error
       // page, a feed that matched nothing) keeps the one it had. A launch
       // hydrated from disk showed its guide, then a minute in every lane
       // went to "No Information" and the disk record lost its guide too.
-      // The reason still lands on the group's epgError.
+      // The reason still lands on the group's epgError. A source that reused
+      // its guide has an empty phase on purpose and is the same case with no
+      // reason to give; it falls back on what it started from if the cache
+      // has moved to another key meanwhile.
       const had = cache?.key === key ? cache.data.programmes : null;
       const programmes = new Map<string, Programme[]>();
       phases.forEach((phase, i) => {
-        if (phase.programmes.size === 0 && had) {
+        const keep = had ?? (reuse[i] ? prior?.data.programmes : null);
+        if (phase.programmes.size === 0 && keep) {
           for (const c of built[i].channels) {
-            const kept = had.get(c.id);
+            const kept = keep.get(c.id);
             if (kept) programmes.set(c.id, kept);
           }
           return;
@@ -517,6 +630,7 @@ async function doLoad(
     }).catch((err) => {
       console.warn("[live] guide phase failed:", err);
     });
+    guideSettled.set(data, settled);
   }
 
   // A total failure (no channels at all) stays uncached so the next mount
@@ -580,6 +694,7 @@ const breathe = () => new Promise<void>((r) => setTimeout(r, 0));
 async function buildXtreamSource(
   p: XtreamPlaylist,
   now: Date,
+  fetchGuide: boolean,
   onStage?: (label: string) => void,
 ): Promise<SourceBuild> {
   try {
@@ -589,10 +704,11 @@ async function buildXtreamSource(
     // Kick the guide download off NOW — it's the longest leg (tens of MB)
     // and needs nothing from categories/streams, which used to gate it.
     // Pre-attach a catch so a failure elsewhere can't surface it as an
-    // unhandled rejection; the EPG block below awaits and handles it.
+    // unhandled rejection; the EPG block below awaits and handles it. Not at
+    // all when doLoad is reusing this source's guide (canReuseGuide).
     const xmlT0 = performance.now();
-    const xmlPromise = fetchXmltv(p);
-    xmlPromise.catch(() => {});
+    const xmlPromise = fetchGuide ? fetchXmltv(p) : null;
+    xmlPromise?.catch(() => {});
 
     onStage?.(`Fetching ${p.name} channels…`);
     await breathe();
@@ -622,6 +738,8 @@ async function buildXtreamSource(
     // NOT awaited: this is the minute-long half. The channel list below
     // returns without it and doLoad merges the programmes when they land.
     const epg = (async (): Promise<EpgPhase> => {
+      // Reused: empty on purpose, and no epgError. doLoad keeps the guide.
+      if (!xmlPromise) return { programmes: new Map() };
       try {
         const bytes = await xmlPromise; // in flight since right after sign-in
         const fetched = performance.now();
@@ -727,6 +845,7 @@ function hashId(s: string): string {
 async function buildM3uSource(
   p: M3uPlaylist,
   now: Date,
+  fetchGuide: boolean,
   onStage?: (label: string) => void,
 ): Promise<SourceBuild> {
   try {
@@ -817,6 +936,8 @@ async function buildM3uSource(
     const epgUrl = m3uEpgUrl(text);
     const epg = (async (): Promise<EpgPhase> => {
       const none = new Map<string, Programme[]>();
+      // Reused: empty on purpose, and no epgError. doLoad keeps the guide.
+      if (!fetchGuide) return { programmes: none };
       if (!epgUrl)
         return {
           programmes: none,
@@ -873,6 +994,7 @@ async function buildM3uSource(
 async function buildStalkerSource(
   p: StalkerPlaylist,
   now: Date,
+  fetchGuide: boolean,
   onStage?: (label: string) => void,
 ): Promise<SourceBuild> {
   try {
@@ -952,6 +1074,8 @@ async function buildStalkerSource(
     // `period`'s unit is portal-dependent, so the clamp is client-side.
     const epg = (async (): Promise<EpgPhase> => {
       const programmes = new Map<string, Programme[]>();
+      // Reused: empty on purpose, and no epgError. doLoad keeps the guide.
+      if (!fetchGuide) return { programmes };
       try {
         const rowsById = await fetchStalkerEpg(p);
         const winStart = now.getTime() - 3600_000;

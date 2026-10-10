@@ -19,7 +19,7 @@
 export const DISK_MAX_AGE_MS = 40 * 3600_000;
 
 /** The guide shows now..now+4h. */
-const VISIBLE_WINDOW_MS = 4 * 3600_000;
+export const VISIBLE_WINDOW_MS = 4 * 3600_000;
 
 /** Future listings a snapshot retains, from the moment it was fetched.
  *
@@ -29,3 +29,21 @@ const VISIBLE_WINDOW_MS = 4 * 3600_000;
  * costs the cache rather than the app (see storage's swallow).
  */
 export const EPG_KEEP_AHEAD_MS = DISK_MAX_AGE_MS + VISIBLE_WINDOW_MS;
+
+/** How long a source's downloaded guide is reused before the next load
+ * downloads it again. Per source, and it only skips the GUIDE half of a load:
+ * the channel list still reloads on every launch and every stale remount, so
+ * a provider that renames event channels during the day is read fresh.
+ *
+ * The guide is the expensive half (about 95MB of xmltv on a big provider, 60
+ * to 77s), and it used to be downloaded again on every launch. Its schedule
+ * runs days ahead, so twelve hours old is still a guide. Telly re-downloads
+ * once every 24 hours.
+ *
+ * It pairs with the two above. A launch inside this window rewrites the disk
+ * record with a fresh `at` and the SAME guide, so a guide can be older than
+ * the record that holds it. `source.ts` ages the guide by its own `guideAt`,
+ * and a guide older than `EPG_KEEP_AHEAD_MS - VISIBLE_WINDOW_MS` has less
+ * schedule left than the screen shows, so it hydrates with the pending note
+ * (as a snapshot that no longer covers now does) and is downloaded. */
+export const GUIDE_REFRESH_MS = 12 * 3600_000;

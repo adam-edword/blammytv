@@ -234,6 +234,15 @@
   color: var(--text-faint);
 }
 
+/* The line and the button under "Your playlists": the guide's age, and
+ * the way to renew it now. */
+.playlists-refresh {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
 /* ------------------------------------------------------------- add form */
 
 .settings-form {
