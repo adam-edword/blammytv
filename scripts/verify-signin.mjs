@@ -845,8 +845,14 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
     !!plain && plain.query.StartIndex === "0",
     JSON.stringify(plain?.query),
   );
+  // Waited for, not read once: the wait above is for 40 cards, which the
+  // first catalog fills alone, and Bagged Film comes from the second. CI
+  // read "0 cards" here once (v0.11.22) and four local runs, cold and warm,
+  // never did; the detail says what the page held if it happens again.
+  const bagged = await waitFor(page, async () => (await page.locator(".disc-grid .stream-card__name", { hasText: "Bagged Film" }).count()) > 0, 15_000);
   const grid = await page.locator(".disc-grid .stream-card__name").allInnerTexts();
-  check("  and its title is on the page", grid.includes("Bagged Film"), `${grid.length} cards`);
+  const genreOn = await page.locator(".genre-card--on .genre-card__name").allInnerTexts();
+  check("  and its title is on the page", bagged && grid.includes("Bagged Film"), `${grid.length} cards, genre on: ${JSON.stringify(genreOn)}`);
   await page.context().close();
 }
 
