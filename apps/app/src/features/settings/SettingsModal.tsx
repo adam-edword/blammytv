@@ -240,18 +240,26 @@ export function SettingsModal({
               e.preventDefault();
               (e.currentTarget as HTMLElement | null)?.focus({ preventScroll: true });
             }}
-            // A Combobox keeps Escape for itself. Its list, open, closes on
-            // it; its field, with the list shut, has always swallowed it
-            // (Base UI marks every Escape there), so Settings stayed up.
-            // Radix hears Escape on the document in the capture phase,
-            // before either, and would close the whole sheet.
+            // Escape and a Combobox. Radix hears Escape on the document in
+            // the capture phase, before the Combobox does.
+            // - Its list open: the Escape is the list's, which closes, and
+            //   Settings stays up.
+            // - Its list shut: Escape closes Settings, as it does anywhere
+            //   else in the sheet, and goes NO FURTHER. Base UI's field takes
+            //   an Escape with the list shut as "clear the choice": it empties
+            //   the field and hands back null (ui/Combobox puts the stored
+            //   value back, so the setting survives, but the field went blank
+            //   as the sheet faded). Stopped here, the field never sees it.
+            // Until v0.11.30 the field kept that Escape too and Settings
+            // stayed up, which Ctrl+K made easy to meet: "subtitle" lands
+            // focus on the audio picker (Adam, 2026-10-11: close it).
             onEscapeKeyDown={(e) => {
-              const t = e.target instanceof Element ? e.target : null;
-              if (
-                document.querySelector("[data-slot=combobox-content][data-open]") ||
-                t?.closest("[role=combobox]")
-              )
+              if (document.querySelector("[data-slot=combobox-content][data-open]")) {
                 e.preventDefault();
+                return;
+              }
+              const t = e.target instanceof Element ? e.target : null;
+              if (t?.closest("[role=combobox]")) e.stopPropagation();
             }}
             onCloseAutoFocus={(e) => {
               e.preventDefault();

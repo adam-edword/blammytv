@@ -247,6 +247,8 @@ const alpha = (c) => {
   // ------------------------------------------------ "preferred language": Playback
   // Was "subtitle" until v0.11.29, when Subtitle Size took that word's first
   // place; the row it lands on, a pair of language pickers, is the point.
+  // A language this profile chose, so the Escape checks below have one to keep.
+  await page.evaluate(() => localStorage.setItem("blammytv.preferredAudioLang", JSON.stringify({ v: 1, data: "es" })));
   await gear(page).focus();
   await ask(page, "preferred language");
   await page.keyboard.press("Enter");
@@ -272,13 +274,43 @@ const alpha = (c) => {
   check("  and the light is gone two seconds later", !!gone && !gone.lit && gone.anim === "none" && alpha(gone.bg) === 0, JSON.stringify({ gone, faded }));
   check("  while focus is still in the row", !!gone && gone.inRow, JSON.stringify(gone));
   check("  and lighting it moved nothing: the row is the size and place it was", !!gone && !!sub1 && gone.box.every((n, i) => Math.abs(n - sub1.box[i]) < 1), `${sub1?.box} then ${gone?.box}`);
-  // Escape on a language picker is the picker's (SettingsModal's Combobox
-  // rule, v0.10.33): it does not close Settings. So this one is shut by its X.
+  // Escape on the picker the find landed on (SettingsModal's Combobox rule,
+  // v0.11.30). With its list OPEN the Escape is the list's: it closes and
+  // Settings stays up.
+  const picker = page.getByRole("combobox", { name: "Preferred audio language" });
+  await page.keyboard.press("ArrowDown");
+  const listUp = await page
+    .locator("[data-slot=combobox-content][data-open]")
+    .waitFor({ timeout: 3000 })
+    .then(() => true, () => false);
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
-  console.log(`NOTE Escape on the language picker leaves Settings ${(await page.locator(".settings").count()) ? "up" : "closed"} (the Combobox rule, unchanged)`);
-  await page.getByRole("button", { name: "Close settings" }).click();
-  await page.locator(".settings").waitFor({ state: "detached", timeout: 5000 });
+  const afterList = {
+    list: await page.locator("[data-slot=combobox-content][data-open]").count(),
+    settings: await page.locator(".settings").count(),
+  };
+  check(
+    "Escape with the picker's list open closes the list and leaves Settings up",
+    listUp && afterList.list === 0 && afterList.settings === 1,
+    JSON.stringify({ listUp, ...afterList }),
+  );
+  // With its list SHUT, Escape closes Settings and never reaches the field,
+  // whose own Escape empties it. Read DURING the fade, while the card is
+  // still there: the field still names the language this profile has.
+  await picker.focus();
+  const before = await picker.inputValue();
+  await page.keyboard.press("Escape");
+  const during = await picker.inputValue().catch(() => "(gone)");
+  const shutByEscape = await page
+    .locator(".settings")
+    .waitFor({ state: "detached", timeout: 5000 })
+    .then(() => true, () => false);
+  const kept = await page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.preferredAudioLang") ?? "null")?.data);
+  check(
+    "Escape with the list shut closes Settings, and the field keeps its language as it goes",
+    shutByEscape && before === "Spanish" && during === "Spanish" && kept === "es",
+    JSON.stringify({ shutByEscape, before, during, kept }),
+  );
   await page.waitForTimeout(250);
 
   // ------------------------------------------------ "row size": a scroll
