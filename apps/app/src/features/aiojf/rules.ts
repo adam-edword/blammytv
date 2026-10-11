@@ -418,19 +418,21 @@ export function upNextFrom(items: readonly BaseItem[]): UpNextCard[] {
   return out;
 }
 
-/** AIOStreams' segment types to the overlay's skip types (aniskip.ts). Any
- * other type (Commercial, Preview) has no button and is dropped. */
+/** AIOStreams' segment types to the overlay's skip types (aniskip.ts). Preview
+ * has a setting of its own since plan 025 (P3a). Any other type (Commercial)
+ * has none and is dropped. */
 const SEGMENT_TYPES = new Map([
   ["Intro", "op"],
   ["Recap", "recap"],
   ["Outro", "ed"],
+  ["Preview", "preview"],
 ]);
 
 /**
  * `/MediaSegments/{id}` into the overlay's skip ranges: Intro as `op`, Recap
- * as `recap`, Outro as `ed`, ticks as seconds, sorted by start. A marker
- * whose end is not after its start (AIOStreams drops open-ended ones, but a
- * different version might not) is dropped.
+ * as `recap`, Outro as `ed`, Preview as `preview`, ticks as seconds, sorted by
+ * start. A marker whose end is not after its start (AIOStreams drops
+ * open-ended ones, but a different version might not) is dropped.
  */
 export function skipsFrom(json: unknown): SkipRange[] {
   const items = (json as { Items?: unknown } | null | undefined)?.Items;

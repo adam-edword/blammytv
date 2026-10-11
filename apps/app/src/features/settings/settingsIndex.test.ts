@@ -53,6 +53,21 @@ describe("findSettings", () => {
     expect(ids("Row Size")).toEqual(ids("row size"));
   });
 
+  it("finds the Up Next and Skipping rows by what a person would type", () => {
+    // "autoplay" is the label's first word here and a keyword on One-Click
+    // Play, so the label comes first.
+    expect(ids("autoplay").slice(0, 2)).toEqual(["autoplay-next", "one-click-play"]);
+    expect(ids("binge")).toEqual(["autoplay-next"]);
+    expect(ids("countdown")).toEqual(["autoplay-next"]);
+    expect(ids("up next")[0]).toBe("up-next-card");
+    expect(ids("corner")).toEqual(["up-next-card"]);
+    expect(ids("auto skip")).toEqual(["skipping"]);
+    expect(ids("automatic")).toEqual(["skipping"]);
+    // The old Skip Behavior words still find it.
+    for (const q of ["skip", "intro", "recap", "preview", "chapters", "outro"]) expect(ids(q), q).toContain("skipping");
+    expect(settingById("skip-behavior")).toBeUndefined();
+  });
+
   it("finds a label by its own words", () => {
     expect(ids("row size")[0]).toBe("row-size");
     expect(ids("channel numbers")[0]).toBe("channel-numbers");

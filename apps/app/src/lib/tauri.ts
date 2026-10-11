@@ -63,8 +63,9 @@ export interface TheaterMeta {
    * from these instead of a pre-baked label. Absent for movies. */
   vod?: { season?: number; episode?: number; title?: string; hasNext?: boolean };
   /** Exact skip intervals from AniSkip (seconds; op/ed/mixed-op/mixed-ed/
-   * recap). When present they take precedence over chapter heuristics for
-   * the Skip chip. Arrives async — pushed via a meta update mid-play. */
+   * recap) or AIOStreams' markers (those, and preview). When present they
+   * take precedence over chapter heuristics for the Skip chip and the
+   * automatic skip. Arrives async, pushed via a meta update mid-play. */
   skips?: Array<{ type: string; start: number; end: number }>;
   /** Airing programme's start label + progress (0–100) for the LIVE bar.
    * Frozen at open time (meta is pushed once), refreshed on channel change. */

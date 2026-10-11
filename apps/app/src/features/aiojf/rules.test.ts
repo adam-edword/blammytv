@@ -762,6 +762,14 @@ describe("skipsFrom", () => {
     ]);
   });
 
+  it("Preview is preview, now that it has a setting of its own", () => {
+    const out: SkipRange[] = skipsFrom(answer(seg("Preview", 2700, 2730), seg("Outro", 2500, 2700)));
+    expect(out).toEqual([
+      { type: "ed", start: 2500, end: 2700 },
+      { type: "preview", start: 2700, end: 2730 },
+    ]);
+  });
+
   it("sorted by start, whatever order the server sent", () => {
     const out = skipsFrom(answer(seg("Outro", 2500, 2700), seg("Intro", 62, 92), seg("Recap", 0, 60)));
     expect(out.map((r) => r.type)).toEqual(["recap", "op", "ed"]);
@@ -769,7 +777,7 @@ describe("skipsFrom", () => {
 
   it("any other type is dropped", () => {
     const out = skipsFrom(
-      answer(seg("Commercial", 100, 200), seg("Intro", 10, 20), seg("Preview", 0, 5), seg("Unknown", 1, 2), seg("intro", 30, 40), seg("", 1, 2), seg("constructor", 1, 2), seg("toString", 1, 2)),
+      answer(seg("Commercial", 100, 200), seg("Intro", 10, 20), seg("Unknown", 1, 2), seg("intro", 30, 40), seg("preview", 50, 60), seg("", 1, 2), seg("constructor", 1, 2), seg("toString", 1, 2)),
     );
     expect(out).toEqual([{ type: "op", start: 10, end: 20 }]);
   });

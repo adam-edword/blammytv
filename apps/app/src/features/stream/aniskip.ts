@@ -12,7 +12,8 @@ import type { VodItem } from "./model";
  */
 
 export interface SkipRange {
-  /** AniSkip skip type: op | ed | mixed-op | mixed-ed | recap. */
+  /** AniSkip skip type: op | ed | mixed-op | mixed-ed | recap. AIOStreams'
+   * markers (rules.ts skipsFrom) add preview. */
   type: string;
   /** Seconds from episode start. */
   start: number;

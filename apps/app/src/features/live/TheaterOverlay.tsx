@@ -21,10 +21,22 @@ import {
   rememberPlayback,
 } from "../settings/playbackPrefs";
 import {
-  loadSkipBehavior,
-  onSkipBehaviorChange,
-  type SkipBehavior,
-} from "../settings/skipBehavior";
+  loadSkipping,
+  onSkippingChange,
+  type Skipping,
+} from "../settings/skipping";
+import {
+  loadUpNextCard,
+  onUpNextCardChange,
+  upNextWindow,
+  type UpNextCard,
+} from "../settings/upNext";
+import {
+  CREDITS_RX,
+  skipSegmentAt,
+  skippedLabel,
+  type SkipInputs,
+} from "./skipSegments";
 import { useLogoInk } from "../../lib/logoInk";
 import { isModalOpen } from "../../lib/modalOpen";
 import { VodLoading } from "./VodLoading";
@@ -90,12 +102,6 @@ const isMini = () => window.innerHeight < 450;
  * window is the whole app, so LiveScreen passes the state it owns. */
 export type OverlayFrame = "mini" | "theater" | "fullscreen";
 
-/** Chapter titles worth a Skip button. Deliberately conservative — a
- * false "Skip Intro" over real content is worse than a missing one. */
-const SKIP_RX =
-  /\b(intro|opening|op|recap|previously|credits|ending|ed|outro|preview)\b/i;
-const CREDITS_RX = /credits|ending|outro|\bed\b/i;
-const PREVIEW_RX = /preview/i;
 /**
  * How long after our OWN reload a `playbackKey` change still counts as ours.
  *
@@ -128,19 +134,9 @@ const SELF_HEAL_MS = 5_000;
  * which is faster than anyone can read the clock and far below the ~31/sec
  * a held key generates. */
 const SEEK_THROTTLE_MS = 150;
-function skipLabel(title: string): string {
-  if (/recap|previously/i.test(title)) return "Skip Recap";
-  if (/credits|ending|outro|\bed\b/i.test(title)) return "Skip Credits";
-  if (/preview/i.test(title)) return "Skip Preview";
-  return "Skip Intro";
-}
-
-/** AniSkip type → chip label (op/ed/mixed-op/mixed-ed/recap). */
-function remoteSkipLabel(type: string): string {
-  if (type === "recap") return "Skip Recap";
-  if (type.endsWith("ed")) return "Skip Credits";
-  return "Skip Intro";
-}
+/** How long "Skipped Intro" stays in the skip chip's place after an automatic
+ * skip, there to be clicked as the undo. */
+const SKIPPED_MS = 4_000;
 
 /** "1:23" / "12:34" / "1:02:07" — hours only when they exist. */
 function fmtClock(s: number): string {
@@ -412,8 +408,17 @@ export function TheaterOverlay({
   );
   const timeRef = useRef(time);
   timeRef.current = time;
+  // Which stream the clock above was last read from. A stream change renders
+  // with the new key first and gets its null clock a beat later, from the
+  // host's effects, so for one commit the clock is the PREVIOUS stream's.
+  // Fine for drawing; not for the one thing here that acts on it (the
+  // automatic skip), which waits for a sample taken under the current key.
+  const playbackKeyRef = useRef(playbackKey);
+  playbackKeyRef.current = playbackKey;
+  const timeKeyRef = useRef(playbackKey);
   useEffect(() => {
     const off = api()?.onTime?.((t) => {
+      timeKeyRef.current = playbackKeyRef.current;
       // The poll runs twice a second whether anything moved or not, and
       // every answer was a new object, so a paused film re-rendered this
       // whole chrome twice a second to draw the same frame (measured: 2
@@ -430,11 +435,12 @@ export function TheaterOverlay({
     });
     return () => off?.();
   }, []);
-  // Skip chip behavior (Settings → Skip Behavior) — flips live.
-  const [skipBehavior, setSkipBehavior] = useState<SkipBehavior>(
-    loadSkipBehavior,
-  );
-  useEffect(() => onSkipBehaviorChange(setSkipBehavior), []);
+  // What to do at each kind of skippable stretch (Settings → Skipping) and
+  // when the corner Up Next card opens (Settings → Up Next Card). Both flip live.
+  const [skipping, setSkipping] = useState<Skipping>(loadSkipping);
+  useEffect(() => onSkippingChange(setSkipping), []);
+  const [upNextCard, setUpNextCard] = useState<UpNextCard>(loadUpNextCard);
+  useEffect(() => onUpNextCardChange(setUpNextCard), []);
 
   // File chapter markers — the Skip Intro data source (Phase 1: named
   // chapters; aniskip comes later).
@@ -986,6 +992,21 @@ export function TheaterOverlay({
    */
   const seekPend = useRef(0);
   const seekTimer = useRef(0);
+  // The automatic skip's memory (see where it runs, below): which stretches
+  // this play has dealt with, and the play it is for. `segInputs` is what the
+  // render last saw, so a seek can ask which stretch it landed in.
+  const skippedKeys = useRef(new Set<string>());
+  const skippedFor = useRef(playbackKey);
+  const segInputs = useRef<Omit<SkipInputs, "pos"> | null>(null);
+  /** The viewer chose to be at `to`. A stretch there is theirs to watch, so
+   * the automatic skip leaves it alone. The chip's own seek is not this: it
+   * lands where the stretch ENDS, which is the next one's start. */
+  const seekedTo = useCallback((to: number) => {
+    const i = segInputs.current;
+    if (!i) return;
+    const s = skipSegmentAt({ ...i, pos: to });
+    if (s) skippedKeys.current.add(s.key);
+  }, []);
   // Read through a ref so doSeek can stay the stable callback the key
   // handler's dep array depends on.
   const seekableRef = useRef(seekable);
@@ -1005,6 +1026,8 @@ export function TheaterOverlay({
     // the behaviour is exactly the guess this project's first rule is about.
     if (vodRef.current && !seekableRef.current) return;
     const apply = (d: number) => {
+      const t = timeRef.current;
+      if (t) seekedTo(Math.min(t.dur, Math.max(0, t.pos + d)));
       api()?.seek(d);
       setLivePct((p) => Math.min(100, Math.max(0, p + d * 0.8)));
       setTime((t) =>
@@ -1030,7 +1053,7 @@ export function TheaterOverlay({
     }
     apply(delta);
     arm();
-  }, []);
+  }, [seekedTo]);
   // Keyed on playbackKey, not just unmount. Hold Left, release, click
   // another channel within 150ms: the pending flush fired `seek(d)` against
   // the NEW stream, which then started several seconds behind live for no
@@ -1226,66 +1249,76 @@ export function TheaterOverlay({
         ? Math.min(100, (time.pos / time.dur) * 100)
         : 0;
 
-  // Inside a skip-worthy window right now? Exact AniSkip intervals (pushed
-  // via meta.skips) take precedence — they're community-timed, not guessed
-  // from chapter titles. Chapter heuristics remain the fallback. (Bounded:
-  // a window covering half the file is mislabeled content, not an intro.)
-  // "combine" merges a run of consecutive credits/preview chapters into
-  // one jump.
-  let skip: { label: string; to: number } | null = null;
-  if (skipBehavior !== "hidden" && vod && time && time.dur > 0) {
-    const r = meta?.skips?.find(
-      (s) =>
-        time.pos >= s.start &&
-        time.pos < s.end &&
-        s.end - s.start < time.dur * 0.5,
-    );
-    if (r) skip = { label: remoteSkipLabel(r.type), to: Math.min(r.end, time.dur) };
-  }
-  if (
-    !skip &&
-    skipBehavior !== "hidden" &&
-    vod &&
-    time &&
-    time.dur > 0 &&
-    chapters.length > 1
-  ) {
-    const idx = chapters.findIndex(
-      (c, i) =>
-        time.pos >= c.start &&
-        (i + 1 >= chapters.length || time.pos < chapters[i + 1].start),
-    );
-    if (idx >= 0 && SKIP_RX.test(chapters[idx].title)) {
-      const tailish = (t: string) => CREDITS_RX.test(t) || PREVIEW_RX.test(t);
-      let last = idx;
-      if (skipBehavior === "combine" && tailish(chapters[idx].title)) {
-        while (
-          last + 1 < chapters.length &&
-          tailish(chapters[last + 1].title)
-        )
-          last++;
-      }
-      const end =
-        last + 1 < chapters.length ? chapters[last + 1].start : time.dur;
-      if (end - chapters[idx].start < time.dur * 0.5) {
-        const span = chapters.slice(idx, last + 1).map((c) => c.title);
-        const label =
-          last > idx &&
-          span.some((t) => CREDITS_RX.test(t)) &&
-          span.some((t) => PREVIEW_RX.test(t))
-            ? "Skip Credits & Preview"
-            : skipLabel(chapters[idx].title);
-        skip = { label, to: end };
-      }
-    }
-  }
+  // The skippable stretch the clock is inside right now, if any: exact AniSkip
+  // or marker intervals (pushed via meta.skips) first, since they're community
+  // timed and not guessed from chapter titles, then chapter titles. (Bounded:
+  // a stretch covering half the file is mislabeled content, not an intro.)
+  // Its KIND picks what happens (Settings → Skipping): a button, an automatic
+  // seek to its end, or nothing. "Combine" merges a run of consecutive
+  // credits/preview chapters into one jump, which takes Credits' setting.
+  const seg =
+    vod && time
+      ? skipSegmentAt({
+          pos: time.pos,
+          dur: time.dur,
+          skips: meta?.skips,
+          chapters,
+          combine: skipping.combine,
+        })
+      : null;
+  segInputs.current = vod
+    ? { dur: time?.dur ?? 0, skips: meta?.skips, chapters, combine: skipping.combine }
+    : null;
+  const skip =
+    seg && skipping[seg.type] === "button"
+      ? { label: seg.label, to: seg.end }
+      : null;
 
-  // Credits-window signal for the host (StreamScreen's mini Up Next):
-  // true while the clock sits inside an ENDING window — an AniSkip
-  // ed/mixed-ed interval, or a credits-titled chapter starting in the
-  // last 40% of the file (an OP labeled "OP/ED" early on must not pop
-  // the card). Independent of skipBehavior: hiding the skip CHIP is a
-  // chrome preference, not "never tell me the credits started".
+  // AUTOMATIC: seek to the end of the stretch, once per stretch per play. The
+  // key set is what keeps it once: an undo goes back INTO the stretch, and
+  // without the set that seek would be skipped again, forever. A seek of the
+  // viewer's own that landed inside puts the key in too (seekedTo), so a
+  // stretch they chose to watch is left alone. The set is dropped when the
+  // stream changes, and nothing is skipped on the previous stream's clock
+  // (timeKeyRef): the commit that carries a new key still holds the last
+  // episode's position, which can be inside a stretch the new key has not
+  // seen, and acting on it would seek the new file to the old file's end.
+  const segRef = useRef(seg);
+  segRef.current = seg;
+  const clockFresh = timeKeyRef.current === playbackKey;
+  const segKey = seg?.key ?? null;
+  const segAuto = !!seg && skipping[seg.type] === "auto";
+  const [skipped, setSkipped] = useState<{ label: string; to: number } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (skippedFor.current !== playbackKey) {
+      skippedFor.current = playbackKey;
+      skippedKeys.current.clear();
+      setSkipped(null);
+    }
+    const s = segRef.current;
+    if (!s || !segAuto || !clockFresh) return;
+    if (skippedKeys.current.has(s.key)) return;
+    skippedKeys.current.add(s.key);
+    api()?.seekAbs?.(s.end);
+    // The chip's place says so for a moment, and a click there is the undo.
+    setSkipped({ label: skippedLabel(s.label), to: s.start });
+  }, [segKey, segAuto, clockFresh, playbackKey]);
+  useEffect(() => {
+    if (!skipped) return;
+    const id = window.setTimeout(() => setSkipped(null), SKIPPED_MS);
+    return () => window.clearTimeout(id);
+  }, [skipped]);
+
+  // Credits-window signal for the host (StreamScreen's mini Up Next): whether
+  // the corner card's window is open. By default that is while the clock sits
+  // inside an ENDING window: an AniSkip ed/mixed-ed interval, or a
+  // credits-titled chapter starting in the last 40% of the file (an OP
+  // labeled "OP/ED" early on must not pop the card). Settings → Up Next Card
+  // can move it to the last minute, or shut it (upNextWindow). The credits
+  // reading is independent of Skipping: hiding the skip CHIP is a chrome
+  // preference, not "never tell me the credits started".
   let creditsNow = false;
   if (vod && time && time.dur > 0) {
     creditsNow = !!meta?.skips?.some(
@@ -1307,9 +1340,10 @@ export function TheaterOverlay({
         chapters[idx].start >= time.dur * 0.6;
     }
   }
+  const cardWindow = upNextWindow(upNextCard, creditsNow, vod ? time : null);
   useEffect(() => {
-    api()?.creditsWindow?.(creditsNow);
-  }, [creditsNow]);
+    api()?.creditsWindow?.(cardWindow);
+  }, [cardWindow]);
 
   const toggleFullscreen = useCallback(() => {
     if (fsNow()) api()?.exitFullscreen?.();
@@ -1598,6 +1632,23 @@ export function TheaterOverlay({
           {skip.label}
         </Button>
       )}
+      {/* After an automatic skip, the same place says so for a moment and a
+        * click goes back to where the stretch began. The stretch stays dealt
+        * with (skippedKeys), so going back does not skip it again. A live
+        * chip, when there is one, wins the place. */}
+      {!skip && skipped && !mini && (
+        <Button variant="secondary" size="sm"
+          type="button"
+          className="skip-chip"
+          data-interactive
+          onClick={() => {
+            setSkipped(null);
+            api()?.seekAbs?.(skipped.to);
+          }}
+        >
+          {skipped.label}
+        </Button>
+      )}
 
       {/* Not while a VOD loads: the loading screen has the logo in the
         * middle and its own bar along the bottom, and this one put a second
@@ -1706,6 +1757,7 @@ export function TheaterOverlay({
                   endScrub();
                   setScrub(null);
                   if (time && time.dur > 0) {
+                    seekedTo(f * time.dur);
                     api()?.seekAbs?.(f * time.dur);
                     // Optimistic: the poll trues it up within 500ms.
                     setTime({ pos: f * time.dur, dur: time.dur });

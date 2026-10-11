@@ -72,6 +72,7 @@ import { filmWatched, loadAioWatched, loadWatched, markWatched } from "./watched
 import { loadAioConn } from "../aiojf/conn";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
+import { countdownFrom, loadAutoplayNext } from "../settings/upNext";
 import {
   fetchDiscoverPage,
   gridCatalogs,
@@ -690,13 +691,18 @@ export function StreamScreen() {
   const upNextRef = useRef(upNext);
   upNextRef.current = upNext;
   // Autoplay countdown — the tick and the fire live in separate effects
-  // (updaters stay pure; StrictMode double-invokes them).
-  const [countdown, setCountdown] = useState(10);
+  // (updaters stay pure; StrictMode double-invokes them). Null is Settings →
+  // Autoplay Next Episode on Off: the card waits and nothing ticks. It is read
+  // each time a card arms (here and in onEnded), so a change applies to the
+  // next card and not to one on screen.
+  const [countdown, setCountdown] = useState<number | null>(10);
   useEffect(() => {
     if (!upNext) return;
-    setCountdown(10);
+    const from = countdownFrom(loadAutoplayNext());
+    setCountdown(from);
+    if (from === null) return;
     const id = window.setInterval(
-      () => setCountdown((c) => Math.max(0, c - 1)),
+      () => setCountdown((c) => (c === null ? c : Math.max(0, c - 1))),
       1000,
     );
     return () => window.clearInterval(id);
@@ -1233,7 +1239,7 @@ export function StreamScreen() {
               // effect: after a fired countdown the state rests at 0, and
               // the fire effect would see 0 + the new card in the same
               // commit — episode 3 of a binge started with no card.
-              setCountdown(10);
+              setCountdown(countdownFrom(loadAutoplayNext()));
               setUpNext({ item: p.item, ...nxt });
               return; // stage stays; the Up Next card takes over
             }
@@ -1705,7 +1711,9 @@ export function StreamScreen() {
                 S{upNext.season.number} · E{upNext.episode.number}:{" "}
                 {upNext.episode.title}
               </h2>
-              <p className="upnext__count">Playing in {countdown}s</p>
+              {countdown !== null && (
+                <p className="upnext__count">Playing in {countdown}s</p>
+              )}
               <div className="upnext__actions">
                 <Button
                   variant="default"

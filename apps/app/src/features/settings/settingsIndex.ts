@@ -84,16 +84,28 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["fallback", "retry", "dead", "next source"],
   },
   {
+    id: "autoplay-next",
+    label: "Autoplay Next Episode",
+    page: "playback",
+    keywords: ["next episode", "binge", "countdown", "autoplay"],
+  },
+  {
+    id: "up-next-card",
+    label: "Up Next Card",
+    page: "playback",
+    keywords: ["up next", "popup", "card", "corner", "credits"],
+  },
+  {
+    id: "skipping",
+    label: "Skipping",
+    page: "playback",
+    keywords: ["skip", "intro", "recap", "credits", "preview", "chapters", "outro", "automatic", "auto skip", "combine"],
+  },
+  {
     id: "preferred-language",
     label: "Preferred Language",
     page: "playback",
     keywords: ["audio", "subtitle", "subtitles", "subs", "captions", "dub", "language"],
-  },
-  {
-    id: "skip-behavior",
-    label: "Skip Behavior",
-    page: "playback",
-    keywords: ["skip", "intro", "recap", "credits", "preview", "chapters", "outro"],
   },
   {
     id: "accent",

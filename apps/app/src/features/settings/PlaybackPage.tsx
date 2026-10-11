@@ -16,10 +16,24 @@ import {
   saveSubLang,
 } from "./languagePrefs";
 import {
-  loadSkipBehavior,
-  saveSkipBehavior,
-  type SkipBehavior,
-} from "./skipBehavior";
+  SKIP_LINES,
+  SKIP_MODES,
+  loadSkipping,
+  saveSkipping,
+  type SkipMode,
+  type SkipType,
+  type Skipping,
+} from "./skipping";
+import {
+  AUTOPLAY_TABS,
+  UP_NEXT_CARD_TABS,
+  loadAutoplayNext,
+  loadUpNextCard,
+  saveAutoplayNext,
+  saveUpNextCard,
+  type AutoplayNext,
+  type UpNextCard,
+} from "./upNext";
 import { SignInNote } from "./SignInNote";
 
 /**
@@ -48,9 +62,10 @@ const SUB_OPTIONS: ComboboxOption[] = [
 
 /**
  * Playback: how it plays. What the app DOES when you press play, filed here
- * and not with how it looks (the 0.8.0 rule). These four rows sat in
- * Customize's Stream panel, under "how it looks", until the five pages
- * (v0.11.26).
+ * and not with how it looks (the 0.8.0 rule). One-Click Play, Failover,
+ * Language and Skip Behavior sat in Customize's Stream panel, under "how it
+ * looks", until the five pages (v0.11.26). Up Next and Skipping (which
+ * replaced Skip Behavior) are plan 025's P3a.
  *
  * Stream only for now: Live TV has no playback rows yet, so there is no
  * Live TV / Stream pill, and the group is named for the world it governs.
@@ -64,9 +79,17 @@ export function PlaybackPage() {
 
   const [oneClick, setOneClick] = useState<boolean>(loadOneClickPlay);
   const [failover, setFailover] = useState<boolean>(loadSourceFailover);
-  const [skip, setSkip] = useState<SkipBehavior>(loadSkipBehavior);
+  const [autoplay, setAutoplay] = useState<AutoplayNext>(loadAutoplayNext);
+  const [upNextCard, setUpNextCard] = useState<UpNextCard>(loadUpNextCard);
+  const [skipping, setSkipping] = useState<Skipping>(loadSkipping);
   const [audioLang, setAudioLang] = useState<string>(loadAudioLang);
   const [subLang, setSubLang] = useState<string>(loadSubLang);
+
+  const pickSkip = (type: SkipType, mode: SkipMode) => {
+    const next = { ...skipping, [type]: mode };
+    setSkipping(next);
+    saveSkipping(next);
+  };
 
   return (
     <>
@@ -111,6 +134,86 @@ export function PlaybackPage() {
               }}
               label="Auto source failover"
             />
+          </div>
+
+          <div className="customize-row" data-setting="autoplay-next">
+            <div>
+              <h4 className="customize-row__title">Autoplay Next Episode</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                The next episode starts by itself when one ends, after the
+                countdown. Off waits for you.
+              </p>
+            </div>
+            <Segmented
+              label="Autoplay next episode"
+              options={AUTOPLAY_TABS}
+              value={String(autoplay)}
+              onChange={(k) => {
+                const next = Number(k) as AutoplayNext;
+                setAutoplay(next);
+                saveAutoplayNext(next);
+              }}
+            />
+          </div>
+
+          {/* Stacked, not a row: three options, two of them wordy. */}
+          <div className="customize-stack" data-setting="up-next-card">
+            <div>
+              <h4 className="customize-row__title">Up Next Card</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                The corner card that offers the next episode while one is
+                still playing. At the credits goes by the file&rsquo;s own
+                markers and chapters; Last minute is the final 60 seconds.
+              </p>
+            </div>
+            <Segmented
+              className="self-start"
+              label="Up next card"
+              options={UP_NEXT_CARD_TABS}
+              value={upNextCard}
+              onChange={(k: UpNextCard) => {
+                setUpNextCard(k);
+                saveUpNextCard(k);
+              }}
+            />
+          </div>
+
+          {/* Stacked: four lines of three options, and a switch under them. */}
+          <div className="customize-stack" data-setting="skipping">
+            <div>
+              <h4 className="customize-row__title">Skipping</h4>
+              <p className="settings__section-note settings__section-note--dim">
+                What happens at an intro, recap, credits or preview, from the
+                file&rsquo;s chapters and skip markers: a button, skipped for
+                you, or nothing. Combine makes the credits and the preview
+                after them one jump.
+              </p>
+            </div>
+            <div className="skip-lines">
+              {SKIP_LINES.map(({ type, label }) => (
+                <div className="skip-line" key={type}>
+                  <span className="skip-line__label">{label}</span>
+                  <Segmented
+                    label={label}
+                    options={SKIP_MODES}
+                    value={skipping[type]}
+                    onChange={(k: SkipMode) => pickSkip(type, k)}
+                  />
+                </div>
+              ))}
+              <div className="skip-line">
+                <span className="skip-line__label">Combine Credits &amp; Preview</span>
+                <Toggle
+                  on={skipping.combine}
+                  onChange={(on) => {
+                    const next = { ...skipping, combine: on };
+                    setSkipping(next);
+                    saveSkipping(next);
+                  }}
+                  label="Combine credits and preview"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Stacked, not a row: two pickers do not fit beside a label in the
@@ -159,30 +262,6 @@ export function PlaybackPage() {
             </div>
           </div>
 
-          {/* Stacked for the same reason: three options, one of them long. */}
-          <div className="customize-stack" data-setting="skip-behavior">
-            <div>
-              <h4 className="customize-row__title">Skip Behavior</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                The Skip Intro/Recap/Credits button, from the file&rsquo;s
-                chapters. Combine merges credits and preview into one jump.
-              </p>
-            </div>
-            <Segmented
-              className="self-start"
-              label="Skip button"
-              options={[
-                { key: "hidden", label: "Hidden" },
-                { key: "normal", label: "Normal" },
-                { key: "combine", label: "Combine Credits & Preview" },
-              ]}
-              value={skip}
-              onChange={(k: SkipBehavior) => {
-                setSkip(k);
-                saveSkipBehavior(k);
-              }}
-            />
-          </div>
         </section>
       )}
     </>

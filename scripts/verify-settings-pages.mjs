@@ -168,21 +168,35 @@ const closeSettings = async (page) => {
   await tab(page, "Playback").click();
   await page.waitForTimeout(300);
   const play = await titles(page);
+  // Plan 025, P3a (v0.11.28): Skip Behavior became Skipping, and Up Next's two
+  // rows joined it. This list changed with them, in the plan's order: what
+  // happens as one episode ends and the next begins, then the languages.
   check(
-    "Playback: One-Click Play, Auto Source Failover, Preferred Language, Skip Behavior, and nothing else",
-    JSON.stringify(play) === JSON.stringify(["One-Click Play Movies", "Auto Source Failover", "Preferred Language", "Skip Behavior"]),
+    "Playback: One-Click Play, Auto Source Failover, Autoplay Next Episode, Up Next Card, Skipping, Preferred Language, and nothing else",
+    JSON.stringify(play) ===
+      JSON.stringify(["One-Click Play Movies", "Auto Source Failover", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language"]),
     JSON.stringify(play),
   );
-  const playCtl = await page.evaluate(() => ({
-    sw: [...document.querySelectorAll(".settings__body [role=switch]")].map((s) => s.getAttribute("aria-label")),
-    lang: [...document.querySelectorAll(".settings__body [role=combobox]")].map((s) => s.getAttribute("aria-label")),
-    skip: [...document.querySelectorAll(".settings__body [role=group][aria-label='Skip button'] button")].map((b) => b.getAttribute("aria-label")),
-  }));
+  const playCtl = await page.evaluate(() => {
+    const group = (name) =>
+      [...document.querySelectorAll(`.settings__body [role=group][aria-label='${name}'] button`)].map((b) => b.getAttribute("aria-label")).join();
+    return {
+      sw: [...document.querySelectorAll(".settings__body [role=switch]")].map((s) => s.getAttribute("aria-label")),
+      lang: [...document.querySelectorAll(".settings__body [role=combobox]")].map((s) => s.getAttribute("aria-label")),
+      autoplay: group("Autoplay next episode"),
+      card: group("Up next card"),
+      skip: ["Intro", "Recap", "Credits", "Preview"].map(group),
+      oldSkip: group("Skip button"),
+    };
+  });
   check(
-    "  with their controls: two switches, two language pickers, the skip button's three",
-    playCtl.sw.join() === "One-click play,Auto source failover" &&
+    "  with their controls: three switches (the third is Skipping's combine), two language pickers, the autoplay's four, the card's three, and Skipping's four lines of three",
+    playCtl.sw.join() === "One-click play,Auto source failover,Combine credits and preview" &&
       playCtl.lang.join() === "Preferred audio language,Preferred subtitle language" &&
-      playCtl.skip.join() === "Hidden,Normal,Combine Credits & Preview",
+      playCtl.autoplay === "Off,5s,10s,20s" &&
+      playCtl.card === "At the credits,Last minute,Never" &&
+      playCtl.skip.every((g) => g === "Button,Automatic,Off") &&
+      playCtl.oldSkip === "",
     JSON.stringify(playCtl),
   );
 
