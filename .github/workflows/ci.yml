@@ -53,7 +53,10 @@ jobs:
   verify:
     name: pnpm verify
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # The board outgrew 35 (v0.11.28: cut off at 34m39s on verify-version,
+    # every harness green to there; v0.11.27 took 32). 68 harnesses at
+    # v0.11.30. Room to grow, not a guess at the next one's size.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
