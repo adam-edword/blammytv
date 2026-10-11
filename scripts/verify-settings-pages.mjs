@@ -141,6 +141,16 @@ const closeSettings = async (page) => {
     return { title: t, tabsInHeader: document.querySelectorAll(".settings__header [role=tab]").length, close: !!document.querySelector(".settings__header [aria-label='Close settings']") };
   });
   check("the header is the title and the close, the tabs having gone to the rail", header.title === "Settings" && header.tabsInHeader === 0 && header.close, JSON.stringify(header));
+  // Centred and 920 wide (v0.11.31, Adam: "Center feels good, and it can be
+  // wider"). It floated top-right at 786 before. Layout width, and the middle
+  // of the box: the entrance scales the card about its top centre, which
+  // moves neither.
+  const place = await page.evaluate(() => {
+    const el = document.querySelector(".settings");
+    const r = el.getBoundingClientRect();
+    return { w: el.offsetWidth, mid: Math.round(r.left + r.width / 2), win: window.innerWidth };
+  });
+  check("the card is 920px wide and centred in the window", place.w === 920 && Math.abs(place.mid - place.win / 2) <= 1, JSON.stringify(place));
 
   // ----------------------------------------------------------- every page's rows
   // One list per page of the rows the two old tabs held, by label. A row that
@@ -380,7 +390,7 @@ for (const [old, want] of [
 
 // --------------------------------------------------------------- a narrow card
 {
-  // The card is `min(786px, 100%)` of the window less 96px of margin: 700 is a
+  // The card is `min(920px, 100%)` of the window less 96px of margin: 700 is a
   // 604px card, under the 640 the rail gives way at; 760 is 664, over it.
   const { ctx, page } = await open({ store: SEEDED, width: 700, height: 800 });
   await openSettings(page);

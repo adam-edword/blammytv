@@ -9,10 +9,12 @@
    * and the inverted player's inline chrome host (45). */
   z-index: var(--z-sheet);
   display: flex;
-  /* Top-right float, per the Figma (centered for a stretch in v0.1.120-136;
-   * Adam moved it back 2026-07-09). The region frost follows the card's
-   * measured rect, so position doesn't matter to the glass. */
-  justify-content: flex-end;
+  /* Centred under the nav (v0.11.31, Adam 2026-10-11: "Center feels good,
+   * and it can be wider"). It floated top-right, under the gear, until the
+   * five pages put a rail down the card's left, which then sat in the
+   * middle of the screen. The region frost follows the card's measured
+   * rect, so position doesn't matter to the glass. */
+  justify-content: center;
   align-items: flex-start;
   padding: 88px 48px;
 }
@@ -20,7 +22,10 @@
 /* The Settings sheet, thick glass. Grows with its content down to near the
  * window bottom; interior lists scroll, the card itself doesn't. */
 .settings {
-  width: min(786px, 100%);
+  /* 920, not the redesign's 786: the rail takes 208px of it, and at 786
+   * the page beside it was 530px, which stacked rows that fit beside their
+   * label at 700 (plan 025). */
+  width: min(920px, 100%);
   max-height: calc(100vh - 136px);
   display: flex;
   flex-direction: column;
@@ -43,8 +48,9 @@
    * Its CONTENT then settles in ~70ms behind it — see .settings > *.
    * The exit is .settings--closing below: 150ms fade + settle — the
    * asymmetry is 460ms in, 150ms out (NOT instant; do not delete the
-   * closing state as dead code). */
-  transform-origin: top right;
+   * closing state as dead code). Hinged at the top CENTRE since the card
+   * is centred (v0.11.31): it drops in under the nav, not out of a corner. */
+  transform-origin: top center;
   transform: perspective(1400px) rotateX(0deg) translateY(0) scale(1);
   transition:
     opacity 240ms var(--ease-out),

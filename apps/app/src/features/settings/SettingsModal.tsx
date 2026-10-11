@@ -46,7 +46,7 @@ const RAIL = SETTINGS_PAGES.map((p) => ({ ...p, icon: pageIcon(p.key, 18) }));
 
 /** Under this card width the rail would leave the page too little, and it
  * becomes the segmented row the tabs were before the rail. Measured on the
- * card, not the window: the card is `min(786px, 100%)` of a window less its
+ * card, not the window: the card is `min(920px, 100%)` of a window less its
  * margins, and it is the card the page has to fit in. */
 const NARROW = 640;
 

@@ -1931,7 +1931,7 @@ const dimmedText = () =>
 
   // Settings on Radix's Dialog (v0.10.33, plan 014 phase 1), behind its own
   // markup. A modal now: focus goes in and stays in. The card is where it
-  // was, top right, 88 down and 48 in.
+  // belongs, 88 down and centred (v0.11.31; top right, 48 in, before).
   const gearSel = ".header__action[aria-label='Settings']";
   await goTo(page, "guide");
   await page.waitForTimeout(800);
@@ -1941,7 +1941,7 @@ const dimmedText = () =>
   const modal = await page.evaluate(() => {
     const s = document.querySelector(".settings");
     const r = s.getBoundingClientRect();
-    return { inside: !!document.activeElement?.closest(".settings"), top: r.top, right: innerWidth - r.right, parent: s.parentElement?.className };
+    return { inside: !!document.activeElement?.closest(".settings"), top: r.top, left: r.left, right: innerWidth - r.right, parent: s.parentElement?.className };
   });
   const stops = new Set();
   for (let i = 0; i < 40; i++) {
@@ -1950,7 +1950,7 @@ const dimmedText = () =>
   }
   check(
     "M2. Settings is a modal on Radix's Dialog: focus goes in, Tab stays in, the card where it was",
-    modal.inside && [...stops].join() === "in" && modal.top === 88 && modal.right === 48 && modal.parent === "modal-backdrop",
+    modal.inside && [...stops].join() === "in" && modal.top === 88 && Math.abs(modal.left - modal.right) <= 1 && modal.left > 48 && modal.parent === "modal-backdrop",
     JSON.stringify({ ...modal, stops: [...stops] }),
   );
   // And out by one Escape, pressed just after Tab leaves a control whose
