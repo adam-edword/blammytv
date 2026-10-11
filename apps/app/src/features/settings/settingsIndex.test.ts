@@ -45,7 +45,10 @@ describe("findSettings", () => {
   });
 
   it("finds a row by a keyword the label lacks", () => {
-    expect(ids("subtitle")).toEqual(["preferred-language"]);
+    // Subtitle Size's label starts with it (v0.11.29); Preferred Language has
+    // it only as a keyword, so it comes second.
+    expect(ids("subtitle")).toEqual(["subtitle-size", "preferred-language"]);
+    expect(ids("dub")).toEqual(["preferred-language"]);
   });
 
   it("is not fussy about case or the space around it", () => {
@@ -60,12 +63,40 @@ describe("findSettings", () => {
     expect(ids("binge")).toEqual(["autoplay-next"]);
     expect(ids("countdown")).toEqual(["autoplay-next"]);
     expect(ids("up next")[0]).toBe("up-next-card");
-    expect(ids("corner")).toEqual(["up-next-card"]);
+    // The Up Next card sits in a corner, and so does the pop-out (v0.11.29).
+    expect(ids("corner")).toEqual(["up-next-card", "popout"]);
     expect(ids("auto skip")).toEqual(["skipping"]);
     expect(ids("automatic")).toEqual(["skipping"]);
     // The old Skip Behavior words still find it.
     for (const q of ["skip", "intro", "recap", "preview", "chapters", "outro"]) expect(ids(q), q).toContain("skipping");
     expect(settingById("skip-behavior")).toBeUndefined();
+  });
+
+  it("finds the player rows by what a person would type (P3b)", () => {
+    expect(ids("audio channels")[0]).toBe("audio-channels");
+    for (const q of ["surround", "5.1", "7.1", "stereo", "receiver", "speakers", "downmix"])
+      expect(ids(q), q).toContain("audio-channels");
+    // "audio" is the label's first word here and a keyword on Preferred
+    // Language, so the label comes first.
+    expect(ids("audio").slice(0, 2)).toEqual(["audio-channels", "preferred-language"]);
+
+    expect(ids("subtitle size")[0]).toBe("subtitle-size");
+    for (const q of ["subs", "captions", "font", "text size", "bigger"])
+      expect(ids(q), q).toContain("subtitle-size");
+    // The delay is a key in the player, not a setting; the row says where.
+    expect(ids("delay")).toEqual(["subtitle-size"]);
+
+    expect(ids("pop-out")[0]).toBe("popout");
+    for (const q of ["popout", "pop out", "pip", "picture in picture", "window", "floating"])
+      expect(ids(q), q).toContain("popout");
+  });
+
+  it("files the player rows on Playback, under no pill", () => {
+    for (const id of ["audio-channels", "subtitle-size", "popout"]) {
+      const r = settingById(id);
+      expect(r?.page, id).toBe("playback");
+      expect(r?.world, id).toBeUndefined();
+    }
   });
 
   it("finds a label by its own words", () => {

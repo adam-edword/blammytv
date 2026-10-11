@@ -7,6 +7,8 @@ import {
   tauriMpvSeekAbs,
   tauriMpvSetSpeed,
   tauriMpvStatus,
+  tauriMpvSubDelay,
+  tauriMpvSubDelayReset,
   tauriMpvTrack,
   tauriMpvVolume,
   type TheaterMeta,
@@ -439,6 +441,10 @@ export function useDirectOverlay(
         s.tracksJson = "";
         void tauriMpvTrack("sub", String(id)).catch(() => {});
       },
+      // A rejection is an older native build with no such command: null, and
+      // the chrome stops offering the delay (TheaterOverlay).
+      subDelay: (d) => tauriMpvSubDelay(d).catch(() => null),
+      subDelayReset: () => tauriMpvSubDelayReset().catch(() => null),
       expand: () => h.current.onExpand(),
       collapse: () => h.current.onCollapse(),
       fullscreen: () => h.current.onFullscreen(),

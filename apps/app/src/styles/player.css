@@ -297,6 +297,7 @@
 #inv-chrome .theater-overlay,
 #inv-chrome .tune,
 #inv-chrome .buffering,
+#inv-chrome .sub-delay-toast,
 #inv-chrome .skip-chip {
   position: absolute;
 }
@@ -946,6 +947,71 @@
     animation: none;
     opacity: 0.7;
   }
+}
+
+/* The subtitle delay after a z or x: "Subtitles +0.3s", for a moment. TOP
+   centre because subtitles are drawn along the bottom of the picture and they
+   are what is being timed; the buffering pill's glass, so the two read as one
+   family. Not interactive. */
+.sub-delay-toast {
+  position: fixed;
+  left: 50%;
+  top: 22px;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.6);
+  border: 1px solid color-mix(in srgb, var(--on-image) 22%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--on-image);
+  font-family: var(--font-headline);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* The subtitle menu's Delay line: the label, the value between a step back
+   and a step forward, and Reset once there is something to reset. A hairline
+   above it separates it from the tracks, which are the menu's choices. The
+   tracks scroll in a box of their own (a film can carry thirty of them, and
+   the menu itself stops at 300px), so the heading above them and this line
+   below stay where they are instead of scrolling out of reach. 200px is what
+   is left of the 300 once the heading, the line and the padding are in. */
+.track-menu__tracks {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.track-menu__delay {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 6px 4px 2px 10px;
+  border-top: 1px solid var(--chip-edge);
+}
+.track-menu__delay-label {
+  margin-right: 8px;
+}
+.track-menu__step {
+  width: 28px;
+  height: 28px;
+  font: 500 16px / 1 var(--font-headline);
+}
+.track-menu__delay-value {
+  min-width: 46px;
+  text-align: center;
+  font: 500 13px / 1 var(--font-text);
+  font-variant-numeric: tabular-nums;
+  color: var(--on-image);
+}
+.track-menu__reset {
+  margin-left: 4px;
+  font: 500 12px / 1 var(--font-text);
 }
 
 /* Nothing to drag: mpv says this source cannot seek. Still visible, because

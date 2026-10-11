@@ -95,6 +95,14 @@ export interface OverlayApi {
   onKey?: (cb: (key: string) => void) => () => void;
   selectAudio?: (id: number | string) => void; // mpv aid ("auto" ok)
   selectSub?: (id: number | string) => void; // mpv sid ("no" = off)
+  /** Move the subtitle delay by `delta` seconds (the z and x keys, the
+   * subtitle menu's Delay line). Resolves with the delay it has now, to a
+   * tenth, or null where it could not be moved: a native build from before
+   * v0.11.29 has no such command, and the chrome then stops offering it.
+   * Per file: native writes it where mpv puts it back when the file stops. */
+  subDelay?: (delta: number) => Promise<number | null>;
+  /** The delay back to 0. Same answer as `subDelay`. */
+  subDelayReset?: () => Promise<number | null>;
   getTracks?: () => Tracks | null; // SYNCHRONOUS (like getLoading)
   onTracks?: (cb: (tracks: Tracks | null) => void) => () => void;
   getTime?: () => TimeInfo | null; // SYNCHRONOUS (like getLoading)

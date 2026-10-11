@@ -137,6 +137,8 @@ const SEEK_THROTTLE_MS = 150;
 /** How long "Skipped Intro" stays in the skip chip's place after an automatic
  * skip, there to be clicked as the undo. */
 const SKIPPED_MS = 4_000;
+/** How long the new subtitle delay stays on the picture after a z or x. */
+const DELAY_TOAST_MS = 1_500;
 
 /** "1:23" / "12:34" / "1:02:07" — hours only when they exist. */
 function fmtClock(s: number): string {
@@ -145,6 +147,13 @@ function fmtClock(s: number): string {
   const m = Math.floor((t % 3600) / 60);
   const sec = String(t % 60).padStart(2, "0");
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
+
+/** A subtitle delay as the player says it: "+0.3s", "-1.2s", "0.0s". */
+function fmtDelay(sec: number): string {
+  const t = Math.round(sec * 10) / 10;
+  if (t === 0) return "0.0s";
+  return `${t > 0 ? "+" : "-"}${Math.abs(t).toFixed(1)}s`;
 }
 
 /**
@@ -255,6 +264,8 @@ export function TheaterOverlay({
     api()?.goLive?.();
     setPaused(false);
     setLivePct(100);
+    // The reload stops the file, and mpv puts its subtitle delay back.
+    setSubDelay(0);
   }, []);
   // Seeded from prefs, not from 1/false: this component unmounts on the
   // popout round-trip (and on a tab bounce), and a fresh mount doesn't
@@ -326,6 +337,17 @@ export function TheaterOverlay({
     setTracks(null);
   }
   const [menu, setMenu] = useState<"audio" | "subs" | "speed" | null>(null);
+  // The subtitle delay, as native last said it (z and x, and the subtitle
+  // menu's Delay line). Per file, like mpv's: it is put back to 0 with the
+  // stream. `delayOk` goes false if native could not move it (a build from
+  // before v0.11.29), and the chrome stops offering it.
+  const [subDelay, setSubDelay] = useState(0);
+  const [delayOk, setDelayOk] = useState(true);
+  const delayOkRef = useRef(true);
+  delayOkRef.current = delayOk;
+  const [delayToast, setDelayToast] = useState<{ text: string; n: number } | null>(
+    null,
+  );
   // Stats-for-nerds panel (theater/fullscreen only). Telemetry comes straight
   // from the mpv_stats Tauri command, so it's gated on running in the shell.
   const [showStats, setShowStats] = useState(false);
@@ -728,6 +750,8 @@ export function TheaterOverlay({
   useEffect(() => {
     if (!playbackKey) return;
     setSpeed(1); // reset_per_file pushes speed=1 per load
+    setSubDelay(0); // and mpv puts a file's subtitle delay back when it stops
+    setDelayToast(null);
     setPaused(false);
     setLivePct(100);
     api()?.setVolume(Math.round(volumeRef.current * 100));
@@ -847,6 +871,31 @@ export function TheaterOverlay({
     );
     setMenu(null);
   }, []);
+
+  // Move the subtitle delay (z and x, the menu's - and +) or put it back
+  // (Reset). Native answers with the delay it now has, which is what is shown:
+  // the toast says it for a moment, the menu's Delay line keeps it. A null
+  // answer is a native build that cannot, and the chrome stops offering it.
+  const applyDelay = useCallback((p: Promise<number | null> | undefined) => {
+    if (!p) return;
+    void p.then((v) => {
+      if (v === null) {
+        setDelayOk(false);
+        return;
+      }
+      setSubDelay(v);
+      setDelayToast((t) => ({ text: `Subtitles ${fmtDelay(v)}`, n: (t?.n ?? 0) + 1 }));
+    });
+  }, []);
+  const nudgeDelay = useCallback(
+    (delta: number) => applyDelay(api()?.subDelay?.(delta)),
+    [applyDelay],
+  );
+  useEffect(() => {
+    if (!delayToast) return;
+    const id = window.setTimeout(() => setDelayToast(null), DELAY_TOAST_MS);
+    return () => window.clearTimeout(id);
+  }, [delayToast]);
 
   // Show on activity; toggle click-through so only [data-interactive] regions
   // take clicks (the rest passes to mpv, keeping it foreground). Hide the
@@ -1386,6 +1435,16 @@ export function TheaterOverlay({
         case "f":
           toggleFullscreen();
           break;
+        case "z":
+        case "x":
+          // The subtitle delay, on mpv's own keys (z earlier, x later, and
+          // Z as x) so the pop-out, which runs mpv's bindings, agrees with
+          // this. Only with a subtitle track on: with none there is nothing
+          // to move, and the key is left alone.
+          if (!delayOkRef.current || !api()?.subDelay) return false;
+          if (!tracksRef.current?.subs.some((t) => t.selected)) return false;
+          nudgeDelay(key.toLowerCase() === "x" || key === "Z" ? 0.1 : -0.1);
+          break;
         case "t":
           // t = theater: expand from mini, collapse from theater — and from
           // fullscreen, drop back to THEATER (not to wherever fullscreen was
@@ -1419,7 +1478,7 @@ export function TheaterOverlay({
       wake();
       return true;
     },
-    [doSeek, fsNow, miniNow, toggleFullscreen, togglePlay, vod, wake],
+    [doSeek, fsNow, miniNow, nudgeDelay, toggleFullscreen, togglePlay, vod, wake],
   );
 
   useEffect(() => {
@@ -1484,6 +1543,7 @@ export function TheaterOverlay({
         {loading && (
           <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} compact />
         )}
+        {delayToast && <DelayToast text={delayToast.text} />}
         <Hint label={paused ? "Play" : "Pause"}>
           <Button variant="chip" size="icon"
             type="button"
@@ -1545,6 +1605,8 @@ export function TheaterOverlay({
           Buffering
         </div>
       )}
+
+      {delayToast && <DelayToast text={delayToast.text} />}
 
       {showStats && isTauri() && <StatsOverlay />}
 
@@ -2075,6 +2137,9 @@ export function TheaterOverlay({
               {menu === "subs" && tracks && tracks.subs.length >= 1 && (
                 <div className="track-menu" role="menu" aria-label="Subtitles">
                   <p className={"track-menu__head " + EYEBROW_ON_IMAGE}>Subtitles</p>
+                  {/* The tracks scroll here, so the Delay line under them
+                    * stays in reach on a film with thirty. */}
+                  <div className="track-menu__tracks">
                   <Button variant="ghost" size="sm"
                     type="button"
                     role="menuitemradio"
@@ -2100,6 +2165,56 @@ export function TheaterOverlay({
                       {t.selected && <CheckIcon className="size-3.5" />}
                     </Button>
                   ))}
+                  </div>
+                  {/* The timing of the track that is on, a tenth of a second
+                    * a press, as z and x do. Only with one on, and only where
+                    * native can move it. Not a menu choice, so the menu
+                    * stays open. */}
+                  {delayOk &&
+                    !!api()?.subDelay &&
+                    tracks.subs.some((t) => t.selected) && (
+                      <div
+                        className="track-menu__delay"
+                        role="group"
+                        aria-label="Subtitle delay"
+                      >
+                        <span className={"track-menu__delay-label " + EYEBROW_ON_IMAGE}>
+                          Delay
+                        </span>
+                        <Button variant="ghost" size="icon"
+                          type="button"
+                          role="menuitem"
+                          className="track-menu__step rounded-full text-on-image/85 hover:bg-on-image/12 hover:text-on-image"
+                          aria-label="Subtitles earlier"
+                          onClick={() => nudgeDelay(-0.1)}
+                        >
+                          &minus;
+                        </Button>
+                        <output className="track-menu__delay-value" aria-live="polite">
+                          {fmtDelay(subDelay)}
+                        </output>
+                        <Button variant="ghost" size="icon"
+                          type="button"
+                          role="menuitem"
+                          className="track-menu__step rounded-full text-on-image/85 hover:bg-on-image/12 hover:text-on-image"
+                          aria-label="Subtitles later"
+                          onClick={() => nudgeDelay(0.1)}
+                        >
+                          +
+                        </Button>
+                        {subDelay !== 0 && (
+                          <Button variant="ghost" size="sm"
+                            type="button"
+                            role="menuitem"
+                            className="track-menu__reset rounded-full text-on-image/85 hover:bg-on-image/12 hover:text-on-image"
+                            aria-label="Reset subtitle delay"
+                            onClick={() => applyDelay(api()?.subDelayReset?.())}
+                          >
+                            Reset
+                          </Button>
+                        )}
+                      </div>
+                    )}
                 </div>
               )}
             </div>
@@ -2151,6 +2266,17 @@ const IN_CAPSULE =
   "aria-expanded:bg-on-image/16 aria-expanded:text-on-image " +
   "aria-pressed:bg-on-image/16 aria-pressed:text-on-image " +
   "aria-disabled:cursor-not-allowed aria-disabled:opacity-30 aria-disabled:hover:bg-transparent";
+
+/** The new subtitle delay, on the picture for a moment after a z or x. Out of
+ * the way of the subtitles themselves, which are what is being timed: top
+ * centre, with the buffering pill's glass. */
+function DelayToast({ text }: { text: string }) {
+  return (
+    <div className="sub-delay-toast" role="status" aria-live="polite">
+      {text}
+    </div>
+  );
+}
 
 /** The tune-in surface: a branded ident (logo + channel + programme) instead
  * of a bare pulse over black, with the watchdog's escalation — quiet loading,

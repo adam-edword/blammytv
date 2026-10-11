@@ -34,6 +34,24 @@ import {
   type AutoplayNext,
   type UpNextCard,
 } from "./upNext";
+import {
+  AUDIO_CHANNEL_TABS,
+  POPOUT_CORNERS,
+  POPOUT_SIZE_TABS,
+  SUBTITLE_SIZE_TABS,
+  loadAudioChannels,
+  loadPopoutCorner,
+  loadPopoutSize,
+  loadSubtitleSize,
+  saveAudioChannels,
+  savePopoutCorner,
+  savePopoutSize,
+  saveSubtitleSize,
+  type AudioChannels,
+  type PopoutCorner,
+  type PopoutSize,
+  type SubtitleSize,
+} from "./playerPrefs";
 import { SignInNote } from "./SignInNote";
 
 /**
@@ -65,14 +83,16 @@ const SUB_OPTIONS: ComboboxOption[] = [
  * and not with how it looks (the 0.8.0 rule). One-Click Play, Failover,
  * Language and Skip Behavior sat in Customize's Stream panel, under "how it
  * looks", until the five pages (v0.11.26). Up Next and Skipping (which
- * replaced Skip Behavior) are plan 025's P3a.
+ * replaced Skip Behavior) are plan 025's P3a; Audio Channels, Subtitle Size
+ * and Pop-out are P3b.
  *
- * Stream only for now: Live TV has no playback rows yet, so there is no
- * Live TV / Stream pill, and the group is named for the world it governs.
- * Still gated on an AIOStreams, because with none there is nothing to play
- * and nothing for them to govern. Read once per mount, and a page mounts
- * each time you arrive, so signing in on Sources reveals them on your way
- * here.
+ * TWO GROUPS, so there is no Live TV / Stream pill. Stream's rows are about
+ * what the app does with an episode, and are gated on an AIOStreams, because
+ * with none there is nothing to play and nothing for them to govern. Read
+ * once per mount, and a page mounts each time you arrive, so signing in on
+ * Sources reveals them on your way here. Player's three are mpv's: Live TV
+ * plays through the same one, and pops out the same way, so they are there
+ * with or without an AIOStreams.
  */
 export function PlaybackPage() {
   const hasAddon = useRef(!!loadAioConn()).current;
@@ -84,6 +104,10 @@ export function PlaybackPage() {
   const [skipping, setSkipping] = useState<Skipping>(loadSkipping);
   const [audioLang, setAudioLang] = useState<string>(loadAudioLang);
   const [subLang, setSubLang] = useState<string>(loadSubLang);
+  const [audioChannels, setAudioChannels] = useState<AudioChannels>(loadAudioChannels);
+  const [subSize, setSubSize] = useState<SubtitleSize>(loadSubtitleSize);
+  const [popSize, setPopSize] = useState<PopoutSize>(loadPopoutSize);
+  const [popCorner, setPopCorner] = useState<PopoutCorner>(loadPopoutCorner);
 
   const pickSkip = (type: SkipType, mode: SkipMode) => {
     const next = { ...skipping, [type]: mode };
@@ -264,6 +288,90 @@ export function PlaybackPage() {
 
         </section>
       )}
+
+      <h3 className={`settings__group ${EYEBROW}`}>Player</h3>
+      <section className="settings-section">
+        <div className="customize-stack" data-setting="audio-channels">
+          <div>
+            <h4 className="customize-row__title">Audio Channels</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              What the app asks your sound device for. Automatic follows what
+              Windows has set. 5.1 and 7.1 are what your speakers can take: a
+              film keeps its own layout up to that, so stereo stays stereo.
+              Stereo is the way back if a receiver misbehaves. A change
+              restarts the sound for a moment.
+            </p>
+          </div>
+          <Segmented
+            className="self-start"
+            label="Audio channels"
+            options={AUDIO_CHANNEL_TABS}
+            value={audioChannels}
+            onChange={(k: AudioChannels) => {
+              setAudioChannels(k);
+              saveAudioChannels(k);
+            }}
+          />
+        </div>
+
+        <div className="customize-stack" data-setting="subtitle-size">
+          <div>
+            <h4 className="customize-row__title">Subtitle Size</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Text subtitles. Picture-based ones (PGS) keep their own size. To
+              fix the timing, press Z or X in the player: each moves them a
+              tenth of a second.
+            </p>
+          </div>
+          <Segmented
+            className="self-start"
+            label="Subtitle size"
+            options={SUBTITLE_SIZE_TABS}
+            value={subSize}
+            onChange={(k: SubtitleSize) => {
+              setSubSize(k);
+              saveSubtitleSize(k);
+            }}
+          />
+        </div>
+
+        {/* Stacked: two choices, and the corner has five words. */}
+        <div className="customize-stack" data-setting="popout">
+          <div>
+            <h4 className="customize-row__title">Pop-out</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              How much of the screen the pop-out window takes, and which corner
+              it opens in. Drag and resize it once it is up.
+            </p>
+          </div>
+          <div className="setting-lines">
+            <div className="setting-line">
+              <span className="setting-line__label">Size</span>
+              <Segmented
+                label="Pop-out size"
+                options={POPOUT_SIZE_TABS}
+                value={popSize}
+                onChange={(k: PopoutSize) => {
+                  setPopSize(k);
+                  savePopoutSize(k);
+                }}
+              />
+            </div>
+            <div className="setting-line">
+              <span className="setting-line__label">Corner</span>
+              <Segmented
+                label="Pop-out corner"
+                options={POPOUT_CORNERS}
+                value={popCorner}
+                onChange={(k: PopoutCorner) => {
+                  setPopCorner(k);
+                  savePopoutCorner(k);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

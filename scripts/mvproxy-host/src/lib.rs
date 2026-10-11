@@ -13,3 +13,5 @@ pub mod aiojf;
 pub mod mpvurl;
 #[path = "../../../apps/app/src-tauri/src/mvaudio.rs"]
 pub mod mvaudio;
+#[path = "../../../apps/app/src-tauri/src/mpvprefs.rs"]
+pub mod mpvprefs;

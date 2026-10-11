@@ -4,6 +4,7 @@
 // Two instances: the in-app PLAYER (rendered into a `--wid` child window,
 // see inv.rs) and the POPOUT PiP (mpv's own floating window).
 
+use crate::mpvprefs;
 use libloading::Library;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int, c_void};
@@ -125,6 +126,26 @@ static PLAYER_WID: AtomicIsize = AtomicIsize::new(0);
 // The popout PiP runs as its OWN mpv instance, separate from the in-app
 // PLAYER — so tearing down the in-app player (inv::close/stop) can't kill it.
 static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
+
+/// What Settings → Playback has asked of mpv that holds for every file:
+/// Audio Channels and Subtitle Size. Held here, not just sent to the players
+/// that exist, because the in-app player is created on first play and each
+/// pop-out is a new instance: both read it as they are made (ensure_player,
+/// play_popout), and `set_prefs` reaches the ones already running. Only
+/// values `mpvprefs` has checked get in. The defaults are mpv's own, so a
+/// frontend that never calls `mpv_prefs` leaves mpv as it was.
+///
+/// Lock order: PLAYER, then PREFS (ensure_player holds PLAYER while it reads
+/// this). `set_prefs` therefore lets go of PREFS before it touches a player.
+#[derive(Clone, Copy, PartialEq)]
+struct Prefs {
+    audio: &'static str,
+    sub_scale: f64,
+}
+static PREFS: Mutex<Prefs> = Mutex::new(Prefs {
+    audio: mpvprefs::DEFAULT_AUDIO,
+    sub_scale: mpvprefs::DEFAULT_SUB_SCALE,
+});
 
 // ---------------------------------------------------------------------------
 // Status-poll instrumentation (plan 011).
@@ -284,8 +305,15 @@ impl Handoff {
 }
 
 
-/// Play in mpv's own floating window (PiP): on-top, half-size, separate instance.
-pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {
+/// Play in mpv's own floating window (PiP): on-top, separate instance. Its
+/// size and corner are Settings → Playback's (`mpvprefs`); a frontend that
+/// sends neither gets half the screen, centred, as it always did.
+pub fn play_popout(
+    url: &str,
+    hand: Handoff,
+    size: Option<&str>,
+    corner: Option<&str>,
+) -> Result<(), String> {
     let l = lib()?;
     // Before mpv exists (plan 016 N4, F7): a URL with a null byte used to
     // fail here after mpv_create and mpv_initialize, and the early return
@@ -307,12 +335,22 @@ pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {
         set("force-window", "immediate");
         // Float above the app at a sensible size, else it opens behind BlammyTV.
         set("ontop", "yes");
-        set("autofit", "50%");
+        // `autofit` sizes it without changing the picture's shape. `geometry`
+        // here is a position alone: mpv works the size out first and then
+        // puts the window there, against the monitor's work area, so a corner
+        // sits above the taskbar. No corner is no geometry, which centres it.
+        set("autofit", mpvprefs::popout_autofit(size));
+        if let Some(g) = mpvprefs::popout_geometry(corner) {
+            set("geometry", g);
+        }
         // Borderless — a clean PiP, no Windows title bar (still drag/resizable).
         set("border", "no");
         set("hwdec", "auto-safe");
-        // No `audio-channels`, as the main player (ensure_player): 5.1
-        // reaches a surround device.
+        // Audio Channels and Subtitle Size, as the main player has them
+        // (ensure_player). Left at Automatic, 5.1 reaches a surround device.
+        let prefs = *PREFS.lock().unwrap();
+        set("audio-channels", prefs.audio);
+        set("sub-scale", &prefs.sub_scale.to_string());
         set("title", "BlammyTV — Popout");
         set("osc", "yes");
         // KEYS, not just the OSC bar. `osc` is a Lua script, so if it does
@@ -357,6 +395,21 @@ pub fn play_popout(url: &str, hand: Handoff) -> Result<(), String> {
             return Err("loadfile failed".into());
         }
         *POPOUT.lock().unwrap() = Some(Player(h));
+        // A change from Settings that came in while this instance was opening
+        // found no pop-out to reach, because `set_prefs` looks in POPOUT and
+        // it is filled just now. Give it what it missed. The handle is still
+        // ours to use: only the watcher below destroys it.
+        let now = *PREFS.lock().unwrap();
+        let put = |k: &str, v: &str| {
+            let (ck, cv) = (CString::new(k).unwrap(), CString::new(v).unwrap());
+            (l.set_property_string)(h, ck.as_ptr(), cv.as_ptr());
+        };
+        if now.audio != prefs.audio {
+            put("audio-channels", now.audio);
+        }
+        if now.sub_scale != prefs.sub_scale {
+            put("sub-scale", &now.sub_scale.to_string());
+        }
 
         // Watch the popout's events: when its window is closed (✕ / taskbar / q),
         // mpv emits SHUTDOWN — we must terminate it, else it hangs in-process and
@@ -494,17 +547,24 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         };
         set("wid", &wid.to_string());
         set("hwdec", "auto-safe");
+        // Audio Channels and Subtitle Size, as Settings has them (set_prefs).
+        // Unchanged, these are mpv's own defaults.
+        let prefs = *PREFS.lock().unwrap();
+        set("audio-channels", prefs.audio);
+        set("sub-scale", &prefs.sub_scale.to_string());
         // NOTE: the theater/fullscreen brightness difference is NOT mpv — its
         // output is byte-identical SDR (R8G8B8A8_UNORM, sRGB) in both states
         // (verified via diagnostics). It's a Windows presentation quirk (DWM
         // composition windowed vs independent-flip/overlay fullscreen). The real
         // fix is rendering mpv into a DComp composition swapchain (render API).
         //
-        // No `audio-channels`: mpv's default, auto-safe, opens the device at
-        // the layout Windows has it set to. 5.1 or 7.1 for speakers or Windows
+        // `audio-channels` is Settings' Audio Channels, set above, and
+        // Automatic is mpv's default, auto-safe: it opens the device at the
+        // layout Windows has it set to. 5.1 or 7.1 for speakers or Windows
         // Sonic, so a 5.1 source plays as 5.1; stereo for headphones, which
         // mpv downmixes to. This used to force "stereo", with no reason
-        // recorded, and every surround source was downmixed for everyone.
+        // recorded, and every surround source was downmixed for everyone
+        // (v0.11.21); Stereo is the way back for a receiver that misbehaves.
         // The stats overlay's Channels row shows what reached the device.
         //
         // The app's name in Windows' sound settings. mpv hands its window
@@ -1013,6 +1073,67 @@ pub fn set_track(kind: &str, id: &str) {
 /// (mpv_set_speed command).
 pub fn set_speed(speed: f64) {
     set_prop("speed", &speed.to_string());
+}
+
+/// Settings → Playback's Audio Channels and Subtitle Size (`mpv_prefs`): hold
+/// them for the players still to be made, and give them to the ones running.
+/// Both arguments are what `mpvprefs` has already checked, and `None` leaves
+/// that one as it was.
+///
+/// Only a value that CHANGED reaches a running player. The frontend sends both
+/// on every change, and `audio-channels` reinitialises the audio output (a
+/// short gap in the sound), so a new subtitle size must not do that.
+pub fn set_prefs(audio: Option<&'static str>, sub_scale: Option<f64>) {
+    // PREFS is let go of before any player is touched; see its lock order.
+    let (old, new) = {
+        let mut g = PREFS.lock().unwrap();
+        let old = *g;
+        if let Some(a) = audio {
+            g.audio = a;
+        }
+        if let Some(s) = sub_scale {
+            g.sub_scale = s;
+        }
+        (old, *g)
+    };
+    if new.audio != old.audio {
+        both("audio-channels", new.audio);
+    }
+    if new.sub_scale != old.sub_scale {
+        both("sub-scale", &new.sub_scale.to_string());
+    }
+}
+
+/// The in-app player's subtitle delay in seconds, to a tenth. 0 when there is
+/// no player or no file.
+fn current_sub_delay() -> f64 {
+    get_property("sub-delay")
+        .and_then(|s| s.parse::<f64>().ok())
+        .map_or(0.0, mpvprefs::tenth)
+}
+
+/// Move the subtitles by `delta` seconds and say what the delay is now (the
+/// z and x keys, mpv's own, which the pop-out has natively). Written to
+/// `file-local-options/sub-delay`, so mpv puts it back when the file stops and
+/// the next one starts in sync: a delay is a fact about one file's subtitles.
+/// A `delta` that is not a number or is over a step (mpvprefs) moves nothing,
+/// and neither does a write with no file playing, which mpv refuses; either
+/// way the answer is the delay as it stands, read back from mpv.
+pub fn sub_delay(delta: f64) -> f64 {
+    let now = current_sub_delay();
+    let Some(next) = mpvprefs::sub_delay_next(now, delta) else {
+        return now;
+    };
+    set_prop("file-local-options/sub-delay", &next.to_string());
+    current_sub_delay()
+}
+
+/// Put the delay back to 0, wherever it had got to. Its own verb and not
+/// `sub_delay` of minus the delay, because a step is bounded and a delay is
+/// not.
+pub fn sub_delay_reset() -> f64 {
+    set_prop("file-local-options/sub-delay", "0");
+    current_sub_delay()
 }
 
 /// Set the GPU post-process shader chain (absolute path to a .glsl user

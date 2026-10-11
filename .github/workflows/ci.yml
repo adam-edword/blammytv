@@ -158,7 +158,7 @@ jobs:
         run: cargo test --locked
 
       # CLAUDE.md's baseline: 9 warnings, all the libmpv symbol transmutes
-      # at mpv.rs:89-103. Anything above that is new and fails the job.
+      # at mpv.rs:90-104. Anything above that is new and fails the job.
       # --color never: the toolchain step sets CARGO_TERM_COLOR=always, and
       # with colour codes in front of every "warning:" the grep matched
       # nothing and the gate read 0 on every run.

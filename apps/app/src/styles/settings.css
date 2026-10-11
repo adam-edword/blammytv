@@ -495,22 +495,26 @@ input.rowcap__value--edit:focus-visible {
 
 /* Skipping: one line per type, its name on the left and its three-way choice
  * on the right, then the combine switch on a line of its own. The names sit at
- * the page's text size, under the row title's 15px. */
-.skip-lines {
+ * the page's text size, under the row title's 15px. Pop-out has the same two
+ * lines, Size and Corner (.setting-lines). */
+.skip-lines,
+.setting-lines {
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
 }
 
-.skip-line {
+.skip-line,
+.setting-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
 }
 
-.skip-line__label {
+.skip-line__label,
+.setting-line__label {
   font-size: 13px;
 }
 

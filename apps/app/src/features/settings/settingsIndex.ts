@@ -108,6 +108,24 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["audio", "subtitle", "subtitles", "subs", "captions", "dub", "language"],
   },
   {
+    id: "audio-channels",
+    label: "Audio Channels",
+    page: "playback",
+    keywords: ["surround", "5.1", "7.1", "stereo", "receiver", "speakers", "downmix", "audio", "sound", "hdmi"],
+  },
+  {
+    id: "subtitle-size",
+    label: "Subtitle Size",
+    page: "playback",
+    keywords: ["subtitles", "subs", "captions", "font", "text size", "bigger", "delay", "timing"],
+  },
+  {
+    id: "popout",
+    label: "Pop-out",
+    page: "playback",
+    keywords: ["popout", "pop out", "pip", "picture in picture", "window", "corner", "floating", "position", "size"],
+  },
+  {
     id: "accent",
     label: "Accent",
     page: "appearance",

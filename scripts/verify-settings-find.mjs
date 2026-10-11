@@ -214,9 +214,11 @@ const alpha = (c) => {
   await ask(page, "subtitle");
   const sub = await sections(page);
   const set = sub.find((s) => s.name === "Settings");
+  // Plan 025, P3b (v0.11.29): Subtitle Size's label starts with it, so it
+  // comes first, and Preferred Language (which has it as a keyword) second.
   check(
-    '"subtitle" lists Settings, and its first row is Preferred Language, "Settings · Playback"',
-    set?.rows[0]?.label === "Preferred Language" && set.rows[0].sub === "Settings · Playback",
+    '"subtitle" lists Settings, its first row is Subtitle Size and its second Preferred Language, "Settings · Playback"',
+    set?.rows[0]?.label === "Subtitle Size" && set.rows[0].sub === "Settings · Playback" && set.rows[1]?.label === "Preferred Language" && set.rows[1].sub === "Settings · Playback",
     JSON.stringify(set),
   );
   check("  with the page's mark beside it", set?.rows[0]?.icon === true);
@@ -242,9 +244,11 @@ const alpha = (c) => {
     JSON.stringify(ap.find((s) => s.name === "Settings")?.rows.map((r) => r.label)),
   );
 
-  // ------------------------------------------------ "subtitle": Playback
+  // ------------------------------------------------ "preferred language": Playback
+  // Was "subtitle" until v0.11.29, when Subtitle Size took that word's first
+  // place; the row it lands on, a pair of language pickers, is the point.
   await gear(page).focus();
-  await ask(page, "subtitle");
+  await ask(page, "preferred language");
   await page.keyboard.press("Enter");
   await settingsUp(page);
   // The light comes on with the card, not after the scroll.
@@ -506,26 +510,48 @@ async function registryMatches(page, positions, label) {
 // A row that isn't drawn is not an error.
 // ====================================================================
 {
-  // No AIOStreams: Playback shows the sign-in note where its rows would be.
+  // No AIOStreams: Playback shows the sign-in note where Stream's rows would be.
+  // The Player group (Audio Channels, Subtitle Size, Pop-out, v0.11.29) is for
+  // Live TV too and is drawn without one: that is what a find can still land
+  // on. The query was "subtitle" until Subtitle Size took that word.
   const errorsBefore = errors.length;
   const { ctx, page } = await open({ store: { playlists: XTREAM, startupTab: { v: 1, data: "stream" } } });
-  await ask(page, "subtitle");
+  await ask(page, "preferred language");
   const s = await settingsSection(page);
   await page.keyboard.press("Enter");
   await settingsUp(page);
   await page.waitForTimeout(2600);
-  const note = await page.evaluate(() => ({
+  const STREAM_ROWS = ["one-click-play", "source-failover", "autoplay-next", "up-next-card", "skipping", "preferred-language"];
+  const note = await page.evaluate((STREAM_ROWS) => ({
     text: document.querySelector(".settings__body")?.innerText.replace(/\n/g, " ") ?? "",
-    rows: document.querySelectorAll(".settings__body [data-setting]").length,
+    stream: STREAM_ROWS.filter((id) => document.querySelector(`.settings__body [data-setting='${id}']`)).length,
+    player: [...document.querySelectorAll(".settings__body [data-setting]")].map((e) => e.dataset.setting).filter((id) => !STREAM_ROWS.includes(id)),
     lit: document.querySelectorAll(".setting--found").length,
     onCard: !!document.activeElement?.matches?.(".settings"),
-  }));
+  }), STREAM_ROWS);
   check(
-    "with no AIOStreams, \"subtitle\" still lists the row and opens Playback on the sign-in note",
+    "with no AIOStreams, \"preferred language\" still lists the row and opens Playback on the sign-in note",
     s?.rows[0]?.label === "Preferred Language" && (await current(page)) === "Playback" && /Sign in to your AIOStreams in Settings/.test(note.text),
     JSON.stringify({ s: s?.rows[0], text: note.text.slice(0, 100) }),
   );
-  check("  nothing lit, no row drawn, and focus left on the card", note.lit === 0 && note.rows === 0 && note.onCard, JSON.stringify(note));
+  check(
+    "  nothing lit, none of Stream's rows drawn, the Player group's three there, and focus left on the card",
+    note.lit === 0 && note.stream === 0 && note.player.join() === "audio-channels,subtitle-size,popout" && note.onCard,
+    JSON.stringify(note),
+  );
+  await closeSettings(page);
+  // A Player row is drawn without one, so a find lands on it: lit, in view, focus on its first choice.
+  await ask(page, "surround");
+  const sur = await settingsSection(page);
+  await page.keyboard.press("Enter");
+  await settingsUp(page);
+  await settle(page);
+  const ac = await landed(page, "audio-channels");
+  check(
+    "  and \"surround\" lands on Audio Channels there: lit, in view, focus on Automatic",
+    sur?.rows[0]?.label === "Audio Channels" && (await current(page)) === "Playback" && !!ac && ac.lit && ac.inView && ac.inRow && /Automatic/.test(ac.focusLabel ?? ""),
+    JSON.stringify({ row: sur?.rows[0], ac }),
+  );
   check("  and no page error", errors.length === errorsBefore, errors.slice(errorsBefore, errorsBefore + 2).join(" | "));
   await closeSettings(page);
   await ctx.close();

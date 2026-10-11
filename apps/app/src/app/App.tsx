@@ -31,6 +31,7 @@ import {
 import { Palette, type GoTarget } from "../features/palette/Palette";
 import { loadAioConn } from "../features/aiojf/conn";
 import { saveSettingsTab } from "../features/settings/settingsTab";
+import { watchPlayerPrefs } from "../features/settings/playerPrefsSync";
 import {
   loadPlaylists,
   onPlaylistsChange,
@@ -102,6 +103,14 @@ export function App() {
   // data, or anything else that could legitimately fail.
   useEffect(() => {
     if (isTauri()) void tauriFrontendReady().catch(() => {});
+  }, []);
+  // Audio Channels and Subtitle Size are mpv's, and native holds them: say
+  // what they are at launch, and again whenever Settings changes one. Before
+  // anything plays, so the first stream already has them. Quiet on a native
+  // build that has no command for it (playerPrefsSync).
+  useEffect(() => {
+    if (!isTauri()) return;
+    return watchPlayerPrefs();
   }, []);
   // Stage a newer frontend in the background, always and silently (plan
   // 008 phase 3). Nothing about the running app changes: staging only

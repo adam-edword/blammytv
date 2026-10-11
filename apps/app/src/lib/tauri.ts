@@ -3,6 +3,9 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { notePoll } from "./playerPerf";
 import { noteCall } from "./freezeProbe";
+// The one place lib reads a setting: the pop-out's size and corner are read
+// where every host's pop out passes through, so none can forget to send them.
+import { popoutPlace } from "../features/settings/playerPrefs";
 
 /** Every native call from here, timed for freezeProbe. */
 function invoke<T>(cmd: string, args?: InvokeArgs): Promise<T> {
@@ -115,7 +118,11 @@ export function tauriPopoutOpen(url: string, live: boolean, owner?: string): Pro
   // so handed mpv a `start` seek on a live stream. The Rust still accepts
   // None for a frontend too old to say; nothing in THIS frontend may use
   // that path, and a required parameter is what enforces it.
-  return invoke("popout_open", { url, live });
+  //
+  // `size` and `corner` are Settings → Playback → Pop-out, read here so every
+  // host sends them. A native build from before v0.11.29 ignores both and
+  // opens at half the screen, centred, as it did.
+  return invoke("popout_open", { url, live, ...popoutPlace() });
 }
 /** Current popout playback position (seconds; 0 when none) — polled while
  * popped so a reclaim resumes at the right spot (old-app pattern). */
@@ -296,6 +303,24 @@ export function tauriMpvSetSpeed(speed: number): Promise<void> {
 }
 export function tauriMpvGoLive(): Promise<void> {
   return invoke("mpv_go_live");
+}
+/** Settings → Playback's Audio Channels (mpv's word for it: "auto-safe",
+ * "stereo", "5.1", "7.1") and Subtitle Size (mpv's `sub-scale`), to native,
+ * which holds them for every player it makes and gives them to the ones
+ * running (mpv.rs set_prefs). Rejects on a native build from before v0.11.29,
+ * which has no such command: the caller takes that quietly. */
+export function tauriMpvPrefs(audioChannels: string, subScale: number): Promise<void> {
+  return invoke("mpv_prefs", { audioChannels, subScale });
+}
+/** Move the subtitle delay by `delta` seconds and get the delay it has now,
+ * to a tenth. Per file: native writes it where mpv puts it back when the
+ * file stops. Rejects on a build from before v0.11.29. */
+export function tauriMpvSubDelay(delta: number): Promise<number> {
+  return invoke("mpv_sub_delay", { delta });
+}
+/** The subtitle delay back to 0. Resolves with it. */
+export function tauriMpvSubDelayReset(): Promise<number> {
+  return invoke("mpv_sub_delay_reset");
 }
 export function tauriMpvTrack(kind: "audio" | "sub", id: string): Promise<void> {
   return invoke("mpv_track", { kind, id });

@@ -2,6 +2,7 @@ mod aiojf;
 mod frontend;
 mod mal;
 mod mpv;
+mod mpvprefs;
 mod mpvurl;
 mod mvaudio;
 mod mvconvert;
@@ -75,6 +76,13 @@ fn popout_open(
     // a provider reporting a duration for a live feed. None means an older
     // frontend that did not say, and falls back to the duration heuristic.
     live: Option<bool>,
+    // Settings → Playback → Pop-out: how much of the screen it takes
+    // ("small", "medium", "large") and which corner it opens in ("center",
+    // "top-left" and the rest). Both Option, as `live` is: a frontend from
+    // before the setting sends neither and gets half the screen, centred, and
+    // anything unknown is the same. The strings are mpvprefs'.
+    size: Option<String>,
+    corner: Option<String>,
 ) -> Result<(), String> {
     // Native says what mpv may open, not only the frontend (audit X1).
     mpvurl::http_only(&url)?;
@@ -100,7 +108,7 @@ fn popout_open(
     }
     // Own mpv instance so the in-app teardown (fired by the React unmount)
     // can't terminate it.
-    mpv::play_popout(&url, hand)
+    mpv::play_popout(&url, hand, size.as_deref(), corner.as_deref())
 }
 
 // ---- Inverted-layer player (THE architecture; see inv.rs). Rects are PHYSICAL px. ----
@@ -221,6 +229,45 @@ fn mpv_set_speed(speed: f64) {
 #[tauri::command]
 fn mpv_go_live() {
     mpv::reload_live();
+}
+
+/// Settings → Playback's Audio Channels and Subtitle Size, for the in-app
+/// player and the pop-out, now and for every one made after (mpv.rs
+/// `set_prefs`). Its own command, not `mpv_set`: that one is a tuning probe
+/// with an allowlist (plan 016 N5), and what a setting may ask is checked in
+/// mpvprefs. Both are Option, so a call may carry one; a value that is not
+/// one of Settings' refuses the whole call and changes nothing.
+///
+/// New in v0.11.29, and the frontend ships apart from this binary: an older
+/// build has no such command, and the frontend takes the rejection quietly.
+/// Changing `audio_channels` on a playing stream restarts its audio output,
+/// a short gap, as mpv does for the option anywhere.
+#[tauri::command]
+fn mpv_prefs(audio_channels: Option<String>, sub_scale: Option<f64>) -> Result<(), String> {
+    let audio = audio_channels
+        .as_deref()
+        .map(|v| mpvprefs::audio_channels(v).ok_or("not an audio layout the app offers"))
+        .transpose()?;
+    let scale = sub_scale
+        .map(|v| mpvprefs::sub_scale(v).ok_or("not a subtitle size"))
+        .transpose()?;
+    mpv::set_prefs(audio, scale);
+    Ok(())
+}
+
+/// Move the subtitle delay by `delta` seconds (the player's z and x keys) and
+/// return what it is now, to a tenth. Per file: see mpv.rs `sub_delay`.
+/// Nothing in this binary reads or keeps the delay.
+#[tauri::command]
+fn mpv_sub_delay(delta: f64) -> f64 {
+    mpv::sub_delay(delta)
+}
+
+/// The subtitle delay back to 0, which `mpv_sub_delay` cannot always say: it
+/// moves by one step at most and the delay can be further out than that.
+#[tauri::command]
+fn mpv_sub_delay_reset() -> f64 {
+    mpv::sub_delay_reset()
 }
 
 #[tauri::command]
@@ -1393,6 +1440,9 @@ pub fn run() {
             mpv_seek_abs,
             mpv_set_speed,
             mpv_go_live,
+            mpv_prefs,
+            mpv_sub_delay,
+            mpv_sub_delay_reset,
             mpv_track,
             mpv_status,
             mpv_stats,

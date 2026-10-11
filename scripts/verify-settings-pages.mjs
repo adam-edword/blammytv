@@ -171,10 +171,12 @@ const closeSettings = async (page) => {
   // Plan 025, P3a (v0.11.28): Skip Behavior became Skipping, and Up Next's two
   // rows joined it. This list changed with them, in the plan's order: what
   // happens as one episode ends and the next begins, then the languages.
+  // P3b (v0.11.29) added a second group under the first, Player: Audio
+  // Channels, Subtitle Size and Pop-out, which are mpv's and so Live TV's too.
   check(
-    "Playback: One-Click Play, Auto Source Failover, Autoplay Next Episode, Up Next Card, Skipping, Preferred Language, and nothing else",
+    "Playback: One-Click Play, Auto Source Failover, Autoplay Next Episode, Up Next Card, Skipping, Preferred Language, then the Player group: Audio Channels, Subtitle Size, Pop-out, and nothing else",
     JSON.stringify(play) ===
-      JSON.stringify(["One-Click Play Movies", "Auto Source Failover", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language"]),
+      JSON.stringify(["One-Click Play Movies", "Auto Source Failover", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Audio Channels", "Subtitle Size", "Pop-out"]),
     JSON.stringify(play),
   );
   const playCtl = await page.evaluate(() => {
