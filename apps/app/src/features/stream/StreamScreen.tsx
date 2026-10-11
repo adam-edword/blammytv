@@ -41,6 +41,7 @@ import {
 } from "../../components/ui/item";
 import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
+import { dayLabel } from "../../lib/time";
 import { setOverlayApiOverride } from "../live/overlayApi";
 import { InvertedPlayer } from "../live/InvertedPlayer";
 import { VodLoading } from "../live/VodLoading";
@@ -53,11 +54,13 @@ import {
   loadVod,
   peekVod,
   resolveVodItem,
+  resolveVodList,
   resolveVodSources,
 } from "./source";
 import { readStreamScroll, saveStreamScroll } from "./session";
 import { SaveButton } from "./SaveButton";
-import { nextEpisode, nextUpEpisode, pickCachedIndex } from "./mapper";
+import { isOut, nextEpisode, nextUpEpisode, pickCachedIndex, pickResumeIndex } from "./mapper";
+import { dropPrefetch, prefetchSources, takePrefetched } from "./prefetch";
 import type { SkipRange } from "./aniskip";
 import {
   keepEarlierReturn,
@@ -155,6 +158,12 @@ function episodeTarget(season: Season, episode: Episode) {
     label: `S${season.number} · E${episode.number}: ${episode.title}`,
     episodeInfo: { season: season.number, episode: episode.number, title: episode.title },
   };
+}
+
+/** Ask for an episode's sources now, to be taken by the roll to it
+ * (prefetch.ts). */
+function prefetchEpisode(episodeId: string) {
+  prefetchSources(episodeId, () => resolveVodSources("series", episodeId));
 }
 
 export function StreamScreen() {
@@ -271,8 +280,12 @@ export function StreamScreen() {
         episodeInfo?: { season: number; episode: number; title: string };
         queue?: StreamSource[];
         bingeGroup?: string;
+        /** The source's file name: written to the entry for resume. */
+        fileName?: string;
       } | null,
     ) => {
+      // A kept list never outlives the play that started it (prefetch.ts).
+      dropPrefetch();
       if (!p) {
         setUpNext(null);
         setUpNextMini(null);
@@ -299,7 +312,10 @@ export function StreamScreen() {
       const prev = loadWatching().find((e) => e.id === p.item.id);
       const resumeAt = resumePoint(prev, p.episodeId);
       // Playback opens in THEATER (fills the app window); f goes OS-full.
-      setPlayingRaw({ ...p, resumeAt, mode: "theater" });
+      // The file name is the entry's, below: a source switch would leave it
+      // stale here, where bingeGroup is kept current.
+      const { fileName, ...play } = p;
+      setPlayingRaw({ ...play, resumeAt, mode: "theater" });
       setWatching(
         recordWatching({
           id: p.item.id,
@@ -316,6 +332,9 @@ export function StreamScreen() {
           runtimeMin: p.item.runtimeMin,
           genre: p.item.genres[0],
           kind: p.item.kind,
+          // The source this play starts on, for resume to go back to.
+          ...(fileName ? { fileName } : {}),
+          ...(p.bingeGroup ? { bingeGroup: p.bingeGroup } : {}),
           ...(p.episodeInfo
             ? {
                 season: p.episodeInfo.season,
@@ -519,6 +538,7 @@ export function StreamScreen() {
             url: sources[idx].streamUrl,
             item,
             bingeGroup: sources[idx].bingeGroup,
+            fileName: sources[idx].fileName,
             queue: sources.filter((s, i) => i !== idx && s.cached),
           });
       } catch {
@@ -616,6 +636,10 @@ export function StreamScreen() {
       // prefers a cached source from the SAME release group as what's
       // playing now — captured before setResolving/setPlaying churn it.
       const stickyGroup = playingRef.current?.bingeGroup;
+      // The list the credits (or the end of the file) already asked for, if
+      // it is this episode's and still young. Taken here, before the stop
+      // below drops whatever is kept.
+      const kept = takePrefetched(episode.id);
       /*
        * STOP THE OLD EPISODE BEFORE ASKING FOR THE NEW ONE.
        *
@@ -650,7 +674,9 @@ export function StreamScreen() {
         title: episode.title,
       };
       try {
-        const sources = await resolveVodSources("series", episode.id);
+        // A kept list that failed is asked for again, not shown.
+        const ask = () => resolveVodSources("series", episode.id);
+        const sources = await (kept ? kept.catch(ask) : ask());
         if (gen !== resolveGen.current) return; // cancelled while we waited
         // Cached only — see watchNow. No cached → the source screen below.
         const idx = pickCachedIndex(sources, stickyGroup);
@@ -662,6 +688,7 @@ export function StreamScreen() {
             episodeId: episode.id,
             episodeInfo: info,
             bingeGroup: sources[idx].bingeGroup,
+            fileName: sources[idx].fileName,
             queue: sources.filter((s, i) => i !== idx && s.cached),
           });
           return;
@@ -733,6 +760,7 @@ export function StreamScreen() {
       entry?.posSec && entry.posSec > 10
         ? Math.max(0, entry.posSec - 3)
         : undefined;
+    dropPrefetch();
     setPlayingRaw({
       ...p,
       url: next.streamUrl,
@@ -789,6 +817,7 @@ export function StreamScreen() {
           setPanelState("open");
           return;
         }
+        dropPrefetch();
         setPlayingRaw({
           ...p,
           url: pick.streamUrl,
@@ -911,7 +940,13 @@ export function StreamScreen() {
         // Cached only — see watchNow. This is the path that got a real
         // account rate-limited: quick-resume auto-played an uncached
         // source sight-unseen, then the tune watchdog re-requested it.
-        const idx = sources.findIndex((s) => s.cached);
+        // The source the entry was on, among the cached: its file, then its
+        // binge group, then the first cached. A rolled-forward card is
+        // another episode, so only the group carries over.
+        const idx = pickResumeIndex(sources, {
+          fileName: next ? undefined : entry.fileName,
+          bingeGroup: entry.bingeGroup,
+        });
         if (idx >= 0) {
           setPlaying({
             url: sources[idx].streamUrl,
@@ -920,6 +955,7 @@ export function StreamScreen() {
             episodeId: target.episodeId,
             episodeInfo: target.episodeInfo,
             bingeGroup: sources[idx].bingeGroup,
+            fileName: sources[idx].fileName,
             queue: sources.filter((s, i) => i !== idx && s.cached),
           });
           return;
@@ -1137,6 +1173,7 @@ export function StreamScreen() {
       entry?.posSec && entry.posSec > 10
         ? Math.max(0, entry.posSec - 3)
         : undefined;
+    dropPrefetch();
     setPlayingRaw({
       ...p,
       url: src.streamUrl,
@@ -1235,6 +1272,9 @@ export function StreamScreen() {
             markWatched(p.item.id, p.episodeId);
             const nxt = nextEpisode(p.item.seasons, p.episodeId);
             if (nxt) {
+              // Its sources, asked for now if the credits did not already:
+              // the countdown below is time the roll no longer waits after.
+              prefetchEpisode(nxt.episode.id);
               // Re-arm the countdown HERE, not just in the [upNext]
               // effect: after a fired countdown the state rests at 0, and
               // the fire effect would see 0 + the new card in the same
@@ -1267,6 +1307,9 @@ export function StreamScreen() {
         if (!p?.episodeId || p.popped) return;
         const nxt = nextEpisode(p.item.seasons, p.episodeId);
         if (!nxt || miniDismissedRef.current === nxt.episode.id) return;
+        // The card's window is the first moment the next episode is likely:
+        // ask for its sources now, so the roll has them (prefetch.ts).
+        prefetchEpisode(nxt.episode.id);
         setUpNextMini({ item: p.item, ...nxt });
       },
     },
@@ -1878,6 +1921,7 @@ export function StreamScreen() {
               url: s.streamUrl,
               item: view.item,
               bingeGroup: s.bingeGroup,
+              fileName: s.fileName,
               queue,
             })
           }
@@ -1919,6 +1963,7 @@ export function StreamScreen() {
               episodeId: view.episodeId,
               episodeInfo: view.episodeInfo,
               bingeGroup: s.bingeGroup,
+              fileName: s.fileName,
               queue,
             })
           }
@@ -2486,6 +2531,9 @@ function Detail({
   const [sources, setSources] = useState<StreamSource[] | null | "failed">(
     null,
   );
+  // What AIOStreams said beside the sources (an addon's error, a statistic).
+  // Shown in the empty state only, as the why.
+  const [notices, setNotices] = useState<string[]>([]);
   // More Like This: first-genre neighbors from the user's own catalogs
   // (Discover's conglomerate machinery), current title excluded. Movie
   // detail only — the episode source screen stays utilitarian. Pure
@@ -2534,8 +2582,13 @@ function Detail({
   useEffect(() => {
     let stale = false;
     setSources(null);
-    resolveVodSources(item.kind, episodeId ?? item.id).then(
-      (s) => !stale && setSources(s),
+    setNotices([]);
+    resolveVodList(item.kind, episodeId ?? item.id).then(
+      (l) => {
+        if (stale) return;
+        setNotices(l.notices);
+        setSources(l.sources);
+      },
       () => !stale && setSources("failed"),
     );
     return () => {
@@ -2620,7 +2673,17 @@ function Detail({
               onImage
               icon={<PlayIcon size={22} />}
               title="No sources available"
-              sub="Your addons came back with nothing playable for this one."
+              sub={
+                <>
+                  Your addons came back with nothing playable for this one.
+                  {/* Why, as AIOStreams said it. */}
+                  {notices.map((n) => (
+                    <span key={n} className="state__note">
+                      AIOStreams: {n}
+                    </span>
+                  ))}
+                </>
+              }
             />
           )}
           {Array.isArray(sources) && sources.length > 0 && (
@@ -2753,6 +2816,7 @@ function Episodes({
   }, [item, nextUp]);
   const season =
     item.seasons[Math.min(seasonIdx, Math.max(0, item.seasons.length - 1))];
+  const now = Date.now();
   return (
     <div className="vod-detail on-picture">
       {item.backdrop && (
@@ -2846,6 +2910,12 @@ function Episodes({
             <ItemGroup className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-3.5 gap-y-5">
               {season?.episodes.map((e) => {
                 const seen = watched.has(e.id);
+                // Not aired yet: drawn dim with its day, and not a button
+                // that does anything. A disabled one is also skipped by Tab
+                // and read as unavailable, so the list needs no key handling
+                // of its own.
+                const out = isOut(e, now);
+                const airs = !out && e.airsAt != null ? dayLabel(new Date(e.airsAt)) : null;
                 // The track: full once watched, where you are for the one
                 // you're part-way through, nothing otherwise (kept in the
                 // flow, hidden, so every caption in a row lines up).
@@ -2880,12 +2950,14 @@ function Episodes({
                     // three-line title grew a gap between its picture and
                     // its text. Pack the lines at the top and the slack
                     // lands where it belongs.
-                    "episode-card tile cursor-pointer flex-row content-start gap-2 p-0 text-left" +
+                    "episode-card tile flex-row content-start gap-2 p-0 text-left" +
+                    (out ? " cursor-pointer" : " is-unaired cursor-default") +
                     (e.id === nextUp ? " is-next" : "")
                   }
                 >
                   <button
                     type="button"
+                    disabled={!out}
                     onClick={() =>
                       onPick(
                         e.id,
@@ -2939,13 +3011,13 @@ function Episodes({
                         * usefully, hence the block. The E-number rides inline
                         * so a wrapped line runs under it with no hanging
                         * indent. */}
-                      <ItemTitle className="block w-full">
+                      <ItemTitle className={"block w-full" + (out ? "" : " text-on-image/50")}>
                         {/* Quiet metadata, then the title, which is how
                           * shadcn separates the two inside one line. The
                           * page pins a light foreground over the backdrop,
                           * so the quiet tier is the on-image one, not
                           * --muted-foreground (dark in the light theme). */}
-                        <span className="mr-2 text-on-image/60">
+                        <span className={"mr-2 " + (out ? "text-on-image/60" : "text-on-image/40")}>
                           E{e.number}
                         </span>
                         {e.title}
@@ -2961,10 +3033,16 @@ function Episodes({
                           </span>
                         )}
                       </ItemTitle>
-                      {e.airDate && (
+                      {airs ? (
                         <ItemDescription className="text-on-image/60">
-                          {e.airDate}
+                          Airs {airs}
                         </ItemDescription>
+                      ) : (
+                        e.airDate && (
+                          <ItemDescription className="text-on-image/60">
+                            {e.airDate}
+                          </ItemDescription>
+                        )
                       )}
                     </ItemContent>
                   </button>

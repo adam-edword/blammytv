@@ -484,6 +484,22 @@ describe("remoteStreams", () => {
     expect((await remoteStreams(conn, "movie", "tt0111161")).streams?.length).toBe(1);
   });
 
+  it("the notices come after the sources, as streams with no url", async () => {
+    const stat = { Id: "n1", Type: "Placeholder", Path: "https://aio.example.com/notice", Name: "Statistics\nFetched 80", aiostreams: { name: "Statistics", description: "Fetched 80", type: "statistic" } };
+    sourcesReply = { status: 200, sources: [stat, source()] as never };
+    const r = await remoteStreams(conn, "movie", "tt0111161");
+    expect(r.streams?.map((s) => s.url ?? null)).toEqual(["https://cdn.example.com/a.mkv", null]);
+    expect(r.streams?.[1]).toEqual({ name: "Statistics", description: "Fetched 80", streamData: { type: "statistic" } });
+  });
+
+  it("a list of notices only is those notices, so an empty source list can say why", async () => {
+    const err = { Id: "n2", Type: "Placeholder", Path: "", Name: "Torbox\nDown", aiostreams: { name: "Torbox", description: "Down", type: "error" } };
+    sourcesReply = { status: 200, sources: [err] as never };
+    expect(await remoteStreams(conn, "movie", "tt0111161")).toEqual({
+      streams: [{ name: "Torbox", description: "Down", streamData: { type: "error" } }],
+    });
+  });
+
   it("not found, and NoCompatibleStream, are an empty list", async () => {
     sourcesReply = { status: 404, sources: [], errorCode: "NotAllowed" };
     expect(await remoteStreams(conn, "movie", "tt0111161")).toEqual({ streams: [] });

@@ -1047,6 +1047,20 @@
 }
 .episode-card:hover .episode-card__cue,
 .episode-card:focus-visible .episode-card__cue { opacity: 1; }
+/* An episode that has not aired (isOut): a disabled button, so it takes no
+ * click and no Tab. The picture goes grey and nothing on it invites one. The
+ * caption is dimmed by colour in the markup (text-on-image/50), not here. */
+.episode-card.is-unaired .tile__art,
+.episode-card.is-unaired .episode-card__mono {
+  filter: grayscale(1) brightness(0.55);
+}
+.episode-card.is-unaired .episode-card__cue,
+.episode-card.is-unaired .tile__scrim {
+  display: none;
+}
+.episode-card.is-unaired:active {
+  transform: none;
+}
 .episode-card__mono {
   position: absolute;
   inset: 0;

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { catalogsFromManifest } from "../../data/aiostreams";
 import type { CatalogDef } from "../../data/stremio";
 import { pickCatalogs, pickSearchCatalogs, servesGenre } from "../discover/data";
-import { groupSources, mapSeasons, mapStreams, metaPreviewToVod, metaToVod } from "../stream/mapper";
-import { catalogOf, metaDetailOf, metaPreviewOf, SEARCH_CATALOGS, streamsOf, type SourceItem } from "./browse";
+import { groupSources, mapSeasons, mapStreams, metaPreviewToVod, metaToVod, noticesOf } from "../stream/mapper";
+import { catalogOf, metaDetailOf, metaPreviewOf, noticeStreamsOf, SEARCH_CATALOGS, streamsOf, type SourceItem } from "./browse";
 import { packEpisode, packMovie, packSeries } from "./ids";
 import { stremioIdOf, type BaseItem } from "./rules";
 
@@ -542,6 +542,44 @@ const notice = (over: SourceItem = {}): SourceItem => ({
   Type: "Placeholder",
   aiostreams: { name: "Statistics", description: "Fetched 80 streams in 1.2s", type: "statistic" },
   ...over,
+});
+
+describe("noticeStreamsOf", () => {
+  it("hands a notice over as the url-less stream the Stremio side sends it as", () => {
+    expect(
+      noticeStreamsOf([
+        notice(),
+        notice({ Id: "a6" + "3".repeat(30), Name: "Error", aiostreams: { name: "Torbox", description: "Rate limit exceeded", type: "error" } }),
+      ]),
+    ).toEqual([
+      { name: "Statistics", description: "Fetched 80 streams in 1.2s", streamData: { type: "statistic" } },
+      { name: "Torbox", description: "Rate limit exceeded", streamData: { type: "error" } },
+    ]);
+  });
+
+  it("never carries the Path: a notice's clip is not something to play", () => {
+    const [n] = noticeStreamsOf([notice({ Path: "https://aio.example.com/static/none.mp4" })]);
+    expect(n).not.toHaveProperty("url");
+    expect(JSON.stringify(n)).not.toContain("none.mp4");
+  });
+
+  it("leaves out sources, and a placeholder that says no type (the server's own 'No streams found')", () => {
+    expect(
+      noticeStreamsOf([
+        source(),
+        notice({ aiostreams: undefined, Name: "No streams found" }),
+        notice({ aiostreams: { name: "Nameless" } }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("reads through mapper.ts: the notices of an empty list, and none of a list that has sources", () => {
+    const sources = [notice(), notice({ Name: "E", aiostreams: { name: "Torbox", description: "Down", type: "error" } })];
+    // What remoteStreams hands on: the sources, then the notices.
+    const only = [...streamsOf(sources), ...noticeStreamsOf(sources)];
+    expect(mapStreams(only)).toEqual([]);
+    expect(noticesOf(only)).toEqual(["Statistics: Fetched 80 streams in 1.2s", "Torbox: Down"]);
+  });
 });
 
 describe("streamsOf", () => {

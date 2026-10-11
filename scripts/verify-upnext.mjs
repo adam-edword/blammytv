@@ -156,9 +156,12 @@ const pumpUntil = async (page, fn, arg, { step = 250, max = 30_000 } = {}) => {
   }
   return false;
 };
-const asked = (page, id) =>
+// The roll, not the ask: the next episode's sources are asked for at the
+// credits or the end of the file now (prefetch.ts), so a request for them says
+// nothing about whether the countdown has ended. The episode being opened does.
+const rolled = (page, id) =>
   page.evaluate(
-    (id) => window.__tauriCalls.filter((c) => c[0] === "http_get" && c[1].url.replace(/%3A/gi, ":").includes(`/stream/series/${id}`)).length,
+    (id) => window.__tauriCalls.filter((c) => c[0] === "inv_open" && c[1].url.includes(`${id}-`)).length,
     id,
   );
 const opened = (page) => page.evaluate(() => window.__tauriCalls.filter((c) => c[0] === "inv_open").map((c) => c[1].url));
@@ -189,14 +192,14 @@ async function endEpisode(page, dur = DUR) {
   await endEpisode(page);
   const text = await cardText(page);
   check("Autoplay 5s: the end-of-file card counts down from 5", text === "Playing in 5s", String(text));
-  check("  and has not asked for the next episode", (await asked(page, "tt200001:1:2")) === 0);
+  check("  and has not rolled to the next episode", (await rolled(page, "tt200001:1:2")) === 0);
   await pump(page, 5000 - 2 * STEP);
-  const before = await asked(page, "tt200001:1:2");
+  const before = await rolled(page, "tt200001:1:2");
   const textBefore = await cardText(page);
-  check("  at 4.96s it still has not, and reads 1s", before === 0 && textBefore === "Playing in 1s", JSON.stringify({ before, textBefore }));
+  check("  at 4.96s it still has not rolled, and reads 1s", before === 0 && textBefore === "Playing in 1s", JSON.stringify({ before, textBefore }));
   await pump(page, 3 * STEP);
-  const got = await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "http_get" && c[1].url.replace(/%3A/gi, ":").includes("/stream/series/tt200001:1:2")), null, { timeout: 5000 }).then(() => true, () => false);
-  check("  at 5s the next episode is requested", got);
+  const got = await pumpUntil(page, () => window.__tauriCalls.some((c) => c[0] === "inv_open" && c[1].url.includes("tt200001:1:2-")), null, { max: 5000 });
+  check("  at 5s the roll starts", got);
   const played = await pumpUntil(page, () => window.__tauriCalls.some((c) => c[0] === "inv_open" && c[1].url.includes("tt200001:1:2-")), null, { max: 15_000 });
   check("  and plays", played, JSON.stringify(await opened(page)));
   await ctx.close();
@@ -209,11 +212,11 @@ async function endEpisode(page, dur = DUR) {
   const text = await cardText(page);
   check("No setting (the default): the card counts down from 10, as it always did", text === "Playing in 10s", String(text));
   await pump(page, 10_000 - 2 * STEP);
-  const before = await asked(page, "tt200001:1:2");
-  check("  and has not asked at 9.96s", before === 0, String(before));
+  const before = await rolled(page, "tt200001:1:2");
+  check("  and has not rolled at 9.96s", before === 0, String(before));
   await pump(page, 3 * STEP);
-  const got = await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "http_get" && c[1].url.replace(/%3A/gi, ":").includes("/stream/series/tt200001:1:2")), null, { timeout: 5000 }).then(() => true, () => false);
-  check("  and asks at 10s", got);
+  const got = await pumpUntil(page, () => window.__tauriCalls.some((c) => c[0] === "inv_open" && c[1].url.includes("tt200001:1:2-")), null, { max: 5000 });
+  check("  and rolls at 10s", got);
   await ctx.close();
 }
 
@@ -233,12 +236,12 @@ async function endEpisode(page, dur = DUR) {
   check("  and offers Play now and Cancel as before", buttons.join() === "Play now,Cancel", JSON.stringify(buttons));
   await pump(page, 30_000);
   check(
-    "  30 seconds later the next episode has not been requested, and the card waits",
-    (await asked(page, "tt200001:1:2")) === 0 && (await cardUp(page)) === 1 && (await opened(page)).length === 1,
-    JSON.stringify({ asked: await asked(page, "tt200001:1:2"), up: await cardUp(page) }),
+    "  30 seconds later the next episode has not been played, and the card waits",
+    (await rolled(page, "tt200001:1:2")) === 0 && (await cardUp(page)) === 1 && (await opened(page)).length === 1,
+    JSON.stringify({ asked: await rolled(page, "tt200001:1:2"), up: await cardUp(page) }),
   );
   await page.getByRole("button", { name: "Play now", exact: true }).click();
-  const got = await pumpUntil(page, () => window.__tauriCalls.some((c) => c[0] === "http_get" && c[1].url.replace(/%3A/gi, ":").includes("/stream/series/tt200001:1:2")), null, { max: 5000 });
+  const got = await pumpUntil(page, () => window.__tauriCalls.some((c) => c[0] === "inv_open" && c[1].url.includes("tt200001:1:2-")), null, { max: 5000 });
   check("  and Play now plays it", got);
   await ctx.close();
 }
@@ -247,7 +250,7 @@ async function endEpisode(page, dur = DUR) {
   await endEpisode(page);
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await pump(page, 500);
-  check("  and Cancel closes the card without playing anything", (await cardUp(page)) === 0 && (await asked(page, "tt200001:1:2")) === 0);
+  check("  and Cancel closes the card without playing anything", (await cardUp(page)) === 0 && (await rolled(page, "tt200001:1:2")) === 0);
   await ctx.close();
 }
 
@@ -257,8 +260,8 @@ async function endEpisode(page, dur = DUR) {
   await endEpisode(page);
   const text = await cardText(page);
   await pump(page, 20_000 - 2 * STEP);
-  const before = await asked(page, "tt200001:1:2");
-  check("Autoplay 20s counts down from 20 and has not asked at 19.96s", text === "Playing in 20s" && before === 0, JSON.stringify({ text, before }));
+  const before = await rolled(page, "tt200001:1:2");
+  check("Autoplay 20s counts down from 20 and has not rolled at 19.96s", text === "Playing in 20s" && before === 0, JSON.stringify({ text, before }));
   await ctx.close();
 }
 
@@ -269,7 +272,7 @@ async function endEpisode(page, dur = DUR) {
   await endEpisode(page);
   await page.evaluate(() => localStorage.setItem("blammytv.autoplayNext", JSON.stringify({ v: 1, data: 0 })));
   await pump(page, 10_000);
-  const got = await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "http_get" && c[1].url.replace(/%3A/gi, ":").includes("/stream/series/tt200001:1:2")), null, { timeout: 5000 }).then(() => true, () => false);
+  const got = await pumpUntil(page, () => window.__tauriCalls.some((c) => c[0] === "inv_open" && c[1].url.includes("tt200001:1:2-")), null, { max: 5000 });
   check("a setting changed while a card is up does not touch that card: it still fires at 10s", got);
   await ctx.close();
 }
@@ -290,12 +293,12 @@ async function endEpisode(page, dur = DUR) {
   await pump(page, 2000);
   await endEpisode(page);
   const text = await cardText(page);
-  check("a binge: episode 2 ends and its card is up at 5s for episode 3, not fired already", second && text === "Playing in 5s" && (await asked(page, "tt200001:1:3")) === 0, JSON.stringify({ second, text, asked3: await asked(page, "tt200001:1:3") }));
+  check("a binge: episode 2 ends and its card is up at 5s for episode 3, not fired already", second && text === "Playing in 5s" && (await rolled(page, "tt200001:1:3")) === 0, JSON.stringify({ second, text, asked3: await rolled(page, "tt200001:1:3") }));
   await pump(page, 5000 - 2 * STEP);
-  const before = await asked(page, "tt200001:1:3");
+  const before = await rolled(page, "tt200001:1:3");
   await pump(page, 3 * STEP);
-  const got = await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "http_get" && c[1].url.replace(/%3A/gi, ":").includes("/stream/series/tt200001:1:3")), null, { timeout: 5000 }).then(() => true, () => false);
-  check("  and episode 3 is asked for at 5s, not before", before === 0 && got, JSON.stringify({ before, got }));
+  const got = await pumpUntil(page, () => window.__tauriCalls.some((c) => c[0] === "inv_open" && c[1].url.includes("tt200001:1:3-")), null, { max: 5000 });
+  check("  and episode 3 rolls at 5s, not before", before === 0 && got, JSON.stringify({ before, got }));
   await ctx.close();
 }
 {
@@ -311,7 +314,7 @@ async function endEpisode(page, dur = DUR) {
   await pump(page, 2000);
   await endEpisode(page);
   await pump(page, 30_000);
-  check("Off through a binge: episode 3's card waits as well", (await cardUp(page)) === 1 && (await asked(page, "tt200001:1:3")) === 0 && (await page.locator(".upnext__count").count()) === 0);
+  check("Off through a binge: episode 3's card waits as well", (await cardUp(page)) === 1 && (await rolled(page, "tt200001:1:3")) === 0 && (await page.locator(".upnext__count").count()) === 0);
   await ctx.close();
 }
 

@@ -5,6 +5,7 @@ import {
   type StremioStream,
   type StremioVideo,
 } from "../../data/stremio";
+import { scrubbedMessage } from "../../lib/errors";
 import { calendarDay } from "../../lib/time";
 import type {
   CacheStatus,
@@ -31,9 +32,42 @@ export function mapStreams(streams: StremioStream[]): StreamSource[] {
   return streams.filter((s) => isHttp(s.url)).map(mapStream);
 }
 
+/** What AIOStreams calls a stream that is a message and not a source (its
+ * `streamData.type`, core constants.ts): an addon's error, a statistic, an
+ * info line. Others with no URL are not messages: a magnet-only entry has
+ * text too (a name, a size) and is nobody's reason for an empty list. */
+const NOTICE_TYPES = new Set(["error", "statistic", "info"]);
+
+/** At most this many notices are kept. */
+const NOTICES_MAX = 3;
+
+/** The notices in an addon's streams, for the source screen to say when the
+ * list is empty and not otherwise. Only from a stream with no playable URL
+ * (nothing about a notice plays), its `name` and `description` trimmed and
+ * joined, the same text once, three at most, in the order AIOStreams gave
+ * them. As it said them: nothing is reworded, but a URL in it is cut to its
+ * origin (scrubbedMessage), as every error text on screen is: an addon's
+ * error can quote the address it failed on, and that carries a credential. */
+export function noticesOf(streams: StremioStream[]): string[] {
+  const seen = new Set<string>();
+  for (const s of streams) {
+    if (isHttp(s.url) || !NOTICE_TYPES.has(s.streamData?.type ?? "")) continue;
+    const text = scrubbedMessage(
+      [s.name, s.description]
+        .map((t) => (t ?? "").trim())
+        .filter(Boolean)
+        .join(": "),
+    );
+    if (text) seen.add(text);
+    if (seen.size >= NOTICES_MAX) break;
+  }
+  return [...seen];
+}
+
 function mapStream(s: StremioStream): StreamSource {
   const name = (s.name ?? "").trim();
   const binge = s.behaviorHints?.bingeGroup ?? "";
+  const fileName = s.behaviorHints?.filename?.trim() ?? "";
   const cached = isCached(s, name);
   return {
     id: hash(s.url ?? s.behaviorHints?.filename ?? name),
@@ -43,6 +77,7 @@ function mapStream(s: StremioStream): StreamSource {
     lines: sourceLines(s),
     streamUrl: s.url as string,
     ...(binge ? { bingeGroup: binge } : {}),
+    ...(fileName ? { fileName } : {}),
   };
 }
 
@@ -61,6 +96,23 @@ export function pickCachedIndex(
     if (idx >= 0) return idx;
   }
   return sources.findIndex((s) => s.cached);
+}
+
+/** Resume's pick: back to the source the entry was playing, among the
+ * CACHED ones only (an uncached source is never opened for you, see
+ * watchNow), in this order: the same file name, then the same bingeGroup
+ * (pickCachedIndex), then the first cached. A source's `id` is a hash of its
+ * URL and can change between resolves, so the file name is what holds it.
+ * -1 = nothing cached. */
+export function pickResumeIndex(
+  sources: StreamSource[],
+  was: { fileName?: string; bingeGroup?: string },
+): number {
+  if (was.fileName) {
+    const idx = sources.findIndex((s) => s.cached && s.fileName === was.fileName);
+    if (idx >= 0) return idx;
+  }
+  return pickCachedIndex(sources, was.bingeGroup);
 }
 
 /** Torrentio-style cached markers: "[RD+]", "[AD+]", "[TB+]"… (uncached
@@ -208,15 +260,18 @@ export function nextUpEpisode(
   seasons: Season[],
   watched: Set<string>,
   last?: { episodeId?: string; finished: boolean },
+  now: number = Date.now(),
 ): string | null {
   if (last?.episodeId) {
     if (!last.finished) return last.episodeId;
-    const nxt = nextEpisode(seasons, last.episodeId);
+    const nxt = nextEpisode(seasons, last.episodeId, now);
     if (nxt) return nxt.episode.id;
   }
+  // An episode that is not out is not where you land: it cannot be played.
   for (const s of seasons) {
     if (s.number === 0) continue;
-    for (const e of s.episodes) if (!watched.has(e.id)) return e.id;
+    for (const e of s.episodes)
+      if (!watched.has(e.id) && isOut(e, now)) return e.id;
   }
   return null;
 }
@@ -233,7 +288,7 @@ export function mapSeasons(videos: StremioVideo[]): Season[] {
       id: v.id,
       number: v.episode ?? list.length + 1,
       title: v.title ?? v.name ?? `Episode ${v.episode}`,
-      ...(airDateOf(v.released)),
+      ...releaseOf(v.released),
       ...(httpUrl(v.thumbnail) ? { still: httpUrl(v.thumbnail) } : {}),
     });
     bySeason.set(season, list);
@@ -248,23 +303,37 @@ export function mapSeasons(videos: StremioVideo[]): Season[] {
     }));
 }
 
+/** Whether an episode has aired: its day is today or earlier. One with no
+ * `released` is out (what every episode was before airsAt). A day, so an
+ * episode airing today is out all day wherever the viewer is. */
+export function isOut(e: Pick<Episode, "airsAt">, now: number = Date.now()): boolean {
+  if (e.airsAt == null) return true;
+  const t = new Date(now);
+  return e.airsAt <= new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
+}
+
 /** The episode after `episodeId` in playback order: next in its season,
  * else the first of the following season (Specials/season 0 excluded as a
  * "next" target — nobody binge-rolls INTO specials). Null at series end
- * or when the id isn't found. */
+ * or when the id isn't found. Null too when that episode is not out yet
+ * (isOut): the end of the last aired episode is the end of the run, so
+ * neither Up Next card offers one that would search for nothing. */
 export function nextEpisode(
   seasons: Season[],
   episodeId: string,
+  now: number = Date.now(),
 ): { season: Season; episode: Episode } | null {
+  const ifOut = (season: Season, episode: Episode) =>
+    isOut(episode, now) ? { season, episode } : null;
   for (let si = 0; si < seasons.length; si++) {
     const idx = seasons[si].episodes.findIndex((e) => e.id === episodeId);
     if (idx === -1) continue;
     if (idx + 1 < seasons[si].episodes.length)
-      return { season: seasons[si], episode: seasons[si].episodes[idx + 1] };
+      return ifOut(seasons[si], seasons[si].episodes[idx + 1]);
     for (let sj = si + 1; sj < seasons.length; sj++) {
       if (seasons[sj].number === 0) continue;
       if (seasons[sj].episodes.length > 0)
-        return { season: seasons[sj], episode: seasons[sj].episodes[0] };
+        return ifOut(seasons[sj], seasons[sj].episodes[0]);
     }
     return null;
   }
@@ -328,25 +397,22 @@ function castNames(
     .slice(0, 20);
 }
 
-/** ISO date → "Jan 21, 2008". A day, not a moment (calendarDay): Cinemeta
- * sends the Breaking Bad pilot as `2008-01-21T05:00:00.000Z`, which as an
- * instant read "Jan 20, 2008" anywhere west of UTC-5. */
-function formatAirDate(released?: string | null): string | undefined {
-  if (!released) return undefined;
+/** ISO date → "Jan 21, 2008", and the day itself (`airsAt`). A day, not a
+ * moment (calendarDay): Cinemeta sends the Breaking Bad pilot as
+ * `2008-01-21T05:00:00.000Z`, which as an instant read "Jan 20, 2008"
+ * anywhere west of UTC-5. One calendarDay serves both, because every episode
+ * asks (see AIR_DATE). Nothing for a date that is missing or not one. */
+function releaseOf(released?: string | null): { airDate?: string; airsAt?: number } {
+  if (!released) return {};
   const day = calendarDay(released);
-  if (Number.isNaN(day.getTime())) return undefined;
-  return AIR_DATE.format(day);
+  if (Number.isNaN(day.getTime())) return {};
+  return { airDate: AIR_DATE.format(day), airsAt: day.getTime() };
 }
 
 /** One formatter for every episode. toLocaleDateString builds a new one on
  * each call, and each episode asked twice: 236ms for a 1,100-episode
  * series in the Stream audit's measurement. */
 const AIR_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-const airDateOf = (released?: string | null): { airDate?: string } => {
-  const airDate = formatAirDate(released);
-  return airDate ? { airDate } : {};
-};
 
 function isHttp(s?: string | null): boolean {
   return httpUrl(s) !== undefined;

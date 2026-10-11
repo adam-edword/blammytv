@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calendarDay, formatClock, formatWhen } from "./time";
+import { calendarDay, dayLabel, formatClock, formatWhen } from "./time";
 
 describe("calendarDay", () => {
   /** A local date as numbers, and its hour, which must be midnight. */
@@ -58,5 +58,25 @@ describe("formatWhen", () => {
 
   it("says nothing for an invalid date", () => {
     expect(formatWhen(new Date(Number.NaN), now)).toBe("");
+  });
+});
+
+describe("dayLabel", () => {
+  const now = new Date(2026, 9, 11, 15, 0);
+
+  it("is the month and day in this year", () => {
+    expect(dayLabel(new Date(2026, 9, 14), now)).toBe("Oct 14");
+    expect(dayLabel(new Date(2026, 0, 3), now)).toBe("Jan 3");
+  });
+
+  it("adds the year in any other", () => {
+    expect(dayLabel(new Date(2027, 1, 1), now)).toBe("Feb 1, 2027");
+    expect(dayLabel(new Date(2025, 11, 31), now)).toBe("Dec 31, 2025");
+  });
+
+  it("writes the day it is given, whatever its clock", () => {
+    // A release read by calendarDay is local midnight; the label is that day.
+    expect(dayLabel(calendarDay("2026-10-14T00:00:00Z"), now)).toBe("Oct 14");
+    expect(dayLabel(calendarDay("2026-10-14T05:00:00.000Z"), now)).toBe("Oct 14");
   });
 });

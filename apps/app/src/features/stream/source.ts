@@ -5,7 +5,7 @@ import { loadAioConn, type AioConn } from "../aiojf/conn";
 import { loadHeroSources } from "../settings/aiostreams";
 import { loadRowCap } from "../settings/rowCap";
 import { load as loadStored, save as saveStored } from "../../lib/storage";
-import { mapStreams, metaPreviewToVod, metaToVod } from "./mapper";
+import { mapStreams, metaPreviewToVod, metaToVod, noticesOf } from "./mapper";
 import type { StreamRow, StreamSource, VodData, VodItem } from "./model";
 
 /**
@@ -337,10 +337,21 @@ export async function resolveVodSources(
   id: string,
   opts: { refresh?: boolean } = {},
 ): Promise<StreamSource[]> {
+  return (await resolveVodList(kind, id, opts)).sources;
+}
+
+/** The same ask with what AIOStreams said beside the sources: its notices
+ * (an addon's error, a statistic), which are not sources and which the
+ * source screen shows only when there are none. */
+export async function resolveVodList(
+  kind: "movie" | "series",
+  id: string,
+  opts: { refresh?: boolean } = {},
+): Promise<{ sources: StreamSource[]; notices: string[] }> {
   const conn = loadAioConn();
-  if (!conn) return [];
+  if (!conn) return { sources: [], notices: [] };
   const { streams = [] } = await aioStreams(conn, kind, id, opts);
-  return mapStreams(streams);
+  return { sources: mapStreams(streams), notices: noticesOf(streams) };
 }
 
 /** Browseable = becomes a homepage row: no required extra (search etc.). */

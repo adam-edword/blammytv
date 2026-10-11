@@ -417,6 +417,14 @@
   color: var(--text-muted);
   text-wrap: pretty;
 }
+/* A line AIOStreams said, under a state's sub (the source screen's empty
+ * state): its own words, line breaks and all. */
+.state__note {
+  display: block;
+  margin-top: 8px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
 .state__acts {
   display: flex;
   flex-wrap: wrap;

@@ -77,3 +77,13 @@ export function calendarDay(iso: string): Date {
   const at = new Date(iso);
   return new Date(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate());
 }
+
+/**
+ * "Oct 7" for a calendar day (calendarDay), with the year when it is not
+ * `now`'s: the app's form for an air date, on the Stream home's Upcoming row
+ * and an episode that is not out yet.
+ */
+export function dayLabel(day: Date, now: Date = new Date()): string {
+  const sameYear = day.getFullYear() === now.getFullYear();
+  return day.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) });
+}

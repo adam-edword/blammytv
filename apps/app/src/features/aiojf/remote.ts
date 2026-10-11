@@ -25,7 +25,7 @@ import {
   type StreamResponse,
 } from "../../data/stremio";
 import { aioCall, aioSources } from "./account";
-import { catalogOf, metaDetailOf, metaPreviewOf, SEARCH_CATALOGS, streamsOf } from "./browse";
+import { catalogOf, metaDetailOf, metaPreviewOf, noticeStreamsOf, SEARCH_CATALOGS, streamsOf } from "./browse";
 import type { SignInConn } from "./conn";
 import { jellyfinIdFor, rememberIds } from "./idmap";
 import { blammyId, jellyfinIdOf, unpack } from "./ids";
@@ -318,5 +318,7 @@ export async function remoteStreams(
   if (r.status === 404) return { streams: [] };
   if (r.status < 200 || r.status >= 300) throw failure(r.status, "sources");
   if (r.errorCode) return { streams: [] };
-  return { streams: streamsOf(r.sources) };
+  // The notices ride at the end, as the Stremio side puts its errors and
+  // statistics; mapper.ts tells them from sources by having no URL.
+  return { streams: [...streamsOf(r.sources), ...noticeStreamsOf(r.sources)] };
 }

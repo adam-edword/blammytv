@@ -31,6 +31,11 @@ export interface StreamSource {
    * prefer a cached source from the SAME group, so the release (and its
    * tracks, bitrate, timing) stays consistent across an autoplay run. */
   bingeGroup?: string;
+  /** The file's name, from `behaviorHints.filename` (absent when the addon
+   * sends none). A source's `id` is a hash of its URL, which can change
+   * between resolves, so this is what Continue Watching remembers a source
+   * by. */
+  fileName?: string;
 }
 
 /** One episode of a series. Sources resolve on-demand, like a movie's. */
@@ -40,6 +45,11 @@ export interface Episode {
   title: string;
   /** Display-formatted air date (e.g. "Apr 30, 2026"). */
   airDate?: string;
+  /** The day it airs, as that day's midnight in the viewer's time zone (ms).
+   * A day, not a moment (calendarDay): an addon's `released` is a calendar
+   * day sent as an instant. Absent when the meta has no `released`, which
+   * counts as out already. See `isOut`. */
+  airsAt?: number;
   still?: string;
 }
 

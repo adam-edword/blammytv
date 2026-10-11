@@ -15,7 +15,7 @@ const aio = vi.hoisted(() => ({
 }));
 vi.mock("../../data/aio", () => aio);
 
-import { configKey, resolveVodSources } from "./source";
+import { configKey, resolveVodList, resolveVodSources } from "./source";
 
 const manifest: AioConn = { kind: "manifest", url: "https://aio.example.com/m/manifest.json", key: "manifest:https://aio.example.com/m/manifest.json" };
 const signin: AioConn = { kind: "signin", base: "https://aio.example.com/jellyfin", key: "signin:https://aio.example.com/jellyfin|Adam" };
@@ -44,6 +44,32 @@ describe("resolveVodSources", () => {
   it("asks nothing with no connection", async () => {
     conn = null;
     expect(await resolveVodSources("movie", "tt1")).toEqual([]);
+    expect(aio.aioStreams).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveVodList", () => {
+  const notice = { name: "Torbox", description: "Rate limit exceeded", streamData: { type: "error" } };
+
+  it("answers what AIOStreams said beside the sources, which stay what they were", async () => {
+    aio.aioStreams.mockResolvedValueOnce({
+      streams: [{ name: "1080p", url: "https://cdn.example.com/v.mp4" }, notice] as never,
+    });
+    const l = await resolveVodList("movie", "tt1");
+    expect(l.sources.map((s) => s.streamUrl)).toEqual(["https://cdn.example.com/v.mp4"]);
+    expect(l.notices).toEqual(["Torbox: Rate limit exceeded"]);
+  });
+
+  it("is the notices alone for a title nothing plays, which resolveVodSources shows as empty", async () => {
+    aio.aioStreams.mockResolvedValueOnce({ streams: [notice] as never });
+    aio.aioStreams.mockResolvedValueOnce({ streams: [notice] as never });
+    expect((await resolveVodList("movie", "tt1")).notices).toEqual(["Torbox: Rate limit exceeded"]);
+    expect(await resolveVodSources("movie", "tt1")).toEqual([]);
+  });
+
+  it("asks nothing with no connection", async () => {
+    conn = null;
+    expect(await resolveVodList("movie", "tt1")).toEqual({ sources: [], notices: [] });
     expect(aio.aioStreams).not.toHaveBeenCalled();
   });
 });

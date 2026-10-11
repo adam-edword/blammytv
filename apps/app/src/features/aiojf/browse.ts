@@ -285,3 +285,30 @@ export function streamsOf(sources: readonly SourceItem[]): StremioStream[] {
   }
   return out;
 }
+
+/**
+ * The notices among `aiojf_sources`, as the Stremio side hands them over: a
+ * stream with no `url`, its `name` and `description` the formatter's two
+ * parts, and `streamData.type` what AIOStreams calls it (`error`,
+ * `statistic`, `info`, `external`). A notice is a `Placeholder` source with
+ * the extension on it (media.ts `noticeRecordFrom`); its `Path` points at a
+ * clip that says nothing to play, so it is never carried. Which types
+ * count as one is mapper.ts `noticesOf`'s to say, as it is for the Stremio
+ * side. A placeholder with no type is the server's own "No streams found"
+ * and says nothing the empty list does not.
+ */
+export function noticeStreamsOf(sources: readonly SourceItem[]): StremioStream[] {
+  const out: StremioStream[] = [];
+  for (const s of sources) {
+    if (s.Type !== "Placeholder") continue;
+    const a = s.aiostreams;
+    const type = typeof a?.type === "string" && a.type ? a.type : undefined;
+    if (type === undefined) continue;
+    out.push({
+      ...(typeof a?.name === "string" ? { name: a.name } : {}),
+      ...(typeof a?.description === "string" ? { description: a.description } : {}),
+      streamData: { type },
+    });
+  }
+  return out;
+}

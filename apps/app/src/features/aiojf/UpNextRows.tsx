@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CardMetaField } from "../settings/cardMeta";
 import type { VodItem } from "../stream/model";
-import { calendarDay } from "../../lib/time";
+import { calendarDay, dayLabel } from "../../lib/time";
 import { Card } from "../../ui/Card";
 import { RowScroller } from "../../ui/RowScroller";
 import { AIOJF_SYNCED, loadAiojf } from "./store";
@@ -11,9 +11,7 @@ import type { UpNextCard } from "./rules";
  * (calendarDay): AIOStreams passes the meta's `released` on, and an addon's
  * `T00:00:00Z` read in Chicago is the day before. */
 function airDate(ms: number): string {
-  const d = calendarDay(new Date(ms).toISOString());
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) });
+  return dayLabel(calendarDay(new Date(ms).toISOString()));
 }
 
 /**

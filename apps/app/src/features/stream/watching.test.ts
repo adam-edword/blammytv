@@ -111,6 +111,26 @@ describe("isFinished", () => {
   });
 });
 
+describe("the source an entry was on", () => {
+  it("is kept with the entry, and an entry from before it existed loads as it was", () => {
+    recordWatching(entry({ id: "tt1", fileName: "Show.S01E01.1080p.mkv", bingeGroup: "g|1080p" }));
+    recordWatching(entry({ id: "tt2" }));
+    const [old, kept] = [loadWatching().find((e) => e.id === "tt2"), loadWatching().find((e) => e.id === "tt1")];
+    expect(kept?.fileName).toBe("Show.S01E01.1080p.mkv");
+    expect(kept?.bingeGroup).toBe("g|1080p");
+    expect(old && "fileName" in old).toBe(false);
+    expect(old && "bingeGroup" in old).toBe(false);
+  });
+
+  it("is replaced by the next play of the title, which may be on another source", () => {
+    recordWatching(entry({ id: "tt1", fileName: "A.mkv", bingeGroup: "g1" }));
+    recordWatching(entry({ id: "tt1", fileName: "B.mkv" }));
+    const [only] = loadWatching();
+    expect(only.fileName).toBe("B.mkv");
+    expect(only.bingeGroup).toBeUndefined();
+  });
+});
+
 describe("rolledForward", () => {
   it("sends a finished episode's card to the next episode", () => {
     const hit = rolledForward(episodic("tt1:1:1", 2300, 2400), SEASONS);
@@ -129,6 +149,26 @@ describe("rolledForward", () => {
 
   it("keeps a finished finale as it was", () => {
     expect(rolledForward(episodic("tt1:2:2", 2400, 2400), SEASONS)).toBeNull();
+  });
+
+  it("keeps the card's own episode when the next one has not aired yet", () => {
+    const now = new Date(2026, 9, 11, 15, 0).getTime();
+    const day = (d: number) => new Date(2026, 9, d).getTime();
+    const aired: Season[] = [
+      {
+        id: "s1",
+        number: 1,
+        name: "Season 1",
+        episodes: [
+          { id: "tt1:1:1", number: 1, title: "a", airsAt: day(4) },
+          { id: "tt1:1:2", number: 2, title: "b", airsAt: day(14) },
+        ],
+      },
+    ];
+    expect(rolledForward(episodic("tt1:1:1", 2300, 2400), aired, now)).toBeNull();
+    // The same card on the day it airs rolls.
+    const onTheDay = new Date(2026, 9, 14, 8, 0).getTime();
+    expect(rolledForward(episodic("tt1:1:1", 2300, 2400), aired, onTheDay)?.episode.id).toBe("tt1:1:2");
   });
 
   it("keeps the card's own when the seasons are not known, and for a film", () => {

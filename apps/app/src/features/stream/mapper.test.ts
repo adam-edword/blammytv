@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   groupSources,
+  isOut,
   mapSeasons,
   mapStreams,
   metaPreviewToVod,
   metaToVod,
   nextEpisode,
   nextUpEpisode,
+  noticesOf,
   pickCachedIndex,
+  pickResumeIndex,
 } from "./mapper";
 
 describe("mapStreams", () => {
@@ -42,6 +45,18 @@ describe("mapStreams", () => {
       "http://host/video/a-4k.mp4",
       "http://host/video/a-1080.mp4",
     ]);
+  });
+
+  it("carries the file name the addon sends, and none when it sends none", () => {
+    const out = mapStreams([
+      { name: "a", url: "http://h/a.mkv", behaviorHints: { filename: "Show.S01E01.1080p.mkv" } },
+      { name: "b", url: "http://h/b.mkv", behaviorHints: { bingeGroup: "g|1080p" } },
+      { name: "c", url: "http://h/c.mkv", behaviorHints: { filename: "  " } },
+      { name: "d", url: "http://h/d.mkv" },
+    ]);
+    expect(out[0].fileName).toBe("Show.S01E01.1080p.mkv");
+    // Absent, not empty: a resume must not match "" against "".
+    expect(out.slice(1).map((s) => "fileName" in s)).toEqual([false, false, false]);
   });
 
   it("falls back to name parsing when bingeGroup has no resolution", () => {
@@ -224,6 +239,132 @@ describe("pickCachedIndex", () => {
   });
 });
 
+describe("noticesOf", () => {
+  const said = (type: string, name?: string, description?: string, url?: string) => ({
+    ...(name !== undefined ? { name } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(url ? { url } : {}),
+    streamData: { type },
+  });
+
+  it("keeps what AIOStreams said with an error, a statistic or an info line", () => {
+    expect(
+      noticesOf([
+        said("error", "Torbox", "Rate limit exceeded"),
+        said("statistic", "Statistics", "Fetched 80 streams in 1.2s"),
+        said("info", "Heads up", "Your debrid key expires soon"),
+      ]),
+    ).toEqual(["Torbox: Rate limit exceeded", "Statistics: Fetched 80 streams in 1.2s", "Heads up: Your debrid key expires soon"]);
+  });
+
+  it("trims, drops the empty part, and says one part alone", () => {
+    expect(noticesOf([said("error", "  [❌] AIOStreams  ", "\n No addons answered \n")])).toEqual([
+      "[❌] AIOStreams: No addons answered",
+    ]);
+    expect(noticesOf([said("error", "Only a name")])).toEqual(["Only a name"]);
+    expect(noticesOf([said("statistic", undefined, "Only a description")])).toEqual(["Only a description"]);
+    expect(noticesOf([said("error", "  ", "")])).toEqual([]);
+  });
+
+  it("cuts a URL in a notice to its origin: an addon's error can quote the address it failed on", () => {
+    expect(
+      noticesOf([said("error", "Torrentio", "Failed to fetch https://torrentio.example/CONFIG-WITH-KEY/manifest.json (timed out)")]),
+    ).toEqual(["Torrentio: Failed to fetch https://torrentio.example/… (timed out)"]);
+  });
+
+  it("says the same thing once", () => {
+    expect(noticesOf([said("error", "Torbox", "Down"), said("error", "Torbox", "Down"), said("error", "Debrid-Link", "Down")])).toEqual([
+      "Torbox: Down",
+      "Debrid-Link: Down",
+    ]);
+  });
+
+  it("keeps three at most, the first three", () => {
+    const four = ["a", "b", "c", "d"].map((n) => said("error", n, "x"));
+    expect(noticesOf(four)).toEqual(["a: x", "b: x", "c: x"]);
+  });
+
+  it("takes nothing from a stream that plays", () => {
+    // Not a notice: it has a URL, and is a source. (mapStreams keeps it.)
+    expect(noticesOf([said("error", "Odd", "an error that plays", "https://cdn.example.com/x.mp4")])).toEqual([]);
+    expect(noticesOf([said("info", "Odd", "an info that plays", "http://cdn.example.com/x.mp4")])).toEqual([]);
+  });
+
+  it("takes nothing from a stream with no URL that is not a message: a magnet-only entry, a link", () => {
+    expect(
+      noticesOf([
+        { name: "Torrent", description: "magnet-only entry" },
+        said("p2p", "Torrentio", "1080p 2.1GB"),
+        said("external", "More at example.com", "Open in your browser"),
+        { name: "no streamData at all", description: "from an addon that sends none" },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("keeps the notices beside sources and leaves the sources alone", () => {
+    const streams = [
+      { name: "1080p", url: "https://cdn.example.com/a.mkv" },
+      said("statistic", "Statistics", "Fetched 80 streams"),
+    ];
+    expect(mapStreams(streams).map((x) => x.streamUrl)).toEqual(["https://cdn.example.com/a.mkv"]);
+    expect(noticesOf(streams)).toEqual(["Statistics: Fetched 80 streams"]);
+  });
+});
+
+describe("pickResumeIndex", () => {
+  const src = (id: string, cached: boolean, over: { file?: string; group?: string } = {}) => ({
+    id,
+    quality: "1080p",
+    cached,
+    cache: cached ? ("cached" as const) : ("uncached" as const),
+    lines: [],
+    streamUrl: `http://h/${id}`,
+    ...(over.group ? { bingeGroup: over.group } : {}),
+    ...(over.file ? { fileName: over.file } : {}),
+  });
+
+  it("goes back to the same file, not the first cached", () => {
+    const list = [src("a", true, { file: "A.mkv" }), src("b", true, { file: "B.mkv" })];
+    expect(pickResumeIndex(list, { fileName: "B.mkv" })).toBe(1);
+  });
+
+  it("takes the file over the group", () => {
+    const list = [
+      src("a", true, { file: "A.mkv", group: "g1" }),
+      src("b", true, { file: "B.mkv", group: "g2" }),
+    ];
+    expect(pickResumeIndex(list, { fileName: "B.mkv", bingeGroup: "g1" })).toBe(1);
+  });
+
+  it("falls back to the same binge group when the file is not in the list", () => {
+    const list = [src("a", true, { file: "A.mkv", group: "g1" }), src("b", true, { file: "B.mkv", group: "g2" })];
+    expect(pickResumeIndex(list, { fileName: "gone.mkv", bingeGroup: "g2" })).toBe(1);
+    // No file remembered at all: the group, as an episode roll does.
+    expect(pickResumeIndex(list, { bingeGroup: "g2" })).toBe(1);
+  });
+
+  it("falls back to the first cached when neither is there, as it always did", () => {
+    const list = [src("a", false, { file: "A.mkv" }), src("b", true), src("c", true)];
+    expect(pickResumeIndex(list, { fileName: "gone.mkv", bingeGroup: "gone" })).toBe(1);
+    expect(pickResumeIndex(list, {})).toBe(1);
+  });
+
+  it("never picks an uncached source, even the one with the same file name", () => {
+    // The rate-limited account (v0.3.5): the file the entry was on is no
+    // longer cached, so resume takes a cached one instead of opening it.
+    const list = [src("a", false, { file: "B.mkv" }), src("b", true, { file: "C.mkv" })];
+    expect(pickResumeIndex(list, { fileName: "B.mkv" })).toBe(1);
+    // And a same-group uncached one, through the group step.
+    const grouped = [src("a", false, { group: "g1" }), src("b", true, { group: "g2" })];
+    expect(pickResumeIndex(grouped, { bingeGroup: "g1" })).toBe(1);
+  });
+
+  it("says nothing is cached when only the file's own source is uncached", () => {
+    expect(pickResumeIndex([src("a", false, { file: "B.mkv" })], { fileName: "B.mkv" })).toBe(-1);
+    expect(pickResumeIndex([], { fileName: "B.mkv" })).toBe(-1);
+  });
+});
+
 describe("mapSeasons", () => {
   it("groups by season, sorts, drops unavailable, Specials first", () => {
     const seasons = mapSeasons([
@@ -250,6 +391,75 @@ describe("mapSeasons", () => {
       { id: "tt0903747:1:1", season: 1, episode: 1, name: "Pilot", released: "2008-01-21T05:00:00.000Z" },
     ]);
     expect(season.episodes[0].airDate).toBe("Jan 21, 2008");
+  });
+});
+
+describe("an episode that has not aired", () => {
+  // A Sunday afternoon: the 11th is today, in whatever zone this runs.
+  const NOW = new Date(2026, 9, 11, 15, 0).getTime();
+  const seasons = mapSeasons([
+    { id: "tt1:1:1", season: 1, episode: 1, name: "a", released: "2026-10-04T00:00:00Z" },
+    { id: "tt1:1:2", season: 1, episode: 2, name: "b", released: "2026-10-11T00:00:00Z" },
+    { id: "tt1:1:3", season: 1, episode: 3, name: "c", released: "2026-10-14T00:00:00Z" },
+    { id: "tt1:1:4", season: 1, episode: 4, name: "d", released: "2026-10-21T00:00:00Z" },
+    { id: "tt1:2:1", season: 2, episode: 1, name: "e", released: "2027-02-01T05:00:00.000Z" },
+  ]);
+  const ep = (id: string) => seasons.flatMap((s) => s.episodes).find((e) => e.id === id)!;
+
+  it("carries the day it airs, as that day's midnight where the viewer is", () => {
+    expect(ep("tt1:1:3").airsAt).toBe(new Date(2026, 9, 14).getTime());
+    // Cinemeta's 05:00Z is the 1st of February everywhere, not the evening of the 31st.
+    expect(ep("tt1:2:1").airsAt).toBe(new Date(2027, 1, 1).getTime());
+  });
+
+  it("has no day when the meta has no released, or one that is not a date", () => {
+    const [s] = mapSeasons([
+      { id: "x:1:1", season: 1, episode: 1, name: "a" },
+      { id: "x:1:2", season: 1, episode: 2, name: "b", released: null },
+      { id: "x:1:3", season: 1, episode: 3, name: "c", released: "soon" },
+    ]);
+    expect(s.episodes.map((e) => "airsAt" in e)).toEqual([false, false, false]);
+  });
+
+  it("is out on its day and after, not before it", () => {
+    expect(isOut(ep("tt1:1:1"), NOW)).toBe(true);
+    // Today: the day, not the hour (a 00:00Z release is yesterday evening in Chicago).
+    expect(isOut(ep("tt1:1:2"), NOW)).toBe(true);
+    expect(isOut(ep("tt1:1:2"), new Date(2026, 9, 11, 0, 0).getTime())).toBe(true);
+    expect(isOut(ep("tt1:1:3"), NOW)).toBe(false);
+    expect(isOut(ep("tt1:1:3"), new Date(2026, 9, 13, 23, 59).getTime())).toBe(false);
+    expect(isOut(ep("tt1:1:3"), new Date(2026, 9, 14, 0, 0).getTime())).toBe(true);
+  });
+
+  it("with no day is out, as every episode was before there was one", () => {
+    expect(isOut({}, NOW)).toBe(true);
+    expect(isOut({ airsAt: undefined }, NOW)).toBe(true);
+  });
+
+  it("nextEpisode never returns one: the end of the last aired episode is the end of the run", () => {
+    expect(nextEpisode(seasons, "tt1:1:1", NOW)?.episode.id).toBe("tt1:1:2");
+    expect(nextEpisode(seasons, "tt1:1:2", NOW)).toBeNull();
+    // Nor one further on, in the next season.
+    expect(nextEpisode(seasons, "tt1:1:4", NOW)).toBeNull();
+  });
+
+  it("nextEpisode offers it once its day comes", () => {
+    const day = new Date(2026, 9, 14, 9, 0).getTime();
+    expect(nextEpisode(seasons, "tt1:1:2", day)?.episode.id).toBe("tt1:1:3");
+  });
+
+  it("nextEpisode rolls into a new season only when that season's first has aired", () => {
+    const later = new Date(2027, 1, 1, 10, 0).getTime();
+    expect(nextEpisode(seasons, "tt1:1:4", later)?.episode.id).toBe("tt1:2:1");
+  });
+
+  it("nextUpEpisode does not land you on one", () => {
+    const watched = new Set(["tt1:1:1", "tt1:1:2"]);
+    expect(nextUpEpisode(seasons, watched, undefined, NOW)).toBeNull();
+    // Finished the last aired: no next to offer either.
+    expect(nextUpEpisode(seasons, watched, { episodeId: "tt1:1:2", finished: true }, NOW)).toBeNull();
+    // An unwatched one that has aired is still the answer.
+    expect(nextUpEpisode(seasons, new Set(["tt1:1:1"]), undefined, NOW)).toBe("tt1:1:2");
   });
 });
 

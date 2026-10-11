@@ -52,8 +52,8 @@ socket URL; ours never leaves Rust.
 Status, 2026-10-11: 3 done in v0.11.33 (measured first: mpv 0.37 gives up
 on a 403/404/500/HTML link within ~50ms and stays idle; a healthy or
 slow-to-answer file never reads idle); 5 done in v0.11.28 (auto-skip) and
-v0.11.29 (the delay); the Next Up overlap below done in v0.11.32. 1, 2 and
-the gaps further down are in flight.
+v0.11.29 (the delay); the Next Up overlap below done in v0.11.32; 2 and
+gaps 3, 4 and 5 below done in v0.11.34. 1 (Vulkan) is next.
 
 1. **The Vulkan fallback and an honest open error** (above).
 2. **Prefetch the next episode's sources at the credits window.** Today the

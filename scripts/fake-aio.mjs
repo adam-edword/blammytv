@@ -158,8 +158,49 @@ const GENRE_MOVIES = NUMBERS.slice(0, 3).map((word, i) => {
   };
 });
 
+/**
+ * TITLES IN NO CATALOG, reached by id (a Continue Watching entry's card, then
+ * its Sources chip), for verify-stream-four. They are in BY_ID for the meta
+ * route and in none of the catalogs above, so no row, grid or search counts
+ * them and every other harness reads what it always did.
+ *
+ * - tt500001, a series whose episode 4 has not aired: the episode list draws
+ *   it dim, and the Up Next card after episode 3 has nothing to offer.
+ * - tt500002, a film with two cached releases and one that is not, each with
+ *   the file name an addon sends, and a statistic at the end of the list.
+ * - tt500003, a film whose whole answer is notices: an addon's error and a
+ *   statistic, as AIOStreams sends them (no url, streamData.type), and a
+ *   magnet-only entry that is NOT one.
+ */
+const HIDDEN = [
+  {
+    id: "tt500001",
+    type: "series",
+    name: "Fake Series Airing",
+    poster: poster("tt500001"),
+    description: "A series whose fourth episode has not aired.",
+    genres: ["Drama"],
+  },
+  {
+    id: "tt500002",
+    type: "movie",
+    name: "Fake Movie Two Releases",
+    poster: poster("tt500002"),
+    description: "A film that comes in two cached releases.",
+    genres: ["Action"],
+  },
+  {
+    id: "tt500003",
+    type: "movie",
+    name: "Fake Movie Notices",
+    poster: poster("tt500003"),
+    description: "A film nothing could be found for.",
+    genres: ["Action"],
+  },
+];
+
 const BY_ID = new Map(
-  [...MOVIES, ...SERIES, ...MORE_MOVIES, ...GENRE_MOVIES].map((m) => [m.id, m]),
+  [...MOVIES, ...SERIES, ...MORE_MOVIES, ...GENRE_MOVIES, ...HIDDEN].map((m) => [m.id, m]),
 );
 const SPARSE_IDS = new Set(["tt100007", "tt100008"]);
 
@@ -184,14 +225,18 @@ function fullMeta(id, type) {
     // 2 seasons × 3 episodes, all released in the past — Stremio marks
     // upcoming episodes by future `released`, not an available flag.
     meta.videos = [];
-    for (let s = 1; s <= 2; s++) {
-      for (let e = 1; e <= 3; e++) {
+    // tt500001: one season of four, the last far in the future (a day, as
+    // Cinemeta sends one) so the harness does not depend on today's date.
+    const seasons = id === "tt500001" ? 1 : 2;
+    const perSeason = id === "tt500001" ? 4 : 3;
+    for (let s = 1; s <= seasons; s++) {
+      for (let e = 1; e <= perSeason; e++) {
         meta.videos.push({
           id: `${id}:${s}:${e}`,
           season: s,
           episode: e,
           name: `S${s}E${e} Title`,
-          released: `2024-01-0${e}T00:00:00Z`,
+          released: id === "tt500001" && e === 4 ? "2099-03-05T00:00:00.000Z" : `2024-01-0${e}T00:00:00Z`,
           thumbnail: `http://localhost:${PORT}/poster/ep.png`,
         });
       }
@@ -201,6 +246,8 @@ function fullMeta(id, type) {
 }
 
 function streams(id) {
+  if (id === "tt500002") return TWO_RELEASES(id);
+  if (id === "tt500003") return NOTICES_ONLY;
   return [
     {
       name: "⚡ 4K | Debrid",
@@ -223,6 +270,61 @@ function streams(id) {
     },
   ];
 }
+
+const ABOUT = "https://example.test/aiostreams";
+
+// Two releases cached, one not, each with the file name an addon sends
+// (behaviorHints.filename), and a statistic at the end as AIOStreams puts one.
+const TWO_RELEASES = (id) => [
+  {
+    name: "⚡ 4K | Debrid",
+    description: "Two Releases 4K\n8.2GB ⚡",
+    url: `http://localhost:${PORT}/video/${id}-4k.mp4`,
+    behaviorHints: { bingeGroup: "fake|2160p|x265", filename: "Two.Releases.2160p.WEB-DL.mkv" },
+  },
+  {
+    name: "⚡ 1080p | Debrid",
+    description: "Two Releases 1080p\n2.1GB ⚡",
+    url: `http://localhost:${PORT}/video/${id}-1080.mp4`,
+    behaviorHints: { bingeGroup: "fake|1080p", filename: "Two.Releases.1080p.BluRay.mkv" },
+  },
+  {
+    name: "⏳ 720p | Debrid",
+    description: "Two Releases 720p\n1.0GB ⏳",
+    url: `http://localhost:${PORT}/video/${id}-720.mp4`,
+    behaviorHints: { bingeGroup: "fake|720p", filename: "Two.Releases.720p.WEB.mkv" },
+  },
+  {
+    name: "Statistics",
+    description: "Fetched 3 streams in 0.4s",
+    externalUrl: ABOUT,
+    streamData: { type: "statistic" },
+  },
+];
+
+// Nothing playable, and AIOStreams saying why: an addon's error and a
+// statistic, both with no url, then a magnet-only entry that carries text and
+// is not a message.
+const NOTICES_ONLY = [
+  {
+    name: "Torbox",
+    description: "Rate limit exceeded",
+    externalUrl: ABOUT,
+    streamData: { type: "error" },
+  },
+  {
+    name: "Statistics",
+    description: "Fetched 0 streams in 1.2s\n80 results filtered out",
+    externalUrl: ABOUT,
+    streamData: { type: "statistic" },
+  },
+  { name: "Magnet", infoHash: "deadbeef", description: "magnet-only entry, not a message" },
+];
+
+/** How many times each stream list was asked for, by `type/id`, for the
+ * harnesses that count asks at the addon: GET /__asked/series/tt1:1:2 answers
+ * {"count": n}. Their own reads are not counted. */
+const asked = new Map();
 
 // 1x1 red PNG for the poster/background endpoints.
 const PNG = Buffer.from(
@@ -328,7 +430,14 @@ http
       return meta ? json({ meta }) : notFound();
     }
 
-    if (segs[0] === "stream" && segs.length === 3) return json({ streams: streams(segs[2]) });
+    if (segs[0] === "__asked" && segs.length === 3)
+      return json({ count: asked.get(`${segs[1]}/${segs[2]}`) ?? 0 });
+
+    if (segs[0] === "stream" && segs.length === 3) {
+      const key = `${segs[1]}/${segs[2]}`;
+      asked.set(key, (asked.get(key) ?? 0) + 1);
+      return json({ streams: streams(segs[2]) });
+    }
 
     return notFound();
   })

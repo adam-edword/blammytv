@@ -34,6 +34,12 @@ export interface WatchEntry {
    * Powers resume-from-position and the card's progress bar. */
   posSec?: number;
   durSec?: number;
+  /** The source playing when the entry was written, so a resume goes back
+   * to it: its file name (`behaviorHints.filename`) and its binge group.
+   * Both absent on entries written before they existed, or from a source
+   * that sent none. */
+  fileName?: string;
+  bingeGroup?: string;
   /** Trakt's id for this paused position (plan 015, T4), so clearing the
    * card clears it on Trakt too. Only on entries Trakt has seen paused. */
   trakt?: number;
@@ -134,13 +140,14 @@ export function isFinished(e: Pick<WatchEntry, "posSec" | "durSec">): boolean {
  * that card's own is finished: the next one, from its start (the roll
  * retiredFromContinue promises). Null when the card's own episode stands:
  * it is not finished, or nothing follows it (a finale, or the seasons are
- * not known). */
+ * not known), or what follows has not aired yet (nextEpisode). */
 export function rolledForward(
   e: WatchEntry,
   seasons: Season[],
+  now: number = Date.now(),
 ): { season: Season; episode: Episode } | null {
   if (!e.episodeId || !isFinished(e)) return null;
-  return nextEpisode(seasons, e.episodeId);
+  return nextEpisode(seasons, e.episodeId, now);
 }
 
 /** The progress a new play carries over from the entry it replaces: only a
