@@ -201,7 +201,11 @@ async function pass(): Promise<SyncResult> {
 
     // 4. What is next. Kept for the home rows, with the base their art is
     // fetched from (images need no token).
-    const nextUp = await list("/Shows/NextUp", { ...user, ...fields, Limit: UP_LIMIT });
+    // EnableResumable=false: an episode you are part way through is
+    // Continue Watching's, and the server would list it here too (it reads
+    // the flag, default true: library.ts, /Shows/NextUp). AIOStreams' own
+    // client asks the same.
+    const nextUp = await list("/Shows/NextUp", { ...user, ...fields, Limit: UP_LIMIT, EnableResumable: "false" });
     const upcoming = await list("/Shows/Upcoming", { ...user, ...fields, Limit: UP_LIMIT });
     if (gone()) return overtaken;
     if (nextUp.status === 401 || upcoming.status === 401) return fail("Signed out of AIOStreams");

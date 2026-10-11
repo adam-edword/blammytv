@@ -560,6 +560,13 @@ check(
   ),
   JSON.stringify(calls.filter((c) => c.method === "GET").map((c) => [c.path, c.query.Fields])),
 );
+// Next Up leaves out what Continue Watching already has (the server's
+// EnableResumable, default true), as AIOStreams' own client asks.
+check(
+  "Next Up asks for no part-played episodes (EnableResumable=false)",
+  seen("GET", "/Shows/NextUp").length > 0 && seen("GET", "/Shows/NextUp").every((c) => c.query.EnableResumable === "false"),
+  JSON.stringify(seen("GET", "/Shows/NextUp").map((c) => c.query)),
+);
 
 const cw = await storeOf(page, "watching");
 const two = cw?.find((e) => e.id === "tt0100002");
