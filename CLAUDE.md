@@ -56,7 +56,7 @@ cd apps/app/src-tauri && cargo clippy --target x86_64-pc-windows-gnu
 ```
 
 Baseline is **9 warnings**, all of them the libmpv symbol transmutes at
-`mpv.rs:90-104`. Anything else is yours. (`grep -c "^warning:"` says 10 —
+`mpv.rs:91-105`. Anything else is yours. (`grep -c "^warning:"` says 10 —
 the tenth is cargo's own "generated 9 warnings" summary line.)
 
 It is a TYPE check, not a build: it will not catch a linker problem or
@@ -67,7 +67,7 @@ mvconvert.rs, HEVC conversion through an actual ffmpeg included), and so
 do Trakt's and MAL's (trakt.rs and mal.rs, against fakes) and multi-view's
 sound listener and jitter buffer (mvaudio.rs; its cpal output, mvaudio_out.rs,
 needs a device and is type-checked only) and AIOStreams' Jellyfin side
-(aiojf.rs, against a fake) and the player settings' checks (mpvprefs.rs), from a host crate that includes the files as they
+(aiojf.rs, against a fake) and the player settings' checks (mpvprefs.rs) and the dead-link probe (mpvopen.rs, against local servers), from a host crate that includes the files as they
 are:
 
 ```
@@ -75,7 +75,7 @@ curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 164 tests (v0.11.29+): 46 for the proxy (30 mvproxy, 16 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 20 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 16 for mpvprefs. On CI the Windows job runs the same tests with the
+Baseline 178 tests (v0.11.33+): 46 for the proxy (30 mvproxy, 16 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 20 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 16 for mpvprefs, 14 for mpvopen. On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 
@@ -90,7 +90,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **68/68 harnesses clean, 1699 checks** (v0.11.32), or one
+Baseline is **69/69 harnesses clean, 1728 checks** (v0.11.33), or one
 fewer: verify-cw-sources' last check only runs when the catalog is still
 loading at the click; the script says so and it is not a failure. verify-kit
 (plan 019) has one section per shared primitive, so a later change that

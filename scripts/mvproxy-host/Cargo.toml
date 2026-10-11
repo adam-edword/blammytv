@@ -3,7 +3,8 @@
 # side's (aiojf.rs, plan 023), the URL check mpv's
 # commands make (mpvurl.rs) and multi-view's audio listener and jitter buffer
 # (mvaudio.rs; its cpal output, mvaudio_out.rs, is not here) and what the
-# player settings may ask mpv for (mpvprefs.rs) on a Linux box,
+# player settings may ask mpv for (mpvprefs.rs) and how a file's open went
+# (mpvopen.rs) on a Linux box,
 # where the app crate itself will not build (gdk-sys; see CLAUDE.md). The
 # files are included as they are, byte for byte.
 #

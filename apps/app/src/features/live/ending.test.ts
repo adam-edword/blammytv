@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { COMPLETE_FRAC, endDecision, type EndInputs } from "./ending";
+import {
+  COMPLETE_FRAC,
+  FAILED_OPEN_MS,
+  FAILED_OPEN_POLLS,
+  endDecision,
+  looksFailedOpen,
+  type EndInputs,
+} from "./ending";
 
 const base: EndInputs = {
   loading: false,
@@ -86,5 +93,93 @@ describe("endDecision", () => {
     expect(endDecision({ ...base, ended: true, time: at(1368) })).toBe(
       "complete",
     );
+  });
+});
+
+describe("a VOD that never opened", () => {
+  // The poll of a debrid 403, as mpv leaves it: idle, no clock, still waiting
+  // for a first frame, long after the load. One poll before it looked the same.
+  const dead: EndInputs = {
+    loading: true,
+    presenting: false,
+    ended: true,
+    vod: true,
+    time: null,
+    sinceLoadMs: 1500,
+    priorFailedPolls: 1,
+  };
+
+  it("pins the floor and the poll count with literals", () => {
+    expect(FAILED_OPEN_MS).toBe(1000);
+    expect(FAILED_OPEN_POLLS).toBe(2);
+  });
+
+  it("is a failed open on the second poll in a row", () => {
+    expect(endDecision(dead)).toBe("failed-open");
+    expect(endDecision({ ...dead, priorFailedPolls: 5 })).toBe("failed-open");
+  });
+
+  it("is not one on a single poll", () => {
+    expect(endDecision({ ...dead, priorFailedPolls: 0 })).toBe("none");
+    expect(endDecision({ ...dead, priorFailedPolls: undefined })).toBe("none");
+  });
+
+  it("puts the floor at exactly a second after the load", () => {
+    // Literals again: `FAILED_OPEN_MS - 1` would hold for any value.
+    expect(endDecision({ ...dead, sinceLoadMs: 1000 })).toBe("failed-open");
+    expect(endDecision({ ...dead, sinceLoadMs: 999 })).toBe("none");
+    // The idle that comes BEFORE the new loadfile reads a few milliseconds.
+    expect(endDecision({ ...dead, sinceLoadMs: 50 })).toBe("none");
+    expect(endDecision({ ...dead, sinceLoadMs: 0 })).toBe("none");
+  });
+
+  it("needs native to have said how long ago, and reads silence as unknown", () => {
+    // A native build from before v0.11.33 sends no field: the watchdog, as ever.
+    expect(endDecision({ ...dead, sinceLoadMs: undefined })).toBe("none");
+    // And nothing loaded at all.
+    expect(endDecision({ ...dead, sinceLoadMs: null })).toBe("none");
+  });
+
+  it("leaves live alone, and treats unknown meta as live", () => {
+    // Its silent reloads are how a live line recovers.
+    expect(endDecision({ ...dead, vod: false })).toBe("none");
+    expect(endDecision({ ...dead, vod: undefined })).toBe("none");
+  });
+
+  it("is not one for a slow open, which mpv does not call idle", () => {
+    expect(endDecision({ ...dead, ended: false })).toBe("none");
+  });
+
+  it("still lets a first frame outrank it", () => {
+    expect(endDecision({ ...dead, presenting: true })).toBe("present");
+  });
+
+  it("does not need a clock, which a link that never opened never had", () => {
+    expect(endDecision({ ...dead, time: null })).toBe("failed-open");
+    // A VOD that died mid-play and was re-armed has one; it is still dead.
+    expect(endDecision({ ...dead, time: at(600) })).toBe("failed-open");
+  });
+
+  it("leaves the end of a file that WAS playing exactly as it was", () => {
+    // Not loading: the finish-or-die rules above, untouched by any of this.
+    const playing = { ...dead, loading: false, priorFailedPolls: 5 };
+    expect(endDecision({ ...playing, time: at(1400) })).toBe("complete");
+    expect(endDecision({ ...playing, time: at(12) })).toBe("rearm");
+    expect(endDecision({ ...playing, time: null })).toBe("rearm");
+  });
+
+  it("describes one poll the same way the decision does", () => {
+    expect(looksFailedOpen(dead)).toBe(true);
+    for (const no of [
+      { vod: false },
+      { vod: undefined },
+      { loading: false },
+      { presenting: true },
+      { ended: false },
+      { sinceLoadMs: 999 },
+      { sinceLoadMs: null },
+      { sinceLoadMs: undefined },
+    ] satisfies Partial<EndInputs>[])
+      expect(looksFailedOpen({ ...dead, ...no }), JSON.stringify(no)).toBe(false);
   });
 });

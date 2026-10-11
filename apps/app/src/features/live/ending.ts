@@ -29,6 +29,15 @@
  *
  * So: `time` here is the unheld truth. If you are wiring this up and reach
  * for the value the scrubber is drawing, that is bug 2 again.
+ *
+ * A THIRD QUESTION, asked while still loading: did a VOD never OPEN? A debrid
+ * link that answers 403 or 404, or has expired into a web page, is given up on
+ * by mpv within ~50ms of the `loadfile` (measured on mpv 0.37: end-file
+ * reason=error, then `idle-active=yes` with no `path`, and it stays there).
+ * Until v0.11.33 that was ignored while `loading` and the card came at the
+ * 40s watchdog. A healthy file, and one on a server that takes 4s to answer,
+ * read `idle-active=no` the whole time, so a slow open is never mistaken for
+ * this. See `looksFailedOpen` for what a poll has to show, and why.
  */
 
 /** What the poll should do about this tick. */
@@ -39,6 +48,9 @@ export type EndDecision =
   | "complete"
   /** Playback stopped and it was not a finish. Re-arm the tune watchdog. */
   | "rearm"
+  /** A VOD that is idle after its load, so it is not going to open: call it
+   * dead now rather than at the watchdog. */
+  | "failed-open"
   /** Nothing to do. */
   | "none";
 
@@ -57,17 +69,71 @@ export interface EndInputs {
   vod: boolean | undefined;
   /** The last position mpv reported. NOT the held display clock. */
   time: { pos: number; dur: number } | null;
+  /**
+   * Milliseconds since native last asked mpv for a file (mpv_status), null
+   * when nothing is loaded. Absent on a native build from before v0.11.33,
+   * and absent reads as unknown: no fast verdict, the watchdog as ever.
+   */
+  sinceLoadMs?: number | null;
+  /**
+   * How many polls in a row, just before this one, `looksFailedOpen`. The
+   * caller counts them (useDirectOverlay); one poll alone decides nothing.
+   */
+  priorFailedPolls?: number;
 }
 
 /** How far in counts as finished. Credits run long and providers truncate. */
 export const COMPLETE_FRAC = 0.9;
+
+/**
+ * How long after the load an idle has to be before it counts. mpv gives up on
+ * a dead link within ~50ms, so a second is far past it; what it guards is the
+ * other idle, the one BEFORE the new `loadfile` lands (the last file's, which
+ * reads exactly the same). Native resets its clock at the `loadfile`, so that
+ * idle reads a few milliseconds, or null, and never reaches this.
+ */
+export const FAILED_OPEN_MS = 1000;
+
+/** Polls in a row it takes. Polls run 100ms apart while loading, so this is
+ * ~100ms more; it is what makes a single stray idle read harmless. */
+export const FAILED_OPEN_POLLS = 2;
+
+/**
+ * Does this ONE poll look like a VOD that is never going to open? Every part
+ * is load-bearing:
+ *
+ * - `vod === true`. Live is left alone: its silent reloads are how a live line
+ *   recovers, and a live 403 is often the provider's connection limit, which a
+ *   reload clears. Unknown meta is live, as everywhere here.
+ * - `loading` and not `presenting`: still waiting on a first frame.
+ * - `ended`: mpv is idle (or at EOF) with the file it was asked for.
+ * - `sinceLoadMs >= FAILED_OPEN_MS`: that idle came AFTER a load, not before.
+ *
+ * It also covers a VOD that died mid-play and was re-armed ("rearm" flips
+ * `loading` back on): it is idle, VOD never reloads itself, and nothing brings
+ * it back, so the 40s wait bought nothing.
+ */
+export function looksFailedOpen(i: EndInputs): boolean {
+  return (
+    i.vod === true &&
+    i.loading &&
+    !i.presenting &&
+    i.ended &&
+    typeof i.sinceLoadMs === "number" &&
+    i.sinceLoadMs >= FAILED_OPEN_MS
+  );
+}
 
 export function endDecision(i: EndInputs): EndDecision {
   // ORDER IS LOAD-BEARING. A first frame outranks an EOF flag: during a tune
   // mpv can report both, and treating that as an ending would declare a
   // stream dead at the moment it came alive.
   if (i.loading && i.presenting) return "present";
-  if (i.loading || !i.ended) return "none";
+  if (i.loading)
+    return looksFailedOpen(i) && (i.priorFailedPolls ?? 0) + 1 >= FAILED_OPEN_POLLS
+      ? "failed-open"
+      : "none";
+  if (!i.ended) return "none";
   const t = i.time;
   if (i.vod === true && !!t && t.dur > 0 && t.pos >= t.dur * COMPLETE_FRAC)
     return "complete";

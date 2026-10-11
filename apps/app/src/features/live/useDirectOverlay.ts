@@ -26,7 +26,7 @@ import {
   type EdgeBaseline,
 } from "./liveEdge";
 import { dvrChanged, dvrWindow, type DvrWindow } from "./dvr";
-import { endDecision } from "./ending";
+import { endDecision, looksFailedOpen, type EndInputs } from "./ending";
 
 /**
  * Status cadence once a picture is up. The scrubber clock and the death
@@ -114,6 +114,17 @@ export function useDirectOverlay(
     /** The tune watchdog has called this stream dead (setTuneDead). */
     dead: false,
     endedFired: false,
+    /**
+     * Polls in a row that looked like a VOD that never opened (ending.ts
+     * looksFailedOpen), and whether that has been said for this load. Said
+     * ONCE, or Retry would be undone: after the click the old, dead state is
+     * still what mpv reports until the fresh source is loaded, and every poll
+     * in that gap would call the stream dead again, and fail over again. A
+     * poll that does not look like it (a new load reads a few milliseconds
+     * since) takes the latch off, so the next load can be called too.
+     */
+    failedRun: 0,
+    failedFired: false,
     tracks: null as Tracks | null,
     tracksJson: "",
     metaJson: "",
@@ -159,6 +170,7 @@ export function useDirectOverlay(
     chapterCbs: new Set<(c: ChapterInfo[]) => void>(),
     metaCbs: new Set<(m: TheaterMeta | null) => void>(),
     loadingCbs: new Set<(l: boolean) => void>(),
+    failedOpenCbs: new Set<() => void>(),
     tracksCbs: new Set<(t: Tracks | null) => void>(),
     timeCbs: new Set<(t: TimeInfo | null) => void>(),
   }).current;
@@ -182,6 +194,8 @@ export function useDirectOverlay(
     s.loading = true;
     s.dead = false;
     s.endedFired = false;
+    s.failedRun = 0;
+    s.failedFired = false;
     s.buffering = false;
     s.seekable = true;
     s.edgeBaseline = null;
@@ -251,15 +265,18 @@ export function useDirectOverlay(
           // `lastTime`, never `time`: the displayed clock is deliberately
           // held across a seek and is the wrong input for something that can
           // destroy a resume position.
-          switch (
-            endDecision({
-              loading: s.loading,
-              presenting: st.presenting,
-              ended: st.ended,
-              vod: metaRef.current ? metaRef.current.live === false : undefined,
-              time: s.lastTime,
-            })
-          ) {
+          const inputs: EndInputs = {
+            loading: s.loading,
+            presenting: st.presenting,
+            ended: st.ended,
+            vod: metaRef.current ? metaRef.current.live === false : undefined,
+            time: s.lastTime,
+            // Absent from a native build older than v0.11.33: unknown, which
+            // is no fast verdict.
+            sinceLoadMs: st.sinceLoadMs,
+            priorFailedPolls: s.failedRun,
+          };
+          switch (endDecision(inputs)) {
             case "present":
               s.presentedAt = performance.now();
               s.loading = false;
@@ -281,7 +298,20 @@ export function useDirectOverlay(
               s.loading = true;
               s.loadingCbs.forEach((cb) => cb(true));
               break;
+            case "failed-open":
+              // A VOD that is idle after its load will not come back, and VOD
+              // never reloads itself, so the host calls it dead now instead
+              // of at the watchdog's 40s. Nothing reloads here either: it
+              // goes through the same dead state and failover the watchdog
+              // reaches. Latched only once someone has heard it.
+              if (!s.failedFired && s.failedOpenCbs.size > 0) {
+                s.failedFired = true;
+                s.failedOpenCbs.forEach((cb) => cb());
+              }
+              break;
           }
+          s.failedRun = looksFailedOpen(inputs) ? s.failedRun + 1 : 0;
+          if (s.failedRun === 0) s.failedFired = false;
           // The natural forward buffer, refined over the first seconds. The
           // DVR window's live edge is derived from it, so it has to come
           // first. See liveEdge.
@@ -466,6 +496,7 @@ export function useDirectOverlay(
       onMeta: sub(s.metaCbs),
       getLoading: () => s.loading,
       onLoading: sub(s.loadingCbs),
+      onFailedOpen: sub(s.failedOpenCbs),
       setTuneDead: (dead) => {
         s.dead = dead;
       },

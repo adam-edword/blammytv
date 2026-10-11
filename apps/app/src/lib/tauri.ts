@@ -370,10 +370,32 @@ export interface MpvStatus {
    * (not read there) and on older Rust builds. */
   dvrStart?: number | null;
   dvrEnd?: number | null;
+  /** Milliseconds since native last asked mpv for a file (mpv.rs play_wid,
+   * reload_live), null when nothing is loaded. What tells an idle that
+   * follows a load from the stale idle of the file before it: see ending.ts.
+   * Optional: absent on a native build from before v0.11.33, which reads as
+   * unknown. */
+  sinceLoadMs?: number | null;
   audio: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   subs: Array<{ id: number; label: string; lang: string; selected: boolean }>;
   /** File chapter markers (absent on pre-chapter Rust builds). */
   chapters?: Array<{ title: string; start: number }>;
+}
+/** What the address of the file that never opened answers (mpv_open_error):
+ * the HTTP status and content type, or the kind of failure. Never the address
+ * itself, which is a debrid link and holds the account's key. */
+export interface OpenAnswer {
+  status: number | null;
+  /** `type/subtype` as the server sent it, lower case. */
+  contentType: string | null;
+  failure: "timeout" | "refused" | "dns" | "network" | null;
+}
+/** One request for the first byte of the file the player last opened, to say
+ * why it would not. Takes no address: native asks about the one it handed mpv.
+ * Rejects when nothing is loaded, and on a native build from before v0.11.33,
+ * which has no such command: the caller takes that quietly. */
+export function tauriMpvOpenError(): Promise<OpenAnswer> {
+  return invoke("mpv_open_error");
 }
 export async function tauriMpvStatus(): Promise<MpvStatus> {
   // Timed for the perf probe (playerPerf.ts): one Date.now() pair per 500ms

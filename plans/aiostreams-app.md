@@ -49,6 +49,12 @@ socket URL; ours never leaves Rust.
 
 ## Worth taking, cheapest and surest first
 
+Status, 2026-10-11: 3 done in v0.11.33 (measured first: mpv 0.37 gives up
+on a 403/404/500/HTML link within ~50ms and stays idle; a healthy or
+slow-to-answer file never reads idle); 5 done in v0.11.28 (auto-skip) and
+v0.11.29 (the delay); the Next Up overlap below done in v0.11.32. 1, 2 and
+the gaps further down are in flight.
+
 1. **The Vulkan fallback and an honest open error** (above).
 2. **Prefetch the next episode's sources at the credits window.** Today the
    roll resolves after the countdown, about 4s (`StreamScreen.tsx:618-623`).

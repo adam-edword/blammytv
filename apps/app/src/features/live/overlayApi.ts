@@ -65,6 +65,12 @@ export interface OverlayApi {
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;
   getLoading: () => boolean;
   onLoading: (cb: (loading: boolean) => void) => () => void;
+  /** A VOD that is idle after its load: it is never going to open (a debrid
+   * 403, a dead link, an expired one that returns a web page). The host calls
+   * it dead at once rather than at the watchdog's 40s. Fires once per load,
+   * and never for live. See ending.ts. Optional, so a host or test seam that
+   * doesn't poll never gets one. */
+  onFailedOpen?: (cb: () => void) => () => void;
   /** The tune watchdog's verdict, for the host: true once it has called the
    * stream dead (the "isn't responding" card is up), false again on Retry or
    * a new stream. `loading` can't say it: a dead stream never presents, so it

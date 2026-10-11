@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
-import { isTauri, tauriMpvDiag, type TheaterMeta } from "../../lib/tauri";
+import {
+  isTauri,
+  tauriMpvDiag,
+  tauriMpvOpenError,
+  type TheaterMeta,
+} from "../../lib/tauri";
 import {
   api,
   type ChapterInfo,
@@ -40,6 +45,7 @@ import {
 import { useLogoInk } from "../../lib/logoInk";
 import { isModalOpen } from "../../lib/modalOpen";
 import { VodLoading } from "./VodLoading";
+import { openErrorLine } from "./openError";
 import { Hint } from "../../ui/Hint";
 import { EYEBROW_ON_IMAGE } from "../../ui/eyebrow";
 import { StatsOverlay } from "./StatsOverlay";
@@ -678,6 +684,36 @@ export function TheaterOverlay({
   useEffect(() => {
     api()?.setTuneDead?.(tune === "dead");
   }, [tune]);
+  // A VOD the poll found idle after its load will never open (ending.ts: a
+  // debrid 403, a dead link, an expired one that returns a page). Go straight
+  // to the dead state the watchdog reaches at VOD_STALL_MS, so everything that
+  // hangs off it, the failover below and the card, happens now. Nothing here
+  // reloads, and the resets are the ones above: a new stream puts `tune` back
+  // to "waiting" in render, Retry re-arms the watchdog, and the once-per-death
+  // guard below sees this death like any other.
+  useEffect(() => api()?.onFailedOpen?.(() => setTune("dead")), []);
+  // WHY the card is up, when the link can say: what the address answers now
+  // (native asks it for one byte), in words (openError.ts). The card is already
+  // showing when this lands, with only its first line, and keeps that if the
+  // link made no claim, if native is older than the question, or if the answer
+  // comes back after the card is gone. Not asked when failover is on: the next
+  // source is starting (or the player closing) and nobody reads the card, so
+  // it would be one more request against a debrid account for nothing.
+  const [deadWhy, setDeadWhy] = useState<string | null>(null);
+  useEffect(() => {
+    if (tune !== "dead" || !vodSrc || !isTauri()) return;
+    if (loadSourceFailover() && api()?.nextSource) return;
+    let stale = false;
+    tauriMpvOpenError()
+      .then((a) => {
+        if (!stale) setDeadWhy(openErrorLine(a));
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+      setDeadWhy(null);
+    };
+  }, [tune, vodSrc]);
   // Auto-failover: the moment the watchdog declares the source dead, jump
   // to the next candidate.
   //
@@ -1541,7 +1577,14 @@ export function TheaterOverlay({
         onClick={() => api()?.expand?.()}
       >
         {loading && (
-          <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} compact />
+          <TuneCard
+            meta={meta}
+            phase={tune}
+            onRetry={retryTune}
+            vod={vod}
+            why={deadWhy}
+            compact
+          />
         )}
         {delayToast && <DelayToast text={delayToast.text} />}
         <Hint label={paused ? "Play" : "Pause"}>
@@ -1595,7 +1638,14 @@ export function TheaterOverlay({
       }}
     >
       {loading && (
-        <TuneCard meta={meta} phase={tune} onRetry={retryTune} vod={vod} opened={time != null} />
+        <TuneCard
+          meta={meta}
+          phase={tune}
+          onRetry={retryTune}
+          vod={vod}
+          why={deadWhy}
+          opened={time != null}
+        />
       )}
       {/* Only once a picture is up: while `loading` the TuneCard already
           owns the screen, and two spinners for one wait is worse than none. */}
@@ -2184,7 +2234,7 @@ export function TheaterOverlay({
                         <Button variant="ghost" size="icon"
                           type="button"
                           role="menuitem"
-                          className="track-menu__step rounded-full text-on-image/85 hover:bg-on-image/12 hover:text-on-image"
+                          className="track-menu__step size-7 rounded-full text-on-image/85 hover:bg-on-image/12 hover:text-on-image"
                           aria-label="Subtitles earlier"
                           onClick={() => nudgeDelay(-0.1)}
                         >
@@ -2196,7 +2246,7 @@ export function TheaterOverlay({
                         <Button variant="ghost" size="icon"
                           type="button"
                           role="menuitem"
-                          className="track-menu__step rounded-full text-on-image/85 hover:bg-on-image/12 hover:text-on-image"
+                          className="track-menu__step size-7 rounded-full text-on-image/85 hover:bg-on-image/12 hover:text-on-image"
                           aria-label="Subtitles later"
                           onClick={() => nudgeDelay(0.1)}
                         >
@@ -2289,11 +2339,15 @@ function TuneCard({
   compact = false,
   vod = false,
   opened = false,
+  why = null,
 }: {
   meta: TheaterMeta | null;
   phase: "waiting" | "retrying" | "dead";
   onRetry: () => void;
   compact?: boolean;
+  /** VOD, dead: what the link answered, in words (openError.ts), under the
+   * first line. None when it made no claim or has not answered yet. */
+  why?: string | null;
   /** VOD: mpv has opened the file (a position and a duration are in), so
    * the loading bar reads Buffering rather than Opening. */
   opened?: boolean;
@@ -2341,6 +2395,7 @@ function TuneCard({
               ? "This source isn\u2019t responding. It\u2019s the stream, not you."
               : "This channel isn\u2019t responding. It\u2019s the stream, not you."}
           </p>
+          {vod && why && <p className="tune__dead-why">{why}</p>}
           {/* Neither button bubbles: in the mini player a click anywhere
             * else expands it, and a retry should leave it where it is. */}
           <Button

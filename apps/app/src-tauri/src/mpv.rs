@@ -4,6 +4,7 @@
 // Two instances: the in-app PLAYER (rendered into a `--wid` child window,
 // see inv.rs) and the POPOUT PiP (mpv's own floating window).
 
+use crate::mpvopen;
 use crate::mpvprefs;
 use libloading::Library;
 use std::ffi::CString;
@@ -126,6 +127,41 @@ static PLAYER_WID: AtomicIsize = AtomicIsize::new(0);
 // The popout PiP runs as its OWN mpv instance, separate from the in-app
 // PLAYER — so tearing down the in-app player (inv::close/stop) can't kill it.
 static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
+
+/// The load the in-app player was last asked for: when, and which address.
+/// Stamped where `loadfile` is issued (`play_wid`, `reload_live`) and put away
+/// by `unload`, so it is None whenever nothing is loaded. mpv_status sends how
+/// long ago (`since_load_ms`), which is how the frontend tells an idle that
+/// follows a load from the stale idle of the file before it, and
+/// `mpv_open_error` asks the address what it says. The pop-out is not here:
+/// it has its own instance and nothing reads it.
+///
+/// Lock order: PLAYER, then LOADED. Nothing takes them the other way round.
+static LOADED: Mutex<Option<mpvopen::Loaded>> = Mutex::new(None);
+
+fn note_loaded(url: &str) {
+    *LOADED.lock().unwrap() = Some(mpvopen::Loaded::new(url, std::time::Instant::now()));
+}
+
+fn note_unloaded() {
+    *LOADED.lock().unwrap() = None;
+}
+
+/// Milliseconds since the in-app player was last asked for a file, or None
+/// when nothing is loaded.
+pub fn since_load_ms() -> Option<u64> {
+    LOADED
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|l| l.since_ms(std::time::Instant::now()))
+}
+
+/// The address the in-app player was last asked for. It is a credential:
+/// nothing may print it or send it to the page.
+pub fn loaded_url() -> Option<String> {
+    LOADED.lock().unwrap().as_ref().map(|l| l.url().to_string())
+}
 
 /// What Settings → Playback has asked of mpv that holds for every file:
 /// Audio Channels and Subtitle Size. Held here, not just sent to the players
@@ -770,8 +806,10 @@ pub fn play_wid(
                 std::ptr::null(),
             ];
             if (l.command)(p.0, args.as_ptr()) < 0 {
+                note_unloaded();
                 return Err("loadfile failed".into());
             }
+            note_loaded(url);
         }
     }
     // `queued` is loadfile RETURNING, not the stream being open: mpv opens it
@@ -918,12 +956,14 @@ pub fn reload_live() {
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
         unsafe {
             let cmd = CString::new("loadfile").unwrap();
-            let curl = match CString::new(url) {
+            let curl = match CString::new(url.as_str()) {
                 Ok(c) => c,
                 Err(_) => return,
             };
             let args = [cmd.as_ptr(), curl.as_ptr(), std::ptr::null()];
-            (l.command)(p.0, args.as_ptr());
+            if (l.command)(p.0, args.as_ptr()) >= 0 {
+                note_loaded(&url);
+            }
         }
     }
 }
@@ -951,6 +991,11 @@ pub fn unload() {
             let args = [cmd.as_ptr(), std::ptr::null()];
             (l.command)(p.0, args.as_ptr());
         }
+        // Nothing is loaded now. This is what keeps the NEXT file's first
+        // polls honest: mpv sits idle from here until its `loadfile` lands,
+        // and a stamp left over from the file before would read that idle as
+        // one that followed a load.
+        note_unloaded();
     }
 }
 

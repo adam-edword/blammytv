@@ -84,6 +84,16 @@
   max-width: 34ch;
 }
 
+/* The reason under it, when the link could say (openError.ts). Quieter than
+ * the line above, which is the verdict; the same ink as the programme line. */
+.tune__dead-why {
+  margin: -4px 0 0;
+  font: 400 clamp(12px, 1.3vw, 14px) / 1.4 var(--font-text);
+  color: color-mix(in srgb, var(--on-image) 62%, transparent);
+  text-align: center;
+  max-width: 38ch;
+}
+
 .tune__retry {
   font: 600 14px / 1 var(--font-text);
 }
@@ -997,9 +1007,10 @@
 .track-menu__delay-label {
   margin-right: 8px;
 }
+/* 28px square: `size-7` at the call site (TheaterOverlay), because the
+ * Button's `size="icon"` sets its size with a utility, which outranks this
+ * layer. A width and height here were dead (verify-tailwind, v0.11.29). */
 .track-menu__step {
-  width: 28px;
-  height: 28px;
   font: 500 16px / 1 var(--font-headline);
 }
 .track-menu__delay-value {

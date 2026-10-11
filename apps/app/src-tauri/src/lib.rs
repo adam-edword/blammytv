@@ -2,6 +2,7 @@ mod aiojf;
 mod frontend;
 mod mal;
 mod mpv;
+mod mpvopen;
 mod mpvprefs;
 mod mpvurl;
 mod mvaudio;
@@ -673,9 +674,46 @@ fn mpv_status() -> String {
         "pos": pos, "dur": dur, "presenting": presenting, "ended": ended,
         "buffering": buffering, "seekable": seekable, "cacheDur": cache_dur,
         "dvrStart": dvr.map(|d| d.0), "dvrEnd": dvr.map(|d| d.1),
+        // HOW LONG AGO the in-app player was asked for its file, or null when
+        // nothing is loaded. `ended` alone cannot say whether an idle came
+        // AFTER the load (a link that failed to open: mpv gives up within
+        // ~50ms and stays idle) or BEFORE it (the file before this one, idle
+        // until `loadfile` lands). Only native knows when that was, and the
+        // frontend reads an idle as a failed open only well after it
+        // (ending.ts). New in v0.11.33, and the frontend ships apart from
+        // this binary: a build without the field reads as before.
+        "sinceLoadMs": mpv::since_load_ms(),
         "audio": audio, "subs": subs, "chapters": chapters,
     })
     .to_string()
+}
+
+/// What the address of the file that never opened answers: one request for
+/// its first byte, and the HTTP status and content type, or the kind of
+/// failure ("timeout", "refused", "dns", "network"). The address is the one
+/// `play_wid` last handed mpv and nothing else: this takes no argument, so the
+/// page cannot aim it. The answer carries no part of the address, and it is
+/// printed here by status alone, because a debrid link holds the account's key.
+///
+/// Sent through the app's shared client, so the request goes out over the same
+/// TLS stack as every other one (see its comment). Rejects when nothing is
+/// loaded, and on a build from before v0.11.33, which has no such command: the
+/// page takes either quietly.
+#[tauri::command]
+async fn mpv_open_error() -> Result<mpvopen::Answer, String> {
+    let url = mpv::loaded_url().ok_or("nothing was opened")?;
+    // Native says what it may open, here as at every other door (audit X1).
+    mpvurl::http_only(&url)?;
+    let answer = mpvopen::probe(http_client(), &url, mpvopen::PROBE_WAIT).await;
+    println!(
+        "[mpv-open] {}",
+        match (answer.status, answer.failure) {
+            (Some(code), _) => format!("answered {code}"),
+            (None, Some(kind)) => format!("no answer ({kind})"),
+            (None, None) => "no answer".to_string(),
+        }
+    );
+    Ok(answer)
 }
 
 /// Status-poll cost report (plan 011). Reads the accumulator mpv_status fills
@@ -1445,6 +1483,7 @@ pub fn run() {
             mpv_sub_delay_reset,
             mpv_track,
             mpv_status,
+            mpv_open_error,
             mpv_stats,
             mpv_diag,
             mpv_perf,
