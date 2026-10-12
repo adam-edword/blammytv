@@ -148,8 +148,9 @@ node scripts/admin.mjs email a@b.com        # every key bought by that email
   `STRIPE_API_KEY` in the env, `list` still works (email column shows
   `unknown`) and `email` refuses to run.
 - **`mint`** issues a `pass` key (unlocks **every** theme) with **unlimited**
-  machine activations and no Stripe session — a comp/admin key. Paste it into
-  the app (Settings → Customize → Theme → Premium Themes → Activate).
+  machine activations and no Stripe session — a comp/admin key. The app has
+  nowhere to enter one today: theme packs are parked until after 1.0
+  (ROADMAP, decision 1), and their Settings row went with them.
 - ⚠️ **Security:** a minted key is a **free master-unlock that bypasses
   Stripe** (no revenue by design). It's crypto-random/unguessable, but anyone
   who holds it unlocks everything on unlimited machines — keep it private, and

@@ -79,4 +79,4 @@ something did.
 - [Sources](/sources/), what each playlist kind needs
 - [Live TV](/using/live-tv/), the guide, favourites and the player
 - [Stream & VOD](/using/stream/), browsing movies and shows
-- [Themes](/using/themes/), nine looks, five of them free
+- [Themes](/using/themes/), your accent colour and light or dark

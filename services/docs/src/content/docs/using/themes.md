@@ -1,68 +1,22 @@
 ---
 title: Themes
-description: Nine looks, five free, three paid, one for Pass holders.
+description: An accent colour, light or dark, and theme packs after 1.0.
 ---
 
-BlammyTV ships nine theme packs. Change them under **Settings → Appearance**.
-Accent colour is a separate control and works with any of them.
-
-## Free
-
-| Pack | What it is | Light mode |
-|---|---|---|
-| **BlammyTV** | The signature look, soft neutral dark | |
-| **Classic** | The original look, near-black and untouched | Yes |
-| **OLED** | True black with crushed, inky surfaces | |
-| **Paper** | Warm cream by day, warm charcoal by night | Yes |
-| **Streamy** | That other client: deep indigo, violet glow | |
-
-Packs marked with a light mode support both. The rest are dark only.
-
-## Paid, $2.50 each
-
-| Pack | What it is |
-|---|---|
-| **Terminal** | Green-phosphor CRT: bitmap type, dither grain, glowing hovers |
-| **Dither** | 1-bit print-press halftone, screened over pure black |
-| **Kawaii** | Midnight candy: pastel pink on a plum sky, chubby type |
-
-## The Themes Pass, $12.50
-
-Unlocks all three paid packs plus **Supporter**, a Pass-exclusive theme that
-isn't sold separately: Classic with a living rainbow aura, and a heart on its
-card.
-
-## Try before you buy
-
-Paid packs can be **previewed live**, in full, for as long as you like. What a
-licence changes is whether the choice *sticks*. An unlicensed premium pack
-reverts on restart rather than being locked away behind a screenshot.
-
-## Your key
-
-There's no account and no login. Your key arrives by email the moment you buy,
-so check your inbox and your spam folder. Enter it under **Settings →
+BlammyTV has one look, and you set its colours under **Settings →
 Appearance**.
 
-One key activates on up to **3 devices**.
+## What you can change
 
-## How the licence works
+- **Accent:** the default, seven colours, or your own. It paints buttons,
+  toggles and highlights. The default follows light and dark.
+- **Appearance:** Dark, Light, or Match Windows, which follows Windows as
+  you change it.
+- **Clock Format:** 12- or 24-hour.
 
-It involves a server, so here's what it does:
+Reset Appearance, at the bottom of the page, puts all of it back.
 
-- **The theme CSS is bundled in the app**, not downloaded. A dead network, or
-  a dead licence server, can never blank a theme you own or leave you staring
-  at an unstyled app. The licence only decides whether a paid pack may
-  persist.
-- **Activation is anonymous.** The identifier sent with your key is a random
-  UUID generated on your machine, not a hardware fingerprint. It exists so a
-  key can count its own activations, and it identifies nothing about you or
-  your computer.
+## Theme packs
 
-## Other appearance settings
-
-- **Accent colour**, presets, independent of the theme pack
-- **Corner style**, the squircle profile the interface uses
-- **Clock format**, 12- or 24-hour
-
-All under **Settings → Appearance**, all changeable any time.
+Not right now. The old packs are gone, and themes come back after 1.0 with
+new looks. Nothing is for sale, and there's no key to enter.
