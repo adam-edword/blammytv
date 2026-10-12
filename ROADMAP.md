@@ -40,6 +40,7 @@ v0.9.78. "Where we are" refreshed 2026-09-28.
 | **MAL** (M4) | Built, v0.10.39 to v0.10.44, `plans/021-mal.md`: sign-in in the browser, finished anime episodes and films counted on MAL, MAL's counts ticking episodes here. Waiting on Adam to register the MAL app and put its client id in `.env.local`. Ships in the same installer release as Trakt. |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
 | **Themes** | Parked. They return after 1.0 with new looks (decision 1), and since v0.10.60 every colour a pack would change is a token. |
+| **Apple** | Parked 2026-10-12, [plan 026](plans/026-apple.md): a Mac build of this app on libmpv, and a live-first native Swift app for Apple TV, iPhone and iPad. Nothing built. |
 
 The Guide going black on a folder ("Maximum update depth", Adam,
 2026-09-27) was found and fixed in v0.10.50: a channel listed under two

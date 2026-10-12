@@ -44,6 +44,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [023](023-aiostreams-jellyfin.md) | AIOStreams' Jellyfin side: sync what you watch with AIOStreams' own watch state, skip intros and credits for every film and show, Next Up and Upcoming rows | MEDIUM | BUILT (2026-10-04): v0.11.13, 595c29a1 (native), v0.11.14; not yet run against a real AIOStreams |
 | [024](024-aiostreams-sign-in.md) | AIOStreams by sign-in: the instance's address and a code instead of a pasted manifest URL, with Stream's catalogs, details, sources and playback over the Jellyfin side | MEDIUM | BUILT (2026-10-04): v0.11.16 to v0.11.18, sign-in, Stream over it, the sign-in screens and onboarding; not yet run against a real AIOStreams |
 | [025](025-settings.md) | Settings, replanned: five pages filed by question (Sources, Playback, Appearance, Accounts, App), the palette finding any setting, and what to add from the Telly and AIOStreams comparisons | MEDIUM | P1 to P3 BUILT (v0.11.26 to v0.11.29): the five pages; Ctrl+K finds any setting; Up Next, Skipping, Audio Channels, Subtitle Size, the subtitle delay, the pop-out's size and corner. P4 (App additions) next. Every recommendation taken, Discord presence dropped |
+| [026](026-apple.md) | Apple: the Mac app as this app on libmpv (render API, not `--wid`), no whole-app Swift rewrite, and a native Swift live TV app for Apple TV, iPhone and iPad with movies and shows left to Strand | LOW | PARKED (2026-10-12, Adam: "We can park it for now"); nothing built |
 
 ## 001 to 007: execution order & dependencies
 
