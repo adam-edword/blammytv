@@ -216,6 +216,18 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["update", "version", "check for updates", "upgrade", "install"],
   },
   {
+    id: "shortcuts",
+    label: "Keyboard Shortcuts",
+    page: "app",
+    keywords: ["shortcuts", "keyboard", "keys", "key", "hotkeys", "bindings", "controls"],
+  },
+  {
+    id: "about",
+    label: "About",
+    page: "app",
+    keywords: ["version", "build", "mpv", "ffmpeg", "vulkan", "info", "help"],
+  },
+  {
     id: "replay-onboarding",
     label: "Replay Onboarding",
     page: "app",

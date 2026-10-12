@@ -99,6 +99,23 @@ describe("findSettings", () => {
     }
   });
 
+  it("finds the keyboard list and About by what a person would type (P4a)", () => {
+    expect(ids("shortcuts")[0]).toBe("shortcuts");
+    for (const q of ["keyboard", "keys", "hotkeys", "bindings"]) expect(ids(q), q).toContain("shortcuts");
+    expect(ids("about")[0]).toBe("about");
+    for (const q of ["mpv", "ffmpeg", "vulkan", "build"]) expect(ids(q), q).toContain("about");
+    // "version" is a keyword on both, so the registry's order decides:
+    // Updates, then About.
+    expect(ids("version").slice(0, 2)).toEqual(["updates", "about"]);
+    expect(settingById("shortcuts")?.page).toBe("app");
+    expect(settingById("about")?.page).toBe("app");
+    // The same page as the update row, between it and Replay Onboarding.
+    const order = SETTINGS_INDEX.map((r) => r.id);
+    expect(order.indexOf("updates")).toBeLessThan(order.indexOf("shortcuts"));
+    expect(order.indexOf("shortcuts")).toBeLessThan(order.indexOf("about"));
+    expect(order.indexOf("about")).toBeLessThan(order.indexOf("replay-onboarding"));
+  });
+
   it("finds a label by its own words", () => {
     expect(ids("row size")[0]).toBe("row-size");
     expect(ids("channel numbers")[0]).toBe("channel-numbers");

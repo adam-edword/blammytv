@@ -4,6 +4,7 @@
 // Two instances: the in-app PLAYER (rendered into a `--wid` child window,
 // see inv.rs) and the POPOUT PiP (mpv's own floating window).
 
+use crate::about;
 use crate::mpvopen;
 use crate::mpvprefs;
 use crate::mpvvulkan;
@@ -90,7 +91,8 @@ fn load_libmpv() -> Result<Library, String> {
 ///
 /// Once per process: lib() runs again after a failed load, and a second
 /// success would be a second reference for nothing. What was chosen is in the
-/// log, for a user's report. The order is mpvvulkan.rs's, where it is tested.
+/// log, for a user's report, and in `VULKAN` for Settings → App → About. The
+/// order is mpvvulkan.rs's, where it is tested.
 fn keep_vulkan_loader() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {
@@ -118,6 +120,7 @@ fn keep_vulkan_loader() {
         match found {
             Some((from, library)) => {
                 std::mem::forget(library);
+                let _ = VULKAN.set(from.label());
                 match from {
                     mpvvulkan::Loader::System => println!("[vulkan] Windows' own loader"),
                     mpvvulkan::Loader::Bundled(path) => {
@@ -125,9 +128,23 @@ fn keep_vulkan_loader() {
                     }
                 }
             }
-            None => println!("[vulkan] no loader found; libmpv will say if it needed one"),
+            None => {
+                let _ = VULKAN.set(mpvvulkan::NONE_FOUND);
+                println!("[vulkan] no loader found; libmpv will say if it needed one")
+            }
         }
     });
+}
+
+/// Which loader `keep_vulkan_loader` settled on, as About words it. Set once,
+/// inside its Once; unset until libmpv has been asked for (and on a platform
+/// that does not look). Never a path.
+static VULKAN: OnceLock<&'static str> = OnceLock::new();
+
+/// What About says of the Vulkan loader: Windows' own, BlammyTV's, none found,
+/// or that libmpv has not been loaded so nothing has been chosen yet.
+pub fn vulkan_loader() -> &'static str {
+    VULKAN.get().copied().unwrap_or(mpvvulkan::NOT_LOADED_YET)
 }
 
 fn lib() -> Result<&'static Lib, String> {
@@ -1272,6 +1289,80 @@ pub fn get_property(name: &str) -> Option<String> {
         } else {
             Some(s)
         }
+    }
+}
+
+/// mpv's own version and the FFmpeg inside it, for Settings → App → About:
+/// `(mpv, ffmpeg)`, each cut down to a version by `about::version_text`, and
+/// None for one that mpv would not say.
+///
+/// From the in-app player when it exists, which has both. When it does not
+/// (nothing has played yet this run) from a throwaway handle that is created,
+/// initialized with no window and nothing loaded, read and destroyed at once.
+/// NEVER by making the persistent player: `ensure_player` binds a `wid` for
+/// the life of the process, and About has no window to give it.
+///
+/// Kept after the first answer, because neither changes while the app runs:
+/// opening the App page again asks nothing of mpv. A run that got neither is
+/// not kept, so the next open tries again.
+pub fn versions() -> (Option<String>, Option<String>) {
+    static KEPT: OnceLock<(Option<String>, Option<String>)> = OnceLock::new();
+    if let Some(v) = KEPT.get() {
+        return v.clone();
+    }
+    let mut raw = (get_property("mpv-version"), get_property("ffmpeg-version"));
+    if raw.0.is_none() && raw.1.is_none() {
+        raw = read_without_player();
+    }
+    let got = (
+        raw.0.as_deref().and_then(about::version_text),
+        raw.1.as_deref().and_then(about::version_text),
+    );
+    if got.0.is_some() || got.1.is_some() {
+        let _ = KEPT.set(got.clone());
+    }
+    got
+}
+
+/// `versions`' raw strings from a handle of its own. No `wid` and no window:
+/// `vo` and `ao` are null so that nothing can open a picture or a sound device
+/// even if something asked, and `load-scripts` is off so that no Lua starts for
+/// a handle that lives for a few milliseconds. Nothing is loaded into it.
+/// Destroyed before this returns, which with nothing playing does not wait on
+/// a demuxer or a network thread.
+fn read_without_player() -> (Option<String>, Option<String>) {
+    let Ok(l) = lib() else {
+        return (None, None);
+    };
+    unsafe {
+        let h = (l.create)();
+        if h.is_null() {
+            return (None, None);
+        }
+        let set = |k: &str, v: &str| {
+            let (ck, cv) = (CString::new(k).unwrap(), CString::new(v).unwrap());
+            (l.set_option_string)(h, ck.as_ptr(), cv.as_ptr());
+        };
+        set("vo", "null");
+        set("ao", "null");
+        set("load-scripts", "no");
+        if (l.initialize)(h) < 0 {
+            (l.terminate_destroy)(h);
+            return (None, None);
+        }
+        let read = |name: &str| -> Option<String> {
+            let cname = CString::new(name).ok()?;
+            let ptr = (l.get_property_string)(h, cname.as_ptr());
+            if ptr.is_null() {
+                return None;
+            }
+            let s = std::ffi::CStr::from_ptr(ptr).to_string_lossy().into_owned();
+            (l.free)(ptr as *mut c_void);
+            Some(s)
+        };
+        let got = (read("mpv-version"), read("ffmpeg-version"));
+        (l.terminate_destroy)(h);
+        got
     }
 }
 

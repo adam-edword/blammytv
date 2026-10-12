@@ -3,14 +3,16 @@ import { Button } from "../../components/ui/button";
 import { APP_VERSION } from "../../lib/version";
 import {
   isTauri,
-  tauriCheckUpdate,
+  tauriCheckUpdateInfo,
   tauriFrontendApply,
   tauriFrontendCheck,
   tauriFrontendStatus,
   tauriInstallUpdate,
 } from "../../lib/tauri";
 import { isPlaying } from "../../lib/playingNow";
+import { EYEBROW } from "../../ui/eyebrow";
 import { Hint } from "../../ui/Hint";
+import { noteLines } from "./updateNotes";
 
 /**
  * Settings → App, Updates: the manual sibling of the header's UpdateChip. Shows
@@ -23,7 +25,7 @@ type Phase =
   | { at: "idle" }
   | { at: "checking" }
   | { at: "current" }
-  | { at: "found"; version: string }
+  | { at: "found"; version: string; notes: string }
   | { at: "installing"; version: string }
   | { at: "error"; message: string };
 
@@ -34,10 +36,16 @@ export function UpdatesSection() {
   // that alone is the bulk of the win — so the button is an accelerator,
   // not a requirement.
   const [pending, setPending] = useState("");
+  // The notes that came with it, display text (plan 025, P4a). A native build
+  // from before they existed sends none.
+  const [pendingNotes, setPendingNotes] = useState("");
   useEffect(() => {
     if (isTauri())
       void tauriFrontendStatus()
-        .then((s) => setPending(s.pending))
+        .then((s) => {
+          setPending(s.pending);
+          setPendingNotes(s.pendingNotes ?? "");
+        })
         .catch(() => {});
   }, []);
   // "You're up to date" fades back to the plain button after a beat.
@@ -58,11 +66,16 @@ export function UpdatesSection() {
     void tauriFrontendCheck()
       .catch(() => "")
       .then(() => tauriFrontendStatus())
-      .then((s) => setPending(s.pending))
+      .then((s) => {
+        setPending(s.pending);
+        setPendingNotes(s.pendingNotes ?? "");
+      })
       .catch(() => {});
-    tauriCheckUpdate().then(
-      (version) => {
-        if (version) setPhase({ at: "found", version });
+    // With the release's notes, from a native that has them; without, from
+    // one that doesn't (tauriCheckUpdateInfo).
+    tauriCheckUpdateInfo().then(
+      (info) => {
+        if (info) setPhase({ at: "found", version: info.version, notes: info.notes });
         else {
           setPhase({ at: "current" });
           window.clearTimeout(revertTimer.current);
@@ -91,6 +104,11 @@ export function UpdatesSection() {
     );
   };
 
+  // Whose notes: the version the line above names. An installer found beats a
+  // waiting bundle here as everywhere on this row, so its notes do too. They
+  // are TEXT from an unsigned file: a React text child, never HTML.
+  const notes = noteLines(phase.at === "found" ? phase.notes : pending ? pendingNotes : "");
+
   // A row, not a section with its own 32px heading: it sits inside
   // the App page's group, whose heading already does that job.
   return (
@@ -108,6 +126,12 @@ export function UpdatesSection() {
                 ? `Update check hit a snag: ${phase.message}`
                 : "Updates install themselves with one click and keep your playlists."}
         </p>
+        {notes.length > 0 && (
+          <div className="update-notes">
+            <p className={`update-notes__title ${EYEBROW}`}>What&rsquo;s new</p>
+            <p className="update-notes__body">{notes.join("\n")}</p>
+          </div>
+        )}
       </div>
       {/* An installer found beats a waiting bundle (plan 016 F20): it
         * carries a frontend of its own, and a native update is the one a

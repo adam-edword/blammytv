@@ -53,6 +53,7 @@
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
+use crate::about;
 use tauri::utils::assets::{AssetKey, AssetsIter, CspHash};
 use tauri::{App, Assets, Runtime};
 
@@ -605,6 +606,24 @@ pub struct Manifest {
     pub native_version: String,
     pub url: String,
     pub signature: String,
+    /// What is new in this bundle, in a sentence or two, for Settings → App to
+    /// show (plan 025, P4a). DISPLAY TEXT ONLY: nothing reads it to decide
+    /// anything, `should_stage` never sees it, and it lives beside the bundle,
+    /// not in `active.json` (about.rs). Missing, null, or not a string all
+    /// read as none, so a release whose notes are the wrong shape still
+    /// stages; and an older native, which has no such field, ignores it
+    /// (this struct does not deny unknown fields).
+    #[serde(default, deserialize_with = "text_or_nothing")]
+    pub notes: String,
+}
+
+/// A string where the manifest has one, and "" for anything else.
+fn text_or_nothing<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+    use serde::Deserialize;
+    Ok(match serde_json::Value::deserialize(d)? {
+        serde_json::Value::String(s) => s,
+        _ => String::new(),
+    })
 }
 
 /// What the UI needs to describe the hot channel in one call.
@@ -614,6 +633,10 @@ pub struct Status {
     pub serving: String,
     /// Staged and waiting for the next launch. Empty = nothing pending.
     pub pending: String,
+    /// The notes that came with the pending bundle, for the update row to
+    /// show. Empty = none, or nothing pending. Display text only.
+    #[serde(rename = "pendingNotes")]
+    pub pending_notes: String,
 }
 
 #[tauri::command]
@@ -624,9 +647,18 @@ pub fn frontend_status() -> Status {
     }
     let serving = SERVING.get().cloned().unwrap_or_default();
     let Some(root) = root() else {
-        return Status { serving, pending: String::new() };
+        return Status {
+            serving,
+            ..Default::default()
+        };
     };
-    let active = read_active(&root);
+    status_in(&root, serving)
+}
+
+/// `frontend_status` for the record in `root`, with `serving` as what this run
+/// is on screen with. Its own function so a test can hand it a folder.
+fn status_in(root: &Path, serving: String) -> Status {
+    let active = read_active(root);
     // active.version is what the NEXT resolve() will serve. Different from
     // what this run is serving means something was staged since boot,
     // unless it is quarantined: a known-good version that failed twice is
@@ -638,7 +670,21 @@ pub fn frontend_status() -> Status {
     } else {
         String::new()
     };
-    Status { serving, pending }
+    // The notes ride along with the pending version and nothing else: read
+    // after the decision above, and never part of it.
+    // A version becomes part of a file name here, so only one `stage` would
+    // accept: `active.json` is a file on disk, and a hand-edited one could
+    // otherwise point the read anywhere.
+    let pending_notes = if pending.is_empty() || !valid_version(&pending) {
+        String::new()
+    } else {
+        about::read_notes(root, &pending)
+    };
+    Status {
+        serving,
+        pending,
+        pending_notes,
+    }
 }
 
 /// The hot channel's manifest URL and verification key, both derived from
@@ -783,6 +829,11 @@ pub async fn frontend_check(app: tauri::AppHandle) -> Result<String, String> {
     // stage() verifies the signature before it unpacks a byte, and refuses
     // a version that has already failed a boot.
     stage(&m.version, &native_version, &pubkey, &m.signature, &bytes)?;
+    // Only now that it is staged: the notes of a bundle that did not land are
+    // not kept, and a failure to keep them changes nothing about the bundle.
+    if let Some(r) = root() {
+        about::write_notes(&r, &m.version, &m.notes);
+    }
     Ok(m.version)
 }
 
@@ -955,6 +1006,7 @@ mod tests {
             native_version: native.into(),
             url: "https://example.test/f.tar.gz".into(),
             signature: "sig".into(),
+            notes: String::new(),
         }
     }
 
@@ -1050,6 +1102,120 @@ mod tests {
         for bad in ["", "latest.json", "https://host/", "no-slashes"] {
             assert!(manifest_url_from(bad).is_none(), "accepted {bad:?}");
         }
+    }
+
+    /// Plan 025, P4a: the manifest may carry `notes`, and a manifest from
+    /// before they existed still parses. The field is display text, so a
+    /// wrong shape reads as none and never costs the release its staging.
+    #[test]
+    fn a_manifest_parses_with_and_without_notes() {
+        let base = r#""version":"0.11.36","nativeVersion":"0.11.35","url":"https://e.test/f.tar.gz","signature":"s""#;
+        let parse = |extra: &str| -> Manifest {
+            serde_json::from_str(&format!("{{{base}{extra}}}")).unwrap()
+        };
+        assert_eq!(parse("").notes, "", "a manifest from before notes existed");
+        assert_eq!(parse(r##","notes":"# New\nA fix""##).notes, "# New\nA fix");
+        assert_eq!(parse(r#","notes":"""#).notes, "");
+        // Not a string: none, and the manifest is still a manifest.
+        for odd in ["null", "7", "true", r#"["a","b"]"#, r#"{"a":1}"#] {
+            let m = parse(&format!(r#","notes":{odd}"#));
+            assert_eq!(m.notes, "", "took {odd} as notes");
+            assert_eq!(m.version, "0.11.36", "lost the manifest to {odd}");
+        }
+        // A field this build has never heard of: ignored, as an older native
+        // ignores `notes`. Nothing denies unknown fields.
+        assert_eq!(parse(r#","future":{"x":1}"#).version, "0.11.36");
+    }
+
+    /// The notes are shown and never weighed: the same manifest with any notes
+    /// at all is staged or refused exactly as it was without them.
+    #[test]
+    fn notes_never_touch_the_gate() {
+        let long = "long ".repeat(5000);
+        for notes in ["", "A fix", long.as_str()] {
+            let with = |version: &str, native: &str| Manifest {
+                notes: notes.to_string(),
+                ..manifest(version, native)
+            };
+            // Native 0.8.0 throughout: serving, pending, quarantined.
+            let stages = |m: Manifest, serving: &str, pending: &str, quarantined: bool| {
+                should_stage(&m, "0.8.0", serving, pending, quarantined)
+            };
+            assert!(stages(with("0.8.1", "0.8.0"), "", "", false));
+            assert!(!stages(with("0.9.0", "0.9.0"), "", "", false));
+            assert!(!stages(with("0.8.1", "0.8.0"), "0.8.1", "", false));
+            assert!(!stages(with("0.8.1", "0.8.0"), "", "", true));
+        }
+    }
+
+    /// The status carries the pending bundle's notes, and only its: none
+    /// pending (or only a quarantined version) has none, a version the notes
+    /// were not kept for has none, and the key the page reads is camelCase.
+    #[test]
+    fn the_status_carries_the_pending_bundles_notes() {
+        let root = tmpdir("status-notes");
+        let record = |version: &str, quarantined: &[&str]| {
+            write_active(
+                &root,
+                &Active {
+                    version: version.into(),
+                    previous: "0.11.30".into(),
+                    quarantined: quarantined.iter().map(|q| q.to_string()).collect(),
+                    native: "0.11.35".into(),
+                    strikes: 0,
+                },
+            )
+        };
+        about::write_notes(&root, "0.11.36", "# New\nA fix");
+
+        record("0.11.36", &[]);
+        let s = status_in(&root, "0.11.30".into());
+        assert_eq!(s.pending, "0.11.36");
+        assert_eq!(s.pending_notes, "# New\nA fix");
+        let json = serde_json::to_value(&s).unwrap();
+        assert_eq!(json["pendingNotes"], "# New\nA fix");
+        assert_eq!(json["pending"], "0.11.36");
+        assert!(
+            json.get("pending_notes").is_none(),
+            "the page reads camelCase"
+        );
+
+        // Nothing pending: what is staged is what is serving. Notes are not
+        // reported for a bundle that is already on screen.
+        let s = status_in(&root, "0.11.36".into());
+        assert_eq!((s.pending.as_str(), s.pending_notes.as_str()), ("", ""));
+
+        // A quarantined version is not pending, so neither are its notes.
+        record("0.11.36", &["0.11.36"]);
+        let s = status_in(&root, "0.11.30".into());
+        assert_eq!((s.pending.as_str(), s.pending_notes.as_str()), ("", ""));
+
+        // Pending, with no notes kept for it.
+        record("0.11.37", &[]);
+        let s = status_in(&root, "0.11.30".into());
+        assert_eq!(
+            (s.pending.as_str(), s.pending_notes.as_str()),
+            ("0.11.37", "")
+        );
+
+        // A record edited by hand to a version no `stage` would take: its
+        // notes are not looked for, wherever the name would lead. This one
+        // walks back out of a folder to 0.11.36's notes, which are there.
+        std::fs::create_dir_all(root.join(".notes-x")).unwrap();
+        record("x/../.notes-0.11.36", &[]);
+        let s = status_in(&root, "0.11.30".into());
+        assert_eq!(s.pending, "x/../.notes-0.11.36");
+        assert_eq!(s.pending_notes, "", "read notes through a path in the version");
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// The notes sit in the bundles' folder as `.notes-<version>`. A version
+    /// string becomes a directory name there, and none may be able to take
+    /// that file's name: `valid_version` refuses an empty part.
+    #[test]
+    fn no_version_can_be_a_notes_file() {
+        assert!(!valid_version(".notes-0.11.36"));
+        assert!(valid_version("0.11.36"));
     }
 
     /// A dev run must leave the installed app's channel exactly as it found

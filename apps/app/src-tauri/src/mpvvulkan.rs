@@ -32,6 +32,24 @@ pub enum Loader {
     Bundled(PathBuf),
 }
 
+impl Loader {
+    /// What Settings → App → About calls it. Never the path: "BlammyTV's" is
+    /// all a person needs to know, and the path has their user name in it.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Loader::System => "Windows' own",
+            Loader::Bundled(_) => "BlammyTV's",
+        }
+    }
+}
+
+/// About's word when the search came up empty (`first_loaded` was None): not
+/// an error by itself, as libmpv may not have needed one.
+pub const NONE_FOUND: &str = "None found";
+/// About's word before libmpv has been asked for at all, so the search has not
+/// been made.
+pub const NOT_LOADED_YET: &str = "Not loaded yet";
+
 /// Where the installer puts ours, in the order they are tried: beside the exe,
 /// then in a bundled `resources/` folder. The same two places `load_libmpv`
 /// looks for libmpv, so wherever the bundler drops the one it drops the other.
@@ -145,6 +163,20 @@ mod tests {
         let (picked, asked) = run(None, &[Loader::System]);
         assert_eq!(picked, Some(Loader::System));
         assert_eq!(asked, vec![Loader::System]);
+    }
+
+    #[test]
+    fn about_says_which_loader_without_saying_where() {
+        assert_eq!(Loader::System.label(), "Windows' own");
+        assert_eq!(vulkan().label(), "BlammyTV's");
+        assert_eq!(resources().label(), "BlammyTV's");
+        // The path is a user's folder, and has no business on the page: two
+        // different ones say the same word.
+        let elsewhere =
+            Loader::Bundled(PathBuf::from("C:\\Users\\someone\\BlammyTV\\vulkan-1.dll"));
+        assert_eq!(elsewhere.label(), vulkan().label());
+        assert_eq!(NONE_FOUND, "None found");
+        assert_eq!(NOT_LOADED_YET, "Not loaded yet");
     }
 
     #[test]

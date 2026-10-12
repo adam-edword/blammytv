@@ -1,3 +1,4 @@
+mod about;
 mod aiojf;
 mod frontend;
 mod mal;
@@ -1360,6 +1361,67 @@ async fn check_update(app: tauri::AppHandle) -> Result<Option<String>, String> {
     }
 }
 
+/// An update that is waiting, with the words its release put on it.
+#[derive(serde::Serialize)]
+struct UpdateInfo {
+    version: String,
+    /// `latest.json`'s `notes`, cleaned (about.rs) and empty when there are
+    /// none. Display text: the page draws it as text, never as HTML.
+    notes: String,
+}
+
+// `check_update` with the release's notes (plan 025, P4a): Settings → App →
+// Updates shows them under the version. Its own command and not a change to
+// `check_update`, which the header's chip and a frontend from before this call
+// both use as it is; a frontend that asks this one and finds an older native
+// without it falls back to that one.
+#[tauri::command]
+async fn check_update_info(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_updater::UpdaterExt;
+        let updater = app.updater().map_err(|e| e.to_string())?;
+        match updater.check().await {
+            Ok(Some(update)) => Ok(Some(UpdateInfo {
+                notes: about::clean_notes(update.body.as_deref().unwrap_or_default()),
+                version: update.version,
+            })),
+            Ok(None) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = app;
+        Ok(None)
+    }
+}
+
+/// What this install is made of, for Settings → App → About (about.rs). Every
+/// field is a version string and every one is optional: a field that can't be
+/// told is left out and the page doesn't draw that row. No path, URL or name
+/// goes into any of them.
+///
+/// mpv's two come from the in-app player when there is one, and from a handle
+/// of its own that is made and destroyed at once when there isn't (mpv.rs
+/// `versions`); never from the persistent player, which needs a window. The
+/// handle and the ffmpeg start are each slow enough to keep off the thread
+/// that runs the UI, and independent, so they are asked together.
+#[tauri::command]
+async fn about_versions() -> about::Versions {
+    let asked = tauri::async_runtime::spawn_blocking(mpv::versions);
+    let (asked, bundled) = futures_util::future::join(asked, mvconvert::version()).await;
+    let (player_mpv, player_ffmpeg) = asked.unwrap_or_default();
+    about::Versions {
+        native: Some(env!("CARGO_PKG_VERSION").to_string()),
+        mpv: player_mpv,
+        ffmpeg: player_ffmpeg,
+        bundled_ffmpeg: bundled,
+        // After mpv was asked, which loads libmpv and so settles the choice.
+        vulkan: Some(mpv::vulkan_loader().to_string()),
+    }
+}
+
 // Download + install the pending update, then relaunch into it. On success the
 // app restarts and this never returns.
 #[tauri::command]
@@ -1520,6 +1582,8 @@ pub fn run() {
             aiojf_sources,
             aiojf_disconnect,
             check_update,
+            check_update_info,
+            about_versions,
             install_update,
             frontend::frontend_ready,
             frontend::frontend_status,

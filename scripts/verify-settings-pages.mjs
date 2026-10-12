@@ -292,9 +292,16 @@ const closeSettings = async (page) => {
   await tab(page, "App").click();
   await page.locator(".customize-row", { hasText: "BlammyTV v" }).waitFor({ timeout: 10_000 });
   const app = await titles(page);
+  // Keyboard Shortcuts and About came between the update row and Replay
+  // Onboarding in v0.11.36 (plan 025, P4a); verify-settings-app is theirs.
   check(
-    "App: the update row, Replay Onboarding, and Clear All Login Info last",
-    app.length === 3 && /^BlammyTV v/.test(app[0]) && app[1] === "Replay Onboarding" && app[2] === "Clear All Login Info",
+    "App: the update row, Keyboard Shortcuts, About, Replay Onboarding, and Clear All Login Info last",
+    app.length === 5 &&
+      /^BlammyTV v/.test(app[0]) &&
+      app[1] === "Keyboard Shortcuts" &&
+      app[2] === "About" &&
+      app[3] === "Replay Onboarding" &&
+      app[4] === "Clear All Login Info",
     JSON.stringify(app),
   );
   await closeSettings(page);

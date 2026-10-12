@@ -539,6 +539,110 @@ input.rowcap__value--edit:focus-visible {
   width: 100%;
 }
 
+/* What's new, under the update row's line (UpdatesSection, plan 025 P4a): the
+ * release's notes, as text. `pre-line` keeps the notes' line breaks and
+ * nothing else of their layout; a long unbroken string wraps rather than
+ * widening the row. */
+.update-notes {
+  margin-top: 10px;
+  max-width: 52ch;
+}
+.update-notes__title {
+  margin: 0 0 4px;
+}
+.update-notes__body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* Keyboard Shortcuts' list, opened under its row (ShortcutsSection, plan 025
+ * P4a): a block per place the keys work, each line the keys on the left and
+ * what they do beside them. The keys cell has a width, so the "what" column
+ * lines up down the whole group; a card too narrow for both wraps the "what"
+ * under its keys instead of squeezing either. */
+.shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 38rem;
+}
+.shortcuts__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.shortcuts__title {
+  margin: 0;
+}
+.shortcuts__note {
+  margin: 0 0 2px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+.shortcuts__list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.shortcuts__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 16px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border-strong);
+}
+.shortcuts__keys {
+  flex: 0 0 11.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+}
+.shortcuts__what {
+  flex: 1 1 13rem;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+/* The joins between keys: "+" for held together, "or" for another way. */
+.shortcuts__plus,
+.shortcuts__or {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.shortcuts__or {
+  margin: 0 5px;
+}
+
+/* About's lines (AboutSection): the thing and its version, label dim. */
+.about {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 24px;
+  margin: 0;
+  width: 100%;
+  max-width: 38rem;
+}
+.about__row {
+  display: contents;
+}
+.about__row > dt {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.about__row > dd {
+  margin: 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
 /* A row the palette found (SettingsModal, plan 025 P2): lit for a moment,
  * then the glass again. The class is written to the DOM and lifted by a timer
  * as long as the fade, so no row's markup carries it. The halo is a shadow,

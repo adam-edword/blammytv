@@ -1,6 +1,6 @@
 # Plan 025: Settings, replanned
 
-**Status: P1 to P3 BUILT (v0.11.26 to v0.11.29), P4 (App additions) and P5 next.** Calls taken 2026-10-10. Adam: "go with all your
+**Status: P1 to P3 BUILT (v0.11.26 to v0.11.29); P4a (Keyboard Shortcuts, What's new, About) BUILT v0.11.36; P4b (the log, Copy Diagnostics), P4c (Export and Import) and P5 next.** Calls taken 2026-10-10. Adam: "go with all your
 recommendations on the settings calls. I don't care about rich presence
 though", so every call below is the recommended one, and D7 is never
 (Discord presence is off the list, not deferred). Asked for by Adam: "replan our settings and think about
@@ -155,3 +155,15 @@ Adam took every recommendation, and dropped Discord presence outright.
 - **D7. Discord presence:** never. Adam: "I don't care about rich presence."
 - **D8. Keyboard:** a list now, remapping later.
 - **D9. Per-playlist guide URL and User-Agent:** yes, under Advanced.
+
+Two more on 2026-10-12, put to Adam when P4 and P5 were briefed:
+
+- **D6, what a login is:** everything Clear All Login Info clears, so the
+  playlists and the AIOStreams manifest count. Export asks: a checkbox,
+  "Include playlists and AIOStreams (has your passwords in it)", off by
+  default. The Trakt, MAL and AIOStreams sign-ins never go in a file.
+- **D9, the guide URL fills the gaps:** the provider's guide wins wherever
+  it has programmes; the extra one fills only the lanes it left empty.
+  Decided here and not asked: a playlist's User-Agent goes on every request
+  to its servers, playback included, since a provider that checks it checks
+  the stream too.

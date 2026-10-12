@@ -267,10 +267,14 @@ export function tauriFrontendCheck(): Promise<string> {
   return invoke<string>("frontend_check");
 }
 
-/** What the hot channel is serving and what is waiting for next launch. */
+/** What the hot channel is serving and what is waiting for next launch.
+ * `pendingNotes` is the pending bundle's release notes, display text for
+ * Settings → App ("" for none). It is absent from a native build from before
+ * v0.11.36, which reads as none. */
 export function tauriFrontendStatus(): Promise<{
   serving: string;
   pending: string;
+  pendingNotes?: string;
 }> {
   return invoke("frontend_status");
 }
@@ -466,6 +470,50 @@ export function onPopoutClosed(cb: (pos?: number) => void): () => void {
  * build exists. Resolves with its version string, or null when current. */
 export function tauriCheckUpdate(): Promise<string | null> {
   return invoke("check_update");
+}
+
+/** An update that is waiting, with the words its release put on it. `notes`
+ * is display text from an unsigned file: show it as text, never as HTML. "" for
+ * none. */
+export interface UpdateInfo {
+  version: string;
+  notes: string;
+}
+
+/** `tauriCheckUpdate` with the release's notes (Settings → App → Updates).
+ *
+ * Asks `check_update_info`. A native build from before v0.11.36 has no such
+ * command and the call rejects, and so does a check that failed for real: the
+ * answer then is `check_update`'s, notes-less, and a real failure rejects from
+ * that one as it always did. An answer that isn't null or a version is taken
+ * as the same "this native can't say" and asks the old command too. The
+ * frontend ships apart from the native build, so both ends of this are live.
+ *
+ * `check_update` itself is unchanged: the header's chip uses it. */
+export async function tauriCheckUpdateInfo(): Promise<UpdateInfo | null> {
+  const got = await invoke<unknown>("check_update_info").catch(() => undefined);
+  if (got === null) return null;
+  if (got && typeof got === "object") {
+    const { version, notes } = got as { version?: unknown; notes?: unknown };
+    if (typeof version === "string" && version)
+      return { version, notes: typeof notes === "string" ? notes : "" };
+  }
+  const version = await tauriCheckUpdate();
+  return version ? { version, notes: "" } : null;
+}
+
+/** What this install is made of, for Settings → App → About: every field a
+ * version string and every one optional, left out when native could not tell.
+ * Never a path or a URL. Rejects on a native build from before v0.11.36. */
+export interface AboutVersions {
+  native?: string;
+  mpv?: string;
+  ffmpeg?: string;
+  bundledFfmpeg?: string;
+  vulkan?: string;
+}
+export function tauriAboutVersions(): Promise<AboutVersions> {
+  return invoke("about_versions");
 }
 
 /** Download + install the pending update, then relaunch into it. On

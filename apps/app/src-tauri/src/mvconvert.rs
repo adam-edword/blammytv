@@ -473,6 +473,39 @@ fn command(ffmpeg: &PathBuf) -> tokio::process::Command {
     cmd
 }
 
+/// The version of the ffmpeg multi-view converts with, for Settings → App →
+/// About: the first line of `ffmpeg -version`, read by `about::ffmpeg_version`.
+/// None when there is no ffmpeg beside the app, it does not run here, or its
+/// first line is not an ffmpeg's. Not the ffmpeg inside the player: that is
+/// mpv's own, and About asks mpv for it.
+///
+/// Asked of the file `locate` finds, the one a conversion would run, and never
+/// told a URL: the arguments are `-version` and nothing else. Kept after the
+/// first answer, as it cannot change while the app runs.
+pub async fn version() -> Option<String> {
+    static KEPT: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    if let Some(v) = KEPT.get() {
+        return Some(v.clone());
+    }
+    let ffmpeg = locate().ok()?;
+    let run = command(&ffmpeg)
+        .arg("-version")
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output();
+    let out = tokio::time::timeout(Duration::from_secs(5), run)
+        .await
+        .ok()?
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let got = crate::about::ffmpeg_version(text.lines().next()?)?;
+    let _ = KEPT.set(got.clone());
+    Some(got)
+}
+
 /// Whether ffmpeg runs these arguments to completion, within ten seconds.
 async fn works(ffmpeg: &PathBuf, args: &[&str]) -> bool {
     let run = command(ffmpeg)
@@ -1241,6 +1274,34 @@ mod tests {
             .expect("converted nothing into something")
         });
         assert!(!why.is_empty() && !why.contains("20 seconds"), "{why}");
+    }
+
+    #[test]
+    fn the_real_ffmpeg_says_a_version_and_only_a_version() {
+        // BLAMMYTV_FFMPEG on CI: the first line of its own -version, through
+        // the parser. Whatever build it is, the answer is one token with no
+        // separator in it, which is what About may show.
+        let got = block_on(version())
+            .expect("no ffmpeg, or its first line is not one: set BLAMMYTV_FFMPEG");
+        assert!(!got.is_empty() && got.len() <= 64, "{got}");
+        assert!(!got.contains(char::is_whitespace), "{got}");
+        assert!(!got.contains('/') && !got.contains('\\'), "{got}");
+        // And it is the version that ffmpeg printed, not something else of
+        // ours: the raw first line starts "ffmpeg version <this>".
+        let ffmpeg = locate().unwrap();
+        let out = std::process::Command::new(ffmpeg)
+            .arg("-version")
+            .output()
+            .unwrap();
+        let first = String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .next()
+            .unwrap()
+            .to_string();
+        assert!(
+            first.starts_with(&format!("ffmpeg version {got}")),
+            "{first} / {got}"
+        );
     }
 
     #[test]

@@ -302,6 +302,11 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
      }
    }
    ```
+   **`notes` shows in the app** (v0.11.36): Settings → App → Updates prints it
+   under the version while the update waits, so write it for the person
+   reading it. A sentence or two on what they will notice, no "Full Changelog"
+   link. It is drawn as plain text (a `#` heading loses its `#`, nothing is
+   clickable), and only the first six lines show.
 
 4. **Publish the GitHub Release** (GitHub → Releases → Draft a new release):
    - Tag: `v<version>` (e.g. `v0.2.0`).
@@ -384,9 +389,17 @@ the bundle anyway, but do not make the app prove it for you.
      "version": "<frontend version>",
      "nativeVersion": "<tauri.conf.json version, unchanged>",
      "url": "https://github.com/adam-edword/blammytv/releases/download/v<version>/frontend-<version>.tar.gz",
-     "signature": "<full contents of the .tar.gz.sig file>"
+     "signature": "<full contents of the .tar.gz.sig file>",
+     "notes": "What changed, in a sentence or two, for the person who reads it in Settings."
    }
    ```
+   **`notes` shows in the app** (v0.11.36), under "Version <x> is ready" in
+   Settings → App → Updates, exactly as `latest.json`'s does: written for
+   users, no "Full Changelog" link, plain text, six lines at most. It is
+   optional, and display only: nothing reads it to decide whether a bundle is
+   staged, and a `frontend.json` without it stages as before. `frontend.json`
+   is not signed, so the app draws it as text and nothing else. A native
+   release can put the same words in both files.
 
 5. **Publish the release with the bundle, the `.sig`, `frontend.json`, and
    a copy of the CURRENT native release's `latest.json`.** Don't write a

@@ -19,3 +19,5 @@ pub mod mpvprefs;
 pub mod mpvopen;
 #[path = "../../../apps/app/src-tauri/src/mpvvulkan.rs"]
 pub mod mpvvulkan;
+#[path = "../../../apps/app/src-tauri/src/about.rs"]
+pub mod about;
