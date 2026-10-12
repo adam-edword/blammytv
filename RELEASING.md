@@ -211,24 +211,36 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
 1 (version bump) and 3+ (publish) still apply.
 
 
-0. **Fetch the pinned libmpv and ffmpeg** (the installer ships
-   `apps/app/src-tauri/libmpv-2.dll` and `ffmpeg.exe` via
-   `tauri.windows.conf.json`; both are gitignored, so each release machine
+0. **Fetch the pinned libmpv, ffmpeg and Vulkan loader** (the installer
+   ships `apps/app/src-tauri/libmpv-2.dll`, `ffmpeg.exe` and
+   `vulkan/vulkan-1.dll` with its `VulkanRT-License.txt` via
+   `tauri.windows.conf.json`; all are gitignored, so each release machine
    fetches its own):
    ```powershell
    node scripts/fetch-libmpv.mjs   # needs 7-Zip; prints manual steps if not
    node scripts/fetch-ffmpeg.mjs   # multi-view's HEVC conversion (v0.9.112)
+   node scripts/fetch-vulkan.mjs   # the fallback for a PC with no Vulkan loader (v0.11.35)
    ```
-   Both take the build `scripts/deps.json` pins, from this repo's `deps-*`
-   release, and refuse a file whose SHA-256 doesn't match. CI tests the
-   same ffmpeg. For a newer mpv, run the "Mirror bundled binaries" workflow
-   first (Actions tab, or put a shinchiro tag or `latest` on the first line
-   of `scripts/deps-request.txt` and push): it copies that build here and
-   commits the new pins. `git pull` before fetching.
+   The first two take the build `scripts/deps.json` pins, from this repo's
+   `deps-*` release, and refuse a file whose SHA-256 doesn't match. CI tests
+   the same ffmpeg. The third is LunarG's Vulkan Runtime, a direct download
+   (not in the `deps-*` release) pinned there by url and SHA-256, and it
+   refuses the same way. For a newer mpv, run the "Mirror bundled binaries"
+   workflow first (Actions tab, or put a shinchiro tag or `latest` on the
+   first line of `scripts/deps-request.txt` and push): it copies that build
+   here and commits the new pins. `git pull` before fetching.
    The app degrades gracefully on older mpv builds (e.g. the settings-glass
    frost needs gpu-next; without it the card goes solid).
    Without ffmpeg.exe the build refuses to run; with an empty one, an HEVC
    tile says it couldn't convert.
+   **A dev machine needs `fetch-vulkan.mjs` run once before its next
+   `pnpm tauri dev`**: the build refuses to run without the two Vulkan files,
+   the way it does without libmpv. What they are for: libmpv imports
+   `vulkan-1.dll`, a PC with no Vulkan loader (some VMs, basic display
+   drivers) cannot start the player at all, and `mpv.rs` loads this copy
+   only when Windows has none of its own. With an empty file the player
+   starts as before on a PC that has a loader, and says "The player couldn't
+   start" on one that has none.
 
    **And the TMDB key.** REC (Discover's recommender) runs on the app's own
    TMDB key, which Vite bakes in from `VITE_TMDB_KEY` in

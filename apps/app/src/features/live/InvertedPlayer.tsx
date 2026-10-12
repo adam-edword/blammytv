@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   tauriInvOpen,
   tauriInvSetRect,
@@ -6,6 +6,7 @@ import {
   type CompRect,
 } from "../../lib/tauri";
 import { holeClip } from "./hole";
+import { playerFaultWhy, setPlayerFault } from "./playerFault";
 
 /* The geometry driver (descended from the old build's CompositionPreview).
  * mpv renders into a rect we push in PHYSICAL device pixels, so we measure
@@ -126,6 +127,9 @@ export function InvertedPlayer({
   // See [mpv-timing] in mpv.rs: this is the half that spans the probe.
   const openedAtRef = useRef(0);
   const framedRef = useRef(false);
+  // Bumped by the tune card's Retry when the player itself failed to open
+  // (playerFault.ts): the effect below runs again and asks native afresh.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!ready || framedRef.current || !openedAtRef.current) return;
     framedRef.current = true;
@@ -239,6 +243,7 @@ export function InvertedPlayer({
             // frame is actually presented. mpv opens the stream on its own
             // thread, so a large gap between the two is probe and network
             // rather than anything the app is doing.
+            const opening = !opened;
             const move = opened
               ? tauriInvSetRect(rect)
               : ((opened = true),
@@ -254,8 +259,16 @@ export function InvertedPlayer({
                 // property reads empty, so the seam cannot tell a local
                 // failure from a slow stream and the user is eventually
                 // told "it's the stream, not you" — the exact opposite of
-                // the truth. Surface it instead.
+                // the truth. Say it to the tune card at once (v0.11.35).
                 console.error("[inv] player open/move failed:", e);
+                // Only the OPEN is "the player couldn't start": a move that
+                // fails has a player. And not for a stream already left
+                // behind, whose card is gone.
+                if (opening && !disposed)
+                  setPlayerFault({
+                    why: playerFaultWhy(e),
+                    retry: () => setAttempt((n) => n + 1),
+                  });
               })
               .then(() => {
               if (disposed) return;
@@ -298,9 +311,12 @@ export function InvertedPlayer({
       window.clearTimeout(settleTimer);
       cancelAnimationFrame(raf);
       healHole();
+      // The report goes with the player it was about: a new url or a Retry
+      // opens a fresh one, and a closed player has no card to say it on.
+      setPlayerFault(null);
       void tauriInvStop().catch(() => {});
     };
-  }, [url]);
+  }, [url, attempt]);
 
   return null;
 }

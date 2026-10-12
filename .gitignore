@@ -30,6 +30,8 @@ dist-ssr/
 **/src-tauri/*.dll
 # ffmpeg for multi-view's HEVC conversion (scripts/fetch-ffmpeg.mjs)
 **/src-tauri/ffmpeg.exe
+# the fallback Vulkan loader and its licence (scripts/fetch-vulkan.mjs)
+**/src-tauri/vulkan/
 /libmpv-2.dll
 website/landing.html
 

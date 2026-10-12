@@ -46,6 +46,12 @@ import { useLogoInk } from "../../lib/logoInk";
 import { isModalOpen } from "../../lib/modalOpen";
 import { VodLoading } from "./VodLoading";
 import { openErrorLine } from "./openError";
+import {
+  PLAYER_FAULT_LINE,
+  currentPlayerFault,
+  onPlayerFault,
+  type PlayerFault,
+} from "./playerFault";
 import { Hint } from "../../ui/Hint";
 import { EYEBROW_ON_IMAGE } from "../../ui/eyebrow";
 import { StatsOverlay } from "./StatsOverlay";
@@ -610,6 +616,16 @@ export function TheaterOverlay({
   const VOD_STALL_MS = 40_000;
   const [tune, setTune] = useState<"waiting" | "retrying" | "dead">("waiting");
   const [tuneAttempt, setTuneAttempt] = useState(0); // manual Retry re-arms
+  // THE PLAYER ITSELF failed to open (playerFault.ts), told by InvertedPlayer
+  // the moment inv_open rejected: libmpv will not load, mpv will not start.
+  // Neither the stream nor its sources are at fault, so nothing that treats a
+  // stream that will not play applies. The watchdog below stands down (no
+  // reload, no verdict), which is also what keeps source failover and the
+  // link probe from ever running, and the card says so with `cardPhase` "dead".
+  // Retry opens the player again.
+  const [fault, setFault] = useState<PlayerFault | null>(currentPlayerFault);
+  useEffect(() => onPlayerFault(setFault), []);
+  const cardPhase = fault ? "dead" : tune;
   const retriesRef = useRef(0);
   // The host's declaration wins (meta can be late — a VOD misread as live
   // here would goLive()-reload it on the 10s window, burning debrid
@@ -656,6 +672,10 @@ export function TheaterOverlay({
       diag("presenting"); // healthy baseline for the comparisons below
       return;
     }
+    // No player, so nothing is waiting on a stream to open: a reload would
+    // have nothing to reload, and a "dead" verdict from here would be about a
+    // stream that was never tried. Back on, from zero, when the report goes.
+    if (fault) return;
     let id = 0;
     let after = 0;
     const arm = () => {
@@ -679,11 +699,11 @@ export function TheaterOverlay({
       window.clearTimeout(id);
       window.clearTimeout(after);
     };
-  }, [loading, tuneAttempt, vodSrc, playbackKey, diag, jumpLive]);
+  }, [loading, tuneAttempt, vodSrc, playbackKey, diag, jumpLive, fault]);
   // Tell the host's status poll, which slows down once the card is up.
   useEffect(() => {
-    api()?.setTuneDead?.(tune === "dead");
-  }, [tune]);
+    api()?.setTuneDead?.(cardPhase === "dead");
+  }, [cardPhase]);
   // A VOD the poll found idle after its load will never open (ending.ts: a
   // debrid 403, a dead link, an expired one that returns a page). Go straight
   // to the dead state the watchdog reaches at VOD_STALL_MS, so everything that
@@ -737,11 +757,18 @@ export function TheaterOverlay({
   }, [tune, vodProp]);
 
   const retryTune = useCallback(() => {
+    // The player never started, so there is no stream to reload: open the
+    // player again. InvertedPlayer takes the report back as it does, which
+    // puts the card back to loading until the answer.
+    if (fault) {
+      fault.retry();
+      return;
+    }
     retriesRef.current = 0;
     setTune("retrying");
     jumpLive();
     setTuneAttempt((n) => n + 1); // re-arms the watchdog chain
-  }, [jumpLive]);
+  }, [jumpLive, fault]);
 
   // Re-seed the favorite state whenever meta changes (open / channel switch).
   useEffect(() => {
@@ -1579,10 +1606,11 @@ export function TheaterOverlay({
         {loading && (
           <TuneCard
             meta={meta}
-            phase={tune}
+            phase={cardPhase}
             onRetry={retryTune}
             vod={vod}
-            why={deadWhy}
+            fault={fault !== null}
+            why={fault ? fault.why : deadWhy}
             compact
           />
         )}
@@ -1640,10 +1668,11 @@ export function TheaterOverlay({
       {loading && (
         <TuneCard
           meta={meta}
-          phase={tune}
+          phase={cardPhase}
           onRetry={retryTune}
           vod={vod}
-          why={deadWhy}
+          fault={fault !== null}
+          why={fault ? fault.why : deadWhy}
           opened={time != null}
         />
       )}
@@ -2339,14 +2368,21 @@ function TuneCard({
   compact = false,
   vod = false,
   opened = false,
+  fault = false,
   why = null,
 }: {
   meta: TheaterMeta | null;
   phase: "waiting" | "retrying" | "dead";
   onRetry: () => void;
   compact?: boolean;
-  /** VOD, dead: what the link answered, in words (openError.ts), under the
-   * first line. None when it made no claim or has not answered yet. */
+  /** Dead, because the PLAYER failed to open and not the stream (v0.11.35,
+   * playerFault.ts). The card says the player couldn't start, with `why` under
+   * it, Live and VOD alike, and offers only Retry: another source would meet
+   * the same player. */
+  fault?: boolean;
+  /** Under the first line. VOD, dead: what the link answered, in words
+   * (openError.ts). A fault: what native said, shortened. None when there is
+   * nothing to say or it has not answered yet. */
   why?: string | null;
   /** VOD: mpv has opened the file (a position and a duration are in), so
    * the loading bar reads Buffering rather than Opening. */
@@ -2391,11 +2427,13 @@ function TuneCard({
       {phase === "dead" ? (
         <div className="tune__dead" data-interactive>
           <p className="tune__dead-msg">
-            {vod
-              ? "This source isn\u2019t responding. It\u2019s the stream, not you."
-              : "This channel isn\u2019t responding. It\u2019s the stream, not you."}
+            {fault
+              ? PLAYER_FAULT_LINE
+              : vod
+                ? "This source isn\u2019t responding. It\u2019s the stream, not you."
+                : "This channel isn\u2019t responding. It\u2019s the stream, not you."}
           </p>
-          {vod && why && <p className="tune__dead-why">{why}</p>}
+          {(fault || vod) && why && <p className="tune__dead-why">{why}</p>}
           {/* Neither button bubbles: in the mini player a click anywhere
             * else expands it, and a retry should leave it where it is. */}
           <Button
@@ -2414,7 +2452,7 @@ function TuneCard({
             * not: the sports rail is exactly that. It used to be gated on
             * `vod` because the api's nextSource was always defined and so
             * could not be asked. */}
-          {api()?.nextSource && (
+          {!fault && api()?.nextSource && (
             <Button variant="outline" size="sm"
               type="button"
               className="tune__retry"

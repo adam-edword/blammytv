@@ -17,3 +17,5 @@ pub mod mvaudio;
 pub mod mpvprefs;
 #[path = "../../../apps/app/src-tauri/src/mpvopen.rs"]
 pub mod mpvopen;
+#[path = "../../../apps/app/src-tauri/src/mpvvulkan.rs"]
+pub mod mpvvulkan;

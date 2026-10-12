@@ -24,7 +24,7 @@
  * runtime panic, or anything about libmpv's actual behaviour.
  */
 import { execFileSync, execSync } from "node:child_process";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -61,10 +61,17 @@ if (!have("x86_64-w64-mingw32-gcc")) {
 }
 
 // build.rs refuses to run without the bundled resources, which are gitignored
-// and per-machine. Their CONTENTS are irrelevant to a type check.
-for (const name of ["libmpv-2.dll", "ffmpeg.exe"]) {
+// and per-machine. Their CONTENTS are irrelevant to a type check. The Vulkan
+// pair sits in a folder of its own (scripts/fetch-vulkan.mjs).
+for (const name of [
+  "libmpv-2.dll",
+  "ffmpeg.exe",
+  "vulkan/vulkan-1.dll",
+  "vulkan/VulkanRT-License.txt",
+]) {
   const file = join(crate, name);
   if (!existsSync(file)) {
+    mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, "");
     console.log(`created an empty ${name} placeholder (gitignored)`);
   }

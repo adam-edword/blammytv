@@ -6,6 +6,7 @@
 
 use crate::mpvopen;
 use crate::mpvprefs;
+use crate::mpvvulkan;
 use libloading::Library;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int, c_void};
@@ -75,10 +76,65 @@ fn load_libmpv() -> Result<Library, String> {
         .map_err(|e| format!("load libmpv-2.dll: {e} (also tried: {})", tried.join("; ")))
 }
 
+/// Give libmpv's import of `vulkan-1.dll` something to resolve to. libmpv
+/// cannot be loaded without it, and a Windows machine with no Vulkan loader
+/// (some VMs, a basic display driver) has none, so the player never started.
+///
+/// Windows' own loader, found by the normal search, is kept and nothing else
+/// is done: a driver's always wins. Only when there is none is ours, shipped
+/// in `vulkan/` (scripts/fetch-vulkan.mjs), loaded by its FULL path, because
+/// the subfolder is not on any search. Loaded under its own name, libmpv's
+/// import then finds it already there. Either is kept for the process, as
+/// libmpv is. If nothing loads (an empty placeholder), that is not an error
+/// here: load_libmpv fails next with its own message, which names libmpv.
+///
+/// Once per process: lib() runs again after a failed load, and a second
+/// success would be a second reference for nothing. What was chosen is in the
+/// log, for a user's report. The order is mpvvulkan.rs's, where it is tested.
+fn keep_vulkan_loader() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        if !cfg!(windows) {
+            return;
+        }
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|dir| dir.to_path_buf()));
+        let found = mpvvulkan::first_loaded(exe_dir.as_deref(), |from| {
+            let loaded = match from {
+                mpvvulkan::Loader::System => unsafe { Library::new(mpvvulkan::DLL) },
+                mpvvulkan::Loader::Bundled(path) => unsafe { Library::new(path) },
+            };
+            match loaded {
+                Ok(library) => Some(library),
+                Err(e) => {
+                    if let mpvvulkan::Loader::Bundled(path) = from {
+                        println!("[vulkan] {}: {e}", path.display());
+                    }
+                    None
+                }
+            }
+        });
+        match found {
+            Some((from, library)) => {
+                std::mem::forget(library);
+                match from {
+                    mpvvulkan::Loader::System => println!("[vulkan] Windows' own loader"),
+                    mpvvulkan::Loader::Bundled(path) => {
+                        println!("[vulkan] none on this PC, using ours: {}", path.display())
+                    }
+                }
+            }
+            None => println!("[vulkan] no loader found; libmpv will say if it needed one"),
+        }
+    });
+}
+
 fn lib() -> Result<&'static Lib, String> {
     if let Some(l) = LIB.get() {
         return Ok(l);
     }
+    keep_vulkan_loader();
     unsafe {
         let library: &'static Library = Box::leak(Box::new(load_libmpv()?));
         let sym = |name: &[u8]| -> Result<*const c_void, String> {

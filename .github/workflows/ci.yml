@@ -126,9 +126,14 @@ jobs:
       # tauri.windows.conf.json bundles libmpv-2.dll, and the build script
       # refuses to run without the file. Its contents don't matter here:
       # libmpv is only loaded at runtime (libloading), and no test loads it.
-      # Same placeholder check-rust.mjs writes.
-      - name: libmpv placeholder
-        run: touch apps/app/src-tauri/libmpv-2.dll
+      # Same placeholders check-rust.mjs writes. The Vulkan fallback loader
+      # and its licence (scripts/fetch-vulkan.mjs) are bundled the same way,
+      # from a folder of their own.
+      - name: libmpv and Vulkan placeholders
+        run: |
+          touch apps/app/src-tauri/libmpv-2.dll
+          mkdir -p apps/app/src-tauri/vulkan
+          touch apps/app/src-tauri/vulkan/vulkan-1.dll apps/app/src-tauri/vulkan/VulkanRT-License.txt
 
       # The real ffmpeg the app bundles, NOT a placeholder: mvconvert.rs's
       # tests convert HEVC with it. This runner has no GPU, so they run the
@@ -161,7 +166,7 @@ jobs:
         run: cargo test --locked
 
       # CLAUDE.md's baseline: 9 warnings, all the libmpv symbol transmutes
-      # at mpv.rs:91-105. Anything above that is new and fails the job.
+      # at mpv.rs:147-161. Anything above that is new and fails the job.
       # --color never: the toolchain step sets CARGO_TERM_COLOR=always, and
       # with colour codes in front of every "warning:" the grep matched
       # nothing and the gate read 0 on every run.

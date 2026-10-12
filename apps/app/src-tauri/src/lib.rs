@@ -5,6 +5,7 @@ mod mpv;
 mod mpvopen;
 mod mpvprefs;
 mod mpvurl;
+mod mpvvulkan;
 mod mvaudio;
 mod mvconvert;
 mod mvproxy;

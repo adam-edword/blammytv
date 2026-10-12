@@ -168,6 +168,10 @@ if (exists) {
   );
 }
 
+// The Vulkan Runtime pin (fetch-vulkan.mjs) is not a shinchiro build and not
+// ours to re-pin here; this file is written whole, so it is carried across.
+const vulkan = loadPins()?.vulkan;
+if (vulkan) pins.vulkan = vulkan;
 writeFileSync(PINS, JSON.stringify(pins, null, 2) + "\n");
 if (requestLines.length)
   writeFileSync(REQUEST, [rel.tag_name, ...requestLines.slice(1)].join("\n"));

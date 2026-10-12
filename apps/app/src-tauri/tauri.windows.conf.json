@@ -1,6 +1,11 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "bundle": {
-    "resources": ["libmpv-2.dll", "ffmpeg.exe"]
+    "resources": [
+      "libmpv-2.dll",
+      "ffmpeg.exe",
+      "vulkan/vulkan-1.dll",
+      "vulkan/VulkanRT-License.txt"
+    ]
   }
 }
