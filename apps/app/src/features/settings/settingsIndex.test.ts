@@ -116,6 +116,20 @@ describe("findSettings", () => {
     expect(order.indexOf("about")).toBeLessThan(order.indexOf("replay-onboarding"));
   });
 
+  it("finds Copy Diagnostics by what a person would type (P4b)", () => {
+    expect(ids("copy diag")[0]).toBe("copy-diagnostics");
+    expect(ids("diagnostics")[0]).toBe("copy-diagnostics");
+    for (const q of ["log", "logs", "support", "debug", "bug", "report", "privacy", "analytics", "telemetry", "clipboard"])
+      expect(ids(q), q).toContain("copy-diagnostics");
+    expect(settingById("copy-diagnostics")?.page).toBe("app");
+    // On the page where it is drawn: after Replay Onboarding, and the one
+    // destructive row stays last.
+    const order = SETTINGS_INDEX.filter((r) => r.page === "app").map((r) => r.id);
+    expect(order.indexOf("replay-onboarding")).toBeLessThan(order.indexOf("copy-diagnostics"));
+    expect(order.at(-1)).toBe("clear-logins");
+    expect(order.indexOf("copy-diagnostics")).toBe(order.length - 2);
+  });
+
   it("finds a label by its own words", () => {
     expect(ids("row size")[0]).toBe("row-size");
     expect(ids("channel numbers")[0]).toBe("channel-numbers");

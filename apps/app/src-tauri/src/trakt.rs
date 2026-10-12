@@ -164,7 +164,7 @@ const EARLY: u64 = 300;
 /// user out. A failed write costs the session at the next launch, not now.
 fn keep(vault: &dyn Vault, slot: &mut Option<Tokens>, tokens: Tokens) {
     if let Err(e) = vault.save(&tokens) {
-        eprintln!("[trakt] could not save the session: {e}");
+        log::error!("[trakt] could not save the session: {e}");
     }
     *slot = Some(tokens);
 }

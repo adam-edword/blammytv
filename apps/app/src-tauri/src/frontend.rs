@@ -177,6 +177,32 @@ fn write_active(root: &Path, a: &Active) {
 /// staged-and-pending version from the one already on screen.
 static SERVING: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
+/// What `resolve()` had to say, kept for the log. It runs inside `context()`,
+/// which is evaluated before `.run()` builds the app, and so before the log
+/// plugin has set a logger: a line logged from there goes nowhere. These are
+/// the lines a support report most wants (a bundle that was rolled back), so
+/// they wait here and `replay_boot_log` writes them once the file is open.
+static BOOT_LINES: std::sync::Mutex<Vec<(log::Level, String)>> = std::sync::Mutex::new(Vec::new());
+
+/// Say something from `resolve()`, to be logged by `replay_boot_log`.
+fn say(level: log::Level, line: String) {
+    if let Ok(mut lines) = BOOT_LINES.lock() {
+        lines.push((level, line));
+    }
+}
+
+/// Write what `resolve()` said into the log, once: from lib.rs's setup, right
+/// after it has added the log plugin. A second call has nothing left to write.
+pub fn replay_boot_log() {
+    let lines = BOOT_LINES
+        .lock()
+        .map(|mut lines| std::mem::take(&mut *lines))
+        .unwrap_or_default();
+    for (level, line) in lines {
+        log::log!(level, "{line}");
+    }
+}
+
 /// Decide what to serve for THIS run, applying the failsafe.
 ///
 /// Returns the directory to serve from, or `None` for the embedded assets.
@@ -199,9 +225,9 @@ pub fn resolve() -> Option<PathBuf> {
     if sentinel.exists() {
         let failed = active.version.clone();
         if after_unreported_boot(&mut active) {
-            eprintln!("[frontend] {failed} did not finish booting; rolling back");
+            say(log::Level::Warn, format!("[frontend] {failed} did not finish booting; rolling back"));
         } else {
-            eprintln!("[frontend] {failed} did not finish booting once; trying it again");
+            say(log::Level::Warn, format!("[frontend] {failed} did not finish booting once; trying it again"));
         }
         let _ = std::fs::remove_file(&sentinel);
         write_active(&root, &active);
@@ -210,7 +236,7 @@ pub fn resolve() -> Option<PathBuf> {
     // A record edited by hand, or written before N2, is checked again here:
     // its version is about to become a path.
     if !active.version.is_empty() && !valid_version(&active.version) {
-        eprintln!("[frontend] ignoring an unreasonable staged version");
+        say(log::Level::Warn, "[frontend] ignoring an unreasonable staged version".to_string());
         active.version.clear();
         write_active(&root, &active);
     }
@@ -222,11 +248,14 @@ pub fn resolve() -> Option<PathBuf> {
     // check stages a bundle for THIS native version. Quarantine goes with
     // it: those failures belonged to a pairing that no longer exists.
     if !active.version.is_empty() && active.native != env!("CARGO_PKG_VERSION") {
-        eprintln!(
-            "[frontend] {} was built for native {}, now on {}; using embedded",
-            active.version,
-            if active.native.is_empty() { "?" } else { &active.native },
-            env!("CARGO_PKG_VERSION")
+        say(
+            log::Level::Warn,
+            format!(
+                "[frontend] {} was built for native {}, now on {}; using embedded",
+                active.version,
+                if active.native.is_empty() { "?" } else { &active.native },
+                env!("CARGO_PKG_VERSION")
+            ),
         );
         active = Active::default();
         write_active(&root, &active);
@@ -240,7 +269,10 @@ pub fn resolve() -> Option<PathBuf> {
     if !dir.join("index.html").is_file() {
         // Staged directory vanished or was never complete: forget it rather
         // than serving a half-frontend.
-        eprintln!("[frontend] {} is missing index.html; using embedded", active.version);
+        say(
+            log::Level::Warn,
+            format!("[frontend] {} is missing index.html; using embedded", active.version),
+        );
         active.version.clear();
         write_active(&root, &active);
         let _ = SERVING.set(String::new());
@@ -260,11 +292,17 @@ pub fn resolve() -> Option<PathBuf> {
         .and_then(|_| std::fs::write(&sentinel, active.version.as_bytes()))
         .is_err()
     {
-        eprintln!("[frontend] cannot arm the boot sentinel; serving embedded");
+        say(
+            log::Level::Warn,
+            "[frontend] cannot arm the boot sentinel; serving embedded".to_string(),
+        );
         let _ = SERVING.set(String::new());
         return None;
     }
-    eprintln!("[frontend] serving staged {}", active.version);
+    say(
+        log::Level::Info,
+        format!("[frontend] serving staged {}", active.version),
+    );
     let _ = SERVING.set(active.version.clone());
     Some(dir)
 }

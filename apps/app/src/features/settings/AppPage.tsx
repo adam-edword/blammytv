@@ -4,6 +4,7 @@ import { EYEBROW } from "../../ui/eyebrow";
 import { UpdatesSection } from "./UpdatesSection";
 import { ShortcutsSection } from "./ShortcutsSection";
 import { AboutSection } from "./AboutSection";
+import { DiagnosticsSection } from "./DiagnosticsSection";
 import { signOutOfAio } from "../aiojf/account";
 import { signOutOfMal } from "../mal/account";
 import { signOutOfTrakt } from "../trakt/account";
@@ -14,9 +15,9 @@ import { requestOnboardingReplay } from "../../app/onboardingGate";
 import { ConfirmButton } from "./ConfirmButton";
 
 /**
- * App: the app itself. Updates (with What's new), Keyboard Shortcuts, About,
- * Replay Onboarding, and the one destructive action left in Settings, last on
- * the page.
+ * App: the app itself. Updates (with What's new), Keyboard Shortcuts, About and
+ * Replay Onboarding; then Privacy and data, which is Copy Diagnostics (plan
+ * 025, P4b) and the one destructive action left in Settings, last on the page.
  *
  * Clear All Login Info was in a red "Danger Zone" box at the foot of General,
  * and Reset Appearance in another at the foot of Customize. The pages took
@@ -67,6 +68,11 @@ export function AppPage() {
             Replay
           </Button>
         </div>
+      </section>
+
+      <h3 className={`settings__group ${EYEBROW}`}>Privacy and data</h3>
+      <section className="settings-section">
+        <DiagnosticsSection />
       </section>
 
       <section className="settings-section">

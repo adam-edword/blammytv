@@ -206,14 +206,14 @@ fn start() -> Result<Proxy, String> {
             {
                 Ok(rt) => rt,
                 Err(e) => {
-                    eprintln!("[mvproxy] no runtime: {e}");
+                    log::error!("[mvproxy] no runtime: {e}");
                     return;
                 }
             };
             rt.block_on(serve(listener, port));
         })
         .map_err(|e| e.to_string())?;
-    println!("[mvproxy] listening on 127.0.0.1:{port}");
+    log::info!("[mvproxy] listening on 127.0.0.1:{port}");
     Ok(Proxy {
         port,
         routes: Mutex::new(HashMap::new()),
@@ -224,7 +224,7 @@ async fn serve(listener: std::net::TcpListener, port: u16) {
     let listener = match tokio::net::TcpListener::from_std(listener) {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("[mvproxy] listener: {e}");
+            log::error!("[mvproxy] listener: {e}");
             return;
         }
     };
@@ -550,7 +550,7 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
         Err(f) => return Ok(failed(&url, &f)),
     };
     let status = res.status();
-    println!(
+    log::info!(
         "[mvproxy] {}: {}",
         route_of(&url, res.url()),
         status.as_u16()
@@ -623,7 +623,7 @@ fn failed(url: &str, f: &Failed) -> Response<Body> {
     } else {
         format!("{} ({route}): {cause}", f.kind)
     };
-    println!("[mvproxy] {why}");
+    log::warn!("[mvproxy] {why}");
     bad_gateway(&why)
 }
 
@@ -662,7 +662,7 @@ async fn hls(
     };
     let status = res.status();
     if !is_child || !status.is_success() {
-        println!(
+        log::info!(
             "[mvproxy] hls {}: {}",
             route_of(url, res.url()),
             status.as_u16()
@@ -932,7 +932,7 @@ async fn convert(
     };
     match converted {
         Ok((encoder, body)) => {
-            println!(
+            log::info!(
                 "[mvproxy] HEVC -> H.264 on {encoder}, first bytes after {}ms",
                 started.elapsed().as_millis()
             );
@@ -945,7 +945,7 @@ async fn convert(
             out
         }
         Err(why) => {
-            println!("[mvproxy] can't convert HEVC: {why}");
+            log::warn!("[mvproxy] can't convert HEVC: {why}");
             bad_gateway(&format!("can't convert HEVC: {why}"))
         }
     }

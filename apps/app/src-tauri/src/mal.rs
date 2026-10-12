@@ -515,7 +515,7 @@ impl Mal {
             // Held first, then written: a failed write must not drop the
             // new pair (see trakt.rs's keep).
             if let Err(e) = self.vault.save(&tokens) {
-                eprintln!("[mal] could not save the session: {e}");
+                log::error!("[mal] could not save the session: {e}");
             }
             *slot = Some(tokens);
             return Ok(());

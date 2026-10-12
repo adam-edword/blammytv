@@ -234,6 +234,12 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["welcome", "setup", "tour", "onboarding"],
   },
   {
+    id: "copy-diagnostics",
+    label: "Copy Diagnostics",
+    page: "app",
+    keywords: ["diagnostics", "log", "logs", "support", "debug", "bug", "report", "help", "problem", "privacy", "analytics", "telemetry", "clipboard", "data"],
+  },
+  {
     id: "clear-logins",
     label: "Clear All Login Info",
     page: "app",

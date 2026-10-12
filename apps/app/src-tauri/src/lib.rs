@@ -1,6 +1,7 @@
 mod about;
 mod aiojf;
 mod frontend;
+mod logtail;
 mod mal;
 mod mpv;
 mod mpvopen;
@@ -462,7 +463,7 @@ fn mpv_frost(on: bool) -> Result<bool, String> {
         return Ok(true);
     }
     let vo = mpv::get_property("current-vo").unwrap_or_default();
-    println!("[mpv] frost requested, vo={vo}");
+    log::info!("[mpv] frost requested, vo={vo}");
     if vo != "gpu-next" {
         return Ok(false);
     }
@@ -707,7 +708,7 @@ async fn mpv_open_error() -> Result<mpvopen::Answer, String> {
     // Native says what it may open, here as at every other door (audit X1).
     mpvurl::http_only(&url)?;
     let answer = mpvopen::probe(http_client(), &url, mpvopen::PROBE_WAIT).await;
-    println!(
+    log::info!(
         "[mpv-open] {}",
         match (answer.status, answer.failure) {
             (Some(code), _) => format!("answered {code}"),
@@ -951,11 +952,24 @@ async fn http_get(
     while let Some(chunk) = res.chunk().await.map_err(|e| e.to_string())? {
         append_capped(&mut body, &chunk, HTTP_GET_MAX_BODY)?;
     }
-    println!(
+    // Every request had a line, and the log file (a release build's only
+    // record) was mostly these: Copy Diagnostics' last 200 lines were an
+    // hour of score polls. The ones a support question is about stay in it:
+    // a download of a megabyte or more (a guide, a playlist) or one that took
+    // three seconds. The rest are debug, which a dev run still prints
+    // (lib.rs `log_plugin`).
+    let total = t0.elapsed().as_millis();
+    let level = if body.len() >= 1_000_000 || total >= 3_000 {
+        log::Level::Info
+    } else {
+        log::Level::Debug
+    };
+    log::log!(
+        level,
         "[http] {} — headers {}ms, total {}ms, body {:.1}MB (content-length: {})",
         short,
         t_headers,
-        t0.elapsed().as_millis(),
+        total,
         body.len() as f64 / 1e6,
         match clen {
             Some(n) => format!("{:.1}MB on the wire → NOT compressed", n as f64 / 1e6),
@@ -1422,6 +1436,87 @@ async fn about_versions() -> about::Versions {
     }
 }
 
+/// The page's warnings and errors, for the log file (lib/appLog.ts): a line a
+/// webview would otherwise take with it when it closes. Written under its own
+/// target, "frontend", so the file says which side a line came from.
+///
+/// The page scrubs every line before it sends it (lib/scrub.ts), and this
+/// makes each one a single line of the file (logtail::clean_line). A level
+/// that is not "warn" or "error" writes nothing: the page logs those two and
+/// nothing else, and the tune diagnostics that fire per tune are not among
+/// them. Async, so the write is off the thread that runs the window.
+#[tauri::command]
+async fn app_log(level: String, line: String) {
+    let line = logtail::clean_line(&line);
+    if line.is_empty() {
+        return;
+    }
+    match level.as_str() {
+        "error" => log::error!(target: "frontend", "{line}"),
+        "warn" => log::warn!(target: "frontend", "{line}"),
+        _ => {}
+    }
+}
+
+/// The last `lines` lines of the log, oldest first, for Settings → App → Copy
+/// Diagnostics: the current file's and, when that is short, the end of the old
+/// one before it (logtail.rs). Lines only, never the folder's path, which has
+/// the user's name in it. An older native has no such command, and a native
+/// whose log could not be opened refuses: either way the page copies what it
+/// has and says the log wasn't available.
+#[tauri::command]
+async fn log_tail(app: tauri::AppHandle, lines: usize) -> Result<Vec<String>, String> {
+    use tauri::Manager;
+    if !LOGGING.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err("the log is not being written".into());
+    }
+    let dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || logtail::tail(&dir, lines))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Whether the log plugin is up: it could be added and has its file open. Read
+/// by `log_tail`, which would otherwise answer "no lines" for a log that was
+/// never being written, and the page would say "empty".
+static LOGGING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The one log file, in a release build and a dev one alike (tauri-plugin-log;
+/// the app's log folder, `blammytv.log`). About a megabyte, then the plugin
+/// renames it and starts a new one, and one old file is kept: `KeepSome(1)`,
+/// because the plugin's `KeepOne` keeps none, it deletes the full file. Info and
+/// up. A dev run keeps printing to its terminal as well.
+///
+/// A release build has no console (main.rs: `windows_subsystem`), so before
+/// this nothing it printed went anywhere and support was screenshots. Nothing
+/// that is a credential is logged: the native lines say origins and counts
+/// (CLAUDE.md), and the page's are scrubbed before they get here.
+fn log_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
+    let mut targets = vec![Target::new(TargetKind::LogDir {
+        file_name: Some(logtail::STEM.to_string()),
+    })];
+    if cfg!(debug_assertions) {
+        targets.push(Target::new(TargetKind::Stdout));
+    }
+    // A dev run also takes this crate's debug lines (the small `[http]`
+    // requests). Its own target only: the dependencies' debug would bury
+    // everything.
+    let builder = tauri_plugin_log::Builder::new()
+        .clear_targets()
+        .targets(targets)
+        .level(log::LevelFilter::Info);
+    let builder = if cfg!(debug_assertions) {
+        builder.level_for("app_lib", log::LevelFilter::Debug)
+    } else {
+        builder
+    };
+    builder
+        .max_file_size(u128::from(logtail::MAX_BYTES))
+        .rotation_strategy(RotationStrategy::KeepSome(1))
+        .build()
+}
+
 // Download + install the pending update, then relaunch into it. On success the
 // app restarts and this never returns.
 #[tauri::command]
@@ -1490,6 +1585,21 @@ pub fn run() {
         .setup(|app| {
             use tauri::Manager;
             let _ = APP.set(app.handle().clone());
+            // The log comes first. It is added here and not on the builder
+            // because a plugin that fails to set up ends the run: a log file
+            // this user can't open (a folder, or a file left by another
+            // account) would then be an app that can't start, over a log. Here
+            // the cost is the log, and `log_tail` says so. Then the lines
+            // frontend::resolve() had to keep, from before there was a logger.
+            match app.handle().plugin(log_plugin()) {
+                Ok(()) => {
+                    LOGGING.store(true, std::sync::atomic::Ordering::Relaxed);
+                    frontend::replay_boot_log();
+                }
+                // The one print left: there is no log to say it to. A dev run's
+                // terminal shows it; a release build has no console.
+                Err(e) => eprintln!("[log] could not start the log: {e}"),
+            }
 
             // Window bring-up. The window-state plugin has, by now, restored a
             // saved size/position from a previous launch. On the very first
@@ -1517,13 +1627,6 @@ pub fn run() {
                 }
             }
 
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1584,6 +1687,8 @@ pub fn run() {
             check_update,
             check_update_info,
             about_versions,
+            app_log,
+            log_tail,
             install_update,
             frontend::frontend_ready,
             frontend::frontend_status,

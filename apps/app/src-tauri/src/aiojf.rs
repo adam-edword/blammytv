@@ -854,12 +854,12 @@ impl Aiojf {
             // The login limiter answered before the secret was touched.
             429 => return Ok(Poll::Pending),
             s => {
-                eprintln!("[aiojf] the sign-in was refused: HTTP {s}");
+                log::warn!("[aiojf] the sign-in was refused: HTTP {s}");
                 return Ok(self.end(epoch, Poll::Error));
             }
         }
         let Ok(auth) = serde_json::from_str::<Authenticated>(&body) else {
-            eprintln!("[aiojf] the sign-in answer made no sense");
+            log::warn!("[aiojf] the sign-in answer made no sense");
             return Ok(self.end(epoch, Poll::Error));
         };
         if auth.access_token.is_empty() {
@@ -904,7 +904,7 @@ impl Aiojf {
                 Poll::Approved
             }
             Err(e) => {
-                eprintln!("[aiojf] could not save the session: {e}");
+                log::error!("[aiojf] could not save the session: {e}");
                 Poll::Error
             }
         }

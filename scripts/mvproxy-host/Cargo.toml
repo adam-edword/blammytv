@@ -6,6 +6,7 @@
 # player settings may ask mpv for (mpvprefs.rs) and how a file's open went
 # (mpvopen.rs) and which Vulkan loader the player loads first (mpvvulkan.rs)
 # and what Settings → App shows of versions and update notes (about.rs)
+# and how the log's end is read back for Copy Diagnostics (logtail.rs)
 # on a Linux box,
 # where the app crate itself will not build (gdk-sys; see CLAUDE.md). The
 # files are included as they are, byte for byte.
@@ -33,3 +34,6 @@ getrandom = "0.3"
 # trakt.rs, mal.rs and aiojf.rs
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
+# The native code logs through it (plan 025, P4b), with no logger set here: the
+# macros do nothing, as the println! they replaced did nothing under a test.
+log = "0.4"

@@ -102,6 +102,14 @@ fn keep_vulkan_loader() {
         let exe_dir = std::env::current_exe()
             .ok()
             .and_then(|exe| exe.parent().map(|dir| dir.to_path_buf()));
+        // Which place ours was in, in words. The path is under the user's
+        // profile, and the log is a file they send (mpvvulkan::place). There
+        // is only a bundled loader to ask about where there is an exe folder.
+        let place = |path: &std::path::Path| {
+            exe_dir
+                .as_deref()
+                .map_or("with the app", |dir| mpvvulkan::place(dir, path))
+        };
         let found = mpvvulkan::first_loaded(exe_dir.as_deref(), |from| {
             let loaded = match from {
                 mpvvulkan::Loader::System => unsafe { Library::new(mpvvulkan::DLL) },
@@ -111,7 +119,7 @@ fn keep_vulkan_loader() {
                 Ok(library) => Some(library),
                 Err(e) => {
                     if let mpvvulkan::Loader::Bundled(path) = from {
-                        println!("[vulkan] {}: {e}", path.display());
+                        log::warn!("[vulkan] {}: {e}", place(path));
                     }
                     None
                 }
@@ -121,16 +129,16 @@ fn keep_vulkan_loader() {
             Some((from, library)) => {
                 std::mem::forget(library);
                 let _ = VULKAN.set(from.label());
-                match from {
-                    mpvvulkan::Loader::System => println!("[vulkan] Windows' own loader"),
+                match &from {
+                    mpvvulkan::Loader::System => log::info!("[vulkan] Windows' own loader"),
                     mpvvulkan::Loader::Bundled(path) => {
-                        println!("[vulkan] none on this PC, using ours: {}", path.display())
+                        log::info!("[vulkan] none on this PC, using ours: {}", place(path))
                     }
                 }
             }
             None => {
                 let _ = VULKAN.set(mpvvulkan::NONE_FOUND);
-                println!("[vulkan] no loader found; libmpv will say if it needed one")
+                log::warn!("[vulkan] no loader found; libmpv will say if it needed one")
             }
         }
     });
@@ -755,10 +763,10 @@ fn ensure_player(wid: isize) -> Result<(), String> {
     // while every open built a new instance — after v0.8.168 that fired on
     // every channel switch to report a value that can no longer change.
     if let Some(v) = get_property("mpv-version") {
-        println!("[mpv] {v}");
+        log::info!("[mpv] {v}");
     }
     // Once per process now, not once per tune.
-    println!("[mpv-timing] create+init {}ms (once)", t0.elapsed().as_millis());
+    log::info!("[mpv-timing] create+init {}ms (once)", t0.elapsed().as_millis());
     Ok(())
 }
 
@@ -889,7 +897,7 @@ pub fn play_wid(
     // on its own thread, so anything after this is probe and network and
     // shows up as the delay to first frame, not here. Teardown is gone from
     // this line on purpose — there isn't one any more.
-    println!(
+    log::info!(
         "[mpv-timing] ready {}ms  queued {}ms",
         t_ready.as_millis(),
         t0.elapsed().as_millis(),

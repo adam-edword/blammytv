@@ -6,7 +6,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: (cmd: string, args?: unknown) =
 vi.mock("@tauri-apps/api/event", () => ({ listen: () => Promise.resolve(() => {}) }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({}) }));
 
-const { tauriCheckUpdateInfo } = await import("./tauri");
+const { tauriAppLog, tauriCheckUpdateInfo, tauriLogTail } = await import("./tauri");
 
 /** What each command answers; a command not in the map is "not found". */
 function native(answers: Record<string, () => Promise<unknown>>) {
@@ -57,5 +57,43 @@ describe("tauriCheckUpdateInfo", () => {
       expect(await tauriCheckUpdateInfo(), String(odd)).toEqual({ version: "0.11.38", notes: "" });
       expect(asked(), String(odd)).toEqual(["check_update_info", "check_update"]);
     }
+  });
+});
+
+describe("tauriLogTail", () => {
+  it("asks log_tail for that many lines and is its list", async () => {
+    native({ log_tail: () => Promise.resolve(["one", "two"]) });
+    expect(await tauriLogTail(200)).toEqual(["one", "two"]);
+    expect(invoke).toHaveBeenCalledWith("log_tail", { lines: 200 });
+  });
+
+  it("keeps only the lines that are text", async () => {
+    native({ log_tail: () => Promise.resolve(["one", 2, null, { a: 1 }, "three"]) });
+    expect(await tauriLogTail(5)).toEqual(["one", "three"]);
+  });
+
+  it("rejects on a native that has no such command, for the caller to copy without it", async () => {
+    native({});
+    await expect(tauriLogTail(200)).rejects.toBe("Command log_tail not found");
+  });
+
+  it("rejects on an answer that is not a list", async () => {
+    native({ log_tail: () => Promise.resolve("a path, say") });
+    await expect(tauriLogTail(200)).rejects.toThrow(/not a list/);
+    native({ log_tail: () => Promise.resolve(undefined) });
+    await expect(tauriLogTail(200)).rejects.toThrow(/not a list/);
+  });
+});
+
+describe("tauriAppLog", () => {
+  it("sends the level and the line to app_log, and nothing else", async () => {
+    native({ app_log: () => Promise.resolve(undefined) });
+    await tauriAppLog("warn", "a line");
+    expect(invoke).toHaveBeenCalledWith("app_log", { level: "warn", line: "a line" });
+  });
+
+  it("rejects on a native that has no such command, for the forwarder to swallow", async () => {
+    native({});
+    await expect(tauriAppLog("error", "x")).rejects.toBe("Command app_log not found");
   });
 });

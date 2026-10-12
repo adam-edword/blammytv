@@ -1,5 +1,6 @@
 // E2E: Settings → App gains Keyboard Shortcuts, What's new and About (plan 025,
-// P4a; v0.11.36), with the native side stubbed.
+// P4a; v0.11.36), and Copy Diagnostics and a log the page writes to (P4b),
+// with the native side stubbed.
 //
 // Three rows between Updates and Replay Onboarding:
 //
@@ -18,7 +19,14 @@
 //     signed;
 //   - About: the app's own version, and what native says of the rest
 //     (`about_versions`). A row native left out, and an older native with no
-//     such command, are rows that aren't drawn, with no error.
+//     such command, are rows that aren't drawn, with no error;
+//   - Privacy and data, Copy Diagnostics (P4b): the versions, the webview and
+//     the last 200 lines of the log on the clipboard, all of it scrubbed again
+//     on the way (a URL is its origin, a token is <redacted>); an older native
+//     with no `log_tail` still copies and says the log wasn't available;
+//   - the page's warnings and errors reach native's `app_log`, once each and
+//     with a count for a repeat, the console gets them as it always did, and a
+//     plain browser sends nothing.
 //
 //   (vite on :4173)
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-settings-app.mjs
@@ -39,15 +47,20 @@ const SEEDED = { startupTab: { v: 1, data: "stream" } };
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const errors = [];
 
-/** What the native stub answers when a scenario doesn't say. `info`, `update`
- * and `about` can be "reject" (a native build that has no such command: the
- * call is refused the way Tauri refuses an unknown one) or, for the first two,
- * "fail" (the check itself failed). */
+/** What the native stub answers when a scenario doesn't say. `info`, `update`,
+ * `about` and `tail` can be "reject" (a native build that has no such command:
+ * the call is refused the way Tauri refuses an unknown one) or, for the first
+ * two, "fail" (the check itself failed). */
 const NATIVE = {
   status: { serving: "", pending: "" },
   info: null,
   update: null,
   about: undefined,
+  // What `log_tail` answers: lines, or "reject" for a native from before the
+  // log. Anything that is not a list is a native that answered wrong.
+  tail: undefined,
+  // What `app_log` does: "reject" for a native from before the log.
+  appLog: undefined,
 };
 
 /**
@@ -64,8 +77,13 @@ async function open({ store = SEEDED, width = 1440, height = 900, tauri = false,
     colorScheme: "dark",
   });
   await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+  // Copy Diagnostics writes to the clipboard, and a check reads it back.
+  await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(APP).origin });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(String(e)));
+  // What the console was given, as Playwright sees it: [type, text].
+  const seen = [];
+  page.on("console", (m) => seen.push([m.type(), m.text()]));
   if (mock) await page.addInitScript(mock);
   await page.addInitScript(
     ({ store, tauri, native, props }) => {
@@ -115,6 +133,14 @@ async function open({ store = SEEDED, width = 1440, height = 900, tauri = false,
               if (n.about === "reject") return refuse(cmd);
               return Promise.resolve(n.about);
             }
+            if (cmd === "app_log") {
+              if (n.appLog === "reject") return refuse(cmd);
+              return Promise.resolve();
+            }
+            if (cmd === "log_tail") {
+              if (n.tail === "reject") return refuse(cmd);
+              return Promise.resolve(n.tail);
+            }
             if (cmd === "mpv_stats") return Promise.resolve("{}");
             if (cmd === "install_update") return new Promise(() => {});
             return Promise.resolve(undefined);
@@ -130,7 +156,7 @@ async function open({ store = SEEDED, width = 1440, height = 900, tauri = false,
     await page.waitForSelector(".navcap", { timeout: 20_000 });
     await goTo(page, "home");
   }
-  return { ctx, page };
+  return { ctx, page, seen };
 }
 const setNative = (page, n) => page.evaluate((n) => Object.assign(window.__native, n), n);
 const calls = (page, cmd) => page.evaluate((cmd) => window.__calls.filter((c) => c[0] === cmd).map((c) => c[1]), cmd);
@@ -181,8 +207,8 @@ const appVersion = (page) =>
   await openApp(page);
   const rows = await titles(page);
   check(
-    "App: Updates, Keyboard Shortcuts, About, Replay Onboarding, then Clear All Login Info",
-    rows.length === 5 && /^BlammyTV v/.test(rows[0]) && rows.slice(1).join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Clear All Login Info",
+    "App: Updates, Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, then Clear All Login Info",
+    rows.length === 6 && /^BlammyTV v/.test(rows[0]) && rows.slice(1).join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Copy Diagnostics|Clear All Login Info",
     JSON.stringify(rows),
   );
   const row = page.locator("[data-setting='shortcuts']");
@@ -821,7 +847,7 @@ for (const [label, about] of [
   const rows = await page.locator("[data-setting='about'] .about__row dt").allInnerTexts();
   check("a browser (no native at all) shows the app's version alone", JSON.stringify(rows) === JSON.stringify(["App"]), JSON.stringify(rows));
   const titlesNow = await titles(page);
-  check("  and the page is Keyboard Shortcuts, About, Replay Onboarding, Clear All Login Info (no update row there)", titlesNow.join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Clear All Login Info", JSON.stringify(titlesNow));
+  check("  and the page is Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, Clear All Login Info (no update row there)", titlesNow.join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Copy Diagnostics|Clear All Login Info", JSON.stringify(titlesNow));
   await ctx.close();
 }
 {
@@ -835,6 +861,341 @@ for (const [label, about] of [
     return { narrow: !!document.querySelector(".settings__layout--narrow"), sideways: body.scrollWidth > body.clientWidth + 1 };
   });
   check("in the narrow card, long version strings wrap and nothing scrolls sideways", fit.narrow && !fit.sideways, JSON.stringify(fit));
+  await ctx.close();
+}
+
+// ====================================================================
+// Privacy and data: Copy Diagnostics (plan 025, P4b).
+// ====================================================================
+// Obvious fakes. A real credential does not belong in a committed fixture.
+const FAKE_TOKEN = "t0k3n".repeat(8); // 40 characters
+const LOG = [
+  "[2026-10-12][10:00:00][app_lib::mvproxy][INFO] [mvproxy] listening on 127.0.0.1:49152",
+  `[2026-10-12][10:00:05][frontend][WARN] [live] EPG failed: http://host:8080/live/user/pass/1.ts key ${FAKE_TOKEN}`,
+  "[2026-10-12][10:00:09][app_lib::mpv][INFO] [mpv-timing] ready 812ms  queued 4ms",
+];
+const ABOUT = { native: "0.11.36", mpv: "0.41.0-dev-g8aca7b0d5", ffmpeg: "7.1.1", bundledFfmpeg: "N-127271-gba987fe24d", vulkan: "Windows' own" };
+const diagRow = (page) => page.locator("[data-setting='copy-diagnostics']");
+const diagButton = (page) => diagRow(page).locator("button");
+const readClip = (page) => page.evaluate(() => navigator.clipboard.readText());
+/** Press Copy and wait for it to say what happened. */
+async function pressCopy(page, said = "Copied") {
+  await diagButton(page).click();
+  await page.waitForFunction(
+    (said) => document.querySelector("[data-setting='copy-diagnostics'] button")?.textContent === said,
+    said,
+    { timeout: 5000 },
+  );
+}
+
+{
+  const { ctx, page } = await open({ tauri: true, native: { about: ABOUT, tail: LOG } });
+  await openApp(page);
+  const where = await page.evaluate(() => {
+    const body = document.querySelector(".settings__body");
+    const heads = [...body.querySelectorAll(".settings__group")];
+    const privacy = heads.find((h) => /privacy and data/i.test(h.textContent ?? ""));
+    const row = body.querySelector("[data-setting='copy-diagnostics']");
+    const clear = body.querySelector("[data-setting='clear-logins']");
+    const after = (a, b) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return {
+      heads: heads.map((h) => h.textContent),
+      underPrivacy: after(privacy, row),
+      beforeClear: after(row, clear),
+      note: row?.querySelector(".settings__section-note")?.textContent ?? "",
+      noteLines: row?.querySelector(".settings__section-note")?.innerText ?? "",
+      buttons: [...(row?.querySelectorAll("button") ?? [])].map((b) => b.textContent),
+      anyFolderButton: [...body.querySelectorAll("button")].some((b) => /folder/i.test(b.textContent ?? "")),
+      sideways: body.scrollWidth > body.clientWidth + 1,
+    };
+  });
+  check(
+    "App has a Privacy and data heading, with Copy Diagnostics under it and above Clear All Login Info",
+    where.heads.join("|") === "App|Privacy and data" && where.underPrivacy && where.beforeClear,
+    JSON.stringify(where),
+  );
+  check(
+    "  the row has one button, Copy, and a note that says we have no analytics and send no reports",
+    where.buttons.join("|") === "Copy" && /no analytics/i.test(where.note) && /no reports/i.test(where.note) && /only when you copy/i.test(where.note) && !where.noteLines.includes("\n") && !where.sideways,
+    JSON.stringify(where),
+  );
+  check("  and no Open Log Folder (open_external opens https addresses and nothing else)", !where.anyFolderButton);
+  check("log_tail is not asked until the button is pressed", (await calls(page, "log_tail")).length === 0);
+
+  await pressCopy(page);
+  const text = await readClip(page);
+  const version = await appVersion(page);
+  const ua = await page.evaluate(() => navigator.userAgent);
+  check("Copy puts text on the clipboard and says Copied", text.length > 0 && (await diagButton(page).innerText()) === "Copied");
+  check(
+    "  the app's version and every row native sent, with the webview's user agent",
+    text.startsWith("BlammyTV diagnostics, ") &&
+      text.includes(`App: ${version}`) &&
+      text.includes("Native build: 0.11.36") &&
+      text.includes("mpv: 0.41.0-dev-g8aca7b0d5") &&
+      text.includes("FFmpeg in the player: 7.1.1") &&
+      text.includes("FFmpeg for multi-view: N-127271-gba987fe24d") &&
+      text.includes("Vulkan loader: Windows' own") &&
+      text.includes(`Webview: ${ua}`),
+    JSON.stringify(text.slice(0, 300)),
+  );
+  check(
+    "  and the log's lines, as stubbed",
+    text.includes("Log, the last 3 lines:") &&
+      text.includes("[mvproxy] listening on 127.0.0.1:49152") &&
+      text.includes("[mpv-timing] ready 812ms  queued 4ms") &&
+      text.includes("[live] EPG failed: "),
+    JSON.stringify(text.slice(-400)),
+  );
+  check(
+    "  the line with a URL is its origin: http://host:8080, none of the path (user, pass, the file)",
+    text.includes("http://host:8080") && !text.includes("live/user/pass") && !text.includes("/1.ts") && !/user\/pass/.test(text),
+    JSON.stringify(text.split("\n").find((l) => /EPG failed/.test(l))),
+  );
+  check(
+    "  and the 40-character token is <redacted>, and nowhere else",
+    text.includes("key <redacted>") && !text.includes(FAKE_TOKEN) && !text.includes(FAKE_TOKEN.slice(0, 12)),
+    JSON.stringify(text.split("\n").find((l) => /EPG failed/.test(l))),
+  );
+  const tails = await calls(page, "log_tail");
+  check("  asking log_tail once, for 200 lines", tails.length === 1 && tails[0]?.lines === 200, JSON.stringify(tails));
+  await page.waitForTimeout(1900);
+  check("  and the button goes back to Copy after a moment", (await diagButton(page).innerText()) === "Copy");
+  await pressCopy(page);
+  check("  pressing it again copies again", (await calls(page, "log_tail")).length === 2);
+  await ctx.close();
+}
+{
+  // A native from before the log: no log_tail. The copy still happens.
+  const { ctx, page } = await open({ tauri: true, native: { about: ABOUT, tail: "reject" } });
+  await openApp(page);
+  await pressCopy(page);
+  const text = await readClip(page);
+  check(
+    "log_tail rejecting (a native from before the log) still copies, and says the log wasn't available",
+    (await diagButton(page).innerText()) === "Copied" && /the log wasn't available/.test(text) && !/Log, the last/.test(text),
+    JSON.stringify(text.slice(-120)),
+  );
+  check(
+    "  with the versions native did give, and the webview",
+    text.includes("Native build: 0.11.36") && text.includes("mpv: 0.41.0-dev-g8aca7b0d5") && text.includes("Webview: "),
+  );
+  check("  and nothing unhandled", (await page.evaluate(() => window.__unhandled)).length === 0);
+  await ctx.close();
+}
+{
+  // A native from before v0.11.36 as well: neither command.
+  const { ctx, page } = await open({ tauri: true, native: { about: "reject", tail: "reject" } });
+  await openApp(page);
+  await pressCopy(page);
+  const text = await readClip(page);
+  const version = await appVersion(page);
+  check(
+    "with neither about_versions nor log_tail, it copies the app's version and the webview, and says the log wasn't available",
+    text.includes(`App: ${version}`) && text.includes("Webview: ") && /the log wasn't available/.test(text) && !/Native build|mpv:/.test(text),
+    JSON.stringify(text),
+  );
+  await ctx.close();
+}
+for (const [label, tail] of [
+  ["an answer that is not a list", "C:\\Users\\someone\\logs\\blammytv.log"],
+  ["no answer", undefined],
+]) {
+  const { ctx, page } = await open({ tauri: true, native: { about: ABOUT, tail } });
+  await openApp(page);
+  await pressCopy(page);
+  const text = await readClip(page);
+  check(
+    `log_tail giving ${label}: copied, the log wasn't available, and nothing it said is in the text`,
+    /the log wasn't available/.test(text) && !/Users|blammytv\.log/.test(text),
+    JSON.stringify(text.slice(-120)),
+  );
+  await ctx.close();
+}
+{
+  // An empty log is not a missing one.
+  const { ctx, page } = await open({ tauri: true, native: { about: ABOUT, tail: [] } });
+  await openApp(page);
+  await pressCopy(page);
+  const text = await readClip(page);
+  check("an empty log says it is empty, not that it wasn't available", /Log: empty\./.test(text) && !/wasn't available/.test(text), JSON.stringify(text.slice(-80)));
+  await ctx.close();
+}
+{
+  // Lines that arrive with a path in them are scrubbed again by the page.
+  const dirty = ["[ERROR] cannot open C:\\Users\\adam\\Videos\\x.mkv", "[WARN] portal mac 00:1A:79:AB:CD:EF"];
+  const { ctx, page } = await open({ tauri: true, native: { about: ABOUT, tail: dirty } });
+  await openApp(page);
+  await pressCopy(page);
+  const text = await readClip(page);
+  check(
+    "a user folder and a MAC address in the log are masked on the way out",
+    text.includes("C:\\Users\\…\\Videos\\x.mkv") && text.includes("xx:xx:xx:xx:xx:xx") && !/adam|00:1A/.test(text),
+    JSON.stringify(text.slice(-120)),
+  );
+  await ctx.close();
+}
+{
+  // A plain browser: no native at all. The copy is what the page knows.
+  const { ctx, page } = await open({ tauri: false });
+  await openApp(page);
+  await pressCopy(page);
+  const text = await readClip(page);
+  const version = await appVersion(page);
+  check(
+    "a browser copies the app's version and the webview, says the log wasn't available, and asks native for nothing",
+    text.includes(`App: ${version}`) && text.includes("Webview: ") && /the log wasn't available/.test(text) && (await calls(page, "log_tail")).length === 0 && (await calls(page, "about_versions")).length === 0,
+    JSON.stringify(text),
+  );
+  await ctx.close();
+}
+{
+  // The clipboard refuses: the button says so, and does not say Copied.
+  const { ctx, page } = await open({ tauri: true, native: { about: ABOUT, tail: LOG } });
+  await openApp(page);
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = () => Promise.reject(new Error("denied"));
+  });
+  await pressCopy(page, "Couldn't copy");
+  check("a clipboard that refuses: the button says Couldn't copy, not Copied", (await diagButton(page).innerText()) === "Couldn't copy");
+  await page.waitForTimeout(1900);
+  check("  and goes back to Copy", (await diagButton(page).innerText()) === "Copy");
+  check("  and nothing unhandled", (await page.evaluate(() => window.__unhandled)).length === 0);
+  await ctx.close();
+}
+{
+  // A narrow card still fits the row.
+  const { ctx, page } = await open({ tauri: true, width: 560, height: 800, native: { about: ABOUT, tail: LOG } });
+  await openApp(page);
+  const fit = await page.evaluate(() => {
+    const body = document.querySelector(".settings__body");
+    const row = document.querySelector("[data-setting='copy-diagnostics']").getBoundingClientRect();
+    return { narrow: !!document.querySelector(".settings__layout--narrow"), sideways: body.scrollWidth > body.clientWidth + 1, inside: row.right <= body.getBoundingClientRect().right + 0.5 };
+  });
+  check("in the narrow card the Copy Diagnostics row fits", fit.narrow && !fit.sideways && fit.inside, JSON.stringify(fit));
+  await ctx.close();
+}
+
+// ====================================================================
+// The page's warnings and errors reach native's app_log (plan 025, P4b).
+// ====================================================================
+/** What native was sent, as {level, line}, that carries the marker. */
+const sentLines = async (page, marker) => (await calls(page, "app_log")).filter((c) => (c?.line ?? "").includes(marker));
+{
+  const { ctx, page, seen } = await open({ tauri: true });
+  await page.evaluate((tok) => {
+    console.error("btv-once");
+    console.warn("btv-warn", 7, { password: "FAKEPASSWORD" });
+    console.error("btv-err", new Error("boom"));
+    for (let i = 0; i < 20; i++) console.error("btv-repeat");
+    console.log("btv-log");
+    console.info("btv-info");
+    console.debug("btv-debug");
+    console.error(`btv-secret failed http://host:8080/live/user/pass/1.ts key ${tok}`);
+    window.dispatchEvent(Object.assign(new Event("error"), { message: "Script error.", error: new RangeError("btv-too-far"), lineno: 12, colno: 7 }));
+    window.dispatchEvent(Object.assign(new Event("unhandledrejection"), { reason: new Error("btv-nobody-caught-this") }));
+    // That rejection was made up for the forwarder, and open()'s own listener
+    // wrote it down as one; the check on `__unhandled` below is about the real.
+    window.__unhandled.length = 0;
+  }, FAKE_TOKEN);
+  // Not before the window: a line waits a second for its repeats.
+  check("a line waits out its window before it is sent (nothing yet, straight after)", (await sentLines(page, "btv-once")).length === 0);
+  await page.waitForTimeout(1700);
+  const once = await sentLines(page, "btv-once");
+  check("console.error reaches app_log once, as an error", once.length === 1 && once[0].level === "error" && once[0].line === "btv-once", JSON.stringify(once));
+  const warn = await sentLines(page, "btv-warn");
+  check(
+    "console.warn reaches it as a warn, an object as its key names and never its values",
+    warn.length === 1 && warn[0].level === "warn" && warn[0].line === "btv-warn 7 {password}" && !JSON.stringify(warn).includes("FAKEPASSWORD"),
+    JSON.stringify(warn),
+  );
+  const err = await sentLines(page, "btv-err");
+  check("  an Error as its name and message, with no stack", err.length === 1 && err[0].line === "btv-err Error: boom", JSON.stringify(err));
+  const rep = await sentLines(page, "btv-repeat");
+  check("twenty identical console.error calls are one line, with the count", rep.length === 1 && rep[0].line === "btv-repeat (repeated 20 times)" && rep[0].level === "error", JSON.stringify(rep));
+  check(
+    "console.log, console.info and console.debug are not sent",
+    (await sentLines(page, "btv-log")).length === 0 && (await sentLines(page, "btv-info")).length === 0 && (await sentLines(page, "btv-debug")).length === 0,
+  );
+  const secret = await sentLines(page, "btv-secret");
+  check(
+    "a line with a URL and a token is scrubbed before it is sent: the origin, and <redacted>",
+    secret.length === 1 && secret[0].line === "btv-secret failed http://host:8080/… key <redacted>" && !JSON.stringify(secret).includes(FAKE_TOKEN) && !JSON.stringify(secret).includes("user/pass"),
+    JSON.stringify(secret),
+  );
+  const thrown = await sentLines(page, "btv-too-far");
+  const rejected = await sentLines(page, "btv-nobody-caught-this");
+  check(
+    "an uncaught error and an unhandled rejection are sent, as errors",
+    thrown.length === 1 && thrown[0].line === "Uncaught: RangeError: btv-too-far (line 12:7)" && thrown[0].level === "error" && rejected.length === 1 && rejected[0].line === "Unhandled rejection: Error: btv-nobody-caught-this",
+    JSON.stringify({ thrown, rejected }),
+  );
+  // The console got every one of them, as it always did: the secret line as it was written.
+  const saw = (type, text) => seen.filter((m) => m[0] === type && m[1] === text).length;
+  check(
+    "the console still gets every call as before: twenty repeats, the log and the info, and the secret line unscrubbed",
+    saw("error", "btv-once") === 1 &&
+      saw("error", "btv-repeat") === 20 &&
+      saw("log", "btv-log") === 1 &&
+      saw("info", "btv-info") === 1 &&
+      seen.some((m) => m[0] === "error" && m[1] === `btv-secret failed http://host:8080/live/user/pass/1.ts key ${FAKE_TOKEN}`),
+    JSON.stringify(seen.filter((m) => /btv-/.test(m[1])).slice(0, 4)),
+  );
+  check(
+    "  and the warning with its object, as the console always printed it",
+    seen.some((m) => m[0] === "warning" && m[1].startsWith("btv-warn 7")),
+    JSON.stringify(seen.filter((m) => /btv-warn/.test(m[1]))),
+  );
+  check("  and nothing unhandled came of it", (await page.evaluate(() => window.__unhandled)).length === 0);
+  await ctx.close();
+}
+{
+  // A burst of different lines is held to 50 a minute.
+  const { ctx, page } = await open({ tauri: true });
+  await page.evaluate(() => {
+    for (let i = 0; i < 80; i++) console.warn(`btv-cap line ${i}`);
+  });
+  await page.waitForTimeout(1700);
+  const all = await calls(page, "app_log");
+  const mine = await sentLines(page, "btv-cap");
+  check(
+    "eighty different lines in a burst: 50 are sent, in order, and that is all that is sent in the minute",
+    all.length === 50 && mine.length >= 40 && mine[0].line === "btv-cap line 0" && mine[1].line === "btv-cap line 1",
+    JSON.stringify({ all: all.length, mine: mine.length }),
+  );
+  await ctx.close();
+}
+{
+  // A native with no app_log: the page logs on, quietly.
+  const { ctx, page, seen } = await open({ tauri: true, native: { appLog: "reject" } });
+  await page.evaluate(() => {
+    console.error("btv-refused");
+    console.warn("btv-refused-too");
+  });
+  await page.waitForTimeout(1700);
+  check("app_log was asked for both lines, and refused", (await sentLines(page, "btv-refused")).length === 2);
+  check(
+    "  and being refused is swallowed: nothing unhandled, nothing extra on the console, the console still has its lines",
+    (await page.evaluate(() => window.__unhandled)).length === 0 &&
+      seen.filter((m) => /btv-refused/.test(m[1])).length === 2 &&
+      seen.filter((m) => m[0] === "error" && !/btv-refused/.test(m[1]) && /app_log|not found/i.test(m[1])).length === 0,
+    JSON.stringify(seen.filter((m) => /app_log|not found/i.test(m[1]))),
+  );
+  await ctx.close();
+}
+{
+  // A plain browser: console is the browser's own, and nothing is sent.
+  const { ctx, page, seen } = await open({ tauri: false });
+  const got = await page.evaluate(() => {
+    console.error("btv-browser");
+    return { native: /\[native code\]/.test(Function.prototype.toString.call(console.error)) && /\[native code\]/.test(Function.prototype.toString.call(console.warn)) };
+  });
+  await page.waitForTimeout(1500);
+  check(
+    "in a browser (no Tauri) the console is left alone and app_log is never asked",
+    got.native && (await calls(page, "app_log")).length === 0 && seen.some((m) => m[0] === "error" && m[1] === "btv-browser"),
+    JSON.stringify(got),
+  );
   await ctx.close();
 }
 

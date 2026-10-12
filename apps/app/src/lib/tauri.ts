@@ -516,6 +516,24 @@ export function tauriAboutVersions(): Promise<AboutVersions> {
   return invoke("about_versions");
 }
 
+/** A warning or an error line for the log file (lib/appLog.ts, which scrubs it
+ * and decides which lines go). Straight to Tauri and not through `invoke`
+ * above: freezeProbe times every call of that one, and these are not worth a
+ * place in what it reports. Rejects on a native build from before the log,
+ * which has no such command; the caller takes that quietly. */
+export function tauriAppLog(level: "warn" | "error", line: string): Promise<void> {
+  return rawInvoke("app_log", { level, line });
+}
+
+/** The last `lines` lines of the log file, oldest first (Settings → App → Copy
+ * Diagnostics). Lines only, never a path. Rejects on a native build from before
+ * the log, and on an answer that is not a list; the caller copies without it. */
+export async function tauriLogTail(lines: number): Promise<string[]> {
+  const got = await invoke<unknown>("log_tail", { lines });
+  if (!Array.isArray(got)) throw new Error("log_tail answered with something that is not a list");
+  return got.filter((l): l is string => typeof l === "string");
+}
+
 /** Download + install the pending update, then relaunch into it. On
  * success the app restarts and this never resolves; a rejection means the
  * download/install failed and the caller may retry. */

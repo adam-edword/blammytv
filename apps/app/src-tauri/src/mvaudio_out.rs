@@ -108,7 +108,7 @@ fn build(shared: &Arc<Shared>) -> Result<(cpal::Stream, u32), String> {
                 | cpal::ErrorKind::DeviceBusy
                 | cpal::ErrorKind::RealtimeDenied => {}
                 _ => {
-                    eprintln!("[mvaudio] output stopped: {err}");
+                    log::error!("[mvaudio] output stopped: {err}");
                     dead.fail();
                 }
             },

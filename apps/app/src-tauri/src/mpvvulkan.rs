@@ -60,6 +60,19 @@ pub fn bundled(exe_dir: &Path) -> [PathBuf; 2] {
     ]
 }
 
+/// Which of `bundled`'s two places a path is, in words, for the log: "beside
+/// the exe" or "in resources". The path itself has the user's name in it
+/// (`C:\Users\<name>\AppData\Local\...`), and the log is a file a person
+/// copies and sends, so the words are what it carries. Anything that is not the
+/// first place is the second, as `bundled` has two.
+pub fn place(exe_dir: &Path, path: &Path) -> &'static str {
+    if path == bundled(exe_dir)[0] {
+        "beside the exe"
+    } else {
+        "in resources"
+    }
+}
+
 /// Try the loaders in order and stop at the first that loads. `load` does the
 /// loading (mpv.rs, with libloading) and says whether it worked; what it
 /// returns comes back with the loader it came from, so the caller can keep it
@@ -119,6 +132,22 @@ mod tests {
             b,
             exe().join("resources").join("vulkan").join("vulkan-1.dll")
         );
+    }
+
+    #[test]
+    fn the_log_says_which_place_and_never_the_path() {
+        let [a, b] = bundled(&exe());
+        assert_eq!(place(&exe(), &a), "beside the exe");
+        assert_eq!(place(&exe(), &b), "in resources");
+        // The words are the same whatever the folder is called, user name and
+        // all, and carry none of it.
+        let home = Path::new("C:\\Users\\someone\\AppData\\Local\\BlammyTV");
+        let [a, b] = bundled(home);
+        assert_eq!(place(home, &a), "beside the exe");
+        assert_eq!(place(home, &b), "in resources");
+        for said in [place(home, &a), place(home, &b)] {
+            assert!(!said.contains("someone") && !said.contains('\\') && !said.contains('/'));
+        }
     }
 
     #[test]

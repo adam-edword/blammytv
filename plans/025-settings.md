@@ -1,6 +1,6 @@
 # Plan 025: Settings, replanned
 
-**Status: P1 to P3 BUILT (v0.11.26 to v0.11.29); P4a (Keyboard Shortcuts, What's new, About) BUILT v0.11.36; P4b (the log, Copy Diagnostics), P4c (Export and Import) and P5 next.** Calls taken 2026-10-10. Adam: "go with all your
+**Status: P1 to P3 BUILT (v0.11.26 to v0.11.29); P4a (Keyboard Shortcuts, What's new, About) BUILT v0.11.36; P4b (the log, Copy Diagnostics) BUILT v0.11.37; P4c (Export and Import) and P5 next.** Calls taken 2026-10-10. Adam: "go with all your
 recommendations on the settings calls. I don't care about rich presence
 though", so every call below is the recommended one, and D7 is never
 (Discord presence is off the list, not deferred). Asked for by Adam: "replan our settings and think about

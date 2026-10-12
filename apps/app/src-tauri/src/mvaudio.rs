@@ -317,7 +317,7 @@ impl Sink {
                     {
                         Ok(rt) => rt,
                         Err(e) => {
-                            eprintln!("[mvaudio] no runtime: {e}");
+                            log::error!("[mvaudio] no runtime: {e}");
                             return;
                         }
                     };
@@ -325,7 +325,7 @@ impl Sink {
                 })
                 .map_err(|e| e.to_string())?
         };
-        println!(
+        log::info!(
             "[mvaudio] listening on 127.0.0.1:{port}, output at {} Hz",
             output.rate
         );
@@ -410,7 +410,7 @@ async fn serve(
     let listener = match tokio::net::TcpListener::from_std(listener) {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("[mvaudio] listener: {e}");
+            log::error!("[mvaudio] listener: {e}");
             return;
         }
     };

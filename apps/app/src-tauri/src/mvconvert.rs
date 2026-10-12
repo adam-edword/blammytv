@@ -664,7 +664,7 @@ pub async fn caps() -> Result<&'static Caps, String> {
         let caps = probe().await;
         let took = asked.elapsed().as_millis();
         match &caps {
-            Ok(c) => println!(
+            Ok(c) => log::info!(
                 "[mvproxy] HEVC conversion ({took}ms to ask): decoding {}, encoding on {}, {}",
                 c.hwaccel
                     .map_or("on the CPU".to_string(), |h| format!("on {h}")),
@@ -675,7 +675,7 @@ pub async fn caps() -> Result<&'static Caps, String> {
                     "no GPU tone mapping (HDR will look flat)"
                 }
             ),
-            Err(e) => println!("[mvproxy] HEVC conversion unavailable ({took}ms to ask): {e}"),
+            Err(e) => log::warn!("[mvproxy] HEVC conversion unavailable ({took}ms to ask): {e}"),
         }
         caps
     })
@@ -845,13 +845,13 @@ where
             continue;
         }
         match said(line) {
-            Said::Stream(text) => println!("[mvproxy] ffmpeg: {text}"),
+            Said::Stream(text) => log::info!("[mvproxy] ffmpeg: {text}"),
             Said::Problem(text) => {
                 if printed < LOG_LINES {
-                    println!("[mvproxy] ffmpeg: {text}");
+                    log::warn!("[mvproxy] ffmpeg: {text}");
                     printed += 1;
                     if printed == LOG_LINES {
-                        println!("[mvproxy] ffmpeg: (further problems not shown)");
+                        log::warn!("[mvproxy] ffmpeg: (further problems not shown)");
                     }
                 }
                 if let Ok(mut s) = keep.lock() {

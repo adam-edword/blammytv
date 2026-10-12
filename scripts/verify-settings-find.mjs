@@ -498,6 +498,28 @@ async function registryMatches(page, positions, label) {
   const back = await page.evaluate(() => ({ label: document.activeElement?.getAttribute("aria-label"), tips: document.querySelectorAll("[data-slot=tooltip-content]:not([data-state=closed])").length }));
   check("Escape after a find closes Settings and focus goes back to where it was before the palette", shut && back.label === "Search" && back.tips === 0, JSON.stringify({ shut, ...back }));
 
+  // ------------------------------------------------ "diagnostics": App, Copy Diagnostics, not pressed
+  await ask(page, "diagnostics");
+  const dg = await settingsSection(page);
+  await page.keyboard.press("Enter");
+  await settingsUp(page);
+  await settle(page);
+  const dr = await landed(page, "copy-diagnostics");
+  const copied = await page.evaluate(() => document.querySelector("[data-setting='copy-diagnostics'] button")?.textContent);
+  check(
+    '"diagnostics" opens App with Copy Diagnostics lit and focused on its Copy',
+    (await current(page)) === "App" && dg?.rows[0]?.label === "Copy Diagnostics" && dg.rows[0].sub === "Settings · App" && !!dr && dr.lit && dr.inRow && dr.focusLabel === "Copy",
+    `${await current(page)} / ${JSON.stringify(dg?.rows[0])} / ${JSON.stringify(dr)}`,
+  );
+  check('  and NOT pressed: the label is still "Copy", so nothing was copied by finding it', copied === "Copy", String(copied));
+  for (const q of ["log", "support", "privacy"]) {
+    await closeSettings(page);
+    await ask(page, q);
+    const hit = await settingsSection(page);
+    check(`"${q}" lists Copy Diagnostics in the palette`, !!hit?.rows.some((r) => r.label === "Copy Diagnostics"), JSON.stringify(hit?.rows.map((r) => r.label)));
+    await closePalette(page);
+  }
+
   // ------------------------------------------------ the same row asked twice
   await ask(page, "clear");
   await page.keyboard.press("Enter");

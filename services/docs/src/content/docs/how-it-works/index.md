@@ -76,6 +76,13 @@ Windows user account, alongside the rest of BlammyTV's per-user data in
 `%LOCALAPPDATA%`. Uninstalling removes the app. Clearing that folder removes
 the settings.
 
+The app also keeps a log there, in `%LOCALAPPDATA%\com.blammytv.app\logs`:
+what it did and what went wrong, about a megabyte, with one older file kept.
+Web addresses in it are cut to the site's name, and passwords, tokens and MAC
+addresses are kept out. Nothing sends it anywhere. Settings → App → Copy
+Diagnostics puts its last lines on your clipboard, for you to paste where you
+ask for help.
+
 :::caution[Credentials are stored in the clear]
 Playlist passwords, portal MAC addresses and, if you use one, your AIOStreams
 manifest URL are saved as plain text, not encrypted. Anything running as your

@@ -14,13 +14,19 @@ import { TheaterOverlay } from "./features/live/TheaterOverlay";
 import { SportsTheater } from "./features/sports/SportsTheater";
 import { useCatalog } from "./features/sports/catalog";
 import type { Fixture } from "./features/sports/model";
-import { isTauri } from "./lib/tauri";
+import { isTauri, tauriAppLog } from "./lib/tauri";
+import { installAppLog } from "./lib/appLog";
 import { installPlayerPerf } from "./lib/playerPerf";
 import { installDiscoverProbe } from "./features/discover/probe";
 import { installSportsProbe } from "./features/sports/probe";
 import { installPlayerProbes } from "./features/live/probe";
 import { applyAccent, loadAccent } from "./features/settings/accent";
 import { applyThemePref, loadThemePref } from "./features/settings/theme";
+
+// The page's warnings and errors go to the log file as well as the console
+// (plan 025, P4b; lib/appLog.ts). First, so the ones from the lines below are
+// in it. Only in the app: a plain browser tab has no file to write to.
+installAppLog({ isTauri, send: tauriAppLog });
 
 // Apply saved appearance before first paint so nothing flashes.
 //
