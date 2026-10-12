@@ -51,12 +51,21 @@ jobs:
   # The headless harnesses, the same board as `pnpm verify` locally
   # (CLAUDE.md, "Running the headless harnesses").
   verify:
-    name: pnpm verify
+    name: pnpm verify (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     # The board outgrew 35 (v0.11.28: cut off at 34m39s on verify-version,
-    # every harness green to there; v0.11.27 took 32). 68 harnesses at
-    # v0.11.30. Room to grow, not a guess at the next one's size.
+    # every harness green to there; v0.11.27 took 32), then nearly outgrew 50
+    # (v0.11.36: 45m55s for 73). So it runs as two jobs at once, each with
+    # its own fakes and vite on the same ports (they are separate machines),
+    # every other harness each (verify-all.mjs SHARD). About 23 minutes a
+    # slice, and the limit stays where it was.
     timeout-minutes: 50
+    strategy:
+      # One slice going red must not cancel the other: the whole board is
+      # what a push is read by.
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
 
@@ -91,6 +100,7 @@ jobs:
       - name: Verify
         env:
           PW_FROM: /tmp/pw/x.js
+          SHARD: ${{ matrix.shard }}/2
         run: pnpm verify
 
   # The native layer, on the platform it is written for. CLAUDE.md's

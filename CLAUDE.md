@@ -144,8 +144,11 @@ then checks the click took.
 ## CI
 
 `.github/workflows/ci.yml` runs on every push to every branch: typecheck,
-lint and unit tests; `pnpm verify` (the board above); and on
-`windows-latest`, `cargo test` plus clippy held to the 9-warning baseline.
+lint and unit tests; `pnpm verify` (the board above), as two jobs at once,
+"pnpm verify (1/2)" and "(2/2)", each every other harness (`SHARD=k/n`,
+v0.11.37: one job had reached 45m55s of its 50); and on `windows-latest`,
+`cargo test` plus clippy held to the 9-warning baseline. The board's
+baseline is the two slices' boards added together.
 That Windows job is the only place the Rust tests run at all. A push that
 turns it red is yours to fix before the next one.
 

@@ -20,6 +20,7 @@
  *   node scripts/verify-all.mjs              # everything
  *   node scripts/verify-all.mjs discover nav # only matching names
  *   KEEP=1 node scripts/verify-all.mjs       # leave the servers running
+ *   SHARD=1/2 node scripts/verify-all.mjs    # every other harness (CI's two jobs)
  *
  * Needs playwright-core reachable. Either install it, or point PW_FROM at a
  * module path that can require it (the same variable the harnesses take):
@@ -49,6 +50,24 @@ const SERVERS = [
 
 /** Harnesses that are not browser runs and take arguments of their own. */
 const NOT_BROWSER = new Set(["verify-release"]);
+
+/** SHARD=k/n: the kth of n slices of the board, every nth harness of the
+ * sorted list starting at the kth. CI runs the board as two jobs at once
+ * (ci.yml), because one had grown to 45m55s of a 50 minute limit at
+ * v0.11.36, with two more harnesses coming. Round robin over the names split
+ * those timings 21.9 / 23.9 minutes, close enough that no table of
+ * durations is kept. Unset: the whole board. */
+const SHARD = (() => {
+  const raw = process.env.SHARD;
+  if (!raw) return null;
+  const m = /^(\d+)\/(\d+)$/.exec(raw);
+  const [k, n] = m ? [Number(m[1]), Number(m[2])] : [0, 0];
+  if (!m || n < 1 || k < 1 || k > n) {
+    console.error(`SHARD=${raw}: expected k/n with 1 <= k <= n, as in 1/2`);
+    process.exit(2);
+  }
+  return { k, n };
+})();
 
 const kids = [];
 const spawnKid = (cmd, args, opts = {}) => {
@@ -159,11 +178,12 @@ const all = readdirSync(path.join(ROOT, "scripts"))
   .map((f) => f.slice(0, -4))
   .filter((n) => !NOT_BROWSER.has(n))
   .filter((n) => !filters.length || filters.some((q) => n.includes(q)))
-  .sort();
+  .sort()
+  .filter((_, i) => !SHARD || i % SHARD.n === SHARD.k - 1);
 
 const SHOT_DIR = path.join(ROOT, ".verify-shots");
 const rows = [];
-console.log(`\nrunning ${all.length} harnesses…\n`);
+console.log(`\nrunning ${all.length} harnesses${SHARD ? `, slice ${SHARD.k} of ${SHARD.n}` : ""}…\n`);
 for (const n of all) {
   const r = await run(process.execPath, [path.join("scripts", `${n}.mjs`)], {
     env: { SHOT_DIR },
