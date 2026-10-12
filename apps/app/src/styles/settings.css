@@ -643,6 +643,40 @@ input.rowcap__value--edit:focus-visible {
   overflow-wrap: anywhere;
 }
 
+/* Export Settings' box (SettingsFilesSection, plan 025 P4c): a checkbox and
+ * the words it asks, under the row's note. The box is the platform's, in the
+ * accent, as the Row Size slider is. It keeps its size when the words wrap. */
+.settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  max-width: 52ch;
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.settings-check > input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* What an export or an import has to say, under the row's words. */
+.settings-said {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.settings-said--error {
+  color: var(--danger-text);
+}
+
 /* A row the palette found (SettingsModal, plan 025 P2): lit for a moment,
  * then the glass again. The class is written to the DOM and lifted by a timer
  * as long as the fade, so no row's markup carries it. The halo is a shadow,

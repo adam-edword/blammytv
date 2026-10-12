@@ -97,3 +97,82 @@ describe("tauriAppLog", () => {
     await expect(tauriAppLog("error", "x")).rejects.toBe("Command app_log not found");
   });
 });
+
+describe("the settings file commands (P4c)", () => {
+  // `tauriHasSettingsFiles` keeps its answer for the life of the page, so each
+  // case gets a copy of the module of its own.
+  const fresh = async () => {
+    vi.resetModules();
+    return await import("./tauri");
+  };
+
+  it("finds out the native has the commands by saving nothing: its refusal of an empty file says it is there", async () => {
+    const t = await fresh();
+    native({ settings_export: () => Promise.reject("refused: nothing to save") });
+    expect(await t.tauriHasSettingsFiles()).toBe(true);
+    expect(invoke).toHaveBeenCalledWith("settings_export", { json: "", suggested: "" });
+    expect(asked()).toEqual(["settings_export"]);
+  });
+
+  it("finds out a native from before them has none: 'not found' is a no", async () => {
+    const t = await fresh();
+    native({});
+    expect(await t.tauriHasSettingsFiles()).toBe(false);
+  });
+
+  it("takes any other failure as a native that has them", async () => {
+    const t = await fresh();
+    native({ settings_export: () => Promise.reject("something else went wrong") });
+    expect(await t.tauriHasSettingsFiles()).toBe(true);
+  });
+
+  it("asks once, however many rows want to know", async () => {
+    const t = await fresh();
+    native({ settings_export: () => Promise.reject("refused: nothing to save") });
+    await Promise.all([t.tauriHasSettingsFiles(), t.tauriHasSettingsFiles()]);
+    await t.tauriHasSettingsFiles();
+    expect(asked()).toEqual(["settings_export"]);
+  });
+
+  it("hands the save dialog the text and a name, and gives back the name it was saved as", async () => {
+    const t = await fresh();
+    native({ settings_export: () => Promise.resolve("my-settings.json") });
+    expect(await t.tauriSettingsExport('{"a":1}', "blammytv-settings-2026-10-12.json")).toBe("my-settings.json");
+    expect(invoke).toHaveBeenCalledWith("settings_export", { json: '{"a":1}', suggested: "blammytv-settings-2026-10-12.json" });
+  });
+
+  it("takes a closed save dialog, and anything that is not a name, as nothing saved", async () => {
+    const t = await fresh();
+    for (const got of [null, undefined, "", 7, { name: "x" }]) {
+      native({ settings_export: () => Promise.resolve(got) });
+      expect(await t.tauriSettingsExport("{}", "x.json"), String(got)).toBeNull();
+    }
+  });
+
+  it("lets a failed save through to the caller, as native said it", async () => {
+    const t = await fresh();
+    native({ settings_export: () => Promise.reject("too-big") });
+    await expect(t.tauriSettingsExport("{}", "x.json")).rejects.toBe("too-big");
+  });
+
+  it("gives back the text of the file picked, an empty one included, and null for a closed dialog", async () => {
+    const t = await fresh();
+    native({ settings_import: () => Promise.resolve('{"app":"BlammyTV"}') });
+    expect(await t.tauriSettingsImport()).toBe('{"app":"BlammyTV"}');
+    expect(invoke).toHaveBeenCalledWith("settings_import", undefined);
+    native({ settings_import: () => Promise.resolve("") });
+    expect(await t.tauriSettingsImport()).toBe("");
+    for (const got of [null, undefined, 3, ["x"]]) {
+      native({ settings_import: () => Promise.resolve(got) });
+      expect(await t.tauriSettingsImport(), String(got)).toBeNull();
+    }
+  });
+
+  it("rejects as native does for a file that is too big, is not text, or a native that lacks the command", async () => {
+    const t = await fresh();
+    native({ settings_import: () => Promise.reject("too-big") });
+    await expect(t.tauriSettingsImport()).rejects.toBe("too-big");
+    native({});
+    await expect(t.tauriSettingsImport()).rejects.toBe("Command settings_import not found");
+  });
+});

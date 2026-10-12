@@ -123,11 +123,30 @@ describe("findSettings", () => {
       expect(ids(q), q).toContain("copy-diagnostics");
     expect(settingById("copy-diagnostics")?.page).toBe("app");
     // On the page where it is drawn: after Replay Onboarding, and the one
-    // destructive row stays last.
+    // destructive row stays last. Export and Import came between the two in
+    // P4c, so Copy Diagnostics is now the third from last, not the second.
     const order = SETTINGS_INDEX.filter((r) => r.page === "app").map((r) => r.id);
     expect(order.indexOf("replay-onboarding")).toBeLessThan(order.indexOf("copy-diagnostics"));
     expect(order.at(-1)).toBe("clear-logins");
-    expect(order.indexOf("copy-diagnostics")).toBe(order.length - 2);
+    expect(order.indexOf("copy-diagnostics")).toBe(order.length - 4);
+  });
+
+  it("finds Export and Import Settings by what a person would type (P4c)", () => {
+    expect(ids("export")[0]).toBe("export-settings");
+    expect(ids("import")[0]).toBe("import-settings");
+    for (const q of ["backup", "back up", "file", "json", "move", "transfer", "migrate", "another pc"])
+      expect(ids(q), q).toEqual(expect.arrayContaining(["export-settings", "import-settings"]));
+    // Reset Appearance has "restore" too (the registry's order puts it first).
+    expect(ids("restore")).toEqual(["reset-appearance", "import-settings"]);
+    expect(ids("settings").slice(0, 2)).toEqual(["export-settings", "import-settings"]);
+    // On App, in the order the page draws them: Copy Diagnostics, Export,
+    // Import, and the destructive row last.
+    for (const id of ["export-settings", "import-settings"]) {
+      expect(settingById(id)?.page, id).toBe("app");
+      expect(settingById(id)?.world, id).toBeUndefined();
+    }
+    const order = SETTINGS_INDEX.filter((r) => r.page === "app").map((r) => r.id);
+    expect(order.slice(-4)).toEqual(["copy-diagnostics", "export-settings", "import-settings", "clear-logins"]);
   });
 
   it("finds a label by its own words", () => {

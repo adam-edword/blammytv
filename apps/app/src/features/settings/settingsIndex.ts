@@ -240,6 +240,18 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["diagnostics", "log", "logs", "support", "debug", "bug", "report", "help", "problem", "privacy", "analytics", "telemetry", "clipboard", "data"],
   },
   {
+    id: "export-settings",
+    label: "Export Settings",
+    page: "app",
+    keywords: ["export", "backup", "back up", "save", "file", "json", "move", "transfer", "migrate", "another pc", "new pc", "copy settings"],
+  },
+  {
+    id: "import-settings",
+    label: "Import Settings",
+    page: "app",
+    keywords: ["import", "restore", "backup", "back up", "load", "file", "json", "move", "transfer", "migrate", "another pc", "new pc", "replace"],
+  },
+  {
     id: "clear-logins",
     label: "Clear All Login Info",
     page: "app",

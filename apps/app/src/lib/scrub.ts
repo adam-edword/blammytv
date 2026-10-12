@@ -62,6 +62,21 @@ function noteUserFolders(text: string): string {
  * the `=` base64 pads with. */
 const RUN = /[A-Za-z0-9+/_-]{32,}={0,2}/g;
 
+/** A run is a token when it holds 16 or more letters or digits, so a rule of
+ * dashes is not one. */
+const isToken = (run: string): boolean => run.replace(/[^A-Za-z0-9]/g, "").length >= 16;
+
 function noteRuns(text: string): string {
-  return text.replace(RUN, (run) => (run.replace(/[^A-Za-z0-9]/g, "").length >= 16 ? "<redacted>" : run));
+  return text.replace(RUN, (run) => (isToken(run) ? "<redacted>" : run));
+}
+
+/**
+ * Whether rule 4 would redact something in `text`: the same run, the same test,
+ * asked as a question. The settings export asks it of the pieces of an artwork
+ * URL (features/settings/settingsExport.ts), so what it calls a key is what the
+ * log calls one.
+ */
+export function hasTokenRun(text: string): boolean {
+  for (const m of text.matchAll(RUN)) if (isToken(m[0])) return true;
+  return false;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scrub } from "./scrub";
+import { hasTokenRun, scrub } from "./scrub";
 
 // Every secret in here is an obvious fake. A real credential does not belong in
 // a test fixture that is committed.
@@ -143,5 +143,27 @@ describe("scrub: all of them together", () => {
   it("takes the empty string and a multi-line text line by line", () => {
     expect(scrub("")).toBe("");
     expect(scrub(`one\nhttp://h:1/a/b\n${TOKEN}\ntwo`)).toBe("one\nhttp://h:1/…\n<redacted>\ntwo");
+  });
+});
+
+describe("hasTokenRun: rule 4 as a question", () => {
+  it("is true for a run of 32 or more with 16 letters or digits in it, in any of the sets", () => {
+    for (const run of [TOKEN, HEX, B64, "a/b+c_d-".repeat(5) + "efgh", "Zm9v".repeat(8)]) expect(hasTokenRun(run), run).toBe(true);
+    expect(hasTokenRun(`prefix ${TOKEN} suffix`)).toBe(true);
+  });
+
+  it("is false below 32, and for a ruler of dashes", () => {
+    for (const text of ["", "t0k3n".repeat(6) + "a", "-".repeat(40), "=".repeat(40), "-_".repeat(20), "a-b-c-d-e-f-g-h-i-j-k-l-m-n-o", "1E5baAaEse26fej7uHcjOgEE2t2.jpg"])
+      expect(hasTokenRun(text), text).toBe(false);
+  });
+
+  it("counts the slash as part of a run, so a whole path is one: ask it of a piece at a time", () => {
+    expect(hasTokenRun("/t/p/w500/1E5baAaEse26fej7uHcjOgEE2t2")).toBe(true);
+    for (const piece of ["t", "p", "w500", "1E5baAaEse26fej7uHcjOgEE2t2"]) expect(hasTokenRun(piece), piece).toBe(false);
+  });
+
+  it("agrees with scrub's own redaction, so what the export calls a key is what the log does", () => {
+    for (const text of [TOKEN, HEX, B64, "-".repeat(40), "short", "t0k3n".repeat(6), `a ${TOKEN} b`])
+      expect(hasTokenRun(text), text).toBe(scrub(text).includes("<redacted>"));
   });
 });

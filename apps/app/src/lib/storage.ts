@@ -7,7 +7,7 @@
 
 const PREFIX = "blammytv.";
 
-interface Envelope<T> {
+export interface Envelope<T> {
   v: number;
   data: T;
 }
@@ -63,5 +63,48 @@ export function remove(key: string): void {
     localStorage.removeItem(PREFIX + key);
   } catch {
     /* storage unavailable — nothing to remove */
+  }
+}
+
+/** Whether a parsed value is an envelope: `{ v: number, data }`. The check the
+ * settings file makes of every value it reads or is given, and no more. */
+export function isEnvelope(x: unknown): x is Envelope<unknown> {
+  return (
+    typeof x === "object" &&
+    x !== null &&
+    !Array.isArray(x) &&
+    typeof (x as { v?: unknown }).v === "number" &&
+    Number.isFinite((x as { v: number }).v) &&
+    "data" in x
+  );
+}
+
+/**
+ * The stored text of a key as it sits on disk, envelope and all, or null when
+ * there is none (or the store cannot be read). For the settings file
+ * (features/settings/settingsExport.ts), which moves envelopes between
+ * machines and so has to see them whole; everything else reads through `load`.
+ */
+export function readRaw(key: string): string | null {
+  try {
+    return localStorage.getItem(PREFIX + key);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Put a key's stored text back as it was, or take the key away with null.
+ * False when the store refused (quota, private mode). Silent: unlike `save`,
+ * it logs nothing, because what it is writing is the person's file and the
+ * log is not a place for it. The caller says what happened.
+ */
+export function writeRaw(key: string, raw: string | null): boolean {
+  try {
+    if (raw === null) localStorage.removeItem(PREFIX + key);
+    else localStorage.setItem(PREFIX + key, raw);
+    return true;
+  } catch {
+    return false;
   }
 }

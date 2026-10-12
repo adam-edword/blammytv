@@ -7,6 +7,8 @@
 # (mpvopen.rs) and which Vulkan loader the player loads first (mpvvulkan.rs)
 # and what Settings → App shows of versions and update notes (about.rs)
 # and how the log's end is read back for Copy Diagnostics (logtail.rs)
+# and what Export and Import settings check around their file dialogs
+# (settingsfile.rs)
 # on a Linux box,
 # where the app crate itself will not build (gdk-sys; see CLAUDE.md). The
 # files are included as they are, byte for byte.

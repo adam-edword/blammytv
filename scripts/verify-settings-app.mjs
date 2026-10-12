@@ -1,6 +1,6 @@
 // E2E: Settings → App gains Keyboard Shortcuts, What's new and About (plan 025,
-// P4a; v0.11.36), and Copy Diagnostics and a log the page writes to (P4b),
-// with the native side stubbed.
+// P4a; v0.11.36), and Copy Diagnostics and a log the page writes to (P4b), and
+// Export and Import Settings (P4c), with the native side stubbed.
 //
 // Three rows between Updates and Replay Onboarding:
 //
@@ -26,7 +26,14 @@
 //     with no `log_tail` still copies and says the log wasn't available;
 //   - the page's warnings and errors reach native's `app_log`, once each and
 //     with a count for a repeat, the console gets them as it always did, and a
-//     plain browser sends nothing.
+//     plain browser sends nothing;
+//   - Export and Import Settings (P4c): a file with the settings and no login
+//     (no playlist, no manifest, no sign-in) unless the box is ticked, and then
+//     the playlists and the manifest but still no sign-in; an import of that file
+//     into a fresh page restores a look, a list and the playlists and reloads
+//     the window; a Trakt, MyAnimeList or TMDB key in the file changes nothing; a
+//     file that is not BlammyTV's changes nothing and says so; the two dialogs
+//     are native's, stubbed here, and an older native greys both buttons.
 //
 //   (vite on :4173)
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-settings-app.mjs
@@ -61,6 +68,14 @@ const NATIVE = {
   tail: undefined,
   // What `app_log` does: "reject" for a native from before the log.
   appLog: undefined,
+  // Export and Import Settings (P4c). "old" is a native from before them: both
+  // commands are "not found". Otherwise `exportAnswer` is what the save dialog
+  // gives back (the file name they chose, or null for a closed dialog) and
+  // `importAnswer` what the open dialog does (a file's text, or null for a
+  // closed dialog). Either can be { reject: "..." } for a command that fails.
+  files: "new",
+  exportAnswer: "blammytv-settings-test.json",
+  importAnswer: null,
 };
 
 /**
@@ -141,6 +156,19 @@ async function open({ store = SEEDED, width = 1440, height = 900, tauri = false,
               if (n.tail === "reject") return refuse(cmd);
               return Promise.resolve(n.tail);
             }
+            if (cmd === "settings_export") {
+              if (n.files === "old") return refuse(cmd);
+              // Saving nothing is the page asking whether this build has the
+              // command, and native refuses it before any dialog could open.
+              if (!args || !String(args.json ?? "").trim()) return Promise.reject("refused: nothing to save");
+              if (n.exportAnswer && typeof n.exportAnswer === "object") return Promise.reject(n.exportAnswer.reject);
+              return Promise.resolve(n.exportAnswer);
+            }
+            if (cmd === "settings_import") {
+              if (n.files === "old") return refuse(cmd);
+              if (n.importAnswer && typeof n.importAnswer === "object") return Promise.reject(n.importAnswer.reject);
+              return Promise.resolve(n.importAnswer);
+            }
             if (cmd === "mpv_stats") return Promise.resolve("{}");
             if (cmd === "install_update") return new Promise(() => {});
             return Promise.resolve(undefined);
@@ -207,8 +235,10 @@ const appVersion = (page) =>
   await openApp(page);
   const rows = await titles(page);
   check(
-    "App: Updates, Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, then Clear All Login Info",
-    rows.length === 6 && /^BlammyTV v/.test(rows[0]) && rows.slice(1).join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Copy Diagnostics|Clear All Login Info",
+    "App: Updates, Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, Export Settings, Import Settings, then Clear All Login Info",
+    rows.length === 8 &&
+      /^BlammyTV v/.test(rows[0]) &&
+      rows.slice(1).join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
     JSON.stringify(rows),
   );
   const row = page.locator("[data-setting='shortcuts']");
@@ -847,7 +877,11 @@ for (const [label, about] of [
   const rows = await page.locator("[data-setting='about'] .about__row dt").allInnerTexts();
   check("a browser (no native at all) shows the app's version alone", JSON.stringify(rows) === JSON.stringify(["App"]), JSON.stringify(rows));
   const titlesNow = await titles(page);
-  check("  and the page is Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, Clear All Login Info (no update row there)", titlesNow.join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Copy Diagnostics|Clear All Login Info", JSON.stringify(titlesNow));
+  check(
+    "  and the page is Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, Export Settings, Import Settings, Clear All Login Info (no update row there)",
+    titlesNow.join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
+    JSON.stringify(titlesNow),
+  );
   await ctx.close();
 }
 {
@@ -1196,6 +1230,605 @@ const sentLines = async (page, marker) => (await calls(page, "app_log")).filter(
     got.native && (await calls(page, "app_log")).length === 0 && seen.some((m) => m[0] === "error" && m[1] === "btv-browser"),
     JSON.stringify(got),
   );
+  await ctx.close();
+}
+
+// ====================================================================
+// Export and Import Settings (plan 025, P4c). The dialogs are native's and
+// stubbed here: `settings_export` is handed the file's text and a name and
+// answers the name it was saved as, `settings_import` answers a file's text.
+// ====================================================================
+// Obvious fakes. A real credential does not belong in a committed fixture.
+const FAKE_PASSWORD = "FAKE-PASSWORD-NOT-REAL";
+const FAKE_MANIFEST = "http://aio.example.invalid/FAKE-CONFIG/manifest.json";
+const FAKE_TMDB = "FAKE-TMDB-KEY-NOT-REAL";
+const FAKE_RPDB = "FAKE-RPDB-KEY-NOT-REAL";
+/** Artwork as a stored title has it: RPDB puts the key in the path, metahub (what Cinemeta serves) has none. */
+const RPDB_ART = `https://api.ratingposterdb.com/${FAKE_RPDB}/imdb/poster-default/tt0000001.jpg?fallback=true`;
+const METAHUB_ART = "https://images.metahub.space/background/medium/tt0000002/img";
+const METAHUB_LOGO = "https://images.metahub.space/logo/medium/tt0000001/img";
+/** Signed-in AIOStreams' artwork as it really is (aiojf/browse.ts:88): a 32 hex item id and a tag that is an
+ * 11 character signature, a host code and the base64url of the rest of the address. Code 2 is TMDB's image
+ * host; code 0 is a whole address, which is where an RPDB poster arrives, its key inside. */
+const AIO_ID = "0123456789abcdef0123456789abcdef";
+const tagOf = (code, rest) => `abcdefghijk${code}${Buffer.from(rest).toString("base64url")}`;
+const AIO_ART_OK = `http://aiojf.example.invalid/Items/${AIO_ID}/Images/Backdrop/0?tag=${encodeURIComponent(tagOf("2", "original/shawshank-bg.jpg"))}`;
+const AIO_ART_KEYED = `http://aiojf.example.invalid/Items/${AIO_ID}/Images/Primary?tag=${encodeURIComponent(tagOf("0", RPDB_ART))}`;
+/** The key as it travels inside that tag, which a plain search for the key would not find. */
+const RPDB_ENCODED = Buffer.from(RPDB_ART).toString("base64url");
+const SECRETS = [FAKE_PASSWORD, "FAKE-CONFIG", "fake-user", FAKE_TMDB, FAKE_RPDB, RPDB_ENCODED];
+/** What the old PC has stored: a look, lists, the logins, and the things that
+ * are never in a file (the sign-ins' bookkeeping and queues, a key, caches). */
+const NEVER_KEYS = ["trakt", "traktQueue", "mal", "aiojf", "aiojfQueue", "tmdbKey", "vodCache", "malWatched", "aioWatched", "aiojfIds", "aniskipIndex"];
+const OLD_PC = {
+  startupTab: { v: 1, data: "live" },
+  accent: { v: 2, data: "#3366cc" },
+  oneClickPlay: { v: 1, data: true },
+  lists: { v: 1, data: [{ id: "l1", name: "Weekend", at: 1, entries: [{ id: "tt0000001", title: "Fake Film", kind: "movie", poster: RPDB_ART, at: 1 }, { id: "tt0000002", title: "Plain Film", kind: "movie", poster: METAHUB_ART, at: 1 }] }] },
+  watching: { v: 1, data: [{ id: "tt0000001", title: "Keyed Film", art: RPDB_ART, logo: METAHUB_LOGO, at: 4 }, { id: "tt0000002", title: "Plain Film", art: METAHUB_ART, at: 3 }, { id: "tt0000003", title: "Signed-in Film", art: AIO_ART_OK, at: 2 }, { id: "tt0000004", title: "Signed-in Keyed Film", art: AIO_ART_KEYED, at: 1 }] },
+  favorites: { v: 1, data: ["p1:101", "p1:102"] },
+  playlists: { v: 1, data: [{ kind: "xtream", id: "p1", name: "Fake Xtream", enabled: true, server: "http://iptv.example.invalid:8080", username: "fake-user", password: FAKE_PASSWORD }] },
+  aiostreams: { v: 1, data: FAKE_MANIFEST },
+  heroSources: { v: 1, data: ["movie:fake-catalog"] },
+  trakt: { v: 1, data: { lastSync: 111 } },
+  traktQueue: { v: 1, data: [] },
+  mal: { v: 1, data: { lastSync: 222, counts: { 1: 3 }, pending: {}, problem: null } },
+  aiojf: { v: 1, data: { lastSync: 333 } },
+  aiojfQueue: { v: 1, data: [] },
+  tmdbKey: { v: 1, data: FAKE_TMDB },
+  vodCache: { v: 1, data: { key: `manifest:${FAKE_MANIFEST}`, items: [] } },
+  malWatched: { v: 1, data: { tt1: ["tt1:1:1"] } },
+  aioWatched: { v: 1, data: { episodes: {}, films: [] } },
+  aiojfIds: { v: 1, data: { base: "http://aiojf.example.invalid", pairs: [] } },
+  aniskipIndex: { v: 1, data: { at: 1, map: {} } },
+};
+/** A PC that is not set up: nothing of the old one's, and a sign-in of its own. */
+const NEW_PC = {
+  accent: { v: 2, data: "#aa1111" },
+  trakt: { v: 1, data: { lastSync: 777 } },
+  mal: { v: 1, data: { lastSync: 888, counts: {}, pending: {}, problem: null } },
+  tmdbKey: { v: 1, data: "THIS-PCS-OWN-KEY" },
+};
+
+const exportRow = (page) => page.locator("[data-setting='export-settings']");
+const importRow = (page) => page.locator("[data-setting='import-settings']");
+const exportBtn = (page) => exportRow(page).locator(":scope > button");
+const importBtn = (page) => importRow(page).locator(":scope > button");
+const box = (page) => exportRow(page).getByRole("checkbox");
+/** What the save dialog was handed: the page's own "is there such a command"
+ * call, which saves nothing, left out. */
+const saves = async (page) => (await calls(page, "settings_export")).filter((c) => String(c?.json ?? "").trim());
+const stored = (page, key) => page.evaluate((k) => localStorage.getItem(`blammytv.${k}`), key);
+const storedJson = async (page, key) => JSON.parse((await stored(page, key)) ?? "null");
+/** Every key the app stores, with its text. */
+const everything = (page) =>
+  page.evaluate(() =>
+    Object.fromEntries(
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("blammytv."))
+        .sort()
+        .map((k) => [k, localStorage.getItem(k)]),
+    ),
+  );
+const navType = (page) => page.evaluate(() => performance.getEntriesByType("navigation")[0]?.type);
+const mark = (page) => page.evaluate(() => (window.__marker = 1));
+const marked = (page) => page.evaluate(() => window.__marker === 1);
+const said = async (page, row) => {
+  const el = row(page).locator(".settings-said");
+  return (await el.count()) ? (await el.first().innerText()).trim() : null;
+};
+/** Press Export and wait for the stub to have been asked (and the row to settle). */
+async function pressExport(page, n = 1) {
+  await exportBtn(page).click();
+  await page.waitForFunction((n) => window.__calls.filter((c) => c[0] === "settings_export" && String(c[1]?.json ?? "").trim()).length >= n, n, { timeout: 5000 });
+  await page.waitForTimeout(250);
+}
+/** The two presses of Import, and then what a closed file chooser leaves. */
+async function pressImport(page, { reloads }) {
+  await importBtn(page).click();
+  const armed = await importBtn(page).innerText();
+  const load = reloads ? page.waitForEvent("load", { timeout: 15_000 }) : null;
+  await importBtn(page).click();
+  if (load) {
+    await load;
+    await page.waitForSelector(".navcap", { timeout: 20_000 });
+    await page.waitForTimeout(400);
+  } else {
+    await page.waitForTimeout(500);
+  }
+  return armed;
+}
+const hasKey = (file, k) => Object.prototype.hasOwnProperty.call(file.keys, k);
+
+let TICKED = null; // the file a ticked export wrote, for the imports below
+let UNTICKED = null;
+{
+  const { ctx, page, seen } = await open({ tauri: true, store: OLD_PC });
+  await openApp(page);
+
+  // ------------------------------------------------------------ the rows
+  const where = await page.evaluate(() => {
+    const body = document.querySelector(".settings__body");
+    const heads = [...body.querySelectorAll(".settings__group")];
+    const privacy = heads.find((h) => /privacy and data/i.test(h.textContent ?? ""));
+    const at = (id) => body.querySelector(`[data-setting='${id}']`);
+    const after = (a, b) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return {
+      heads: heads.map((h) => h.textContent),
+      order:
+        after(privacy, at("copy-diagnostics")) &&
+        after(at("copy-diagnostics"), at("export-settings")) &&
+        after(at("export-settings"), at("import-settings")) &&
+        after(at("import-settings"), at("clear-logins")),
+      sections: new Set([at("copy-diagnostics"), at("export-settings"), at("import-settings")].map((e) => e?.closest("section"))).size,
+      exportNote: at("export-settings")?.querySelector(".settings__section-note")?.textContent ?? "",
+      importNote: at("import-settings")?.querySelector(".settings__section-note")?.textContent ?? "",
+      boxLabel: at("export-settings")?.querySelector(".settings-check")?.textContent?.trim(),
+      sideways: body.scrollWidth > body.clientWidth + 1,
+    };
+  });
+  check(
+    "Privacy and data holds Copy Diagnostics, Export Settings and Import Settings in that order, in one section, and Clear All Login Info stays after them",
+    where.heads.join("|") === "App|Privacy and data" && where.order && where.sections === 1,
+    JSON.stringify(where),
+  );
+  check(
+    "  Export says what goes in it and that the sign-ins never do; Import says your settings are replaced, the sign-ins stay, and a file's playlists and AIOStreams replace yours",
+    /looks, playback settings, lists/i.test(where.exportNote) && /Trakt, MyAnimeList and AIOStreams sign-ins never go in it/.test(where.exportNote) &&
+      /settings are replaced/i.test(where.importNote) && /sign-ins stay/i.test(where.importNote) && /playlists and AIOStreams, they replace yours/i.test(where.importNote),
+    JSON.stringify({ e: where.exportNote, i: where.importNote }),
+  );
+  check(
+    "  the box reads 'Include playlists and AIOStreams (has your passwords in it)' and is off",
+    where.boxLabel === "Include playlists and AIOStreams (has your passwords in it)" && !(await box(page).isChecked()),
+    where.boxLabel,
+  );
+  check(
+    "  the buttons are Export… and, behind two presses, Import…; neither is greyed on a native that has the commands",
+    (await exportBtn(page).innerText()) === "Export…" &&
+      (await importBtn(page).innerText()) === "Import…" &&
+      (await exportBtn(page).getAttribute("aria-disabled")) === null &&
+      (await importBtn(page).getAttribute("aria-disabled")) === null &&
+      !where.sideways,
+  );
+  const asked = await calls(page, "settings_export");
+  check(
+    "the page found out the native has the command by saving nothing (an empty file, which native refuses before a dialog), once; and nothing was exported or opened by looking",
+    asked.length >= 1 && asked.length <= 2 && asked.every((c) => !String(c?.json ?? "").trim()) && (await calls(page, "settings_import")).length === 0,
+    JSON.stringify(asked),
+  );
+
+  // ------------------------------------------------------------ export, box off
+  const neverHere = await page.evaluate((ks) => ks.filter((k) => localStorage.getItem(`blammytv.${k}`) !== null), NEVER_KEYS);
+  check("  (the never keys are stored when the export is pressed, so their absence from the file means something)", neverHere.length >= 8, JSON.stringify(neverHere));
+  await pressExport(page, 1);
+  const first = (await saves(page))[0];
+  UNTICKED = JSON.parse(first.json);
+  const version = await appVersion(page);
+  const today = await page.evaluate(() => {
+    const d = new Date();
+    const two = (n) => String(n).padStart(2, "0");
+    return `blammytv-settings-${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}.json`;
+  });
+  check(
+    "Export with the box off asks the save dialog once, to start on blammytv-settings-<today>.json, and the page is handed nothing but a name",
+    (await saves(page)).length === 1 && first.suggested === today && /^blammytv-settings-\d{4}-\d{2}-\d{2}\.json$/.test(first.suggested) && Object.keys(first).sort().join() === "json,suggested",
+    JSON.stringify({ suggested: first.suggested, today, keys: Object.keys(first) }),
+  );
+  check(
+    "  the file is BlammyTV's settings file, format 1, this app's version, an ISO time, includesLogins false",
+    UNTICKED.app === "BlammyTV" && UNTICKED.kind === "settings" && UNTICKED.format === 1 && UNTICKED.version === version && !Number.isNaN(Date.parse(UNTICKED.exported)) && UNTICKED.exported.endsWith("Z") && UNTICKED.includesLogins === false,
+    JSON.stringify({ ...UNTICKED, keys: Object.keys(UNTICKED.keys) }),
+  );
+  check(
+    "  it holds the look, the list, the favourites and the playback setting, each as the stored envelope",
+    JSON.stringify(UNTICKED.keys.accent) === JSON.stringify({ v: 2, data: "#3366cc" }) &&
+      UNTICKED.keys.lists?.data?.[0]?.name === "Weekend" &&
+      JSON.stringify(UNTICKED.keys.favorites) === JSON.stringify({ v: 1, data: ["p1:101", "p1:102"] }) &&
+      UNTICKED.keys.oneClickPlay?.data === true &&
+      UNTICKED.keys.startupTab?.data === "live",
+    JSON.stringify(Object.keys(UNTICKED.keys)),
+  );
+  check(
+    "  and no playlist, no manifest, no hero source: not as keys, and not a character of their passwords anywhere in the text",
+    !["playlists", "aiostreams", "heroSources"].some((k) => hasKey(UNTICKED, k)) && !SECRETS.some((s) => first.json.includes(s)) && !first.json.includes("iptv.example.invalid"),
+    JSON.stringify(Object.keys(UNTICKED.keys)),
+  );
+  const stillStored = await storedJson(page, "watching");
+  const unW = UNTICKED.keys.watching?.data ?? [];
+  const unL = UNTICKED.keys.lists?.data?.[0]?.entries ?? [];
+  check(
+    "  Continue Watching keeps both entries, and the one whose art is an RPDB address has no art (its logo, title and time stay), where the one with a metahub address keeps it",
+    stillStored.data[0].art === RPDB_ART &&
+      unW.length === 4 &&
+      unW[0].id === "tt0000001" && unW[0].title === "Keyed Film" && unW[0].logo === METAHUB_LOGO && unW[0].at === 4 && !("art" in unW[0]) &&
+      unW[1].id === "tt0000002" && unW[1].art === METAHUB_ART,
+    JSON.stringify(unW),
+  );
+  check(
+    "  and a signed-in AIOStreams title, its art a 32 hex id and a code 2 tag, keeps its art as stored; the one whose code 0 tag holds an RPDB address keeps its entry and loses the art",
+    stillStored.data[3].art === AIO_ART_KEYED &&
+      unW[2].id === "tt0000003" && unW[2].art === AIO_ART_OK &&
+      unW[3].id === "tt0000004" && unW[3].title === "Signed-in Keyed Film" && unW[3].at === 1 && !("art" in unW[3]),
+    JSON.stringify(unW.slice(2)),
+  );
+  check(
+    "  and a list keeps both entries, the RPDB poster gone from the first and the metahub one on the second",
+    unL.length === 2 && unL[0].id === "tt0000001" && unL[0].title === "Fake Film" && !("poster" in unL[0]) && unL[1].poster === METAHUB_ART,
+    JSON.stringify(unL),
+  );
+  check(
+    "  and not a character of the RPDB key, nor its host, anywhere in the text",
+    !first.json.includes(FAKE_RPDB) && !first.json.includes("ratingposterdb") && !first.json.includes(RPDB_ENCODED),
+  );
+  check(
+    "  and not the key as the AIOStreams tag carries it (base64url of the address), which a search for the key would not find",
+    !first.json.includes(RPDB_ENCODED) && !first.json.includes(encodeURIComponent(tagOf("0", RPDB_ART))),
+  );
+  check(
+    "  and no sign-in, key or cache: none of the never keys, and not the one thing a sign-in's bookkeeping or a TMDB key says",
+    !NEVER_KEYS.some((k) => hasKey(UNTICKED, k)) && !/lastSync|THIS-PCS|FAKE-TMDB/.test(first.json),
+    JSON.stringify(Object.keys(UNTICKED.keys)),
+  );
+  const savedLine = await said(page, exportRow);
+  check("  then the row says 'Saved as blammytv-settings-test.json', the name the dialog gave, no folder", savedLine === "Saved as blammytv-settings-test.json", String(savedLine));
+
+  // ------------------------------------------------------------ export, box on
+  await box(page).check();
+  check("ticking the box leaves the 'Saved as' line where it is (the next export clears it)", (await said(page, exportRow)) === "Saved as blammytv-settings-test.json");
+  await pressExport(page, 2);
+  const second = (await saves(page))[1];
+  TICKED = JSON.parse(second.json);
+  check(
+    "Export with the box ticked writes includesLogins true, with the playlists, the manifest and the hero sources as stored",
+    TICKED.includesLogins === true &&
+      TICKED.keys.playlists?.data?.[0]?.password === FAKE_PASSWORD &&
+      TICKED.keys.aiostreams?.data === FAKE_MANIFEST &&
+      JSON.stringify(TICKED.keys.heroSources?.data) === JSON.stringify(["movie:fake-catalog"]),
+    JSON.stringify(Object.keys(TICKED.keys)),
+  );
+  const tkW = TICKED.keys.watching?.data ?? [];
+  const tkL = TICKED.keys.lists?.data?.[0]?.entries ?? [];
+  check(
+    "  and every artwork address as stored, keyed or not: all four Continue Watching entries (the signed-in AIOStreams ones too) and both list posters",
+    tkW.length === 4 && tkW[0].art === RPDB_ART && tkW[1].art === METAHUB_ART && tkW[2].art === AIO_ART_OK && tkW[3].art === AIO_ART_KEYED && tkL.length === 2 && tkL[0].poster === RPDB_ART && tkL[1].poster === METAHUB_ART,
+    JSON.stringify({ tkW, tkL }),
+  );
+  check(
+    "  and still no sign-in, key or cache, ticked or not",
+    !NEVER_KEYS.some((k) => hasKey(TICKED, k)) && !/lastSync|FAKE-TMDB/.test(second.json),
+    JSON.stringify(Object.keys(TICKED.keys)),
+  );
+  check(
+    "  and everything else the unticked file had, unchanged (the two keys that hold artwork have the same entries, with the artwork back)",
+    Object.keys(UNTICKED.keys).every((k) => ["watching", "lists"].includes(k) || JSON.stringify(TICKED.keys[k]) === JSON.stringify(UNTICKED.keys[k])) &&
+      ["watching", "lists"].every((k) => TICKED.keys[k]?.v === UNTICKED.keys[k]?.v) &&
+      Object.keys(TICKED.keys).length === Object.keys(UNTICKED.keys).length + 3,
+    `${Object.keys(UNTICKED.keys).length} / ${Object.keys(TICKED.keys).length}`,
+  );
+
+  // ------------------------------------------------------------ the box is off every time
+  await rail(page).getByRole("tab", { name: "Sources", exact: true }).click();
+  await page.waitForTimeout(300);
+  await rail(page).getByRole("tab", { name: "App", exact: true }).click();
+  await page.locator("[data-setting='export-settings']").waitFor({ timeout: 5000 });
+  check("leaving the App page and coming back: the box is off again, and the 'Saved as' line is gone", !(await box(page).isChecked()) && (await said(page, exportRow)) === null);
+  await box(page).check();
+  await closeSettings(page);
+  await openApp(page);
+  check("  and closing Settings and opening it: off again", !(await box(page).isChecked()));
+
+  // ------------------------------------------------------------ what a closed dialog and a failure say
+  await setNative(page, { exportAnswer: null });
+  await pressExport(page, 3);
+  check("a closed save dialog says nothing: no 'Saved as', no error", (await said(page, exportRow)) === null);
+  await setNative(page, { exportAnswer: { reject: "could not write the file: Access is denied. (os error 5)" } });
+  await pressExport(page, 4);
+  const failed = await said(page, exportRow);
+  check("a write that fails says 'Couldn't save the file.' and none of what the system said", failed === "Couldn't save the file." && !/denied|os error/i.test(failed), String(failed));
+  await setNative(page, { exportAnswer: { reject: "too-big" } });
+  await pressExport(page, 5);
+  check("a file over native's cap says so in a line", (await said(page, exportRow)) === "That's too big to save as a file.");
+  await setNative(page, { exportAnswer: "blammytv-settings-test.json" });
+  await pressExport(page, 6);
+  check("  and the next export, answered, says Saved as again", (await said(page, exportRow)) === "Saved as blammytv-settings-test.json");
+
+  // ------------------------------------------------------------ nothing reaches the log
+  await page.waitForTimeout(1500);
+  const logged = (await calls(page, "app_log")).map((c) => c?.line ?? "");
+  const consoleText = seen.map((m) => m[1]).join("\n");
+  check(
+    "exporting logs nothing: no line sent to app_log and nothing on the console holds a password, the manifest, the file's text or the word of a file",
+    ![...logged, consoleText].some((t) => SECRETS.some((s) => t.includes(s)) || t.includes("includesLogins") || /blammytv-settings/.test(t)),
+    JSON.stringify(logged.slice(0, 3)),
+  );
+  await closeSettings(page);
+  await ctx.close();
+}
+
+// ----------------------------------------------------------------- import
+{
+  // A new PC, and the ticked file.
+  const { ctx, page, seen } = await open({ tauri: true, store: NEW_PC, native: { importAnswer: JSON.stringify(TICKED) } });
+  await openApp(page);
+  await mark(page);
+  const before = await everything(page);
+  const armed = await importBtn(page).evaluate(async (el) => {
+    el.click();
+    await new Promise((r) => setTimeout(r, 60));
+    return el.textContent;
+  });
+  check("the first press of Import only arms it: the label says what the second does, and no file chooser has opened", armed === "Click again to replace" && (await calls(page, "settings_import")).length === 0, armed);
+  const load = page.waitForEvent("load", { timeout: 15_000 });
+  await importBtn(page).click();
+  await load;
+  await page.waitForSelector(".navcap", { timeout: 20_000 });
+  await page.waitForTimeout(500);
+  check("the second press opens the file chooser (settings_import), and the window reloads", (await navType(page)) === "reload" && !(await marked(page)));
+  const after = await everything(page);
+  check("  the look comes in: the accent is the file's, as the envelope it was, and the page wears it", JSON.stringify(await storedJson(page, "accent")) === JSON.stringify({ v: 2, data: "#3366cc" }) && (await page.evaluate(() => document.documentElement.style.getPropertyValue("--accent"))) === "#3366cc", String(after["blammytv.accent"]));
+  check(
+    "  the list, the favourites, the playback setting and the start tab come in",
+    (await storedJson(page, "lists")).data[0].name === "Weekend" && JSON.stringify((await storedJson(page, "favorites")).data) === JSON.stringify(["p1:101", "p1:102"]) && (await storedJson(page, "oneClickPlay")).data === true && (await storedJson(page, "startupTab")).data === "live",
+  );
+  check(
+    "  and a ticked file's artwork comes in as it was, the RPDB address too (import is unchanged)",
+    (await storedJson(page, "watching")).data[0].art === RPDB_ART && (await storedJson(page, "watching")).data[3].art === AIO_ART_KEYED && (await storedJson(page, "lists")).data[0].entries[0].poster === RPDB_ART,
+  );
+  check(
+    "  and the file had them, so the playlists, the manifest and the hero sources come in too",
+    (await storedJson(page, "playlists")).data[0].password === FAKE_PASSWORD && (await storedJson(page, "aiostreams")).data === FAKE_MANIFEST && JSON.stringify((await storedJson(page, "heroSources")).data) === JSON.stringify(["movie:fake-catalog"]),
+  );
+  check(
+    "  this PC's own Trakt, MyAnimeList and TMDB key are exactly as they were",
+    after["blammytv.trakt"] === before["blammytv.trakt"] && after["blammytv.mal"] === before["blammytv.mal"] && after["blammytv.tmdbKey"] === before["blammytv.tmdbKey"] && !!before["blammytv.tmdbKey"],
+    JSON.stringify({ trakt: after["blammytv.trakt"], tmdb: after["blammytv.tmdbKey"] }),
+  );
+  const consoleText = seen.map((m) => m[1]).join("\n");
+  const logged = (await calls(page, "app_log")).map((c) => c?.line ?? "");
+  check("  and importing logs nothing of the file: no password, no manifest, in app_log or on the console", ![...logged, consoleText].some((t) => SECRETS.some((s) => t.includes(s))));
+  await ctx.close();
+}
+{
+  // The same, but a file made with the box off: this PC's own playlists stay.
+  const own = { v: 1, data: [{ kind: "xtream", id: "mine", name: "Mine", enabled: true, server: "http://mine.example.invalid:8080", username: "mine", password: "MINE-NOT-REAL" }] };
+  const { ctx, page } = await open({ tauri: true, store: { ...NEW_PC, playlists: own, aiostreams: { v: 1, data: "http://mine.example.invalid/m.json" } }, native: { importAnswer: JSON.stringify(UNTICKED) } });
+  await openApp(page);
+  await mark(page);
+  await pressImport(page, { reloads: true });
+  check(
+    "a file made with the box off brings the look and the lists and leaves this PC's playlists and manifest where they were",
+    (await storedJson(page, "accent")).data === "#3366cc" && (await storedJson(page, "lists")).data[0].name === "Weekend" && JSON.stringify(await storedJson(page, "playlists")) === JSON.stringify(own) && (await storedJson(page, "aiostreams")).data === "http://mine.example.invalid/m.json",
+  );
+  const arrived = (await storedJson(page, "watching")).data;
+  check(
+    "  and Continue Watching comes in as it was written: the entry with no art for the RPDB one, the metahub one with its art",
+    arrived.length === 4 && arrived[0].title === "Keyed Film" && !("art" in arrived[0]) && arrived[1].art === METAHUB_ART && arrived[2].art === AIO_ART_OK && !("art" in arrived[3]) && !SECRETS.some((x) => JSON.stringify(arrived).includes(x)),
+  );
+  await ctx.close();
+}
+{
+  // A hand-edited file: the sign-ins, a key and a cache are in it, and so are the logins with the box not ticked.
+  const edited = JSON.parse(JSON.stringify(TICKED));
+  edited.keys.trakt = { v: 1, data: { lastSync: 999 } };
+  edited.keys.traktQueue = { v: 1, data: ["x"] };
+  edited.keys.mal = { v: 1, data: { lastSync: 999, counts: {}, pending: {}, problem: null } };
+  edited.keys.aiojf = { v: 1, data: { lastSync: 999 } };
+  edited.keys.tmdbKey = { v: 1, data: "KEY-FROM-THE-FILE" };
+  edited.keys.vodCache = { v: 1, data: { key: "from-the-file" } };
+  edited.keys.settingsTab = { v: 1, data: "playback" };
+  edited.keys.sportsTheaterSideWidth = { v: 1, data: 999 };
+  edited.keys.fromANewerBuild = { v: 1, data: "x" };
+  const NEVER = ["trakt", "traktQueue", "mal", "aiojf", "tmdbKey", "vodCache", "sportsTheaterSideWidth", "fromANewerBuild"];
+  const { ctx, page } = await open({ tauri: true, store: { ...NEW_PC, traktQueue: { v: 1, data: [] }, aiojf: { v: 1, data: { lastSync: 5 } }, vodCache: { v: 1, data: { key: "mine" } } }, native: { importAnswer: JSON.stringify(edited) } });
+  await openApp(page);
+  const before = await everything(page);
+  await pressImport(page, { reloads: true });
+  const after = await everything(page);
+  check(
+    "a file with a Trakt, MyAnimeList, AIOStreams sign-in, a TMDB key, a cache and window state in it, ticked: the stubbed Trakt store and the rest are untouched, and the look still comes in",
+    NEVER.every((k) => after[`blammytv.${k}`] === before[`blammytv.${k}`]) && !(after["blammytv.trakt"] ?? "").includes("999") && !JSON.stringify(after).includes("KEY-FROM-THE-FILE") && (await storedJson(page, "accent")).data === "#3366cc",
+    JSON.stringify(NEVER.filter((k) => after[`blammytv.${k}`] !== before[`blammytv.${k}`])),
+  );
+  check("  and the settings tab (window state) is this PC's, not the file's", !(after["blammytv.settingsTab"] ?? "").includes("playback") || (before["blammytv.settingsTab"] ?? "") === (after["blammytv.settingsTab"] ?? ""));
+  await ctx.close();
+}
+{
+  // The same hand-edited file with includesLogins false: the logins in it are not taken.
+  const edited = JSON.parse(JSON.stringify(TICKED));
+  edited.includesLogins = false;
+  const { ctx, page } = await open({ tauri: true, store: NEW_PC, native: { importAnswer: JSON.stringify(edited) } });
+  await openApp(page);
+  await pressImport(page, { reloads: true });
+  check(
+    "a file that holds playlists but says includesLogins is false: the playlists and the manifest are not taken, the rest is",
+    (await stored(page, "playlists")) === null && (await stored(page, "aiostreams")) === null && (await stored(page, "heroSources")) === null && (await storedJson(page, "accent")).data === "#3366cc",
+  );
+  await ctx.close();
+}
+
+// What a file that is no use leaves, and says.
+for (const [label, answer, line] of [
+  ["a JSON file that is not BlammyTV's", JSON.stringify({ name: "other", version: "1.0.0", settings: { theme: "dark" } }), "That isn't a BlammyTV settings file."],
+  ["text that is not JSON", "this is just a text file\nwith two lines", "That isn't a BlammyTV settings file."],
+  ["an empty file", "", "That isn't a BlammyTV settings file."],
+  ["a BlammyTV file of the wrong kind", JSON.stringify({ app: "BlammyTV", kind: "diagnostics", format: 1, keys: {} }), "That isn't a BlammyTV settings file."],
+  ["another app's settings file", JSON.stringify({ ...TICKED, app: "Telly" }), "That isn't a BlammyTV settings file."],
+  ["a file from a newer format", JSON.stringify({ ...TICKED, format: 2 }), "That settings file is from a newer BlammyTV. Update the app, then try again."],
+  ["a file with nothing for this build in it", JSON.stringify({ ...TICKED, keys: { trakt: { v: 1, data: {} }, fromANewerBuild: { v: 1, data: 1 } } }), "There is nothing in that file to import."],
+  ["a file that is too big", { reject: "too-big" }, "That file is too big to be a settings file."],
+  ["a file that is not text", { reject: "not-text" }, "That isn't a BlammyTV settings file."],
+  ["a file the system would not read", { reject: "could not read the file: Access is denied. (os error 5)" }, "Couldn't read that file."],
+]) {
+  const { ctx, page } = await open({ tauri: true, store: NEW_PC, native: { importAnswer: answer } });
+  await openApp(page);
+  await mark(page);
+  const before = await everything(page);
+  await pressImport(page, { reloads: false });
+  const after = await everything(page);
+  const row = await said(page, importRow);
+  check(
+    `${label}: Import changes nothing, does not reload, and says '${line}'`,
+    JSON.stringify(after) === JSON.stringify(before) && (await marked(page)) && (await navType(page)) !== "reload" && row === line,
+    JSON.stringify({ row, same: JSON.stringify(after) === JSON.stringify(before), marked: await marked(page) }),
+  );
+  if (label.startsWith("a file the system")) check("  and none of what the system said is on the page", !/denied|os error/i.test(row ?? ""));
+  await ctx.close();
+}
+{
+  // A closed file chooser.
+  const { ctx, page } = await open({ tauri: true, store: NEW_PC, native: { importAnswer: null } });
+  await openApp(page);
+  await mark(page);
+  const before = await everything(page);
+  await pressImport(page, { reloads: false });
+  check(
+    "a closed file chooser changes nothing, says nothing and does not reload",
+    JSON.stringify(await everything(page)) === JSON.stringify(before) && (await said(page, importRow)) === null && (await marked(page)) && (await calls(page, "settings_import")).length === 1,
+  );
+  // And the message of a refused file goes when the next try is made.
+  await setNative(page, { importAnswer: "nope" });
+  await pressImport(page, { reloads: false });
+  const msg = await said(page, importRow);
+  await setNative(page, { importAnswer: null });
+  await pressImport(page, { reloads: false });
+  check("  a refusal's line is gone on the next try", msg === "That isn't a BlammyTV settings file." && (await said(page, importRow)) === null);
+  await ctx.close();
+}
+{
+  // Not while something plays: the reload would end it.
+  const { ctx, page } = await open({ tauri: true, store: NEW_PC, native: { importAnswer: JSON.stringify(TICKED) } });
+  await openApp(page);
+  await page.evaluate(() => {
+    const d = document.createElement("div");
+    d.className = "vod-stage";
+    document.body.appendChild(d);
+    window.__marker = 1;
+  });
+  const before = await everything(page);
+  await pressImport(page, { reloads: false });
+  check(
+    "while something is playing, Import asks for no file, changes nothing, does not reload, and says to finish watching first",
+    (await calls(page, "settings_import")).length === 0 && JSON.stringify(await everything(page)) === JSON.stringify(before) && (await marked(page)) && /^Finish watching first\./.test((await said(page, importRow)) ?? ""),
+    String(await said(page, importRow)),
+  );
+  await ctx.close();
+}
+
+// A native from before the commands.
+{
+  const { ctx, page } = await open({ tauri: true, store: NEW_PC, native: { files: "old" } });
+  await openApp(page);
+  await page.waitForTimeout(400);
+  const off = await page.evaluate(() => ({
+    e: document.querySelector("[data-setting='export-settings'] > button")?.getAttribute("aria-disabled"),
+    i: document.querySelector("[data-setting='import-settings'] > button")?.getAttribute("aria-disabled"),
+    iLabel: document.querySelector("[data-setting='import-settings'] > button")?.textContent,
+  }));
+  check("on a native with neither command both buttons are greyed (aria-disabled), the Import one is a plain button and not the two-press one", off.e === "true" && off.i === "true" && off.iLabel === "Import…", JSON.stringify(off));
+  // The words a button's Hint says on hover. Escape shuts a Hint, and a move
+  // away in steps ends the hover, so the next button's opens afresh (Radix
+  // keeps one that was left in a single jump for the pointer to reach).
+  const hint = async (btn) => {
+    await btn(page).hover();
+    const tip = page.locator("[data-slot=tooltip-content]:not([data-state=closed])").first();
+    await tip.waitFor({ timeout: 3000 });
+    const words = await tip.innerText();
+    await page.keyboard.press("Escape");
+    await page.mouse.move(600, 300, { steps: 8 });
+    await page.waitForFunction(() => document.querySelectorAll("[data-slot=tooltip-content]").length === 0, null, { timeout: 3000 });
+    return words;
+  };
+  check("  hovering Export gives the Hint: needs the next app update", /Needs the next app update\./.test(await hint(exportBtn)));
+  check("  and so does Import", /Needs the next app update\./.test(await hint(importBtn)));
+  await exportBtn(page).click({ force: true });
+  await importBtn(page).click({ force: true });
+  await importBtn(page).click({ force: true });
+  await page.waitForTimeout(300);
+  check(
+    "  pressing them does nothing: no save, no file chooser, no line on the row",
+    (await saves(page)).length === 0 && (await calls(page, "settings_import")).length === 0 && (await said(page, exportRow)) === null && (await said(page, importRow)) === null,
+  );
+  check("  and nothing unhandled", (await page.evaluate(() => window.__unhandled)).length === 0);
+  await ctx.close();
+}
+{
+  // A plain browser: no dialog to open.
+  const { ctx, page } = await open({ tauri: false, store: NEW_PC });
+  await openApp(page);
+  const off = await page.evaluate(() => [...document.querySelectorAll("[data-setting='export-settings'] > button, [data-setting='import-settings'] > button")].map((b) => b.getAttribute("aria-disabled")));
+  check("in a browser both buttons are greyed, and native is asked for nothing", off.join() === "true,true" && (await calls(page, "settings_export")).length === 0 && (await calls(page, "settings_import")).length === 0, off.join());
+  await exportBtn(page).hover();
+  const tip = page.locator("[data-slot=tooltip-content]:not([data-state=closed])").first();
+  await tip.waitFor({ timeout: 3000 });
+  check("  with the Hint: only in the BlammyTV app", /Only in the BlammyTV app\./.test(await tip.innerText()));
+  await ctx.close();
+}
+
+// The palette finds both.
+{
+  const { ctx, page } = await open({ tauri: true });
+  const ask = async (q) => {
+    await page.keyboard.press("Control+k");
+    await palette(page).waitFor({ timeout: 4000 });
+    await page.keyboard.type(q);
+    await page.waitForTimeout(300);
+  };
+  const rowsFound = () =>
+    page.evaluate(() => {
+      const g = [...document.querySelectorAll(".palette .mvpick__group")].find((x) => x.querySelector(".mvpick__sec")?.textContent === "Settings");
+      return [...(g?.querySelectorAll(".mvpick__row") ?? [])].map((r) => ({ label: r.querySelector(".mvpick__nametext")?.textContent, sub: r.querySelector(".mvpick__sub")?.textContent }));
+    });
+  const closePalette = async () => {
+    await page.keyboard.press("Escape");
+    await palette(page).waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(200);
+  };
+  const got = {};
+  for (const q of ["export", "import", "backup"]) {
+    await ask(q);
+    got[q] = await rowsFound();
+    await closePalette();
+  }
+  check(
+    '"export" and "import" each find their row first, filed under Settings · App; "backup" finds both',
+    got.export[0]?.label === "Export Settings" && got.import[0]?.label === "Import Settings" && got.export[0].sub === "Settings · App" && got.backup.map((r) => r.label).sort().join() === "Export Settings,Import Settings",
+    JSON.stringify(got),
+  );
+  await ask("import");
+  await page.keyboard.press("Enter");
+  await page.locator(".settings__body").waitFor({ timeout: 8000 });
+  await page.waitForFunction(() => document.querySelector("[data-setting='import-settings']")?.classList.contains("setting--found"), null, { timeout: 4000 }).catch(() => {});
+  const landed = await page.evaluate(() => ({
+    page: document.querySelector(".settings [role=tablist][aria-label=Settings] [role=tab][aria-selected=true]")?.getAttribute("aria-label"),
+    lit: !!document.querySelector("[data-setting='import-settings']")?.classList.contains("setting--found"),
+    focus: document.activeElement?.textContent,
+    armed: document.querySelector("[data-setting='import-settings'] > button")?.textContent,
+  }));
+  check(
+    "Ctrl+K, import, Enter opens Settings on App with Import Settings lit and focused on its button, not pressed and not armed",
+    landed.page === "App" && landed.lit && landed.focus === "Import…" && landed.armed === "Import…" && (await calls(page, "settings_import")).length === 0,
+    JSON.stringify(landed),
+  );
+  await closeSettings(page);
+  await ctx.close();
+}
+
+// The narrow card.
+{
+  const { ctx, page } = await open({ tauri: true, width: 560, height: 800 });
+  await openApp(page);
+  const fit = await page.evaluate(() => {
+    const body = document.querySelector(".settings__body");
+    const edge = body.getBoundingClientRect().right + 0.5;
+    const rows = ["export-settings", "import-settings"].map((id) => document.querySelector(`[data-setting='${id}']`));
+    return {
+      narrow: !!document.querySelector(".settings__layout--narrow"),
+      sideways: body.scrollWidth > body.clientWidth + 1,
+      inside: rows.every((r) => r.getBoundingClientRect().right <= edge && [...r.querySelectorAll("button, label, p")].every((e) => e.getBoundingClientRect().right <= edge)),
+    };
+  });
+  check("in the narrow card both rows fit: nothing scrolls sideways and nothing sits outside the card", fit.narrow && !fit.sideways && fit.inside, JSON.stringify(fit));
   await ctx.close();
 }
 

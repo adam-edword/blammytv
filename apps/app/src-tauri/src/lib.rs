@@ -11,6 +11,7 @@ mod mpvvulkan;
 mod mvaudio;
 mod mvconvert;
 mod mvproxy;
+mod settingsfile;
 mod trakt;
 
 #[cfg(windows)]
@@ -1476,6 +1477,87 @@ async fn log_tail(app: tauri::AppHandle, lines: usize) -> Result<Vec<String>, St
         .map_err(|e| e.to_string())
 }
 
+/// Export settings: the save dialog, then the write (plan 025, P4c;
+/// settingsfile.rs). The page hands over the text of the file and a name to
+/// start the dialog on, and never a path: the only path there is comes from the
+/// dialog the person uses. Answers the name of the file they saved it as (the
+/// name alone, never the folder, which has their user name in it), or null when
+/// they closed the dialog.
+///
+/// `json` is checked before anything opens: an empty one is refused, and so is
+/// one over the cap. The empty refusal is also how the page finds out whether
+/// this build has the command at all (an older one answers "not found"), so it
+/// must never reach a dialog. Nothing about the file's contents or where it
+/// went is logged.
+///
+/// Async, with the wait on a blocking thread: the dialog holds its caller until
+/// the person is done, and the thread that runs the window must not be it.
+#[tauri::command]
+async fn settings_export(
+    app: tauri::AppHandle,
+    json: String,
+    suggested: String,
+) -> Result<Option<String>, String> {
+    settingsfile::check_export(&json)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        use tauri_plugin_dialog::DialogExt;
+        let mut dialog = app
+            .dialog()
+            .file()
+            .set_title("Export settings")
+            .add_filter("BlammyTV settings", &["json"])
+            .set_file_name(settingsfile::suggested_name(&suggested));
+        if let Some(win) = app.get_webview_window("main") {
+            dialog = dialog.set_parent(&win);
+        }
+        let Some(picked) = dialog.blocking_save_file() else {
+            return Ok(None);
+        };
+        let path = picked.into_path().map_err(|e| e.to_string())?;
+        std::fs::write(&path, json.as_bytes())
+            .map_err(|e| format!("could not write the file: {e}"))?;
+        Ok(Some(
+            path.file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| settingsfile::DEFAULT_NAME.to_string()),
+        ))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Import settings: the open dialog, then the file's text (plan 025, P4c;
+/// settingsfile.rs). Filtered to .json, one file, and read only up to the cap
+/// (`too-big` past it, `not-text` for a file that is not UTF-8). Answers the
+/// text, or null when the dialog was closed. What the text means is the page's
+/// to judge and it changes nothing until it has. Nothing about the file is
+/// logged. Async for the same reason as `settings_export`.
+#[tauri::command]
+async fn settings_import(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        use tauri_plugin_dialog::DialogExt;
+        let mut dialog = app
+            .dialog()
+            .file()
+            .set_title("Import settings")
+            .add_filter("BlammyTV settings", &["json"]);
+        if let Some(win) = app.get_webview_window("main") {
+            dialog = dialog.set_parent(&win);
+        }
+        let Some(picked) = dialog.blocking_pick_file() else {
+            return Ok(None);
+        };
+        let path = picked.into_path().map_err(|e| e.to_string())?;
+        settingsfile::read_capped(&path, settingsfile::MAX_BYTES)
+            .map(Some)
+            .map_err(|e| e.message())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Whether the log plugin is up: it could be added and has its file open. Read
 /// by `log_tail`, which would otherwise answer "no lines" for a log that was
 /// never being written, and the page would say "empty".
@@ -1582,6 +1664,11 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        // Used from Rust, by settings_export and settings_import above. No
+        // capability grants the page the plugin's own commands, so it cannot
+        // open a dialog itself. The plugin also puts its own window.alert and
+        // window.confirm on every page; nothing here calls either.
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             use tauri::Manager;
             let _ = APP.set(app.handle().clone());
@@ -1689,6 +1776,8 @@ pub fn run() {
             about_versions,
             app_log,
             log_tail,
+            settings_export,
+            settings_import,
             install_update,
             frontend::frontend_ready,
             frontend::frontend_status,

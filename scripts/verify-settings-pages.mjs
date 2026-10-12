@@ -294,16 +294,19 @@ const closeSettings = async (page) => {
   const app = await titles(page);
   // Keyboard Shortcuts and About came between the update row and Replay
   // Onboarding in v0.11.36 (plan 025, P4a), and Copy Diagnostics, under Privacy
-  // and data, before the last row in P4b; verify-settings-app is theirs.
+  // and data, before the last row in P4b, and Export and Import Settings after
+  // it in P4c; verify-settings-app is theirs.
   check(
-    "App: the update row, Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, and Clear All Login Info last",
-    app.length === 6 &&
+    "App: the update row, Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, Export Settings, Import Settings, and Clear All Login Info last",
+    app.length === 8 &&
       /^BlammyTV v/.test(app[0]) &&
       app[1] === "Keyboard Shortcuts" &&
       app[2] === "About" &&
       app[3] === "Replay Onboarding" &&
       app[4] === "Copy Diagnostics" &&
-      app[5] === "Clear All Login Info",
+      app[5] === "Export Settings" &&
+      app[6] === "Import Settings" &&
+      app[7] === "Clear All Login Info",
     JSON.stringify(app),
   );
   await closeSettings(page);

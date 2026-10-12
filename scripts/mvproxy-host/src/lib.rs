@@ -23,3 +23,5 @@ pub mod mpvvulkan;
 pub mod about;
 #[path = "../../../apps/app/src-tauri/src/logtail.rs"]
 pub mod logtail;
+#[path = "../../../apps/app/src-tauri/src/settingsfile.rs"]
+pub mod settingsfile;

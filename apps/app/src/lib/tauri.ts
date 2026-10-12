@@ -534,6 +534,46 @@ export async function tauriLogTail(lines: number): Promise<string[]> {
   return got.filter((l): l is string => typeof l === "string");
 }
 
+/** Save `json` (a settings file's text) through the save dialog, starting on
+ * `suggested` as its name (Settings → App → Export Settings). Straight to Tauri
+ * and not through `invoke` above, as `tauriAppLog` is: freezeProbe would report
+ * the seconds a person spends in a dialog as a slow call. Resolves with the
+ * file name the person saved it as, never the folder, or null when they closed
+ * the dialog. Rejects when the write failed, when `json` is over native's cap
+ * (`too-big`), and on a native build from before it ("Command … not found").
+ * Native refuses an empty `json` before any dialog opens. */
+export async function tauriSettingsExport(json: string, suggested: string): Promise<string | null> {
+  const got = await rawInvoke<unknown>("settings_export", { json, suggested });
+  return typeof got === "string" && got ? got : null;
+}
+
+/** The text of a settings file the person picks (Settings → App → Import
+ * Settings), or null when they closed the dialog. Rejects `too-big` for a file
+ * over native's cap, `not-text` for one that is not UTF-8, and on a native
+ * build from before it. */
+export async function tauriSettingsImport(): Promise<string | null> {
+  const got = await rawInvoke<unknown>("settings_import");
+  return typeof got === "string" ? got : null;
+}
+
+let settingsFiles: Promise<boolean> | null = null;
+
+/**
+ * Whether this native build can save and open a settings file. Asked once, by
+ * saving nothing: native refuses an empty file before a dialog could open, so
+ * a build that has `settings_export` rejects with its refusal and one that
+ * lacks it says "Command … not found". The frontend ships apart from the
+ * native build, so the two ends of Export and Import are both live; the
+ * buttons wait for the next app update on an older one.
+ */
+export function tauriHasSettingsFiles(): Promise<boolean> {
+  settingsFiles ??= rawInvoke<unknown>("settings_export", { json: "", suggested: "" }).then(
+    () => true,
+    (e) => !/not found|unknown command/i.test(e instanceof Error ? e.message : String(e)),
+  );
+  return settingsFiles;
+}
+
 /** Download + install the pending update, then relaunch into it. On
  * success the app restarts and this never resolves; a rejection means the
  * download/install failed and the caller may retry. */

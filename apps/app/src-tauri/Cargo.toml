@@ -35,6 +35,12 @@ tauri-plugin-updater = "2"
 # target=_blank by design). Same no-JS-package pattern as the updater: one
 # Rust command below, no capability JSON, no npm plugin.
 tauri-plugin-opener = "2"
+# The file dialogs for Settings → App → Export and Import settings (plan 025,
+# P4c). The same pattern again: called from Rust, behind two commands of ours
+# (settings_export, settings_import), so no npm package and no capability JSON.
+# The page never names a path. One only comes from the dialog the person uses,
+# and nothing is read or written anywhere they did not pick.
+tauri-plugin-dialog = "2"
 # Rust-side HTTP so the app can reach AIOStreams/Xtream without browser CORS.
 # native-tls = Windows Schannel (same TLS stack as curl/Edge), so the TLS
 # fingerprint looks like a normal Windows client — some Cloudflare-fronted hosts

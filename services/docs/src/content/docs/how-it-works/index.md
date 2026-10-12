@@ -83,6 +83,13 @@ addresses are kept out. Nothing sends it anywhere. Settings → App → Copy
 Diagnostics puts its last lines on your clipboard, for you to paste where you
 ask for help.
 
+Settings → App → Export Settings writes your settings to a file you choose:
+looks, playback, your lists, favourites and Continue Watching. Playlists and
+your AIOStreams manifest go in only if you tick the box that says the file
+then has your passwords in it, and Trakt, MyAnimeList and AIOStreams sign-ins
+never do. Without the box, a poster address that carries a service's key is
+left out too. Import Settings reads one back.
+
 :::caution[Credentials are stored in the clear]
 Playlist passwords, portal MAC addresses and, if you use one, your AIOStreams
 manifest URL are saved as plain text, not encrypted. Anything running as your
