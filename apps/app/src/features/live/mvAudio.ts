@@ -51,6 +51,7 @@ import {
   tauriMvAudioOpen,
   tauriMvAudioStats,
   type MvAudioSink,
+  type MvAudioStats,
 } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
 import { tileGain } from "./multiviewTuning";
@@ -146,6 +147,14 @@ function serial<T>(fn: () => Promise<T>): Promise<T> {
 /** How fast the gain follows the bar: a time constant, so a mute or a slider
  * step does not click, and a jump to 0 is silent within a tenth of a second. */
 const GAIN_TC = 0.01;
+
+/** How long after a copy is taken `check` asks whether it carried sound. */
+const CHECK_MS = 5000;
+
+/** Chromium's count of the audio bytes an element has decoded. Not standard,
+ * so possibly missing. */
+const decodedAudio = (v: HTMLVideoElement): number | undefined =>
+  (v as HTMLVideoElement & { webkitAudioDecodedByteCount?: number }).webkitAudioDecodedByteCount;
 
 class Routing {
   private dead = false;
@@ -254,6 +263,17 @@ class Routing {
     } catch (e) {
       return this.giveUp(`could not copy a tile's sound (${scrubbedMessage(e)})`);
     }
+    // What happened to the copy, for `check`'s line.
+    const events: string[] = [];
+    const from = performance.now();
+    const note = (what: string) =>
+      events.push(`${what} at ${((performance.now() - from) / 1000).toFixed(1)}s`);
+    const off = new AbortController();
+    const watchTrack = (t: MediaStreamTrack) => {
+      for (const e of ["mute", "unmute", "ended"]) {
+        t.addEventListener(e, () => note(`track ${e}`), { signal: off.signal });
+      }
+    };
     // The copy's video is stopped at once: only the sound is wanted.
     // Tracks arrive when the stream's media does, and again after a retry.
     const attach = () => {
@@ -261,11 +281,71 @@ class Routing {
       if (this.source || stream.getAudioTracks().length === 0) return;
       this.source = ctx.createMediaStreamSource(stream);
       this.source.connect(gain);
+      note("attached");
     };
     attach();
-    stream.addEventListener("addtrack", attach);
+    stream.getAudioTracks().forEach(watchTrack);
+    stream.addEventListener(
+      "addtrack",
+      (e) => {
+        if (e.track.kind === "audio") {
+          note("audio track added");
+          watchTrack(e.track);
+        }
+        attach();
+      },
+      { signal: off.signal },
+    );
+    stream.addEventListener(
+      "removetrack",
+      (e) => e.track.kind === "audio" && note("audio track removed"),
+      { signal: off.signal },
+    );
+    const decoded = decodedAudio(video);
+    const timer = window.setTimeout(() => void this.check(video, stream, decoded, events), CHECK_MS);
     this.stream = stream;
-    this.undo = () => stream.removeEventListener("addtrack", attach);
+    this.undo = () => {
+      off.abort();
+      window.clearTimeout(timer);
+    };
+  }
+
+  /**
+   * Five seconds into a copy: when the native side has had nothing but
+   * silence, what the tile and the copy looked like, as one console.warn,
+   * which reaches the log (lib/appLog.ts) and so Settings → App → Copy
+   * Diagnostics. On v0.11.42 Adam's routed sound was all zeros while the
+   * device took it and the player played; this line says which side made
+   * them. Nothing is said when sound came through, or by a native from
+   * before v0.11.42, which reports no peak.
+   */
+  private async check(
+    video: HTMLVideoElement,
+    stream: MediaStream,
+    decoded: number | undefined,
+    events: string[],
+  ): Promise<void> {
+    if (this.stream !== stream) return;
+    let s: MvAudioStats;
+    try {
+      s = await serial(() => tauriMvAudioStats());
+    } catch {
+      return;
+    }
+    if (this.stream !== stream || !s?.open || s.peak !== 0 || !(s.chunks > 0)) return;
+    const now = decodedAudio(video);
+    const tracks = stream
+      .getAudioTracks()
+      .map((t) => `${t.readyState}${t.muted ? " muted" : ""}${t.enabled ? "" : " disabled"}`);
+    console.warn(
+      `[mv] sound: the copy sent ${CHECK_MS / 1000}s of silence. ` +
+        `Tile: ${video.isConnected ? "" : "detached, "}${video.paused ? "paused" : "playing"}, ` +
+        `muted ${video.muted}, volume ${video.volume}, audio decoded ` +
+        `${now === undefined || decoded === undefined ? "?" : `${now - decoded} bytes`} in that time. ` +
+        `Copy: ${this.source ? "attached" : "never attached"}, audio tracks [${tracks.join(", ")}], ` +
+        `gain ${this.gain?.gain.value.toFixed(3)}, context ${this.ctx?.state} at ${this.ctx?.sampleRate} Hz. ` +
+        `Events: ${events.join(", ") || "none"}.`,
+    );
   }
 
   private unplug(): void {

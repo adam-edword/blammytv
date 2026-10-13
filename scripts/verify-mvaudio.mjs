@@ -197,7 +197,7 @@ const AUTOPLAY_POLICY = `(() => {
 /** The IPC stub the multi-view harnesses use, with the sound output's three
  * commands added. `reject`: mv_audio_open fails, as it does on a native build
  * from before it. */
-function ipc({ port, sinkPort, reject, rate }) {
+function ipc({ port, sinkPort, reject, rate, peak }) {
   window.__calls = [];
   let cb = 0;
   let n = 0;
@@ -222,7 +222,7 @@ function ipc({ port, sinkPort, reject, rate }) {
           : Promise.resolve({ url: `http://127.0.0.1:${sinkPort}/a/test-token`, rate });
       }
       if (cmd === "mv_audio_stats") {
-        return Promise.resolve({ open: true, rate, bufferedMs: 30, underruns: 0, overruns: 0, droppedMs: 0, chunks: 1 });
+        return Promise.resolve({ open: true, rate, bufferedMs: 30, underruns: 0, overruns: 0, droppedMs: 0, chunks: 1, peak });
       }
       if (cmd === "plugin:window|is_fullscreen") return Promise.resolve(false);
       return Promise.resolve(undefined);
@@ -234,7 +234,7 @@ function ipc({ port, sinkPort, reject, rate }) {
 // ================================================ 1. real sound, the module
 /** A page on the dev server, with the module imported as the app imports it
  * and a <video> playing the tone. */
-async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = false, track = false } = {}) {
+async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = false, track = false, peak } = {}) {
   const ctx = await b.newContext({ viewport: { width: W, height: H } });
   const page = await ctx.newPage();
   const errors = [];
@@ -245,7 +245,7 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
   await page.route(blank, (r) => r.fulfill({ contentType: "text/html", body: "<!doctype html><title>mvaudio</title>" }));
   // Same origin, or captureStream is silenced as a cross-origin read.
   await page.route(URL + "__tone.wav", (r) => r.fulfill({ contentType: "audio/wav", body: tone() }));
-  await page.addInitScript(`(${ipc})(${JSON.stringify({ port: 0, sinkPort: s.port, reject: false, rate })})`);
+  await page.addInitScript(`(${ipc})(${JSON.stringify({ port: 0, sinkPort: s.port, reject: false, rate, peak })})`);
   if (track) await page.addInitScript(TRACK_CONTEXTS);
   if (policy) await page.addInitScript(AUTOPLAY_POLICY);
   await page.goto(blank);
@@ -278,7 +278,9 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
   const s = await sink();
   const b = await launch();
   const RATE = 44100;
-  const { ctx, page, errors, bar, el } = await module1(b, s, { rate: RATE, volume: 1 });
+  // The native side says sound came through (peak 0.35), so the silent-copy
+  // line (1b) must not be written.
+  const { ctx, page, errors, warns, bar, el } = await module1(b, s, { rate: RATE, volume: 1, peak: 0.35 });
   const before = await el();
   check(
     "before the output is up, the sound tile plays in the webview as it always did",
@@ -373,6 +375,52 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
     calls.includes("mv_audio_close") && s.posts.length === 0,
     JSON.stringify({ calls, after: s.posts.length }),
   );
+  check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  const silentLines = warns.filter((w) => w.includes("the copy sent"));
+  check(
+    "a copy that carried sound writes no silent-copy line, after more than its 5s",
+    silentLines.length === 0,
+    silentLines[0] ?? "",
+  );
+  await ctx.close();
+  await b.close();
+  s.close();
+}
+
+// ======================== 1b. a silent copy says what it looked like, once
+// v0.11.42's log had Adam's routed sound as all zeros while the device took
+// it. Five seconds into a copy, when the native side reports a peak of 0, one
+// console.warn (which reaches the log) says what the tile and the copy were
+// doing. The stub reports 0 here while the tone really plays, so the line's
+// contents can be read against a known state.
+{
+  const s = await sink();
+  const b = await launch();
+  const { ctx, page, errors, warns, el } = await module1(b, s, { rate: 48000, volume: 1, peak: 0 });
+  await page.evaluate(() => (window.__stop = window.__m.startMvAudio()));
+  await until(async () => (await el())[0] === true);
+  const said = await until(() => warns.some((w) => w.includes("the copy sent")), 8000);
+  await sleep(1500);
+  const lines = warns.filter((w) => w.includes("the copy sent"));
+  const line = lines[0] ?? "";
+  check(
+    "a native peak of 0 five seconds in writes one line, as a warning so the log keeps it",
+    said && lines.length === 1 && line.startsWith("[mv] sound: the copy sent 5s of silence."),
+    `${lines.length} lines: ${line.slice(0, 80)}`,
+  );
+  check(
+    "and it says what the tile and the copy were: playing, muted, decoding, attached, a live track, the gain, the context",
+    /Tile: playing, muted true, volume 1, audio decoded \d+ bytes/.test(line) &&
+      !/audio decoded 0 bytes/.test(line) &&
+      line.includes("Copy: attached, audio tracks [live]") &&
+      line.includes("gain 1.000") &&
+      line.includes("context running at 48000 Hz") &&
+      // Chromium fires addtrack for the copy's first track after
+      // captureStream returns, so "audio track added" can follow.
+      /Events: attached at 0\.\ds[,.]/.test(line),
+    line,
+  );
+  await page.evaluate(() => window.__stop());
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
   await b.close();

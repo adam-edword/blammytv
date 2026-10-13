@@ -246,6 +246,11 @@ export interface MvAudioStats {
   overruns: number;
   droppedMs: number;
   chunks: number;
+  /** The loudest sample received, 0 to 1. Natives before v0.11.42 omit it. */
+  peak?: number;
+  /** Frames the device asked for, and how many were received sound. */
+  askedFrames?: number;
+  playedFrames?: number;
 }
 /** Open the native sound output (the default device, played from this
  * process so Discord's per-app capture hears it) and its listener. Rejects
