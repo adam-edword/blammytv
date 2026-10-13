@@ -436,6 +436,24 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
       /Events: attached at 0\.\ds[,.]/.test(line),
     line,
   );
+  // Then mvAudioProbe's line, the first time in a routing. The tile here is
+  // digital silence, so the two copies read silence; the frames still arrive
+  // and the test tone is heard, which is what makes those readings mean
+  // something on a real machine.
+  const probed = await until(() => warns.some((w) => w.includes("sound copy tests")), 8000);
+  const probe = warns.find((w) => w.includes("sound copy tests")) ?? "";
+  const frames = Number(/track frames: (\d+)/.exec(probe)?.[1] ?? 0);
+  check(
+    "the silent copy is followed by one line of copy tests: the track's frames, a default-rate copy, a test tone",
+    probed &&
+      warns.filter((w) => w.includes("sound copy tests")).length === 1 &&
+      probe.includes("copy track: ") &&
+      frames > 10 &&
+      /track frames: \d+ \([^)]*\), silence/.test(probe) &&
+      /a fresh copy in a default-rate context \(\d+ Hz, running\): silence/.test(probe) &&
+      /a test tone through a stream into the routing's 48000 Hz context: -?\d+\.\d dBFS/.test(probe),
+    probe,
+  );
   await page.evaluate(() => window.__stop());
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
