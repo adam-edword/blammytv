@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 
 /**
- * A channel's logo on a white tile, or its first letter on the same tile
- * when there is none or it broke (plan 019, K6). Multi-view's MvLogo, made
- * the app's: the Guide drew logos free-floating in a 44 by 64 box and its
+ * A channel's logo on a plate, or its first letter on the same plate when
+ * there is none or it broke (plan 019, K6). Multi-view's MvLogo, made the
+ * app's: the Guide drew logos free-floating in a 44 by 64 box and its
  * initials bare, and plan 016 4.3 asked for exactly this.
  *
- * White, because provider logos are drawn for either ground and most of
- * them read on white.
+ * The plate is one step up from the card (ui.css, --plate). It was white
+ * until v0.11.41, and logos drawn white on a transparent ground were blank
+ * white squares on it.
  *
  * SIZED WITHOUT THE STYLESHEET. Provider logos come at their own size, and
  * Cartoon Network's is several hundred pixels: on Adam's first run of

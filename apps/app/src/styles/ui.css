@@ -295,10 +295,11 @@
   height: 3px;
 }
 
-/* ---- A channel's logo (plan 019, K6; ui/ChannelLogo.tsx): on a white
- * tile, or its initial on the same tile. White, because provider logos
- * are drawn for either ground and most of them read on white. The box is
- * sized inline, so a stylesheet that is late cannot unsize it. */
+/* ---- A channel's logo (plan 019, K6; ui/ChannelLogo.tsx): on a plate one
+ * step up from its card (--plate, tokens.css), or its initial on the same
+ * plate. Not white any more (v0.11.41): logos drawn white on transparent
+ * vanished on it. The box is sized inline, so a stylesheet that is late
+ * cannot unsize it. */
 .chlogo {
   place-items: center;
   flex: none;

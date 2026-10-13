@@ -651,15 +651,21 @@ const dimmedText = () =>
   await page.waitForTimeout(1500);
   const accent = await token("--accent");
   const white = "rgb(255, 255, 255)";
+  // The plate: one step up from the card, not white (v0.11.41, Adam: "it
+  // should be a dark gray (slightly lighter than the containers background
+  // color)"; white-on-transparent logos vanished on white).
+  const plate = await token("--plate");
   const g = await page.evaluate(() => {
     const pill = document.querySelector(".hero .live-pill");
     const cards = [...document.querySelectorAll(".guide__card")];
+    const cardBg = cards[0] ? getComputedStyle(cards[0]).backgroundColor : null;
     const tiles = cards.map((c) => c.querySelector(".chlogo"));
     const meter = document.querySelector(".live-conns");
     return {
       pill: pill ? { text: pill.textContent.trim(), dot: getComputedStyle(pill, "::before").backgroundColor } : null,
       oldLive: document.querySelectorAll(".hero__live").length,
       cards: cards.length,
+      cardBg,
       tiles: tiles.filter(Boolean).map((t) => ({ bg: getComputedStyle(t).backgroundColor, w: t.getBoundingClientRect().width, img: !!t.querySelector("img"), letter: t.textContent.trim() })),
       meter: meter ? { isMeter: meter.classList.contains("meter"), on: meter.querySelectorAll(".meter__dashes i.is-on").length, all: meter.querySelectorAll(".meter__dashes i").length, label: meter.getAttribute("aria-label") } : null,
     };
@@ -670,9 +676,14 @@ const dimmedText = () =>
     JSON.stringify(g.pill),
   );
   check(
-    "every Guide channel has its logo on a 40px white tile, a lettermark on the same tile",
-    g.cards > 0 && g.tiles.length === g.cards && g.tiles.every((t) => t.bg === white && t.w === 40) && g.tiles.some((t) => !t.img && t.letter.length === 1),
-    `${g.cards} cards, ${JSON.stringify(g.tiles.slice(0, 3))}`,
+    "every Guide channel has its logo on a 40px plate a step up from its card (not white, not the card's own colour), a lettermark on the same plate",
+    g.cards > 0 &&
+      g.tiles.length === g.cards &&
+      plate !== white &&
+      plate !== g.cardBg &&
+      g.tiles.every((t) => t.bg === plate && t.w === 40) &&
+      g.tiles.some((t) => !t.img && t.letter.length === 1),
+    `plate ${plate}, card ${g.cardBg}, ${g.cards} cards, ${JSON.stringify(g.tiles.slice(0, 3))}`,
   );
   check(
     "the Guide's line count is the meter: a dash a stream, filled for the ones in use",

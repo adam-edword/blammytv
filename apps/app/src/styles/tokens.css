@@ -218,10 +218,14 @@
   --gold-dark: #b35700;
   --silver-light: #fff;
   --silver-dark: #313131;
-  /* A channel's logo sits on a white plate (ui.css .chlogo), with its
-   * initial in near-black when there is no logo. */
-  --plate: #fff;
-  --plate-ink: #111;
+  /* A channel's logo sits on a plate one step up from the card it is on
+   * (ui.css .chlogo), its initial in the text colour when there is no logo.
+   * It was white until v0.11.41, and a logo drawn white on a transparent
+   * ground (CBS, Fox, FS1 in Adam's guide) was a blank white square. Adam:
+   * "it should be a dark gray (slightly lighter than the containers
+   * background color)". */
+  --plate: var(--surface-raised);
+  --plate-ink: var(--text);
   /* The glass that floats over content, tooltips and the stats panel: a
    * lit top edge and a soft drop. */
   --glass-lift: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 28px rgba(0, 0, 0, 0.45);
@@ -452,6 +456,9 @@
   --surface-track: oklch(0.93 0 0); /* `muted`, darker than the page */
   --surface-puck: oklch(0.93 0 0);
   --surface-raised: oklch(1 0 0); /* a white thumb on the muted track */
+  /* Light, the card is white: the plate is the step below it, not white
+   * again (a white plate on a white card is no tile at all). */
+  --plate: var(--surface-track);
   --menu-highlight: var(--surface-track);
   --border: oklch(0.922 0 0);
   --border-strong: oklch(0.922 0 0);
