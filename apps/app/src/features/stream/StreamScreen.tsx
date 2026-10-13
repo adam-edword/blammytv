@@ -166,7 +166,7 @@ function prefetchEpisode(episodeId: string) {
   prefetchSources(episodeId, () => resolveVodSources("series", episodeId));
 }
 
-export function StreamScreen() {
+export function StreamScreen({ home }: { home?: number } = {}) {
   const [load, setLoad] = useState<Load>(() => {
     const cached = peekVod();
     return cached ? { status: "ready", data: cached } : { status: "loading" };
@@ -205,6 +205,7 @@ export function StreamScreen() {
     goBack: popBack,
     goForward,
     replace: replaceView,
+    goHome,
     depth,
     peek,
     capture: captureScroll,
@@ -503,6 +504,26 @@ export function StreamScreen() {
     }
   }, [popBack, depth, peek, replaceView, resolveIntoView, cancelResolve]);
   useMouseNav(goBack, goForward, !playing);
+  /**
+   * The Stream pill, pressed while Stream is showing, takes it home: the rows,
+   * scrolled to the top, with no history behind it. App counts the press.
+   *
+   * It follows Back, which stands aside for the stage: the mouse's Back is off
+   * while a title plays (above) and cancels a resolve, and a press on the pill
+   * is neither of those. While either is up it changes nothing, so it can
+   * never stop or close what is playing.
+   *
+   * The hand-off flag goes too: a title Discover or the Library opened is no
+   * longer something Back owes a return from.
+   */
+  const pressed = useRef(home);
+  useEffect(() => {
+    if (pressed.current === home) return;
+    pressed.current = home;
+    if (playingRef.current || resolvingRef.current) return;
+    handoffRef.current = false;
+    goHome({ at: "home" });
+  }, [home, goHome]);
   const open = useCallback(async (item: VodItem) => {
     // Show the lightweight item immediately; swap in the full detail
     // (synopsis, cast, seasons) when it lands. Failure keeps the light one.

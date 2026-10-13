@@ -111,11 +111,20 @@ export function GuideFixDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="gap-3 sm:max-w-md"
+        // `minmax(0, 1fr)`: DialogContent is a grid whose one column is
+        // `auto`, and a grid item will not go narrower than its min-content.
+        // An event channel's name does not wrap, so it widened the column to
+        // 872px inside a 448px card: the rows ran out of the right edge and
+        // the close X sat mid-title (Adam, v0.11.37). Fixed at the column,
+        // nothing inside can widen it. Wider than the stock card too: guide
+        // names are long.
+        className="grid-cols-[minmax(0,1fr)] gap-3 sm:max-w-2xl"
         onCloseAutoFocus={onCloseAutoFocus}
       >
         <DialogHeader className="gap-1.5">
-          <DialogTitle className="truncate pr-6">{channel.name}</DialogTitle>
+          <DialogTitle className="truncate pr-6" data-hint={channel.name}>
+            {channel.name}
+          </DialogTitle>
           <DialogDescription>
             {standing.kind === "fixed"
               ? `Fixed by you: ${standing.name}`
@@ -162,6 +171,9 @@ export function GuideFixDialog({
                     role="option"
                     aria-selected={picked === r.id}
                     data-id={r.id}
+                    // The row truncates its name and its id; the words in
+                    // full are one hover away (ui/Hint's HintLayer).
+                    data-hint={r.name === r.id ? r.name : `${r.name}\n${r.id}`}
                     data-highlighted={picked === r.id ? "" : undefined}
                     className="mvpick__row"
                     onClick={() => pick(r.id)}

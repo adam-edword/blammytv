@@ -545,6 +545,64 @@ for (const [old, want] of [
   await ctx.close();
 }
 
+// ------------------------------------------------- Hero Slider Sources' field
+// Appearance → Stream → Hero Slider Sources (v0.11.39, Adam: "the field is
+// cramped, and a long chip runs out past the field's border"). The field was
+// the demo's 320px and its chips did not shrink. It takes the stack's width up
+// to 520px, a chip stops at the field's edge with an ellipsis and says its
+// name in full as a hint, and the input shares the last line with the chips
+// while there is room. One catalog's name is made long here (the fake's
+// manifest, answered with a longer name), so a chip has something to overrun.
+{
+  const LONG = "Today's Most Popular Movies on Television Stats and Everything Else That a Very Long Catalog Name Could Possibly Carry";
+  const { ctx, page } = await open({
+    store: { ...SEEDED, heroSources: { v: 1, data: ["movie/top-movies", "series/top-series", "movie/more-movies"] } },
+  });
+  await ctx.route("http://localhost:8084/manifest.json", async (r) => {
+    const res = await r.fetch();
+    const m = await res.json();
+    m.catalogs = m.catalogs.map((c) => (c.id === "top-movies" ? { ...c, name: LONG } : c));
+    await r.fulfill({ response: res, json: m });
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".navcap", { timeout: 20_000 });
+  await openSettings(page);
+  await tab(page, "Appearance").click();
+  await page.getByRole("tablist", { name: "Media" }).getByRole("tab", { name: "Stream", exact: true }).click();
+  await page.locator('[data-slot="combobox-chip"]').first().waitFor({ timeout: 15_000 });
+  await page.locator('[data-setting="hero-sources"]').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(500);
+  const hero = await page.evaluate(() => {
+    const stack = document.querySelector('[data-setting="hero-sources"]').getBoundingClientRect();
+    const f = document.querySelector('[data-slot="combobox-chips"]');
+    const fr = f.getBoundingClientRect();
+    const chips = [...f.querySelectorAll('[data-slot="combobox-chip"]')].map((c) => {
+      const r = c.getBoundingClientRect();
+      const label = c.firstElementChild;
+      return { left: r.left, right: r.right, top: r.top, hint: c.getAttribute("data-hint"), cut: label.scrollWidth > label.clientWidth, remove: c.querySelector('[data-slot="combobox-chip-remove"]').getBoundingClientRect().right <= r.right + 0.5 };
+    });
+    const i = f.querySelector('[data-slot="combobox-chip-input"]').getBoundingClientRect();
+    return { stack: stack.width, field: { left: fr.left, right: fr.right, w: fr.width }, chips, input: { left: i.left, right: i.right, top: i.top, w: i.width } };
+  });
+  check(
+    "Hero Slider Sources: the field takes the stack's width up to 520px",
+    Math.abs(hero.field.w - Math.min(hero.stack, 520)) <= 1 && hero.field.w > 320,
+    `${hero.field.w}px in a ${Math.round(hero.stack)}px stack`,
+  );
+  check(
+    "  no chip is wider than the field: a very long one stops at its edge with an ellipsis, the remove X still inside it",
+    hero.chips.length === 3 && hero.chips.every((c) => c.left >= hero.field.left && c.right <= hero.field.right && c.remove) && hero.chips[0].cut && hero.chips[0].hint === `${LONG} · Movie`,
+    JSON.stringify(hero.chips.map((c) => [Math.round(c.left), Math.round(c.right), c.cut])),
+  );
+  check(
+    "  and the input shares the last line with the chips that fit, and stays in the field",
+    Math.abs(hero.input.top - hero.chips.at(-1).top) <= 6 && hero.input.left >= hero.chips.at(-1).right && hero.input.right <= hero.field.right && hero.input.w >= 64,
+    JSON.stringify({ input: hero.input, lastChip: hero.chips.at(-1) }),
+  );
+  await closeSettings(page);
+  await ctx.close();
+}
+
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();
 process.exit(fail ? 1 : 0);

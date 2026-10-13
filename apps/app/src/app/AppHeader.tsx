@@ -155,6 +155,7 @@ export function AppHeader({
   streamTab,
   onSection,
   onStreamTab,
+  onStreamHome,
   liveTab,
   onLiveTab,
   onOpenSettings,
@@ -167,6 +168,9 @@ export function AppHeader({
   showLive: boolean;
   onSection: (s: Section) => void;
   onStreamTab: (t: StreamTab) => void;
+  /** The Stream, Discover or Library pill pressed while it is the one
+   * showing: take that tab home (App counts it; the screen goes). */
+  onStreamHome: () => void;
   onLiveTab: (t: LiveTab) => void;
   onOpenSettings: () => void;
   /** The app palette (plan 019, K11). */
@@ -574,6 +578,12 @@ export function AppHeader({
       onSection("live");
       onLiveTab(d.key as LiveTab);
     } else {
+      // The tab you are on, pressed again, goes home: a title's page back to
+      // the rows, a genre back to everything, a list back to the lists. It
+      // did nothing, because the tab was already the tab (Adam, v0.11.37:
+      // "clicking stream should take you back to stream home page"). The
+      // Live tabs have no history to go home from.
+      if (section === "stream" && d.key === streamTab) onStreamHome();
       onSection("stream");
       // Pressing the Discover pill means browse, so drop any live query.
       // The store is the only copy now — the header kept a mirror of it

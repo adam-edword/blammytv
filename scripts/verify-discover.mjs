@@ -453,6 +453,17 @@ check("genre pill pre-selects its genre",
 check("genre pill wins over a stale search",
   !(await page4.evaluate(() => document.body.innerText)).includes("Results for") &&
   (await page4.inputValue(".navcap__searchinput")) === "");
+// The Discover pill, pressed on a genre's page, takes it home (v0.11.39,
+// Adam: pressing the tab you are on did nothing): no genre chosen, and the
+// all-content grid back, in its round-robin order.
+const genreOn = await page4.locator(".genre-card--on").count();
+await page4.locator('[data-dest="discover"]').click();
+await page4.waitForTimeout(900);
+const homeGrid = await page4.$$eval(".disc-grid .stream-card__name", (els) => els.map((e) => e.textContent));
+check("the Discover pill, pressed on a genre's page, takes it home: no genre chosen, the all-content grid back",
+  genreOn === 1 && (await page4.locator(".genre-card--on").count()) === 0 &&
+  homeGrid[0] === "Fake Movie One" && homeGrid[1] === "Fake Series One" && homeGrid[2] === "Extra Movie One",
+  JSON.stringify({ genreOn, home: homeGrid.slice(0, 4) }));
 // Row-cap fine-tune: click the number, type an exact value, Enter.
 await page4.locator("button[aria-label='Settings']").click();
 await page4.waitForTimeout(400);

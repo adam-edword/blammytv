@@ -175,6 +175,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: background var(--dur-hover) var(--ease-out);
 }
 .rail__icon {
   flex: none;
@@ -205,6 +206,12 @@
   font-size: 12px;
   line-height: 1.35;
   color: var(--text-muted);
+}
+/* The pointer is on it: the app's hover fill, the one every row of the Guide's
+ * sidebar wears (Button's `ghost`, --tint-hover). Not on the chosen item, whose
+ * chip is the thumb behind it and already says where you are. */
+.rail__opt:not(.is-on):hover {
+  background: var(--tint-hover);
 }
 .rail__opt:active {
   transform: scale(0.98);

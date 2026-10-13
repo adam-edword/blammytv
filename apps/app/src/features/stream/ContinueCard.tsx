@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { PlayIcon } from "../../ui/icons";
+import { Tilt } from "../../ui/Tilt";
+import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { cardMetaLine, type CardMetaField } from "../settings/cardMeta";
 import type { WatchEntry } from "./watching";
 
@@ -104,7 +106,26 @@ export function ContinueCard({
       }}
     >
       {/* The tile (plan 019, K7): a 16:9 picture with nothing on it at
-        * rest, progress UNDER it, the caption under that. */}
+        * rest, progress UNDER it, the caption under that.
+        *
+        * The picture leans and catches the sheen the poster cards do (Adam,
+        * v0.11.37: Continue Watching only lifted). Props match Card exactly.
+        * The card div stays OUTSIDE the Tilt, as the posters' button does:
+        * it owns the press-and-hold and its state classes, the lift, and the
+        * text under the picture, none of which should rotate. The glare is
+        * clipped by its own radius, so it takes the picture's token. */}
+      <Tilt
+        className="continue-card__tilt"
+        tiltEnable={!REDUCED_MOTION}
+        tiltMaxAngleX={5}
+        tiltMaxAngleY={5}
+        scale={REDUCED_MOTION ? 1 : 1.03}
+        transitionSpeed={650}
+        glareEnable={!REDUCED_MOTION}
+        glareMaxOpacity={0.12}
+        glarePosition="all"
+        glareBorderRadius="var(--radius-pic)"
+      >
       <span className="tile__pic continue-card__artwrap">
         {entry.art ? (
           <img className="tile__art continue-card__art" src={entry.art} alt="" loading="lazy" draggable={false} />
@@ -144,6 +165,7 @@ export function ContinueCard({
         </span>
         <span className="continue-card__holdbar" aria-hidden />
       </span>
+      </Tilt>
       {entry.posSec && entry.durSec ? (
         <span className="tile__track continue-card__progress" aria-hidden>
           <i style={{ width: `${Math.min(100, (entry.posSec / entry.durSec) * 100)}%` }} />

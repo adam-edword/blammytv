@@ -97,5 +97,89 @@ check(
   `${after.filter(measured).length} of ${after.length}`,
 );
 
+// ---- Continue Watching's picture leans and catches the sheen the posters do
+// (v0.11.39, Adam: the cards only lifted). The picture is inside the same
+// Tilt, with the card div and the lines under it outside, so the text does
+// not rotate; under reduced motion the card stays flat.
+const WATCHING = {
+  v: 1,
+  data: [
+    { id: "tt100003", title: "Fake Movie Three", at: 3, posSec: 1200, durSec: 5700, kind: "movie", art: "http://localhost:8084/bg/tt100003.png" },
+    { id: "tt100004", title: "Fake Movie Four", at: 2, posSec: 600, durSec: 5700, kind: "movie" },
+  ],
+};
+/** What a Continue Watching card's Tilt is doing now. */
+const cardLean = (pg) =>
+  pg.evaluate(() => {
+    const c = document.querySelector(".continue-card");
+    const t = c.querySelector(".continue-card__tilt");
+    const m = t.style.transform.match(/rotateX\(([-\d.e]+)deg\) rotateY\(([-\d.e]+)deg\)/);
+    const g = [...t.querySelectorAll(":scope > .glare-wrapper > .glare")].at(-1);
+    return {
+      wraps: !!t.querySelector(":scope > .tile__pic .tile__art"),
+      textOutside: !t.contains(c.querySelector(".continue-card__text")) && !t.contains(c.querySelector(".tile__track")),
+      x: m ? Number(m[1]) : NaN,
+      y: m ? Number(m[2]) : NaN,
+      scale: t.style.transform.match(/scale3d\(([\d.]+)/)?.[1] ?? null,
+      glareW: g?.style.width ?? null,
+      glare: Number(g?.style.opacity ?? 0),
+      shadow: getComputedStyle(t).boxShadow,
+      cardTransform: getComputedStyle(c).transform,
+    };
+  });
+async function hoverCard(pg) {
+  const pic = pg.locator(".continue-card .tile__pic").first();
+  await pic.scrollIntoViewIfNeeded();
+  await pg.mouse.move(2, 2);
+  await pg.waitForTimeout(500);
+  const b = await pic.boundingBox();
+  await pg.mouse.move(b.x + b.width * 0.8, b.y + b.height * 0.2);
+  await pg.mouse.move(b.x + b.width * 0.85, b.y + b.height * 0.15, { steps: 4 });
+  await pg.waitForTimeout(900);
+}
+await page.evaluate((w) => localStorage.setItem("blammytv.watching", JSON.stringify(w)), WATCHING);
+await goTo(page, "home");
+await page.locator(".continue-card").first().waitFor({ timeout: 30_000 });
+await page.waitForTimeout(600);
+const cwRest = await cardLean(page);
+check(
+  "Continue Watching's picture is in a Tilt, the text and progress under it are not, and it mounts unmeasured",
+  cwRest.wraps && cwRest.textOutside && cwRest.glareW === "0px",
+  JSON.stringify({ wraps: cwRest.wraps, textOutside: cwRest.textOutside, glare: cwRest.glareW }),
+);
+await hoverCard(page);
+const cw = await cardLean(page);
+check(
+  "hovering it leans the picture with the pointer inside the 5° clamp, scales it a hair, catches the sheen and swells the shadow, beside the card's lift",
+  Math.abs(cw.x) > 0.5 && Math.abs(cw.x) < 4.9 && Math.abs(cw.y) > 0.5 && Math.abs(cw.y) < 4.9 && cw.scale === "1.03" && cw.glare > 0 && cw.shadow !== "none" && /matrix\(1, 0, 0, 1, 0, -3\)/.test(cw.cardTransform),
+  JSON.stringify(cw),
+);
+await page.mouse.move(2, 2);
+
+{
+  // Reduced motion: nothing leans, scales or shines.
+  const rctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+  await rctx.route((u) => u.hostname !== "localhost", (r) => r.abort());
+  const rp = await rctx.newPage();
+  await rp.addInitScript((w) => {
+    localStorage.setItem("btv:onboarded", "1");
+    sessionStorage.setItem("btv:welcome-played", "1");
+    localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
+    localStorage.setItem("blammytv.watching", JSON.stringify(w));
+  }, WATCHING);
+  await rp.goto(URL);
+  await goTo(rp, "home");
+  await rp.locator(".continue-card").first().waitFor({ timeout: 30_000 });
+  await rp.waitForTimeout(600);
+  await hoverCard(rp);
+  const still = await cardLean(rp);
+  check(
+    "  and under reduced motion it stays flat: no lean, no scale, no sheen",
+    !(Math.abs(still.x) > 0.01) && !(Math.abs(still.y) > 0.01) && (still.scale === null || still.scale === "1") && still.glare === 0,
+    JSON.stringify(still),
+  );
+  await rctx.close();
+}
+
 await browser.close();
 process.exit(fail ? 1 : 0);

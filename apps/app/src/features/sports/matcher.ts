@@ -62,7 +62,7 @@ export interface Match extends Tunable {
  * it cannot eat a real word: "US: ESPN" loses its prefix, "USA Network"
  * keeps every letter.
  */
-const COUNTRY =
+export const COUNTRY =
   /^(us|usa|uk|ca|au|nz|ie|fr|de|es|it|nl|pt|pl|se|no|dk|fi|be|at|ch|cz|sk|hu|ro|bg|gr|tr|ru|ua|il|cy|za|in|pk|hk|sg|my|th|vn|ph|id|kr|jp|cn|tw|br|mx|ar|cl|co|pe)\s*[:|]\s*/i;
 
 /** Resolution badges. The same channel is sold to us five ways and the

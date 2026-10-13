@@ -159,16 +159,28 @@ export function HeroSourcesSection() {
           itemToStringValue={(c: AioCatalog) => `${c.name} ${typeLabel(c.type)}`}
           itemToStringLabel={(c: AioCatalog) => c.name}
         >
-          {/* `w-full max-w-xs` is the demo's own width. Left uncapped the
-            * field ran the full 738px of the settings panel, and since the
-            * popup takes its width from the field, so did that. A chips
-            * field is a place to put chips, not a text column. */}
-          <ComboboxChips ref={anchor} className="w-full max-w-xs">
+          {/* The stack's width, to 520px. The demo's `max-w-xs` (320px) was
+            * cramped: two chips filled it, and a long one ran out past its
+            * border (Adam, v0.11.37). Uncapped it ran the full 738px of the
+            * settings panel, and since the popup takes its width from the
+            * field, so did that. A chips field is a place to put chips, not a
+            * text column.
+            *
+            * A chip is never wider than the field: it stops at the field's
+            * edge with an ellipsis, and the name in full is its hint. */}
+          <ComboboxChips ref={anchor} className="w-full max-w-[520px]">
             <ComboboxValue>
               {(picked: AioCatalog[]) =>
                 picked.map((c) => (
-                  <ComboboxChip key={c.key} aria-label={c.name}>
-                    {c.name} · {typeLabel(c.type)}
+                  <ComboboxChip
+                    key={c.key}
+                    aria-label={c.name}
+                    className="max-w-full min-w-0"
+                    data-hint={`${c.name} · ${typeLabel(c.type)}`}
+                  >
+                    <span className="min-w-0 truncate">
+                      {c.name} · {typeLabel(c.type)}
+                    </span>
                   </ComboboxChip>
                 ))
               }

@@ -3,6 +3,7 @@ import {
   SIDEBAR_ITEM,
   SIDEBAR_ITEM_ACTIVE,
   SIDEBAR_LABEL,
+  SIDEBAR_RAIL_ITEM,
 } from "../../ui/sidebarItem";
 import {
   Fragment,
@@ -139,34 +140,44 @@ const SidebarSources = memo(function SidebarSources({
         const c = conns.get(g.id);
         return (
           <Fragment key={g.id}>
-            <Button
-              variant="ghost"
-              type="button"
-              className={`live-group ${SIDEBAR_LABEL}`}
-              aria-expanded={open}
-              onClick={() => onToggleGroup(g.id)}
-            >
-              <ChevronIcon
-                className={
-                  "live-group__caret" +
-                  (open ? "" : " live-group__caret--closed")
-                }
-              />
-              <span className="live-group__name">{g.name}</span>
-              {/* Connection usage (Xtream only): multi-view's meter (plan
-               * 019, K5), a dash a stream, so the line being full is
-               * something you see. */}
-              {c && !collapsed && (
-                <LineMeter
-                  size="sm"
-                  className={"live-conns" + (c.active >= c.max ? " live-conns--full" : "")}
-                  max={c.max}
-                  used={c.active}
-                  text={`${c.active} of ${c.max}`}
-                  label={`${c.active} of ${c.max} streams in use`}
+            {collapsed ? (
+              /* Folded, a playlist's header is a hairline: where one list of
+               * icons ends and the next begins, and nothing taller. A
+               * playlist with no icons showing has nothing to divide. */
+              open &&
+              g.folders.length > 0 && (
+                <div className="live-rail__rule" aria-hidden />
+              )
+            ) : (
+              <Button
+                variant="ghost"
+                type="button"
+                className={`live-group ${SIDEBAR_LABEL}`}
+                aria-expanded={open}
+                onClick={() => onToggleGroup(g.id)}
+              >
+                <ChevronIcon
+                  className={
+                    "live-group__caret" +
+                    (open ? "" : " live-group__caret--closed")
+                  }
                 />
-              )}
-            </Button>
+                <span className="live-group__name">{g.name}</span>
+                {/* Connection usage (Xtream only): multi-view's meter (plan
+                 * 019, K5), a dash a stream, so the line being full is
+                 * something you see. */}
+                {c && (
+                  <LineMeter
+                    size="sm"
+                    className={"live-conns" + (c.active >= c.max ? " live-conns--full" : "")}
+                    max={c.max}
+                    used={c.active}
+                    text={`${c.active} of ${c.max}`}
+                    label={`${c.active} of ${c.max} streams in use`}
+                  />
+                )}
+              </Button>
+            )}
             {g.error && !collapsed && (
               <p className="live-group__error">
                 Couldn&rsquo;t load this playlist: {g.error}
@@ -192,7 +203,7 @@ const SidebarSources = memo(function SidebarSources({
                         // that, so skip it.
                         data-hint={collapsed ? undefined : label}
                         className={
-                          `live-folder ${SIDEBAR_ITEM}` +
+                          `live-folder ${collapsed ? SIDEBAR_RAIL_ITEM : SIDEBAR_ITEM}` +
                           (active
                             ? ` live-folder--active ${SIDEBAR_ITEM_ACTIVE}`
                             : "")

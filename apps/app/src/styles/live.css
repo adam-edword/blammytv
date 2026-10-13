@@ -139,6 +139,15 @@
   flex-direction: column;
   gap: 4px;
 }
+/* One playlist's folders take the room they need and no more. `flex: 1`
+ * above is right where the list is the panel's only content (Sports), and
+ * wrong here: with two playlists it split what was left of the panel in half
+ * between them, so a short list sat at the top of a half-panel and the next
+ * playlist's header was ~180px below its last folder. A long list still
+ * shrinks and scrolls. */
+.live-sidebar__list > .live-sidebar__folders {
+  flex: 0 1 auto;
+}
 
 /* Folder rows: placeholder square + name; red fill = selected, red border
  * = hover (Figma 126:403). */
@@ -188,15 +197,17 @@
 
 /* ------------------------------------------------- collapsed icon rail */
 
-/* Folded, the same list narrows to a quiet icon rail: the header text and
- * row labels drop out, but the rows themselves keep their geometry so the
- * emoji/icons stay pixel-fixed through the toggle. */
-.live-sidebar--collapsed .live-group {
-  /* Keep the height (so rows don't shift up) but surrender the width —
-   * otherwise the hidden playlist name holds the rail wide open. */
-  visibility: hidden;
-  width: 0;
-  padding-inline: 0;
+/* Folded, the sidebar is an icon rail: the collapse button's 40px column and
+ * the panel's own 8px padding and 1px edge, 58px, with every folder a 40px
+ * square under the toggle (ui/sidebarItem.ts, SIDEBAR_RAIL_ITEM). Its width is
+ * not set here: nothing in it is wider than the column, so it falls out. The
+ * playlists' headers are not drawn (LiveScreen); a hairline stands where each
+ * began, and the label for a folder is the .live-tip beside it. */
+.live-rail__rule {
+  flex-shrink: 0;
+  height: 1px;
+  margin-inline: 6px;
+  background: var(--border);
 }
 
 .live-sidebar--collapsed .live-folder__name {
@@ -205,10 +216,6 @@
 
 .live-sidebar--collapsed .live-sidebar__folders {
   scrollbar-width: none;
-}
-
-.live-sidebar--collapsed .live-folder:hover {
-  /* opacity is the hover cue when folded */;
 }
 
 /* Source-name tooltip beside the folded rail. */
@@ -338,10 +345,14 @@
  * after a real 1px tick rather than a typed "|". */
 .guide__tick {
   position: absolute;
-  top: 2px;
+  /* On the centre line of the band the capsule is centred in (Guide.tsx
+   * RULER_BAND), and not the top of it: the label is 16px, so its middle is
+   * the capsule's. */
+  top: calc((var(--guide-band) - 16px) / 2);
   padding-left: 6px;
   font-weight: 500;
   font-size: 12px;
+  line-height: 16px;
   font-variant-numeric: tabular-nums;
   /* Brighter than --text-dim: with no bar behind them, the ticks carry
    * their own readability over any theme's texture. */
@@ -366,7 +377,9 @@
   position: sticky;
   left: 0;
   z-index: 1;
-  height: 100%;
+  /* The band, not the ruler: the ruler is 8px taller, and that space is the
+   * capsule's clearance from the first row. */
+  height: var(--guide-band);
   display: flex;
   align-items: center;
   justify-content: flex-end;

@@ -70,3 +70,19 @@ export const SIDEBAR_ITEM_ACTIVE = "bg-tint-on text-foreground font-medium hover
  * the app now does.
  */
 export const SIDEBAR_LABEL = `h-9 w-full justify-start gap-2 px-2 has-[>svg]:px-2 rounded-(--radius) text-left ${EYEBROW}`;
+
+/**
+ * A row in the FOLDED sidebar: the icon alone, in a 40px square. That is the
+ * collapse button's own size (Button `icon`), so the toggle and every folder
+ * under it share one column, one centre line and one hit area, and the hover
+ * and chosen fills are that square. The folded panel is this column plus its
+ * 8px padding and 1px edge: 58px.
+ *
+ * It is used INSTEAD of SIDEBAR_ITEM, not on top of it: the rail changes the
+ * size, the justification and both paddings (the svg variant's too, which
+ * tailwind-merge does not cancel against a plain one, as above), and naming
+ * each against the row's own would leave `w-full` and `justify-start` to fight
+ * `size-10` and `justify-center`.
+ */
+export const SIDEBAR_RAIL_ITEM =
+  "size-10 justify-center p-0 has-[>svg]:p-0 rounded-(--radius) font-normal";

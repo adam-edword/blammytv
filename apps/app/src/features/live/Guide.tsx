@@ -78,7 +78,12 @@ const CARD_W_KEY = "guideCardW";
 const CARD_W_VERSION = 1;
 const ROW_H = 60;
 const ROW_GAP = 8;
-const RULER_H = 28;
+/** The ruler's band, which holds Earlier, Now and Later (a 26px capsule) and
+ * the time labels on one centre line; and the clear space under it, so the
+ * capsule does not sit on the first row (it did at 1px, Adam, v0.11.37). */
+const RULER_BAND = 28;
+const RULER_CLEAR = 8;
+const RULER_H = RULER_BAND + RULER_CLEAR;
 const CELL_GAP = 8;
 /** One row's slice of scroll height (row + its gap). */
 const ROW_STEP = ROW_H + ROW_GAP;
@@ -710,7 +715,10 @@ export const Guide = memo(function Guide({
         onContextMenu={onGuideMenu}
       >
       <div className="guide__canvas" style={{ width: laneX + laneW }}>
-        <div className="guide__ruler" style={{ height: RULER_H }}>
+        <div
+          className="guide__ruler"
+          style={{ height: RULER_H, "--guide-band": `${RULER_BAND}px` } as CSSProperties}
+        >
           {ticks(start).map((t) => (
             <span
               key={t.getTime()}

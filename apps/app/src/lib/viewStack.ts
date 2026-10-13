@@ -114,6 +114,21 @@ export function useViewStack<V>(initial: V | (() => V)) {
     fwd.current = [];
   }, []);
 
+  /** The bottom of the stack: the screen's own first page, scrolled to the
+   * top, with no history above it to go back or forward to. What pressing
+   * the tab you are already on does. `root` is that page, which only the
+   * screen knows (a stack can be seeded past it: the Library opens on the
+   * list you came from, Discover on where it was last). */
+  const goHome = useCallback(
+    (root: V) => {
+      back.current = [];
+      fwd.current = [];
+      setView(root);
+      restoreTo(0);
+    },
+    [restoreTo],
+  );
+
   const depth = useCallback(() => back.current.length, []);
 
   /** The view Back would return to, without going there. Lets a screen tell
@@ -166,6 +181,7 @@ export function useViewStack<V>(initial: V | (() => V)) {
     goForward,
     replace,
     reset,
+    goHome,
     depth,
     peek,
     capture,

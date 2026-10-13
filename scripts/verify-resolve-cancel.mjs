@@ -499,6 +499,56 @@ async function retryWith(page, mode) {
   await page.close();
 }
 
+// ---- The Stream pill while a title plays (v0.11.39) ---------------------
+// Pressing the Stream pill while Stream is showing takes it home, from a
+// title's page. While a title PLAYS it changes nothing: Back stands aside for
+// the stage (the mouse's Back is off while one plays), and the pill follows
+// it, so it cannot stop or close the stream. From a title's page, one source
+// picked, the stage up; then the pill, and the mouse's Back as the control.
+{
+  const page = await ctx.newPage();
+  await page.addInitScript(stubFor(ENTRY, { hold: false }));
+  await page.goto(URL, { waitUntil: "domcontentloaded" });
+  const skip = page.getByRole("button", { name: /skip setup/i }).first();
+  if (await skip.isVisible().catch(() => false)) await skip.click();
+  await page.getByRole("button", { name: /^stream$/i }).first().click({ timeout: 15_000 });
+  await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click({ timeout: 20_000 });
+  await page.locator(".vod-source").first().waitFor({ timeout: 15_000 });
+  await page.waitForTimeout(500);
+  await page.locator(".vod-source").first().click();
+  await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "inv_open"), null, { timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  const calls = () => page.evaluate(() => window.__tauriCalls.map((c) => c[0]));
+  const state = () => page.evaluate(() => ({ stage: !!document.querySelector(".vod-stage"), detail: !!document.querySelector(".vod-detail") }));
+  const playing = await state();
+  const was = (await calls()).length;
+  await page.evaluate(() => {
+    for (const t of ["mousedown", "mouseup"]) window.dispatchEvent(new MouseEvent(t, { button: 3, buttons: 8, bubbles: true }));
+  });
+  await page.waitForTimeout(500);
+  const afterBack = await state();
+  // The stage is fixed over the whole window, so a mouse cannot reach the pill
+  // here; a key can (Tab, Enter), and that is a click on the button. Sent to it
+  // directly.
+  await page.locator('[data-dest="home"]').evaluate((el) => el.click());
+  await page.waitForTimeout(900);
+  const afterPill = await state();
+  const since = (await calls()).slice(was);
+  check(
+    "the Stream pill while a title plays changes nothing: the stage stays up and no stop reaches the player (the mouse's Back, which is off while one plays, is the same)",
+    playing.stage && afterBack.stage && afterPill.stage && !since.includes("inv_stop") && (await calls()).filter((c) => c === "inv_open").length === 1,
+    JSON.stringify({ playing, afterBack, afterPill, since: [...new Set(since)] }),
+  );
+  // And nothing was done to the page under the stage: close the player (t, the
+  // theater's way back to the catalog) and the title's page is where it was.
+  await page.keyboard.press("t");
+  await page.waitForSelector(".vod-stage", { state: "detached", timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  const under = await state();
+  check("  the title's page is still under it when the player closes: the pill did not take the page home", !under.stage && under.detail, JSON.stringify(under));
+  await page.close();
+}
+
 await browser.close();
 const fails = results.filter(([, ok]) => !ok);
 console.log(

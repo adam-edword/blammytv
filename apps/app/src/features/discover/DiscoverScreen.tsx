@@ -79,7 +79,7 @@ type Cfg =
   | { status: "ready"; cfg: DiscoverConfig }
   | { status: "error"; message: string };
 
-export function DiscoverScreen() {
+export function DiscoverScreen({ home }: { home?: number } = {}) {
   // Where this tab was when it was last unmounted (a tab flip). Read once,
   // at mount: everything below seeds from it instead of starting over.
   const sessionRef = useRef(readDiscoverSession(loadAioConn()?.key ?? ""));
@@ -97,6 +97,7 @@ export function DiscoverScreen() {
     goForward,
     replace: replaceView,
     restoreTo,
+    goHome,
   } = useViewStack<DiscoverView>(() =>
     session
       ? { filter: session.filter, genre: session.genre }
@@ -151,6 +152,16 @@ export function DiscoverScreen() {
     [navigate, filter],
   );
   useMouseNav(goBack, goForward);
+  // The Discover pill, pressed while it is showing, takes it home (App counts
+  // the press): everything, no genre, no recommender, scrolled to the top.
+  // The header has already dropped a search with the same press. Not the
+  // stack's first entry, which is wherever this tab was left last.
+  const pressed = useRef(home);
+  useEffect(() => {
+    if (pressed.current === home) return;
+    pressed.current = home;
+    goHome({ filter: "all", genre: null });
+  }, [home, goHome]);
   const cfgRef = useRef(cfg);
   cfgRef.current = cfg;
   useEffect(() => {

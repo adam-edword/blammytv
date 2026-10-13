@@ -260,12 +260,38 @@ const FIX_GUIDE = [
   ["movies.guide", "Retro Movies", "Retro Feature"],
 ];
 
-function fixXmltv() {
+// username "fixev": one EVENT channel, named for what is on it as a real
+// provider's are ("NFHS Network 01: ... @ 11 Oct 08:00 AM ET": 96 characters
+// that do not wrap), whose guide id matches nothing. verify-guide-fix opens
+// its Fix guide dialog for the two things a name like that broke: the card
+// the dialog sits in, and the order the guide's channels are offered in. The
+// guide holds four event channels, listed in neither the order they should
+// rank nor alphabetically: the same station and number as the channel, the
+// same network with another number, the number only, and none of it.
+const FIXEV = [
+  {
+    num: 1,
+    name: "NFHS Network 01: Portsmouth Abbey School Middle School Girls Ice Hockey @ 11 Oct 08:00 AM ET",
+    stream_type: "live",
+    stream_id: 7100,
+    stream_icon: null,
+    epg_channel_id: "nfhs.wrong.id", // the guide has no channel by this id
+    category_id: "1",
+  },
+];
+const FIXEV_GUIDE = [
+  ["sn01.guide", "Sportsnet+ 01: Sportsnet Central: Oct. 11 @ 12 Oct 05:00 AM ET", "Sportsnet Hour"],
+  ["dazn.guide", "DAZN 1: Boxing Night: Oct. 11 @ 11 Oct 08:00 AM ET", "DAZN Hour"],
+  ["nfhs05.guide", "NFHS Network 05: Ridgewood Boys Soccer @ 11 Oct 08:00 AM ET", "NFHS Five Hour"],
+  ["nfhs01.guide", "NFHS Network 01: Brewster Academy Girls Lacrosse @ 12 Oct 07:00 PM ET", "NFHS One Hour"],
+];
+
+function fixXmltv(guide = FIX_GUIDE) {
   const now = Number(process.env.FAKE_NOW) || Date.now();
   const HOUR = 3600_000;
   const base = Math.floor(now / (30 * 60_000)) * 30 * 60_000;
   const progs = [];
-  for (const [id, , title] of FIX_GUIDE)
+  for (const [id, , title] of guide)
     for (let i = -1; i < 27; i++)
       progs.push(
         `<programme start="${fmt(base + i * HOUR)}" stop="${fmt(base + (i + 1) * HOUR)}" channel="${id}">` +
@@ -273,13 +299,13 @@ function fixXmltv() {
       );
   return (
     `<?xml version="1.0" encoding="UTF-8"?><tv>` +
-    FIX_GUIDE.map(([id, name]) => `<channel id="${id}"><display-name>${name}</display-name></channel>`).join("") +
+    guide.map(([id, name]) => `<channel id="${id}"><display-name>${name}</display-name></channel>`).join("") +
     progs.join("") +
     `</tv>`
   );
 }
 
-const LINES = { dups: DUPS, pins: PINS, fix: FIX };
+const LINES = { dups: DUPS, pins: PINS, fix: FIX, fixev: FIXEV };
 
 http
   .createServer((req, res) => {
@@ -315,7 +341,9 @@ http
     if (url.pathname === "/xmltv.php") {
       res.setHeader("Content-Type", "application/xml");
       const user = url.searchParams.get("username");
-      return res.end(user === "pins" ? pinsXmltv() : user === "fix" ? fixXmltv() : xmltv());
+      return res.end(
+        user === "pins" ? pinsXmltv() : user === "fix" ? fixXmltv() : user === "fixev" ? fixXmltv(FIXEV_GUIDE) : xmltv(),
+      );
     }
     if (url.pathname === "/logo.png") {
       res.setHeader("Content-Type", "image/png");

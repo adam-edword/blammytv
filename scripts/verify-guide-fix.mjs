@@ -25,7 +25,13 @@
 //   is reused);
 // - the dialog then says "Fixed by you", and Remove fix puts the lane back
 //   to "No Information" after one more download;
-// - Escape closes the dialog and only the dialog.
+// - Escape closes the dialog and only the dialog;
+// - an EVENT channel (the "fixev" line: a 96 character name that does not
+//   wrap, v0.11.39) keeps the dialog inside its card: one grid column no wider
+//   than the card, the title cut with an ellipsis and clear of the X, no row
+//   running out of the list, at the card's width and at a narrow window's;
+// - and its guide channels come in the order the station says: the same
+//   network and number first, the same network next, the rest after.
 //
 //   node scripts/fake-panel.mjs                    # :8081
 //   LAX=1 node scripts/fake-stalker.mjs            # :8083
@@ -264,6 +270,102 @@ await openDialog(BAD);
 check("  the dialog says no guide matched again", (await dialog.textContent()).includes("No guide matched"));
 await page.keyboard.press("Escape");
 await dialog.waitFor({ state: "detached", timeout: 5000 });
+
+// ---- An event channel's name (v0.11.39, Adam's NFHS channel)
+// Its own context: one playlist whose one channel has a long event name and a
+// guide of four event channels (fake-panel's "fixev").
+{
+  const EV = { v: 1, data: [{ kind: "xtream", id: "ev", name: "Event Line", enabled: true, server: "http://localhost:8081", username: "fixev", password: "p" }] };
+  const NAME = "NFHS Network 01: Portsmouth Abbey School Middle School Girls Ice Hockey @ 11 Oct 08:00 AM ET";
+  /** The dialog for the event channel, in a window `width` wide. */
+  async function eventDialog(width) {
+    const c = await browser.newContext({ viewport: { width, height: 900 } });
+    await c.route(/^https?:\/\/(?!localhost|127\.0\.0\.1)/, (r) => r.abort());
+    const p = await c.newPage();
+    p.on("pageerror", (e) => errors.push(String(e)));
+    await p.addInitScript((pl) => {
+      sessionStorage.setItem("btv:welcome-played", "1");
+      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
+    }, EV);
+    await p.goto(URL, { waitUntil: "domcontentloaded" });
+    await goTo(p, "guide");
+    const r = p.locator('.guide__row[data-channel="ev:7100"]');
+    await r.waitFor({ timeout: 30_000 });
+    await p.waitForTimeout(2000);
+    await r.locator(".guide__card").click({ button: "right" });
+    await p.getByRole("menuitem", { name: "Fix guide…" }).click();
+    const d = p.getByRole("dialog");
+    await d.waitFor({ timeout: 5000 });
+    await d.getByRole("option").first().waitFor({ timeout: 20_000 });
+    await p.waitForTimeout(400);
+    return { c, p, d };
+  }
+  /** What the card holds, measured. */
+  const fit = (d) =>
+    d.evaluate((el) => {
+      const card = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      const inner = card.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+      const title = el.querySelector("h2");
+      const x = el.querySelector("[data-slot=dialog-close]").getBoundingClientRect();
+      const list = el.querySelector("[role=listbox]").getBoundingClientRect();
+      const rows = [...el.querySelectorAll("[role=option]")];
+      const texts = [...el.querySelectorAll(".mvpick__nametext")];
+      // Where the title's own text ends, not its box (which carries the X's room).
+      const range = document.createRange();
+      range.selectNodeContents(title);
+      const ink = Math.min(range.getBoundingClientRect().right, title.getBoundingClientRect().right - parseFloat(getComputedStyle(title).paddingRight));
+      return {
+        width: Math.round(card.width),
+        columns: cs.gridTemplateColumns.split(" ").map((c) => Math.round(parseFloat(c))),
+        inner: Math.round(inner),
+        scroll: el.scrollWidth - el.clientWidth,
+        titleCut: title.scrollWidth > title.clientWidth && getComputedStyle(title).textOverflow === "ellipsis",
+        titleFull: title.textContent,
+        hint: title.getAttribute("data-hint"),
+        titleInk: ink,
+        xLeft: x.left,
+        xInCard: x.right <= card.right && x.left >= card.left,
+        rowsInList: rows.every((r) => r.getBoundingClientRect().right <= list.right + 0.5 && r.scrollWidth <= r.clientWidth + 1),
+        cut: texts.filter((t) => t.scrollWidth > t.clientWidth).length,
+        names: texts.map((t) => t.textContent),
+      };
+    });
+
+  const wide = await eventDialog(1440);
+  const w = await fit(wide.d);
+  check(
+    "an event channel's long name leaves the dialog one column no wider than its card",
+    w.columns.length === 1 && Math.abs(w.columns[0] - w.inner) <= 1 && w.scroll <= 0,
+    JSON.stringify({ columns: w.columns, inner: w.inner, scroll: w.scroll }),
+  );
+  check("  the card is the wider one (672px), for names that long", w.width === 672, String(w.width));
+  check(
+    "  the title is cut with an ellipsis, clear of the X, and says the name in full on hover",
+    w.titleCut && w.titleFull === NAME && w.hint === NAME && w.titleInk <= w.xLeft && w.xInCard,
+    JSON.stringify({ cut: w.titleCut, ink: w.titleInk, x: w.xLeft, hint: w.hint }),
+  );
+  check("  every row stays inside the list", w.rowsInList);
+  // The ranking: the station first. The old count offered Sportsnet+ 01 first,
+  // for the 01, 11, Oct, AM and ET it shares with this name.
+  check(
+    "the same station and number is offered first, the same network next, the rest after",
+    w.names[0].startsWith("NFHS Network 01:") && w.names[1].startsWith("NFHS Network 05:") && w.names.slice(2).every((n) => /^(Sportsnet\+ 01|DAZN 1):/.test(n)) && w.names.length === 4,
+    JSON.stringify(w.names),
+  );
+  await wide.c.close();
+
+  // And in a window narrower than the card: the rows cut as the title does.
+  const narrow = await eventDialog(520);
+  const n = await fit(narrow.d);
+  check(
+    "  in a narrow window the column is still no wider than the card, and the long rows are cut inside the list",
+    n.columns.length === 1 && Math.abs(n.columns[0] - n.inner) <= 1 && n.scroll <= 0 && n.titleCut && n.xInCard && n.rowsInList && n.cut >= 1,
+    JSON.stringify({ width: n.width, columns: n.columns, inner: n.inner, scroll: n.scroll, cut: n.cut }),
+  );
+  await narrow.c.close();
+}
 
 check("no page errors", errors.length === 0, errors.join(" | "));
 await browser.close();

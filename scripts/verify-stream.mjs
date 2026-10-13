@@ -127,6 +127,45 @@ await page.waitForFunction(() => document.body.innerText.includes("Sources"), nu
 await page.waitForTimeout(600);
 check("episode sources resolve (colon id)", (await page.locator(".vod-source").count()) === 2);
 
+// The Stream pill, pressed while Stream is showing, takes it home (v0.11.39,
+// Adam: "on a title's page, pressing Stream does nothing"). From two pages
+// down (the show, then an episode's sources): the rows, scrolled to the top,
+// with no history left to go back through.
+{
+  const homeView = () =>
+    page.evaluate(() => ({
+      detail: !!document.querySelector(".vod-detail, .season-bar"),
+      rows: document.querySelectorAll(".media-row__viewport").length,
+      top: document.querySelector(".stream")?.scrollTop ?? null,
+      full: document.querySelector(".stream")?.classList.contains("stream--full") ?? null,
+    }));
+  const before = await homeView();
+  await page.locator('[data-dest="home"]').click();
+  await page.waitForTimeout(900);
+  const home = await homeView();
+  check(
+    "the Stream pill on an episode's sources, two pages down, takes Stream home: the rows, scrolled to the top",
+    before.detail && !home.detail && home.rows > 1 && home.top === 0 && home.full === false,
+    JSON.stringify({ before, home }),
+  );
+  // Nothing behind it: the mouse's Back goes nowhere.
+  await page.evaluate(() => {
+    for (const t of ["mousedown", "mouseup"]) window.dispatchEvent(new MouseEvent(t, { button: 3, bubbles: true }));
+  });
+  await page.waitForTimeout(500);
+  const afterBack = await homeView();
+  check("  with no history left: the mouse's Back stays on the rows", !afterBack.detail && afterBack.rows > 1, JSON.stringify(afterBack));
+  // Pressed again on the rows, scrolled down: back to the top.
+  await page.mouse.move(700, 500);
+  await page.mouse.wheel(0, 700);
+  await page.waitForTimeout(500);
+  const scrolled = (await homeView()).top;
+  await page.locator('[data-dest="home"]').click();
+  await page.waitForTimeout(700);
+  const topAgain = (await homeView()).top;
+  check("  and pressed again on the rows, scrolled down, it goes back to the top", scrolled > 300 && topAgain === 0, `${scrolled} -> ${topAgain}`);
+}
+
 // ---------------------------------------------------------------- the hero
 // v0.9.123. The hero painted from catalog previews, which carry no backdrop
 // and no logo, so a card was the portrait poster stretched across the

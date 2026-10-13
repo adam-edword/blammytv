@@ -406,6 +406,29 @@ const dimmedText = () =>
     JSON.stringify({ ...paint, tintOn, muted }),
   );
 
+  // The pointer on a page: the app's hover fill (the one the Guide sidebar's
+  // rows wear), on a page that is not chosen, with the pointer's cursor. The
+  // chosen page already has the thumb's chip and takes nothing on top (v0.11.39,
+  // Adam: hovering Playback changed nothing). Settings is the one user of Rail.
+  const tintHover = await token("--tint-hover");
+  const readOpt = (name) =>
+    tab(name).evaluate((e) => ({ bg: getComputedStyle(e).backgroundColor, cursor: getComputedStyle(e).cursor, on: e.getAttribute("aria-selected") }));
+  await page.mouse.move(W - 4, H - 4);
+  await page.waitForTimeout(350);
+  const idle = await readOpt("Playback");
+  await tab("Playback").hover();
+  await page.waitForTimeout(350);
+  const over = await readOpt("Playback");
+  await tab("Sources").hover();
+  await page.waitForTimeout(350);
+  const onChosen = await readOpt("Sources");
+  await page.mouse.move(W - 4, H - 4);
+  check(
+    "  the pointer on a page that is not chosen fills it with the hover tint and shows the pointer's cursor, and does nothing to the chosen one",
+    idle.bg === "rgba(0, 0, 0, 0)" && over.on === "false" && over.bg === tintHover && over.cursor === "pointer" && onChosen.on === "true" && onChosen.bg === "rgba(0, 0, 0, 0)",
+    JSON.stringify({ idle: idle.bg, over, onChosen: onChosen.bg, tintHover }),
+  );
+
   // The arrows move the choice and the focus together, and the thumb slides.
   await tab("Sources").focus();
   const path = await page.evaluate(
@@ -1136,6 +1159,135 @@ const dimmedText = () =>
   await page.waitForTimeout(500);
 }
 
+// ============================================================== Rail (C)
+// The folded Guide sidebar is an icon rail (v0.11.39, Adam: "a wide panel with
+// icons on its left, blank bands, duplicates with no way to tell playlists
+// apart"). It was 107px wide with 89px folder buttons whose icons sat on their
+// left, and a playlist's header was hidden but kept its 36px, so a blank band
+// sat under the toggle and between playlists. Now: the toggle's 40px column
+// and the panel's 8px padding and 1px edge (58px), every folder a 40px square
+// with its icon centred in it, a hairline where a header was, and nothing
+// taller than a hairline's room between one item and the next. Two playlists,
+// because the gap between playlists is the point.
+//
+// Open, the second playlist's header sits 4px under the first one's last
+// folder. It sat ~180px under: each playlist's folder list was `flex: 1`, so
+// two of them split the panel's spare height between them.
+{
+  const c8 = await browser.newContext({ viewport: { width: W, height: H } });
+  await c8.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+  const p8 = await c8.newPage();
+  p8.on("pageerror", (e) => errors.push(String(e)));
+  await p8.addInitScript(init);
+  await p8.addInitScript(() => {
+    const line = (id, name) => ({ kind: "xtream", id, name, enabled: true, server: "http://localhost:8081", username: "u", password: "p" });
+    localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [line("t", "Test"), line("t2", "Second")] }));
+  });
+  await p8.goto(APP, { waitUntil: "domcontentloaded" });
+  await p8.waitForSelector('[data-dest="guide"]', { timeout: 60_000 });
+  await goTo(p8, "guide");
+  await p8.locator(".live-group").nth(1).waitFor({ timeout: 30_000 });
+  await p8.locator(".live-folder").nth(1).waitFor({ timeout: 30_000 });
+  await p8.waitForTimeout(600);
+  const folderCount = await p8.locator(".live-folder").count();
+
+  const open = await p8.evaluate(() => {
+    const side = document.querySelector(".live-sidebar").getBoundingClientRect();
+    const groups = [...document.querySelectorAll(".live-group")].map((g) => g.getBoundingClientRect());
+    const folders = [...document.querySelectorAll(".live-folder")].map((f) => f.getBoundingClientRect());
+    const firstGroupFolders = [...document.querySelectorAll(".live-sidebar__folders")][0].querySelectorAll(".live-folder").length;
+    return { width: side.width, groups: groups.length, headerH: groups[0].height, gap: groups[1].top - folders[firstGroupFolders - 1].bottom };
+  });
+  check(
+    "the open Guide sidebar is 252px, and each playlist's header sits 4px under the last folder above it",
+    open.width === 252 && open.groups === 2 && open.headerH === 36 && open.gap === 4,
+    JSON.stringify(open),
+  );
+
+  await p8.getByRole("button", { name: "Collapse sidebar" }).click();
+  await p8.waitForTimeout(500);
+  const rail = await p8.evaluate(() => {
+    const box = (e) => {
+      const r = e.getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2, b: r.bottom };
+    };
+    const side = box(document.querySelector(".live-sidebar"));
+    const toggle = box(document.querySelector(".live-collapse"));
+    const folders = [...document.querySelectorAll(".live-folder")].map((f) => ({ ...box(f), icon: box(f.querySelector("svg, .live-folder__emoji")) }));
+    const rules = [...document.querySelectorAll(".live-rail__rule")].map(box);
+    // Every drawn item down the rail, in order: the biggest gap between two.
+    const items = [toggle, ...folders, ...rules].sort((a, b) => a.y - b.y);
+    const gaps = items.slice(1).map((it, i) => it.y - items[i].b);
+    return {
+      side,
+      toggle,
+      folders,
+      rules,
+      maxGap: Math.max(...gaps),
+      headers: document.querySelectorAll(".live-group").length,
+      between: rules.map((r) => ({ above: folders.filter((f) => f.b <= r.y).length, below: folders.filter((f) => f.y >= r.b).length })),
+    };
+  });
+  check(
+    "folded, the sidebar is the toggle's 40px column and the panel's padding and edge: 58px",
+    rail.toggle.w === 40 && Math.abs(rail.side.w - (rail.toggle.w + 2 * 8 + 2)) < 0.5,
+    `${rail.side.w}px for a ${rail.toggle.w}px toggle`,
+  );
+  check(
+    "  every folder is a 40px square on the toggle's centre line, its icon centred in it",
+    rail.folders.length === folderCount &&
+      rail.folders.every(
+        (f) => f.w === 40 && f.h === 40 && Math.abs(f.cx - rail.toggle.cx) < 0.5 && Math.abs(f.icon.cx - f.cx) < 0.5 && Math.abs(f.icon.cy - f.cy) < 0.75,
+      ),
+    JSON.stringify(rail.folders.slice(0, 2).map((f) => ({ w: f.w, h: f.h, cx: f.cx, icon: f.icon.cx }))),
+  );
+  check(
+    "  a hairline stands where each playlist's header was, between its folders and the last one's, and no blank band is left",
+    rail.headers === 0 && rail.rules.length === 2 && rail.rules.every((r) => r.h === 1) && rail.between.map((b) => b.above).join() === `0,${folderCount / 2}`,
+    JSON.stringify({ headers: rail.headers, rules: rail.rules.length, between: rail.between }),
+  );
+  check(
+    "  and nothing is more than 8px from the next item down the rail (a hairline's room), where the hidden headers left 36px bands",
+    rail.maxGap <= 8,
+    `${rail.maxGap}px`,
+  );
+
+  // The fills are the 40px square: hover is the app's tint, the chosen one the 16% tint.
+  const f2 = p8.locator(".live-folder").nth(1);
+  await f2.hover();
+  await p8.waitForTimeout(400);
+  const hov = await f2.evaluate((e) => ({ bg: getComputedStyle(e).backgroundColor, w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height }));
+  const tip = await p8.locator(".live-tip").textContent().catch(() => null);
+  const label = await f2.getAttribute("aria-label");
+  await f2.click();
+  await p8.mouse.move(W - 4, H - 4);
+  await p8.waitForTimeout(400);
+  const chosenFill = await f2.evaluate((e) => ({ bg: getComputedStyle(e).backgroundColor, w: e.getBoundingClientRect().width, h: e.getBoundingClientRect().height }));
+  const tintHover = await token("--tint-hover");
+  const tintOn = await token("--tint-on");
+  check(
+    "  the hover fill and the chosen fill are that 40px square, and the hover still names the folder",
+    hov.bg === tintHover && hov.w === 40 && hov.h === 40 && chosenFill.bg === tintOn && chosenFill.w === 40 && chosenFill.h === 40 && tip === label,
+    JSON.stringify({ hov, chosenFill, tip, label }),
+  );
+
+  await p8.getByRole("button", { name: "Expand sidebar" }).click();
+  await p8.waitForTimeout(500);
+  const back = await p8.evaluate(() => ({
+    width: document.querySelector(".live-sidebar").getBoundingClientRect().width,
+    headers: document.querySelectorAll(".live-group").length,
+    rules: document.querySelectorAll(".live-rail__rule").length,
+    h: [...document.querySelectorAll(".live-folder")].map((f) => f.getBoundingClientRect().height),
+    w: [...document.querySelectorAll(".live-folder")].map((f) => f.getBoundingClientRect().width),
+  }));
+  check(
+    "  and expanding gives the open panel back: 252px, both headers, 36px rows across it",
+    back.width === 252 && back.headers === 2 && back.rules === 0 && back.h.every((h) => h === 36) && back.w.every((w) => w === back.w[0] && w > 150),
+    JSON.stringify({ width: back.width, headers: back.headers, rules: back.rules, row: [back.h[0], back.w[0]] }),
+  );
+  await c8.close();
+}
+
 // ================================================================ K12, K13
 // Focus is multi-view's ring everywhere; keys are one chip; the header goes
 // quiet over a theater as it does over multi-view.
@@ -1468,6 +1620,17 @@ const dimmedText = () =>
     "  the Library's history: each picture fits its column, none over the next card",
     hist.length >= 2 && hist.every((h, i) => h.picRight <= h.right && (i === 0 || hist[i - 1].picRight <= h.picLeft)),
     JSON.stringify(hist),
+  );
+
+  // The Library pill, pressed on a list's page, takes the tab home: the page
+  // of lists (v0.11.39, Adam: pressing the tab you are on did nothing).
+  await page.locator('[data-dest="mylist"]').click();
+  await page.waitForTimeout(700);
+  const lists = await page.evaluate(() => ({ bar: !!document.querySelector(".library__bar"), cards: document.querySelectorAll(".disc-grid > *").length, continueInGrid: document.querySelectorAll(".disc-grid .continue-card").length }));
+  check(
+    "  the Library pill, pressed on a list's page, takes it home: the page of lists",
+    !lists.bar && lists.cards > 0 && lists.continueInGrid === 0,
+    JSON.stringify(lists),
   );
 
   // A title the palette opens over one Discover opened: Back, Back is
@@ -1949,8 +2112,8 @@ const dimmedText = () =>
     stops.add(await page.evaluate(() => (document.activeElement?.closest(".settings") ? "in" : document.activeElement?.tagName)));
   }
   check(
-    "M2. Settings is a modal on Radix's Dialog: focus goes in, Tab stays in, the card where it was",
-    modal.inside && [...stops].join() === "in" && modal.top === 88 && Math.abs(modal.left - modal.right) <= 1 && modal.left > 48 && modal.parent === "modal-backdrop",
+    "M2. Settings is a modal on Radix's Dialog: focus goes in, Tab stays in, the card where it was: 88 down at 900 high (v0.11.39: max(88, where a 974px Sources card is centred)) and centred across",
+    modal.inside && [...stops].join() === "in" && modal.top === Math.max(88, (H - 974) / 2) && Math.abs(modal.left - modal.right) <= 1 && modal.left > 48 && modal.parent === "modal-backdrop",
     JSON.stringify({ ...modal, stops: [...stops] }),
   );
   // And out by one Escape, pressed just after Tab leaves a control whose
@@ -2028,6 +2191,138 @@ const dimmedText = () =>
   await page.keyboard.press("Escape");
   await page.locator("button[aria-label='Close settings']").click().catch(() => {});
   await page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+
+  // The card: its top where a Sources card would sit centred, every page
+  // hanging from that top and growing down, and its page ending at its edge
+  // (v0.11.39, Adam: "the sources page should be centered, and then from there
+  // the card expands down"; and at the bottom of a page "content is cut hard
+  // against the card's edge"). The top is max(88, (window - 974) / 2): 974px is
+  // Sources at its usual size (one playlist, folders closed), so 88 in any
+  // window under ~1150 tall and centred above that. The page's scroller ends at
+  // the card's inner edge (the bleed is the card's own padding), its last row
+  // rests that padding clear of it, and the body fades at the bottom while
+  // there is more below, as it does at the top once something is above.
+  {
+    const gone = () => page.locator(".settings").waitFor({ state: "detached", timeout: 4000 }).catch(() => {});
+    const openAt = async (height) => {
+      await page.setViewportSize({ width: W, height });
+      await page.waitForTimeout(150);
+      await page.locator(gearSel).click();
+      await page.locator(".settings").waitFor();
+      await page.waitForTimeout(800);
+    };
+    const place = () =>
+      page.evaluate(() => {
+        const r = document.querySelector(".settings").getBoundingClientRect();
+        return { top: Math.round(r.top * 10) / 10, bottom: Math.round((innerHeight - r.bottom) * 10) / 10, h: Math.round(r.height * 10) / 10 };
+      });
+    const go = async (name) => {
+      await page.getByRole("tab", { name, exact: true }).click();
+      await page.waitForTimeout(600);
+    };
+    const PAGES = ["Sources", "Playback", "Appearance", "Accounts", "App"];
+    const fades = () =>
+      page.evaluate(() => {
+        const b = document.querySelector(".settings__body");
+        const c = document.querySelector(".settings").getBoundingClientRect();
+        const r = b.getBoundingClientRect();
+        const last = b.lastElementChild?.getBoundingClientRect();
+        return {
+          more: b.dataset.more ?? null,
+          scrolled: b.dataset.scrolled ?? null,
+          mask: getComputedStyle(b).maskImage,
+          scrolls: b.scrollHeight > b.clientHeight + 1,
+          natural: b.scrollHeight,
+          // The scroller's end against the card's inner edge (inside its 1px border).
+          bodyEnd: Math.round((r.bottom - (c.bottom - 1)) * 10) / 10,
+          // The page's last element against the same edge.
+          lastClear: last ? Math.round(((c.bottom - 1) - last.bottom) * 10) / 10 : null,
+        };
+      });
+    const scrollBody = async (y) => {
+      await page.evaluate((y) => {
+        const b = document.querySelector(".settings__body");
+        b.scrollTop = y === "end" ? b.scrollHeight : y;
+      }, y);
+      await page.waitForTimeout(250);
+    };
+    /** Every page's card, in a window `height` high. */
+    const cards = async (height) => {
+      await openAt(height);
+      const out = {};
+      for (const name of PAGES) {
+        await go(name);
+        out[name] = await place();
+      }
+      return out;
+    };
+
+    // At 900 (short: the nav's 88) and 1400 (tall: Sources centred).
+    const short = await cards(900);
+    await go("Sources");
+    await page.keyboard.press("Escape");
+    await gone();
+    const tall = await cards(1400);
+    const topsOf = (c) => PAGES.map((n) => c[n].top);
+    check(
+      "M2. the Settings card hangs from the same top on every page: 88 at 900 high, where a Sources card is centred at 1400",
+      new Set(topsOf(short)).size === 1 && short.Sources.top === 88 && new Set(topsOf(tall)).size === 1 && tall.Sources.top === Math.max(88, (1400 - 974) / 2),
+      JSON.stringify({ short: topsOf(short), tall: topsOf(tall) }),
+    );
+    check(
+      "  at 1400 the Sources card is centred (the same distance above and below, within 3px), and the card has not moved for Accounts, which is the shorter",
+      Math.abs(tall.Sources.top - tall.Sources.bottom) <= 3 && tall.Accounts.h < tall.Sources.h - 100 && tall.Accounts.top === tall.Sources.top,
+      JSON.stringify({ sources: tall.Sources, accounts: tall.Accounts }),
+    );
+    check(
+      "  a page longer than the window grows down to 48px short of its bottom, and no further",
+      PAGES.every((n) => tall[n].bottom >= 47.5) && PAGES.some((n) => Math.abs(tall[n].bottom - 48) <= 0.5) && PAGES.some((n) => Math.abs(short[n].bottom - 48) <= 0.5),
+      JSON.stringify({ short: PAGES.map((n) => short[n].bottom), tall: PAGES.map((n) => tall[n].bottom) }),
+    );
+    await go("Sources");
+    await page.keyboard.press("Escape");
+    await gone();
+
+    // The longest page's end: inside the card at full scroll, in the short window.
+    await openAt(900);
+    let longest = null;
+    const natural = {};
+    for (const name of PAGES) {
+      await go(name);
+      natural[name] = (await fades()).natural;
+      if (!longest || natural[name] > natural[longest]) longest = name;
+    }
+    await go(longest);
+    const top = await fades();
+    await scrollBody(300);
+    const mid = await fades();
+    await scrollBody("end");
+    const end = await fades();
+    check(
+      `  the longest page (${longest}, ${natural[longest]}px of content in a ${short[longest].h}px card) scrolls, and at full scroll its scroller ends at the card's edge and its last element rests 24px clear of it`,
+      top.scrolls && Math.abs(end.bodyEnd) <= 1 && Math.abs(end.lastClear - 24) <= 1,
+      JSON.stringify({ natural, end: { bodyEnd: end.bodyEnd, lastClear: end.lastClear } }),
+    );
+    // The fade at the bottom: on at the top of a long page, both at the middle, off at the end.
+    check(
+      "  the body fades at the bottom while there is more below: at the top of a long page, with the top's as well once it has scrolled, and not at the end",
+      top.more === "1" && top.scrolled === null && /^linear-gradient\(to top/.test(top.mask) &&
+        mid.more === "1" && mid.scrolled === "1" && /calc\(100% - 34px\)/.test(mid.mask) &&
+        end.more === null && end.scrolled === "1" && !/to top|calc/.test(end.mask) && end.mask !== "none",
+      JSON.stringify({ top: [top.more, top.scrolled, top.mask.slice(0, 40)], mid: [mid.more, mid.scrolled, mid.mask.slice(0, 40)], end: [end.more, end.scrolled, end.mask.slice(0, 40)] }),
+    );
+    await go("Accounts");
+    const fits = await fades();
+    check(
+      "  and a page that fits has neither fade",
+      !fits.scrolls && fits.more === null && fits.scrolled === null && fits.mask === "none",
+      JSON.stringify(fits),
+    );
+    await page.keyboard.press("Escape");
+    await gone();
+    await page.setViewportSize({ width: W, height: H });
+    await page.waitForTimeout(300);
+  }
 
   // Keys pressed in Settings stay in Settings. S is Multi-view's Live
   // scores row; on a button in Settings it used to toggle the row under it.

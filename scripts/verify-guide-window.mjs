@@ -183,6 +183,27 @@ check(
   JSON.stringify(rest),
 );
 
+// ---- the capsule does not sit on the first row (v0.11.39, Adam) ----
+// It was 26px tall in a 28px ruler, 1px above the first row. Now 8px clear at
+// least, with the capsule and the ruler's time labels centred on one line.
+const ruler = await page.evaluate(() => {
+  const mid = (r) => r.top + r.height / 2;
+  const cap = document.querySelector(".guide__jump").getBoundingClientRect();
+  const row = document.querySelector(".guide__row").getBoundingClientRect();
+  const ticks = [...document.querySelectorAll(".guide__tick")].map((t) => mid(t.getBoundingClientRect()));
+  return { gap: row.top - cap.bottom, capMid: mid(cap), ticks };
+});
+check(
+  "the capsule is at least 8px clear of the first row",
+  ruler.gap >= 8 - 0.05,
+  `${ruler.gap.toFixed(2)}px between the capsule's bottom and the first row`,
+);
+check(
+  "  and the capsule and every time label are centred on one line",
+  ruler.ticks.length > 0 && ruler.ticks.every((t) => Math.abs(t - ruler.capMid) <= 0.5),
+  JSON.stringify({ capsule: ruler.capMid, labels: [...new Set(ruler.ticks.map((t) => Math.round(t * 10) / 10))] }),
+);
+
 // ---- Later and Earlier move by the visible lane width ----
 const step = geo.view - geo.laneX;
 await press("Later");

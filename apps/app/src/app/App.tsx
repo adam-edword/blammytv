@@ -147,6 +147,14 @@ export function App() {
    * change.
    */
   const [sportsHome, setSportsHome] = useState(0);
+  /**
+   * The same, for the Stream, Discover and Library pills: bumped when the one
+   * showing is pressed again. Each of those screens keeps a history of its
+   * own (lib/viewStack), and the tab being "already the tab" is what made the
+   * press do nothing from a title's page. The screen that is mounted hears
+   * the count change and goes to the bottom of its stack.
+   */
+  const [streamHome, setStreamHome] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Where Settings hands focus back when the palette opened it: the element
   // the palette was opened from. From the gear, Settings finds its own.
@@ -495,6 +503,7 @@ export function App() {
         liveTab={liveTab}
         onSection={setSection}
         onStreamTab={setStreamTab}
+        onStreamHome={() => setStreamHome((n) => n + 1)}
         onLiveTab={(t) => {
           if (t === "sports") setSportsHome((n) => n + 1);
           setLiveTab(t);
@@ -517,11 +526,11 @@ export function App() {
         ) : dest === "guide" ? (
           <LiveScreen modalOpen={settingsOpen} />
         ) : dest === "discover" ? (
-          <DiscoverScreen />
+          <DiscoverScreen home={streamHome} />
         ) : dest === "mylist" ? (
-          <LibraryScreen />
+          <LibraryScreen home={streamHome} />
         ) : (
-          <StreamScreen />
+          <StreamScreen home={streamHome} />
         )}
       </main>
       {settingsOpen && (

@@ -3,30 +3,52 @@
 /* No dim — the design floats the glass card straight over the content
  * (the card's own backdrop blur provides the separation). */
 .modal-backdrop {
+  /* Where the card's top edge is. The Sources page is the one the card is
+   * centred for (Adam, v0.11.39: "the sources page should be centered, and
+   * then from there the card expands down"): its top is where a card of
+   * Sources' usual height would sit centred. Every other page hangs from the
+   * same top and takes the height its content needs, so the card does not move
+   * between pages, only its bottom does. In a window too short to centre one,
+   * which is any under about 1150px tall, it is the 88px the nav needs: what a
+   * short window always had. The card's max-height reads this too.
+   *
+   * 974px is Sources measured at its usual size (Live TV, one playlist, the
+   * folders closed: 868px of page and 106px of card around it), not the 760px
+   * a card measures when a 900px window cuts it short. Two playlists make it
+   * 1052, the folder editor open about 1220: the card is a little off centre
+   * for those, and grows down from the same top. */
+  --settings-top: max(88px, calc((100vh - 974px) / 2));
   position: fixed;
   inset: 0;
   /* Above everything: the floating header (20), the theater backdrop (40),
    * and the inverted player's inline chrome host (45). */
   z-index: var(--z-sheet);
   display: flex;
-  /* Centred under the nav (v0.11.31, Adam 2026-10-11: "Center feels good,
-   * and it can be wider"). It floated top-right, under the gear, until the
-   * five pages put a rail down the card's left, which then sat in the
+  /* Centred across under the nav (v0.11.31, Adam 2026-10-11: "Center feels
+   * good, and it can be wider"). It floated top-right, under the gear, until
+   * the five pages put a rail down the card's left, which then sat in the
    * middle of the screen. The region frost follows the card's measured
    * rect, so position doesn't matter to the glass. */
   justify-content: center;
   align-items: flex-start;
-  padding: 88px 48px;
+  padding: var(--settings-top) 48px 48px;
 }
 
-/* The Settings sheet, thick glass. Grows with its content down to near the
- * window bottom; interior lists scroll, the card itself doesn't. */
+/* The Settings sheet, thick glass. Grows with its content down to 48px short
+ * of the window bottom; interior lists scroll, the card itself doesn't. */
 .settings {
+  /* The card's padding, once. The layout bleeds into it by the same amount
+   * (so the page's scroller ends at the card's inner edge, its scrollbar
+   * inside the rounded corner), and the scroller carries it back as its own
+   * bottom padding, so the last row comes to rest clear of the edge. Three
+   * numbers that must agree: they were 24 (plan 022), 32 and 32, and the
+   * scroller ended 8px past the card. */
+  --settings-pad: 24px;
   /* 920, not the redesign's 786: the rail takes 208px of it, and at 786
    * the page beside it was 530px, which stacked rows that fit beside their
    * label at 700 (plan 025). */
   width: min(920px, 100%);
-  max-height: calc(100vh - 136px);
+  max-height: calc(100vh - var(--settings-top) - 48px);
   display: flex;
   flex-direction: column;
   /* The thick glass (plan 022, B): nearly solid, because a form over bright
@@ -38,7 +60,7 @@
   backdrop-filter: var(--sheet-blur);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: 24px;
+  padding: var(--settings-pad);
   box-shadow: var(--glass-lift);
   /* Entrance (motion plan 002, redesigned at the feel-gate — the stock
    * scale+8px hop read as an afterthought). "The gear drops its sheet":
@@ -133,9 +155,9 @@
  * card leaves and the body, not the card, is what overflows.
  *
  * The bleed below used to be the body's own. Bleed through the card's bottom
- * padding and carry the same 32px INSIDE the scroller instead: scrolling
+ * padding and carry the same amount INSIDE the scroller instead: scrolling
  * content then runs to the card's bottom edge rather than being guillotined
- * 32px short of it, while the last row still comes to rest clear of the edge.
+ * short of it, while the last row still comes to rest clear of the edge.
  *
  * A negative margin rather than editing .settings: the Themes panel wears
  * that class too and scrolls itself, so dropping the padding there would
@@ -144,7 +166,7 @@
   display: flex;
   gap: 28px;
   margin-top: 40px;
-  margin-bottom: -32px;
+  margin-bottom: calc(-1 * var(--settings-pad));
   flex: 1;
   min-height: 0;
 }
@@ -159,9 +181,9 @@
   width: 180px;
   /* Its own height, not the page's: the thumb is measured in it. */
   align-self: flex-start;
-  /* The 32px the body carries inside its scroller (below), so the last item
+  /* What the body carries inside its scroller (below), so the last item
    * comes to rest where the last row does and not past the card's edge. */
-  margin-bottom: 32px;
+  margin-bottom: var(--settings-pad);
 }
 /* Five names in a row can be wider than a narrow card: the track scrolls
  * sideways rather than wrapping, the season bar's answer (stream.css). */
@@ -187,7 +209,7 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 32px;
+  padding-bottom: var(--settings-pad);
   /* ROOM FOR A FOCUS RING, by the same trick sideways.
    *
    * `overflow-y: auto` forces overflow-x to compute as `auto` too, so this
@@ -214,6 +236,19 @@
 .settings__body[data-scrolled] {
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34px);
   mask-image: linear-gradient(to bottom, transparent 0, #000 34px);
+}
+/* And the same at the bottom while there is more below: the last row on
+ * screen dissolves into the card's edge instead of being cut through. Off at
+ * the end of the page, where the padding already leaves it clear. Written by
+ * the same handler. Both at once is one gradient: two mask layers would add
+ * rather than intersect. */
+.settings__body[data-more] {
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 34px);
+  mask-image: linear-gradient(to top, transparent 0, #000 34px);
+}
+.settings__body[data-scrolled][data-more] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34px, #000 calc(100% - 34px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 34px, #000 calc(100% - 34px), transparent 100%);
 }
 
 /* The expanded folder editor does NOT unlock section/item shrinking any

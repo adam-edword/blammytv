@@ -108,7 +108,7 @@ function toCover(file: File): Promise<string> {
   });
 }
 
-export function LibraryScreen() {
+export function LibraryScreen({ home }: { home?: number } = {}) {
   const [lists, setLists] = useState<UserList[]>(loadLists);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
   // A Trakt sync can change the Trakt Watchlist and Continue Watching
@@ -129,6 +129,7 @@ export function LibraryScreen() {
     goForward,
     replace: replaceView,
     reset: resetHistory,
+    goHome,
   } = useViewStack<View>(() => {
     // Come back into the list you left, not to the root. Peeked, never
     // consumed here: StrictMode double-invokes this initializer, and a
@@ -252,6 +253,21 @@ export function LibraryScreen() {
     },
     [refresh],
   );
+
+  // The Library pill, pressed while it is showing, takes it home (App counts
+  // the press): the page of lists, scrolled to the top. Not the stack's first
+  // entry: opened from a title's Back it starts ON a list, and the page the
+  // pill means is the lists. What was half done on the page it leaves (a
+  // rename, a delete waiting for its second press) is dropped with it.
+  const pressed = useRef(home);
+  useEffect(() => {
+    if (pressed.current === home) return;
+    pressed.current = home;
+    setCreating(false);
+    setRenaming(false);
+    disarm();
+    goHome({ at: "root" });
+  }, [home, goHome, disarm]);
 
   // ---- drill-down ----
   if (view.at === "list") {

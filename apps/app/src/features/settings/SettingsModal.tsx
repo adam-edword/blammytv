@@ -58,6 +58,16 @@ const FOUND_MS = 1600;
  * native side before it draws anything) before it takes it as not rendered. */
 const FOUND_WAIT_MS = 2000;
 
+/** The two fade flags (settings.css): `scrolled` once the page has gone up
+ * under the header, `more` while some of it is still below the card's edge.
+ * A few pixels either way is not worth a fade. */
+function markFades(el: HTMLDivElement) {
+  if (el.scrollTop > 4) el.dataset.scrolled = "1";
+  else delete el.dataset.scrolled;
+  if (el.scrollHeight - el.clientHeight - el.scrollTop > 4) el.dataset.more = "1";
+  else delete el.dataset.more;
+}
+
 /** The first thing in a row you can put focus on: not disabled, not out of
  * the tab order (a segmented tablist's other tabs), and drawn. */
 function firstControl(row: HTMLElement): HTMLElement | null {
@@ -138,14 +148,12 @@ export function SettingsModal({
     return () => ro.disconnect();
   }, [card]);
 
-  // Top-fade flag, written straight to the DOM: this fires on every scroll
+  // The fade flags, written straight to the DOM: this fires on every scroll
   // frame, and routing it through state would re-render the whole settings
-  // tree for a value only CSS reads.
+  // tree for a value only CSS reads. `scrolled` is the top's (something has
+  // gone up under the header), `more` the bottom's (something is still below
+  // the card's edge).
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const markScrolled = (el: HTMLDivElement) => {
-    if (el.scrollTop > 4) el.dataset.scrolled = "1";
-    else delete el.dataset.scrolled;
-  };
   // A new page starts at the top, and its flag starts clear: shrinking
   // content can leave scrollTop clamped without firing a scroll event, and
   // a stale flag fades the first row of a page nobody scrolled.
@@ -155,6 +163,29 @@ export function SettingsModal({
     el.scrollTop = 0;
     delete el.dataset.scrolled;
   }, [tab]);
+  // The bottom flag also moves when nothing scrolls: a page changes, a row
+  // opens, a list loads, the window is resized. A page is the body's
+  // children, so those are watched (and watched again when they are
+  // replaced); the body itself is for the window.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!card || !el) return;
+    const sync = () => markFades(el);
+    const ro = new ResizeObserver(sync);
+    const watch = () => {
+      ro.disconnect();
+      ro.observe(el);
+      for (const child of Array.from(el.children)) ro.observe(child);
+      sync();
+    };
+    watch();
+    const mo = new MutationObserver(watch);
+    mo.observe(el, { childList: true });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, [card]);
 
   // A find from the palette. The card mounts a beat after this component (see
   // `card`), so this waits for it, and then the page and its row are in the
@@ -310,7 +341,7 @@ export function SettingsModal({
                   role="tabpanel"
                   aria-label={label}
                   ref={bodyRef}
-                  onScroll={(e) => markScrolled(e.currentTarget)}
+                  onScroll={(e) => markFades(e.currentTarget)}
                 >
                   {tab === "sources" && <SourcesPage initialWorld={seed} />}
                   {tab === "playback" && <PlaybackPage />}

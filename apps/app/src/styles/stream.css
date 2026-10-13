@@ -368,6 +368,17 @@
   width: 100%;
   height: auto;
 }
+/* The poster cards' wrapper (.stream-card__tilt): react-parallax-tilt owns
+ * this element's transform (lean, scale, glare), CSS adds the depth cue, a
+ * shadow that swells while the picture floats. The picture's corner, so the
+ * shadow and the glare follow it. */
+.continue-card__tilt {
+  border-radius: var(--radius-pic);
+  transition: box-shadow 450ms ease;
+}
+.continue-card:hover .continue-card__tilt {
+  box-shadow: 0 14px 32px -12px color-mix(in srgb, #000 45%, transparent);
+}
 .continue-card__art { transition: filter 300ms ease; }
 .continue-card__hold {
   position: absolute;
