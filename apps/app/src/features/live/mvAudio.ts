@@ -36,7 +36,19 @@
  * and starts on the next one), and whenever the pipe breaks (the worker says
  * so). Never both at once, so no doubled sound, and never neither, so no
  * silent grid beyond the moment it takes to prove the pipe carries sound: the
- * tiles are muted only once the native side has taken the first batch.
+ * tiles are muted only once the native side has taken the first batch AND
+ * the copy has carried sound (`heard`). Until then the copy goes out at gain
+ * 0 and the tile plays itself.
+ *
+ * WHY THE COPY MUST BE HEARD FIRST (v0.11.45). From v0.11.12 to v0.11.44 the
+ * tiles were muted on the first batch alone. On Adam's WebView2 (Edge 154)
+ * the copy is pure zeros: the tile playing and decoding audio, the copy
+ * attached with a live track, gain 1, the context running, and every sample
+ * 0, with the tile muted, unmuted at volume 0 and unmuted at 0.001 alike
+ * (v0.11.44's probe). So multi-view was silent for him from v0.11.12 on,
+ * while headless Chromium 141 copies full sound in every one of those cases.
+ * Where the copy is silent, the sound now stays the tile's, and the log says
+ * so once a copy.
  *
  * ONE ROUTING at a time, started when the grid has a sound tile and stopped
  * when it empties or the tab unmounts (leaving for Watch in player or the
@@ -51,7 +63,6 @@ import {
   tauriMvAudioOpen,
   tauriMvAudioStats,
   type MvAudioSink,
-  type MvAudioStats,
 } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
 import { tileGain } from "./multiviewTuning";
@@ -148,8 +159,16 @@ function serial<T>(fn: () => Promise<T>): Promise<T> {
  * step does not click, and a jump to 0 is silent within a tenth of a second. */
 const GAIN_TC = 0.01;
 
-/** How long after a copy is taken `check` asks whether it carried sound. */
+/** How long a copy may go unheard before the log says the sound stays the
+ * tile's. */
 const CHECK_MS = 5000;
+
+/** How often an unheard copy is listened to. */
+const LISTEN_MS = 100;
+
+/** Louder than this, before the gain, is sound: about -100 dBFS. The copy
+ * that fails is exact zeros, and a real feed's quiet is never that quiet. */
+const HEARD = 1e-5;
 
 /** Chromium's count of the audio bytes an element has decoded. Not standard,
  * so possibly missing. */
@@ -170,10 +189,12 @@ class Routing {
   private stream: MediaStream | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private undo: (() => void) | null = null;
-  /** `probe` runs once a routing: it is a question, not a watch. */
-  private probed = false;
+  /** The current copy has carried sound. Each new copy starts unheard. */
+  private heard = false;
+  /** Listens to the copy before the gain, until it is heard. */
+  private ear: AnalyserNode | null = null;
 
-  carrying = () => this.flowing && !this.failed && !this.dead;
+  carrying = () => this.flowing && this.heard && !this.failed && !this.dead;
   running = () => this.ctx?.state === "running";
 
   async open(): Promise<void> {
@@ -199,7 +220,7 @@ class Routing {
       await ctx.audioWorklet.addModule(tapUrl);
       if (this.dead) return;
       const gain = ctx.createGain();
-      gain.gain.value = gainFor(want);
+      gain.gain.value = 0;
       const node = new AudioWorkletNode(ctx, "mv-audio-tap", {
         numberOfInputs: 1,
         numberOfOutputs: 1,
@@ -253,6 +274,9 @@ class Routing {
   /** Point the pipe at the sound tile's element, or at nothing. */
   rewire(): void {
     this.unplug();
+    this.heard = false;
+    this.level();
+    publish();
     const video = soundVideo;
     const { ctx, gain } = this;
     if (!video || !ctx || !gain || this.dead || this.failed) return;
@@ -265,7 +289,7 @@ class Routing {
     } catch (e) {
       return this.giveUp(`could not copy a tile's sound (${scrubbedMessage(e)})`);
     }
-    // What happened to the copy, for `check`'s line.
+    // What happened to the copy, for the line `listen` writes.
     const events: string[] = [];
     const from = performance.now();
     const note = (what: string) =>
@@ -283,6 +307,10 @@ class Routing {
       if (this.source || stream.getAudioTracks().length === 0) return;
       this.source = ctx.createMediaStreamSource(stream);
       this.source.connect(gain);
+      const ear = ctx.createAnalyser();
+      ear.fftSize = 2048;
+      this.source.connect(ear);
+      this.ear = ear;
       note("attached");
     };
     attach();
@@ -304,105 +332,63 @@ class Routing {
       { signal: off.signal },
     );
     const decoded = decodedAudio(video);
-    const timer = window.setTimeout(() => void this.check(video, stream, decoded, events), CHECK_MS);
+    // Only time the context runs counts: one waiting on a first click hears
+    // nothing, and that is not the copy's fault.
+    let listened = 0;
+    let said = false;
+    const buf = new Float32Array(2048);
+    const listen = window.setInterval(() => {
+      if (this.ctx?.state !== "running") return;
+      const ear = this.ear;
+      if (ear) {
+        ear.getFloatTimeDomainData(buf);
+        if (buf.some((v) => Math.abs(v) > HEARD)) {
+          window.clearInterval(listen);
+          this.heard = true;
+          this.level();
+          publish();
+          return;
+        }
+      }
+      listened += LISTEN_MS;
+      if (!said && listened >= CHECK_MS) {
+        said = true;
+        this.unheard(video, stream, decoded, events);
+      }
+    }, LISTEN_MS);
     this.stream = stream;
     this.undo = () => {
       off.abort();
-      window.clearTimeout(timer);
+      window.clearInterval(listen);
     };
   }
 
   /**
-   * Five seconds into a copy: when the native side has had nothing but
-   * silence, what the tile and the copy looked like, as one console.warn,
-   * which reaches the log (lib/appLog.ts) and so Settings → App → Copy
-   * Diagnostics. On v0.11.42 Adam's routed sound was all zeros while the
-   * device took it and the player played; this line says which side made
-   * them. Nothing is said when sound came through, or by a native from
-   * before v0.11.42, which reports no peak.
+   * A copy unheard for CHECK_MS: the sound has stayed the tile's, and one
+   * console.warn says what the tile and the copy looked like. It reaches the
+   * log (lib/appLog.ts), so Settings → App → Copy Diagnostics carries it.
+   * Listening goes on: a copy heard later still takes the sound over.
    */
-  private async check(
+  private unheard(
     video: HTMLVideoElement,
     stream: MediaStream,
     decoded: number | undefined,
     events: string[],
-  ): Promise<void> {
+  ): void {
     if (this.stream !== stream) return;
-    let s: MvAudioStats;
-    try {
-      s = await serial(() => tauriMvAudioStats());
-    } catch {
-      return;
-    }
-    if (this.stream !== stream || !s?.open || s.peak !== 0 || !(s.chunks > 0)) return;
     const now = decodedAudio(video);
     const tracks = stream
       .getAudioTracks()
       .map((t) => `${t.readyState}${t.muted ? " muted" : ""}${t.enabled ? "" : " disabled"}`);
     console.warn(
-      `[mv] sound: the copy sent ${CHECK_MS / 1000}s of silence. ` +
+      `[mv] sound stays in the webview: the copy of the tile's sound was silent for ${CHECK_MS / 1000}s. ` +
         `Tile: ${video.isConnected ? "" : "detached, "}${video.paused ? "paused" : "playing"}, ` +
-        `muted ${video.muted}, volume ${video.volume}, audio decoded ` +
+        `audio decoded ` +
         `${now === undefined || decoded === undefined ? "?" : `${now - decoded} bytes`} in that time. ` +
         `Copy: ${this.source ? "attached" : "never attached"}, audio tracks [${tracks.join(", ")}], ` +
-        `gain ${this.gain?.gain.value.toFixed(3)}, context ${this.ctx?.state} at ${this.ctx?.sampleRate} Hz. ` +
+        `context ${this.ctx?.state} at ${this.ctx?.sampleRate} Hz. ` +
         `Events: ${events.join(", ") || "none"}.`,
     );
-    await this.probe(video, stream);
-  }
-
-  /**
-   * A silent copy: is it the tile's mute? v0.11.43's line from Adam's
-   * WebView2 (Edge 154): the tile muted and decoding audio, the copy
-   * attached and live, gain 1, the context running, and every sample 0.
-   * Headless Chromium 141 copies full sound from a muted element, from a
-   * file and from MSE, at 48 and 96 kHz alike, so it can't be asked here.
-   *
-   * Three 600ms windows, the tile's element set a different way in each,
-   * the copy's own peak (before the gain) read in each, then the element
-   * put back as `elementFor` says. The third plays the tile in the webview
-   * at 0.001 (-60 dB) for those 600ms. One console.warn with the three.
-   * Diagnostic: it goes once the fix it picks is in.
-   */
-  private async probe(video: HTMLVideoElement, stream: MediaStream): Promise<void> {
-    const { ctx, source } = this;
-    if (this.probed || !ctx || !source) return;
-    this.probed = true;
-    const tap = ctx.createAnalyser();
-    tap.fftSize = 2048;
-    source.connect(tap);
-    const buf = new Float32Array(tap.fftSize);
-    const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
-    const peakOver = async (ms: number) => {
-      let p = 0;
-      for (const end = performance.now() + ms; performance.now() < end; await wait(40)) {
-        tap.getFloatTimeDomainData(buf);
-        for (const s of buf) p = Math.max(p, Math.abs(s));
-      }
-      return p;
-    };
-    const db = (p: number) => (p > 0 ? `${(20 * Math.log10(p)).toFixed(1)} dBFS` : "silence");
-    const said: string[] = [];
-    const ways: [string, boolean, number][] = [
-      ["muted", true, 1],
-      ["unmuted at volume 0", false, 0],
-      ["unmuted at volume 0.001", false, 0.001],
-    ];
-    for (const [label, muted, volume] of ways) {
-      if (this.stream !== stream) break;
-      video.muted = muted;
-      video.volume = volume;
-      await wait(150);
-      said.push(`${label}: ${db(await peakOver(600))}`);
-    }
-    // Already gone if the copy was replaced meanwhile (unplug disconnects it).
-    try {
-      source.disconnect(tap);
-    } catch {
-      // not connected any more
-    }
-    apply();
-    console.warn(`[mv] sound probe, the copy's peak with the tile ${said.join("; ")}.`);
   }
 
   private unplug(): void {
@@ -410,14 +396,17 @@ class Routing {
     this.undo = null;
     this.source?.disconnect();
     this.source = null;
+    this.ear = null;
     for (const t of this.stream?.getTracks() ?? []) t.stop();
     this.stream = null;
   }
 
-  /** The bar moved: ease the gain there. */
+  /** The bar moved, or the copy was heard: ease the gain there. Nothing
+   * goes out until the copy is heard, while the tile plays itself. */
   level(): void {
     if (this.gain && this.ctx) {
-      this.gain.gain.setTargetAtTime(gainFor(want), this.ctx.currentTime, GAIN_TC);
+      const to = this.heard ? gainFor(want) : 0;
+      this.gain.gain.setTargetAtTime(to, this.ctx.currentTime, GAIN_TC);
     }
   }
 

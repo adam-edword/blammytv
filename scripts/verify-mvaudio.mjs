@@ -126,8 +126,9 @@ function gaps(posts) {
 }
 
 /** A stereo WAV, 48 kHz, two seconds: 440 Hz at half scale on the left, 660 Hz
- * at a quarter on the right. RMS 0.354 and 0.177 before any gain. */
-function tone() {
+ * at a quarter on the right. RMS 0.354 and 0.177 before any gain. `level` 0
+ * is the same file of digital silence, which is what Adam's WebView2 copied. */
+function tone(level = 1) {
   const rate = 48000;
   const n = rate * 2;
   const b = Buffer.alloc(44 + n * 4);
@@ -144,8 +145,8 @@ function tone() {
   b.write("data", 36);
   b.writeUInt32LE(n * 4, 40);
   for (let i = 0; i < n; i++) {
-    b.writeInt16LE(Math.round(0.5 * 32767 * Math.sin((2 * Math.PI * 440 * i) / rate)), 44 + i * 4);
-    b.writeInt16LE(Math.round(0.25 * 32767 * Math.sin((2 * Math.PI * 660 * i) / rate)), 46 + i * 4);
+    b.writeInt16LE(Math.round(level * 0.5 * 32767 * Math.sin((2 * Math.PI * 440 * i) / rate)), 44 + i * 4);
+    b.writeInt16LE(Math.round(level * 0.25 * 32767 * Math.sin((2 * Math.PI * 660 * i) / rate)), 46 + i * 4);
   }
   return b;
 }
@@ -197,7 +198,7 @@ const AUTOPLAY_POLICY = `(() => {
 /** The IPC stub the multi-view harnesses use, with the sound output's three
  * commands added. `reject`: mv_audio_open fails, as it does on a native build
  * from before it. */
-function ipc({ port, sinkPort, reject, rate, peak }) {
+function ipc({ port, sinkPort, reject, rate }) {
   window.__calls = [];
   let cb = 0;
   let n = 0;
@@ -222,7 +223,7 @@ function ipc({ port, sinkPort, reject, rate, peak }) {
           : Promise.resolve({ url: `http://127.0.0.1:${sinkPort}/a/test-token`, rate });
       }
       if (cmd === "mv_audio_stats") {
-        return Promise.resolve({ open: true, rate, bufferedMs: 30, underruns: 0, overruns: 0, droppedMs: 0, chunks: 1, peak });
+        return Promise.resolve({ open: true, rate, bufferedMs: 30, underruns: 0, overruns: 0, droppedMs: 0, chunks: 1 });
       }
       if (cmd === "plugin:window|is_fullscreen") return Promise.resolve(false);
       return Promise.resolve(undefined);
@@ -234,7 +235,7 @@ function ipc({ port, sinkPort, reject, rate, peak }) {
 // ================================================ 1. real sound, the module
 /** A page on the dev server, with the module imported as the app imports it
  * and a <video> playing the tone. */
-async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = false, track = false, peak } = {}) {
+async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = false, track = false, silent = false } = {}) {
   const ctx = await b.newContext({ viewport: { width: W, height: H } });
   const page = await ctx.newPage();
   const errors = [];
@@ -244,8 +245,8 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
   const blank = URL + "__blank";
   await page.route(blank, (r) => r.fulfill({ contentType: "text/html", body: "<!doctype html><title>mvaudio</title>" }));
   // Same origin, or captureStream is silenced as a cross-origin read.
-  await page.route(URL + "__tone.wav", (r) => r.fulfill({ contentType: "audio/wav", body: tone() }));
-  await page.addInitScript(`(${ipc})(${JSON.stringify({ port: 0, sinkPort: s.port, reject: false, rate, peak })})`);
+  await page.route(URL + "__tone.wav", (r) => r.fulfill({ contentType: "audio/wav", body: tone(silent ? 0 : 1) }));
+  await page.addInitScript(`(${ipc})(${JSON.stringify({ port: 0, sinkPort: s.port, reject: false, rate })})`);
   if (track) await page.addInitScript(TRACK_CONTEXTS);
   if (policy) await page.addInitScript(AUTOPLAY_POLICY);
   await page.goto(blank);
@@ -278,9 +279,7 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
   const s = await sink();
   const b = await launch();
   const RATE = 44100;
-  // The native side says sound came through (peak 0.35), so the silent-copy
-  // line (1b) must not be written.
-  const { ctx, page, errors, warns, bar, el } = await module1(b, s, { rate: RATE, volume: 1, peak: 0.35 });
+  const { ctx, page, errors, warns, bar, el } = await module1(b, s, { rate: RATE, volume: 1 });
   const before = await el();
   check(
     "before the output is up, the sound tile plays in the webview as it always did",
@@ -376,7 +375,7 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
     JSON.stringify({ calls, after: s.posts.length }),
   );
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
-  const silentLines = warns.filter((w) => w.includes("the copy sent"));
+  const silentLines = warns.filter((w) => w.includes("was silent for"));
   check(
     "a copy that carried sound writes no silent-copy line, after more than its 5s",
     silentLines.length === 0,
@@ -387,56 +386,55 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
   s.close();
 }
 
-// ======================== 1b. a silent copy says what it looked like, once
-// v0.11.42's log had Adam's routed sound as all zeros while the device took
-// it. Five seconds into a copy, when the native side reports a peak of 0, one
-// console.warn (which reaches the log) says what the tile and the copy were
-// doing. The stub reports 0 here while the tone really plays, so the line's
-// contents can be read against a known state.
+// ============== 1b. a copy that carries no sound never takes the tile's sound
+// From v0.11.12 to v0.11.44 the tiles were muted on the native side's first
+// batch. On Adam's WebView2 (Edge 154) the copy was all zeros, so multi-view
+// was silent for him. The tiles are muted only once the copy has carried
+// sound. A <video> playing digital silence stands in for his copy here: the
+// batches flow, so the pipe is up and the rule is what holds the tile.
 {
   const s = await sink();
   const b = await launch();
-  const { ctx, page, errors, warns, el } = await module1(b, s, { rate: 48000, volume: 1, peak: 0 });
-  await page.evaluate(() => (window.__stop = window.__m.startMvAudio()));
-  await until(async () => (await el())[0] === true);
-  const said = await until(() => warns.some((w) => w.includes("the copy sent")), 8000);
-  await sleep(1500);
-  const lines = warns.filter((w) => w.includes("the copy sent"));
+  const { ctx, page, errors, warns, el } = await module1(b, s, { rate: 48000, volume: 0.5, silent: true });
+  await page.evaluate(() => {
+    window.__muted = 0;
+    window.__v.addEventListener("volumechange", () => window.__v.muted && window.__muted++);
+    window.__stop = window.__m.startMvAudio();
+  });
+  const flowed = await until(() => s.posts.length >= 25, 8000);
+  check(
+    "a silent tile's copy still reaches the native side: the pipe is up",
+    flowed,
+    `${s.posts.length} POSTs`,
+  );
+  const said = await until(() => warns.some((w) => w.includes("was silent for")), 9000);
+  await sleep(1000);
+  const e = await el();
+  const mutes = await page.evaluate(() => window.__muted);
+  check(
+    "and the tile is never muted: it plays itself at the bar's volume (0.5 is 0.125 on mpv's curve)",
+    mutes === 0 && e[0] === false && near(e[1], 0.125, 1e-6),
+    JSON.stringify({ mutes, el: e }),
+  );
+  const lines = warns.filter((w) => w.includes("was silent for"));
   const line = lines[0] ?? "";
   check(
-    "a native peak of 0 five seconds in writes one line, as a warning so the log keeps it",
-    said && lines.length === 1 && line.startsWith("[mv] sound: the copy sent 5s of silence."),
-    `${lines.length} lines: ${line.slice(0, 80)}`,
+    "five seconds of a running context without sound writes one line, as a warning so the log keeps it",
+    said &&
+      lines.length === 1 &&
+      line.startsWith("[mv] sound stays in the webview: the copy of the tile's sound was silent for 5s."),
+    `${lines.length} lines: ${line.slice(0, 90)}`,
   );
   check(
-    "and it says what the tile and the copy were: playing, muted, decoding, attached, a live track, the gain, the context",
-    /Tile: playing, muted true, volume 1, audio decoded \d+ bytes/.test(line) &&
+    "and it says what the tile and the copy were: playing, decoding, attached, a live track, the context",
+    /Tile: playing, audio decoded \d+ bytes/.test(line) &&
       !/audio decoded 0 bytes/.test(line) &&
       line.includes("Copy: attached, audio tracks [live]") &&
-      line.includes("gain 1.000") &&
       line.includes("context running at 48000 Hz") &&
       // Chromium fires addtrack for the copy's first track after
       // captureStream returns, so "audio track added" can follow.
       /Events: attached at 0\.\ds[,.]/.test(line),
     line,
-  );
-  // Then the probe: the tile muted, unmuted at 0 and at 0.001, the copy's
-  // peak in each. This Chromium copies full sound in all three, so each reads
-  // a level; the point on a real machine is which of them reads "silence".
-  const probed = await until(() => warns.some((w) => w.includes("sound probe")), 6000);
-  const probe = warns.find((w) => w.includes("sound probe")) ?? "";
-  check(
-    "a silent copy is followed by one probe line: muted, volume 0 and volume 0.001, each with the copy's peak",
-    probed &&
-      warns.filter((w) => w.includes("sound probe")).length === 1 &&
-      /muted: -\d+\.\d dBFS; unmuted at volume 0: -\d+\.\d dBFS; unmuted at volume 0\.001: -\d+\.\d dBFS\.$/.test(probe),
-    probe,
-  );
-  const after = await el();
-  check(
-    "and the tile is put back as it was: muted, at volume 1",
-    after[0] === true && after[1] === 1,
-    JSON.stringify(after),
   );
   await page.evaluate(() => window.__stop());
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
@@ -479,11 +477,12 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
 }
 
 // ====================== 3c. the context cannot start until the page is clicked
-// (the <video> is left not playing: this only reads its muting)
+// (the <video> plays: since v0.11.45 the sound switches over only once the
+// copy has carried some, and a paused tile's copy carries none)
 {
   const s = await sink();
   const b = await launch();
-  const { ctx, page, errors, el } = await module1(b, s, { rate: 48000, volume: 0.5, play: false, policy: true });
+  const { ctx, page, errors, el } = await module1(b, s, { rate: 48000, volume: 0.5, policy: true });
   await page.evaluate(() => (window.__stop = window.__m.startMvAudio()));
   await sleep(1500);
   const waiting = await el();
