@@ -170,6 +170,8 @@ class Routing {
   private stream: MediaStream | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private undo: (() => void) | null = null;
+  /** `probe` runs once a routing: it is a question, not a watch. */
+  private probed = false;
 
   carrying = () => this.flowing && !this.failed && !this.dead;
   running = () => this.ctx?.state === "running";
@@ -346,6 +348,61 @@ class Routing {
         `gain ${this.gain?.gain.value.toFixed(3)}, context ${this.ctx?.state} at ${this.ctx?.sampleRate} Hz. ` +
         `Events: ${events.join(", ") || "none"}.`,
     );
+    await this.probe(video, stream);
+  }
+
+  /**
+   * A silent copy: is it the tile's mute? v0.11.43's line from Adam's
+   * WebView2 (Edge 154): the tile muted and decoding audio, the copy
+   * attached and live, gain 1, the context running, and every sample 0.
+   * Headless Chromium 141 copies full sound from a muted element, from a
+   * file and from MSE, at 48 and 96 kHz alike, so it can't be asked here.
+   *
+   * Three 600ms windows, the tile's element set a different way in each,
+   * the copy's own peak (before the gain) read in each, then the element
+   * put back as `elementFor` says. The third plays the tile in the webview
+   * at 0.001 (-60 dB) for those 600ms. One console.warn with the three.
+   * Diagnostic: it goes once the fix it picks is in.
+   */
+  private async probe(video: HTMLVideoElement, stream: MediaStream): Promise<void> {
+    const { ctx, source } = this;
+    if (this.probed || !ctx || !source) return;
+    this.probed = true;
+    const tap = ctx.createAnalyser();
+    tap.fftSize = 2048;
+    source.connect(tap);
+    const buf = new Float32Array(tap.fftSize);
+    const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
+    const peakOver = async (ms: number) => {
+      let p = 0;
+      for (const end = performance.now() + ms; performance.now() < end; await wait(40)) {
+        tap.getFloatTimeDomainData(buf);
+        for (const s of buf) p = Math.max(p, Math.abs(s));
+      }
+      return p;
+    };
+    const db = (p: number) => (p > 0 ? `${(20 * Math.log10(p)).toFixed(1)} dBFS` : "silence");
+    const said: string[] = [];
+    const ways: [string, boolean, number][] = [
+      ["muted", true, 1],
+      ["unmuted at volume 0", false, 0],
+      ["unmuted at volume 0.001", false, 0.001],
+    ];
+    for (const [label, muted, volume] of ways) {
+      if (this.stream !== stream) break;
+      video.muted = muted;
+      video.volume = volume;
+      await wait(150);
+      said.push(`${label}: ${db(await peakOver(600))}`);
+    }
+    // Already gone if the copy was replaced meanwhile (unplug disconnects it).
+    try {
+      source.disconnect(tap);
+    } catch {
+      // not connected any more
+    }
+    apply();
+    console.warn(`[mv] sound probe, the copy's peak with the tile ${said.join("; ")}.`);
   }
 
   private unplug(): void {

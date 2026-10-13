@@ -420,6 +420,24 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
       /Events: attached at 0\.\ds[,.]/.test(line),
     line,
   );
+  // Then the probe: the tile muted, unmuted at 0 and at 0.001, the copy's
+  // peak in each. This Chromium copies full sound in all three, so each reads
+  // a level; the point on a real machine is which of them reads "silence".
+  const probed = await until(() => warns.some((w) => w.includes("sound probe")), 6000);
+  const probe = warns.find((w) => w.includes("sound probe")) ?? "";
+  check(
+    "a silent copy is followed by one probe line: muted, volume 0 and volume 0.001, each with the copy's peak",
+    probed &&
+      warns.filter((w) => w.includes("sound probe")).length === 1 &&
+      /muted: -\d+\.\d dBFS; unmuted at volume 0: -\d+\.\d dBFS; unmuted at volume 0\.001: -\d+\.\d dBFS\.$/.test(probe),
+    probe,
+  );
+  const after = await el();
+  check(
+    "and the tile is put back as it was: muted, at volume 1",
+    after[0] === true && after[1] === 1,
+    JSON.stringify(after),
+  );
   await page.evaluate(() => window.__stop());
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
