@@ -78,7 +78,7 @@ pub const CEILING_MS: u32 = 100;
 
 /// What `mv_audio_stats` says, for working out on a real machine why it
 /// sounds the way it does.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Stats {
     pub open: bool,
@@ -93,6 +93,37 @@ pub struct Stats {
     pub dropped_ms: u64,
     /// Batches received.
     pub chunks: u64,
+    /// The loudest sample received, 0 to 1. Batches with a peak of 0 mean
+    /// the page sent silence, so the device is not the problem.
+    pub peak: f32,
+    /// Frames the device asked for, sound or silence. None means its
+    /// callback never ran: the stream opened and never started.
+    pub asked_frames: u64,
+    /// Of those, the frames that were received sound.
+    pub played_frames: u64,
+}
+
+impl Stats {
+    /// One line for the log, which is where these are read on a real
+    /// machine (Settings → App → Copy Diagnostics).
+    pub fn line(&self) -> String {
+        let peak = if self.peak > 0.0 {
+            format!("peak {:.1} dBFS", 20.0 * self.peak.log10())
+        } else {
+            "all silence".to_string()
+        };
+        format!(
+            "{} batches in ({peak}), the device took {} frames ({} of them sound), \
+             {} underruns, {} overruns ({}ms dropped), {}ms buffered",
+            self.chunks,
+            self.asked_frames,
+            self.played_frames,
+            self.underruns,
+            self.overruns,
+            self.dropped_ms,
+            self.buffered_ms
+        )
+    }
 }
 
 /// Interleaved stereo frames in, frames out to the output callback. Pure: no
@@ -114,6 +145,9 @@ pub struct Jitter {
     overruns: u64,
     dropped: u64,
     chunks: u64,
+    peak: f32,
+    asked: u64,
+    played: u64,
 }
 
 fn samples_in(rate: u32, ms: u32) -> usize {
@@ -138,6 +172,9 @@ impl Jitter {
             overruns: 0,
             dropped: 0,
             chunks: 0,
+            peak: 0.0,
+            asked: 0,
+            played: 0,
         }
     }
 
@@ -148,6 +185,7 @@ impl Jitter {
     pub fn push(&mut self, samples: &[f32]) {
         let whole = samples.len() & !1;
         self.chunks += 1;
+        let at = self.q.len();
         self.q.extend(samples[..whole].iter().map(|&s| {
             if s.is_finite() {
                 s.clamp(-1.0, 1.0)
@@ -155,6 +193,7 @@ impl Jitter {
                 0.0
             }
         }));
+        self.peak = self.q.range(at..).fold(self.peak, |p, s| p.max(s.abs()));
         if self.q.len() > self.ceiling {
             let cut = (self.q.len() - self.target) & !1;
             self.q.drain(..cut);
@@ -165,6 +204,7 @@ impl Jitter {
 
     /// Fill the output callback's buffer.
     pub fn pull(&mut self, out: &mut [f32]) {
+        self.asked += (out.len() / 2) as u64;
         if !self.playing {
             if self.q.len() < self.prefill {
                 out.fill(0.0);
@@ -176,6 +216,7 @@ impl Jitter {
         for (o, s) in out.iter_mut().zip(self.q.drain(..n)) {
             *o = s;
         }
+        self.played += (n / 2) as u64;
         if n < out.len() {
             out[n..].fill(0.0);
             self.playing = false;
@@ -193,6 +234,9 @@ impl Jitter {
             overruns: self.overruns,
             dropped_ms: self.dropped * 1000 / self.rate.max(1) as u64,
             chunks: self.chunks,
+            peak: self.peak,
+            asked_frames: self.asked,
+            played_frames: self.played,
         }
     }
 }
@@ -244,6 +288,10 @@ impl Shared {
     /// The output callback.
     pub fn pull(&self, out: &mut [f32]) {
         self.jitter().pull(out);
+    }
+
+    pub fn stats(&self) -> Stats {
+        self.jitter().stats()
     }
 
     /// The output died (its device went away). The listener answers 503 from
@@ -346,7 +394,7 @@ impl Sink {
     }
 
     pub fn stats(&self) -> Stats {
-        self.shared.jitter().stats()
+        self.shared.stats()
     }
 
     pub fn failed(&self) -> bool {
@@ -379,6 +427,10 @@ pub fn open(output: impl FnOnce(Arc<Shared>) -> Result<Output, String>) -> Resul
         if !s.failed() {
             return Ok(s.opened());
         }
+        log::info!(
+            "[mvaudio] the output died, opening another: {}",
+            s.stats().line()
+        );
         *slot = None;
     }
     let sink = Sink::start(output)?;
@@ -391,6 +443,9 @@ pub fn open(output: impl FnOnce(Arc<Shared>) -> Result<Output, String>) -> Resul
 /// fine.
 pub fn close() {
     let sink = slot().take();
+    if let Some(s) = &sink {
+        log::info!("[mvaudio] closed: {}", s.stats().line());
+    }
     drop(sink);
 }
 
@@ -682,6 +737,51 @@ mod tests {
         j.push(&ramp(0, 960)); // 20ms
         let s = j.stats();
         assert_eq!((s.buffered_ms, s.chunks, s.rate), (20, 1, 48_000));
+    }
+
+    #[test]
+    fn stats_say_whether_sound_came_in_and_whether_the_device_took_it() {
+        let mut j = jitter();
+        let s = j.stats();
+        assert_eq!((s.peak, s.asked_frames, s.played_frames), (0.0, 0, 0));
+
+        // Silence in: batches, but a peak of 0.
+        j.push(&[0.0; 60]);
+        assert_eq!(j.stats().peak, 0.0);
+        assert!(j.stats().line().contains("1 batches in (all silence)"));
+
+        // The loudest sample, either sign, made safe first: -7 counts as 1.
+        j.push(&[0.25, -0.5, 0.1, 0.0]);
+        assert_eq!(j.stats().peak, 0.5);
+        j.push(&[-7.0, 0.0]);
+        assert_eq!(j.stats().peak, 1.0);
+
+        // 33 frames buffered. The device asks for 40: all 40 are asked, 33
+        // are sound, and the rest is the underrun's silence.
+        let mut out = vec![9.0f32; 40 * 2];
+        j.pull(&mut out);
+        let s = j.stats();
+        assert_eq!((s.asked_frames, s.played_frames), (40, 33));
+        // Waiting on the prefill is asked for and none of it is sound.
+        j.pull(&mut out);
+        let s = j.stats();
+        assert_eq!((s.asked_frames, s.played_frames), (80, 33));
+        assert!(
+            s.line().contains("3 batches in (peak 0.0 dBFS), the device took 80 frames (33 of them sound), 1 underruns"),
+            "{}",
+            s.line()
+        );
+    }
+
+    #[test]
+    fn a_quiet_peak_reads_in_decibels() {
+        let mut j = jitter();
+        j.push(&[0.1, -0.05]);
+        assert!(
+            j.stats().line().contains("(peak -20.0 dBFS)"),
+            "{}",
+            j.stats().line()
+        );
     }
 
     // ---- the request's body

@@ -92,4 +92,7 @@ windows = { version = "0.61", features = [
     "Win32_Security_Credentials",
     # single.rs: the one-copy mutex, and the owner of a window by its process.
     "Win32_System_Threading",
+    # mvaudio_out.rs: which device mpv's audio is on, beside multi-view's.
+    "Win32_Media_Audio",
+    "Win32_System_Com",
 ] }
