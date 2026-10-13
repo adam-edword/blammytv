@@ -11,7 +11,7 @@ use crate::mpvvulkan;
 use libloading::Library;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int, c_void};
-use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 type Handle = *mut c_void;
@@ -220,8 +220,10 @@ static POPOUT: Mutex<Option<Player>> = Mutex::new(None);
 /// Lock order: PLAYER, then LOADED. Nothing takes them the other way round.
 static LOADED: Mutex<Option<mpvopen::Loaded>> = Mutex::new(None);
 
-fn note_loaded(url: &str) {
-    *LOADED.lock().unwrap() = Some(mpvopen::Loaded::new(url, std::time::Instant::now()));
+fn note_loaded(url: &str, agent: Option<&str>) {
+    *LOADED.lock().unwrap() = Some(
+        mpvopen::Loaded::new(url, std::time::Instant::now()).with_agent(agent.map(str::to_string)),
+    );
 }
 
 fn note_unloaded() {
@@ -242,6 +244,46 @@ pub fn since_load_ms() -> Option<u64> {
 /// nothing may print it or send it to the page.
 pub fn loaded_url() -> Option<String> {
     LOADED.lock().unwrap().as_ref().map(|l| l.url().to_string())
+}
+
+/// The User-Agent that address was opened with, if it had one of its own. What
+/// the open probe asks with, and what `reload_live` loads it with again. Not a
+/// secret the way the address is, but it is the playlist's, and nothing prints
+/// it or sends it to the page either.
+pub fn loaded_agent() -> Option<String> {
+    LOADED
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|l| l.agent().map(str::to_string))
+}
+
+/// What the in-app player's `user-agent` was when mpv started, read once the
+/// player exists (`ensure_player`). The one persistent mpv has one option for
+/// every file, so a playlist's own agent is set before its files and the start
+/// value put back before the next that has none (`apply_user_agent`).
+static UA_STARTED: OnceLock<Option<String>> = OnceLock::new();
+/// Whether a file's own agent is what the player's `user-agent` is now. False
+/// until one is set, so an app where no playlist has an agent never writes the
+/// property at all.
+static UA_CHANGED: AtomicBool = AtomicBool::new(false);
+
+/// Set the in-app player's `user-agent` for the file about to load: the
+/// playlist's own, or what mpv started with if the last file had one and this
+/// does not. Called right before every `loadfile` (`play_wid`) and again for a
+/// reload of the same file (`reload_live`), as `reset_per_file` is: a property
+/// set immediately before the load is the agent of that load, and nothing
+/// carries over. The order and the rule are mpvagent.rs's.
+fn apply_user_agent(wanted: Option<&str>) {
+    let started = UA_STARTED.get().and_then(|s| s.as_deref());
+    let changed = UA_CHANGED.load(Ordering::Relaxed);
+    if let Some(v) = crate::mpvagent::before_load(wanted, started, changed) {
+        set_prop("user-agent", &v);
+        UA_CHANGED.store(
+            wanted.is_some_and(|w| !w.trim().is_empty()),
+            Ordering::Relaxed,
+        );
+    }
 }
 
 /// What Settings → Playback has asked of mpv that holds for every file:
@@ -424,12 +466,15 @@ impl Handoff {
 
 /// Play in mpv's own floating window (PiP): on-top, separate instance. Its
 /// size and corner are Settings → Playback's (`mpvprefs`); a frontend that
-/// sends neither gets half the screen, centred, as it always did.
+/// sends neither gets half the screen, centred, as it always did. The
+/// playlist's own User-Agent, if it has one, is an option of this instance,
+/// which is made for the one stream and dies with it: nothing to put back.
 pub fn play_popout(
     url: &str,
     hand: Handoff,
     size: Option<&str>,
     corner: Option<&str>,
+    user_agent: Option<&str>,
 ) -> Result<(), String> {
     let l = lib()?;
     // Before mpv exists (plan 016 N4, F7): a URL with a null byte used to
@@ -463,6 +508,9 @@ pub fn play_popout(
         // Borderless — a clean PiP, no Windows title bar (still drag/resizable).
         set("border", "no");
         set("hwdec", "auto-safe");
+        if let Some(ua) = user_agent {
+            set("user-agent", ua);
+        }
         // Audio Channels and Subtitle Size, as the main player has them
         // (ensure_player). Left at Automatic, 5.1 reaches a surround device.
         let prefs = *PREFS.lock().unwrap();
@@ -758,6 +806,10 @@ fn ensure_player(wid: isize) -> Result<(), String> {
     // DROP THE GUARD before reading a property: get_property takes the same
     // PLAYER lock, so asking while still holding it deadlocks.
     drop(g);
+    // What mpv sends as its User-Agent before anyone has said, to put back
+    // after a playlist's own (`apply_user_agent`). Read before the first file
+    // loads, so nothing has changed it.
+    let _ = UA_STARTED.set(get_property("user-agent"));
     // Which libmpv did the loader actually find? Once per PROCESS now. It
     // used to print from inv::open, whose "once per open" was true only
     // while every open built a new instance — after v0.8.168 that fired on
@@ -852,6 +904,7 @@ pub fn play_wid(
     wid: isize,
     start: Option<f64>,
     live: Option<bool>,
+    user_agent: Option<&str>,
 ) -> Result<(), String> {
     let t0 = std::time::Instant::now();
     ensure_player(wid)?;
@@ -868,6 +921,8 @@ pub fn play_wid(
     stop_popout();
     let t_ready = t0.elapsed();
     reset_per_file(start, live);
+    // The playlist's own User-Agent for this file, or mpv's own again.
+    apply_user_agent(user_agent);
     // `loadfile <url> replace` — replace is the default, stated for the
     // reader. This is the same call reload_live() has always made, which is
     // why the load path itself is proven rather than new.
@@ -890,7 +945,7 @@ pub fn play_wid(
                 note_unloaded();
                 return Err("loadfile failed".into());
             }
-            note_loaded(url);
+            note_loaded(url, user_agent);
         }
     }
     // `queued` is loadfile RETURNING, not the stream being open: mpv opens it
@@ -1033,6 +1088,11 @@ pub fn reload_live() {
         Some(u) => u,
         None => return,
     };
+    // The same file with the agent it was opened with: its playlist's, or none.
+    // The property is still what `play_wid` set, so this changes nothing today;
+    // it is said here so a reload can never go out as another playlist's.
+    let agent = loaded_agent();
+    apply_user_agent(agent.as_deref());
     let g = PLAYER.lock().unwrap();
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
         unsafe {
@@ -1043,7 +1103,7 @@ pub fn reload_live() {
             };
             let args = [cmd.as_ptr(), curl.as_ptr(), std::ptr::null()];
             if (l.command)(p.0, args.as_ptr()) >= 0 {
-                note_loaded(&url);
+                note_loaded(&url, agent.as_deref());
             }
         }
     }

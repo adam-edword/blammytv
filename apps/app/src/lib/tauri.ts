@@ -12,6 +12,13 @@ function invoke<T>(cmd: string, args?: InvokeArgs): Promise<T> {
   return noteCall(cmd, rawInvoke<T>(cmd, args));
 }
 
+/** The User-Agent a playlist asks for (Settings → Sources → Advanced), as the
+ * argument native takes: there only when there is one. A playlist without
+ * sends the call it always sent, and a native build from before it, which does
+ * not know the argument, leaves it out of its parameters and plays as it did.
+ * Never logged with a URL, here or there. */
+const agentArg = (userAgent?: string): { userAgent?: string } => (userAgent ? { userAgent } : {});
+
 /** True when running inside the Tauri shell (vs. a plain browser tab). */
 export function isTauri(): boolean {
   return "__TAURI_INTERNALS__" in window;
@@ -98,7 +105,14 @@ export const popoutOpenedBy = (): string | null => popoutOwner;
  * in the DOM says it is still playing. */
 export const isLivePopout = (): boolean => livePopout;
 
-export function tauriPopoutOpen(url: string, live: boolean, owner?: string): Promise<void> {
+export function tauriPopoutOpen(
+  url: string,
+  live: boolean,
+  owner?: string,
+  /** The playlist's own User-Agent, when it has one (live/stream.ts
+   * `streamUserAgent`). mpv asks the provider with it. */
+  userAgent?: string,
+): Promise<void> {
   livePopout = live;
   popoutOwner = owner ?? null;
   if (!watchingPopout) {
@@ -122,7 +136,7 @@ export function tauriPopoutOpen(url: string, live: boolean, owner?: string): Pro
   // `size` and `corner` are Settings → Playback → Pop-out, read here so every
   // host sends them. A native build from before v0.11.29 ignores both and
   // opens at half the screen, centred, as it did.
-  return invoke("popout_open", { url, live, ...popoutPlace() });
+  return invoke("popout_open", { url, live, ...popoutPlace(), ...agentArg(userAgent) });
 }
 /** Current popout playback position (seconds; 0 when none) — polled while
  * popped so a reclaim resumes at the right spot (old-app pattern). */
@@ -153,6 +167,10 @@ export function tauriInvOpen(
   /** A live channel, which opens with subtitles off (mpv.rs
    * reset_per_file). Omit for VOD. */
   live?: boolean,
+  /** The playlist's own User-Agent, when it has one. mpv asks the provider
+   * with it for this file, and the next file without one goes back to mpv's
+   * own (mpv.rs `play_wid`). */
+  userAgent?: string,
 ): Promise<void> {
   return invoke("inv_open", {
     url,
@@ -162,6 +180,7 @@ export function tauriInvOpen(
     h: rect.h,
     start: start && start > 0 ? start : null,
     live: live ?? null,
+    ...agentArg(userAgent),
   });
 }
 export function tauriInvSetRect(rect: CompRect): Promise<void> {
@@ -187,9 +206,11 @@ export function tauriMpvDiag(): Promise<Record<string, string>> {
  * predates the proxy, which the caller treats as "play it directly".
  * `convertHevc`: this webview can't play HEVC, so the proxy converts an
  * HEVC stream to H.264 (mvconvert.rs). A native build from before that
- * ignores it and the tile says it needs the main player, as it did. */
-export function tauriMvProxyOpen(url: string, convertHevc = false): Promise<string> {
-  return invoke<string>("mv_proxy_open", { url, convertHevc });
+ * ignores it and the tile says it needs the main player, as it did.
+ * `userAgent`: the playlist's own, which the proxy sends upstream, for the
+ * stream and for what the conversion is fed from. */
+export function tauriMvProxyOpen(url: string, convertHevc = false, userAgent?: string): Promise<string> {
+  return invoke<string>("mv_proxy_open", { url, convertHevc, ...agentArg(userAgent) });
 }
 /** Multi-view opened on a webview that can't play HEVC: have the native side
  * ask what its ffmpeg can do now, so the first HEVC tile doesn't wait for
@@ -201,8 +222,8 @@ export function tauriMvConvertWarm(): Promise<void> {
  * whose URIs (variants, segments, keys) all point back at the proxy, so
  * hls.js gets the CORS header on every one (mvproxy.rs). Rejects on a
  * native build from before v0.10.67; the tile then plays it directly. */
-export function tauriMvProxyOpenHls(url: string): Promise<string> {
-  return invoke<string>("mv_proxy_open_hls", { url });
+export function tauriMvProxyOpenHls(url: string, userAgent?: string): Promise<string> {
+  return invoke<string>("mv_proxy_open_hls", { url, ...agentArg(userAgent) });
 }
 /** Forget a URL `tauriMvProxyOpen` or `tauriMvProxyOpenHls` returned. */
 export function tauriMvProxyClose(local: string): Promise<void> {

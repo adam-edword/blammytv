@@ -19,6 +19,9 @@ import type { SettingsTab } from "./settingsTab";
  * update row is "BlammyTV v0.11.27", and Add Playlist's title follows the type
  * picked ("Add Xtream Playlist"). Those take the plain name here.
  *
+ * `playlist-advanced` is drawn once for each playlist (their Advanced
+ * disclosure, closed or open), so a find lands on the first.
+ *
  * `world` is the Live TV / Stream pill the row sits under, on a page that has
  * one (Sources, Appearance). A row above the pill, or on a page with none,
  * has no world.
@@ -42,6 +45,13 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     page: "sources",
     world: "live",
     keywords: ["playlist", "xtream", "m3u", "stalker", "mag", "iptv", "live tv", "channels", "guide", "epg", "refresh", "folders", "categories", "hide"],
+  },
+  {
+    id: "playlist-advanced",
+    label: "Advanced",
+    page: "sources",
+    world: "live",
+    keywords: ["extra guide", "guide url", "xmltv", "epg url", "user-agent", "user agent", "useragent", "agent", "headers", "blocked", "refused", "403", "provider"],
   },
   {
     id: "add-playlist",

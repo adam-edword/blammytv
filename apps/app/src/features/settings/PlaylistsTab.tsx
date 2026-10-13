@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Button } from "../../components/ui/button";
 import { Segmented } from "../../ui/Segmented";
 import { Toggle } from "../../ui/Toggle";
@@ -9,7 +9,10 @@ import {
   KIND_LABELS,
   KIND_TABS,
   addPlaylist,
+  advancedOf,
+  advancedProblems,
   draftFrom,
+  hasAdvanced,
   hiddenFolderLabel,
   isFormComplete as isComplete,
   loadPlaylists,
@@ -17,7 +20,9 @@ import {
   removePlaylist,
   savePlaylists,
   setHiddenCategories,
+  setPlaylistAdvanced,
   togglePlaylist,
+  type AdvancedForm,
   type Playlist,
   type PlaylistFormState,
   type PlaylistKind,
@@ -81,6 +86,13 @@ export function PlaylistsTab() {
   const armTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(armTimer.current), []);
   const [categories, setCategories] = useState<Record<string, Categories>>({});
+  // Which playlists have their Advanced open, where the person has said. A
+  // playlist not in here follows what it holds: closed until it has something
+  // in it, then open, so a person who set an agent sees it is set. Their own
+  // press wins from then on.
+  const [advancedOpen, setAdvancedOpen] = useState<Record<string, boolean>>({});
+  const advancedIsOpen = (p: Playlist) => advancedOpen[p.id] ?? hasAdvanced(p);
+  const advancedId = (p: Playlist) => `advanced-${p.id}`;
 
   const update = (list: Playlist[]) => {
     setPlaylists(list);
@@ -238,13 +250,23 @@ export function PlaylistsTab() {
                           Couldn&rsquo;t load: {g.error}
                         </span>
                       );
-                    if (g?.epgError)
-                      return (
-                        <span className="playlist-row__status">
-                          Channels OK · guide: {g.epgError}
-                        </span>
-                      );
-                    return null;
+                    // The extra guide's note is its own line, beside the
+                    // provider's and never instead of it: either can be the
+                    // only one, or both.
+                    return (
+                      <>
+                        {g?.epgError && (
+                          <span className="playlist-row__status">
+                            Channels OK · guide: {g.epgError}
+                          </span>
+                        )}
+                        {g?.extraGuideError && (
+                          <span className="playlist-row__status" data-note="extra-guide">
+                            Extra guide: {g.extraGuideError}
+                          </span>
+                        )}
+                      </>
+                    );
                   })()}
                 </div>
                 <div className="playlist-row__actions">
@@ -269,6 +291,26 @@ export function PlaylistsTab() {
                     onChange={() => update(togglePlaylist(playlists, p.id))}
                     label={`${p.name} enabled`}
                   />
+                  {/* Advanced (plan 025, P5) is opened from the row, so a
+                    * playlist with nothing set adds no height to the page: the
+                    * Settings card is centred for a Sources page of its usual
+                    * size (v0.11.39). Drawn for every playlist, closed or
+                    * open, because it is a row Settings can be asked to find
+                    * (settingsIndex.ts `playlist-advanced`). Its fields are
+                    * below the row, while it is open. */}
+                  <span className="playlist-advanced__trigger" data-setting="playlist-advanced">
+                    <Button
+                      variant={advancedIsOpen(p) ? "secondary" : "ghost"}
+                      size="sm"
+                      type="button"
+                      aria-expanded={advancedIsOpen(p)}
+                      aria-controls={advancedId(p)}
+                      aria-label={`${p.name} advanced`}
+                      onClick={() => setAdvancedOpen((o) => ({ ...o, [p.id]: !advancedIsOpen(p) }))}
+                    >
+                      Advanced
+                    </Button>
+                  </span>
                   <Button variant="ghost" size="icon-sm"
                     type="button"
                     className={
@@ -317,6 +359,13 @@ export function PlaylistsTab() {
                   </Hint>
                 </div>
               </div>
+              {advancedIsOpen(p) && (
+                <AdvancedFields
+                  id={advancedId(p)}
+                  playlist={p}
+                  onSave={(f) => update(setPlaylistAdvanced(playlists, p.id, f))}
+                />
+              )}
               {expandedId === p.id && (
                 <FolderEditor
                   playlist={p}
@@ -574,6 +623,78 @@ function FolderEditor({
   );
 }
 
+/**
+ * A playlist's Advanced fields (plan 025, P5): an extra guide and a User-Agent,
+ * under the playlist's row while its Advanced is open (the trigger is in the
+ * row). Mounted only while open, so what is typed and not saved goes when it
+ * is closed.
+ *
+ * Edits are STAGED, like the folder editor's: typing changes a draft, and Save
+ * appears once it differs from what is saved and can be saved. Saving a
+ * playlist reloads its channels and guide, so it is not done on every key.
+ * Both fields are optional: clearing one and saving takes it off the playlist.
+ */
+function AdvancedFields({
+  id,
+  playlist,
+  onSave,
+}: {
+  id: string;
+  playlist: Playlist;
+  onSave: (f: AdvancedForm) => void;
+}) {
+  const saved = advancedOf(playlist);
+  const [draft, setDraft] = useState<AdvancedForm>(saved);
+  const problems = advancedProblems(draft);
+  const bad = !!problems.extraGuide || !!problems.userAgent;
+  const dirty =
+    draft.extraGuide.trim() !== saved.extraGuide.trim() ||
+    draft.userAgent.trim() !== saved.userAgent.trim();
+  const save = () => {
+    if (!dirty || bad) return;
+    onSave(draft);
+    // What was saved is what the form holds: the spaces around it are gone.
+    setDraft({ extraGuide: draft.extraGuide.trim(), userAgent: draft.userAgent.trim() });
+  };
+  const enter = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    save();
+  };
+  return (
+    <div id={id} className="playlist-advanced__body">
+      <Field
+        label="Extra guide (XMLTV URL)"
+        value={draft.extraGuide}
+        onChange={(v) => setDraft((d) => ({ ...d, extraGuide: v }))}
+        placeholder="https://example.com/guide.xml"
+        note="Fills channels your provider’s guide leaves empty."
+        error={problems.extraGuide}
+        onKeyDown={enter}
+      />
+      <Field
+        label="User-Agent"
+        value={draft.userAgent}
+        onChange={(v) => setDraft((d) => ({ ...d, userAgent: v }))}
+        placeholder="Leave empty for the app’s own"
+        note="Some providers only answer certain apps. Leave empty unless yours asks."
+        error={problems.userAgent}
+        onKeyDown={enter}
+      />
+      {dirty && (
+        <div className="playlist-advanced__bar">
+          <Button variant="secondary" size="sm" type="button" onClick={() => setDraft(saved)}>
+            Discard
+          </Button>
+          <Button variant="secondary" size="sm" type="button" disabled={bad} onClick={save}>
+            Save
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** How long Refresh now may say "Refreshing…" with no word from the load. A
  * guide that never settles (a wedged download) must not leave the button
  * dead; the load itself carries on. */
@@ -628,14 +749,24 @@ function Field({
   onChange,
   placeholder,
   type = "text",
+  note,
+  error,
+  onKeyDown,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   type?: string;
+  /** What the field is for, under it. */
+  note?: string;
+  /** What is wrong with it, under it in place of the note. */
+  error?: string;
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
 }) {
   const id = useId();
+  const sayId = `${id}-say`;
+  const say = error ?? note;
   return (
     <div className="settings-field">
       <label className="settings-field__label" htmlFor={id}>
@@ -648,9 +779,23 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
         spellCheck={false}
         autoComplete="off"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={say ? sayId : undefined}
       />
+      {say && (
+        <p
+          id={sayId}
+          className={
+            "settings__section-note settings__section-note--dim" +
+            (error ? " settings-field__error" : "")
+          }
+        >
+          {say}
+        </p>
+      )}
     </div>
   );
 }

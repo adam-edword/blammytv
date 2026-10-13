@@ -32,9 +32,11 @@ export interface Channel {
    * arrive string-typed, so this is the coerced, guarded number). */
   archiveDays: number;
   /** The guide id the provider gave this channel (Xtream `epg_channel_id`,
-   * M3U `tvg-id`), as written. The guide-fix dialog reads it to say which
-   * guide channel this one matched. Absent when the provider gave none, and
-   * on a disk record from before this field. */
+   * M3U `tvg-id`, Stalker `xmltv_id`), as written. The guide-fix dialog reads
+   * it to say which guide channel this one matched. A Stalker portal's own
+   * guide is keyed by channel and never reads it: it is what an extra guide
+   * (extraGuide.ts) matches by. Absent when the provider gave none, and on a
+   * disk record from before this field. */
   epgId?: string;
 }
 
@@ -101,6 +103,13 @@ export interface LiveGroup {
    * the next load download it again instead of reusing it for up to 12
    * hours without the fix. Absent means none. */
   guideFixKey?: string;
+  /** Set when the playlist's extra guide (Settings → Sources → Advanced) was
+   * asked and gave nothing: it would not download, would not read, or matched
+   * none of the channels the provider's guide left empty. A note of its own
+   * beside `epgError`, because it never costs the provider's guide anything.
+   * Settings → Sources shows it; a guide that carries one is downloaded again
+   * by the next load rather than reused. */
+  extraGuideError?: string;
 }
 
 export interface LiveData {

@@ -11,9 +11,9 @@
 //! this: reqwest follows the redirect and the header is ours to add.
 //!
 //! THE SHAPE:
-//! - `open(url)` stores the upstream URL under a random 128-bit token and
-//!   returns `http://127.0.0.1:{port}/mv/{token}`. The server never takes a
-//!   URL from a request, so it is not an open proxy, and the webview never
+//! - `open_as(url, ..)` stores the upstream URL under a random 128-bit token
+//!   and returns `http://127.0.0.1:{port}/mv/{token}`. The server never takes
+//!   a URL from a request, so it is not an open proxy, and the webview never
 //!   holds a URL with the provider's credentials in it (Chromium printed
 //!   them in full in its own CORS errors).
 //! - `close(local)` forgets the token and ends whatever it is serving: the
@@ -47,6 +47,14 @@
 //! A response is a playlist if it starts `#EXTM3U`, whatever it is called or
 //! typed, and one naming more than MAX_URIS is a 502 (audit H2, H3).
 //!
+//! THE PLAYLIST'S OWN USER-AGENT (plan 025, P5). A route can carry one, and
+//! every request made for it sends it: the stream, each hop of a redirect, an
+//! HLS playlist and everything it names. A provider that checks the agent on
+//! the channel list checks it here. HEVC conversion is covered by the same
+//! request: ffmpeg is fed from this fetch through a pipe and never asks a
+//! provider for anything (mvconvert.rs). Without one a route asks with the
+//! client's own, as it always did. The agent is never logged.
+//!
 //! NEVER LOGS A PATH OR QUERY. Xtream live URLs carry the username and
 //! password in the path; only the origin is printed, as in http_get.
 
@@ -64,6 +72,7 @@ use hyper::{Method, Request, Response, StatusCode};
 
 type Body = BoxBody<Bytes, std::io::Error>;
 
+use crate::mpvagent;
 use crate::mvconvert::{self, Sniff};
 
 struct Proxy {
@@ -82,6 +91,9 @@ struct Route {
     live: Arc<tokio::sync::watch::Sender<()>>,
     /// An HLS route's children: every URI its playlists named.
     hls: Option<Children>,
+    /// The playlist's own User-Agent, sent over the client's on every request
+    /// the route makes. None is the client's own.
+    agent: Option<HeaderValue>,
 }
 
 /// The URIs an HLS route's playlists named, by the number each has in its
@@ -263,17 +275,37 @@ const HEADER_TIMEOUT: Duration = if cfg!(test) {
 
 /// Register an upstream URL and get the loopback URL that serves it.
 /// `convert_hevc`: the caller cannot play HEVC, so convert it (mvconvert.rs).
-pub fn open(url: &str, convert_hevc: bool) -> Result<String, String> {
-    register(url, convert_hevc, None)
+/// `user_agent`: the playlist's own, if it has one, for every request the route
+/// makes (mpvagent.rs decides what is one).
+pub fn open_as(url: &str, convert_hevc: bool, user_agent: Option<&str>) -> Result<String, String> {
+    register(url, convert_hevc, None, user_agent)
 }
 
 /// Register an HLS playlist URL: the same loopback URL, and every playlist
 /// it serves has its URIs pointed back here.
-pub fn open_hls(url: &str) -> Result<String, String> {
-    register(url, false, Some(Children::default()))
+pub fn open_hls_as(url: &str, user_agent: Option<&str>) -> Result<String, String> {
+    register(url, false, Some(Children::default()), user_agent)
 }
 
-fn register(url: &str, convert_hevc: bool, hls: Option<Children>) -> Result<String, String> {
+/// `open_as` with no agent of its own, which is what the tests drive (and what
+/// the app's calls were before a playlist could have one).
+#[cfg(test)]
+pub fn open(url: &str, convert_hevc: bool) -> Result<String, String> {
+    open_as(url, convert_hevc, None)
+}
+
+/// `open_hls_as` with no agent of its own, as `open` is for `open_as`.
+#[cfg(test)]
+pub fn open_hls(url: &str) -> Result<String, String> {
+    open_hls_as(url, None)
+}
+
+fn register(
+    url: &str,
+    convert_hevc: bool,
+    hls: Option<Children>,
+    user_agent: Option<&str>,
+) -> Result<String, String> {
     let parsed = reqwest::Url::parse(url).map_err(|_| "not a URL".to_string())?;
     if !matches!(parsed.scheme(), "http" | "https") {
         return Err(format!("won't proxy a {}: URL", parsed.scheme()));
@@ -292,6 +324,7 @@ fn register(url: &str, convert_hevc: bool, hls: Option<Children>) -> Result<Stri
                 convert_hevc,
                 live: Arc::new(tokio::sync::watch::channel(()).0),
                 hls,
+                agent: mpvagent::header_value(user_agent),
             },
         );
     Ok(format!("http://127.0.0.1:{}/mv/{}", p.port, token))
@@ -386,7 +419,11 @@ struct Failed {
 /// Adam's event channels 302 from a provider host that was answering to
 /// somewhere that was not (v0.9.101). Every hop stays a GET; a 3xx with no
 /// usable Location is returned as it is, and passed through as a status.
-async fn fetch(url: &str, range: Option<&HeaderValue>) -> Result<reqwest::Response, Failed> {
+async fn fetch(
+    url: &str,
+    range: Option<&HeaderValue>,
+    agent: Option<&HeaderValue>,
+) -> Result<reqwest::Response, Failed> {
     let mut at = reqwest::Url::parse(url).map_err(|_| Failed {
         at: reqwest::Url::parse("http://invalid/").expect("static URL"),
         kind: "not a URL",
@@ -396,6 +433,11 @@ async fn fetch(url: &str, range: Option<&HeaderValue>) -> Result<reqwest::Respon
         let mut get = client().get(at.clone()).header(header::ACCEPT, "*/*");
         if let Some(r) = range {
             get = get.header(header::RANGE, r.clone());
+        }
+        // The playlist's own agent, over the client's. Every hop of a redirect
+        // sends it, as mpv's option does.
+        if let Some(a) = agent {
+            get = get.header(header::USER_AGENT, a.clone());
         }
         let res = get.send().await.map_err(|e| Failed {
             at: at.clone(),
@@ -515,9 +557,10 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
             r.hls.is_some(),
             r.convert_hevc,
             r.live.subscribe(),
+            r.agent.clone(),
         ))
     });
-    let Some((token, url, is_child, is_hls, convert_hevc, live)) = upstream else {
+    let Some((token, url, is_child, is_hls, convert_hevc, live, agent)) = upstream else {
         return Ok(reply(StatusCode::NOT_FOUND));
     };
     if req.method() == Method::OPTIONS {
@@ -542,10 +585,10 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     }
     if is_hls {
         let range = req.headers().get(header::RANGE).cloned();
-        return Ok(hls(&token, &url, is_child, range, port).await);
+        return Ok(hls(&token, &url, is_child, range, agent, port).await);
     }
 
-    let res = match fetch(&url, None).await {
+    let res = match fetch(&url, None, agent.as_ref()).await {
         Ok(r) => r,
         Err(f) => return Ok(failed(&url, &f)),
     };
@@ -654,9 +697,10 @@ async fn hls(
     url: &str,
     is_child: bool,
     range: Option<HeaderValue>,
+    agent: Option<HeaderValue>,
     port: u16,
 ) -> Response<Body> {
-    let res = match fetch(url, range.as_ref()).await {
+    let res = match fetch(url, range.as_ref(), agent.as_ref()).await {
         Ok(r) => r,
         Err(f) => return failed(url, &f),
     };
@@ -2417,5 +2461,199 @@ mod tests {
     fn will_not_proxy_what_is_not_http() {
         assert!(open("file:///etc/passwd", false).is_err());
         assert!(open("not a url", false).is_err());
+    }
+
+    // ------------------------------------------------ a playlist's own User-Agent (plan 025, P5)
+
+    /// What a provider that checks the agent sees: the path and the
+    /// User-Agent of every request, in the order they came.
+    type Seen = Arc<Mutex<Vec<(String, Option<String>)>>>;
+
+    /// A provider that writes down the User-Agent of each request. `/go`
+    /// redirects to `/ts/live.ts`, which sends `clip` and ends; `/hls/master.m3u8`
+    /// names one segment, `/hls/seg1.ts`.
+    fn watching(clip: Vec<u8>) -> (String, Seen) {
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", l.local_addr().unwrap());
+        let seen: Seen = Arc::new(Mutex::new(Vec::new()));
+        let log = seen.clone();
+        let clip = Arc::new(clip);
+        std::thread::spawn(move || {
+            for conn in l.incoming() {
+                let Ok(mut conn) = conn else { continue };
+                let (log, clip) = (log.clone(), clip.clone());
+                std::thread::spawn(move || {
+                    let mut reader = BufReader::new(conn.try_clone().unwrap());
+                    let mut line = String::new();
+                    reader.read_line(&mut line).unwrap();
+                    let mut agent = None;
+                    loop {
+                        let mut h = String::new();
+                        if reader.read_line(&mut h).unwrap_or(0) <= 2 {
+                            break;
+                        }
+                        if let Some((k, v)) = h.trim_end().split_once(':') {
+                            if k.eq_ignore_ascii_case("user-agent") {
+                                agent = Some(v.trim().to_string());
+                            }
+                        }
+                    }
+                    let path = line.split_whitespace().nth(1).unwrap_or("").to_string();
+                    log.lock().unwrap().push((path.clone(), agent));
+                    let mut send = |status: &str, ty: &str, extra: &str, body: &[u8]| {
+                        let _ = write!(
+                            conn,
+                            "HTTP/1.1 {status}\r\nContent-Type: {ty}\r\nContent-Length: {}\r\n{extra}Connection: close\r\n\r\n",
+                            body.len()
+                        );
+                        let _ = conn.write_all(body);
+                    };
+                    match path.as_str() {
+                        "/go" => send("302 Found", "text/plain", "Location: /ts/live.ts\r\n", b""),
+                        "/ts/live.ts" => {
+                            // A live stream: the clip at about live pace, then
+                            // null packets until the reader goes. One that
+                            // ended at once would be cut before its head was
+                            // sent (the proxy ends a stream with an error).
+                            let _ = conn.write_all(
+                                b"HTTP/1.1 200 OK\r\nContent-Type: video/mp2t\r\nConnection: close\r\n\r\n",
+                            );
+                            let mut null = [0u8; 188];
+                            null[..4].copy_from_slice(&[0x47, 0x1f, 0xff, 0x10]);
+                            let mut sent = clip.chunks(188 * 32);
+                            loop {
+                                let wrote = match sent.next() {
+                                    Some(c) => conn.write_all(c),
+                                    None => conn.write_all(&null),
+                                };
+                                if wrote.is_err() {
+                                    break;
+                                }
+                                std::thread::sleep(Duration::from_millis(10));
+                            }
+                        }
+                        "/hls/master.m3u8" => send(
+                            "200 OK",
+                            "application/vnd.apple.mpegurl",
+                            "",
+                            b"#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4.0,\nseg1.ts\n",
+                        ),
+                        "/hls/seg1.ts" => send("200 OK", "video/mp2t", "", &segment()),
+                        _ => send("404 Not Found", "text/plain", "", b""),
+                    }
+                });
+            }
+        });
+        (base, seen)
+    }
+
+    /// Some MPEG-TS packets, enough for a body.
+    fn packets() -> Vec<u8> {
+        let mut p = vec![0u8; 188 * 20];
+        for sync in p.iter_mut().step_by(188) {
+            *sync = 0x47;
+        }
+        p
+    }
+
+    const AGENT: &str = "TestApp/9.1 (Provider Check)";
+
+    #[test]
+    fn a_route_asks_the_provider_with_the_playlists_own_agent_on_every_hop() {
+        let (base, seen) = watching(packets());
+        let local = open_as(&format!("{base}/go"), false, Some(AGENT)).unwrap();
+        let (code, _, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200);
+        let _ = body_bytes(&mut body, 188);
+        // The redirect and the stream it led to: both asked as the playlist.
+        let log = seen.lock().unwrap().clone();
+        assert_eq!(
+            log,
+            vec![
+                ("/go".to_string(), Some(AGENT.to_string())),
+                ("/ts/live.ts".to_string(), Some(AGENT.to_string())),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_route_with_none_asks_with_the_clients_own_agent_as_it_always_did() {
+        let (base, seen) = watching(packets());
+        let local = open(&format!("{base}/go"), false).unwrap();
+        let (code, _, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200);
+        let _ = body_bytes(&mut body, 188);
+        let log = seen.lock().unwrap().clone();
+        assert_eq!(log.len(), 2);
+        for (path, agent) in log {
+            assert_eq!(agent.as_deref(), Some(UA), "{path}");
+        }
+        // And a blank is none: the same route.
+        let (base, seen) = watching(packets());
+        let local = open_as(&format!("{base}/go"), false, Some("   ")).unwrap();
+        let (code, _, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200);
+        let _ = body_bytes(&mut body, 188);
+        for (path, agent) in seen.lock().unwrap().clone() {
+            assert_eq!(agent.as_deref(), Some(UA), "{path}");
+        }
+    }
+
+    #[test]
+    fn an_hls_route_sends_it_for_its_playlist_and_for_everything_the_playlist_names() {
+        let (base, seen) = watching(Vec::new());
+        let local = open_hls_as(&format!("{base}/hls/master.m3u8"), Some(AGENT)).unwrap();
+        let (code, headers, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200);
+        let text = String::from_utf8(whole(&headers, &mut body)).unwrap();
+        let segment_url = text
+            .lines()
+            .find(|l| !l.starts_with('#'))
+            .unwrap()
+            .to_string();
+        assert!(segment_url.starts_with(&format!("{local}/")), "{text}");
+        let (code, headers, mut body) = get(&segment_url, "GET", None);
+        assert_eq!(code, 200);
+        assert_eq!(whole(&headers, &mut body), segment());
+        let log = seen.lock().unwrap().clone();
+        assert_eq!(
+            log,
+            vec![
+                ("/hls/master.m3u8".to_string(), Some(AGENT.to_string())),
+                ("/hls/seg1.ts".to_string(), Some(AGENT.to_string())),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_route_that_converts_hevc_asks_the_provider_with_it_too() {
+        // ffmpeg reads the stream from a pipe this request feeds and asks
+        // nobody, so the agent on this request is the conversion's as well.
+        let _one = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+        let (base, seen) = watching(clip("libx265"));
+        let local = open_as(&format!("{base}/go"), true, Some(AGENT)).unwrap();
+        let (code, headers, mut body) = get(&local, "GET", None);
+        assert_eq!(code, 200, "{:?}", headers.get(":reason"));
+        let out = body_bytes(&mut body, 64 * 1024);
+        let types = mvconvert::stream_types(&out).expect("no programme map in what came out");
+        assert!(
+            types.contains(&0x1b) && !types.contains(&0x24),
+            "{types:x?}"
+        );
+        let log = seen.lock().unwrap().clone();
+        assert!(!log.is_empty());
+        for (path, agent) in log {
+            assert_eq!(agent.as_deref(), Some(AGENT), "{path}");
+        }
+    }
+
+    #[test]
+    fn the_agent_is_not_in_the_loopback_url_the_page_is_given() {
+        let (base, _) = watching(packets());
+        let local = open_as(&format!("{base}/go"), false, Some(AGENT)).unwrap();
+        assert!(
+            !local.contains("TestApp") && !local.contains("Provider"),
+            "{local}"
+        );
     }
 }

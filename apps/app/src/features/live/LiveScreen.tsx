@@ -74,7 +74,7 @@ import {
   peekLive,
   PLAYLIST_SETTLE_MS,
 } from "./source";
-import { buildMeta, resolveStreamUrl } from "./stream";
+import { buildMeta, resolveStreamUrl, streamUserAgent } from "./stream";
 
 type Mode = "playlist" | "favorites" | "recents";
 
@@ -695,6 +695,11 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // data refresh must not re-resolve (a fresh Stalker link would rebuild the
   // player mid-watch); the ref carries the current object into the effect.
   const [playUrl, setPlayUrl] = useState<string | null>(null);
+  // The playing channel's playlist's own User-Agent, if it has one, set with
+  // the url it belongs to (Settings → Sources → Advanced).
+  const [playAgent, setPlayAgent] = useState<string | undefined>(undefined);
+  const playAgentRef = useRef(playAgent);
+  playAgentRef.current = playAgent;
   // Sidebar connection pills; keyed on the tuned stream so each tune
   // re-polls once the panel has registered the session.
   const conns = useConnections(playUrl);
@@ -705,15 +710,20 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     const ch = heroChannelRef.current;
     if (!(isTauri() && playing && ch)) {
       setPlayUrl(null);
+      setPlayAgent(undefined);
       return;
     }
     let stale = false;
     resolveStreamUrl(ch).then(
       (url) => {
-        if (!stale) setPlayUrl(url);
+        if (stale) return;
+        setPlayUrl(url);
+        setPlayAgent(streamUserAgent(ch.id));
       },
       () => {
-        if (!stale) setPlayUrl(null);
+        if (stale) return;
+        setPlayUrl(null);
+        setPlayAgent(undefined);
       },
     );
     return () => {
@@ -777,7 +787,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       // desktop through the still-cut hole. Idempotent with that cleanup.
       const shell = document.querySelector<HTMLElement>(".app-shell");
       if (shell) shell.style.clipPath = "";
-      if (url) void tauriPopoutOpen(url, true, "guide").catch(() => {});
+      if (url) void tauriPopoutOpen(url, true, "guide", playAgentRef.current).catch(() => {});
       setPlaying(false);
       setTheater(false);
       leaveFullscreen();
@@ -1089,6 +1099,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               <InvertedPlayer
                 url={playUrl}
                 live
+                userAgent={playAgent}
                 squared={theater || fullscreen}
                 ready={videoReady}
               />

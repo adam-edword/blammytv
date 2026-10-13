@@ -4,6 +4,7 @@ mod frontend;
 mod logtail;
 mod mal;
 mod mpv;
+mod mpvagent;
 mod mpvopen;
 mod mpvprefs;
 mod mpvurl;
@@ -88,9 +89,14 @@ fn popout_open(
     // anything unknown is the same. The strings are mpvprefs'.
     size: Option<String>,
     corner: Option<String>,
+    // The playlist's own User-Agent for this stream, if it has one (Settings →
+    // Sources → Advanced). Option, so a frontend from before it sends none and
+    // plays as it did; one this build does not understand is refused (mpvagent).
+    user_agent: Option<String>,
 ) -> Result<(), String> {
     // Native says what mpv may open, not only the frontend (audit X1).
     mpvurl::http_only(&url)?;
+    let agent = mpvagent::clean(user_agent)?;
     let hand;
     #[cfg(windows)]
     {
@@ -113,7 +119,13 @@ fn popout_open(
     }
     // Own mpv instance so the in-app teardown (fired by the React unmount)
     // can't terminate it.
-    mpv::play_popout(&url, hand, size.as_deref(), corner.as_deref())
+    mpv::play_popout(
+        &url,
+        hand,
+        size.as_deref(),
+        corner.as_deref(),
+        agent.as_deref(),
+    )
 }
 
 // ---- Inverted-layer player (THE architecture; see inv.rs). Rects are PHYSICAL px. ----
@@ -136,23 +148,37 @@ fn inv_open(
     // opens with subtitles off. None means an older frontend that did not
     // say, which keeps mpv's own choice.
     live: Option<bool>,
+    // The playlist's own User-Agent for this stream, if it has one. None is
+    // mpv's own, and the player puts that back for a stream after another's.
+    user_agent: Option<String>,
 ) -> Result<(), String> {
     // Native says what mpv may open, not only the frontend (audit X1).
     mpvurl::http_only(&url)?;
+    let agent = mpvagent::clean(user_agent)?;
     #[cfg(windows)]
     {
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
-                let _ = tx.send(inv::open(hwnd, x, y, w, h, &url, start, live));
+                let _ = tx.send(inv::open(
+                    hwnd,
+                    x,
+                    y,
+                    w,
+                    h,
+                    &url,
+                    start,
+                    live,
+                    agent.as_deref(),
+                ));
             })
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, url, x, y, w, h, start, live);
+        let _ = (window, url, x, y, w, h, start, live, agent);
         Ok(())
     }
 }
@@ -708,7 +734,11 @@ async fn mpv_open_error() -> Result<mpvopen::Answer, String> {
     let url = mpv::loaded_url().ok_or("nothing was opened")?;
     // Native says what it may open, here as at every other door (audit X1).
     mpvurl::http_only(&url)?;
-    let answer = mpvopen::probe(http_client(), &url, mpvopen::PROBE_WAIT).await;
+    // With the agent the file was opened with: a provider that refuses the
+    // wrong one refuses it here as it did for mpv.
+    let agent = mpv::loaded_agent();
+    let answer =
+        mpvopen::probe_as(http_client(), &url, mpvopen::PROBE_WAIT, agent.as_deref()).await;
     log::info!(
         "[mpv-open] {}",
         match (answer.status, answer.failure) {
@@ -988,8 +1018,15 @@ async fn http_get(
 /// `convert_hevc`: this webview cannot play HEVC, so the proxy converts it
 /// (mvconvert.rs). Optional, so a frontend from before it still works.
 #[tauri::command]
-fn mv_proxy_open(url: String, convert_hevc: Option<bool>) -> Result<String, String> {
-    mvproxy::open(&url, convert_hevc.unwrap_or(false))
+fn mv_proxy_open(
+    url: String,
+    convert_hevc: Option<bool>,
+    // The playlist's own User-Agent, sent upstream for the stream and for what
+    // the HEVC conversion is fed from (ffmpeg reads a pipe and asks nobody).
+    user_agent: Option<String>,
+) -> Result<String, String> {
+    let agent = mpvagent::clean(user_agent)?;
+    mvproxy::open_as(&url, convert_hevc.unwrap_or(false), agent.as_deref())
 }
 
 /// Multi-view, an HLS (.m3u8) stream: the same loopback URL, and every
@@ -998,8 +1035,9 @@ fn mv_proxy_open(url: String, convert_hevc: Option<bool>) -> Result<String, Stri
 /// so a newer frontend on an older native build, whose proxy would not
 /// rewrite playlists, fails the call and plays the stream directly.
 #[tauri::command]
-fn mv_proxy_open_hls(url: String) -> Result<String, String> {
-    mvproxy::open_hls(&url)
+fn mv_proxy_open_hls(url: String, user_agent: Option<String>) -> Result<String, String> {
+    let agent = mpvagent::clean(user_agent)?;
+    mvproxy::open_hls_as(&url, agent.as_deref())
 }
 
 /// Multi-view opened on a webview that can't play HEVC: ask now what this

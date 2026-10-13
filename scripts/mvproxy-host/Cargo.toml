@@ -9,6 +9,8 @@
 # and how the log's end is read back for Copy Diagnostics (logtail.rs)
 # and what Export and Import settings check around their file dialogs
 # (settingsfile.rs)
+# and what a playlist's own User-Agent may be, and what mpv, the proxy and the
+# open probe do with it (mpvagent.rs)
 # on a Linux box,
 # where the app crate itself will not build (gdk-sys; see CLAUDE.md). The
 # files are included as they are, byte for byte.

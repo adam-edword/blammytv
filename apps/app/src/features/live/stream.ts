@@ -8,6 +8,7 @@ import {
 import { progress as epgProgress } from "./epg";
 import type { Channel, Programme } from "./model";
 import { formatClock } from "../../lib/time";
+import { cleanUserAgent } from "../../lib/userAgent";
 import { loadClockFormat } from "../settings/clockFormat";
 
 /**
@@ -64,6 +65,22 @@ export async function resolveStreamUrl(
     return createLink(playlist, channel.streamCmd);
   }
   return channelStreamUrl(channel.id);
+}
+
+/**
+ * The User-Agent the playlist behind a channel sends (Settings → Sources →
+ * Advanced), or undefined for the app's own. A provider that checks the agent
+ * on the channel list checks it on the stream, so playback hands it to native
+ * with the URL: the in-app player and the pop-out (mpv), and a multi-view
+ * tile's proxy. Looked up by the playlist the channel id names, like the
+ * credentials in `channelStreamUrl`; undefined for a mock id, a playlist that
+ * has since gone, and a channel that is not a playlist's (a film).
+ */
+export function streamUserAgent(channelId: string): string | undefined {
+  const sep = channelId.indexOf(":");
+  if (sep < 0) return undefined;
+  const playlistId = channelId.slice(0, sep);
+  return cleanUserAgent(loadPlaylists().find((p) => p.id === playlistId)?.userAgent);
 }
 
 /* ---------------------------------------------------------------------------

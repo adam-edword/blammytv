@@ -887,6 +887,30 @@ input.rowcap__value--edit:focus-visible {
   transform: rotate(180deg);
 }
 
+/* A playlist's Advanced (plan 025, P5). Its trigger is in the row's actions,
+ * where it takes no room a row does not already have, and its fields are under
+ * the row while it is open, in the add form's field with the note beneath. */
+.playlist-advanced__trigger {
+  display: inline-flex;
+}
+
+.playlist-advanced__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 12px 6px;
+}
+
+.playlist-advanced__bar {
+  display: flex;
+  gap: 8px;
+}
+
+/* A field that cannot be saved as it stands says so in the danger voice. */
+.settings-field__error {
+  color: var(--danger-text);
+}
+
 /* A playlist is a row (plan 019, K10 and frame G): a 5% tint of the text
  * rather than a bordered card, its logo tile leading. */
 .playlist-row {

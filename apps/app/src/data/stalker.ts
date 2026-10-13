@@ -1,4 +1,5 @@
 import { httpGetJson } from "../lib/http";
+import { cleanUserAgent } from "../lib/userAgent";
 import type { StalkerPlaylist } from "../features/settings/playlists";
 
 /**
@@ -60,7 +61,11 @@ const sessions = new Map<string, Session>();
 const sessionKey = (p: StalkerPlaylist) => `${p.id}\n${p.portal.trim()}\n${p.mac.trim()}`;
 
 // The MAG-STB identity headers. Some portals reject a browser UA outright,
-// so every call presents as a MAG254 box (the string real clients send).
+// so every call presents as a MAG254 box (the string real clients send). A
+// playlist with a User-Agent of its own (Settings → Sources → Advanced) sends
+// that in place of MAG_UA, and only that: the rest of the box's identity below
+// stays, since a portal that asks for a particular agent still wants the
+// Cookie, the Bearer token and the model header.
 const MAG_UA =
   "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG200 stbapp ver: 2 rev: 250 Safari/533.3";
 // Firmware descriptor get_profile expects; content is boilerplate.
@@ -75,7 +80,7 @@ function stalkerHeaders(
   const tz =
     Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/London";
   const headers: Record<string, string> = {
-    "User-Agent": MAG_UA,
+    "User-Agent": cleanUserAgent(p.userAgent) ?? MAG_UA,
     "X-User-Agent": "Model: MAG254; Link: WiFi",
     Accept: "*/*",
     Referer: new URL(base).origin + "/c/",

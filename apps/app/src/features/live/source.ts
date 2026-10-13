@@ -21,9 +21,11 @@ import {
 } from "../settings/playlists";
 import { loadShowAdult } from "../settings/adultFilter";
 import { httpGetBytes, httpGetText } from "../../lib/http";
+import { agentHeaders, cleanUserAgent } from "../../lib/userAgent";
 import { isAdultCategory, isAdultStream, nameLooksAdult } from "./adult";
 import { diskGet, diskPut } from "./diskCache";
 import { normalizeProgrammes } from "./epg";
+import { extraGuideUrl, fillGaps, gapIndex, hasProgrammes, listBothGuides } from "./extraGuide";
 import { applyGuideFixes, fixKey, loadGuideFixes } from "./guideFix";
 import { parseM3U } from "./m3u";
 import type { Channel, GuideChannel, LiveData, LiveGroup, Programme } from "./model";
@@ -146,6 +148,20 @@ type EpgPhase = {
   /** The hand fixes the guide was parsed with (guideFix.ts `fixKey`), stamped
    * on the group so a guide parsed without a later fix isn't reused. */
   fixKey?: string;
+  /** What the playlist's extra guide gave for the channels the provider's left
+   * empty (extraGuide.ts). Kept apart from `programmes` on purpose: doLoad
+   * puts them in only where the channel still has none, AFTER it has decided
+   * whether the provider's guide came, so a provider guide that fails and is
+   * carried over from the last load is not replaced by a few fills. */
+  fills?: Map<string, Programme[]>;
+  /** The channels the extra guide declares, for the Fix guide dialog. */
+  extraChannels?: GuideChannel[];
+  /** Why the extra guide gave nothing (LiveGroup.extraGuideError). */
+  extraGuideError?: string;
+  /** The extra guide could not be had at all (it would not download or read),
+   * as against one that came and matched nothing. doLoad keeps the lanes it
+   * filled last time for the first and not the second. */
+  extraFailed?: true;
 };
 type SourceBuild = {
   group: LiveGroup;
@@ -160,19 +176,47 @@ type LoadableSource = XtreamPlaylist | M3uPlaylist | StalkerPlaylist;
 const enabledSources = (): LoadableSource[] =>
   loadPlaylists().filter((p) => p.enabled);
 
-// hiddenCategories stays the LAST element of each source's entry: sameFeed
-// drops it to ask whether two keys are one account.
+/**
+ * One source's entry in the cache key: its id, what makes it this account, its
+ * hidden folders, and, only when it has them, its Advanced fields (an extra
+ * guide, a User-Agent) as one object at the end. So a playlist with neither
+ * has the entry it always had, and a disk record from before them still hits.
+ *
+ * Both are in the key because both change what a load produces: the extra
+ * guide fills lanes, and an agent is the difference between a panel's answer
+ * and its refusal. A change misses the cache and the disk record naturally,
+ * and a load started for the old one cannot land over the new one's (`isCurrent`)
+ * or be reused for it (`canReuseGuide`, which asks for the same key).
+ *
+ * The hidden folders come after what makes it this account, and the Advanced
+ * object after them: sameFeed (below) drops both to ask whether two keys are
+ * one account.
+ */
+const cacheEntry = (p: LoadableSource): unknown[] => {
+  const feed =
+    p.kind === "xtream"
+      ? [p.id, p.server, p.username, p.password]
+      : p.kind === "stalker"
+        ? [p.id, p.portal, p.mac]
+        : [p.id, p.url];
+  const guide = extraGuideUrl(p.extraGuide);
+  const agent = cleanUserAgent(p.userAgent);
+  return [...feed, p.hiddenCategories ?? [], ...(guide || agent ? [{ g: guide ?? "", u: agent ?? "" }] : [])];
+};
+
+/** An entry less what a source may differ in and still be the same account:
+ * its Advanced object if it has one, then its hidden folders. */
+const feedOf = (entry: unknown[]): unknown[] => {
+  const last = entry[entry.length - 1];
+  const bare = last !== null && typeof last === "object" && !Array.isArray(last) ? entry.slice(0, -1) : entry;
+  return bare.slice(0, -1);
+};
+
 const cacheKey = (playlists: LoadableSource[]) =>
   playlists.length === 0
     ? "mock"
     : JSON.stringify([
-        playlists.map((p) =>
-          p.kind === "xtream"
-            ? [p.id, p.server, p.username, p.password, p.hiddenCategories ?? []]
-            : p.kind === "stalker"
-              ? [p.id, p.portal, p.mac, p.hiddenCategories ?? []]
-              : [p.id, p.url, p.hiddenCategories ?? []],
-        ),
+        playlists.map(cacheEntry),
         // The adult filter changes what a load produces, so it's part of
         // the config fingerprint — flipping it misses cache + disk naturally.
         loadShowAdult(),
@@ -241,7 +285,8 @@ function sameBuild(prior: Prior, now: KeyParts | null, id: string): boolean {
 }
 
 /** Is it the same account, whatever it hides? Programmes don't depend on
- * hidden folders or the adult filter, so those may differ. Credentials, the
+ * hidden folders or the adult filter, so those may differ, and a provider's
+ * guide doesn't depend on the extra one or the agent either. Credentials, the
  * server, the portal, the URL may not: the same channel id on another feed is
  * another channel. */
 function sameFeed(prior: Prior, now: KeyParts | null, id: string): boolean {
@@ -250,7 +295,7 @@ function sameFeed(prior: Prior, now: KeyParts | null, id: string): boolean {
   return (
     !!was &&
     !!is &&
-    JSON.stringify(was.slice(0, -1)) === JSON.stringify(is.slice(0, -1))
+    JSON.stringify(feedOf(was)) === JSON.stringify(feedOf(is))
   );
 }
 
@@ -462,9 +507,17 @@ export function watchPlaylists(): () => void {
  *     config's guide and not another's;
  *  3. this source's group there has a `guideAt` younger than
  *     GUIDE_REFRESH_MS and no `error` or `epgError` (a guide that failed is
- *     retried by the next load, never pinned);
+ *     retried by the next load, never pinned). An extra guide that gave
+ *     nothing does NOT stop it: that is retried with the next refresh, not
+ *     paid for with the provider's whole guide on every launch;
  *  4. that catalog still covers now, so a guide that has run out of schedule
  *     is downloaded whatever its age.
+ *
+ * An extra guide (extraGuide.ts) is part of the guide it fills, so it is part
+ * of rule 2: its address is in the key (`cacheEntry`), and a guide built before
+ * one was set, or from another, is not this config's guide. The same goes for
+ * the hand fixes of a Stalker portal, which only an extra guide ever reads
+ * (`appliedFixKey`).
  *
  * A source with nothing to download (an M3U with no url-tvg) carries an
  * epgError, so it "downloads", which costs nothing, and it never stops
@@ -473,21 +526,34 @@ export function watchPlaylists(): () => void {
 function canReuseGuide(
   prior: Prior | null,
   key: string,
-  id: string,
+  p: LoadableSource,
   force: boolean,
   now: Date,
 ): boolean {
   if (force || !prior || prior.key !== key) return false;
-  const g = prior.data.groups.find((x) => x.id === id);
+  const g = prior.data.groups.find((x) => x.id === p.id);
+  // NOT `extraGuideError`: a broken extra address would otherwise download
+  // the provider's whole guide again on every launch (Adam's is ~95MB), to
+  // fail the same way. The extra guide is asked again with the next refresh
+  // (GUIDE_REFRESH_MS, or Refresh now); its last fills are kept meanwhile.
   if (!g || g.guideAt === undefined || g.error || g.epgError) return false;
   // A fix saved since this guide was parsed: its refresh never landed (the
   // app was closed first), so reusing it would leave the fix unapplied for up
   // to GUIDE_REFRESH_MS. Download it with the fix in the index.
-  if ((g.guideFixKey ?? "") !== fixKey(loadGuideFixes(id))) return false;
+  if ((g.guideFixKey ?? "") !== appliedFixKey(p)) return false;
   // A guide stamped in the future (the clock was set back) isn't fresh, it is
   // unknowable. Download it.
   const age = now.getTime() - g.guideAt;
   return age >= 0 && age < GUIDE_REFRESH_MS && coversNow(prior.data, now);
+}
+
+/** The hand fixes a source's guide is parsed with, as `fixKey` says them. A
+ * Stalker portal's own guide is keyed by channel and reads none; only its extra
+ * guide does, so without one the fixes it may have kept from when it had one
+ * apply to nothing and cannot keep its guide from being reused. */
+function appliedFixKey(p: LoadableSource): string {
+  if (p.kind === "stalker" && !extraGuideUrl(p.extraGuide)) return "";
+  return fixKey(loadGuideFixes(p.id));
 }
 
 async function doLoad(
@@ -525,7 +591,7 @@ async function doLoad(
     // Per source, which guides this load downloads. Decided now, from what
     // the load started from, before the builds run and anything lands.
     const reuse = playlists.map((p) =>
-      canReuseGuide(prior, key, p.id, force, now),
+      canReuseGuide(prior, key, p, force, now),
     );
     reuse.forEach((r, i) => {
       if (!r) return;
@@ -603,9 +669,16 @@ async function doLoad(
       const groups = built.map((b, i) => {
         // The channels this guide declares replace the list the source held
         // (seeded above, so a reused or failed guide keeps its old one). An
-        // empty list is a guide with no <channel> elements, not news.
+        // empty list is a guide with no <channel> elements, not news. The
+        // extra guide's follow the provider's, those it did not already name;
+        // when the provider's did not come, they follow the list held.
         const own = phases[i].guideChannels;
-        const g = own?.length ? { ...b.group, guideChannels: own } : b.group;
+        const more = phases[i].extraChannels;
+        const named = own?.length ? own : more?.length ? b.group.guideChannels : undefined;
+        const list = named || more?.length ? listBothGuides(named, more) : undefined;
+        let g = list?.length ? { ...b.group, guideChannels: list } : b.group;
+        // The extra guide's own note, beside epgError and never instead of it.
+        if (phases[i].extraGuideError) g = { ...g, extraGuideError: phases[i].extraGuideError };
         if (phases[i].epgError)
           return { ...g, epgError: phases[i].epgError };
         if (reuse[i]) {
@@ -635,10 +708,25 @@ async function doLoad(
             const kept = keep.get(c.id);
             if (kept) programmes.set(c.id, kept);
           }
-          return;
+        } else {
+          for (const [id, list] of phase.programmes)
+            programmes.set(id, normalizeProgrammes(list));
         }
-        for (const [id, list] of phase.programmes)
-          programmes.set(id, normalizeProgrammes(list));
+        // The extra guide goes in last, and only where the lane is still
+        // empty: the provider's guide, or the one carried over for it, wins.
+        fillGaps(programmes, phase.fills, normalizeProgrammes);
+        // An extra guide that could not be had keeps the lanes it filled last
+        // time, as a provider guide that could not be had keeps its own. One
+        // that came and matched nothing does not: what it filled is not true
+        // of this guide. Nor does a new address carry the old one's fills: the
+        // lanes are only kept from a load made with this very config (the
+        // seeded half-built catalog above is not one).
+        const was = prior?.key === key ? prior.data.programmes : null;
+        if (phase.extraFailed && was)
+          for (const c of built[i].channels) {
+            const kept = was.get(c.id);
+            if (kept?.length && !hasProgrammes(programmes, c.id)) programmes.set(c.id, kept);
+          }
       });
       const full: LiveData = {
         groups,
@@ -720,6 +808,67 @@ function coversNow(data: LiveData, now: Date): boolean {
  * calls that nothing can interrupt). */
 const breathe = () => new Promise<void>((r) => setTimeout(r, 0));
 
+/**
+ * The playlist's extra guide (extraGuide.ts), after the provider's guide has
+ * had its say: it fills the channels the provider's left empty, and only those.
+ *
+ * Asked about the gaps alone. The index it is parsed with holds only the
+ * channels with no programmes, matched the way the provider's guide is (the
+ * provider's own guide ids, the hand fixes in them), so the worker skips every
+ * programme for a channel already covered and keeps only what fills a lane.
+ * Downloaded after the provider's guide was parsed and its bytes let go, never
+ * beside them: two guides are not held whole at once.
+ *
+ * It never costs the provider's guide anything. A guide with no gaps downloads
+ * nothing; one that cannot be had, read, or matched to anything comes back as
+ * the provider's phase with a note of its own (`extraGuideError`) and no fills.
+ * The note says what happened and never where: the address can carry a login.
+ */
+async function addExtraGuide(a: {
+  name: string;
+  url: string;
+  agent: string | undefined;
+  now: Date;
+  phase: EpgPhase;
+  /** The ids of the channels the playlist shows. */
+  ours: readonly string[];
+  /** The provider's guide index, guide id to our channel ids, fixes applied.
+   * A function: nothing is built for a guide with no gaps. */
+  index: () => Map<string, string[]>;
+}): Promise<EpgPhase> {
+  const { phase } = a;
+  const covered = (id: string) => hasProgrammes(phase.programmes, id);
+  const empty = a.ours.filter((id) => !covered(id)).length;
+  if (empty === 0) return phase;
+  try {
+    const t0 = performance.now();
+    const gaps = gapIndex(a.index(), covered);
+    const bytes = await httpGetBytes(a.url, agentHeaders(a.agent), 180);
+    const mb = (bytes.byteLength / 1e6).toFixed(1);
+    // On the worker, as the provider's is (xmltvThread.ts).
+    const { programmes, channels } = await parseXmltvOffThread(bytes, gaps, a.now);
+    console.info(
+      `[live] ${a.name}: extra guide ${mb}MB in ${Math.round(performance.now() - t0)}ms, ` +
+        `filled ${programmes.size} of ${empty} empty channels`,
+    );
+    const extraGuideError =
+      gaps.size === 0
+        ? "none of the channels the guide left empty carries a guide id to match"
+        : programmes.size === 0
+          ? `the extra guide downloaded (${mb}MB) but matched none of the empty channels`
+          : undefined;
+    return {
+      ...phase,
+      fills: programmes,
+      extraChannels: channels,
+      ...(extraGuideError ? { extraGuideError } : {}),
+    };
+  } catch (err) {
+    console.warn(`[live] extra guide failed for "${a.name}": ${msg(err)}`);
+    return { ...phase, extraGuideError: `download failed: ${msg(err)}`, extraFailed: true };
+  }
+}
+
 async function buildXtreamSource(
   p: XtreamPlaylist,
   now: Date,
@@ -727,6 +876,9 @@ async function buildXtreamSource(
   onStage?: (label: string) => void,
 ): Promise<SourceBuild> {
   try {
+    // Its own User-Agent, if any: the data layer sends it on every call, and
+    // the extra guide's download below.
+    const agent = cleanUserAgent(p.userAgent);
     onStage?.(`Signing in to ${p.name}…`);
     await authenticate(p);
 
@@ -766,7 +918,7 @@ async function buildXtreamSource(
     // in a packaged build).
     // NOT awaited: this is the minute-long half. The channel list below
     // returns without it and doLoad merges the programmes when they land.
-    const epg = (async (): Promise<EpgPhase> => {
+    const provider = (async (): Promise<EpgPhase> => {
       // Reused: empty on purpose, and no epgError. doLoad keeps the guide.
       if (!xmlPromise) return { programmes: new Map() };
       try {
@@ -834,6 +986,25 @@ async function buildXtreamSource(
         };
       }
     })();
+    // Then the extra guide, when the playlist has one and this load is
+    // downloading guides at all.
+    const extra = extraGuideUrl(p.extraGuide);
+    const epg =
+      extra && xmlPromise
+        ? provider.then((phase) =>
+            addExtraGuide({
+              name: p.name,
+              url: extra,
+              agent,
+              now,
+              phase,
+              ours: channels.map((c) => c.id),
+              // Read when it is needed, so a fix saved while the provider's
+              // guide downloaded is in it.
+              index: () => epgIndex(streams, p, hidden, !showAdult, loadGuideFixes(p.id)),
+            }),
+          )
+        : provider;
 
     return {
       group: { id: p.id, name: p.name, folders },
@@ -886,9 +1057,11 @@ async function buildM3uSource(
   onStage?: (label: string) => void,
 ): Promise<SourceBuild> {
   try {
+    // The playlist's own User-Agent, if any, on the list and both guides.
+    const agent = cleanUserAgent(p.userAgent);
     onStage?.(`Downloading ${p.name}…`);
     const t = performance.now();
-    const text = await httpGetText(p.url);
+    const text = await httpGetText(p.url, agentHeaders(agent));
     await breathe();
     onStage?.(`Reading ${p.name}…`);
     const entries = parseM3U(text);
@@ -977,7 +1150,7 @@ async function buildM3uSource(
     // channel carries a tvg-id to match against. Reasons land on epgError
     // for Settings → Sources.
     const epgUrl = m3uEpgUrl(text);
-    const epg = (async (): Promise<EpgPhase> => {
+    const provider = (async (): Promise<EpgPhase> => {
       const none = new Map<string, Programme[]>();
       // Reused: empty on purpose, and no epgError. doLoad keeps the guide.
       if (!fetchGuide) return { programmes: none };
@@ -992,7 +1165,7 @@ async function buildM3uSource(
           epgError: "no channel carries a tvg-id to match the guide against",
         };
       try {
-        const bytes = await httpGetBytes(epgUrl, undefined, 180);
+        const bytes = await httpGetBytes(epgUrl, agentHeaders(agent), 180);
         // On a worker, as the Xtream guide is (xmltvThread.ts).
         const { programmes, channels: guideChannels } = await parseXmltvOffThread(
           bytes,
@@ -1014,6 +1187,24 @@ async function buildM3uSource(
         };
       }
     })();
+    // Then the extra guide, whether or not the playlist declared one of its
+    // own: it is the guide a playlist with none can have. Not on a load that
+    // is reusing the guide it has.
+    const extra = extraGuideUrl(p.extraGuide);
+    const epg =
+      extra && fetchGuide
+        ? provider.then((phase) =>
+            addExtraGuide({
+              name: p.name,
+              url: extra,
+              agent,
+              now,
+              phase,
+              ours: channels.map((c) => c.id),
+              index: () => epgIdx,
+            }),
+          )
+        : provider;
 
     // A kept channel whose id a visible one already holds: a lookup finds
     // the visible one first anyway, and two channels with one id would be
@@ -1046,6 +1237,12 @@ async function buildStalkerSource(
   onStage?: (label: string) => void,
 ): Promise<SourceBuild> {
   try {
+    // The extra guide, if the portal has one (Settings → Sources → Advanced).
+    // A portal's own guide is keyed by channel and needs no match; an XMLTV
+    // one is matched by the channel's xmltv_id, so the id rides the channel
+    // only when there is a guide to match it against.
+    const extra = extraGuideUrl(p.extraGuide);
+    const agent = cleanUserAgent(p.userAgent);
     onStage?.(`Signing in to ${p.name}…`);
     const genres = await fetchStalkerGenres(p);
 
@@ -1114,13 +1311,14 @@ async function buildStalkerSource(
         archiveDays: 0, // Stalker archive is its own create_link variant — with timeshift, later
         number: c.number,
         streamCmd: c.cmd,
+        ...(extra && c.xmltvId ? { epgId: c.xmltvId } : {}),
       });
     }
 
     // EPG is best-effort. The portal returns UNIX-second programmes keyed by
     // channel id; clamp to the same window parseXmltv keeps —
     // `period`'s unit is portal-dependent, so the clamp is client-side.
-    const epg = (async (): Promise<EpgPhase> => {
+    const provider = (async (): Promise<EpgPhase> => {
       const programmes = new Map<string, Programme[]>();
       // Reused: empty on purpose, and no epgError. doLoad keeps the guide.
       if (!fetchGuide) return { programmes };
@@ -1163,6 +1361,34 @@ async function buildStalkerSource(
         };
       }
     })();
+    // Then the extra guide, matched by xmltv_id and the hand fixes. The
+    // portal's own guide reads no fixes, so the stamp that keeps a guide from
+    // being reused without a later one is the extra guide's to set
+    // (`appliedFixKey`).
+    const epg =
+      extra && fetchGuide
+        ? provider.then((phase) => {
+            const fixes = loadGuideFixes(p.id);
+            return addExtraGuide({
+              name: p.name,
+              url: extra,
+              agent,
+              now,
+              phase: { ...phase, fixKey: fixKey(fixes) },
+              ours: channels.map((c) => c.id),
+              index: () => {
+                const byXmltv = new Map<string, string[]>();
+                for (const c of channels) {
+                  if (!c.epgId) continue;
+                  const list = byXmltv.get(c.epgId) ?? [];
+                  list.push(c.id);
+                  byXmltv.set(c.epgId, list);
+                }
+                return applyGuideFixes(byXmltv, fixes, new Set(channels.map((c) => c.id)));
+              },
+            });
+          })
+        : provider;
 
     return {
       group: { id: p.id, name: p.name, folders, hiddenFolders },

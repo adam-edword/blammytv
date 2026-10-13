@@ -9,6 +9,8 @@ pub mod trakt;
 pub mod mal;
 #[path = "../../../apps/app/src-tauri/src/aiojf.rs"]
 pub mod aiojf;
+#[path = "../../../apps/app/src-tauri/src/mpvagent.rs"]
+pub mod mpvagent;
 #[path = "../../../apps/app/src-tauri/src/mpvurl.rs"]
 pub mod mpvurl;
 #[path = "../../../apps/app/src-tauri/src/mvaudio.rs"]

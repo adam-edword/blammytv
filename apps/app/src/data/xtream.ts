@@ -1,4 +1,5 @@
 import { httpGetBytes, httpGetJson } from "../lib/http";
+import { agentHeaders, cleanUserAgent } from "../lib/userAgent";
 import type { XtreamPlaylist } from "../features/settings/playlists";
 
 /**
@@ -6,7 +7,13 @@ import type { XtreamPlaylist } from "../features/settings/playlists";
  * loosely typed — numbers arrive as strings and fields go missing — so the
  * raw shapes are permissive and callers normalize. All fetches ride
  * `lib/http` (Rust-side in the app: panels send no CORS headers).
+ *
+ * A playlist's own User-Agent (Settings → Sources → Advanced) rides every call
+ * here as a header. Without one the call is the one it always was.
  */
+
+/** The headers a request for this playlist adds: its User-Agent, or none. */
+const asked = (p: XtreamPlaylist) => agentHeaders(cleanUserAgent(p.userAgent));
 
 export interface XtreamCategory {
   id: string;
@@ -73,7 +80,7 @@ export function parseConnections(
 export async function fetchConnections(
   p: XtreamPlaylist,
 ): Promise<XtreamConnections | null> {
-  const auth = await httpGetJson<XtreamAuth>(playerApiUrl(p));
+  const auth = await httpGetJson<XtreamAuth>(playerApiUrl(p), asked(p));
   return parseConnections(auth?.user_info);
 }
 
@@ -110,7 +117,7 @@ function xmltvUrl(p: XtreamPlaylist): string {
 
 /** Verify the account; throws if the panel rejects the credentials. */
 export async function authenticate(p: XtreamPlaylist): Promise<void> {
-  const auth = await httpGetJson<XtreamAuth>(playerApiUrl(p));
+  const auth = await httpGetJson<XtreamAuth>(playerApiUrl(p), asked(p));
   if (auth?.user_info?.auth !== 1) {
     throw new Error(
       auth?.user_info?.message ??
@@ -129,7 +136,7 @@ export async function fetchLiveCategories(
       category_name?: string;
       is_adult?: number | string | null;
     }>
-  >(liveCategoriesUrl(p));
+  >(liveCategoriesUrl(p), asked(p));
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((c) => c.category_id != null)
@@ -143,7 +150,7 @@ export async function fetchLiveCategories(
 export async function fetchLiveStreams(
   p: XtreamPlaylist,
 ): Promise<XtreamStream[]> {
-  const raw = await httpGetJson<XtreamStream[]>(liveStreamsUrl(p));
+  const raw = await httpGetJson<XtreamStream[]>(liveStreamsUrl(p), asked(p));
   return Array.isArray(raw) ? raw.filter((s) => s.stream_id != null) : [];
 }
 
@@ -153,5 +160,5 @@ export async function fetchLiveStreams(
  * while channels worked — the Telly-loads-it-we-don't signature). */
 export function fetchXmltv(p: XtreamPlaylist): Promise<ArrayBuffer> {
   // Bytes: the guide's worker decodes them (xmltvThread.ts).
-  return httpGetBytes(xmltvUrl(p), undefined, 180);
+  return httpGetBytes(xmltvUrl(p), asked(p), 180);
 }

@@ -56,6 +56,9 @@ export interface GridStream {
   url: string | null;
   /** The lookup came back empty. */
   unresolved?: boolean;
+  /** The channel's playlist's own User-Agent, when it has one: what the
+   * tile's proxy asks the provider with (MultiviewTile). */
+  userAgent?: string;
   channel: TileChannel;
   programmes?: Programme[];
   /** A game picked as a game, as ESPN last reported it (mvGames). */
@@ -509,6 +512,7 @@ export function MultiviewGrid({
                 key={s.id}
                 url={s.url}
                 unresolved={s.unresolved}
+                userAgent={s.userAgent}
                 name={s.name}
                 channel={s.channel}
                 programmes={s.programmes}

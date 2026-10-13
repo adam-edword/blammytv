@@ -134,6 +134,7 @@ const own =
 export function MultiviewTile({
   url,
   unresolved,
+  userAgent,
   name,
   channel,
   programmes,
@@ -163,6 +164,13 @@ export function MultiviewTile({
   url: string | null;
   /** The lookup gave nothing: a channel the provider has no stream for. */
   unresolved?: boolean;
+  /** The playlist's own User-Agent, when it has one. The proxy sends it
+   * upstream, for the stream and for what the HEVC conversion is fed from.
+   * Read through a ref, as the name is: it belongs to the url, and a tile
+   * does not restart for a setting. A tile that plays the stream directly (a
+   * native build from before the proxy) cannot send it: a webview's request
+   * has no User-Agent of its own to set. */
+  userAgent?: string;
   /** What the tile is called: the game, or the channel. */
   name: string;
   /** The channel behind it, for its logo and number. */
@@ -335,6 +343,8 @@ export function MultiviewTile({
   // refusal from its own ghost connection).
   const nameRef = useRef(name);
   nameRef.current = name;
+  const agentRef = useRef(userAgent);
+  agentRef.current = userAgent;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -457,7 +467,7 @@ export function MultiviewTile({
           // before it has no such command; the tile plays it directly.
           let proxied = "";
           if (isTauri()) {
-            proxied = await tauriMvProxyOpenHls(url).catch(() => "");
+            proxied = await tauriMvProxyOpenHls(url, agentRef.current).catch(() => "");
             if (disposed) {
               if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
               return;
@@ -505,7 +515,7 @@ export function MultiviewTile({
           // Asked for HEVC conversion only when this webview can't play
           // it: with Windows' HEVC extension installed it plays as it is.
           const convertHevc = !MediaSource.isTypeSupported(HEVC_MIME);
-          proxied = await tauriMvProxyOpen(url, convertHevc).catch(() => "");
+          proxied = await tauriMvProxyOpen(url, convertHevc, agentRef.current).catch(() => "");
           if (disposed) {
             if (proxied) void tauriMvProxyClose(proxied).catch(() => {});
             return;

@@ -54,7 +54,7 @@ import {
 import { forMultiview, releaseHeader } from "./mvKeys";
 import { useConnections } from "./connections";
 import { loadPlaylists, onPlaylistsChange } from "../settings/playlists";
-import { channelStreamUrl, resolveStreamUrl } from "./stream";
+import { channelStreamUrl, resolveStreamUrl, streamUserAgent } from "./stream";
 import { useLiveData } from "./useLiveData";
 import { loadRecents, recordRecent } from "./recents";
 import { tunedChannel } from "../sports/catalog";
@@ -638,6 +638,7 @@ export function MultiviewTab() {
       name: p.label,
       url: url ?? null,
       unresolved: url === null,
+      userAgent: streamUserAgent(p.channelId),
       channel: { name: ch?.name ?? p.label, number: ch?.number, logo: ch?.logo },
       programmes: live?.programmes.get(p.channelId),
       game: p.gameId ? fixtures.get(p.gameId) : undefined,

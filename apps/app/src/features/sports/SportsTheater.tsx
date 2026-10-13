@@ -37,7 +37,7 @@ import { InvertedPlayer } from "../live/InvertedPlayer";
 import { TheaterOverlay } from "../live/TheaterOverlay";
 import { useDirectOverlay } from "../live/useDirectOverlay";
 import { setOverlayApiOverride } from "../live/overlayApi";
-import { resolveStreamUrl } from "../live/stream";
+import { resolveStreamUrl, streamUserAgent } from "../live/stream";
 import { requestAddToMultiview } from "../live/multiviewEntry";
 import { gameLabel } from "../live/mvGames";
 import { loadFavorites, toggleFavorite } from "../live/favorites";
@@ -74,6 +74,10 @@ interface Tuned {
   name: string;
   logo?: string;
   url: string;
+  /** The channel's playlist's own User-Agent, when it has one (live/stream.ts
+   * `streamUserAgent`): what mpv asks the provider with, in the player and
+   * in the pop-out. */
+  userAgent?: string;
 }
 
 /**
@@ -306,7 +310,7 @@ export function SportsTheater({
         // Checked after the await, which is the only place it means
         // anything.
         if (!url || gen !== want.current) return;
-        setTuned({ id: channel.id, name: channel.name, logo: channel.logo, url });
+        setTuned({ id: channel.id, name: channel.name, logo: channel.logo, url, userAgent: streamUserAgent(real.id) });
       },
       () => undefined,
     );
@@ -495,7 +499,7 @@ export function SportsTheater({
       // side falls back to its duration heuristic, which a real provider was
       // measured to fail, and the PiP opens at a resume point on a live
       // stream. See tauriPopoutOpen.
-      void tauriPopoutOpen(t.url, true).catch(() => {});
+      void tauriPopoutOpen(t.url, true, undefined, t.userAgent).catch(() => {});
       stop();
     },
     // Watch in multi-view (plan 017, P6b): this game, on the channel it is
@@ -865,6 +869,7 @@ export function SportsTheater({
         <InvertedPlayer
           url={tuned.url}
           live
+          userAgent={tuned.userAgent}
           squared={fullscreen}
           radius={SLOT_RADIUS}
           ready={videoReady}

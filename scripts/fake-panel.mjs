@@ -286,6 +286,22 @@ const FIXEV_GUIDE = [
   ["nfhs01.guide", "NFHS Network 01: Brewster Academy Girls Lacrosse @ 12 Oct 07:00 PM ET", "NFHS One Hour"],
 ];
 
+// username "extra": a line whose provider guide leaves two channels empty,
+// what verify-guide-extra fills from a second guide (plan 025, P5). "Covered"
+// has programmes in the provider's guide; "Gap Filled" and "Gap Empty" have
+// none. /extra.xml is the second guide: it covers the first gap, and also
+// "Covered", with other titles, which must NOT replace the provider's.
+const EXTRA = [
+  { num: 1, name: "Extra Covered", stream_type: "live", stream_id: 9001, stream_icon: null, epg_channel_id: "cov.fake", category_id: "1" },
+  { num: 2, name: "Extra Gap Filled", stream_type: "live", stream_id: 9002, stream_icon: null, epg_channel_id: "gap1.fake", category_id: "1" },
+  { num: 3, name: "Extra Gap Empty", stream_type: "live", stream_id: 9003, stream_icon: null, epg_channel_id: "gap2.fake", category_id: "1" },
+];
+const EXTRA_PROVIDER_GUIDE = [["cov.fake", "Covered", "Provider Hour"]];
+const EXTRA_SECOND_GUIDE = [
+  ["gap1.fake", "Gap One", "Extra Hour"],
+  ["cov.fake", "Covered", "Extra Cov Hour"],
+];
+
 function fixXmltv(guide = FIX_GUIDE) {
   const now = Number(process.env.FAKE_NOW) || Date.now();
   const HOUR = 3600_000;
@@ -305,12 +321,30 @@ function fixXmltv(guide = FIX_GUIDE) {
   );
 }
 
-const LINES = { dups: DUPS, pins: PINS, fix: FIX, fixev: FIXEV };
+const LINES = { dups: DUPS, pins: PINS, fix: FIX, fixev: FIXEV, extra: EXTRA };
+
+// Every request the panel has answered, with the User-Agent it came with, so a
+// harness can say what was asked and as whom (verify-guide-extra). Read at
+// /__log and emptied by /__log?clear=1; nothing else looks at it.
+const LOG = [];
 
 http
   .createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     res.setHeader("Access-Control-Allow-Origin", "*");
+    if (url.pathname === "/__log") {
+      res.setHeader("Content-Type", "application/json");
+      const body = JSON.stringify(LOG);
+      if (url.searchParams.get("clear")) LOG.length = 0;
+      return res.end(body);
+    }
+    LOG.push({
+      path: url.pathname,
+      action: url.searchParams.get("action"),
+      user: url.searchParams.get("username"),
+      ua: req.headers["user-agent"] ?? null,
+    });
+    if (LOG.length > 4000) LOG.shift();
     if (url.pathname === "/player_api.php") {
       const action = url.searchParams.get("action");
       res.setHeader("Content-Type", "application/json");
@@ -342,8 +376,24 @@ http
       res.setHeader("Content-Type", "application/xml");
       const user = url.searchParams.get("username");
       return res.end(
-        user === "pins" ? pinsXmltv() : user === "fix" ? fixXmltv() : user === "fixev" ? fixXmltv(FIXEV_GUIDE) : xmltv(),
+        user === "pins"
+          ? pinsXmltv()
+          : user === "fix"
+            ? fixXmltv()
+            : user === "fixev"
+              ? fixXmltv(FIXEV_GUIDE)
+              : user === "extra"
+                ? fixXmltv(EXTRA_PROVIDER_GUIDE)
+                : xmltv(),
       );
+    }
+    if (url.pathname === "/extra.xml") {
+      res.setHeader("Content-Type", "application/xml");
+      return res.end(fixXmltv(EXTRA_SECOND_GUIDE));
+    }
+    if (url.pathname === "/extra-broken.xml") {
+      res.statusCode = 500;
+      return res.end("the second guide is down");
     }
     if (url.pathname === "/logo.png") {
       res.setHeader("Content-Type", "image/png");

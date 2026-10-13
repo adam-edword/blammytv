@@ -26,10 +26,12 @@ use std::time::{Duration, Instant};
 /// take to arrive, not how long anyone waits on it.
 pub const PROBE_WAIT: Duration = Duration::from_secs(5);
 
-/// The load the in-app player was last asked for: when, and which address.
+/// The load the in-app player was last asked for: when, which address, and the
+/// User-Agent it was asked with, if the playlist has one of its own.
 pub struct Loaded {
     at: Instant,
     url: String,
+    agent: Option<String>,
 }
 
 impl Loaded {
@@ -37,7 +39,16 @@ impl Loaded {
         Self {
             at,
             url: url.to_string(),
+            agent: None,
         }
+    }
+
+    /// The same, opened with this User-Agent (mpvagent.rs): what the probe asks
+    /// with, since a provider that refuses the wrong agent refuses it for the
+    /// probe as it did for mpv.
+    pub fn with_agent(mut self, agent: Option<String>) -> Self {
+        self.agent = agent;
+        self
     }
 
     /// Whole milliseconds from the load to `now`. Never negative: an `at`
@@ -48,6 +59,10 @@ impl Loaded {
 
     pub fn url(&self) -> &str {
         &self.url
+    }
+
+    pub fn agent(&self) -> Option<&str> {
+        self.agent.as_deref()
     }
 }
 
@@ -128,13 +143,22 @@ pub fn failure_kind(e: &reqwest::Error) -> &'static str {
 /// whole film is dropped as soon as its headers are in. `client` is the app's
 /// shared one, so the request goes out the way `http_get`'s do, over the same
 /// TLS stack.
-pub async fn probe(client: &reqwest::Client, url: &str, wait: Duration) -> Answer {
-    let sent = client
-        .get(url)
-        .header(reqwest::header::RANGE, "bytes=0-0")
-        .timeout(wait)
-        .send()
-        .await;
+///
+/// `user_agent` is the playlist's own, when it has one: sent over the client's,
+/// which `.header` replaces (the way `http_get` merges its headers). Without
+/// one the request is the one it always was. The tests drive `probe`, which is
+/// this with none.
+pub async fn probe_as(
+    client: &reqwest::Client,
+    url: &str,
+    wait: Duration,
+    user_agent: Option<&str>,
+) -> Answer {
+    let mut get = client.get(url).header(reqwest::header::RANGE, "bytes=0-0");
+    if let Some(agent) = crate::mpvagent::header_value(user_agent) {
+        get = get.header(reqwest::header::USER_AGENT, agent);
+    }
+    let sent = get.timeout(wait).send().await;
     match sent {
         Ok(res) => answered(
             res.status().as_u16(),
@@ -144,6 +168,12 @@ pub async fn probe(client: &reqwest::Client, url: &str, wait: Duration) -> Answe
         ),
         Err(e) => failed(failure_kind(&e)),
     }
+}
+
+/// `probe_as` with no agent of its own, which is what the tests below drive.
+#[cfg(test)]
+pub async fn probe(client: &reqwest::Client, url: &str, wait: Duration) -> Answer {
+    probe_as(client, url, wait, None).await
 }
 
 #[cfg(test)]
@@ -346,6 +376,92 @@ mod tests {
                     "no one-byte range: {h}"
                 );
             }
+        });
+    }
+
+    const AGENT: &str = "TestApp/9.1 (Provider Check)";
+
+    /// The User-Agent line of a request head, lower-cased name and all.
+    fn agent_of(head: &str) -> Option<String> {
+        head.lines().find_map(|l| {
+            let (k, v) = l.split_once(':')?;
+            k.eq_ignore_ascii_case("user-agent")
+                .then(|| v.trim().to_string())
+        })
+    }
+
+    #[test]
+    fn the_stamp_keeps_the_agent_the_file_was_opened_with_and_none_by_default() {
+        let at = Instant::now();
+        assert_eq!(Loaded::new("http://host/x", at).agent(), None);
+        let l = Loaded::new("http://host/x", at).with_agent(Some(AGENT.to_string()));
+        assert_eq!(l.agent(), Some(AGENT));
+        assert_eq!(l.url(), "http://host/x");
+        assert_eq!(l.since_ms(at), 0);
+        assert_eq!(
+            Loaded::new("http://host/x", at).with_agent(None).agent(),
+            None
+        );
+    }
+
+    #[test]
+    fn it_asks_with_the_playlists_own_agent_when_it_has_one() {
+        run(async {
+            let fake = Fake::start().await;
+            // A client with an agent of its own, as the app's shared one has.
+            let app = reqwest::Client::builder()
+                .user_agent("Browser/126")
+                .build()
+                .unwrap();
+            let a = probe_as(&app, &fake.url("/403"), Duration::from_secs(5), Some(AGENT)).await;
+            assert_eq!(a.status, Some(403));
+            let b = probe_as(&app, &fake.url("/403"), Duration::from_secs(5), None).await;
+            assert_eq!(b.status, Some(403));
+            let c = probe_as(&app, &fake.url("/403"), Duration::from_secs(5), Some("  ")).await;
+            assert_eq!(c.status, Some(403));
+            let heads = fake.heads.lock().unwrap();
+            // The playlist's agent replaces the client's; without one, or with
+            // a blank, the client's own goes, as it always did.
+            assert_eq!(agent_of(&heads[0]).as_deref(), Some(AGENT), "{}", heads[0]);
+            assert_eq!(
+                agent_of(&heads[1]).as_deref(),
+                Some("Browser/126"),
+                "{}",
+                heads[1]
+            );
+            assert_eq!(
+                agent_of(&heads[2]).as_deref(),
+                Some("Browser/126"),
+                "{}",
+                heads[2]
+            );
+            // The one-byte range still rides with it.
+            assert!(
+                heads[0]
+                    .to_ascii_lowercase()
+                    .contains("range: bytes=0-0\r\n"),
+                "{}",
+                heads[0]
+            );
+        });
+    }
+
+    #[test]
+    fn the_agent_is_not_in_the_answer() {
+        run(async {
+            let fake = Fake::start().await;
+            let a = probe_as(
+                &client(),
+                &fake.url("/403"),
+                Duration::from_secs(5),
+                Some(AGENT),
+            )
+            .await;
+            let wire = serde_json::to_string(&a).unwrap();
+            assert!(
+                !wire.contains("TestApp") && !wire.contains("Provider"),
+                "{wire}"
+            );
         });
     }
 

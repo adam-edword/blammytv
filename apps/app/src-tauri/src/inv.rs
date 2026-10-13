@@ -36,9 +36,12 @@ pub fn open(
     start: Option<f64>,
     // A live channel: opens with subtitles off (mpv::reset_per_file).
     live: Option<bool>,
+    // The playlist's own User-Agent for this stream, if it has one
+    // (mpvagent.rs); None is mpv's own.
+    user_agent: Option<&str>,
 ) -> Result<(), String> {
     let child = ensure_child(parent, x, y, w, h)?;
-    if let Err(e) = crate::mpv::play_wid(url, child, start, live) {
+    if let Err(e) = crate::mpv::play_wid(url, child, start, live, user_agent) {
         // Leave the window in place — it is the mpv instance's permanent
         // render target now. Just make sure nothing is holding a stream.
         crate::mpv::unload();

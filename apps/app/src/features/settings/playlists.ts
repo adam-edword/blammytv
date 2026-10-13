@@ -1,4 +1,5 @@
 import { hasId, loadList, save } from "../../lib/storage";
+import { USER_AGENT_MAX, userAgentOk } from "../../lib/userAgent";
 import { keepGuideFixesFor } from "../live/guideFix";
 
 /**
@@ -21,6 +22,15 @@ interface PlaylistBase {
    * sidebar. Absent (older saves) means nothing hidden; unknown ids are
    * ignored, so folders new on the provider side default to visible. */
   hiddenCategories?: string[];
+  /** An XMLTV address that fills the channels the provider's own guide leaves
+   * empty (Settings → Sources → a playlist → Advanced). The provider's guide
+   * wins wherever it has programmes. Absent (older saves, and most playlists)
+   * means no extra guide; nothing migrates. */
+  extraGuide?: string;
+  /** The User-Agent every request for this playlist's URLs sends: its channel
+   * list, both guides and the stream. Absent means the app's own. On a Stalker
+   * portal it replaces the MAG box's, whose other headers stay. */
+  userAgent?: string;
 }
 
 export interface XtreamPlaylist extends PlaylistBase {
@@ -260,6 +270,63 @@ export function setHiddenCategories(
   return list.map((p) =>
     p.id === playlistId ? { ...p, hiddenCategories: [...hiddenIds] } : p,
   );
+}
+
+/** What the Advanced form holds, as the text in its two fields. */
+export interface AdvancedForm {
+  extraGuide: string;
+  userAgent: string;
+}
+
+/** A saved field as text. A save that is damaged, or made by hand, is not
+ * allowed to throw on the way to a form. */
+const text = (v: unknown): string => (typeof v === "string" ? v : "");
+
+/** The form for a playlist: what it has, or nothing. */
+export function advancedOf(p: Playlist): AdvancedForm {
+  return { extraGuide: text(p.extraGuide), userAgent: text(p.userAgent) };
+}
+
+/** Whether Advanced has anything in it, which is when its disclosure opens by
+ * itself. */
+export function hasAdvanced(p: Playlist): boolean {
+  return text(p.extraGuide).trim() !== "" || text(p.userAgent).trim() !== "";
+}
+
+/** What is wrong with the form, in the app's words, per field. Empty is
+ * fine: it is how a field is cleared. */
+export interface AdvancedProblems {
+  extraGuide?: string;
+  userAgent?: string;
+}
+
+export function advancedProblems(f: AdvancedForm): AdvancedProblems {
+  const out: AdvancedProblems = {};
+  const guide = f.extraGuide.trim();
+  if (guide && !isHttpUrl(guide)) out.extraGuide = "That needs to start with http:// or https://.";
+  if (!userAgentOk(f.userAgent))
+    out.userAgent =
+      f.userAgent.trim().length > USER_AGENT_MAX
+        ? `That is over ${USER_AGENT_MAX} characters.`
+        : "Plain letters, numbers and punctuation only.";
+  return out;
+}
+
+/** Set one playlist's Advanced fields. A field left blank is taken off the
+ * playlist rather than saved empty, so clearing both leaves it as it was
+ * before it had them. */
+export function setPlaylistAdvanced(list: Playlist[], playlistId: string, f: AdvancedForm): Playlist[] {
+  const guide = f.extraGuide.trim();
+  const agent = f.userAgent.trim();
+  return list.map((p) => {
+    if (p.id !== playlistId) return p;
+    const next: Playlist = { ...p };
+    delete next.extraGuide;
+    delete next.userAgent;
+    if (guide) next.extraGuide = guide;
+    if (agent) next.userAgent = agent;
+    return next;
+  });
 }
 
 export function isHttpUrl(value: string): boolean {
