@@ -1,0 +1,1640 @@
+{
+ "_about": "Captured from a real Jellyfin 12.2.0 (adam, 2026-10-14, scripts/jf-probe.mjs). Records are the server answers. DERIVED, not captured: the movie (a slim record, no MediaSources) and its PlaybackInfo, which scripts/fake-jellyfin.mjs builds from the episode shape. Tokens are never stored here.",
+ "serverId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+ "info": {
+  "LocalAddress": "http://127.0.0.1:8096",
+  "ServerName": "EDDPC",
+  "Version": "12.2.0",
+  "ProductName": "Jellyfin Server",
+  "OperatingSystem": "",
+  "Id": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+  "StartupWizardCompleted": true
+ },
+ "user": {
+  "Name": "edd",
+  "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+  "Id": "f59a39ea66ed4c5f9d5ed26a313553bb",
+  "HasPassword": true,
+  "HasConfiguredPassword": true,
+  "HasConfiguredEasyPassword": false,
+  "EnableAutoLogin": false,
+  "LastLoginDate": "2026-10-14T17:09:12.0211623Z",
+  "LastActivityDate": "2026-10-14T17:09:12.0211623Z",
+  "Configuration": {
+   "PlayDefaultAudioTrack": true,
+   "SubtitleLanguagePreference": "",
+   "DisplayMissingEpisodes": false,
+   "GroupedFolders": [],
+   "SubtitleMode": "Default",
+   "DisplayCollectionsView": false,
+   "EnableLocalPassword": false,
+   "OrderedViews": [],
+   "LatestItemsExcludes": [],
+   "MyMediaExcludes": [],
+   "HidePlayedInLatest": true,
+   "RememberAudioSelections": true,
+   "RememberSubtitleSelections": true,
+   "EnableNextEpisodeAutoPlay": true,
+   "CastReceiverId": "F007D354"
+  },
+  "Policy": {
+   "IsAdministrator": true,
+   "IsHidden": true,
+   "EnableCollectionManagement": false,
+   "EnableSubtitleManagement": false,
+   "EnableLyricManagement": false,
+   "IsDisabled": false,
+   "BlockedTags": [],
+   "AllowedTags": [],
+   "EnableUserPreferenceAccess": true,
+   "AccessSchedules": [],
+   "BlockUnratedItems": [],
+   "EnableRemoteControlOfOtherUsers": true,
+   "EnableSharedDeviceControl": true,
+   "EnableRemoteAccess": true,
+   "EnableLiveTvManagement": false,
+   "EnableLiveTvAccess": true,
+   "EnableMediaPlayback": true,
+   "EnableAudioPlaybackTranscoding": true,
+   "EnableVideoPlaybackTranscoding": true,
+   "EnablePlaybackRemuxing": true,
+   "ForceRemoteSourceTranscoding": false,
+   "EnableContentDeletion": true,
+   "EnableContentDeletionFromFolders": [],
+   "EnableContentDownloading": true,
+   "EnableSyncTranscoding": true,
+   "EnableMediaConversion": true,
+   "EnabledDevices": [],
+   "EnableAllDevices": true,
+   "EnabledChannels": [],
+   "EnableAllChannels": true,
+   "EnabledFolders": [],
+   "EnableAllFolders": true,
+   "InvalidLoginAttemptCount": 1,
+   "LoginAttemptsBeforeLockout": -1,
+   "MaxActiveSessions": 0,
+   "EnablePublicSharing": true,
+   "BlockedMediaFolders": [],
+   "BlockedChannels": [],
+   "RemoteClientBitrateLimit": 0,
+   "AuthenticationProviderId": "Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider",
+   "PasswordResetProviderId": "Jellyfin.Server.Implementations.Users.DefaultPasswordResetProvider",
+   "SyncPlayAccess": "CreateAndJoinGroups"
+  }
+ },
+ "session": {
+  "PlayState": {
+   "CanSeek": false,
+   "IsPaused": false,
+   "IsMuted": false,
+   "RepeatMode": "RepeatNone",
+   "PlaybackOrder": "Default"
+  },
+  "AdditionalUsers": [],
+  "Capabilities": {
+   "PlayableMediaTypes": [],
+   "SupportedCommands": [],
+   "SupportsMediaControl": false,
+   "SupportsPersistentIdentifier": true
+  },
+  "RemoteEndPoint": "127.0.0.1",
+  "PlayableMediaTypes": [],
+  "Id": "65da22305da20a9052fd528744ee445c",
+  "UserId": "f59a39ea66ed4c5f9d5ed26a313553bb",
+  "UserName": "edd",
+  "Client": "BlammyTV",
+  "LastActivityDate": "2026-10-14T17:09:12.0242013Z",
+  "LastPlaybackCheckIn": "0001-01-01T00:00:00.0000000Z",
+  "DeviceName": "PC",
+  "DeviceId": "blammytv-probe",
+  "ApplicationVersion": "0.0.0",
+  "IsActive": true,
+  "SupportsMediaControl": false,
+  "SupportsRemoteControl": false,
+  "NowPlayingQueue": [],
+  "HasCustomDeviceName": false,
+  "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+  "SupportedCommands": []
+ },
+ "views": [
+  {
+   "Name": "Movies",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "f137a2dd21bbc1b99aa5c0f6bf02a805",
+   "Etag": "3a9f0ed65ef04a9b184eec3830623538",
+   "DateCreated": "2026-10-14T16:40:45.9208457Z",
+   "DateLastMediaAdded": "0001-01-01T00:00:00.0000000Z",
+   "CanDelete": false,
+   "CanDownload": false,
+   "SortName": "movies",
+   "ExternalUrls": [],
+   "Path": "C:\\ProgramData\\Jellyfin\\Server\\root\\default\\Movies",
+   "EnableMediaSourceDisplay": true,
+   "ChannelId": null,
+   "Taglines": [],
+   "Genres": [],
+   "PlayAccess": "Full",
+   "RemoteTrailers": [],
+   "ProviderIds": {},
+   "IsFolder": true,
+   "ParentId": "e9d5075a555c1cbc394eec4cef295274",
+   "Type": "CollectionFolder",
+   "People": [],
+   "Studios": [],
+   "GenreItems": [],
+   "LocalTrailerCount": 0,
+   "UserData": {
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": false,
+    "Key": "f137a2dd-21bb-c1b9-9aa5-c0f6bf02a805",
+    "ItemId": "f137a2dd21bbc1b99aa5c0f6bf02a805"
+   },
+   "ChildCount": 3,
+   "SpecialFeatureCount": 0,
+   "DisplayPreferencesId": "f137a2dd21bbc1b99aa5c0f6bf02a805",
+   "Tags": [],
+   "PrimaryImageAspectRatio": 1.7777777777777777,
+   "CollectionType": "movies",
+   "ImageTags": {
+    "Primary": "0ef689409e802cd775bbca876526fd16"
+   },
+   "BackdropImageTags": [],
+   "ImageBlurHashes": {
+    "Primary": {
+     "0ef689409e802cd775bbca876526fd16": "W7Fhtkt6I8R*aMt5z:rqbuxWkWaf0KR6?cbcIUkCtgsTs=xZodWB"
+    }
+   },
+   "Chapters": [],
+   "LocationType": "FileSystem",
+   "MediaType": "Unknown",
+   "LockedFields": [],
+   "LockData": false
+  },
+  {
+   "Name": "Shows",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "a656b907eb3a73532e40e44b968d0225",
+   "Etag": "2f8bcddda4fcd3f6c1e3a5c1fb38b17e",
+   "DateCreated": "2026-10-14T16:44:44.1703132Z",
+   "DateLastMediaAdded": "0001-01-01T00:00:00.0000000Z",
+   "CanDelete": false,
+   "CanDownload": false,
+   "SortName": "shows",
+   "ExternalUrls": [],
+   "Path": "C:\\ProgramData\\Jellyfin\\Server\\root\\default\\Shows",
+   "EnableMediaSourceDisplay": true,
+   "ChannelId": null,
+   "Taglines": [],
+   "Genres": [],
+   "PlayAccess": "Full",
+   "RemoteTrailers": [],
+   "ProviderIds": {},
+   "IsFolder": true,
+   "ParentId": "e9d5075a555c1cbc394eec4cef295274",
+   "Type": "CollectionFolder",
+   "People": [],
+   "Studios": [],
+   "GenreItems": [],
+   "LocalTrailerCount": 0,
+   "UserData": {
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": false,
+    "Key": "a656b907-eb3a-7353-2e40-e44b968d0225",
+    "ItemId": "a656b907eb3a73532e40e44b968d0225"
+   },
+   "ChildCount": 3,
+   "SpecialFeatureCount": 0,
+   "DisplayPreferencesId": "a656b907eb3a73532e40e44b968d0225",
+   "Tags": [],
+   "CollectionType": "tvshows",
+   "ImageTags": {},
+   "BackdropImageTags": [],
+   "ImageBlurHashes": {},
+   "Chapters": [],
+   "LocationType": "FileSystem",
+   "MediaType": "Unknown",
+   "LockedFields": [],
+   "LockData": false
+  }
+ ],
+ "junk": [
+  {
+   "Name": "10",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "2b5b054a416c4cf3f6457f7dc391548b",
+   "DateCreated": "2026-10-14T16:40:58.2150451Z",
+   "Path": "C:\\Users\\edd\\Desktop\\ConvergenceER\\mod\\sd\\wem\\10",
+   "ChannelId": null,
+   "Genres": [],
+   "ProviderIds": {},
+   "IsFolder": true,
+   "Type": "Folder",
+   "GenreItems": [],
+   "UserData": {
+    "UnplayedItemCount": 0,
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": true,
+    "Key": "2b5b054a-416c-4cf3-f645-7f7dc391548b",
+    "ItemId": "2b5b054a416c4cf3f6457f7dc391548b"
+   },
+   "ImageTags": {},
+   "BackdropImageTags": [],
+   "ImageBlurHashes": {},
+   "LocationType": "FileSystem",
+   "MediaType": "Unknown"
+  },
+  {
+   "Name": "14",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "15c28783330b533de5141c463fa317e6",
+   "DateCreated": "2026-10-14T16:40:58.2155133Z",
+   "Path": "C:\\Users\\edd\\Desktop\\ConvergenceER\\mod\\sd\\wem\\14",
+   "ChannelId": null,
+   "Genres": [],
+   "ProviderIds": {},
+   "IsFolder": true,
+   "Type": "Folder",
+   "GenreItems": [],
+   "UserData": {
+    "UnplayedItemCount": 0,
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": true,
+    "Key": "15c28783-330b-533d-e514-1c463fa317e6",
+    "ItemId": "15c28783330b533de5141c463fa317e6"
+   },
+   "ImageTags": {},
+   "BackdropImageTags": [],
+   "ImageBlurHashes": {},
+   "LocationType": "FileSystem",
+   "MediaType": "Unknown"
+  },
+  {
+   "Name": "15",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "d0f1539ae8433f3b4d0196e7f928ac2a",
+   "DateCreated": "2026-10-14T16:40:58.2162479Z",
+   "Path": "C:\\Users\\edd\\Desktop\\ConvergenceER\\mod\\sd\\wem\\15",
+   "ChannelId": null,
+   "Genres": [],
+   "ProviderIds": {},
+   "IsFolder": true,
+   "Type": "Folder",
+   "GenreItems": [],
+   "UserData": {
+    "UnplayedItemCount": 0,
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": true,
+    "Key": "d0f1539a-e843-3f3b-4d01-96e7f928ac2a",
+    "ItemId": "d0f1539ae8433f3b4d0196e7f928ac2a"
+   },
+   "ImageTags": {},
+   "BackdropImageTags": [],
+   "ImageBlurHashes": {},
+   "LocationType": "FileSystem",
+   "MediaType": "Unknown"
+  }
+ ],
+ "items": {
+  "782eb5c2b9d3056d7407645c78e5662f": {
+   "Name": "Severance",
+   "OriginalTitle": "Severance",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "782eb5c2b9d3056d7407645c78e5662f",
+   "Etag": "589bf595c17b61b73787af4cfc8c0db2",
+   "DateCreated": "2026-10-14T16:47:03.9893592Z",
+   "DateLastMediaAdded": "2026-10-14T16:46:32.7631822Z",
+   "CanDelete": true,
+   "CanDownload": false,
+   "SortName": "severance",
+   "PremiereDate": "2022-02-17T06:00:00.0000000Z",
+   "ExternalUrls": [
+    {
+     "Name": "IMDb",
+     "Url": "https://www.imdb.com/title/tt11280740"
+    },
+    {
+     "Name": "TMDB",
+     "Url": "https://www.themoviedb.org/tv/95396"
+    }
+   ],
+   "Path": "C:\\jf-test\\shows\\Severance (2022)",
+   "EnableMediaSourceDisplay": true,
+   "OfficialRating": "TV-MA",
+   "ChannelId": null,
+   "Overview": "Mark leads a team of office workers whose memories have been surgically divided between their work and personal lives. When a mysterious colleague appears outside of work, it begins a journey to discover the truth about their jobs.",
+   "Taglines": [],
+   "Genres": [
+    "Drama",
+    "Mystery",
+    "Sci-Fi & Fantasy"
+   ],
+   "CommunityRating": 8.394,
+   "CumulativeRunTimeTicks": 0,
+   "RunTimeTicks": 0,
+   "PlayAccess": "Full",
+   "ProductionYear": 2022,
+   "RemoteTrailers": [
+    {
+     "Url": "https://www.youtube.com/watch?v=xEQP4VVuyrY",
+     "Name": "Official Trailer"
+    },
+    {
+     "Url": "https://www.youtube.com/watch?v=dTqlZkvbNVg",
+     "Name": "Official Teaser"
+    }
+   ],
+   "ProviderIds": {
+    "Imdb": "tt11280740",
+    "Tmdb": "95396",
+    "Tvdb": "371980"
+   },
+   "IsFolder": true,
+   "ParentId": "19726e81431c334e9f9d89ef777711eb",
+   "Type": "Series",
+   "People": [
+    {
+     "Name": "Adam Scott",
+     "Id": "4f68f02ab5f5160c0a5c98b61d8c2897",
+     "Role": "Mark Scout",
+     "Type": "Actor",
+     "PrimaryImageTag": "024c0c015da65f77288bc5abc9a3ba36",
+     "ImageBlurHashes": {
+      "Primary": {
+       "024c0c015da65f77288bc5abc9a3ba36": "dVG]BSNdAC_MpHw{M{NG9FW=$%RPO?tR.7oyNGsooMWB"
+      }
+     }
+    },
+    {
+     "Name": "Britt Lower",
+     "Id": "b9e412c2dc17d55fcbc6c0877376e6a0",
+     "Role": "Helly Riggs",
+     "Type": "Actor",
+     "PrimaryImageTag": "c15050f3cf2ee0ccd64953d9e7ca7d4d",
+     "ImageBlurHashes": {
+      "Primary": {
+       "c15050f3cf2ee0ccd64953d9e7ca7d4d": "dcHU|Foy%z?a~pofx]xtIoofr?M{%foyWBbH?bjZRkt7"
+      }
+     }
+    },
+    {
+     "Name": "Tramell Tillman",
+     "Id": "a6f07b7712cb0f08da1af2edd42e6a8b",
+     "Role": "Seth Milchick",
+     "Type": "Actor",
+     "PrimaryImageTag": "afc5fc9eb07814d2a6e0b5a63175d719",
+     "ImageBlurHashes": {
+      "Primary": {
+       "afc5fc9eb07814d2a6e0b5a63175d719": "dpJaZeae?w%g~Ws:x^t8IoofV@Rjg4Rjxaof%Mof%2tR"
+      }
+     }
+    },
+    {
+     "Name": "Zach Cherry",
+     "Id": "019d7881764b94b1d833463fe0d8bf46",
+     "Role": "Dylan George",
+     "Type": "Actor",
+     "PrimaryImageTag": "9de32099008601f2fa0173e04fa99773",
+     "ImageBlurHashes": {
+      "Primary": {
+       "9de32099008601f2fa0173e04fa99773": "deGIit$*Mzt7@XsAMyi_PCX8smbIE2ad%Lofm+j[smjZ"
+      }
+     }
+    },
+    {
+     "Name": "Patricia Arquette",
+     "Id": "8fa306fe0ad73a8c60cca56a7b8dc68b",
+     "Role": "Harmony Cobel",
+     "Type": "Actor",
+     "PrimaryImageTag": "97f63029ce4c1790f84caf24b407d934",
+     "ImageBlurHashes": {
+      "Primary": {
+       "97f63029ce4c1790f84caf24b407d934": "dVF}K5Io0#=|XTs,NIkCNbbbRkNHofofs:WCNeWVs.WV"
+      }
+     }
+    },
+    {
+     "Name": "Jen Tullock",
+     "Id": "962751e1747c9f14040c65346af2f442",
+     "Role": "Devon Scout-Hale",
+     "Type": "Actor",
+     "PrimaryImageTag": "ee6da2454c13c9f7ae330af9d4659b81",
+     "ImageBlurHashes": {
+      "Primary": {
+       "ee6da2454c13c9f7ae330af9d4659b81": "dXHK93s:0ys,ELof%1WBI:R*$*of9bWBbbofofWU$*xZ"
+      }
+     }
+    },
+    {
+     "Name": "Michael Chernus",
+     "Id": "10d4ac8190c469866feafac2795c5711",
+     "Role": "Ricken Hale",
+     "Type": "Actor",
+     "PrimaryImageTag": "d6769382123266c5fb4bb814622c15fc",
+     "ImageBlurHashes": {
+      "Primary": {
+       "d6769382123266c5fb4bb814622c15fc": "dcJ7j-x]Eixu~qxayDxu.9bb$*oLpIof%1t7tSt7t6of"
+      }
+     }
+    },
+    {
+     "Name": "Dichen Lachman",
+     "Id": "c62770fbfcc994dc7ed0beb86c85e407",
+     "Role": "Ms. Casey",
+     "Type": "Actor",
+     "PrimaryImageTag": "8c0fa568eccfae5eecae03bbf281b2fd",
+     "ImageBlurHashes": {
+      "Primary": {
+       "8c0fa568eccfae5eecae03bbf281b2fd": "dOH-Dd~BAJI=KnX9%No#.AR*%N%Mp1Wp%2t8J;WCxZt8"
+      }
+     }
+    },
+    {
+     "Name": "Sarah Bock",
+     "Id": "5caf74bcd4d6d2d1cebfbd1bf917b71e",
+     "Role": "Eustice Huang",
+     "Type": "Actor",
+     "PrimaryImageTag": "52921bb8e0d5d26d586bc3d609af03bf",
+     "ImageBlurHashes": {
+      "Primary": {
+       "52921bb8e0d5d26d586bc3d609af03bf": "dOMF:lkD0_f#?W?H^*%1_2Iqs;%2xst7xbWCxVxtxukB"
+      }
+     }
+    },
+    {
+     "Name": "John Turturro",
+     "Id": "b79193ec51d23f93cdf57faa44e30b93",
+     "Role": "Irving Bailiff",
+     "Type": "Actor",
+     "PrimaryImageTag": "05af70c5786321e7843e6ad26f41e1f4",
+     "ImageBlurHashes": {
+      "Primary": {
+       "05af70c5786321e7843e6ad26f41e1f4": "dzK-IHoL.8-;~qj?xvt7R*j[RiRj%gofjFt7%goft7t7"
+      }
+     }
+    },
+    {
+     "Name": "Christopher Walken",
+     "Id": "b187ccf4a2ea0aaf6b35bc44fa247433",
+     "Role": "Burt Goodman",
+     "Type": "Actor",
+     "PrimaryImageTag": "b4558e5e462403be922e3fba73526982",
+     "ImageBlurHashes": {
+      "Primary": {
+       "b4558e5e462403be922e3fba73526982": "dQCP3F=|0z57?HxaIpNG9uNG-V%2E2NG$*xaR*WCs.of"
+      }
+     }
+    },
+    {
+     "Name": "Jeff McCarthy",
+     "Id": "14b8700f3ccae988d6f0c43a6eac6cf1",
+     "Role": "Nature Documentary Voice (voice)",
+     "Type": "Actor",
+     "PrimaryImageTag": "15d631f7d2344c923f583d163aea9b2c",
+     "ImageBlurHashes": {
+      "Primary": {
+       "15d631f7d2344c923f583d163aea9b2c": "dQHU35xb0|tl~X%2baNw9[og$jWAozS4RislSgt8s.jY"
+      }
+     }
+    },
+    {
+     "Name": "Hudson Flynn",
+     "Id": "0412331315807a4be17bee6af510bff0",
+     "Role": "WMC Activist 1",
+     "Type": "Actor",
+     "ImageBlurHashes": {
+      "Primary": {}
+     }
+    },
+    {
+     "Name": "Ruby Stevens",
+     "Id": "add44bfd81864ac1f4aafd7cf67ca33c",
+     "Role": "WMC Activist 2",
+     "Type": "Actor",
+     "ImageBlurHashes": {
+      "Primary": {}
+     }
+    },
+    {
+     "Name": "Alexis Cofield",
+     "Id": "454ee9c6027082af67fd647346ec1a91",
+     "Role": "Checkout Girl",
+     "Type": "Actor",
+     "ImageBlurHashes": {
+      "Primary": {}
+     }
+    },
+    {
+     "Name": "Jessica Lee Gagné",
+     "Id": "d42d2bf47a4f1d8126f7cc2035e4648e",
+     "Role": "Producer",
+     "Type": "Producer",
+     "PrimaryImageTag": "d092073cb5645c0f04fce8c199b7b1a2",
+     "ImageBlurHashes": {
+      "Primary": {
+       "d092073cb5645c0f04fce8c199b7b1a2": "d#F~aNkC%M%M~qWBxuxu%gRjWBkCxuaeM{ofxuofRjt7"
+      }
+     }
+    },
+    {
+     "Name": "Sean Fogel",
+     "Id": "e7a86b8ae57bb708b7bcc9a61c9da236",
+     "Role": "Producer",
+     "Type": "Producer",
+     "ImageBlurHashes": {
+      "Primary": {}
+     }
+    },
+    {
+     "Name": "Wei-Ning Yu",
+     "Id": "15572a867ac5775d11d88e0f16ebbcd7",
+     "Role": "Producer",
+     "Type": "Producer",
+     "ImageBlurHashes": {
+      "Primary": {}
+     }
+    },
+    {
+     "Name": "Dan Erickson",
+     "Id": "2fcb9b025fbf105e25ee923e4b198faf",
+     "Role": "",
+     "Type": "Creator",
+     "PrimaryImageTag": "57628e8b52a365fcffd4aa29cc902721",
+     "ImageBlurHashes": {
+      "Primary": {
+       "57628e8b52a365fcffd4aa29cc902721": "dKHL3v?H0yEM-4e-_4xuKPX8VYjZBUR+Z~ae9YRj%2%2"
+      }
+     }
+    }
+   ],
+   "Studios": [
+    {
+     "Name": "Apple TV",
+     "Id": "865e87e3544b4bcd5f1fcd3f7b8358e8"
+    },
+    {
+     "Name": "Endeavor Content",
+     "Id": "5ce4cbcc8a7ec65815f65c881ddf1eca"
+    },
+    {
+     "Name": "Red Hour",
+     "Id": "5d7a3aecc41a8abf51d028936ef1961f"
+    },
+    {
+     "Name": "Fifth Season",
+     "Id": "98f123195e5e6c9b17ea8f2586c70e6c"
+    },
+    {
+     "Name": "Animals & People",
+     "Id": "c3838323ee3d449bbf87425045301437"
+    },
+    {
+     "Name": "Westward",
+     "Id": "f447340a780f9c26fc4be92f29256b5a"
+    }
+   ],
+   "GenreItems": [
+    {
+     "Name": "Drama",
+     "Id": "090eac6e9de4fe1fbc194e5b96691277"
+    },
+    {
+     "Name": "Mystery",
+     "Id": "d3a0ead52489743e5a68704142092c71"
+    },
+    {
+     "Name": "Sci-Fi & Fantasy",
+     "Id": "3d621c0b6dc1921bc93fa859f7512270"
+    }
+   ],
+   "LocalTrailerCount": 0,
+   "UserData": {
+    "PlayedPercentage": 0,
+    "UnplayedItemCount": 2,
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": false,
+    "Key": "371980",
+    "ItemId": "782eb5c2b9d3056d7407645c78e5662f"
+   },
+   "RecursiveItemCount": 2,
+   "ChildCount": 1,
+   "SpecialFeatureCount": 0,
+   "DisplayPreferencesId": "f63033ff6886ecc7083a696cbeced1b0",
+   "Status": "Continuing",
+   "AirDays": [],
+   "Tags": [
+    "office",
+    "workplace",
+    "memory",
+    "office politics",
+    "brain surgery",
+    "thriller"
+   ],
+   "PrimaryImageAspectRatio": 0.6666666666666666,
+   "ImageTags": {
+    "Primary": "a55c0bae53e5c5347c7ffab6cd6e2ef4",
+    "Logo": "754243651d23a45ca7c8f9995a27cd36",
+    "Thumb": "a7a328798cb784d79045aa91d9047d94"
+   },
+   "BackdropImageTags": [
+    "9249c7f26c7c8a66509938a44df90fe3"
+   ],
+   "ImageBlurHashes": {
+    "Backdrop": {
+     "9249c7f26c7c8a66509938a44df90fe3": "WPB}I8V?k?R:ROtS?wozRkj=V@V@IUbIMxs8t7a}NMV?Rij^t7t7"
+    },
+    "Primary": {
+     "a55c0bae53e5c5347c7ffab6cd6e2ef4": "dSIF9#tRyD_2_Mt6-pof9[s:IAE1ISozIoNFD$M{R*oL"
+    },
+    "Logo": {
+     "754243651d23a45ca7c8f9995a27cd36": "HLJuAa%Mxut7xuWBxuWBM{00xut7xut7t7ofj[xu"
+    },
+    "Thumb": {
+     "a7a328798cb784d79045aa91d9047d94": "WSCQ=H?GDiOZcFOt?^w[Mxbco#XTI;WCxus.WBt6S%WAoJfkbIt7"
+    }
+   },
+   "Chapters": [],
+   "LocationType": "FileSystem",
+   "MediaType": "Unknown",
+   "EndDate": "2025-03-20T05:00:00.0000000Z",
+   "LockedFields": [],
+   "LockData": false,
+   "OriginalLanguage": "en"
+  },
+  "6af33ba8536a701affde0ecbd012abca": {
+   "Name": "Season 1",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "6af33ba8536a701affde0ecbd012abca",
+   "PremiereDate": "2022-02-17T06:00:00.0000000Z",
+   "ChannelId": null,
+   "ProductionYear": 2022,
+   "IndexNumber": 1,
+   "ProviderIds": {
+    "Tmdb": "135726",
+    "Tvdb": "1971742"
+   },
+   "IsFolder": true,
+   "Type": "Season",
+   "ParentLogoItemId": "782eb5c2b9d3056d7407645c78e5662f",
+   "ParentBackdropItemId": "782eb5c2b9d3056d7407645c78e5662f",
+   "ParentBackdropImageTags": [
+    "9249c7f26c7c8a66509938a44df90fe3"
+   ],
+   "UserData": {
+    "PlayedPercentage": 0,
+    "UnplayedItemCount": 2,
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": false,
+    "Key": "371980001",
+    "ItemId": "6af33ba8536a701affde0ecbd012abca"
+   },
+   "SeriesName": "Severance",
+   "SeriesId": "782eb5c2b9d3056d7407645c78e5662f",
+   "SeriesPrimaryImageTag": "a55c0bae53e5c5347c7ffab6cd6e2ef4",
+   "ImageTags": {
+    "Primary": "95cf668d09ca08d070c9f0e8a29e08f7"
+   },
+   "BackdropImageTags": [],
+   "ParentLogoImageTag": "754243651d23a45ca7c8f9995a27cd36",
+   "ImageBlurHashes": {
+    "Primary": {
+     "95cf668d09ca08d070c9f0e8a29e08f7": "dSIF9#tRyD_2_Mt6-pof9[s:IAE1ISozIoNFD$M{R*oL",
+     "a55c0bae53e5c5347c7ffab6cd6e2ef4": "dSIF9#tRyD_2_Mt6-pof9[s:IAE1ISozIoNFD$M{R*oL"
+    },
+    "Logo": {
+     "754243651d23a45ca7c8f9995a27cd36": "HLJuAa%Mxut7xuWBxuWBM{00xut7xut7t7ofj[xu"
+    },
+    "Thumb": {
+     "a7a328798cb784d79045aa91d9047d94": "WSCQ=H?GDiOZcFOt?^w[Mxbco#XTI;WCxus.WBt6S%WAoJfkbIt7"
+    },
+    "Backdrop": {
+     "9249c7f26c7c8a66509938a44df90fe3": "WPB}I8V?k?R:ROtS?wozRkj=V@V@IUbIMxs8t7a}NMV?Rij^t7t7"
+    }
+   },
+   "ParentThumbItemId": "782eb5c2b9d3056d7407645c78e5662f",
+   "ParentThumbImageTag": "a7a328798cb784d79045aa91d9047d94",
+   "LocationType": "FileSystem",
+   "MediaType": "Unknown"
+  },
+  "7acf01459a4fb0ba75583ff9c88ca080": {
+   "Name": "Good News About Hell",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "7acf01459a4fb0ba75583ff9c88ca080",
+   "DateCreated": "2026-10-14T16:46:31.1183296Z",
+   "Container": "mkv",
+   "PremiereDate": "2022-02-17T06:00:00.0000000Z",
+   "MediaSources": [
+    {
+     "Protocol": "File",
+     "Id": "7acf01459a4fb0ba75583ff9c88ca080",
+     "Path": "C:\\jf-test\\shows\\Severance (2022)\\Season 01\\Severance S01E01.mkv",
+     "Type": "Default",
+     "Container": "mkv",
+     "Size": 558231,
+     "Name": "Severance S01E01",
+     "IsRemote": false,
+     "ETag": "ef3dd306a6c798e2a3d7ec119830eeb4",
+     "RunTimeTicks": 300230000,
+     "ReadAtNativeFramerate": false,
+     "IgnoreDts": false,
+     "IgnoreIndex": false,
+     "GenPtsInput": false,
+     "SupportsTranscoding": true,
+     "SupportsDirectStream": true,
+     "SupportsDirectPlay": true,
+     "IsInfiniteStream": false,
+     "UseMostCompatibleTranscodingProfile": false,
+     "RequiresOpening": false,
+     "RequiresClosing": false,
+     "RequiresLooping": false,
+     "SupportsProbing": true,
+     "VideoType": "VideoFile",
+     "MediaStreams": [
+      {
+       "Codec": "h264",
+       "TimeBase": "1/1000",
+       "VideoRange": "SDR",
+       "VideoRangeType": "SDR",
+       "AudioSpatialFormat": "None",
+       "DisplayTitle": "720p H264 SDR",
+       "NalLengthSize": "4",
+       "IsInterlaced": false,
+       "IsAVC": true,
+       "BitDepth": 8,
+       "RefFrames": 1,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Height": 720,
+       "Width": 1280,
+       "AverageFrameRate": 24,
+       "RealFrameRate": 24,
+       "ReferenceFrameRate": 24,
+       "Profile": "High 4:4:4 Predictive",
+       "Type": "Video",
+       "AspectRatio": "16:9",
+       "Index": 0,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false,
+       "PixelFormat": "yuv444p",
+       "Level": 31,
+       "IsAnamorphic": false
+      },
+      {
+       "Codec": "aac",
+       "TimeBase": "1/1000",
+       "VideoRange": "Unknown",
+       "VideoRangeType": "Unknown",
+       "AudioSpatialFormat": "None",
+       "LocalizedDefault": "Default",
+       "LocalizedExternal": "External",
+       "LocalizedOriginal": "Original",
+       "DisplayTitle": "AAC - Mono",
+       "IsInterlaced": false,
+       "ChannelLayout": "mono",
+       "BitRate": 192000,
+       "Channels": 1,
+       "SampleRate": 44100,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Profile": "LC",
+       "Type": "Audio",
+       "Index": 1,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false
+      }
+     ],
+     "MediaAttachments": [],
+     "Formats": [],
+     "Bitrate": 148747,
+     "RequiredHttpHeaders": {},
+     "TranscodingSubProtocol": "http",
+     "DefaultAudioStreamIndex": 1,
+     "HasSegments": false
+    }
+   ],
+   "Path": "C:\\jf-test\\shows\\Severance (2022)\\Season 01\\Severance S01E01.mkv",
+   "OfficialRating": "TV-MA",
+   "ChannelId": null,
+   "Overview": "Mark is promoted to lead a team who've had their memories surgically divided between their work and personal lives.",
+   "Genres": [
+    "Drama",
+    "Mystery",
+    "Sci-Fi"
+   ],
+   "CommunityRating": 8.166,
+   "RunTimeTicks": 300230000,
+   "ProductionYear": 2022,
+   "IndexNumber": 1,
+   "ParentIndexNumber": 1,
+   "ProviderIds": {
+    "Imdb": "tt11650328",
+    "Tmdb": "1982925",
+    "Tvdb": "8891221"
+   },
+   "IsFolder": false,
+   "Type": "Episode",
+   "GenreItems": [
+    {
+     "Name": "Drama",
+     "Id": "090eac6e9de4fe1fbc194e5b96691277"
+    },
+    {
+     "Name": "Mystery",
+     "Id": "d3a0ead52489743e5a68704142092c71"
+    },
+    {
+     "Name": "Sci-Fi",
+     "Id": "d3bf560475125eed829c435f3d8329e3"
+    }
+   ],
+   "ParentLogoItemId": "782eb5c2b9d3056d7407645c78e5662f",
+   "ParentBackdropItemId": "782eb5c2b9d3056d7407645c78e5662f",
+   "ParentBackdropImageTags": [
+    "9249c7f26c7c8a66509938a44df90fe3"
+   ],
+   "UserData": {
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": false,
+    "Key": "7acf0145-9a4f-b0ba-7558-3ff9c88ca080",
+    "ItemId": "7acf01459a4fb0ba75583ff9c88ca080"
+   },
+   "SeriesName": "Severance",
+   "SeriesId": "782eb5c2b9d3056d7407645c78e5662f",
+   "SeasonId": "6af33ba8536a701affde0ecbd012abca",
+   "PrimaryImageAspectRatio": 1.7776389756402249,
+   "SeriesPrimaryImageTag": "a55c0bae53e5c5347c7ffab6cd6e2ef4",
+   "SeasonName": "Season 1",
+   "VideoType": "VideoFile",
+   "ImageTags": {
+    "Primary": "e382b9ac74d82c0a7f7824056206c52d"
+   },
+   "BackdropImageTags": [],
+   "ParentLogoImageTag": "754243651d23a45ca7c8f9995a27cd36",
+   "ImageBlurHashes": {
+    "Primary": {
+     "e382b9ac74d82c0a7f7824056206c52d": "W784bz-:4.IpR*WB%LofR%WCWVay0KNG-;xtxZt7IoR*xut7t6of",
+     "a55c0bae53e5c5347c7ffab6cd6e2ef4": "dSIF9#tRyD_2_Mt6-pof9[s:IAE1ISozIoNFD$M{R*oL",
+     "95cf668d09ca08d070c9f0e8a29e08f7": "dSIF9#tRyD_2_Mt6-pof9[s:IAE1ISozIoNFD$M{R*oL"
+    },
+    "Logo": {
+     "754243651d23a45ca7c8f9995a27cd36": "HLJuAa%Mxut7xuWBxuWBM{00xut7xut7t7ofj[xu"
+    },
+    "Thumb": {
+     "a7a328798cb784d79045aa91d9047d94": "WSCQ=H?GDiOZcFOt?^w[Mxbco#XTI;WCxus.WBt6S%WAoJfkbIt7"
+    },
+    "Backdrop": {
+     "9249c7f26c7c8a66509938a44df90fe3": "WPB}I8V?k?R:ROtS?wozRkj=V@V@IUbIMxs8t7a}NMV?Rij^t7t7"
+    }
+   },
+   "ParentThumbItemId": "782eb5c2b9d3056d7407645c78e5662f",
+   "ParentThumbImageTag": "a7a328798cb784d79045aa91d9047d94",
+   "ParentPrimaryImageItemId": "6af33ba8536a701affde0ecbd012abca",
+   "ParentPrimaryImageTag": "95cf668d09ca08d070c9f0e8a29e08f7",
+   "LocationType": "FileSystem",
+   "MediaType": "Video",
+   "OriginalLanguage": "en"
+  },
+  "af5d938797ad50779e33385b7e567a0c": {
+   "Name": "Half Loop",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "af5d938797ad50779e33385b7e567a0c",
+   "DateCreated": "2026-10-14T16:46:32.7631822Z",
+   "Container": "mkv",
+   "PremiereDate": "2022-02-17T06:00:00.0000000Z",
+   "MediaSources": [
+    {
+     "Protocol": "File",
+     "Id": "af5d938797ad50779e33385b7e567a0c",
+     "Path": "C:\\jf-test\\shows\\Severance (2022)\\Season 01\\Severance S01E02.mkv",
+     "Type": "Default",
+     "Container": "mkv",
+     "Size": 558231,
+     "Name": "Severance S01E02",
+     "IsRemote": false,
+     "ETag": "4e7af35380d01dd366739d564716de9c",
+     "RunTimeTicks": 300230000,
+     "ReadAtNativeFramerate": false,
+     "IgnoreDts": false,
+     "IgnoreIndex": false,
+     "GenPtsInput": false,
+     "SupportsTranscoding": true,
+     "SupportsDirectStream": true,
+     "SupportsDirectPlay": true,
+     "IsInfiniteStream": false,
+     "UseMostCompatibleTranscodingProfile": false,
+     "RequiresOpening": false,
+     "RequiresClosing": false,
+     "RequiresLooping": false,
+     "SupportsProbing": true,
+     "VideoType": "VideoFile",
+     "MediaStreams": [
+      {
+       "Codec": "h264",
+       "TimeBase": "1/1000",
+       "VideoRange": "SDR",
+       "VideoRangeType": "SDR",
+       "AudioSpatialFormat": "None",
+       "DisplayTitle": "720p H264 SDR",
+       "NalLengthSize": "4",
+       "IsInterlaced": false,
+       "IsAVC": true,
+       "BitDepth": 8,
+       "RefFrames": 1,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Height": 720,
+       "Width": 1280,
+       "AverageFrameRate": 24,
+       "RealFrameRate": 24,
+       "ReferenceFrameRate": 24,
+       "Profile": "High 4:4:4 Predictive",
+       "Type": "Video",
+       "AspectRatio": "16:9",
+       "Index": 0,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false,
+       "PixelFormat": "yuv444p",
+       "Level": 31,
+       "IsAnamorphic": false
+      },
+      {
+       "Codec": "aac",
+       "TimeBase": "1/1000",
+       "VideoRange": "Unknown",
+       "VideoRangeType": "Unknown",
+       "AudioSpatialFormat": "None",
+       "LocalizedDefault": "Default",
+       "LocalizedExternal": "External",
+       "LocalizedOriginal": "Original",
+       "DisplayTitle": "AAC - Mono",
+       "IsInterlaced": false,
+       "ChannelLayout": "mono",
+       "BitRate": 192000,
+       "Channels": 1,
+       "SampleRate": 44100,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Profile": "LC",
+       "Type": "Audio",
+       "Index": 1,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false
+      }
+     ],
+     "MediaAttachments": [],
+     "Formats": [],
+     "Bitrate": 148747,
+     "RequiredHttpHeaders": {},
+     "TranscodingSubProtocol": "http",
+     "DefaultAudioStreamIndex": 1,
+     "HasSegments": false
+    }
+   ],
+   "Path": "C:\\jf-test\\shows\\Severance (2022)\\Season 01\\Severance S01E02.mkv",
+   "OfficialRating": "TV-MA",
+   "ChannelId": null,
+   "Overview": "The team train new hire Helly on macrodata refinement. Mark takes a day off to meet with a mysterious former colleague.",
+   "Genres": [
+    "Drama",
+    "Mystery",
+    "Sci-Fi"
+   ],
+   "CommunityRating": 8.2,
+   "RunTimeTicks": 300230000,
+   "ProductionYear": 2022,
+   "IndexNumber": 2,
+   "ParentIndexNumber": 1,
+   "ProviderIds": {
+    "Imdb": "tt13393872",
+    "Tmdb": "3396429",
+    "Tvdb": "8891222"
+   },
+   "IsFolder": false,
+   "Type": "Episode",
+   "GenreItems": [
+    {
+     "Name": "Drama",
+     "Id": "090eac6e9de4fe1fbc194e5b96691277"
+    },
+    {
+     "Name": "Mystery",
+     "Id": "d3a0ead52489743e5a68704142092c71"
+    },
+    {
+     "Name": "Sci-Fi",
+     "Id": "d3bf560475125eed829c435f3d8329e3"
+    }
+   ],
+   "ParentLogoItemId": "782eb5c2b9d3056d7407645c78e5662f",
+   "ParentBackdropItemId": "782eb5c2b9d3056d7407645c78e5662f",
+   "ParentBackdropImageTags": [
+    "9249c7f26c7c8a66509938a44df90fe3"
+   ],
+   "UserData": {
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": false,
+    "Key": "371980001002",
+    "ItemId": "af5d938797ad50779e33385b7e567a0c"
+   },
+   "SeriesName": "Severance",
+   "SeriesId": "782eb5c2b9d3056d7407645c78e5662f",
+   "SeasonId": "6af33ba8536a701affde0ecbd012abca",
+   "PrimaryImageAspectRatio": 1.7777777777777777,
+   "SeriesPrimaryImageTag": "a55c0bae53e5c5347c7ffab6cd6e2ef4",
+   "SeasonName": "Season 1",
+   "VideoType": "VideoFile",
+   "ImageTags": {
+    "Primary": "6a541cedf507673136a381fe8c8ea30c"
+   },
+   "BackdropImageTags": [],
+   "ParentLogoImageTag": "754243651d23a45ca7c8f9995a27cd36",
+   "ImageBlurHashes": {
+    "Primary": {
+     "6a541cedf507673136a381fe8c8ea30c": "WpKBm,-;_3-;t7%M~Xxvs;ofkBt7%Lt7D%WAaeR*?vt7M{t7WBj[",
+     "a55c0bae53e5c5347c7ffab6cd6e2ef4": "dSIF9#tRyD_2_Mt6-pof9[s:IAE1ISozIoNFD$M{R*oL",
+     "95cf668d09ca08d070c9f0e8a29e08f7": "dSIF9#tRyD_2_Mt6-pof9[s:IAE1ISozIoNFD$M{R*oL"
+    },
+    "Logo": {
+     "754243651d23a45ca7c8f9995a27cd36": "HLJuAa%Mxut7xuWBxuWBM{00xut7xut7t7ofj[xu"
+    },
+    "Thumb": {
+     "a7a328798cb784d79045aa91d9047d94": "WSCQ=H?GDiOZcFOt?^w[Mxbco#XTI;WCxus.WBt6S%WAoJfkbIt7"
+    },
+    "Backdrop": {
+     "9249c7f26c7c8a66509938a44df90fe3": "WPB}I8V?k?R:ROtS?wozRkj=V@V@IUbIMxs8t7a}NMV?Rij^t7t7"
+    }
+   },
+   "ParentThumbItemId": "782eb5c2b9d3056d7407645c78e5662f",
+   "ParentThumbImageTag": "a7a328798cb784d79045aa91d9047d94",
+   "ParentPrimaryImageItemId": "6af33ba8536a701affde0ecbd012abca",
+   "ParentPrimaryImageTag": "95cf668d09ca08d070c9f0e8a29e08f7",
+   "LocationType": "FileSystem",
+   "MediaType": "Video",
+   "OriginalLanguage": "en"
+  },
+  "4f3562bc93f2d10523bd9974be18fa36": {
+   "Name": "Zzz Test Show",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "4f3562bc93f2d10523bd9974be18fa36",
+   "ChannelId": null,
+   "ProviderIds": {},
+   "IsFolder": true,
+   "Type": "Series",
+   "UserData": {
+    "PlayedPercentage": 0,
+    "UnplayedItemCount": 1,
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": false,
+    "Key": "4f3562bc-93f2-d105-23bd-9974be18fa36",
+    "ItemId": "4f3562bc93f2d10523bd9974be18fa36"
+   },
+   "AirDays": [],
+   "ImageTags": {},
+   "BackdropImageTags": [],
+   "ImageBlurHashes": {},
+   "LocationType": "FileSystem",
+   "MediaType": "Unknown"
+  },
+  "4da380e683babc5f831e86a4c8d42588": {
+   "Name": "Season 1",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "4da380e683babc5f831e86a4c8d42588",
+   "DateCreated": "2026-10-14T16:47:04.0199642Z",
+   "Path": "C:\\jf-test\\shows\\Zzz Test Show\\Season 01",
+   "ChannelId": null,
+   "Genres": [],
+   "IndexNumber": 1,
+   "ProviderIds": {},
+   "IsFolder": true,
+   "Type": "Season",
+   "GenreItems": [],
+   "UserData": {
+    "PlayedPercentage": 0,
+    "UnplayedItemCount": 1,
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": false,
+    "Key": "4f3562bc-93f2-d105-23bd-9974be18fa36001",
+    "ItemId": "4da380e683babc5f831e86a4c8d42588"
+   },
+   "SeriesName": "Zzz Test Show",
+   "SeriesId": "4f3562bc93f2d10523bd9974be18fa36",
+   "ImageTags": {},
+   "BackdropImageTags": [],
+   "ImageBlurHashes": {},
+   "LocationType": "FileSystem",
+   "MediaType": "Unknown"
+  },
+  "c447b93d311bcc7250525a1f4dbbabb4": {
+   "Name": "Zzz Test Show S01E01",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "c447b93d311bcc7250525a1f4dbbabb4",
+   "DateCreated": "2026-10-14T16:46:34.431484Z",
+   "Container": "mkv",
+   "MediaSources": [
+    {
+     "Protocol": "File",
+     "Id": "c447b93d311bcc7250525a1f4dbbabb4",
+     "Path": "C:\\jf-test\\shows\\Zzz Test Show\\Season 01\\Zzz Test Show S01E01.mkv",
+     "Type": "Default",
+     "Container": "mkv",
+     "Size": 558231,
+     "Name": "Zzz Test Show S01E01",
+     "IsRemote": false,
+     "ETag": "d2cadc7af1d289c4090504a51f796728",
+     "RunTimeTicks": 300230000,
+     "ReadAtNativeFramerate": false,
+     "IgnoreDts": false,
+     "IgnoreIndex": false,
+     "GenPtsInput": false,
+     "SupportsTranscoding": true,
+     "SupportsDirectStream": true,
+     "SupportsDirectPlay": true,
+     "IsInfiniteStream": false,
+     "UseMostCompatibleTranscodingProfile": false,
+     "RequiresOpening": false,
+     "RequiresClosing": false,
+     "RequiresLooping": false,
+     "SupportsProbing": true,
+     "VideoType": "VideoFile",
+     "MediaStreams": [
+      {
+       "Codec": "h264",
+       "TimeBase": "1/1000",
+       "VideoRange": "SDR",
+       "VideoRangeType": "SDR",
+       "AudioSpatialFormat": "None",
+       "DisplayTitle": "720p H264 SDR",
+       "NalLengthSize": "4",
+       "IsInterlaced": false,
+       "IsAVC": true,
+       "BitDepth": 8,
+       "RefFrames": 1,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Height": 720,
+       "Width": 1280,
+       "AverageFrameRate": 24,
+       "RealFrameRate": 24,
+       "ReferenceFrameRate": 24,
+       "Profile": "High 4:4:4 Predictive",
+       "Type": "Video",
+       "AspectRatio": "16:9",
+       "Index": 0,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false,
+       "PixelFormat": "yuv444p",
+       "Level": 31,
+       "IsAnamorphic": false
+      },
+      {
+       "Codec": "aac",
+       "TimeBase": "1/1000",
+       "VideoRange": "Unknown",
+       "VideoRangeType": "Unknown",
+       "AudioSpatialFormat": "None",
+       "LocalizedDefault": "Default",
+       "LocalizedExternal": "External",
+       "LocalizedOriginal": "Original",
+       "DisplayTitle": "AAC - Mono",
+       "IsInterlaced": false,
+       "ChannelLayout": "mono",
+       "BitRate": 192000,
+       "Channels": 1,
+       "SampleRate": 44100,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Profile": "LC",
+       "Type": "Audio",
+       "Index": 1,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false
+      }
+     ],
+     "MediaAttachments": [],
+     "Formats": [],
+     "Bitrate": 148747,
+     "RequiredHttpHeaders": {},
+     "TranscodingSubProtocol": "http",
+     "DefaultAudioStreamIndex": 1,
+     "HasSegments": false
+    }
+   ],
+   "Path": "C:\\jf-test\\shows\\Zzz Test Show\\Season 01\\Zzz Test Show S01E01.mkv",
+   "ChannelId": null,
+   "Genres": [],
+   "RunTimeTicks": 300230000,
+   "IndexNumber": 1,
+   "ParentIndexNumber": 1,
+   "ProviderIds": {},
+   "IsFolder": false,
+   "Type": "Episode",
+   "GenreItems": [],
+   "UserData": {
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 0,
+    "IsFavorite": false,
+    "Played": false,
+    "Key": "4f3562bc-93f2-d105-23bd-9974be18fa36001001",
+    "ItemId": "c447b93d311bcc7250525a1f4dbbabb4"
+   },
+   "SeriesName": "Zzz Test Show",
+   "SeriesId": "4f3562bc93f2d10523bd9974be18fa36",
+   "SeasonId": "4da380e683babc5f831e86a4c8d42588",
+   "PrimaryImageAspectRatio": 1.7777777777777777,
+   "SeasonName": "Season 1",
+   "VideoType": "VideoFile",
+   "ImageTags": {
+    "Primary": "babf1f54ffe271a866477d253295ada5"
+   },
+   "BackdropImageTags": [],
+   "ImageBlurHashes": {
+    "Primary": {
+     "babf1f54ffe271a866477d253295ada5": "W^LEWrI2NOGeS@Qc%2S2r?bCX4a5nirrjGjajGX8xuj0WYX4fPag"
+    }
+   },
+   "LocationType": "FileSystem",
+   "MediaType": "Video"
+  },
+  "941ac528e71c63eb996ee5f7a2fee913": {
+   "Name": "The Turn",
+   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "Id": "941ac528e71c63eb996ee5f7a2fee913",
+   "PremiereDate": "2016-01-01T06:00:00.0000000Z",
+   "ChannelId": null,
+   "ProductionYear": 2016,
+   "ProviderIds": {
+    "Imdb": "tt2043923",
+    "Tmdb": "491457"
+   },
+   "IsFolder": false,
+   "Type": "Movie",
+   "UserData": {
+    "PlaybackPositionTicks": 0,
+    "PlayCount": 1,
+    "IsFavorite": false,
+    "LastPlayedDate": "2026-10-14T16:45:52.7378774Z",
+    "Played": true,
+    "Key": "941ac528-e71c-63eb-996e-e5f7a2fee913",
+    "ItemId": "941ac528e71c63eb996ee5f7a2fee913"
+   },
+   "VideoType": "VideoFile",
+   "ImageTags": {
+    "Primary": "ff33905518665095161669a6d8da1b20"
+   },
+   "BackdropImageTags": [],
+   "ImageBlurHashes": {
+    "Primary": {
+     "ff33905518665095161669a6d8da1b20": "dkO.=[-o$_9x~3RkW=-lrpj;t7t5r^w]WCs:njjGWUWB"
+    }
+   },
+   "LocationType": "FileSystem",
+   "MediaType": "Video",
+   "OriginalLanguage": "hi"
+  }
+ },
+ "playbackInfo": {
+  "7acf01459a4fb0ba75583ff9c88ca080": {
+   "MediaSources": [
+    {
+     "Protocol": "File",
+     "Id": "7acf01459a4fb0ba75583ff9c88ca080",
+     "Path": "C:\\jf-test\\shows\\Severance (2022)\\Season 01\\Severance S01E01.mkv",
+     "Type": "Default",
+     "Container": "mkv",
+     "Size": 558231,
+     "Name": "Severance S01E01",
+     "IsRemote": false,
+     "ETag": "ef3dd306a6c798e2a3d7ec119830eeb4",
+     "RunTimeTicks": 300230000,
+     "ReadAtNativeFramerate": false,
+     "IgnoreDts": false,
+     "IgnoreIndex": false,
+     "GenPtsInput": false,
+     "SupportsTranscoding": false,
+     "SupportsDirectStream": true,
+     "SupportsDirectPlay": true,
+     "IsInfiniteStream": false,
+     "UseMostCompatibleTranscodingProfile": false,
+     "RequiresOpening": false,
+     "RequiresClosing": false,
+     "RequiresLooping": false,
+     "SupportsProbing": true,
+     "VideoType": "VideoFile",
+     "MediaStreams": [
+      {
+       "Codec": "h264",
+       "TimeBase": "1/1000",
+       "VideoRange": "SDR",
+       "VideoRangeType": "SDR",
+       "AudioSpatialFormat": "None",
+       "DisplayTitle": "720p H264 SDR",
+       "NalLengthSize": "4",
+       "IsInterlaced": false,
+       "IsAVC": true,
+       "BitDepth": 8,
+       "RefFrames": 1,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Height": 720,
+       "Width": 1280,
+       "AverageFrameRate": 24,
+       "RealFrameRate": 24,
+       "ReferenceFrameRate": 24,
+       "Profile": "High 4:4:4 Predictive",
+       "Type": "Video",
+       "AspectRatio": "16:9",
+       "Index": 0,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false,
+       "PixelFormat": "yuv444p",
+       "Level": 31,
+       "IsAnamorphic": false
+      },
+      {
+       "Codec": "aac",
+       "TimeBase": "1/1000",
+       "VideoRange": "Unknown",
+       "VideoRangeType": "Unknown",
+       "AudioSpatialFormat": "None",
+       "LocalizedDefault": "Default",
+       "LocalizedExternal": "External",
+       "LocalizedOriginal": "Original",
+       "DisplayTitle": "AAC - Mono",
+       "IsInterlaced": false,
+       "ChannelLayout": "mono",
+       "BitRate": 192000,
+       "Channels": 1,
+       "SampleRate": 44100,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Profile": "LC",
+       "Type": "Audio",
+       "Index": 1,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false
+      }
+     ],
+     "MediaAttachments": [],
+     "Formats": [],
+     "Bitrate": 148747,
+     "RequiredHttpHeaders": {},
+     "TranscodingSubProtocol": "http",
+     "DefaultAudioStreamIndex": 1,
+     "HasSegments": false
+    }
+   ],
+   "PlaySessionId": "<per-call>"
+  },
+  "af5d938797ad50779e33385b7e567a0c": {
+   "MediaSources": [
+    {
+     "Protocol": "File",
+     "Id": "af5d938797ad50779e33385b7e567a0c",
+     "Path": "C:\\jf-test\\shows\\Severance (2022)\\Season 01\\Severance S01E02.mkv",
+     "Type": "Default",
+     "Container": "mkv",
+     "Size": 558231,
+     "Name": "Severance S01E02",
+     "IsRemote": false,
+     "ETag": "4e7af35380d01dd366739d564716de9c",
+     "RunTimeTicks": 300230000,
+     "ReadAtNativeFramerate": false,
+     "IgnoreDts": false,
+     "IgnoreIndex": false,
+     "GenPtsInput": false,
+     "SupportsTranscoding": true,
+     "SupportsDirectStream": true,
+     "SupportsDirectPlay": true,
+     "IsInfiniteStream": false,
+     "UseMostCompatibleTranscodingProfile": false,
+     "RequiresOpening": false,
+     "RequiresClosing": false,
+     "RequiresLooping": false,
+     "SupportsProbing": true,
+     "VideoType": "VideoFile",
+     "MediaStreams": [
+      {
+       "Codec": "h264",
+       "TimeBase": "1/1000",
+       "VideoRange": "SDR",
+       "VideoRangeType": "SDR",
+       "AudioSpatialFormat": "None",
+       "DisplayTitle": "720p H264 SDR",
+       "NalLengthSize": "4",
+       "IsInterlaced": false,
+       "IsAVC": true,
+       "BitDepth": 8,
+       "RefFrames": 1,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Height": 720,
+       "Width": 1280,
+       "AverageFrameRate": 24,
+       "RealFrameRate": 24,
+       "ReferenceFrameRate": 24,
+       "Profile": "High 4:4:4 Predictive",
+       "Type": "Video",
+       "AspectRatio": "16:9",
+       "Index": 0,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false,
+       "PixelFormat": "yuv444p",
+       "Level": 31,
+       "IsAnamorphic": false
+      },
+      {
+       "Codec": "aac",
+       "TimeBase": "1/1000",
+       "VideoRange": "Unknown",
+       "VideoRangeType": "Unknown",
+       "AudioSpatialFormat": "None",
+       "LocalizedDefault": "Default",
+       "LocalizedExternal": "External",
+       "LocalizedOriginal": "Original",
+       "DisplayTitle": "AAC - Mono",
+       "IsInterlaced": false,
+       "ChannelLayout": "mono",
+       "BitRate": 192000,
+       "Channels": 1,
+       "SampleRate": 44100,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Profile": "LC",
+       "Type": "Audio",
+       "Index": 1,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false
+      }
+     ],
+     "MediaAttachments": [],
+     "Formats": [],
+     "Bitrate": 148747,
+     "RequiredHttpHeaders": {},
+     "TranscodingSubProtocol": "http",
+     "DefaultAudioStreamIndex": 1,
+     "HasSegments": false
+    }
+   ],
+   "PlaySessionId": "<per-call>"
+  },
+  "c447b93d311bcc7250525a1f4dbbabb4": {
+   "MediaSources": [
+    {
+     "Protocol": "File",
+     "Id": "c447b93d311bcc7250525a1f4dbbabb4",
+     "Path": "C:\\jf-test\\shows\\Zzz Test Show\\Season 01\\Zzz Test Show S01E01.mkv",
+     "Type": "Default",
+     "Container": "mkv",
+     "Size": 558231,
+     "Name": "Zzz Test Show S01E01",
+     "IsRemote": false,
+     "ETag": "d2cadc7af1d289c4090504a51f796728",
+     "RunTimeTicks": 300230000,
+     "ReadAtNativeFramerate": false,
+     "IgnoreDts": false,
+     "IgnoreIndex": false,
+     "GenPtsInput": false,
+     "SupportsTranscoding": true,
+     "SupportsDirectStream": true,
+     "SupportsDirectPlay": true,
+     "IsInfiniteStream": false,
+     "UseMostCompatibleTranscodingProfile": false,
+     "RequiresOpening": false,
+     "RequiresClosing": false,
+     "RequiresLooping": false,
+     "SupportsProbing": true,
+     "VideoType": "VideoFile",
+     "MediaStreams": [
+      {
+       "Codec": "h264",
+       "TimeBase": "1/1000",
+       "VideoRange": "SDR",
+       "VideoRangeType": "SDR",
+       "AudioSpatialFormat": "None",
+       "DisplayTitle": "720p H264 SDR",
+       "NalLengthSize": "4",
+       "IsInterlaced": false,
+       "IsAVC": true,
+       "BitDepth": 8,
+       "RefFrames": 1,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Height": 720,
+       "Width": 1280,
+       "AverageFrameRate": 24,
+       "RealFrameRate": 24,
+       "ReferenceFrameRate": 24,
+       "Profile": "High 4:4:4 Predictive",
+       "Type": "Video",
+       "AspectRatio": "16:9",
+       "Index": 0,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false,
+       "PixelFormat": "yuv444p",
+       "Level": 31,
+       "IsAnamorphic": false
+      },
+      {
+       "Codec": "aac",
+       "TimeBase": "1/1000",
+       "VideoRange": "Unknown",
+       "VideoRangeType": "Unknown",
+       "AudioSpatialFormat": "None",
+       "LocalizedDefault": "Default",
+       "LocalizedExternal": "External",
+       "LocalizedOriginal": "Original",
+       "DisplayTitle": "AAC - Mono",
+       "IsInterlaced": false,
+       "ChannelLayout": "mono",
+       "BitRate": 192000,
+       "Channels": 1,
+       "SampleRate": 44100,
+       "IsDefault": false,
+       "IsForced": false,
+       "IsHearingImpaired": false,
+       "IsOriginal": false,
+       "Profile": "LC",
+       "Type": "Audio",
+       "Index": 1,
+       "IsExternal": false,
+       "IsTextSubtitleStream": false,
+       "SupportsExternalStream": false
+      }
+     ],
+     "MediaAttachments": [],
+     "Formats": [],
+     "Bitrate": 148747,
+     "RequiredHttpHeaders": {},
+     "TranscodingSubProtocol": "http",
+     "DefaultAudioStreamIndex": 1,
+     "HasSegments": false
+    }
+   ],
+   "PlaySessionId": "<per-call>"
+  }
+ },
+ "movieId": "941ac528e71c63eb996ee5f7a2fee913",
+ "seriesIds": [
+  "782eb5c2b9d3056d7407645c78e5662f",
+  "4f3562bc93f2d10523bd9974be18fa36"
+ ],
+ "episodeIds": [
+  "7acf01459a4fb0ba75583ff9c88ca080",
+  "af5d938797ad50779e33385b7e567a0c",
+  "c447b93d311bcc7250525a1f4dbbabb4"
+ ]
+}

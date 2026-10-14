@@ -291,6 +291,7 @@ if (token) {
     await call('token: X-Emby-Token', 'GET', '/UserViews', { noAuth: true, headers: { 'X-Emby-Token': token } });
     await call('token: ?api_key=', 'GET', `/UserViews?api_key=${T}`, { noAuth: true });
     await call('token: ?ApiKey=', 'GET', `/UserViews?ApiKey=${T}`, { noAuth: true });
+    await call('token: ?apikey= (lowercase)', 'GET', `/UserViews?apikey=${T}`, { noAuth: true });
     await call('token: legacy X-Emby-Authorization', 'GET', '/UserViews', {
       noAuth: true,
       headers: { 'X-Emby-Authorization': authHeader(token).replace('MediaBrowser', 'MediaBrowser') },
@@ -316,10 +317,17 @@ if (token) {
         if (it.Type === 'Movie' && !movie) movie = it;
       }
     }
-    await call('items (library-wide, no parent)', 'GET', `/Items?Recursive=true&userId=${userId}&IncludeItemTypes=Series,Movie&Fields=ProviderIds&limit=50`, { token });
+    const lib = await call('items (library-wide, no parent)', 'GET', `/Items?Recursive=true&userId=${userId}&IncludeItemTypes=Series,Movie&Fields=${FIELDS}&limit=200`, { token });
+    const allSeries = (lib.body?.Items || []).filter((i) => i.Type === 'Series');
+    if (!movie) movie = (lib.body?.Items || []).find((i) => i.Type === 'Movie') || null;
     await call('items (old form)', 'GET', `/Users/${userId}/Items?Recursive=true&IncludeItemTypes=Series,Movie&Fields=ProviderIds&limit=5`, { token });
     await call('filters', 'GET', `/Items/Filters?userId=${userId}`, { token });
     let ep = null;
+    const cands = [];
+    for (const sr of allSeries) {
+      const e = await call(`episodes of ${sr.Name}`, 'GET', `/Shows/${sr.Id}/Episodes?userId=${userId}&Fields=${FIELDS}`, { token });
+      for (const x of e.body?.Items || []) cands.push(x);
+    }
     if (series) {
       note(`series ${series.Name} ProviderIds=${JSON.stringify(series.ProviderIds)}`);
       await call('single series', 'GET', `/Items/${series.Id}?userId=${userId}`, { token });
@@ -335,7 +343,14 @@ if (token) {
       note(`movie ${movie.Name} ProviderIds=${JSON.stringify(movie.ProviderIds)}`);
       await call('single movie', 'GET', `/Items/${movie.Id}?userId=${userId}`, { token });
     }
-    if (!ep && movie) ep = movie;
+    if (movie) {
+      const mv = await call('movie (single, for runtime)', 'GET', `/Items/${movie.Id}?userId=${userId}`, { token });
+      cands.push(mv.body && mv.body.Id ? mv.body : movie);
+    }
+    for (const c of cands) note(`candidate ${c.Type} ${c.Name} ${c.Id} runtime=${(c.RunTimeTicks || 0) / 10000000}s`);
+    ep = process.env.JF_ITEM ? cands.find((c) => c.Id === process.env.JF_ITEM) || ep : [...cands].sort((a, b) => (b.RunTimeTicks || 0) - (a.RunTimeTicks || 0))[0] || ep;
+    section('5b. server settings that decide resume and played');
+    await call('system configuration', 'GET', '/System/Configuration', { token });
 
     if (ep) {
       const id = ep.Id;
@@ -368,6 +383,8 @@ if (token) {
           if (s.Type === 'Subtitle' && (s.DeliveryUrl || s.IsExternal)) {
             const u = s.DeliveryUrl || `/Videos/${id}/${ms.Id}/Subtitles/${s.Index}/Stream.${s.Codec || 'srt'}`;
             await call(`subtitle ${s.Index} (${s.Codec})`, 'GET', u.startsWith('/') ? u : '/' + u, { token });
+            await call(`subtitle ${s.Index} (no token)`, 'GET', u.startsWith('/') ? u : '/' + u, { noAuth: true });
+            await call(`subtitle ${s.Index} route .srt`, 'GET', `/Videos/${id}/${ms.Id}/Subtitles/${s.Index}/Stream.srt`, { token });
           }
         }
         // is the clip real? ffprobe, if it is installed (token as a header, not in the url)
@@ -401,13 +418,9 @@ if (token) {
         await call(`progress @${p}%`, 'POST', '/Sessions/Playing/Progress', { token, body: { ...base, PositionTicks: ticks, IsPaused: false, EventName: 'timeupdate' } });
         await call(`stopped @${p}%`, 'POST', '/Sessions/Playing/Stopped', { token, body: { ...base, PositionTicks: ticks } });
         await read(`state after stop @${p}%`);
-        if (p === 50) {
-          await call('resume list after 50%', 'GET', `/UserItems/Resume?userId=${userId}&Limit=20&MediaTypes=Video&Fields=ProviderIds,UserData`, { token });
-          await call('resume list (old form)', 'GET', `/Users/${userId}/Items/Resume?Limit=20&MediaTypes=Video`, { token });
-          if (series) await call('next up after 50%', 'GET', `/Shows/NextUp?userId=${userId}&SeriesId=${series.Id}&Fields=ProviderIds,UserData`, { token });
-          await call('next up (all)', 'GET', `/Shows/NextUp?userId=${userId}&Fields=ProviderIds,UserData`, { token });
-          await call('upcoming', 'GET', `/Shows/Upcoming?userId=${userId}&Fields=ProviderIds`, { token });
-        }
+        await call(`resume list after ${p}%`, 'GET', `/UserItems/Resume?userId=${userId}&Limit=20&MediaTypes=Video&Fields=ProviderIds,UserData`, { token });
+        await call(`next up (all) after ${p}%`, 'GET', `/Shows/NextUp?userId=${userId}&Fields=ProviderIds,UserData`, { token });
+        if (p === 50) await call('upcoming', 'GET', `/Shows/Upcoming?userId=${userId}&Fields=ProviderIds`, { token });
         // put it back before the next case
         await call(`unplay after ${p}%`, 'DELETE', `/UserPlayedItems/${id}?userId=${userId}`, { token });
         await readUD(`userdata after unplay @${p}%`);
@@ -425,7 +438,13 @@ if (token) {
 
     // ---- 9. errors, logout ----
     section('9. errors and sign-out');
-    await call('missing item', 'GET', `/Items/00000000000000000000000000000000?userId=${userId}`, { token });
+    await call('missing item (all zeros, is the root)', 'GET', `/Items/00000000000000000000000000000000?userId=${userId}`, { token });
+    await call('missing item (random id)', 'GET', `/Items/${'ab'.repeat(16)}?userId=${userId}`, { token });
+    await call('missing item (random id, PlaybackInfo)', 'POST', `/Items/${'ab'.repeat(16)}/PlaybackInfo?userId=${userId}`, { token, body: {} });
+    await call('missing item (random id, UserData)', 'GET', `/UserItems/${'ab'.repeat(16)}/UserData?userId=${userId}`, { token });
+    await call('missing item (random id, mark played)', 'POST', `/UserPlayedItems/${'ab'.repeat(16)}?userId=${userId}`, { token, body: {} });
+    await call('report on an unknown item', 'POST', '/Sessions/Playing/Stopped', { token, body: { ItemId: 'ab'.repeat(16), PositionTicks: 1000 } });
+    await call('not a guid', 'GET', `/Items/nope?userId=${userId}`, { token });
     await call('bad route', 'GET', '/NotARealRoute', { token });
     await call('logout', 'POST', '/Sessions/Logout', { token });
     await call('after logout', 'GET', '/UserViews', { token });
