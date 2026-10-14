@@ -3,10 +3,11 @@ import { Segmented } from "../../ui/Segmented";
 import { EYEBROW } from "../../ui/eyebrow";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
+import { JellyfinTab } from "./JellyfinTab";
 
 /**
  * Sources: what you watch. Where content comes from, a playlist for Live TV
- * and an AIOStreams for Stream, behind the same Live TV / Stream pill the
+ * an AIOStreams and a Jellyfin server of your own for Stream, behind the same Live TV / Stream pill the
  * Appearance page uses for what each world looks like. One mental model, said
  * on each page that differs per world.
  *
@@ -38,7 +39,14 @@ export function SourcesPage({ initialWorld }: { initialWorld?: "live" | "stream"
       <div className="customize-rail">
         <Segmented role="tabs" label="Sources" options={SOURCE_TABS} value={source} onChange={setSource} />
       </div>
-      {source === "live" ? <PlaylistsTab /> : <AioStreamsTab />}
+      {source === "live" ? (
+        <PlaylistsTab />
+      ) : (
+        <>
+          <AioStreamsTab />
+          <JellyfinTab />
+        </>
+      )}
     </>
   );
 }

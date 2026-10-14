@@ -7,6 +7,7 @@ import { AboutSection } from "./AboutSection";
 import { DiagnosticsSection } from "./DiagnosticsSection";
 import { SettingsFilesSection } from "./SettingsFilesSection";
 import { signOutOfAio } from "../aiojf/account";
+import { signOutOfJf } from "../jellyfin/account";
 import { signOutOfMal } from "../mal/account";
 import { signOutOfTrakt } from "../trakt/account";
 import { savePlaylists } from "./playlists";
@@ -43,6 +44,9 @@ export function AppPage() {
     void signOutOfTrakt();
     void signOutOfMal();
     void signOutOfAio();
+    // And the Jellyfin server's (plan 027): the app's own session there, also a
+    // login, ended on the server too.
+    void signOutOfJf();
     // Nothing to tell the Sources and Accounts pages: they are not mounted
     // while this one is, and read their lists afresh when you go back.
   };

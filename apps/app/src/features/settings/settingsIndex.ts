@@ -75,6 +75,13 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["sign in", "login", "manifest", "addon", "stream", "jellyfin", "sync", "url", "address", "aio", "stremio", "connect"],
   },
   {
+    id: "jellyfin",
+    label: "Jellyfin",
+    page: "sources",
+    world: "stream",
+    keywords: ["sign in", "login", "server", "own", "library", "quick connect", "address", "password", "home server", "connect"],
+  },
+  {
     id: "connection-test",
     label: "Connection Test",
     page: "sources",

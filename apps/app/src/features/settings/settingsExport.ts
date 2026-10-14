@@ -22,15 +22,15 @@ import { hasTokenRun } from "../../lib/scrub";
  *                            hold provider passwords, MACs and URLs, the
  *                            AIOStreams manifest, and the hero sources.
  *   never                    in no file, whatever the box says and whatever a
- *                            file claims. The Trakt, MyAnimeList and AIOStreams
- *                            sign-ins' bookkeeping and queues (the sessions
+ *                            file claims. The Trakt, MyAnimeList, AIOStreams and
+ *                            Jellyfin sign-ins' bookkeeping and queues (the sessions
  *                            themselves are in the OS vault, native's), the
  *                            TMDB key, caches, one-time flags, and window or
  *                            panel state.
  *
  * `clearLogins` stays the definition of a login. Only the playlists, the
  * manifest and the hero sources are stored keys of that kind; the other things
- * it clears are sign-ins (never), the catalog mirror (`vodCache`, a cache) and
+ * it clears are sign-ins (never, the Jellyfin one included), the catalog mirror (`vodCache`, a cache) and
  * the guide's copy on disk (IndexedDB, not here). The test reads `clearLogins`
  * too, so a call added to it makes it fail until this file has been looked at.
  *
@@ -108,6 +108,10 @@ export const KEY_GROUPS = {
     "mal",
     "aiojf",
     "aiojfQueue",
+    // A Jellyfin server of your own (plan 027): the sign-in's bookkeeping,
+    // where it is and who. The token is in the OS vault, and the address is
+    // the one thing in it worth keeping private, so no file carries it.
+    "jellyfin",
     // Sync bookkeeping tied to an account: what Trakt, MAL and AIOStreams
     // each count as played, and AIOStreams' packed ids.
     "aioWatched",
