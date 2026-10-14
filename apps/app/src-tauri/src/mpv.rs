@@ -286,6 +286,32 @@ fn apply_user_agent(wanted: Option<&str>) {
     }
 }
 
+/// Whether the player's `http-header-fields` is a Jellyfin stream's now. False
+/// until one is set, so an app that never plays a Jellyfin file never writes
+/// the option at all.
+static HDR_CHANGED: AtomicBool = AtomicBool::new(false);
+
+/// The header line the server of `url` needs it opened with, if it is a
+/// Jellyfin stream the page has had checked (`jf_prepare_stream`) and that
+/// server turned out to want the token. Nothing for any other file.
+fn header_for(url: &str) -> Option<String> {
+    crate::jf_client_started()?.auth_header_for(url)
+}
+
+/// Set the in-app player's `http-header-fields` for the file about to load:
+/// the Jellyfin header it needs, or empty again if the last file had one and
+/// this does not, so the token is never on another file's requests. Called
+/// right before every `loadfile`, with `apply_user_agent`. The rule is
+/// mpvheader.rs's.
+fn apply_http_header(url: &str) {
+    let wanted = header_for(url);
+    let changed = HDR_CHANGED.load(Ordering::Relaxed);
+    if let Some(v) = crate::mpvheader::before_load(wanted.as_deref(), changed) {
+        set_prop("http-header-fields", &v);
+        HDR_CHANGED.store(!v.is_empty(), Ordering::Relaxed);
+    }
+}
+
 /// What Settings → Playback has asked of mpv that holds for every file:
 /// Audio Channels and Subtitle Size. Held here, not just sent to the players
 /// that exist, because the in-app player is created on first play and each
@@ -510,6 +536,11 @@ pub fn play_popout(
         set("hwdec", "auto-safe");
         if let Some(ua) = user_agent {
             set("user-agent", ua);
+        }
+        // A Jellyfin stream that needs the token gets it as a header of this
+        // instance, which is made for the one stream and dies with it.
+        if let Some(h) = header_for(url).filter(|h| crate::mpvheader::clean(h)) {
+            set("http-header-fields", &h);
         }
         // Audio Channels and Subtitle Size, as the main player has them
         // (ensure_player). Left at Automatic, 5.1 reaches a surround device.
@@ -923,6 +954,8 @@ pub fn play_wid(
     reset_per_file(start, live);
     // The playlist's own User-Agent for this file, or mpv's own again.
     apply_user_agent(user_agent);
+    // The Jellyfin token header for this file, or none.
+    apply_http_header(url);
     // `loadfile <url> replace` — replace is the default, stated for the
     // reader. This is the same call reload_live() has always made, which is
     // why the load path itself is proven rather than new.
@@ -1093,6 +1126,7 @@ pub fn reload_live() {
     // it is said here so a reload can never go out as another playlist's.
     let agent = loaded_agent();
     apply_user_agent(agent.as_deref());
+    apply_http_header(&url);
     let g = PLAYER.lock().unwrap();
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
         unsafe {

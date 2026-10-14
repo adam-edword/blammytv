@@ -26,8 +26,7 @@
 //!   `POST /QuickConnect/Initiate`, `GET /QuickConnect/Connect?secret=`,
 //!   then `POST /Users/AuthenticateWithQuickConnect` with `{Secret}` (400
 //!   until approved); both end in `{User, SessionInfo, AccessToken,
-//!   ServerId}`. The Quick Connect bodies are from the spec, not yet a live
-//!   run.
+//!   ServerId}`. Both were run live (round 2).
 //! - `POST /Sessions/Logout` is 204 and revokes: the token is 401 after.
 //! - The signed-in admin's token can do far more than the app asks (`DELETE
 //!   /Items/{id}` deletes media), so `guard` is an allow list, and a
@@ -179,6 +178,24 @@ pub struct Sources {
     pub error_code: Option<String>,
 }
 
+/// The check before a stream plays (`prepare_stream`).
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Prepared {
+    /// The server will serve the stream to mpv, with the header if `needs_auth`.
+    pub ok: bool,
+    /// The stream is refused without the token and served with it, so mpv is
+    /// given the token in a header for this file (`auth_header_for`).
+    pub needs_auth: bool,
+    /// What the last request answered.
+    pub status: u16,
+    /// The stream is only reached through a redirect to another server. mpv
+    /// would send a header it is given to that server too (measured: mpv
+    /// 0.37 carries `http-header-fields` across a redirect), so none is given
+    /// and the stream is not played.
+    pub off_origin: bool,
+}
+
 /// What `sign_in` and `quick_connect` fail with when the address is not a
 /// Jellyfin this app can use. The page tells these apart by the prefix.
 pub const NOT_JELLYFIN: &str = "unsupported: That address is not a Jellyfin server";
@@ -196,6 +213,9 @@ const BLOB_MAX: usize = 2560;
 const MAX_RETRY_WAIT: u64 = 15;
 /// How long sign-out waits on the server. It is best effort.
 const LOGOUT_WAIT: Duration = Duration::from_secs(5);
+/// How long the check before a play waits on the server, for each of its two
+/// requests.
+const STREAM_WAIT: Duration = Duration::from_secs(8);
 
 /// The keys a media source keeps on its way to the page. `Path` is not here
 /// (a path on the server's disk, which nothing here can open), nor
@@ -254,6 +274,11 @@ struct State {
     /// Bumped by every start, sign-in and disconnect, so a poll that was on
     /// the wire when one happened keeps nothing.
     epoch: u64,
+    /// The token and server origin a stream was found to need the token for
+    /// (`prepare_stream`). The header for mpv is made only while this is
+    /// still the session's token, so a sign-out or another sign-in ends it
+    /// without anything to clear.
+    stream_auth: Option<(String, String)>,
 }
 
 /// A Quick Connect sign-in under way. The secret and the base stay here,
@@ -439,6 +464,47 @@ fn is_item_id(id: &str) -> bool {
         && id
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+/// The direct stream of an item on this server and nothing else: `base`'s
+/// origin, no login in the address, `/Videos/{id}/stream`, and no credential
+/// in the query. What `prepare_stream` will make a request for and
+/// `auth_header_for` will give a header for, so neither can be pointed at
+/// another host or another route with the token.
+fn stream_target(base: &str, url: &str) -> Result<reqwest::Url, String> {
+    let refused = |why: &str| Err(format!("refused: {why}"));
+    let (Ok(base), Ok(u)) = (reqwest::Url::parse(base), reqwest::Url::parse(url)) else {
+        return refused("not a stream of this server");
+    };
+    if u.origin() != base.origin() || !u.username().is_empty() || u.password().is_some() {
+        return refused("not a stream of this server");
+    }
+    let Some(segs) = u.path_segments().map(|s| s.collect::<Vec<_>>()) else {
+        return refused("not a stream of this server");
+    };
+    // A server under a path (`https://host/jellyfin`) keeps it in front.
+    let prefix: Vec<&str> = base.path().trim_matches('/').split('/').filter(|p| !p.is_empty()).collect();
+    let rest = segs.strip_prefix(prefix.as_slice()).unwrap_or(&[]);
+    match rest {
+        ["Videos", id, "stream"] if is_item_id(id) => {}
+        _ => return refused("not a stream of this server"),
+    }
+    for (k, _) in u.query_pairs() {
+        let key = k.to_ascii_lowercase().replace(['_', '-'], "");
+        if matches!(key.as_str(), "apikey" | "token" | "accesstoken") {
+            return refused("a credential in the address");
+        }
+    }
+    Ok(u)
+}
+
+/// The header mpv is given for a file that needs the token: the one form the
+/// server was seen to take (`Authorization: MediaBrowser Token="..."`, 200
+/// with the same bytes as any other), with no commas in it, because mpv reads
+/// `http-header-fields` as a list split at commas. `None` for a token that
+/// is not the shape Jellyfin gives out.
+fn stream_header(token: &str) -> Option<String> {
+    is_token(token).then(|| format!("Authorization: MediaBrowser Token=\"{token}\""))
 }
 
 /// Whether the app makes this call: the method and the path both. `path` is
@@ -1073,6 +1139,108 @@ impl Jf {
         trim_sources(reply)
     }
 
+    /// One request for the first byte of a stream, with the header mpv would
+    /// send or none. Redirects are followed, as mpv follows them: the answer
+    /// says where it ended. A client drops `Authorization` when a redirect
+    /// leaves the host, so this never hands the token to another server.
+    async fn probe_stream(
+        &self,
+        url: &reqwest::Url,
+        token: Option<&str>,
+    ) -> Result<(u16, bool), String> {
+        let mut req = self
+            .http
+            .get(url.clone())
+            .header(reqwest::header::RANGE, "bytes=0-0")
+            .timeout(STREAM_WAIT);
+        if let Some(t) = token {
+            req = req.header(reqwest::header::AUTHORIZATION, format!("MediaBrowser Token=\"{t}\""));
+        }
+        let res = req.send().await.map_err(describe)?;
+        let stayed = res.url().origin() == url.origin();
+        Ok((res.status().as_u16(), stayed))
+    }
+
+    /// The check before a Jellyfin stream is handed to mpv: does the server
+    /// serve it as it is, or only with the token? Jellyfin 12.2 serves a
+    /// direct stream to anyone (plans/027-api-facts.md #2), so the first
+    /// request carries no token and, when it answers, the token never leaves
+    /// this file. A server that refuses it (401, 403) is asked again with the
+    /// token, as mpv will ask; when that works the token is marked for this
+    /// stream's server (`auth_header_for`) and `needs_auth` says so. When it
+    /// works only through a redirect to another host the header would follow
+    /// mpv there, so `off_origin` is set and nothing is marked.
+    ///
+    /// Rejects with `refused: ...` for anything but a direct stream of the
+    /// signed-in server (`stream_target`), and when not signed in.
+    pub async fn prepare_stream(&self, url: &str) -> Result<Prepared, String> {
+        let s = self.session()?;
+        let target = stream_target(&s.base, url)?;
+        let no = |status: u16, off_origin: bool| Prepared {
+            ok: false,
+            needs_auth: false,
+            status,
+            off_origin,
+        };
+        let (first, _) = self.probe_stream(&target, None).await?;
+        if (200..300).contains(&first) {
+            self.stream_auth(&s.token, None);
+            return Ok(Prepared {
+                ok: true,
+                needs_auth: false,
+                status: first,
+                off_origin: false,
+            });
+        }
+        if first != 401 && first != 403 {
+            self.stream_auth(&s.token, None);
+            return Ok(no(first, false));
+        }
+        let (second, stayed) = self.probe_stream(&target, Some(&s.token)).await?;
+        if !(200..300).contains(&second) {
+            self.stream_auth(&s.token, None);
+            return Ok(no(second, false));
+        }
+        if !stayed {
+            self.stream_auth(&s.token, None);
+            return Ok(no(second, true));
+        }
+        self.stream_auth(&s.token, Some(target.origin().ascii_serialization()));
+        Ok(Prepared {
+            ok: true,
+            needs_auth: true,
+            status: second,
+            off_origin: false,
+        })
+    }
+
+    /// Mark (or clear) the origin the stream check found to need the token.
+    /// Only if `token` is still the session's.
+    fn stream_auth(&self, token: &str, origin: Option<String>) {
+        let mut st = self.state.lock().unwrap();
+        if st.session.as_ref().is_some_and(|s| s.token == token) {
+            st.stream_auth = origin.map(|o| (o, token.to_string()));
+        }
+    }
+
+    /// The header line mpv is given for `url`, or None. Some only when the
+    /// stream check found this server to need it, for a direct stream of the
+    /// signed-in server, with the session's own token, and the page has no
+    /// say in it. Not async: it is read as a file is loaded.
+    pub fn auth_header_for(&self, url: &str) -> Option<String> {
+        let st = self.state.lock().unwrap();
+        let session = st.session.as_ref()?;
+        let (origin, token) = st.stream_auth.as_ref()?;
+        if token != &session.token {
+            return None;
+        }
+        let target = stream_target(&session.base, url).ok()?;
+        if &target.origin().ascii_serialization() != origin {
+            return None;
+        }
+        stream_header(token)
+    }
+
     fn session(&self) -> Result<Session, String> {
         self.state
             .lock()
@@ -1334,7 +1502,27 @@ mod tests {
         playback_status: Option<u16>,
         /// A raw body for PlaybackInfo, when set.
         playback_raw: Option<&'static str>,
+        /// How `/Videos/{id}/stream` answers.
+        stream: Stream,
         seen: Mutex<Vec<Seen>>,
+    }
+
+    /// How the fake serves a direct stream.
+    #[derive(Default, Clone)]
+    enum Stream {
+        /// To anyone, as 12.2 does (plans/027-api-facts.md #2).
+        #[default]
+        Open,
+        /// Only to a request with the token, 401 otherwise.
+        NeedsToken,
+        /// 403 to a request with no token, 401 to a wrong one.
+        Forbidden,
+        /// A redirect to this address, whoever asks.
+        Redirect(String),
+        /// 401 without the token, a redirect to this address with it.
+        RedirectWithToken(String),
+        /// This status, whoever asks.
+        Status(u16),
     }
 
     impl Fake {
@@ -1581,6 +1769,38 @@ mod tests {
                     fake.revoked.store(true, Ordering::SeqCst);
                 }
                 empty(204)
+            }
+            ("GET", p) if p.starts_with("/Videos/") && p.ends_with("/stream") => {
+                let has = auth
+                    .as_deref()
+                    .unwrap_or("")
+                    .contains(&format!("Token=\"{}\"", fake.token()));
+                let ok = Response::builder()
+                    .status(206)
+                    .header("content-type", "video/x-matroska")
+                    .header("content-range", "bytes 0-0/558231")
+                    .body(Full::new(Bytes::from_static(&[0x1a])))
+                    .unwrap();
+                match &fake.stream {
+                    Stream::Open => ok,
+                    Stream::NeedsToken if has => ok,
+                    Stream::NeedsToken => empty(401),
+                    Stream::Forbidden if has => ok,
+                    Stream::Forbidden if auth.is_none() => empty(403),
+                    Stream::Forbidden => empty(401),
+                    Stream::Redirect(to) => Response::builder()
+                        .status(302)
+                        .header("location", to.as_str())
+                        .body(Full::new(Bytes::new()))
+                        .unwrap(),
+                    Stream::RedirectWithToken(_) if !has => empty(401),
+                    Stream::RedirectWithToken(to) => Response::builder()
+                        .status(302)
+                        .header("location", to.as_str())
+                        .body(Full::new(Bytes::new()))
+                        .unwrap(),
+                    Stream::Status(s) => empty(*s),
+                }
             }
             _ => {
                 let want = format!("Token=\"{}\"", fake.token());
@@ -2640,4 +2860,204 @@ mod tests {
             let _ = base;
         })
     }
+
+    // ---- the check before a stream plays, and the header mpv is given ----
+
+    fn stream_of(base: &str) -> String {
+        format!("{base}/Videos/{ITEM}/stream?static=true&mediaSourceId={ITEM}&tag=ef3dd306a6c798e2")
+    }
+
+    #[test]
+    fn a_stream_the_server_serves_to_anyone_is_played_with_no_token_at_all() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (j, _, base) = signed_in(&fake).await;
+            let url = stream_of(&base);
+            let r = j.prepare_stream(&url).await.unwrap();
+            assert_eq!(
+                r,
+                Prepared { ok: true, needs_auth: false, status: 206, off_origin: false }
+            );
+            // One request, and it carried no credential: the token stayed here.
+            let stream: Vec<_> = fake.seen().into_iter().filter(|s| s.uri.contains("/stream")).collect();
+            assert_eq!(stream.len(), 1);
+            assert_eq!(stream[0].auth, None);
+            assert_eq!(j.auth_header_for(&url), None);
+        });
+    }
+
+    #[test]
+    fn a_stream_that_wants_the_token_is_asked_again_with_it_and_marked() {
+        run(async {
+            for mode in [Stream::NeedsToken, Stream::Forbidden] {
+                let fake = Arc::new(Fake { stream: mode, ..Default::default() });
+                let (j, _, base) = signed_in(&fake).await;
+                let url = stream_of(&base);
+                assert_eq!(j.auth_header_for(&url), None, "before the check");
+                let r = j.prepare_stream(&url).await.unwrap();
+                assert_eq!(
+                    r,
+                    Prepared { ok: true, needs_auth: true, status: 206, off_origin: false }
+                );
+                let stream: Vec<_> = fake.seen().into_iter().filter(|s| s.uri.contains("/stream")).collect();
+                assert_eq!(stream.len(), 2);
+                assert_eq!(stream[0].auth, None);
+                assert_eq!(
+                    stream[1].auth.as_deref(),
+                    Some(format!("MediaBrowser Token=\"{TOKEN1}\"").as_str())
+                );
+                let line = j.auth_header_for(&url).unwrap();
+                assert_eq!(line, format!("Authorization: MediaBrowser Token=\"{TOKEN1}\""));
+                assert!(crate::mpvheader::clean(&line));
+            }
+        });
+    }
+
+    #[test]
+    fn the_header_is_only_for_a_stream_of_the_signed_in_server() {
+        run(async {
+            let fake = Arc::new(Fake { stream: Stream::NeedsToken, ..Default::default() });
+            let (j, _, base) = signed_in(&fake).await;
+            j.prepare_stream(&stream_of(&base)).await.unwrap();
+            assert!(j.auth_header_for(&stream_of(&base)).is_some());
+            // The same server, another item: still its stream.
+            assert!(j.auth_header_for(&format!("{base}/Videos/{ITEM2}/stream?static=true")).is_some());
+            for url in [
+                // another host, another port, another scheme
+                "http://evil.example/Videos/7acf01459a4fb0ba75583ff9c88ca080/stream",
+                &format!("{}/Videos/{ITEM}/stream", base.replace("127.0.0.1", "localhost")),
+                &format!("{}/Videos/{ITEM}/stream", base.replace("http://", "https://")),
+                // a login in the address
+                &format!("{}/Videos/{ITEM}/stream", base.replace("http://", "http://u:p@")),
+                // not a stream: other routes of the same server
+                &format!("{base}/Items/{ITEM}"),
+                &format!("{base}/Videos/{ITEM}/{ITEM}/Subtitles/0/Stream.srt"),
+                &format!("{base}/Videos/{ITEM}/stream/x"),
+                &format!("{base}/Videos/not-an-id/stream"),
+                // a credential in the address
+                &format!("{base}/Videos/{ITEM}/stream?ApiKey=x"),
+                &format!("{base}/Videos/{ITEM}/stream?api_key=x"),
+                "not a url",
+                "",
+            ] {
+                assert_eq!(j.auth_header_for(url), None, "{url}");
+            }
+        });
+    }
+
+    #[test]
+    fn the_check_refuses_what_is_not_a_stream_of_the_server_and_sends_nothing() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (j, _, base) = signed_in(&fake).await;
+            let before = fake.seen().len();
+            for url in [
+                "http://evil.example/Videos/7acf01459a4fb0ba75583ff9c88ca080/stream".to_string(),
+                format!("{base}/Items"),
+                format!("{base}/Videos/{ITEM}/stream?token=x"),
+                format!("{}/Videos/{ITEM}/stream", base.replace("http://", "http://u:p@")),
+            ] {
+                let e = j.prepare_stream(&url).await.unwrap_err();
+                assert!(e.starts_with("refused:"), "{e}");
+                assert!(!e.contains(TOKEN1) && !e.contains("evil"), "{e}");
+            }
+            assert_eq!(fake.seen().len(), before, "a refused check sends nothing");
+        });
+    }
+
+    #[test]
+    fn a_check_when_not_signed_in_is_an_error_and_sends_nothing() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let base = serve(fake.clone()).await;
+            let j = client(&Shared::default());
+            assert!(j.prepare_stream(&stream_of(&base)).await.is_err());
+            assert!(fake.seen().is_empty());
+            assert_eq!(j.auth_header_for(&stream_of(&base)), None);
+        });
+    }
+
+    #[test]
+    fn a_stream_that_fails_either_way_is_not_ok_and_marks_nothing() {
+        run(async {
+            for (mode, want) in [(Stream::Status(404), 404), (Stream::Status(500), 500)] {
+                let fake = Arc::new(Fake { stream: mode, ..Default::default() });
+                let (j, _, base) = signed_in(&fake).await;
+                let r = j.prepare_stream(&stream_of(&base)).await.unwrap();
+                assert_eq!(r, Prepared { ok: false, needs_auth: false, status: want, off_origin: false });
+                assert_eq!(j.auth_header_for(&stream_of(&base)), None);
+            }
+            // 401 with the token too: the token is no good here.
+            let fake = Arc::new(Fake { stream: Stream::Status(401), ..Default::default() });
+            let (j, _, base) = signed_in(&fake).await;
+            let r = j.prepare_stream(&stream_of(&base)).await.unwrap();
+            assert_eq!(r, Prepared { ok: false, needs_auth: false, status: 401, off_origin: false });
+            assert_eq!(j.auth_header_for(&stream_of(&base)), None);
+        });
+    }
+
+    #[test]
+    fn a_stream_only_reached_through_a_redirect_off_the_server_gets_no_token() {
+        run(async {
+            // The other server, which counts what it is sent.
+            let other = Arc::new(Fake::default());
+            let other_base = serve(other.clone()).await;
+            // This one refuses without the token and, with it, redirects away.
+            let fake = Arc::new(Fake {
+                stream: Stream::Redirect(format!("{other_base}/Videos/{ITEM}/stream")),
+                ..Default::default()
+            });
+            let (j, _, base) = signed_in(&fake).await;
+            // Anonymous, the redirect is followed and served: nothing to mark.
+            let r = j.prepare_stream(&stream_of(&base)).await.unwrap();
+            assert_eq!(r, Prepared { ok: true, needs_auth: false, status: 206, off_origin: false });
+            assert_eq!(j.auth_header_for(&stream_of(&base)), None);
+            // The server wants the token first and then redirects away: the
+            // header would follow mpv there, so none is given and the
+            // stream is not played. The token did not go either.
+            let fake2 = Arc::new(Fake {
+                stream: Stream::RedirectWithToken(format!("{other_base}/Videos/{ITEM}/stream")),
+                ..Default::default()
+            });
+            let (j2, _, base2) = signed_in(&fake2).await;
+            let r2 = j2.prepare_stream(&stream_of(&base2)).await.unwrap();
+            assert_eq!(r2, Prepared { ok: false, needs_auth: false, status: 206, off_origin: true });
+            assert_eq!(j2.auth_header_for(&stream_of(&base2)), None);
+            // Nothing the other server saw carried a credential.
+            assert!(other.seen().iter().all(|s| s.auth.is_none()), "{:?}", other.seen());
+            assert!(!other.seen().is_empty());
+        });
+    }
+
+    #[test]
+    fn the_mark_ends_with_the_session() {
+        run(async {
+            let fake = Arc::new(Fake { stream: Stream::NeedsToken, ..Default::default() });
+            let (j, _, base) = signed_in(&fake).await;
+            let url = stream_of(&base);
+            j.prepare_stream(&url).await.unwrap();
+            assert!(j.auth_header_for(&url).is_some());
+            assert!(j.disconnect().await);
+            assert_eq!(j.auth_header_for(&url), None);
+        });
+    }
+
+    #[test]
+    fn a_server_under_a_path_is_still_its_own() {
+        run(async {
+            let fake = Arc::new(Fake {
+                prefix: "/jellyfin",
+                stream: Stream::NeedsToken,
+                ..Default::default()
+            });
+            let (j, _, base) = signed_in(&fake).await;
+            let url = format!("{base}/jellyfin/Videos/{ITEM}/stream?static=true");
+            let r = j.prepare_stream(&url).await.unwrap();
+            assert!(r.ok && r.needs_auth, "{r:?}");
+            assert!(j.auth_header_for(&url).is_some());
+            // The same host with the path left off is not this server's stream.
+            assert_eq!(j.auth_header_for(&format!("{base}/Videos/{ITEM}/stream")), None);
+        });
+    }
+
 }

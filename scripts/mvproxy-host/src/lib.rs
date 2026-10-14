@@ -11,6 +11,8 @@ pub mod mal;
 pub mod aiojf;
 #[path = "../../../apps/app/src-tauri/src/mpvagent.rs"]
 pub mod mpvagent;
+#[path = "../../../apps/app/src-tauri/src/mpvheader.rs"]
+pub mod mpvheader;
 #[path = "../../../apps/app/src-tauri/src/mpvurl.rs"]
 pub mod mpvurl;
 #[path = "../../../apps/app/src-tauri/src/mvaudio.rs"]

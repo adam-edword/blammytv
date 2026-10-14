@@ -153,6 +153,18 @@ The guard in `jf.rs` refuses a credential key in any case, which is right.
 - The direct stream is `${base}/Videos/{itemId}/stream?static=true&
   mediaSourceId={Id}&tag={ETag}`, built the same way (batch 3); no
   `DirectStreamUrl` or `TranscodingUrl` comes for a direct-playable file.
+- mpv and the token (batch 3, measured on mpv 0.37 through libmpv's
+  `mpv_set_property_string`, the call `mpv.rs` makes): `http-header-fields` is a
+  list split at commas, so the header is `Authorization: MediaBrowser
+  Token="<token>"` with nothing else in it (a `Client="...", Token=...` form is
+  split in two and the open fails); set before `loadfile` it is sent on that
+  file's requests, and `""` puts it back. **It follows a redirect to another
+  host** (a redirect from one port to another carried it). So D3 is kept
+  (header, per file, put back, never a URL) with two tightenings: the stream
+  is first asked for with no token (12.2 serves it, so the token never leaves
+  Rust there), the header is only given when the server refuses that and
+  serves it with the token, and never for a stream that is only reached by a
+  redirect off the server (`jf.rs` `prepare_stream`, `auth_header_for`).
 - The movie in Adam's library ("The Turn") is a game-mod `.bin` file with no
   runtime, not a video: playback and progress tests use the episodes.
 

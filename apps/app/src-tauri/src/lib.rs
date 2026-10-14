@@ -6,6 +6,7 @@ mod logtail;
 mod mal;
 mod mpv;
 mod mpvagent;
+mod mpvheader;
 mod mpvopen;
 mod mpvprefs;
 mod mpvurl;
@@ -1322,12 +1323,21 @@ async fn aiojf_disconnect() {
     aiojf_client().disconnect().await
 }
 
+static JF_CLIENT: OnceLock<std::sync::Arc<jf::Jf>> = OnceLock::new();
+
+/// The Jellyfin client if the page has started it, without starting it: what
+/// mpv asks before every file, so a user with no Jellyfin never reads the
+/// vault for one. A file only gets a Jellyfin header after the page has asked
+/// for the stream check (`jf_prepare_stream`), which starts it.
+pub(crate) fn jf_client_started() -> Option<&'static std::sync::Arc<jf::Jf>> {
+    JF_CLIENT.get()
+}
+
 /// A Jellyfin server of the user's own (plan 027): one client for the run,
 /// the same shape as AIOStreams' above. The address is the server's, typed
 /// in Settings. A dev run keeps its session under its own name.
 fn jf_client() -> &'static std::sync::Arc<jf::Jf> {
-    static CLIENT: OnceLock<std::sync::Arc<jf::Jf>> = OnceLock::new();
-    CLIENT.get_or_init(|| {
+    JF_CLIENT.get_or_init(|| {
         let cfg = jf::Config {
             app_version: env!("CARGO_PKG_VERSION").to_string(),
             // Windows sets it; the header says "Windows" when it is absent.
@@ -1396,6 +1406,19 @@ async fn jf_request(
 #[tauri::command]
 async fn jf_sources(item_id: String) -> Result<jf::Sources, String> {
     jf_client().sources(&item_id).await
+}
+
+/// The check before a Jellyfin stream is handed to the player: does the server
+/// serve it as it is, or only with the token (which then goes to mpv as a
+/// header for this file, never in the address)? Takes the stream's address, a
+/// direct stream of the signed-in server; anything else rejects with
+/// `refused: ...` and nothing is sent. `offOrigin` means the stream is only
+/// reached through a redirect to another server and must not be played with
+/// the token. A new command: an older native build rejects it and the page
+/// plays the stream as it would without.
+#[tauri::command]
+async fn jf_prepare_stream(url: String) -> Result<jf::Prepared, String> {
+    jf_client().prepare_stream(&url).await
 }
 
 /// Sign out of Jellyfin, here and there. True when the server confirmed the
@@ -1899,6 +1922,7 @@ pub fn run() {
             jf_poll,
             jf_request,
             jf_sources,
+            jf_prepare_stream,
             jf_disconnect,
             check_update,
             check_update_info,
