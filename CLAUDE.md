@@ -199,6 +199,24 @@ tech wins: no framework-of-the-month, no clever abstractions for hypothetical
 reuse. When a task matches an installed Claude Code skill (security review,
 design review, etc.), use the skill instead of re-implementing.
 
+## Ponytail: on for every session
+
+Follow the `ponytail` skill at the default level (full) for all work. A
+SessionStart and a SubagentStart hook (`.claude/hooks/ponytail.mjs`) inject it
+into every session and every builder, so it doesn't depend on the skill
+matching. If you don't see "PONYTAIL MODE ACTIVE" in your context, load the
+skill yourself. Adam can switch it with `/ponytail lite|ultra` or turn it off
+with "stop ponytail".
+
+It sits under everything above, not over it: data before a fix, the gates, and
+the Confusion Protocol still apply, and the skill's own "never cut" list covers
+the tests those gates need.
+
+One collision, and this file wins it. Ponytail ends a reply with a line on what
+you skipped and any risk. Don't add that as a second trailer. Fold it into the
+"What to look for" block under "Flag what you could not check", and keep the
+restart line last.
+
 ## Writing style
 
 Applies to everything you produce: chat replies, docs, commit messages, code
