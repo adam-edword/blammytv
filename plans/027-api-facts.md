@@ -1,4 +1,4 @@
-# Plan 027: what a real Jellyfin 12.2 answered (batch 0)
+# Plan 027: what a real Jellyfin 12.2 answered (batch 0 and round 2)
 
 Data, not memory. Taken 2026-10-14 from Adam's own server (Jellyfin 12.2.0,
 `ProductName: "Jellyfin Server"`, no `aiostreams` object) by
@@ -61,14 +61,24 @@ OpenAPI; "probe" means a call that was made.
    missing filter shows.
 5. **Query names are case-insensitive** (`ParentId`, `parentId` and
    `userId` all bound). The spec spells them lower camel.
-6. **Stop semantics are NOT settled.** On a 30 second clip, a stop at 3%
-   gave position 0, not played, `PlayCount` 1; a stop at 50, 85, 95 and
-   100% gave played, position 0, `PlayCount` 1. `/UserItems/Resume` stayed
-   empty after every one. That fits a rule that short items are never
-   resumable, but a 30 second clip cannot show the 90% rule or a saved
-   position, and the cause is not confirmed. The 90% rule written for
-   AIOStreams cannot be checked or dropped from this data. Needs a clip of
-   about ten minutes (round 2).
+6. **Stop semantics (settled, round 2).** The server's own thresholds
+   (`GET /System/Configuration`, admin only) are `MinResumePct` 5,
+   `MaxResumePct` 90, `MinResumeDurationSeconds` 300. On a 600 second item:
+   a stop at 3% resets the position and does not mark it played; at 50% and
+   85% it saves the reported position exactly (`PlaybackPositionTicks`
+   3000115000 and 5100195500, `PlayedPercentage` 50 and 85) and the item
+   appears in `/UserItems/Resume`; at 95% and 100% it is `Played: true`
+   with position 0 and leaves Resume. Every stop adds one to `PlayCount`,
+   even the 3% one. An item under 300 seconds is marked played at any stop
+   over 5% and is never resumable (the 30 second clips). The exact 90%
+   edge was not hit (85 and 95 only). So the 90% rule written for
+   AIOStreams is Jellyfin's own too, and the app need not mark anything
+   played itself after a stop: send `Stopped` with the real position and
+   read `UserData` back. The thresholds are the server's to change and need
+   an admin to read, so nothing should depend on them being these numbers.
+   `/Shows/NextUp` after the 3, 50 and 85% stops still offered episode 1;
+   after 95 and 100% it was empty: episodes skipped before the last watched
+   one are not offered.
 7. **Played marks:** `POST /UserPlayedItems/{id}` gives `Played: true`,
    `PlayCount` 1, `LastPlayedDate`, position 0. `DELETE` gives `Played:
    false`, `PlayCount` 0, no `LastPlayedDate`. `POST /UserItems/{id}/
@@ -84,47 +94,71 @@ OpenAPI; "probe" means a call that was made.
    `{Items: [], TotalRecordCount: 0, StartIndex: 0}`. Segment types in the
    spec: `Unknown`, `Commercial`, `Preview`, `Recap`, `Outro`, `Intro`
    (`StartTicks`, `EndTicks`, `ItemId`).
-10. **An all-zero id is not a 404.** `GET /Items/000...0` returned the
-    root "Media Folders" item with `200`. A real unknown id was not tried
-    (round 2).
+10. **Unknown ids (round 2).** An all-zero id is not a 404: `GET /Items/000...0`
+    returns the root "Media Folders" item with `200`. A random GUID is `404`
+    `application/problem+json` (`{type, title: "Not Found", status, traceId}`)
+    on `/Items/{id}`, `PlaybackInfo`, `/UserItems/{id}/UserData` and
+    `POST /UserPlayedItems/{id}`. A non-GUID id (`nope`) is `400` problem+json
+    with `errors.itemId`. `POST /Sessions/Playing/Stopped` for an unknown item
+    is `204`, silently accepted. An unknown route is an empty `404`.
 11. **`PlaybackInfo`:** the POST with no profile and the GET both gave
     `SupportsDirectPlay`, `SupportsDirectStream` and `SupportsTranscoding`
     all true; the POST with a direct-play-only profile and no transcoding
     profiles gave transcoding false. No `TranscodingUrl` in any of them.
     Each media stream carries `Index`, `Type`, `Codec`, `DisplayTitle`,
     `IsDefault`, `IsForced`, `IsHearingImpaired`, `IsExternal`,
-    `IsTextSubtitleStream`, `SupportsExternalStream`. The test clips have one
-    video stream (h264, 1280x720, `yuv444p`) and one mono AAC stream, and no
-    subtitles, so subtitle delivery was not exercised.
-12. **The subtitle route in the spec** is `/Videos/{itemId}/{mediaSourceId}/
-    Subtitles/{index}/Stream.{format}` (its path parameters are named
-    `routeItemId` and so on), with a variant carrying a start position.
+    `IsTextSubtitleStream`, `SupportsExternalStream`. The 30 second clips have one
+    video stream (h264, 1280x720, `yuv444p`) and one mono AAC stream.
+12. **External subtitles (round 2).** The route is `/Videos/{itemId}/
+    {mediaSourceId}/Subtitles/{index}/Stream.{format}` (and a variant with a
+    start position). For `Severance S01E03.en.srt` the stream is `{Codec:
+    "subrip", Language: "eng", DisplayTitle: "English - SUBRIP - External",
+    Type: "Subtitle", Index: 0, IsExternal: true, IsTextSubtitleStream: true,
+    SupportsExternalStream: true}`: the subtitle took Index 0, ahead of the
+    video (1) and the audio (2). `DeliveryMethod: "External"` and a
+    `DeliveryUrl` appear only when the PlaybackInfo body carries a
+    `DeviceProfile` with `SubtitleProfiles`, and the `DeliveryUrl` is
+    `/Videos/<dashed guid>/<mediaSourceId>/Subtitles/0/0/Stream.srt?ApiKey=<the
+    session token>`: **the server puts the token in the URL it hands out**.
+    `jf.rs` drops `DeliveryUrl` and `Path`; build the URL from the index, as
+    below. The route needs no token: `200`, `application/x-subrip`, with or
+    without `ApiKey`, and the dashed or the plain item id both resolve.
+    A subtitle stream that does not exist is `500` (observed with no token),
+    not a 404.
 
-## Quick Connect
+## Quick Connect (live, round 2)
 
-Not run in this probe (password mode). From the spec: `GET
-/QuickConnect/Enabled`; `POST /QuickConnect/Initiate` gives `{Authenticated,
-Secret, Code, DeviceId, DeviceName, AppName, AppVersion, DateAdded}`;
-`GET /QuickConnect/Connect?secret=` gives the same object (404 for an
-unknown secret); `POST /QuickConnect/Authorize?code=` (signed in) approves
-it; `POST /Users/AuthenticateWithQuickConnect` with `{Secret}` gives the
-usual `AuthenticationResult` (400 when not approved). The fake follows
-that; the live run is round 2.
+`GET /QuickConnect/Enabled` is `200 true`. `POST /QuickConnect/Initiate`
+(no token) is `200 {Authenticated: false, Secret, Code (6 digits), DeviceId,
+DeviceName, AppName, AppVersion, DateAdded}`, no expiry field. `GET
+/QuickConnect/Connect?secret=` is `200` with the same object while pending
+(polled eight times) and `Authenticated: true` after Adam approved the code
+in Jellyfin's web page (`DateAdded` changes); an unknown secret is `404` with
+the JSON string body `"Unknown secret"`. `POST
+/Users/AuthenticateWithQuickConnect` with `{Secret}` then gives `200` and the
+usual `{User, SessionInfo, AccessToken, ServerId}`. Sign-out is `204` and the
+token is `401` after.
 
-## Round 2 (needs Adam at his PC, nothing else)
+## Token, round 2 additions
 
-1. A ten minute clip with an external subtitle (below), to settle the stop,
-   resume and played rules and the external subtitle shape.
-2. `GET /System/Configuration` (the probe now reads it): the server's own
-   resume and played thresholds.
-3. A real unknown id (the probe now tries it on four routes plus an
-   unknown-item report), a non-GUID id, and `?apikey=` in lower case.
-4. Quick Connect live (`JF_MODE=q`), end to end.
+`?apikey=` in lower case works (`200`), `?ApiKey=` works, `?api_key=` is `401`.
+The guard in `jf.rs` refuses a credential key in any case, which is right.
+`X-Emby-Authorization` alone is `401` as a token carrier.
+
+## What it means for the build
+
+- A subtitle for mpv is `${base}/Videos/{itemId}/{mediaSourceId}/Subtitles/
+  {index}/Stream.srt` built by the page from the stream's `Index`; any text
+  subtitle (`IsTextSubtitleStream`) can be asked for as `.srt`. No token.
+- The direct stream is `${base}/Videos/{itemId}/stream?static=true&
+  mediaSourceId={Id}&tag={ETag}`, built the same way (batch 3); no
+  `DirectStreamUrl` or `TranscodingUrl` comes for a direct-playable file.
+- The movie in Adam's library ("The Turn") is a game-mod `.bin` file with no
+  runtime, not a video: playback and progress tests use the episodes.
 
 ## What the fake does not claim
 
 Marked in `scripts/fake-jellyfin.mjs`'s header: the movie's `PlaybackInfo`
-and record are derived from the episode shape; Quick Connect bodies are
-from the spec; an unknown item is a `404` there (unverified); stops on an
-item of five minutes or more apply Jellyfin's usual rule, which is
-unverified until round 2.
+is derived from the episode shape; Quick Connect's Authorize is from the
+spec. The stop rule, the unknown ids, the subtitle route and Quick Connect
+are all observed now. Not hit: the exact 90% edge of a stop.
