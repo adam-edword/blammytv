@@ -1,19 +1,19 @@
 {
- "_about": "Captured from a real Jellyfin 12.2.0 (adam, 2026-10-14, scripts/jf-probe.mjs, round 2: the 600s episode with an external srt). Records are the server answers. DERIVED, not captured: the movie (a slim record, no MediaSources) and its PlaybackInfo, which scripts/fake-jellyfin.mjs builds from the episode shape. Tokens are never stored here.",
- "serverId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+ "_about": "Captured from a real Jellyfin 12.2.0 (2026-10-14, scripts/jf-probe.mjs, round 2: the 600s episode with an external srt). Records are the server answers. DERIVED, not captured: the movie (a slim record, no MediaSources) and its PlaybackInfo, which scripts/fake-jellyfin.mjs builds from the episode shape. Tokens are never stored here.",
+ "serverId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
  "info": {
   "LocalAddress": "http://127.0.0.1:8096",
-  "ServerName": "EDDPC",
+  "ServerName": "TESTSRV",
   "Version": "12.2.0",
   "ProductName": "Jellyfin Server",
   "OperatingSystem": "",
-  "Id": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+  "Id": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
   "StartupWizardCompleted": true
  },
  "user": {
-  "Name": "edd",
-  "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
-  "Id": "f59a39ea66ed4c5f9d5ed26a313553bb",
+  "Name": "testuser",
+  "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
+  "Id": "d41f6b82a3c94e57b0e8c9a7f2d63b15",
   "HasPassword": true,
   "HasConfiguredPassword": true,
   "HasConfiguredEasyPassword": false,
@@ -99,8 +99,8 @@
   },
   "PlayableMediaTypes": [],
   "Id": "65da22305da20a9052fd528744ee445c",
-  "UserId": "f59a39ea66ed4c5f9d5ed26a313553bb",
-  "UserName": "edd",
+  "UserId": "d41f6b82a3c94e57b0e8c9a7f2d63b15",
+  "UserName": "testuser",
   "Client": "BlammyTV",
   "LastActivityDate": "2026-10-14T17:39:27.0695448Z",
   "LastPlaybackCheckIn": "0001-01-01T00:00:00.0000000Z",
@@ -112,13 +112,13 @@
   "SupportsRemoteControl": false,
   "NowPlayingQueue": [],
   "HasCustomDeviceName": false,
-  "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+  "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
   "SupportedCommands": []
  },
  "views": [
   {
    "Name": "Movies",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "f137a2dd21bbc1b99aa5c0f6bf02a805",
    "Etag": "3a9f0ed65ef04a9b184eec3830623538",
    "DateCreated": "2026-10-14T16:40:45.9208457Z",
@@ -173,7 +173,7 @@
   },
   {
    "Name": "Shows",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "a656b907eb3a73532e40e44b968d0225",
    "Etag": "2f8bcddda4fcd3f6c1e3a5c1fb38b17e",
    "DateCreated": "2026-10-14T16:44:44.1703132Z",
@@ -223,10 +223,10 @@
  "junk": [
   {
    "Name": "10",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "2b5b054a416c4cf3f6457f7dc391548b",
    "DateCreated": "2026-10-14T16:40:58.2150451Z",
-   "Path": "C:\\Users\\edd\\Desktop\\ConvergenceER\\mod\\sd\\wem\\10",
+   "Path": "C:\\media\\Movies\\Junk\\10",
    "ChannelId": null,
    "Genres": [],
    "ProviderIds": {},
@@ -250,10 +250,10 @@
   },
   {
    "Name": "14",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "15c28783330b533de5141c463fa317e6",
    "DateCreated": "2026-10-14T16:40:58.2155133Z",
-   "Path": "C:\\Users\\edd\\Desktop\\ConvergenceER\\mod\\sd\\wem\\14",
+   "Path": "C:\\media\\Movies\\Junk\\14",
    "ChannelId": null,
    "Genres": [],
    "ProviderIds": {},
@@ -277,10 +277,10 @@
   },
   {
    "Name": "15",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "d0f1539ae8433f3b4d0196e7f928ac2a",
    "DateCreated": "2026-10-14T16:40:58.2162479Z",
-   "Path": "C:\\Users\\edd\\Desktop\\ConvergenceER\\mod\\sd\\wem\\15",
+   "Path": "C:\\media\\Movies\\Junk\\15",
    "ChannelId": null,
    "Genres": [],
    "ProviderIds": {},
@@ -307,7 +307,7 @@
   "782eb5c2b9d3056d7407645c78e5662f": {
    "Name": "Severance",
    "OriginalTitle": "Severance",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "782eb5c2b9d3056d7407645c78e5662f",
    "Etag": "4376363a50c81a82e8030279eb60c291",
    "DateCreated": "2026-10-14T16:47:03.9893592Z",
@@ -673,7 +673,7 @@
   },
   "6af33ba8536a701affde0ecbd012abca": {
    "Name": "Season 1",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "6af33ba8536a701affde0ecbd012abca",
    "PremiereDate": "2022-02-17T06:00:00.0000000Z",
    "ChannelId": null,
@@ -730,7 +730,7 @@
   },
   "7acf01459a4fb0ba75583ff9c88ca080": {
    "Name": "Good News About Hell",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "7acf01459a4fb0ba75583ff9c88ca080",
    "DateCreated": "2026-10-14T16:46:31.1183296Z",
    "Container": "mkv",
@@ -916,7 +916,7 @@
   },
   "af5d938797ad50779e33385b7e567a0c": {
    "Name": "Half Loop",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "af5d938797ad50779e33385b7e567a0c",
    "DateCreated": "2026-10-14T16:46:32.7631822Z",
    "Container": "mkv",
@@ -1102,7 +1102,7 @@
   },
   "af3c0425d5e98fc6109a5387abd43af4": {
    "Name": "In Perpetuity",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "af3c0425d5e98fc6109a5387abd43af4",
    "DateCreated": "2026-10-14T17:27:51.2832291Z",
    "HasSubtitles": true,
@@ -1317,7 +1317,7 @@
   },
   "4f3562bc93f2d10523bd9974be18fa36": {
    "Name": "Zzz Test Show",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "4f3562bc93f2d10523bd9974be18fa36",
    "DateCreated": "2026-10-14T16:47:03.9895506Z",
    "Path": "C:\\jf-test\\shows\\Zzz Test Show",
@@ -1346,7 +1346,7 @@
   },
   "4da380e683babc5f831e86a4c8d42588": {
    "Name": "Season 1",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "4da380e683babc5f831e86a4c8d42588",
    "DateCreated": "2026-10-14T16:47:04.0199642Z",
    "Path": "C:\\jf-test\\shows\\Zzz Test Show\\Season 01",
@@ -1377,7 +1377,7 @@
   },
   "c447b93d311bcc7250525a1f4dbbabb4": {
    "Name": "Zzz Test Show S01E01",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "c447b93d311bcc7250525a1f4dbbabb4",
    "DateCreated": "2026-10-14T16:46:34.431484Z",
    "Container": "mkv",
@@ -1515,7 +1515,7 @@
   },
   "941ac528e71c63eb996ee5f7a2fee913": {
    "Name": "The Turn",
-   "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+   "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
    "Id": "941ac528e71c63eb996ee5f7a2fee913",
    "DateCreated": "2026-08-17T22:34:02.7812535Z",
    "PremiereDate": "2016-01-01T06:00:00.0000000Z",
@@ -1523,7 +1523,7 @@
     {
      "Protocol": "File",
      "Id": "941ac528e71c63eb996ee5f7a2fee913",
-     "Path": "C:\\Users\\edd\\Desktop\\ConvergenceER\\mod\\regulation.bin",
+     "Path": "C:\\media\\Movies\\The Turn.bin",
      "Type": "Default",
      "Container": "bin",
      "Size": 2964304,
@@ -1552,7 +1552,7 @@
      "HasSegments": false
     }
    ],
-   "Path": "C:\\Users\\edd\\Desktop\\ConvergenceER\\mod\\regulation.bin",
+   "Path": "C:\\media\\Movies\\The Turn.bin",
    "ChannelId": null,
    "Overview": "'Mod' is an attempt by the filmmaker at communicating with the young men who hang out at the ‘notorious’ water tank in her neighbourhood in Pratap Vihar, Ghaziabad. The water tank is a space that is frequented by the so-called ‘no-gooders’ of the locality, a place where they play cricket, play cards, drink and smoke up. When she enters the space with her camera, the boys are curious and at the same time wary of it and her. They sometimes resist, sometimes protest, and at times, open up. As the film unfolds we get a hint of the lives the boys lead and the fragile world they create for themselves at the water tank.",
    "Genres": [

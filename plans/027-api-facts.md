@@ -2,7 +2,7 @@
 
 Data, not memory. Taken 2026-10-14 from Adam's own server (Jellyfin 12.2.0,
 `ProductName: "Jellyfin Server"`, no `aiostreams` object) by
-`scripts/jf-probe.mjs`: 80 calls, signed in by password as `edd`, then the
+`scripts/jf-probe.mjs`: 80 calls, signed in by password as the test user, then the
 OpenAPI spec (`/api-docs/openapi.json`, 294 paths). The shapes live in
 `scripts/fixtures/jellyfin-12.2.json`, and `scripts/fake-jellyfin.mjs`
 serves them. This file is what differs from plan 027's "What a real

@@ -44,7 +44,7 @@ describe("catalogs", () => {
 });
 
 describe("queries", () => {
-  const USER = FIX.items[SEVERANCE] && "f59a39ea66ed4c5f9d5ed26a313553bb";
+  const USER = FIX.items[SEVERANCE] && "d41f6b82a3c94e57b0e8c9a7f2d63b15";
   const movies = catalogOf(FIX.views[0])!;
   const shows = catalogOf(FIX.views[1])!;
 

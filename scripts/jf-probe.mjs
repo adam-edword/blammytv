@@ -12,7 +12,7 @@
 // Writes results.json and openapi.json into a folder under your temp dir
 // and prints the path. Tokens and Quick Connect secrets are replaced with
 // <redacted> everywhere; the password never reaches a file. Attach
-// results.json to the thread. Env: JF_USER (default edd), JF_MODE (p or q).
+// results.json to the thread. Env: JF_USER (default: asked), JF_MODE (p or q).
 import { createInterface } from 'node:readline';
 import { Writable } from 'node:stream';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const BASE = (process.argv[2] || 'http://127.0.0.1:8096').replace(/\/+$/, '');
-const USER = process.env.JF_USER || 'edd';
+let USER = process.env.JF_USER || '';
 const DEVICE_ID = 'blammytv-probe';
 const secrets = new Set();
 const results = [];
@@ -61,9 +61,24 @@ function authHeader(token) {
   return `MediaBrowser ${parts.join(', ')}`;
 }
 
+// What names the person or the machine is swapped for a neutral stand-in in
+// everything written: a capture goes into a public repo as the fixture, and an
+// earlier one carried a PC name, a user name, ids and a home folder's paths.
+const standins = new Map();
+const dashed = (h) => (/^[0-9a-f]{32}$/i.test(h) ? h.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5') : null);
+function standIn(real, fake) {
+  if (!real) return;
+  standins.set(String(real), fake);
+  const d = dashed(String(real));
+  if (d) standins.set(d, dashed(fake) || fake);
+}
+
 function redact(s) {
   let out = String(s);
   for (const x of secrets) if (x) out = out.split(x).join('<redacted>');
+  for (const [real, fake] of standins) out = out.split(real).join(fake);
+  // A path under a user profile (JSON-escaped or not) is the person's own.
+  out = out.replace(/[A-Za-z]:(\\\\|\\)Users(\\\\|\\)[^\\"]+(\\\\|\\)/g, 'C:$1media$1');
   return out;
 }
 
@@ -137,6 +152,8 @@ const pct = (ticks, p) => Math.floor((ticks * p) / 100);
 section('1. public info');
 const info = await call('info', 'GET', '/System/Info/Public', { noAuth: true });
 if (info.body && typeof info.body === 'object') {
+  standIn(info.body.ServerName, 'TESTSRV');
+  standIn(info.body.Id, '5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5');
   note(`Version ${info.body.Version}, ProductName ${info.body.ProductName}, aiostreams object: ${'aiostreams' in info.body}`);
 }
 
@@ -217,6 +234,8 @@ if (spec) {
 
 // ---- 3. sign in ----
 section('3. sign in');
+if (!USER) USER = (await ask('Jellyfin user name: ', false)).trim();
+standIn(USER, 'testuser');
 await call('wrong password', 'POST', '/Users/AuthenticateByName', {
   body: { Username: USER, Pw: 'definitely-not-the-password-' + Date.now() },
   secret: true,
@@ -264,6 +283,8 @@ if (authResult && authResult.AccessToken) {
   token = authResult.AccessToken;
   secrets.add(token);
   userId = authResult.User?.Id;
+  standIn(userId, 'd41f6b82a3c94e57b0e8c9a7f2d63b15');
+  standIn(authResult.ServerId, '5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5');
   note(`signed in as ${authResult.User?.Name} (${userId}), result keys: ${Object.keys(authResult).join(',')}`);
 } else {
   note('NO TOKEN: stopping after what was captured');

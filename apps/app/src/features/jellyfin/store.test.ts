@@ -12,14 +12,14 @@ vi.stubGlobal("localStorage", {
 import { forgetCount, forgetJf, loadJf, loadJfConn, noteSignIn } from "./store";
 
 const BASE = "https://jf.example.com";
-const on = { supported: true, connected: true, userName: "edd", userId: "u1", base: BASE, serverName: "Home" };
+const on = { supported: true, connected: true, userName: "testuser", userId: "u1", base: BASE, serverName: "Home" };
 
 beforeEach(() => mem.clear());
 
 describe("noteSignIn", () => {
   it("records a connected status and says it changed", () => {
     expect(noteSignIn(on)).toBe(true);
-    expect(loadJf().signedIn).toEqual({ base: BASE, userName: "edd", userId: "u1", serverName: "Home" });
+    expect(loadJf().signedIn).toEqual({ base: BASE, userName: "testuser", userId: "u1", serverName: "Home" });
   });
 
   it("says nothing changed for the same status again", () => {
