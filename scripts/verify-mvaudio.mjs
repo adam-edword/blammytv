@@ -235,7 +235,7 @@ function ipc({ port, sinkPort, reject, rate }) {
 // ================================================ 1. real sound, the module
 /** A page on the dev server, with the module imported as the app imports it
  * and a <video> playing the tone. */
-async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = false, track = false, silent = false } = {}) {
+async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = false, track = false, silent = false, level = 1 } = {}) {
   const ctx = await b.newContext({ viewport: { width: W, height: H } });
   const page = await ctx.newPage();
   const errors = [];
@@ -245,7 +245,7 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
   const blank = URL + "__blank";
   await page.route(blank, (r) => r.fulfill({ contentType: "text/html", body: "<!doctype html><title>mvaudio</title>" }));
   // Same origin, or captureStream is silenced as a cross-origin read.
-  await page.route(URL + "__tone.wav", (r) => r.fulfill({ contentType: "audio/wav", body: tone(silent ? 0 : 1) }));
+  await page.route(URL + "__tone.wav", (r) => r.fulfill({ contentType: "audio/wav", body: tone(silent ? 0 : level) }));
   await page.addInitScript(`(${ipc})(${JSON.stringify({ port: 0, sinkPort: s.port, reject: false, rate })})`);
   if (track) await page.addInitScript(TRACK_CONTEXTS);
   if (policy) await page.addInitScript(AUTOPLAY_POLICY);
@@ -451,8 +451,42 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
       frames > 10 &&
       /track frames: \d+ \([^)]*\), silence/.test(probe) &&
       /a fresh copy in a default-rate context \(\d+ Hz, running\): silence/.test(probe) &&
-      /a test tone through a stream into the routing's 48000 Hz context: -?\d+\.\d dBFS/.test(probe),
+      /a test tone through a stream into the routing's 48000 Hz context: -?\d+\.\d dBFS/.test(probe) &&
+      // The tile here is a WAV, so it has no picture: the two picture tests
+      // only show they ran. Scratch runs with a VP9 tile read a real picture.
+      /the tile's picture drawn to a canvas \(\d+x\d+\): mean \d+, max \d+ of 255/.test(probe) &&
+      /video frames: /.test(probe),
     probe,
+  );
+  await page.evaluate(() => window.__stop());
+  check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+  await b.close();
+  s.close();
+}
+
+// =================== 1c. a near-silent copy is not sound: the tile keeps it
+// v0.11.46 on Adam's WebView2: fresh copies of a tile he heard at a normal
+// level read -55.8 and -88.6 dBFS. The rule's floor is -40 dBFS, so a copy
+// like those leaves the sound with the tile. The tone at 0.002 of its level
+// peaks near -60 dBFS.
+{
+  const s = await sink();
+  const b = await launch();
+  const { ctx, page, errors, el } = await module1(b, s, { rate: 48000, volume: 0.5, level: 0.002 });
+  await page.evaluate(() => {
+    window.__muted = 0;
+    window.__v.addEventListener("volumechange", () => window.__v.muted && window.__muted++);
+    window.__stop = window.__m.startMvAudio();
+  });
+  const flowed = await until(() => s.posts.length >= 25, 8000);
+  await sleep(1500);
+  const e = await el();
+  const mutes = await page.evaluate(() => window.__muted);
+  check(
+    "a copy peaking near -60 dBFS never mutes the tile: it plays itself at the bar's volume",
+    flowed && mutes === 0 && e[0] === false && near(e[1], 0.125, 1e-6),
+    JSON.stringify({ flowed, mutes, el: e }),
   );
   await page.evaluate(() => window.__stop());
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));

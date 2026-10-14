@@ -22,7 +22,16 @@
  * - a test tone made in a default-rate context, sent through a MediaStream
  *   into the routing's context. Silence here means that context hears no
  *   stream at all, whatever the tile does;
- * - the copy track's settings and, where Chromium has them, its stats.
+ * - the copy track's settings and, where Chromium has them, its stats;
+ * - the tile's picture (v0.11.47), drawn to a canvas and copied as a video
+ *   track. v0.11.46's answer from his machine: the routing's copy delivered
+ *   0 frames in 5s; a fresh copy delivered frames (96 kHz, 8 ch, his
+ *   output's own format) at -55.8 dBFS while he heard the tile at a normal
+ *   level, -88.6 dBFS through Web Audio; a test tone through the routing's
+ *   context read 0.0 dBFS. So Web Audio works and the capture is near-empty
+ *   at its source, which is what a tile played outside Chromium's own
+ *   pipeline (Windows' Media Foundation, shown through DirectComposition)
+ *   looks like. Its picture would then draw black, as protected video does.
  */
 
 /** About -100 dBFS: louder than this is sound. As mvAudio's HEARD. */
@@ -135,6 +144,67 @@ async function toneThrough(ctx: AudioContext): Promise<string> {
   }
 }
 
+/** Mean and max luma, 0-255, of a 64x36 drawing. */
+function lumaOf(src: CanvasImageSource): string {
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 36;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  if (!g) return "no 2d context";
+  g.drawImage(src, 0, 0, 64, 36);
+  const d = g.getImageData(0, 0, 64, 36).data;
+  let sum = 0;
+  let max = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const y = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+    sum += y;
+    max = Math.max(max, y);
+  }
+  return `mean ${Math.round(sum / (64 * 36))}, max ${Math.round(max)} of 255`;
+}
+
+function pictureDrawn(video: HTMLVideoElement): string {
+  try {
+    return `the tile's picture drawn to a canvas (${video.videoWidth}x${video.videoHeight}): ${lumaOf(video)}`;
+  } catch (e) {
+    return `picture: failed (${errText(e)})`;
+  }
+}
+
+async function videoFrames(video: HTMLVideoElement): Promise<string> {
+  type Processor = new (init: { track: MediaStreamTrack }) => {
+    readable: ReadableStream<VideoFrame>;
+  };
+  const P = (window as unknown as { MediaStreamTrackProcessor?: Processor })
+    .MediaStreamTrackProcessor;
+  if (!P) return "video frames: no MediaStreamTrackProcessor here";
+  const s = (video as HTMLVideoElement & { captureStream: () => MediaStream }).captureStream();
+  for (const t of s.getAudioTracks()) t.stop();
+  const track = s.getVideoTracks()[0];
+  if (!track) {
+    stopAll(s);
+    return "video frames: the copy has no video track";
+  }
+  const reader = new P({ track }).readable.getReader();
+  let frames = 0;
+  let first = "";
+  try {
+    for (const end = performance.now() + 1000; performance.now() < end; ) {
+      const r = await Promise.race([reader.read(), wait(600).then(() => null)]);
+      if (!r || r.done) break;
+      frames++;
+      if (!first) first = lumaOf(r.value);
+      r.value.close();
+    }
+  } catch (e) {
+    return `video frames: failed after ${frames} (${errText(e)})`;
+  } finally {
+    void reader.cancel().catch(() => {});
+    stopAll(s);
+  }
+  return `video frames: ${frames}${first ? `, the first ${first}` : ""}`;
+}
+
 function trackFacts(stream: MediaStream): string {
   const t = stream.getAudioTracks()[0];
   if (!t) return "copy track: none";
@@ -163,6 +233,8 @@ export async function probeCopy(
     () => trackFrames(video),
     () => defaultContext(video),
     () => toneThrough(ctx),
+    async () => pictureDrawn(video),
+    () => videoFrames(video),
   ]) {
     try {
       said.push(await ask());

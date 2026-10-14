@@ -167,9 +167,12 @@ const CHECK_MS = 5000;
 /** How often an unheard copy is listened to. */
 const LISTEN_MS = 100;
 
-/** Louder than this, before the gain, is sound: about -100 dBFS. The copy
- * that fails is exact zeros, and a real feed's quiet is never that quiet. */
-const HEARD = 1e-5;
+/** Louder than this, before the gain, is sound: -40 dBFS. A feed's speech
+ * and music peak well above it within seconds. The copy that fails is not
+ * always exact zeros: on Adam's WebView2 (v0.11.46) fresh copies of a tile
+ * he heard at a normal level read -55.8 and -88.6 dBFS, and a floor below
+ * those would hand the sound to a copy that carries none. */
+const HEARD = 0.01;
 
 /** Chromium's count of the audio bytes an element has decoded. Not standard,
  * so possibly missing. */
