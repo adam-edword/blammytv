@@ -419,7 +419,9 @@ async function drawn(page, pos) {
   }
   return Object.fromEntries(JSON.parse(last));
 }
-async function registryMatches(page, positions, label) {
+/** `absent`: rows the registry lists that this context cannot draw (Jellyfin's
+ * sign-in only exists in the desktop app; the native pass checks it). */
+async function registryMatches(page, positions, label, absent = []) {
   const reg = await page.evaluate(async () => {
     const m = await import("/src/features/settings/settingsIndex.ts");
     return m.SETTINGS_INDEX.map(({ id, label, page, world }) => ({ id, label, page, world }));
@@ -429,7 +431,7 @@ async function registryMatches(page, positions, label) {
     const where = `${pos.page}${pos.pill ? ` / ${pos.pill[1]}` : ""}`;
     // What the registry says should be here: this page's rows, those under no
     // pill and those under this one.
-    const want = reg.filter((r) => r.page === pos.key && (!r.world || r.world === pos.world)).map((r) => r.id);
+    const want = reg.filter((r) => r.page === pos.key && (!r.world || r.world === pos.world)).map((r) => r.id).filter((id) => !absent.includes(id));
     const ids = Object.keys(got);
     const known = ids.filter((id) => reg.some((r) => r.id === id));
     const wrongPlace = ids.filter((id) => {
@@ -452,7 +454,7 @@ async function registryMatches(page, positions, label) {
   await gear(page).click();
   await settingsUp(page);
   await page.waitForTimeout(400);
-  const { reg } = await registryMatches(page, POSITIONS.filter((p) => !["accounts", "app"].includes(p.key)), "browser");
+  const { reg } = await registryMatches(page, POSITIONS.filter((p) => !["accounts", "app"].includes(p.key)), "browser", ["jellyfin"]);
   // The registry itself: a label for every row, ids that are unique.
   check("the registry's ids are unique and every row has a label", new Set(reg.map((r) => r.id)).size === reg.length && reg.every((r) => r.label.trim()), `${reg.length} rows`);
   await ctx.close();

@@ -79,7 +79,7 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     label: "Jellyfin",
     page: "sources",
     world: "stream",
-    keywords: ["sign in", "login", "server", "own", "library", "quick connect", "address", "password", "home server", "connect"],
+    keywords: ["sign in", "server", "own", "library", "quick connect", "address", "password", "home server", "connect"],
   },
   {
     id: "connection-test",
