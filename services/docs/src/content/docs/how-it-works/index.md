@@ -16,6 +16,7 @@ your machine                              the internet
 ─────────────                             ────────────
 BlammyTV  ──── channel list, EPG ───────▶  your Xtream panel / M3U / portal
           ──── catalogue, streams ──────▶  your AIOStreams instance
+          ──── libraries, video ────────▶  your Jellyfin server
           ──── video ────────────────────▶ whatever host those two hand back
 ```
 
@@ -36,6 +37,7 @@ the app is down with it and nothing could have cached it for you.
 | `auth.trakt.tv`, `api.trakt.tv` | **Only if you connect Trakt** | Your sign-in, then what you play and how far in, and your watch history, paused positions and watchlist, both ways |
 | `myanimelist.net`, `api.myanimelist.net` | **Only if you connect MyAnimeList** | Your sign-in, then the episode count of an anime when you finish an episode, and your list's counts back |
 | Your AIOStreams instance | Browsing **Stream**, once you've set it up | Signed in: your sign-in, then requests for your catalogs, a title's details and, when you open a title, the search for its sources. It also gets what you play and how far in, and a played mark when you finish something, and it sends back what you watched in its other apps, where you left off, and what's next. With a manifest URL instead: that URL, for the same requests, and no reports of what you play. |
+| Your Jellyfin server | Browsing **Stream** or **Discover**, once you've signed in | Your sign-in, then requests for your libraries, a title's details and files, and the video itself. It also gets what you play and how far in, and sends back where you left off, what you've watched and what's next. When a title has subtitle files, mpv asks for them as it plays. Over plain `http` to another machine, all of it is unencrypted; Settings says so. |
 
 If you sign in to AIOStreams, it looks up skip markers for what you play. That
 lookup is the instance's own setting, not BlammyTV's: it sends the title,
@@ -52,15 +54,15 @@ to report to.
 - It doesn't host, index or supply any content.
 - **It has no account of its own.** There is nothing to sign up for. Trakt
   and MyAnimeList are optional, and they're your accounts with them. Signing in
-  to AIOStreams is optional too, and it's your own instance.
+  to AIOStreams or Jellyfin is optional too, and those are your own servers.
 - **It sends your credentials nowhere.** Playlist passwords, portal MAC
   addresses and your AIOStreams manifest URL, if you use one, never leave your
   machine. They're scrubbed out of error messages too, so a diagnostic can't
   carry one by accident.
 - **It has no analytics.** No page views, no session tracking, no third-party
   analytics service. The only things that report what you watch are Trakt,
-  MyAnimeList and your AIOStreams instance, if you connect them, because that's
-  their job.
+  MyAnimeList, your AIOStreams instance and your Jellyfin server, if you
+  connect them, because that's their job.
 
 Viewing activity does reach two third parties as a side effect of features:
 Cinemeta learns the id of a title whose artwork was missing, and AniSkip
@@ -86,8 +88,8 @@ ask for help.
 Settings → App → Export Settings writes your settings to a file you choose:
 looks, playback, your lists, favourites and Continue Watching. Playlists and
 your AIOStreams manifest go in only if you tick the box that says the file
-then has your passwords in it, and Trakt, MyAnimeList and AIOStreams sign-ins
-never do. Without the box, a poster address that carries a service's key is
+then has your passwords in it, and Trakt, MyAnimeList, AIOStreams and Jellyfin
+sign-ins never do. Without the box, a poster address that carries a service's key is
 left out too. Import Settings reads one back.
 
 :::caution[Credentials are stored in the clear]
@@ -97,11 +99,12 @@ Windows user can read them. That's the same posture as most desktop IPTV
 clients, but you should know rather than assume otherwise. If your machine is
 shared, your provider credentials are shared.
 
-Trakt, MyAnimeList and your AIOStreams sign-in are the exception: they're kept
-in Windows Credential Manager, not in the app's profile. Signed in, none of
-AIOStreams' credentials are stored in the clear. The manifest URL is, and only
-when you use it instead. The profile does hold your instance's address and
-your user name, and neither opens anything on its own.
+Trakt, MyAnimeList, your AIOStreams sign-in and your Jellyfin sign-in are the
+exception: they're kept in Windows Credential Manager, not in the app's
+profile. Signed in, none of AIOStreams' credentials are stored in the clear.
+The manifest URL is, and only when you use it instead. Your Jellyfin password
+is sent once, to sign in, and isn't kept. The profile does hold your servers'
+addresses and your user names, and neither opens anything on its own.
 :::
 
 ## Playback

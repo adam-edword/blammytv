@@ -1,11 +1,12 @@
 ---
 title: Stream & VOD
-description: Browsing and playing movies and shows through AIOStreams.
+description: Browsing and playing movies and shows through AIOStreams or your own Jellyfin.
 ---
 
 The **Stream** tab is movies and shows, served by your own
-[AIOStreams](/sources/aiostreams/) instance. It has three views on the rail:
-**Home**, **Discover** and **Library**.
+[AIOStreams](/sources/aiostreams/) instance, your own [Jellyfin](/sources/jellyfin/)
+server, or both. It has three views on the rail: **Home**, **Discover** and
+**Library**.
 
 ## Home
 

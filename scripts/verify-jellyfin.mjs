@@ -600,6 +600,10 @@ await fake("/__reset", { method: "POST" });
   await openStreamTab(p);
   const s = section(p);
   check("Settings says when it last synced", /Synced/.test(await s.innerText()), await s.innerText());
+  check(
+    "  and says clearing a Continue Watching card resets the server's position, never a played mark",
+    /resets that item's position on your server/.test(await s.locator("[data-jf-clear]").innerText()) && /never removed/.test(await s.locator("[data-jf-clear]").innerText()),
+  );
   const reads = () => p.native.st.calls.filter(([c, a]) => c === "jf_request" && a.path === "/UserItems/Resume").length;
   const before = reads();
   await s.getByRole("button", { name: "Sync now" }).click();

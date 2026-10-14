@@ -1,10 +1,10 @@
 ---
 title: Sources
-description: The four kinds of source BlammyTV can connect to.
+description: The kinds of source BlammyTV can connect to.
 ---
 
 BlammyTV ships with no content. Everything you see comes from a source you add
-yourself, and there are four kinds.
+yourself, and there are five kinds.
 
 | Kind | What it is | What it needs |
 |---|---|---|
@@ -12,11 +12,13 @@ yourself, and there are four kinds.
 | [M3U playlist](/sources/m3u/) | A plain playlist file over HTTP | A URL |
 | [Stalker / MAG portal](/sources/stalker/) | A portal endpoint | Portal URL and a MAC address |
 | [AIOStreams](/sources/aiostreams/) | Your own AIOStreams instance | Its address, and a code you approve on its configure page |
+| [Jellyfin](/sources/jellyfin/) | Your own Jellyfin server | Its address, and a user name and password or a Quick Connect code |
 
 The first three are **Live TV** sources. They fill the channel guide, and all
 three load through the same pipeline, so a mixed setup behaves as one list.
-AIOStreams is separate and powers the **Stream** tab, which is movies and
-shows rather than channels. Run both, either, or neither.
+AIOStreams and Jellyfin are separate and power the **Stream** tab, which is
+movies and shows rather than channels. Run any of them, or none. AIOStreams and
+Jellyfin work side by side too: each one's rows stay its own.
 
 :::note[M3U and Stalker are lightly tested]
 Xtream and AIOStreams are what most people run and what gets exercised daily.

@@ -57,6 +57,7 @@ export default defineConfig({
             { label: "M3U playlists", slug: "sources/m3u" },
             { label: "Stalker portals", slug: "sources/stalker" },
             { label: "AIOStreams", slug: "sources/aiostreams" },
+            { label: "Jellyfin", slug: "sources/jellyfin" },
           ],
         },
         {

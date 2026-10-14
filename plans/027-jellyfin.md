@@ -1,9 +1,61 @@
 # Plan 027: Jellyfin, your own server
 
-**Status: TO PLAN.** Written 2026-10-14 as the handoff for a new session,
-nothing built. Adam: "lets not release this yet and then create a readme for
-a new session to build the actual jellyfin side". The release of everything
-since 0.11.12 is held for it (see "The held release" at the end).
+**Status: BUILT, not yet released** (branch `claude/jellyfin-027-i009y2`,
+batches 0 to 6, 2026-10-14). The release of everything since 0.11.12 is
+still held for it (see "The held release" at the end), and goes out as 0.12.0
+when Adam says. Written 2026-10-14 as the handoff for a new session; the
+rest of this file is that handoff, unchanged. What was built and what is
+unchecked is in the next section.
+
+## What was built
+
+Decisions D1 to D7 were taken as recommended: Jellyfin is its own source
+beside AIOStreams, password and Quick Connect, the token to mpv as a header
+only, a new `jf.rs` and `features/jellyfin/`, a full sync, no Live TV, one
+server. The facts it was built on are in `027-api-facts.md`, from Adam's own
+Jellyfin 12.2.
+
+| Batch | Commit | What |
+|---|---|---|
+| 0 | b141f65 | the real server's answers, and `fake-jellyfin.mjs` built from them |
+| 1 | 05d8711 | `jf.rs`: sign-in, Quick Connect, vault, guarded requests |
+| 2 | d200220 | items, ids and sources as Stremio shapes (`features/jellyfin/`) |
+| 3 | 482f2a3 | playback: the token to mpv as a header, put back after |
+| 4a | a2e01f6 | Settings → Sources → Stream → Jellyfin, sign-out, kept out of Export |
+| 4b | 7e6e431 | libraries as Stream rows, a title's page, its files, playback |
+| 4c | 6d21bc5 | Discover: libraries in the grid, genres, search, art |
+| 4d | c595988 | external subtitles (`sub-add ... auto`), `mpvsubs.rs` |
+| 5 | 3d2ce5e | reporting, Resume into Continue Watching, watched marks, Next Up, skips |
+| 6 | | docs (a Jellyfin page, How it works), baselines, this section |
+
+Two cards, not one (D1): a title in both a Jellyfin and an AIOStreams is two
+cards, each opening its own source. Merging them is the follow-up the plan
+named, not built.
+
+Nothing from Jellyfin reaches Trakt or MAL: `jfWatched` is its own store, read
+by the ticks (`loadWatched`) and never pushed, and Continue Watching keeps one
+card per title (`mergeAioProgress`, newest wins, `from: "jf"` on a resume from
+the server). A live play still goes through Trakt's scrobble like any source.
+
+### Not checked, and why
+
+From a Linux container with a fake server. Each needs Adam's device and his
+server:
+
+- **Real libmpv on Windows.** `sub-add <url> auto <title> <lang>` and what
+  `auto` picks; that `path` reads back byte-identical to the loaded URL (the
+  in-app add waits on it); whether `sub-add` blocks mpv's core during the
+  fetch; the pop-out's add on `MPV_EVENT_FILE_LOADED`.
+- **Not run against a live server:** Discover's `genres` and `searchTerm`
+  (read from the server's OpenAPI, not probed); the reply to
+  `EnableResumable=false` on Next Up; a non-default `MaxResumePct`; real
+  positions and media segments.
+- **Not on real WebView2:** images from the server, and the screens as a
+  whole (the harnesses run Chromium).
+- **Windows Credential Manager** holding the token (the host tests use the
+  in-memory vault).
+- **A Jellyfin-side Trakt plugin** would count a play from here twice. The
+  docs say so; there is no in-app note.
 
 ## Start here
 

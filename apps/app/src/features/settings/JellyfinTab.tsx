@@ -159,6 +159,9 @@ export function JellyfinTab() {
             <p className="settings__section-note settings__section-note--dim">
               Your movie and show libraries are rows in Stream and Discover, and what you watch syncs with the server. Tested on Jellyfin 12.x.
             </p>
+            <p className="settings__section-note settings__section-note--dim" data-jf-clear>
+              Clearing a card from Continue Watching also resets that item's position on your server. A played mark is never removed.
+            </p>
             <p className="settings__section-note settings__section-note--dim" data-jf-sync>
               {syncLine}
             </p>
