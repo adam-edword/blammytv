@@ -235,7 +235,7 @@ function ipc({ port, sinkPort, reject, rate }) {
 // ================================================ 1. real sound, the module
 /** A page on the dev server, with the module imported as the app imports it
  * and a <video> playing the tone. */
-async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = false, track = false, silent = false, level = 1 } = {}) {
+async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = false, track = false, silent = false, level = 1, init = "" } = {}) {
   const ctx = await b.newContext({ viewport: { width: W, height: H } });
   const page = await ctx.newPage();
   const errors = [];
@@ -249,6 +249,7 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
   await page.addInitScript(`(${ipc})(${JSON.stringify({ port: 0, sinkPort: s.port, reject: false, rate })})`);
   if (track) await page.addInitScript(TRACK_CONTEXTS);
   if (policy) await page.addInitScript(AUTOPLAY_POLICY);
+  if (init) await page.addInitScript(init);
   await page.goto(blank);
   await page.evaluate(
     async ({ volume, play }) => {
@@ -422,7 +423,7 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
     "five seconds of a running context without sound writes one line, as a warning so the log keeps it",
     said &&
       lines.length === 1 &&
-      line.startsWith("[mv] sound stays in the webview: the copy of the tile's sound was silent for 5s."),
+      /^\[mv\] sound stays in the webview: the copy of the tile's sound was silent for 5s \(\d+ cop(y|ies)\)\./.test(line),
     `${lines.length} lines: ${line.slice(0, 90)}`,
   );
   check(
@@ -490,6 +491,98 @@ async function module1(b, s, { rate = 44100, volume = 1, play = true, policy = f
   );
   await page.evaluate(() => window.__stop());
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+  await b.close();
+  s.close();
+}
+
+// ============ 1d/1e. a dead copy is taken again: at the start, and later on
+// v0.11.47 on Adam's WebView2: the copy taken as the tile starts delivered 0
+// frames for good, while copies of the same tile taken seconds later carried
+// full sound. A copy that is quiet while the tile's media plays on is taken
+// again. Here the FIRST copy is a stand-in: an oscillator, through a gain at 0
+// (dead from the start, 1d) or at 1 until __kill() (heard, then dead, 1e).
+// Every later copy is the tile's real one, the tone, whose channels (left
+// 0.354, right 0.177) tell it apart from the oscillator's (both equal).
+const FIRST_COPY = (alive) => `(() => {
+  const real = HTMLMediaElement.prototype.captureStream;
+  let n = 0;
+  window.__copies = () => n;
+  HTMLMediaElement.prototype.captureStream = function () {
+    n++;
+    if (n > 1) return real.call(this);
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    g.gain.value = ${alive ? 1 : 0};
+    window.__kill = () => g.gain.setValueAtTime(0, ctx.currentTime);
+    const out = ctx.createMediaStreamDestination();
+    osc.connect(g).connect(out);
+    osc.start();
+    return out.stream;
+  };
+})()`;
+{
+  const s = await sink();
+  const b = await launch();
+  const { ctx, page, errors, warns, el } = await module1(b, s, { rate: 48000, volume: 1, init: FIRST_COPY(false) });
+  await page.evaluate(() => (window.__stop = window.__m.startMvAudio()));
+  const routed = await until(async () => (await el())[0] === true, 9000);
+  const copies = await page.evaluate(() => window.__copies());
+  await sleep(500);
+  s.clear();
+  await sleep(1500);
+  const got = level(s.posts);
+  check(
+    "1d: a first copy that is dead from the start is taken again, and the second one takes the sound over",
+    routed && copies >= 2 && near(got.l, 0.354, 0.04) && near(got.r, 0.177, 0.025),
+    JSON.stringify({ routed, copies, l: +got.l.toFixed(3), r: +got.r.toFixed(3) }),
+  );
+  check(
+    "1d: a copy that was never heard did not die, so no line says one did",
+    !warns.some((w) => w.includes("went silent")),
+    warns.find((w) => w.includes("went silent")) ?? "",
+  );
+  await page.evaluate(() => window.__stop());
+  check("1d: no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+  await b.close();
+  s.close();
+}
+{
+  const s = await sink();
+  const b = await launch();
+  const { ctx, page, errors, warns, el } = await module1(b, s, { rate: 48000, volume: 1, init: FIRST_COPY(true) });
+  await page.evaluate(() => (window.__stop = window.__m.startMvAudio()));
+  const routed = await until(async () => (await el())[0] === true, 6000);
+  await sleep(800);
+  s.clear();
+  await sleep(800);
+  const first = level(s.posts);
+  await page.evaluate(() => window.__kill());
+  const said = await until(() => warns.some((w) => w.includes("went silent")), 8000);
+  const back = await until(async () => (await el())[0] === true && (await page.evaluate(() => window.__copies())) >= 2, 6000);
+  await sleep(800);
+  s.clear();
+  await sleep(1500);
+  const after = level(s.posts);
+  const line = warns.find((w) => w.includes("went silent")) ?? "";
+  check(
+    "1e: a heard copy (the oscillator, both channels equal) is what plays first",
+    routed && first.l > 0.3 && near(first.l, first.r, 0.02),
+    JSON.stringify({ routed, l: +first.l.toFixed(3), r: +first.r.toFixed(3) }),
+  );
+  check(
+    "1e: once it goes silent while the tile plays on, one line says so and a new copy (the tone) takes the sound back",
+    said &&
+      /^\[mv\] sound: copy 1 went silent for 1\.5s while the tile played on; taking a new one/.test(line) &&
+      back &&
+      near(after.l, 0.354, 0.04) &&
+      near(after.r, 0.177, 0.025),
+    JSON.stringify({ said, back, l: +after.l.toFixed(3), r: +after.r.toFixed(3), line: line.slice(0, 100) }),
+  );
+  await page.evaluate(() => window.__stop());
+  check("1e: no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
   await b.close();
   s.close();

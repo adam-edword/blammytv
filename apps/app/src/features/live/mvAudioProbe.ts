@@ -32,6 +32,9 @@
  *   at its source, which is what a tile played outside Chromium's own
  *   pipeline (Windows' Media Foundation, shown through DirectComposition)
  *   looks like. Its picture would then draw black, as protected video does.
+ *   v0.11.47's answer: it doesn't. The picture drew (mean 124, 60 frames),
+ *   and fresh copies read -10.3 and -14.4 dBFS: only the routing's FIRST
+ *   copy was dead. v0.11.48 takes dead copies again (mvAudio.ts).
  */
 
 /** About -100 dBFS: louder than this is sound. As mvAudio's HEARD. */
