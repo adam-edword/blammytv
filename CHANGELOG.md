@@ -2,6 +2,99 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 0.11.49: Sign in to AIOStreams, a day of guide, and Settings rebuilt (2026-10-14)
+
+Sign in to your AIOStreams instead of pasting a manifest, a guide that
+scrolls a whole day ahead, and Settings in five pages with a lot more in
+them. A full update, like 0.11.12: parts of it are in the app itself, so it
+installs.
+
+### AIOStreams
+
+- **Sign in instead of pasting a manifest.** Settings → Sources → Stream,
+  and onboarding, take your AIOStreams address and a Quick Connect code you
+  approve on its configure page. The sign-in is kept in Windows Credential
+  Manager, and a manifest URL you'd stored is deleted. "Use a manifest URL
+  instead" is still there.
+- **What you watch syncs both ways.** What you play, how far in and what
+  you finish go to your AIOStreams; its resume points come back into
+  Continue Watching, with Next Up and Upcoming rows under it. Sync now is in
+  Settings.
+- Skip Intro uses AIOStreams' own markers where AniSkip has none.
+- Next Up no longer repeats what Continue Watching already shows.
+
+### Stream and the player
+
+- **Surround reaches a surround setup.** Every 5.1 film used to be
+  squeezed to stereo. Settings → Playback → Audio Channels picks Automatic,
+  Stereo, 5.1 or 7.1, and the stats overlay (i) shows what reached your
+  device.
+- **More of Playback is yours:** Autoplay Next Episode (off, 5, 10 or 20
+  seconds), when the Up Next card shows, Intro, Recap, Credits and Preview
+  each skipped by a button, automatically or not at all, Subtitle Size,
+  and the pop-out's size and corner.
+- **Subtitle delay.** z and x nudge subtitles a tenth of a second, and the
+  Subtitles menu has a Delay line with Reset.
+- **A dead link fails in about a second, and says why** ("The link
+  answered 403 (Forbidden). Debrid links expire; try another source."),
+  instead of after 40. With Auto Source Failover on, the next source
+  starts then.
+- **The next episode starts sooner**: its sources are found while the
+  credits roll.
+- **Resume goes back to the file you were watching**, when it's still
+  cached.
+- **Episodes that haven't aired** show dim with their date, and Up Next
+  never lands on one.
+- An empty source list says why, when AIOStreams said.
+- **A PC with no Vulkan loader can play** (some VMs and basic display
+  drivers couldn't start the player at all), and a player that can't start
+  says so instead of blaming the stream.
+
+### Live TV
+
+- **The guide scrolls a whole day ahead**, with Earlier, Now and Later in
+  its corner, and scrolls more smoothly.
+- **The guide stops downloading again every time you open the app.** Each
+  playlist reuses its guide for 12 hours, while its channels still refresh
+  every launch. Settings → Sources says when guides last refreshed, with
+  Refresh now.
+- **Fix a channel's guide by hand:** right-click a channel → Fix guide…,
+  and pick its listings.
+- **A playlist can have an extra guide and its own User-Agent**, under
+  Settings → Sources → the playlist → Advanced. The extra guide fills in
+  the channels the provider's left empty.
+- The folded sidebar is a tidy icon rail, and channel logos sit on a plate
+  that matches the theme instead of a white square.
+
+### Multi-view
+
+- **Sound on PCs where 0.11.12 had none.** On some PCs the copy of the
+  sound tile that 0.11.12 sent to the app was silent, so Multi-view
+  played nothing. The tile now plays its own sound until the copy carries
+  some, and a copy that goes quiet is taken again.
+
+### Settings
+
+- **Five pages**: Sources, Playback, Appearance, Accounts and App, in a rail
+  down the left of a wider card in the middle of the window.
+- **Ctrl+K finds any setting.** Type "subtitle" and Settings opens on that
+  row.
+- **Settings → App** lists every keyboard shortcut, shows what's new in a
+  waiting update, and says which mpv, FFmpeg and Vulkan your install runs.
+- **The app keeps a log**, and Copy Diagnostics puts the versions and its
+  last lines on your clipboard for a bug report. Web addresses are cut to
+  the site's name, and passwords and tokens stay out.
+- **Export and Import Settings.** Your playlists and passwords go in only if
+  you tick the box that says so.
+- Escape on a language picker closes Settings.
+
+### Around the app
+
+- Pressing the tab you're already on takes it home: Stream, Discover and
+  Library.
+- Continue Watching cards tilt and catch the light like the other cards.
+- Windows' sound settings list the player as "BlammyTV Player".
+
 ## 0.11.12: Multi-view on Discord, and a round of fixes (2026-10-03)
 
 Multi-view's sound reaches a Discord stream, and the fixes from a fresh
