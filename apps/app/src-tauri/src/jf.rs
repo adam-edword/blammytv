@@ -201,6 +201,9 @@ pub struct Prepared {
 pub const NOT_JELLYFIN: &str = "unsupported: That address is not a Jellyfin server";
 pub const IS_AIOSTREAMS: &str =
     "unsupported: That is an AIOStreams server, sign in to it under AIOStreams";
+/// The start of the error for an address that sends you to another server
+/// (the page matches the `redirected:` prefix and shows the rest as it is).
+pub const REDIRECTED: &str = "redirected: That address sends you to";
 pub const TOO_OLD: &str = "unsupported: This Jellyfin server is too old for BlammyTV";
 pub const QUICK_CONNECT_OFF: &str = "unsupported: Quick Connect is turned off on this server";
 pub const WRONG_LOGIN: &str = "denied: Wrong user name or password";
@@ -785,6 +788,17 @@ impl Jf {
             .send()
             .await
             .map_err(describe)?;
+        // The client follows a redirect, which is right for a read and wrong
+        // for what comes next: a sign-in POST sent to the address typed would be
+        // turned into a GET by the same redirect (a proxy that sends http to
+        // https), and the user would get a failure with no reason. Say where it
+        // went instead. The origin only: a path can carry a login.
+        let landed = res.url().origin().ascii_serialization();
+        if let Ok(typed) = reqwest::Url::parse(base) {
+            if landed != typed.origin().ascii_serialization() {
+                return Err(format!("{REDIRECTED} {landed}. Use that address instead."));
+            }
+        }
         let status = res.status().as_u16();
         let body = res.text().await.map_err(describe)?;
         if status == 404 {
@@ -1421,6 +1435,8 @@ mod tests {
         NoVersion,
         /// This status, with an empty JSON body.
         Status(u16),
+        /// A redirect to this address.
+        Redirect(String),
     }
 
     /// Holds a request until the test lets it go: no permits to start with.
@@ -1449,7 +1465,7 @@ mod tests {
 
     /// The token the fake hands out (32 hex, as Jellyfin's are) and the user.
     const TOKEN1: &str = "7f3a9c01d2e44b6f8a15c0e9b2d34a67";
-    const USER: &str = "f59a39ea66ed4c5f9d5ed26a313553bb";
+    const USER: &str = "d41f6b82a3c94e57b0e8c9a7f2d63b15";
     const PASSWORD: &str = "hunter2-correct";
     /// An item, and another.
     const ITEM: &str = "7acf01459a4fb0ba75583ff9c88ca080";
@@ -1563,9 +1579,9 @@ mod tests {
     /// The answer Jellyfin 12.2.0 gave for `/System/Info/Public`.
     fn public_info() -> serde_json::Value {
         serde_json::json!({
-            "LocalAddress": "http://127.0.0.1:8096", "ServerName": "EDDPC",
+            "LocalAddress": "http://127.0.0.1:8096", "ServerName": "TESTSRV",
             "Version": "12.2.0", "ProductName": "Jellyfin Server", "OperatingSystem": "",
-            "Id": "28cd0f183c8c4eaf8ffcb46367dc6e0e", "StartupWizardCompleted": true,
+            "Id": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5", "StartupWizardCompleted": true,
         })
     }
 
@@ -1573,12 +1589,12 @@ mod tests {
     fn auth_result(token: &str) -> serde_json::Value {
         serde_json::json!({
             "User": {
-                "Name": "edd", "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e", "Id": USER,
+                "Name": "testuser", "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5", "Id": USER,
                 "HasPassword": true, "Policy": { "IsAdministrator": true },
             },
             "SessionInfo": { "Id": "65da22305da20a9052fd528744ee445c", "UserId": USER },
             "AccessToken": token,
-            "ServerId": "28cd0f183c8c4eaf8ffcb46367dc6e0e",
+            "ServerId": "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5",
         })
     }
 
@@ -1692,7 +1708,7 @@ mod tests {
             fake.gate.acquire().await.unwrap().forget();
         }
         match (method.as_str(), p) {
-            ("GET", "/System/Info/Public") => match fake.info {
+            ("GET", "/System/Info/Public") => match &fake.info {
                 Info::Jellyfin => json(200, public_info()),
                 Info::Aio => {
                     let mut i = public_info();
@@ -1705,11 +1721,16 @@ mod tests {
                     .header("content-type", "text/html")
                     .body(Full::new(Bytes::from("<!doctype html>")))
                     .unwrap(),
-                Info::Status(s) => json(s, serde_json::Value::Null),
+                Info::Status(s) => json(*s, serde_json::Value::Null),
+                Info::Redirect(to) => Response::builder()
+                    .status(301)
+                    .header("location", to.as_str())
+                    .body(Full::new(Bytes::new()))
+                    .unwrap(),
             },
             ("POST", "/Users/AuthenticateByName") => {
                 let b: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
-                if b["Username"] == "edd" && b["Pw"] == PASSWORD {
+                if b["Username"] == "testuser" && b["Pw"] == PASSWORD {
                     json(200, auth_result(fake.token()))
                 } else {
                     Response::builder()
@@ -1893,7 +1914,7 @@ mod tests {
         let base = serve(fake.clone()).await;
         let vault = Shared::default();
         let j = client(&vault);
-        j.sign_in(&format!("{base}{}", fake.prefix), "edd", PASSWORD)
+        j.sign_in(&format!("{base}{}", fake.prefix), "testuser", PASSWORD)
             .await
             .unwrap();
         assert!(j.status().connected);
@@ -2108,7 +2129,7 @@ mod tests {
         assert!(guarded(
             "GET",
             "/Items",
-            &[("userId", "f59a39ea-66ed-4c5f-9d5e-d26a313553bb")]
+            &[("userId", "d41f6b82-a3c9-4e57-b0e8-c9a7f2d63b15")]
         )
         .is_ok());
         assert!(guarded(
@@ -2132,21 +2153,21 @@ mod tests {
             let vault = Shared::default();
             let j = client(&vault);
             assert!(!j.status().connected);
-            let st = j.sign_in(&base, "edd", PASSWORD).await.unwrap();
+            let st = j.sign_in(&base, "testuser", PASSWORD).await.unwrap();
             assert_eq!(
                 st,
                 Status {
                     connected: true,
-                    user_name: Some("edd".into()),
+                    user_name: Some("testuser".into()),
                     user_id: Some(USER.into()),
                     base: Some(base.clone()),
-                    server_name: Some("EDDPC".into()),
+                    server_name: Some("TESTSRV".into()),
                     version: Some("12.2.0".into()),
                 }
             );
             let kept = vault.load().unwrap();
             assert_eq!(kept.token, TOKEN1);
-            assert_eq!(kept.server_id, "28cd0f183c8c4eaf8ffcb46367dc6e0e");
+            assert_eq!(kept.server_id, "5e7a1c0f9b3d4a68b2c4d6e8f0a1b3c5");
             assert_eq!(kept.device_id.len(), 32);
             // the password reached the server and is nowhere else
             assert!(fake.last("AuthenticateByName").body.contains(PASSWORD));
@@ -2170,7 +2191,7 @@ mod tests {
             let base = serve(fake.clone()).await;
             let vault = Shared::default();
             let j = client(&vault);
-            let e = j.sign_in(&base, "edd", "nope").await.unwrap_err();
+            let e = j.sign_in(&base, "testuser", "nope").await.unwrap_err();
             assert_eq!(e, WRONG_LOGIN);
             assert!(e.starts_with("denied:"));
             let e = j.sign_in(&base, "nobody", PASSWORD).await.unwrap_err();
@@ -2191,7 +2212,7 @@ mod tests {
                 });
                 let base = serve(fake.clone()).await;
                 let j = client(&Shared::default());
-                let e = j.sign_in(&base, "edd", PASSWORD).await.unwrap_err();
+                let e = j.sign_in(&base, "testuser", PASSWORD).await.unwrap_err();
                 assert_eq!(e, NOT_JELLYFIN);
                 assert!(e.starts_with("unsupported:"));
                 assert_eq!(fake.hits("Authenticate"), 0, "a password went to a non-server");
@@ -2202,7 +2223,7 @@ mod tests {
             });
             let base = serve(fake.clone()).await;
             let e = client(&Shared::default())
-                .sign_in(&base, "edd", PASSWORD)
+                .sign_in(&base, "testuser", PASSWORD)
                 .await
                 .unwrap_err();
             assert_eq!(e, "HTTP 503");
@@ -2218,7 +2239,7 @@ mod tests {
             });
             let base = serve(fake.clone()).await;
             let j = client(&Shared::default());
-            assert_eq!(j.sign_in(&base, "edd", PASSWORD).await.unwrap_err(), IS_AIOSTREAMS);
+            assert_eq!(j.sign_in(&base, "testuser", PASSWORD).await.unwrap_err(), IS_AIOSTREAMS);
             assert_eq!(j.quick_connect(&base).await.unwrap_err(), IS_AIOSTREAMS);
             assert_eq!(fake.hits("Authenticate"), 0);
             assert_eq!(fake.hits("QuickConnect"), 0);
@@ -2235,7 +2256,7 @@ mod tests {
             let base = serve(fake.clone()).await;
             let vault = Shared::default();
             let j = client(&vault);
-            let e = j.sign_in(&base, "edd", PASSWORD).await.unwrap_err();
+            let e = j.sign_in(&base, "testuser", PASSWORD).await.unwrap_err();
             assert_eq!(e, TOO_OLD);
             assert!(!j.status().connected);
             assert!(vault.load().is_none());
@@ -2254,7 +2275,7 @@ mod tests {
             let base = serve(fake.clone()).await;
             let vault = Shared::default();
             let j = client(&vault);
-            assert_eq!(j.sign_in(&base, "edd", PASSWORD).await.unwrap_err(), BAD_ANSWER);
+            assert_eq!(j.sign_in(&base, "testuser", PASSWORD).await.unwrap_err(), BAD_ANSWER);
             assert!(!j.status().connected);
             assert!(vault.load().is_none());
             assert_eq!(fake.hits("/UserViews"), 0);
@@ -2267,7 +2288,7 @@ mod tests {
             let fake = Arc::new(Fake::default());
             let base = serve(fake.clone()).await;
             let j = Jf::new(cfg(), reqwest::Client::new(), Box::new(Failing));
-            assert!(j.sign_in(&base, "edd", PASSWORD).await.is_err());
+            assert!(j.sign_in(&base, "testuser", PASSWORD).await.is_err());
             assert!(!j.status().connected);
         })
     }
@@ -2282,7 +2303,7 @@ mod tests {
             let base = serve(fake.clone()).await;
             let vault = Shared::default();
             let j = client(&vault);
-            j.sign_in(&format!("{base}/jf/web/index.html"), "edd", PASSWORD)
+            j.sign_in(&format!("{base}/jf/web/index.html"), "testuser", PASSWORD)
                 .await
                 .unwrap();
             assert_eq!(j.status().base, Some(format!("{base}/jf")));
@@ -2308,7 +2329,7 @@ mod tests {
                 s,
                 Started {
                     code: "123456".into(),
-                    server_name: "EDDPC".into(),
+                    server_name: "TESTSRV".into(),
                 }
             );
             assert_eq!(j.poll().await.unwrap(), Poll::Pending);
@@ -2316,7 +2337,7 @@ mod tests {
             assert!(!j.status().connected);
             assert_eq!(j.poll().await.unwrap(), Poll::Approved);
             assert_eq!(fake.auths.load(Ordering::SeqCst), 1);
-            assert_eq!(j.status().user_name.as_deref(), Some("edd"));
+            assert_eq!(j.status().user_name.as_deref(), Some("testuser"));
             assert_eq!(vault.load().unwrap().token, TOKEN1);
             // the secret is in the trade's body and the poll's query, never a header
             assert!(fake.last("AuthenticateWithQuickConnect").body.contains("SECRET-abc_123"));
@@ -2465,7 +2486,7 @@ mod tests {
             let base = serve(fake.clone()).await;
             let j = client(&Shared::default());
             j.quick_connect(&base).await.unwrap();
-            j.sign_in(&base, "edd", PASSWORD).await.unwrap();
+            j.sign_in(&base, "testuser", PASSWORD).await.unwrap();
             // the old code's attempt is gone: a poll hears the session
             assert_eq!(j.poll().await.unwrap(), Poll::Approved);
             assert_eq!(fake.connects.load(Ordering::SeqCst), 0);
@@ -2767,7 +2788,7 @@ mod tests {
             drop(j);
             let again = client(&vault);
             assert!(again.status().connected);
-            assert_eq!(again.status().user_name.as_deref(), Some("edd"));
+            assert_eq!(again.status().user_name.as_deref(), Some("testuser"));
             assert_eq!(
                 again.request("GET", "/UserViews", None, None).await.unwrap().status,
                 200
@@ -2789,7 +2810,7 @@ mod tests {
     fn an_old_blob_without_the_newer_fields_still_loads() {
         let old = serde_json::json!({
             "base": "http://h:8096", "token": TOKEN1, "user_id": USER,
-            "user_name": "edd", "server_id": "s", "device_id": "d",
+            "user_name": "testuser", "server_id": "s", "device_id": "d",
         });
         let s: Session = serde_json::from_value(old).unwrap();
         assert_eq!((s.server_name.as_str(), s.version.as_str()), ("", ""));
@@ -3060,4 +3081,46 @@ mod tests {
         });
     }
 
+    #[test]
+    fn an_address_that_redirects_to_another_server_says_where_and_sends_no_password() {
+        run(async {
+            // The server the address sends you to, which counts what it is sent.
+            let other = Arc::new(Fake::default());
+            let other_base = serve(other.clone()).await;
+            let fake = Arc::new(Fake {
+                info: Info::Redirect(format!("{other_base}/System/Info/Public")),
+                ..Default::default()
+            });
+            let base = serve(fake.clone()).await;
+            let j = client(&Shared::default());
+            let e = j.sign_in(&base, "testuser", PASSWORD).await.unwrap_err();
+            assert!(e.starts_with("redirected:"), "{e}");
+            assert!(e.contains(&other_base), "{e}");
+            assert!(!j.status().connected);
+            // Only the read was followed; nothing carrying the password went anywhere.
+            assert_eq!(fake.hits("/Users/AuthenticateByName"), 0);
+            assert_eq!(other.hits("/Users/AuthenticateByName"), 0);
+            // Same server, another path: not a redirect off it.
+            let same = Arc::new(Fake::default());
+            let (j2, _, _) = signed_in(&same).await;
+            assert!(j2.status().connected);
+        });
+    }
+
+    #[test]
+    fn a_mark_made_under_another_token_gives_no_header() {
+        run(async {
+            let fake = Arc::new(Fake { stream: Stream::NeedsToken, ..Default::default() });
+            let (j, _, base) = signed_in(&fake).await;
+            let url = stream_of(&base);
+            j.prepare_stream(&url).await.unwrap();
+            assert!(j.auth_header_for(&url).is_some());
+            // The session now holds another token (a re-sign-in on the same
+            // server), and the mark was made for the old one: the old token
+            // must not be handed out, and the new one was never checked.
+            j.state.lock().unwrap().session.as_mut().unwrap().token =
+                "9f8e7d6c5b4a39281706f5e4d3c2b1a0".to_string();
+            assert_eq!(j.auth_header_for(&url), None);
+        });
+    }
 }
