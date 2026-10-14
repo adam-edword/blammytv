@@ -182,6 +182,12 @@ function itemsQuery(url) {
   if (types) pool = pool.filter((i) => types.includes(i.Type.toLowerCase()));
   const ids = csv(q.get("ids"));
   if (ids) pool = Object.values(items).filter((i) => ids.includes(i.Id));
+  // The spec's own words for both (openapi.json /Items): `genres` is pipe
+  // delimited, `searchTerm` filters by a term. Matched on the name alone here.
+  const genres = q.get("genres") ? q.get("genres").split("|").map((g) => g.trim().toLowerCase()) : null;
+  if (genres) pool = pool.filter((i) => (i.Genres || []).some((g) => genres.includes(String(g).toLowerCase())));
+  const term = q.get("searchTerm");
+  if (term) pool = pool.filter((i) => String(i.Name || "").toLowerCase().includes(term.toLowerCase()));
   if (q.get("isPlayed") === "true") pool = pool.filter((i) => state(i.Id).Played);
   if (q.get("isPlayed") === "false") pool = pool.filter((i) => !state(i.Id).Played);
   const total = pool.length;

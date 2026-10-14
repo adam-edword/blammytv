@@ -23,11 +23,13 @@ import {
 import type { VodItem } from "../stream/model";
 import {
   catKey,
+  discoverKey,
   fetchDiscoverPage,
   genreArtTitle,
   genreArtwork,
   gridCatalogs,
   interleave,
+  itemKey,
   loadDiscover,
   resolveGenreArt,
   searchDiscover,
@@ -49,7 +51,7 @@ import {
   resetRecommend,
   takeRecommendRequest,
 } from "./recommend";
-import { loadAioConn } from "../aiojf/conn";
+import { JF_CHANGED } from "../jellyfin/store";
 import { readDiscoverSession, saveDiscoverSession } from "./session";
 
 /**
@@ -82,7 +84,7 @@ type Cfg =
 export function DiscoverScreen({ home }: { home?: number } = {}) {
   // Where this tab was when it was last unmounted (a tab flip). Read once,
   // at mount: everything below seeds from it instead of starting over.
-  const sessionRef = useRef(readDiscoverSession(loadAioConn()?.key ?? ""));
+  const sessionRef = useRef(readDiscoverSession(discoverKey()));
   const session = sessionRef.current;
   const [cfg, setCfg] = useState<Cfg>({ status: "loading" });
   // Picking a genre or a type is a PAGE change here, not just a filter
@@ -259,6 +261,12 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
 
   // Bumped by the error state's Try-again — re-runs the config load.
   const [cfgTick, setCfgTick] = useState(0);
+  // A sign-in to Jellyfin that lands, or ends (a 401), while this tab is up.
+  useEffect(() => {
+    const again = () => setCfgTick((t) => t + 1);
+    window.addEventListener(JF_CHANGED, again);
+    return () => window.removeEventListener(JF_CHANGED, again);
+  }, []);
   useEffect(() => {
     let stale = false;
     loadDiscover().then(
@@ -325,7 +333,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         const seed = genre === null ? seedFromStream(cfg.cfg, filter) : null;
         if (seed) {
           cursors.current = { ...seed.cursors };
-          for (const i of seed.items) seenRef.current.add(i.id);
+          for (const i of seed.items) seenRef.current.add(itemKey(i));
           setItems(seed.items);
           setPhase("idle");
           busyRef.current = false; // early return skips the finally below
@@ -362,8 +370,8 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           if (page.length === 0) doneRef.current[catKey(c)] = true;
         }
         const merged = interleave(...pages.map((p) => p.page ?? [])).filter((i) => {
-          if (seenRef.current.has(i.id)) return false;
-          seenRef.current.add(i.id);
+          if (seenRef.current.has(itemKey(i))) return false;
+          seenRef.current.add(itemKey(i));
           return true;
         });
         // The genre card's own title leads its grid: what the wallpaper
@@ -459,7 +467,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
   useEffect(
     () => () => {
       saveDiscoverSession({
-        key: loadAioConn()?.key ?? "",
+        key: discoverKey(),
         filter: viewRef.current.filter,
         genre: viewRef.current.genre,
         items: itemsRef.current,
@@ -503,7 +511,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           <StateCard
             icon={<DiscoverIcon size={28} />}
             title="Something new to watch"
-            sub="Sign in to your AIOStreams in Settings → Sources → Stream and this tab fills itself."
+            sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream and this tab fills itself."
           />
         ) : (
           <StateCard
@@ -563,7 +571,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
             <div className="disc-grid">
               {results.map((item) => (
                 <Card
-                  key={item.id}
+                  key={itemKey(item)}
                   item={item}
                   metaFields={gridMetaFields}
                   onOpen={open}
@@ -657,7 +665,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           <div className="disc-grid">
             {items.map((item) => (
               <Card
-                key={item.id}
+                key={itemKey(item)}
                 item={item}
                 metaFields={gridMetaFields}
                 onOpen={open}

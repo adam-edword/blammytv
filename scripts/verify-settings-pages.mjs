@@ -541,7 +541,7 @@ for (const [old, want] of [
   await closeSettings(page);
   await goTo(page, "discover");
   const empty = await page.locator(".discover").innerText({ timeout: 10_000 }).then((t) => t.replace(/\n/g, " "), () => "");
-  check("  and Discover's empty state does too", want.test(empty) && !/manifest/i.test(empty), empty);
+  check("  and Discover's empty state does too (it names a Jellyfin as well)", /Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream/.test(empty) && !/manifest/i.test(empty), empty);
   await ctx.close();
 }
 

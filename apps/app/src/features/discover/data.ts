@@ -3,8 +3,10 @@ import { fetchCatalog, type CatalogDef } from "../../data/stremio";
 import { load, save } from "../../lib/storage";
 import { broaden, rank } from "./match";
 import { loadAioConn, type AioConn } from "../aiojf/conn";
+import { fetchJfPage, loadJfDiscover, peekJfVod, searchJf } from "../jellyfin/vod";
+import { loadJfConn } from "../jellyfin/store";
 import { metaPreviewToVod } from "../stream/mapper";
-import type { VodItem } from "../stream/model";
+import type { VodFrom, VodItem } from "../stream/model";
 import { peekVod } from "../stream/source";
 
 /**
@@ -17,6 +19,9 @@ import { peekVod } from "../stream/source";
 export interface DiscoverCatalog {
   type: "movie" | "series";
   id: string;
+  /** Set for a library of your own Jellyfin (plan 027): paged from the
+   * server, not the addon, and what it yields is marked the same way. */
+  from?: VodFrom;
   /** The catalog declares a genre extra at all (options or not). */
   genreCapable: boolean;
   /** The catalog's declared genre OPTIONS, verbatim (opaque strings).
@@ -26,8 +31,9 @@ export interface DiscoverCatalog {
 }
 
 export interface DiscoverConfig {
-  /** Where the user's AIOStreams is read from: its manifest, or the sign-in. */
-  conn: AioConn;
+  /** Where the user's AIOStreams is read from: its manifest, or the sign-in.
+   * Null when only a Jellyfin is signed in. */
+  conn: AioConn | null;
   catalogs: DiscoverCatalog[];
   /** Rail order: movie catalog's genres first, series-only ones appended. */
   genres: string[];
@@ -109,14 +115,80 @@ export function unionGenres(catalogs: DiscoverCatalog[]): string[] {
   return out;
 }
 
+/** What names the sources Discover reads, for a snapshot of it to be matched
+ * against: the addon's connection and the Jellyfin sign-in, no secret in
+ * either. Empty when neither is set. */
+export function discoverKey(): string {
+  const aio = loadAioConn()?.key ?? "";
+  const jf = loadJfConn()?.key ?? "";
+  return aio || jf ? `${aio}|${jf}` : "";
+}
+
+/** One card's identity in a list. The same title from the addon and from your
+ * Jellyfin shares an id and is two cards on purpose (which one is meant
+ * travels with it), so the id alone would hide one of them. */
+export const itemKey = (i: Pick<VodItem, "id" | "from">): string => `${i.from ?? ""}|${i.id}`;
+
+type Read<T> = { ok: T } | { err: unknown };
+const attempt = <T,>(f: () => Promise<T>): Promise<Read<T>> =>
+  f().then(
+    (ok) => ({ ok }),
+    (err: unknown) => ({ err }),
+  );
+
+/**
+ * Discover's catalogs: the addon's manifest and your Jellyfin's libraries,
+ * whichever of them are signed in (plan 027, D1: side by side, never merged).
+ * Both are read at once and each is best-effort while the other works, as
+ * Stream's rows are; only when neither gives a catalog does this throw, with
+ * the first thing that went wrong.
+ */
 export async function loadDiscover(): Promise<DiscoverConfig> {
   const conn = loadAioConn();
-  if (!conn) throw new Error("no addon configured");
-  const manifest = await aioManifest(conn);
-  const catalogs = pickCatalogs(manifest.catalogs ?? []);
-  const searchCatalogs = pickSearchCatalogs(manifest.catalogs ?? []);
-  if (catalogs.length === 0)
-    throw new Error("the addon declares no browseable catalogs");
+  const jfConn = loadJfConn();
+  // Whatever a search answered under another sign-in is not this one's.
+  clearSearchCache();
+  if (!conn && !jfConn) {
+    jfArt.clear();
+    throw new Error("no addon configured");
+  }
+  if (!jfConn) jfArt.clear();
+  const [manifest, jf] = await Promise.all([
+    conn ? attempt(() => aioManifest(conn)) : null,
+    jfConn ? attempt(loadJfDiscover) : null,
+  ]);
+
+  const aioCats = manifest && "ok" in manifest ? pickCatalogs(manifest.ok.catalogs ?? []) : [];
+  const searchCatalogs = manifest && "ok" in manifest ? pickSearchCatalogs(manifest.ok.catalogs ?? []) : [];
+  const jfRead = jf && "ok" in jf ? jf.ok : null;
+  const jfCats: DiscoverCatalog[] = (jfRead?.catalogs ?? []).map((c) => ({
+    type: c.type,
+    id: c.id,
+    from: "jf",
+    // The server filters on any genre by name, so it takes any (see
+    // `servesGenre`): the rail's genres are the addon's and what Jellyfin's
+    // titles carry.
+    genreCapable: true,
+    genres: [],
+  }));
+  const catalogs = [...aioCats, ...jfCats];
+  if (catalogs.length === 0) {
+    const failed = [manifest, jf].find((r): r is { err: unknown } => !!r && "err" in r);
+    if (failed) throw failed.err;
+    throw new Error(
+      conn
+        ? "the addon declares no browseable catalogs"
+        : "your Jellyfin has no movie or show libraries",
+    );
+  }
+  if (manifest && "err" in manifest) console.warn(`[discover] the addon could not be read: ${String(manifest.err)}`);
+  if (jf && "err" in jf) console.warn(`[discover] your Jellyfin could not be read: ${String(jf.err)}`);
+
+  // Search asks each Jellyfin type it has a library for, across all of them.
+  for (const type of ["movie", "series"] as const)
+    if (jfCats.some((c) => c.type === type))
+      searchCatalogs.push({ type, id: `jf.search.${type}`, from: "jf", genreCapable: false, genres: [] });
+
   // Diagnostic (ids/names only — never the manifest URL): which catalogs
   // exist and how each declares genres, for by-hand reports like "the
   // rail is all X" — the answer is usually in this shape.
@@ -125,7 +197,7 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
       catalogs
         .map(
           (c) =>
-            `${c.id}(${c.type}): ` +
+            `${c.from ? "jellyfin " : ""}${c.id}(${c.type}): ` +
             (c.genreCapable
               ? c.genres.length
                 ? `${c.genres.length} genres`
@@ -134,12 +206,12 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
         )
         .join(" | "),
   );
-  return {
-    conn,
-    catalogs,
-    genres: unionGenres(catalogs),
-    searchCatalogs,
-  };
+  // The addon's genres lead, then the ones only your server's titles carry.
+  const genres = unionGenres([
+    ...aioCats,
+    { type: "movie", id: "", genreCapable: true, genres: jfRead?.genres ?? [] },
+  ]);
+  return { conn: conn ?? null, catalogs, genres, searchCatalogs };
 }
 
 /**
@@ -170,18 +242,20 @@ async function askCatalogs(
   const cats = cfg.searchCatalogs.filter(
     (c) => filter === "all" || c.type === filter,
   );
+  const conn = cfg.conn;
   const pages = await Promise.all(
     cats.map((c) =>
-      aioCatalog(
-        cfg.conn,
-        c.type,
-        c.id,
-        `search=${encodeURIComponent(query)}`,
-      )
-        .then((r) =>
-          (r.metas ?? []).filter((m) => m?.id && m?.name).map(metaPreviewToVod),
-        )
-        .catch(() => [] as VodItem[]),
+      (c.from === "jf"
+        ? searchJf(c.type, query)
+        : conn
+          ? aioCatalog(conn, c.type, c.id, `search=${encodeURIComponent(query)}`).then(
+              (r) =>
+                (r.metas ?? [])
+                  .filter((m) => m?.id && m?.name)
+                  .map(metaPreviewToVod),
+            )
+          : Promise.resolve([] as VodItem[])
+      ).catch(() => [] as VodItem[]),
     ),
   );
   return interleave(...pages);
@@ -301,8 +375,8 @@ export async function searchDiscover(
 
   const seen = new Set<string>();
   const out = items.filter((i) => {
-    if (seen.has(i.id)) return false;
-    seen.add(i.id);
+    if (seen.has(itemKey(i))) return false;
+    seen.add(itemKey(i));
     return true;
   });
 
@@ -361,6 +435,8 @@ export async function fetchDiscoverPage(
   genre: string | null,
   skip: number,
 ): Promise<VodItem[]> {
+  if (cat.from === "jf") return fetchJfPage(cat, genre, skip);
+  if (!cfg.conn) return [];
   const res = await aioCatalog(
     cfg.conn,
     cat.type,
@@ -397,31 +473,39 @@ export function seedFromStream(
   cfg: DiscoverConfig,
   filter: "all" | "movie" | "series",
 ): GridSeed | null {
-  const data = peekVod();
-  if (!data || data.rows.length === 0) return null;
   const lists: VodItem[][] = [];
   const cursors: Record<string, number> = {};
-  for (const row of data.rows) {
-    const items = row.itemIds
-      .map((id) => data.items.get(id))
-      .filter((i): i is VodItem => !!i);
-    if (items.length === 0) continue;
-    // Rows are single-catalog, single-type; the row id carries the
-    // catalog id (aio:<id>) and the items carry the type.
-    const type = items[0].kind;
-    if (filter !== "all" && type !== filter) continue;
-    const catId = row.id.replace(/^aio:/, "");
-    const cat = cfg.catalogs.find((c) => c.id === catId && c.type === type);
-    if (!cat) continue; // row's catalog no longer in the manifest
-    cursors[catKey(cat)] = items.length;
-    lists.push(items);
+  // The addon's rows (`aio:<catalog>`) and your Jellyfin's (`jf:<library>`),
+  // each against its own catalogs.
+  for (const [data, fromJf] of [
+    [peekVod(), false],
+    [peekJfVod(), true],
+  ] as const) {
+    if (!data) continue;
+    for (const row of data.rows) {
+      const items = row.itemIds
+        .map((id) => data.items.get(id))
+        .filter((i): i is VodItem => !!i);
+      if (items.length === 0) continue;
+      // Rows are single-catalog, single-type; the row id carries the
+      // catalog id and the items carry the type.
+      const type = items[0].kind;
+      if (filter !== "all" && type !== filter) continue;
+      const catId = row.id.replace(fromJf ? /^jf:/ : /^aio:/, "");
+      const cat = cfg.catalogs.find(
+        (c) => c.id === catId && c.type === type && (c.from === "jf") === fromJf,
+      );
+      if (!cat) continue; // row's catalog no longer in the manifest
+      cursors[catKey(cat)] = items.length;
+      lists.push(items);
+    }
   }
   if (lists.length === 0) return null;
   const seen = new Set<string>();
   return {
     items: interleave(...lists).filter((i) => {
-      if (seen.has(i.id)) return false;
-      seen.add(i.id);
+      if (seen.has(itemKey(i))) return false;
+      seen.add(itemKey(i));
       return true;
     }),
     cursors,
@@ -476,6 +560,22 @@ function artMemo(): ArtMemo {
   return artMem;
 }
 
+/**
+ * Art dealt from one of your Jellyfin's titles: this session only. Its URL
+ * names your server, and the persisted memo above would hold it after you
+ * signed out. Such a genre is dealt again on the next launch, and the genre
+ * grid still leads with the title the card wears.
+ */
+const jfArt = new Map<string, { url: string; at: number; n: number; id: string }>();
+
+/** The art last dealt for a genre, from either memo: the newer. */
+function lastArt(genre: string): { url: string; at: number; n: number; id: string } | undefined {
+  const k = genre.toLowerCase();
+  const a = artMemo().lastByGenre[k];
+  const b = jfArt.get(k);
+  return a && b ? (a.at >= b.at ? a : b) : (a ?? b);
+}
+
 function rememberArt(id: string, genre: string, url: string, n: number): void {
   const m = artMemo();
   m.byId[id] = url;
@@ -490,7 +590,7 @@ function rememberArt(id: string, genre: string, url: string, n: number): void {
  * grid pins it to the front so the card's promise is the first thing
  * the click delivers. */
 export function genreArtTitle(genre: string): string | null {
-  return artMemo().lastByGenre[genre.toLowerCase()]?.id ?? null;
+  return lastArt(genre)?.id ?? null;
 }
 
 /** djb2 — stable per-genre stagger for the catalog rotation. */
@@ -518,9 +618,8 @@ export function artCatalogFor(
  * only decides whether resolveGenreArt redeals, never blanks a card. */
 export function genreArtwork(genres: string[]): Map<string, string> {
   const out = new Map<string, string>();
-  const last = artMemo().lastByGenre;
   for (const genre of genres) {
-    const hit = last[genre.toLowerCase()];
+    const hit = lastArt(genre);
     if (hit) out.set(genre, hit.url);
   }
   return out;
@@ -541,7 +640,7 @@ export async function resolveGenreArt(
   onArt: (genre: string, src: string) => void,
 ): Promise<void> {
   const dealGenre = async (genre: string) => {
-    const cached = artMemo().lastByGenre[genre.toLowerCase()];
+    const cached = lastArt(genre);
     if (cached && Date.now() - cached.at < ART_TTL_MS) return;
     const serving = cfg.catalogs.filter((c) => servesGenre(c, genre));
     if (serving.length === 0) return;
@@ -554,6 +653,18 @@ export async function resolveGenreArt(
     let metaBudget = 12;
     for (let hop = 0; hop < serving.length && metaBudget > 0; hop++, n++) {
       const cat = artCatalogFor(serving, genre, n);
+      if (cat.from === "jf") {
+        // A page of the library already carries each title's backdrop, so
+        // there is no second read for the art.
+        const page = await fetchJfPage(cat, genre, 0).catch(() => []);
+        const withArt = page.filter((i) => i.backdrop);
+        if (withArt.length === 0) continue;
+        const pick = withArt[Math.floor(Math.random() * withArt.length)];
+        jfArt.set(genre.toLowerCase(), { url: pick.backdrop as string, at: Date.now(), n: n + 1, id: pick.id });
+        onArt(genre, pick.backdrop as string);
+        return;
+      }
+      if (!cfg.conn) continue;
       const res = await aioCatalog(
         cfg.conn,
         cat.type,
@@ -572,7 +683,7 @@ export async function resolveGenreArt(
         const url =
           known ??
           // Only the backdrop is read, so a show's episodes are not asked for.
-          (await aioMeta(cfg.conn, cat.type, pick.id, { episodes: false })
+          (await aioMeta(cfg.conn as AioConn, cat.type, pick.id, { episodes: false })
             .then((r) => r.meta?.background)
             .catch(() => undefined));
         if (url) {

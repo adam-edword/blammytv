@@ -79,6 +79,7 @@ import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
 import { countdownFrom, loadAutoplayNext } from "../settings/upNext";
 import {
+  discoverKey,
   fetchDiscoverPage,
   gridCatalogs,
   interleave,
@@ -2565,7 +2566,7 @@ let discoverCfgCache: {
   promise: Promise<DiscoverConfig>;
 } | null = null;
 function discoverCfg(): Promise<DiscoverConfig> {
-  const url = loadAioConn()?.key ?? "";
+  const url = discoverKey();
   if (!discoverCfgCache || discoverCfgCache.url !== url) {
     const promise = loadDiscover().catch((e: unknown) => {
       if (discoverCfgCache?.promise === promise) discoverCfgCache = null;
@@ -2653,7 +2654,13 @@ function Detail({
     (async () => {
       try {
         const cfg = await discoverCfg();
-        const serving = gridCatalogs(cfg.catalogs, item.kind, moreGenre);
+        // The addon's own catalogs: this strip is the addon's, and its cards
+        // open the addon's streams (a Jellyfin title has no strip at all).
+        const serving = gridCatalogs(
+          cfg.catalogs.filter((c) => !c.from),
+          item.kind,
+          moreGenre,
+        );
         if (serving.length === 0) return;
         // Spread across the WHOLE manifest, capped — anchoring to the
         // first catalogs recommended anime for everything on a manifest

@@ -17,6 +17,9 @@
 //   Jellyfin, and resumes from there. A film the same.
 // - With AIOStreams signed in too (fake-aio on :8084): both sets of rows, and
 //   a title from a Jellyfin row never asks the addon for streams.
+// - Discover, with and without AIOStreams: the libraries are in the grid and
+//   the genre rail, a genre asks the server for that genre, a search finds
+//   your titles, and a card opens the server's file with no addon asked.
 // - Clear All Login Info signs out, and takes the catalog mirror and the ids.
 //
 // Offline, as every harness is: every host but localhost is aborted.
@@ -408,6 +411,72 @@ await fake(`/__genres/${MOVIE}?names=Action`, { method: "POST" });
   await p.locator(".episode-card").nth(0).click();
   await p.locator(".vod-source").first().waitFor({ timeout: 15_000 });
   check("  nor does one of its episodes", streamAsks().length === asked && (await p.locator(".vod-source").count()) >= 1, JSON.stringify(streamAsks()));
+  await p.context().close();
+}
+
+// ============================================================ Discover
+await fake("/__reset", { method: "POST" });
+{
+  const p = await openPage({ signed: true });
+  await goTo(p, "discover");
+  const names = () => p.locator(".disc-grid .stream-card__name").allInnerTexts();
+  const shown = await waitFor(p, async () => (await names()).length > 0, 20_000);
+  const ns = await names();
+  check("Discover with only a Jellyfin: its titles are the grid, with no sign-in card", shown && ns.includes("The Turn") && ns.includes("Severance") && (await p.getByText("Sign in to your AIOStreams").count()) === 0, JSON.stringify(ns));
+  const rail = await p.locator(".genre-card__name").allInnerTexts();
+  check("  and the genre rail is the genres its titles carry", rail.includes("Documentary") && rail.includes("Drama") && rail.includes("Mystery"), JSON.stringify(rail));
+  check("  with nothing asked of AIOStreams", !p.requests.some((u) => u.includes(":8084")));
+
+  // A genre is the server's filter: only that genre's titles come back.
+  await p.locator(".genre-card", { hasText: /^Documentary$/ }).click();
+  const filtered = await waitFor(p, async () => {
+    const n = await names();
+    return n.length === 1 && n[0] === "The Turn";
+  }, 15_000);
+  const asked = p.native.st.calls.filter(([c, a]) => c === "jf_request" && a.path === "/Items" && a.query?.Genres === "Documentary");
+  check("a genre card asks the server for that genre and shows only its titles", filtered && asked.length >= 1, JSON.stringify(await names()));
+  await p.locator(".genre-card--on").click();
+  await waitFor(p, async () => (await names()).length >= 2);
+
+  // Search: the server finds it, beside whatever the addon would.
+  await p.locator(".navcap__searchinput").fill("sever");
+  const found = await waitFor(p, async () => (await p.locator(".disc-grid .stream-card", { hasText: "Severance" }).count()) > 0, 15_000);
+  const searched = p.native.st.calls.filter(([c, a]) => c === "jf_request" && a.path === "/Items" && a.query?.SearchTerm === "sever");
+  check("a search finds your title, asking the server across its libraries", found && searched.length >= 1 && searched.every(([, a]) => !("ParentId" in a.query)), JSON.stringify(searched.map(([, a]) => a.query?.IncludeItemTypes)));
+  await p.locator(".navcap__searchinput").fill("");
+
+  // A card from Discover opens the server's own file.
+  await waitFor(p, async () => (await p.locator(".disc-grid .stream-card", { hasText: "The Turn" }).count()) > 0);
+  await p.locator(".disc-grid .stream-card", { hasText: "The Turn" }).first().click();
+  await p.locator(".vod-source").first().waitFor({ timeout: 15_000 });
+  await p.waitForTimeout(1500);
+  const lines = await p.locator(".vod-source").allInnerTexts();
+  check("a card from Discover opens the server's file", lines.length >= 1 && /MKV|MP4/i.test(lines[0]), JSON.stringify(lines));
+  await p.context().close();
+}
+{
+  // With AIOStreams too: the addon's genres lead the rail, the server's follow,
+  // and both sources' titles are in the grid.
+  const p = await openPage({ signed: true, aio: AIO });
+  await goTo(p, "discover");
+  const names = () => p.locator(".disc-grid .stream-card__name").allInnerTexts();
+  await waitFor(p, async () => (await names()).includes("The Turn"), 20_000);
+  const rail = await p.locator(".genre-card__name").allInnerTexts();
+  const ns = await names();
+  const addonTitle = ns.find((n) => /Fake|Iron|Top/i.test(n));
+  check("Discover with both: the grid has the server's titles and the addon's", ns.includes("The Turn") && !!addonTitle && addonTitle !== "The Turn", JSON.stringify(ns.slice(0, 12)));
+  check("  and the rail is the addon's genres, then the ones only the server's titles have", rail.indexOf("Documentary") > rail.indexOf("Drama") && rail.includes("Mystery"), JSON.stringify(rail));
+  // The addon is signed in here, so a Jellyfin card that lost its mark would ask it.
+  const streamAsks = () => p.requests.filter((u) => u.includes(":8084/") && u.includes("/stream/"));
+  const before = streamAsks().length;
+  // From the genre's own page (a read of the server), not Stream's cached rows.
+  await p.locator(".genre-card", { hasText: /^Documentary$/ }).click();
+  await waitFor(p, async () => (await names()).length === 1 && (await names())[0] === "The Turn", 15_000);
+  await p.locator(".disc-grid .stream-card", { hasText: "The Turn" }).first().click();
+  await p.locator(".vod-source").first().waitFor({ timeout: 15_000 });
+  await p.waitForTimeout(2500);
+  const lines = await p.locator(".vod-source").allInnerTexts();
+  check("a Jellyfin card in Discover opens the server's file and never asks the addon", streamAsks().length === before && lines.length >= 1 && /MKV|MP4/i.test(lines[0]), JSON.stringify({ before, now: streamAsks().length, lines }));
   await p.context().close();
 }
 

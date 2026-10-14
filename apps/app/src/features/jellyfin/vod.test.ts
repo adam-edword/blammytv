@@ -17,8 +17,9 @@ const net = vi.hoisted(() => ({
 vi.mock("./account", () => ({ jfCall: net.call }));
 vi.mock("./client", () => ({ jfSources: net.sources, jfPrepareStream: net.prepare }));
 
-import { loadJfVod, peekJfVod, resolveJfItem, resolveJfList } from "./vod";
+import { fetchJfPage, loadJfDiscover, loadJfVod, peekJfVod, resolveJfItem, resolveJfList, searchJf } from "./vod";
 import { BASE, EP1, EP3, FIX, SEVERANCE, ZZZ, item } from "./fixture";
+import { jfIdFor } from "./idmap";
 import { forgetJf, loadJfConn, noteSignIn } from "./store";
 import type { JfItem } from "./items";
 
@@ -211,3 +212,82 @@ describe("resolveJfList", () => {
     expect(await resolveJfList("movie", "tt1")).toEqual({ sources: [], notices: [] });
   });
 });
+
+describe("Discover's side", () => {
+  it("has nothing with no server, and asks nothing", async () => {
+    expect(await loadJfDiscover()).toBeNull();
+    expect(await fetchJfPage({ type: "movie", id: FIX.views[0].Id as string }, null, 0)).toEqual([]);
+    expect(await searchJf("movie", "x")).toEqual([]);
+    expect(net.call).not.toHaveBeenCalled();
+  });
+
+  it("takes its libraries and genres off the build Stream's rows come from", async () => {
+    signIn();
+    const d = await loadJfDiscover();
+    expect(d?.catalogs.map((c) => [c.type, c.name])).toEqual([
+      ["movie", "Movies"],
+      ["series", "Shows"],
+    ]);
+    expect(d?.catalogs.map((c) => c.id)).toEqual(FIX.views.map((v) => v.Id));
+    expect(d?.conn.base).toBe(BASE);
+    // One /UserViews and one page per library, the same as Stream's: nothing
+    // more is read for Discover.
+    const asked = net.call.mock.calls.length;
+    await loadJfDiscover();
+    expect(net.call.mock.calls.length).toBe(asked);
+    expect(credentialFree()).toBe(true);
+  });
+
+  it("lists each genre once, in the order its titles first carry it", async () => {
+    signIn();
+    const d = await loadJfDiscover();
+    const all = Object.values(FIX.items).flatMap((i) => i.Genres ?? []);
+    expect(new Set(d?.genres.map((g) => g.toLowerCase())).size).toBe(d?.genres.length);
+    for (const g of d?.genres ?? []) expect(all.map((x) => String(x).toLowerCase())).toContain(g.toLowerCase());
+  });
+
+  it("throws what the server said when it could not be read", async () => {
+    signIn();
+    net.call.mockResolvedValue(notOk(401));
+    await expect(loadJfDiscover()).rejects.toThrow(/signed you out/);
+  });
+
+  it("pages a library with the skip and the genre, as items from Jellyfin, and remembers their ids", async () => {
+    signIn();
+    const lib = FIX.views[0].Id as string;
+    const page = await fetchJfPage({ type: "movie", id: lib }, "Drama", 50);
+    const call = net.call.mock.calls.find((c) => c[1] === "/Items")!;
+    expect(call[2].query).toMatchObject({
+      userId: USER,
+      ParentId: lib,
+      IncludeItemTypes: "Movie",
+      StartIndex: "50",
+      Genres: "Drama",
+    });
+    expect(page.length).toBeGreaterThan(0);
+    for (const i of page) expect(i.from).toBe("jf");
+    // A card read here opens: its key leads back to the server's item.
+    expect(jfIdFor(BASE, page[0].id)).toBeTruthy();
+  });
+
+  it("asks for no genre when there is none, and rejects on a non-200 so a blip is not an empty library", async () => {
+    signIn();
+    await fetchJfPage({ type: "series", id: FIX.views[1].Id as string }, null, 0);
+    expect(net.call.mock.calls.find((c) => c[1] === "/Items")![2].query).not.toHaveProperty("Genres");
+    net.call.mockResolvedValue(notOk(500));
+    await expect(fetchJfPage({ type: "movie", id: lib0() }, null, 0)).rejects.toThrow("Jellyfin answered 500");
+  });
+
+  it("searches every library for one type, by the term", async () => {
+    signIn();
+    const out = await searchJf("series", "sever");
+    const call = net.call.mock.calls.find((c) => c[1] === "/Items")!;
+    expect(call[2].query).toMatchObject({ userId: USER, IncludeItemTypes: "Series", SearchTerm: "sever" });
+    expect(call[2].query).not.toHaveProperty("ParentId");
+    expect(out.every((i) => i.from === "jf" && i.kind === "series")).toBe(true);
+    net.call.mockResolvedValue(notOk(404));
+    await expect(searchJf("movie", "x")).rejects.toThrow("Jellyfin answered 404");
+  });
+});
+
+const lib0 = (): string => FIX.views[0].Id as string;

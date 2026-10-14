@@ -289,6 +289,11 @@ mod tests {
                                 tokio::time::sleep(Duration::from_secs(60)).await;
                             },
                             "/go" => "HTTP/1.1 302 Found\r\nLocation: /403\r\nContent-Length: 0\r\n\r\n".to_string(),
+                            // A redirect to /403 on the fake with this port: another origin.
+                            p if p.starts_with("/away/") => format!(
+                                "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{}/403\r\nContent-Length: 0\r\n\r\n",
+                                p.trim_start_matches("/away/")
+                            ),
                             _ => "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n".to_string(),
                         };
                         let _ = sock.write_all(reply.as_bytes()).await;
@@ -542,6 +547,34 @@ mod tests {
             assert_eq!(a.status, Some(403));
             assert!(!a.signed_in_to_jellyfin);
             assert!(!fake.heads.lock().unwrap()[0].to_ascii_lowercase().contains("authorization:"));
+        });
+    }
+
+    #[test]
+    fn the_sign_in_does_not_follow_a_redirect_to_another_origin() {
+        // Insurance for the claim in `probe_signed`: reqwest drops
+        // `Authorization` when a redirect crosses origins. A reqwest upgrade
+        // that stopped doing so would send the token to whoever a server
+        // points at, and this is where that shows.
+        run(async {
+            let a = Fake::start().await;
+            let b = Fake::start().await;
+            let ans = probe_signed(
+                &client(),
+                &a.url(&format!("/away/{}", b.port)),
+                Duration::from_secs(5),
+                None,
+                Some("MediaBrowser Token=\"tok-12345678\""),
+            )
+            .await;
+            // It did follow (B answers its 403), and the sign-in went to A only.
+            assert_eq!(ans.status, Some(403));
+            let a_heads = a.heads.lock().unwrap();
+            let b_heads = b.heads.lock().unwrap();
+            assert!(a_heads[0].to_ascii_lowercase().contains("authorization:"), "{}", a_heads[0]);
+            assert_eq!(b_heads.len(), 1, "the redirect was not followed");
+            assert!(!b_heads[0].to_ascii_lowercase().contains("authorization:"), "{}", b_heads[0]);
+            assert!(!b_heads[0].contains("tok-12345678"), "{}", b_heads[0]);
         });
     }
 

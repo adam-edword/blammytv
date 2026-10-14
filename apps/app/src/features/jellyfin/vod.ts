@@ -19,7 +19,7 @@ import { loadRowCap } from "../settings/rowCap";
 import { mapStreams, metaPreviewToVod, metaToVod } from "../stream/mapper";
 import type { StreamRow, StreamSource, VodData, VodItem } from "../stream/model";
 import { jfCall } from "./account";
-import { catalogOf, catalogQuery, episodesQuery, itemQuery, metaDetailOf, metaPreviewOf } from "./browse";
+import { catalogOf, catalogQuery, episodesQuery, itemQuery, metaDetailOf, metaPreviewOf, searchQuery } from "./browse";
 import { jfPrepareStream, jfSources } from "./client";
 import { jfIdFor, rememberJfIds } from "./idmap";
 import { jellyfinIdOfKey, episodeKey } from "./ids";
@@ -133,6 +133,20 @@ async function doLoad(): Promise<VodData> {
   }
 }
 
+/** A page of `/Items` as Stream's cards, and the Jellyfin id each one's key
+ * stands for (idmap.ts keeps those, so a card opened later finds its item). */
+function previewsOf(conn: JfConn, items: readonly JfItem[]): { entries: VodItem[]; ids: [string, string][] } {
+  const entries: VodItem[] = [];
+  const ids: [string, string][] = [];
+  for (const it of items) {
+    const p: MetaPreview | null = metaPreviewOf(it, conn.base);
+    if (!p || !it.Id) continue;
+    entries.push(fromJf(metaPreviewToVod(p)));
+    ids.push([p.id, it.Id]);
+  }
+  return { entries, ids };
+}
+
 async function buildJfVod(conn: JfConn, rowCap: number): Promise<VodData> {
   const views = await jfCall<{ Items?: JfItem[] }>("GET", "/UserViews", { query: { userId: conn.userId } });
   if (views.status !== 200 || !views.data)
@@ -149,14 +163,7 @@ async function buildJfVod(conn: JfConn, rowCap: number): Promise<VodData> {
           query: catalogQuery(conn.userId, cat, { limit: rowCap }),
         });
         if (r.status !== 200 || !r.data) throw new Error(`Jellyfin answered ${r.status}`);
-        const entries: VodItem[] = [];
-        const ids: [string, string][] = [];
-        for (const it of r.data.Items ?? []) {
-          const p: MetaPreview | null = metaPreviewOf(it, conn.base);
-          if (!p || !it.Id) continue;
-          entries.push(fromJf(metaPreviewToVod(p)));
-          ids.push([p.id, it.Id]);
-        }
+        const { entries, ids } = previewsOf(conn, r.data.Items ?? []);
         return { cat, items: entries.slice(0, rowCap), ids };
       } catch (err) {
         console.error(`[jellyfin] library "${cat.name ?? cat.id}" failed: ${msg(err)}`);
@@ -212,6 +219,82 @@ function spread(pools: string[][], count: number): string[] {
     if (!any) break;
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Discover
+// ---------------------------------------------------------------------------
+
+/** A library as a Discover catalog: no more than its type, id and name. */
+export interface JfCat {
+  type: "movie" | "series";
+  id: string;
+  name: string;
+}
+
+export interface JfDiscover {
+  conn: JfConn;
+  catalogs: JfCat[];
+  /** The genres the titles Stream already read carry, in the order first
+   * seen. The server filters any genre by name, so this is only what the rail
+   * offers, and a genre that shows up only deeper in a library is not on it. */
+  genres: string[];
+}
+
+/** What Discover browses on the signed-in server, read off the same build
+ * Stream's rows come from (one `/UserViews`, one page per library), so
+ * opening Discover after Stream costs nothing. Null with no server; throws
+ * when the server could not be read at all. A library with nothing in it
+ * has no row, and so no catalog. */
+export async function loadJfDiscover(): Promise<JfDiscover | null> {
+  const conn = loadJfConn();
+  if (!conn) return null;
+  const data = await loadJfVod();
+  if (data.error) throw new Error(data.error);
+  const catalogs: JfCat[] = [];
+  const genres: string[] = [];
+  const seen = new Set<string>();
+  for (const row of data.rows) {
+    const first = data.items.get(row.itemIds[0]);
+    if (!first || !row.id.startsWith("jf:")) continue;
+    catalogs.push({ type: first.kind, id: row.id.slice(3), name: row.title });
+    for (const id of row.itemIds)
+      for (const g of data.items.get(id)?.genres ?? []) {
+        const k = g.trim().toLowerCase();
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        genres.push(g.trim());
+      }
+  }
+  return { conn, catalogs, genres };
+}
+
+/** One page of a library, past `skip` titles, optionally of one genre. Rejects
+ * when the server does not answer 200, so the caller can tell a failure from
+ * an empty page. */
+export async function fetchJfPage(cat: Pick<JfCat, "type" | "id">, genre: string | null, skip: number): Promise<VodItem[]> {
+  const conn = loadJfConn();
+  if (!conn) return [];
+  const r = await jfCall<{ Items?: JfItem[] }>("GET", "/Items", {
+    query: catalogQuery(conn.userId, { type: cat.type, id: cat.id }, { skip, ...(genre ? { genre } : {}) }),
+  });
+  if (r.status !== 200 || !r.data) throw new Error(`Jellyfin answered ${r.status}`);
+  const { entries, ids } = previewsOf(conn, r.data.Items ?? []);
+  rememberJfIds(conn.base, ids);
+  return entries;
+}
+
+/** A search over every library for one type. Rejects like `fetchJfPage`. */
+export async function searchJf(type: "movie" | "series", term: string): Promise<VodItem[]> {
+  const conn = loadJfConn();
+  if (!conn) return [];
+  const r = await jfCall<{ Items?: JfItem[] }>("GET", "/Items", {
+    query: searchQuery(conn.userId, type, { search: term }),
+  });
+  if (r.status !== 200 || !r.data) throw new Error(`Jellyfin answered ${r.status}`);
+  const { entries, ids } = previewsOf(conn, r.data.Items ?? []);
+  rememberJfIds(conn.base, ids);
+  return entries;
 }
 
 // ---------------------------------------------------------------------------
