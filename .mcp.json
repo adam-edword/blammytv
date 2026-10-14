@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "auggie": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@augmentcode/auggie@0.36.0", "--mcp", "--mcp-auto-workspace"],
+      "env": {
+        "AUGMENT_SESSION_AUTH": "${AUGMENT_SESSION_AUTH:-}"
+      }
+    }
+  }
+}
