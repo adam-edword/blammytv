@@ -79,7 +79,6 @@ import { scrubbedMessage } from "../../lib/errors";
 import { tileGain } from "./multiviewTuning";
 import type { FromSender, ToSender } from "./mvAudio.worker";
 import type { TapInit } from "./mvAudio.worklet";
-import { probeCopy } from "./mvAudioProbe";
 
 /* ------------------------------------------------------------ the rules */
 
@@ -226,8 +225,6 @@ class Routing {
   /** Listens to the copy before the gain: whether it is heard, and whether
    * it has died since. */
   private ear: AnalyserNode | null = null;
-  /** mvAudioProbe has run: once a routing, it is a question, not a watch. */
-  private probed = false;
 
   carrying = () => this.flowing && this.heard && !this.failed && !this.dead;
   running = () => this.ctx?.state === "running";
@@ -453,8 +450,7 @@ class Routing {
    * the tile's, and one console.warn says what the tile and the copy looked
    * like. It reaches the log (lib/appLog.ts), so Settings → App → Copy
    * Diagnostics carries it. Listening and retaking go on: a copy heard later
-   * still takes the sound over. The first time in a routing, mvAudioProbe
-   * asks why, in a line of its own.
+   * still takes the sound over.
    */
   private unheard(
     video: HTMLVideoElement,
@@ -478,12 +474,6 @@ class Routing {
         `context ${this.ctx?.state} at ${this.ctx?.sampleRate} Hz. ` +
         `Events: ${events.join(", ") || "none"}.`,
     );
-    const ctx = this.ctx;
-    if (this.probed || !ctx) return;
-    this.probed = true;
-    void probeCopy(video, stream, ctx).then((line) => {
-      if (!this.dead) console.warn(line);
-    });
   }
 
   /** Let go of the copy: its listeners, its nodes, its tracks. */
