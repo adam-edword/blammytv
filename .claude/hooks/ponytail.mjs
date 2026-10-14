@@ -10,6 +10,7 @@
 // Fails open: a missing skill file must never block a session.
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const skill = join(dirname(fileURLToPath(import.meta.url)), "..", "skills", "ponytail", "SKILL.md");
