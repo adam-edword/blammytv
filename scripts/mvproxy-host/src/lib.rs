@@ -13,6 +13,8 @@ pub mod aiojf;
 pub mod mpvagent;
 #[path = "../../../apps/app/src-tauri/src/mpvheader.rs"]
 pub mod mpvheader;
+#[path = "../../../apps/app/src-tauri/src/mpvsubs.rs"]
+pub mod mpvsubs;
 #[path = "../../../apps/app/src-tauri/src/mpvurl.rs"]
 pub mod mpvurl;
 #[path = "../../../apps/app/src-tauri/src/mvaudio.rs"]

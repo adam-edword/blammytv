@@ -186,3 +186,30 @@ export function externalSubtitlesOf(base: string, itemId: string, source: JfSour
     ];
   });
 }
+
+/**
+ * What native is told about each source's subtitles: its stream address and the
+ * index and name of each external text subtitle, no address of their own (jf.rs
+ * makes those from the stream). Every source with a stream is listed, one with
+ * no subtitles too, so a list that no longer has any clears the last.
+ */
+export function subtitlesFor(
+  base: string,
+  itemId: string,
+  sources: readonly JfSource[],
+): { streamUrl: string; subtitles: { index: number; title: string; language?: string }[] }[] {
+  const out: { streamUrl: string; subtitles: { index: number; title: string; language?: string }[] }[] = [];
+  for (const s of sources) {
+    const url = streamUrl(base, itemId, s);
+    if (!url) continue;
+    out.push({
+      streamUrl: url,
+      subtitles: externalSubtitlesOf(base, itemId, s).map((x) => ({
+        index: x.index,
+        title: x.title,
+        ...(x.language ? { language: x.language } : {}),
+      })),
+    });
+  }
+  return out;
+}

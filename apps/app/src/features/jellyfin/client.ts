@@ -208,3 +208,27 @@ export async function jfPrepareStream(url: string): Promise<JfPrepared | null> {
     throw e;
   }
 }
+
+/** The subtitles of one source, named by its stream address (jf.rs `SubsFor`).
+ * Never an address for a subtitle: native makes that from the stream. */
+export interface JfSubtitlesFor {
+  streamUrl: string;
+  subtitles: { index: number; title: string; language?: string }[];
+}
+
+/**
+ * Tell native which external subtitle files go with which streams, so the
+ * player can add them once it has the file (mpvsubs.rs). Resolves to how many
+ * subtitles native now knows, or null on a build that does not have the
+ * command: the file plays without them. Rejects for anything else, and with
+ * `not signed in` when no server is.
+ */
+export async function jfSetSubtitles(entries: JfSubtitlesFor[]): Promise<number | null> {
+  try {
+    const n = await invoke<unknown>("jf_set_subtitles", { entries });
+    return typeof n === "number" ? n : null;
+  } catch (e) {
+    if (lacksCommand(e)) return null;
+    throw e;
+  }
+}

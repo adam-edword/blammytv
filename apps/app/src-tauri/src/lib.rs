@@ -9,6 +9,7 @@ mod mpvagent;
 mod mpvheader;
 mod mpvopen;
 mod mpvprefs;
+mod mpvsubs;
 mod mpvurl;
 mod mpvvulkan;
 mod mvaudio;
@@ -1430,6 +1431,18 @@ async fn jf_prepare_stream(url: String) -> Result<jf::Prepared, String> {
     jf_client().prepare_stream(&url).await
 }
 
+/// The external subtitles of the streams just listed (a `.srt` beside the
+/// video), so the player can add them once it has the file. Takes each
+/// stream's address and the index and name of each subtitle, never an address
+/// for a subtitle: those are made here from the stream (`jf::subtitle_lines`).
+/// A stream that is not a direct stream of the signed-in server is left out.
+/// Answers how many subtitles are known. A new command: an older native build
+/// rejects it and plays without the subtitles.
+#[tauri::command]
+fn jf_set_subtitles(entries: Vec<jf::SubsFor>) -> Result<usize, String> {
+    jf_client().set_subtitles(entries)
+}
+
 /// Sign out of Jellyfin, here and there. True when the server confirmed the
 /// token is revoked.
 #[tauri::command]
@@ -1932,6 +1945,7 @@ pub fn run() {
             jf_request,
             jf_sources,
             jf_prepare_stream,
+            jf_set_subtitles,
             jf_disconnect,
             check_update,
             check_update_info,

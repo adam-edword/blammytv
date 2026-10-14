@@ -282,6 +282,11 @@ struct State {
     /// still the session's token, so a sign-out or another sign-in ends it
     /// without anything to clear.
     stream_auth: Option<(String, String)>,
+    /// The external subtitles of the streams the page has listed
+    /// (`set_subtitles`), by stream address, oldest first and at most
+    /// `SUBS_STREAMS`. Read as a file is loaded (`subtitles_for`), which only
+    /// answers while the address is still a stream of the signed-in server.
+    subs: Vec<(String, Vec<crate::mpvsubs::Line>)>,
 }
 
 /// A Quick Connect sign-in under way. The secret and the base stay here,
@@ -458,6 +463,86 @@ fn plain_path(path: &str) -> Result<(), String> {
     } else {
         Ok(())
     }
+}
+
+/// How many streams' subtitles are kept: one title's files and a few before
+/// it, so a pop-out of the file just played still finds its own.
+const SUBS_STREAMS: usize = 32;
+
+/// One subtitle the page found on a source (`MediaStreams`): its index in the
+/// source and what to call it. Never an address: native makes that.
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SubIn {
+    pub index: u32,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub language: Option<String>,
+}
+
+/// The subtitles of one source, named by that source's stream address.
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SubsFor {
+    pub stream_url: String,
+    #[serde(default)]
+    pub subtitles: Vec<SubIn>,
+}
+
+/// The lines for a stream's subtitles, from the stream's own checked address:
+/// `{origin}{prefix}/Videos/{item}/{source}/Subtitles/{index}/Stream.srt`, the
+/// item and source ids being the stream's (`stream_target` has already refused
+/// anything that is not a direct stream of this server), and nothing else of
+/// the stream's address, so no query, no credential and no other host can be
+/// in it. The page chooses only the index and a name. An index past
+/// `mpvsubs::MAX_INDEX` is left out, as is a second use of one.
+fn subtitle_lines(stream: &reqwest::Url, subs: &[SubIn]) -> Vec<crate::mpvsubs::Line> {
+    let segs: Vec<&str> = stream.path_segments().map(|s| s.collect()).unwrap_or_default();
+    // `stream_target` has proved the shape; the prefix is what is before it.
+    let Some(at) = segs.len().checked_sub(3) else {
+        return Vec::new();
+    };
+    let item = segs[at + 1];
+    let Some(source) = stream
+        .query_pairs()
+        .find(|(k, _)| k == "mediaSourceId")
+        .map(|(_, v)| v.into_owned())
+        .filter(|v| is_item_id(v))
+    else {
+        return Vec::new();
+    };
+    if !is_item_id(item) {
+        return Vec::new();
+    }
+    let mut seen = Vec::new();
+    let mut out = Vec::new();
+    for sub in subs {
+        if sub.index > crate::mpvsubs::MAX_INDEX || seen.contains(&sub.index) {
+            continue;
+        }
+        if out.len() >= crate::mpvsubs::MAX_LINES {
+            break;
+        }
+        seen.push(sub.index);
+        let mut u = stream.clone();
+        {
+            let Ok(mut p) = u.path_segments_mut() else {
+                return Vec::new();
+            };
+            p.clear();
+            p.extend(&segs[..at]);
+            p.extend(["Videos", item, source.as_str(), "Subtitles", &sub.index.to_string(), "Stream.srt"]);
+        }
+        u.set_query(None);
+        u.set_fragment(None);
+        out.push(crate::mpvsubs::Line {
+            url: u.to_string(),
+            title: crate::mpvsubs::clean_title(&sub.title),
+            lang: sub.language.as_deref().and_then(crate::mpvsubs::clean_lang),
+        });
+    }
+    out
 }
 
 /// An item id as Jellyfin gives them out: 32 lower case hex, and nothing
@@ -1261,6 +1346,58 @@ impl Jf {
         self.auth_header_for(url)?
             .strip_prefix("Authorization: ")
             .map(str::to_string)
+    }
+
+    /// Remember the external subtitles of the streams the page has listed, so
+    /// they can be given to the player once it has the file
+    /// (`subtitles_for`). Each entry's stream address must be a direct stream
+    /// of the signed-in server (`stream_target`); one that is not is left out,
+    /// and the rest are kept. The subtitle addresses are made here from the
+    /// stream's own item and source (`subtitle_lines`). Answers how many
+    /// subtitles are now known for the entries given. Rejects only when not
+    /// signed in.
+    pub fn set_subtitles(&self, entries: Vec<SubsFor>) -> Result<usize, String> {
+        let s = self.session()?;
+        let mut known = 0;
+        let mut st = self.state.lock().unwrap();
+        // A sign-out between the session read and here must not keep anything.
+        if st.session.as_ref().map(|x| &x.token) != Some(&s.token) {
+            return Err("not signed in to Jellyfin".to_string());
+        }
+        for e in entries.into_iter().take(SUBS_STREAMS) {
+            let Ok(target) = stream_target(&s.base, &e.stream_url) else {
+                continue;
+            };
+            let lines = subtitle_lines(&target, &e.subtitles);
+            st.subs.retain(|(u, _)| u != &e.stream_url);
+            if lines.is_empty() {
+                continue;
+            }
+            known += lines.len();
+            st.subs.push((e.stream_url, lines));
+        }
+        let over = st.subs.len().saturating_sub(SUBS_STREAMS);
+        st.subs.drain(..over);
+        Ok(known)
+    }
+
+    /// The subtitles to add to the player for `url`: those the page listed for
+    /// this exact stream address, while it is still a stream of the signed-in
+    /// server. Empty for anything else, and for any address after a sign-out.
+    /// Not async: it is read as a file is loaded.
+    pub fn subtitles_for(&self, url: &str) -> Vec<crate::mpvsubs::Line> {
+        let st = self.state.lock().unwrap();
+        let Some(session) = st.session.as_ref() else {
+            return Vec::new();
+        };
+        if stream_target(&session.base, url).is_err() {
+            return Vec::new();
+        }
+        st.subs
+            .iter()
+            .find(|(u, _)| u == url)
+            .map(|(_, l)| l.clone())
+            .unwrap_or_default()
     }
 
     fn session(&self) -> Result<Session, String> {
@@ -3073,6 +3210,176 @@ mod tests {
             assert!(j.auth_header_for(&url).is_some());
             assert!(j.disconnect().await);
             assert_eq!(j.auth_header_for(&url), None);
+        });
+    }
+
+    // ---- external subtitles (batch 4d) ----
+
+    fn sub(index: u32, title: &str, language: Option<&str>) -> SubIn {
+        SubIn { index, title: title.into(), language: language.map(str::to_string) }
+    }
+
+    fn entry(url: &str, subs: Vec<SubIn>) -> SubsFor {
+        SubsFor { stream_url: url.to_string(), subtitles: subs }
+    }
+
+    #[test]
+    fn a_subtitle_address_is_made_from_the_stream_and_names_nothing_else() {
+        let stream = reqwest::Url::parse(&format!(
+            "http://192.168.1.50:8096/Videos/{ITEM}/stream?static=true&mediaSourceId={ITEM2}&tag=ef3dd306a6c798e2"
+        ))
+        .unwrap();
+        let lines = subtitle_lines(&stream, &[sub(0, "English - SUBRIP - External", Some("eng")), sub(3, "", None)]);
+        assert_eq!(
+            lines,
+            vec![
+                crate::mpvsubs::Line {
+                    url: format!("http://192.168.1.50:8096/Videos/{ITEM}/{ITEM2}/Subtitles/0/Stream.srt"),
+                    title: "English - SUBRIP - External".into(),
+                    lang: Some("eng".into()),
+                },
+                crate::mpvsubs::Line {
+                    url: format!("http://192.168.1.50:8096/Videos/{ITEM}/{ITEM2}/Subtitles/3/Stream.srt"),
+                    title: "Subtitles".into(),
+                    lang: None,
+                },
+            ]
+        );
+        // The stream's query (its tag, anything a server put there) does not
+        // come along: nothing a credential could ride in.
+        for l in &lines {
+            assert!(!l.url.contains('?') && !l.url.contains('#'), "{}", l.url);
+        }
+    }
+
+    #[test]
+    fn a_server_under_a_path_keeps_it_in_the_subtitle_address() {
+        let stream = reqwest::Url::parse(&format!(
+            "https://home.example.com/jellyfin/Videos/{ITEM}/stream?static=true&mediaSourceId={ITEM}"
+        ))
+        .unwrap();
+        let lines = subtitle_lines(&stream, &[sub(1, "x", None)]);
+        assert_eq!(
+            lines[0].url,
+            format!("https://home.example.com/jellyfin/Videos/{ITEM}/{ITEM}/Subtitles/1/Stream.srt")
+        );
+    }
+
+    #[test]
+    fn an_index_that_cannot_be_asked_for_is_left_out() {
+        let stream = reqwest::Url::parse(&format!(
+            "http://h:8096/Videos/{ITEM}/stream?mediaSourceId={ITEM}"
+        ))
+        .unwrap();
+        let lines = subtitle_lines(
+            &stream,
+            &[sub(1000, "too far", None), sub(2, "a", None), sub(2, "again", None), sub(u32::MAX, "huge", None)],
+        );
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].url.ends_with("/Subtitles/2/Stream.srt"));
+        // And a stream's worth of them is capped.
+        let many: Vec<SubIn> = (0..40).map(|i| sub(i, "s", None)).collect();
+        assert_eq!(subtitle_lines(&stream, &many).len(), crate::mpvsubs::MAX_LINES);
+    }
+
+    #[test]
+    fn a_stream_with_no_source_id_has_no_subtitles() {
+        for q in ["static=true", "mediaSourceId=nope", "mediaSourceId=", "mediasourceid=7acf01459a4fb0ba75583ff9c88ca080"] {
+            let stream = reqwest::Url::parse(&format!("http://h:8096/Videos/{ITEM}/stream?{q}")).unwrap();
+            assert!(subtitle_lines(&stream, &[sub(0, "x", None)]).is_empty(), "{q}");
+        }
+    }
+
+    #[test]
+    fn the_subtitles_of_a_stream_are_kept_and_given_back_for_that_stream() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (j, _, base) = signed_in(&fake).await;
+            let url = stream_of(&base);
+            assert!(j.subtitles_for(&url).is_empty(), "nothing is known before the page says");
+            let n = j.set_subtitles(vec![entry(&url, vec![sub(0, "English", Some("eng")), sub(1, "Français", Some("fra"))])]).unwrap();
+            assert_eq!(n, 2);
+            let got = j.subtitles_for(&url);
+            assert_eq!(got.len(), 2);
+            assert_eq!(got[0].url, format!("{base}/Videos/{ITEM}/{ITEM}/Subtitles/0/Stream.srt"));
+            assert_eq!(got[1].lang.as_deref(), Some("fra"));
+            // Another file of the same server has none of them.
+            assert!(j.subtitles_for(&format!("{base}/Videos/{ITEM2}/stream?static=true&mediaSourceId={ITEM2}")).is_empty());
+            // None of it went to the server: this is bookkeeping.
+            assert!(fake.seen().iter().all(|s| !s.uri.contains("Subtitles")));
+        });
+    }
+
+    #[test]
+    fn a_stream_of_another_server_is_refused_and_its_subtitles_are_never_known() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (j, _, base) = signed_in(&fake).await;
+            let good = stream_of(&base);
+            for foreign in [
+                format!("http://evil.example/Videos/{ITEM}/stream?static=true&mediaSourceId={ITEM}"),
+                format!("{}/Videos/{ITEM}/stream?mediaSourceId={ITEM}", base.replace("127.0.0.1", "localhost")),
+                format!("{}/Videos/{ITEM}/stream?mediaSourceId={ITEM}", base.replace("http://", "https://")),
+                format!("{}/Videos/{ITEM}/stream?mediaSourceId={ITEM}", base.replace("http://", "http://u:p@")),
+                // not a stream of the server at all
+                format!("{base}/Items/{ITEM}/Images/Primary?mediaSourceId={ITEM}"),
+                format!("{base}/Videos/{ITEM}/stream?mediaSourceId={ITEM}&ApiKey=abc"),
+            ] {
+                // One refused entry does not stop the next being kept.
+                let n = j
+                    .set_subtitles(vec![entry(&foreign, vec![sub(0, "x", None)]), entry(&good, vec![sub(0, "ok", None)])])
+                    .unwrap();
+                assert_eq!(n, 1, "{foreign}");
+                assert!(j.subtitles_for(&foreign).is_empty(), "{foreign}");
+                assert_eq!(j.subtitles_for(&good).len(), 1);
+            }
+            // Every address it will ever hand mpv is on the signed-in server.
+            for l in j.subtitles_for(&good) {
+                assert!(l.url.starts_with(&base), "{}", l.url);
+            }
+        });
+    }
+
+    #[test]
+    fn a_new_list_replaces_a_streams_subtitles_and_the_oldest_streams_go_first() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (j, _, base) = signed_in(&fake).await;
+            let url = stream_of(&base);
+            j.set_subtitles(vec![entry(&url, vec![sub(0, "old", None)])]).unwrap();
+            j.set_subtitles(vec![entry(&url, vec![sub(5, "new", None)])]).unwrap();
+            let got = j.subtitles_for(&url);
+            assert_eq!(got.len(), 1);
+            assert!(got[0].url.ends_with("/Subtitles/5/Stream.srt"));
+            // A source that has none clears what it had.
+            j.set_subtitles(vec![entry(&url, vec![])]).unwrap();
+            assert!(j.subtitles_for(&url).is_empty());
+            // More streams than are kept: the earliest registered are gone.
+            let streams: Vec<String> = (0..40)
+                .map(|i| format!("{base}/Videos/{ITEM}/stream?static=true&mediaSourceId={:032x}", i))
+                .collect();
+            for u in &streams {
+                j.set_subtitles(vec![entry(u, vec![sub(0, "s", None)])]).unwrap();
+            }
+            assert!(j.subtitles_for(&streams[0]).is_empty());
+            assert!(!j.subtitles_for(&streams[39]).is_empty());
+            assert!(!j.subtitles_for(&streams[8]).is_empty());
+            assert!(j.subtitles_for(&streams[7]).is_empty());
+        });
+    }
+
+    #[test]
+    fn the_subtitles_end_with_the_session() {
+        run(async {
+            let fake = Arc::new(Fake::default());
+            let (j, _, base) = signed_in(&fake).await;
+            let url = stream_of(&base);
+            j.set_subtitles(vec![entry(&url, vec![sub(0, "x", None)])]).unwrap();
+            assert_eq!(j.subtitles_for(&url).len(), 1);
+            assert!(j.disconnect().await);
+            assert!(j.subtitles_for(&url).is_empty());
+            // And nothing is taken while signed out.
+            assert_eq!(j.set_subtitles(vec![entry(&url, vec![sub(0, "x", None)])]).unwrap_err(), "not signed in to Jellyfin");
         });
     }
 

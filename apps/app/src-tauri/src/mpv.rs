@@ -7,6 +7,7 @@
 use crate::about;
 use crate::mpvopen;
 use crate::mpvprefs;
+use crate::mpvsubs;
 use crate::mpvvulkan;
 use libloading::Library;
 use std::ffi::CString;
@@ -35,6 +36,8 @@ struct MpvEvent {
     _data: *mut c_void,
 }
 const MPV_EVENT_SHUTDOWN: c_int = 1;
+/// The file is open and its tracks are known (mpv's client.h).
+const MPV_EVENT_FILE_LOADED: c_int = 8;
 
 // Move an mpv handle into the event-watcher thread (guarded by the POPOUT mutex).
 struct SendHandle(Handle);
@@ -312,6 +315,91 @@ fn apply_http_header(url: &str) {
     }
 }
 
+/// Which load the Jellyfin subtitles being added belong to. Bumped by every
+/// `play_wid` before its `loadfile` and by `unload`, so a thread still waiting
+/// to add a file's subtitles, or one about to, can tell another file has come
+/// and adds nothing to it. Checked under the PLAYER lock, which `loadfile` is
+/// also issued under, so a subtitle is never added across a load.
+static SUB_GEN: AtomicU64 = AtomicU64::new(0);
+
+/// The `sub-add` commands for `url`, as C strings: the subtitles the page
+/// listed for this Jellyfin stream (jf.rs `subtitles_for`), or none for any
+/// other file. Built before any lock is taken, and a line that cannot be made
+/// into C strings is left out.
+fn subtitle_commands(url: &str) -> Vec<Vec<CString>> {
+    let Some(j) = crate::jf_client_started() else {
+        return Vec::new();
+    };
+    j.subtitles_for(url)
+        .iter()
+        .filter_map(|line| {
+            mpvsubs::args(line)
+                .into_iter()
+                .map(|a| CString::new(a).ok())
+                .collect::<Option<Vec<_>>>()
+        })
+        .collect()
+}
+
+/// Run one prepared command on `h`. Whether mpv took it.
+unsafe fn run_command(l: &Lib, h: Handle, words: &[CString]) -> bool {
+    let mut args: Vec<*const c_char> = words.iter().map(|w| w.as_ptr()).collect();
+    args.push(std::ptr::null());
+    (l.command)(h, args.as_ptr()) >= 0
+}
+
+/// Add the in-app player's Jellyfin subtitles once the file has loaded, on a
+/// thread of their own: `sub-add` fetches the file inside mpv's core and
+/// waits for it, which must not hold up a caller on the UI thread. It looks at
+/// the player every `POLL_MS` (the rule is mpvsubs.rs `next_step`) and adds
+/// them to the file they belong to, or to nothing. Each command is checked
+/// against `SUB_GEN` under the PLAYER lock. A failure to add one is logged by
+/// its index and position only, never the address.
+fn add_subtitles_when_loaded(gen: u64, url: String, commands: Vec<Vec<CString>>) {
+    let t0 = std::time::Instant::now();
+    loop {
+        let tracks = read_prop("track-list/count").and_then(|c| c.parse::<u32>().ok());
+        match mpvsubs::next_step(
+            read_prop("path").as_deref(),
+            &url,
+            tracks,
+            t0.elapsed().as_millis() as u64,
+            SUB_GEN.load(Ordering::SeqCst) != gen,
+        ) {
+            mpvsubs::Step::Stop => {
+                // Still this load's: the file never showed up as loaded under
+                // its own address in the time given, so there was nothing to
+                // add them to. Said once, without the address.
+                if SUB_GEN.load(Ordering::SeqCst) == gen {
+                    log::warn!(
+                        "[jellyfin] {} external subtitles not added: the file never reported as loaded",
+                        commands.len()
+                    );
+                }
+                return;
+            }
+            mpvsubs::Step::Wait => std::thread::sleep(std::time::Duration::from_millis(mpvsubs::POLL_MS)),
+            mpvsubs::Step::Add => break,
+        }
+    }
+    let mut added = 0;
+    for (n, words) in commands.iter().enumerate() {
+        let g = PLAYER.lock().unwrap();
+        if SUB_GEN.load(Ordering::SeqCst) != gen {
+            return;
+        }
+        let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) else {
+            return;
+        };
+        if unsafe { run_command(l, p.0, words) } {
+            added += 1;
+        } else {
+            log::warn!("[jellyfin] subtitle {} of {} was not added", n + 1, commands.len());
+        }
+    }
+    log::info!("[jellyfin] {added} of {} external subtitles added", commands.len());
+}
+
 /// What Settings → Playback has asked of mpv that holds for every file:
 /// Audio Channels and Subtitle Size. Held here, not just sent to the players
 /// that exist, because the in-app player is created on first play and each
@@ -507,6 +595,10 @@ pub fn play_popout(
     // fail here after mpv_create and mpv_initialize, and the early return
     // leaked an initialized instance, window and threads included.
     let curl = CString::new(url).map_err(|_| "url has a null byte")?;
+    // A Jellyfin file's external subtitles, added by the watcher below when
+    // the file has loaded (it is the one thread that may command this handle
+    // from there on).
+    let subs = subtitle_commands(url);
     stop_popout();
     unsafe {
         let h = (l.create)();
@@ -618,13 +710,24 @@ pub fn play_popout(
                 Some(l) => l,
                 None => return,
             };
+            let mut subs = Some(subs);
             loop {
                 let ev = (l.wait_event)(h, -1.0);
                 if ev.is_null() {
                     continue;
                 }
-                if (*ev).event_id == MPV_EVENT_SHUTDOWN {
-                    break;
+                match (*ev).event_id {
+                    MPV_EVENT_SHUTDOWN => break,
+                    // The file is open: add its Jellyfin subtitles, once.
+                    // Here, on the handle's only event thread, so it cannot
+                    // be commanded after it is destroyed below.
+                    MPV_EVENT_FILE_LOADED => {
+                        if let Some(commands) = subs.take().filter(|c| !c.is_empty()) {
+                            let added = commands.iter().filter(|w| run_command(l, h, w)).count();
+                            log::info!("[jellyfin] pop-out: {added} of {} external subtitles added", commands.len());
+                        }
+                    }
+                    _ => {}
                 }
             }
             // This thread is the handle's SOLE destroyer: terminate_destroy
@@ -951,6 +1054,9 @@ pub fn play_wid(
     // independent mutexes and stop_popout drops POPOUT's before the quit.
     stop_popout();
     let t_ready = t0.elapsed();
+    // This load supersedes whatever subtitles were still waiting to be added
+    // to the file before it.
+    let gen = SUB_GEN.fetch_add(1, Ordering::SeqCst) + 1;
     reset_per_file(start, live);
     // The playlist's own User-Agent for this file, or mpv's own again.
     apply_user_agent(user_agent);
@@ -980,6 +1086,12 @@ pub fn play_wid(
             }
             note_loaded(url, user_agent);
         }
+    }
+    // A Jellyfin file's external subtitles, once it has loaded.
+    let subs = subtitle_commands(url);
+    if !subs.is_empty() {
+        let url = url.to_string();
+        std::thread::spawn(move || add_subtitles_when_loaded(gen, url, subs));
     }
     // `queued` is loadfile RETURNING, not the stream being open: mpv opens it
     // on its own thread, so anything after this is probe and network and
@@ -1160,6 +1272,7 @@ pub fn reload_live() {
 /// switches only. Nothing else in the app needs to know.
 pub fn unload() {
     let g = PLAYER.lock().unwrap();
+    SUB_GEN.fetch_add(1, Ordering::SeqCst);
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
         unsafe {
             let cmd = CString::new("stop").unwrap();
@@ -1376,6 +1489,12 @@ pub fn set_shader_opts(opts: &str) {
 /// stop()/terminate). Returns None if no player or the property is empty/unset.
 pub fn get_property(name: &str) -> Option<String> {
     PROP_READS.fetch_add(1, Ordering::Relaxed);
+    read_prop(name)
+}
+
+/// `get_property` without the status poll's instrumentation count: for reads
+/// that are not the poll's.
+fn read_prop(name: &str) -> Option<String> {
     let g = PLAYER.lock().unwrap();
     let (p, l) = (g.as_ref()?, LIB.get()?);
     unsafe {

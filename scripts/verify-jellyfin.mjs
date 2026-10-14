@@ -52,7 +52,7 @@ const faked = () => fake("/__log");
 // What jf.rs does, as far as the page can tell: it holds the session, sends
 // the token as a header, answers a 4xx as data, drops the token on a 401.
 function makeNative(o) {
-  const st = { token: null, user: null, secret: null, calls: [], prepared: [] };
+  const st = { token: null, user: null, secret: null, calls: [], prepared: [], subs: [] };
   const hdr = () => ({ authorization: `MediaBrowser Token="${st.token}"`, "content-type": "application/json" });
   const status = () =>
     st.token
@@ -108,6 +108,9 @@ function makeNative(o) {
       case "jf_prepare_stream":
         st.prepared.push(args.url);
         return { ok: true, needsAuth: false, status: 206, offOrigin: false };
+      case "jf_set_subtitles":
+        st.subs.push(...args.entries);
+        return args.entries.reduce((n, e) => n + e.subtitles.length, 0);
       case "jf_disconnect": {
         const was = !!st.token;
         if (was) await call("POST", "/Sessions/Logout");
@@ -328,6 +331,12 @@ await fake("/__reset", { method: "POST" });
     url,
   );
   check("  the stream was checked before it was opened", p.native.st.prepared.length >= 1 && p.native.st.prepared[0] === url);
+  const subsFor = p.native.st.subs.find((e) => e.streamUrl === url);
+  check(
+    "  and native was told the .srt that sits beside it: its index and name, no address of its own",
+    subsFor?.subtitles?.length === 1 && subsFor.subtitles[0].index === 0 && /English/.test(subsFor.subtitles[0].title) && subsFor.subtitles[0].language === "eng" && !JSON.stringify(p.native.st.subs).match(/Subtitles\/|api_?key|token/i),
+    JSON.stringify(p.native.st.subs).slice(0, 300),
+  );
   check("  and the token is still only here", !(await everything(p)).includes(p.native.st.token));
 
   const cw = await storeOf(p, "watching");

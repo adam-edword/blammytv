@@ -20,11 +20,11 @@ import { mapStreams, metaPreviewToVod, metaToVod } from "../stream/mapper";
 import type { StreamRow, StreamSource, VodData, VodItem } from "../stream/model";
 import { jfCall } from "./account";
 import { catalogOf, catalogQuery, episodesQuery, itemQuery, metaDetailOf, metaPreviewOf, searchQuery } from "./browse";
-import { jfPrepareStream, jfSources } from "./client";
+import { jfPrepareStream, jfSetSubtitles, jfSources } from "./client";
 import { jfIdFor, rememberJfIds } from "./idmap";
 import { jellyfinIdOfKey, episodeKey } from "./ids";
 import type { JfItem } from "./items";
-import { streamsOf } from "./sources";
+import { streamsOf, subtitlesFor } from "./sources";
 import { forgetCount, loadJfConn, type JfConn } from "./store";
 
 /** The hero's size, as stream/source.ts keeps it. */
@@ -393,6 +393,11 @@ export async function resolveJfList(kind: "movie" | "series", key: string): Prom
   if (sources.length === 0) return { sources, notices: ["Jellyfin has no playable file for this."] };
   await jfPrepareStream(sources[0].streamUrl).catch((e) =>
     console.warn(`[jellyfin] stream check failed: ${msg(e)}`),
+  );
+  // The files that sit beside the video (a .srt): native adds them to the
+  // player once it has the file. A build without the command plays without.
+  await jfSetSubtitles(subtitlesFor(conn.base, jid, r.sources)).catch((e) =>
+    console.warn(`[jellyfin] subtitles not registered: ${msg(e)}`),
   );
   return { sources, notices: [] };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { externalSubtitlesOf, resolutionOf, streamUrl, streamsOf, type JfSource } from "./sources";
+import { externalSubtitlesOf, resolutionOf, streamUrl, streamsOf, subtitlesFor, type JfSource } from "./sources";
 import { BASE, EP3, FIX } from "./fixture";
 
 /** The real answer for the 600s episode with its external subtitle, as the
@@ -123,5 +123,34 @@ describe("external subtitles", () => {
   it("are none for an id that is not one", () => {
     expect(externalSubtitlesOf(BASE, "x", raw)).toEqual([]);
     expect(externalSubtitlesOf(BASE, EP3, { ...raw, Id: "x" })).toEqual([]);
+  });
+});
+
+describe("what native is told about subtitles", () => {
+  it("is each source's stream and its external text subtitles by index, with no address of their own", () => {
+    expect(subtitlesFor(BASE, EP3, [raw])).toEqual([
+      {
+        streamUrl: streamUrl(BASE, EP3, raw),
+        subtitles: [{ index: 0, title: "English - SUBRIP - External", language: "eng" }],
+      },
+    ]);
+  });
+
+  it("lists a source with no subtitles too, so it clears what it had, and skips one with no stream", () => {
+    const bare: JfSource = { Id: raw.Id, MediaStreams: [{ Type: "Video", Index: 0 }] };
+    expect(subtitlesFor(BASE, EP3, [bare])).toEqual([{ streamUrl: streamUrl(BASE, EP3, bare), subtitles: [] }]);
+    expect(subtitlesFor(BASE, EP3, [{ ...raw, IsRemote: true }, { ...raw, Id: "x" }])).toEqual([]);
+  });
+
+  it("leaves out an embedded, an image and a negative one, as the player's list does", () => {
+    const s: JfSource = {
+      Id: raw.Id,
+      MediaStreams: [
+        { Type: "Subtitle", Index: 3, IsExternal: false, IsTextSubtitleStream: true },
+        { Type: "Subtitle", Index: 4, IsExternal: true, IsTextSubtitleStream: false },
+        { Type: "Subtitle", Index: 6, IsExternal: true, IsTextSubtitleStream: true, Language: "fra", DisplayTitle: "Français" },
+      ],
+    };
+    expect(subtitlesFor(BASE, EP3, [s])[0].subtitles).toEqual([{ index: 6, title: "Français", language: "fra" }]);
   });
 });

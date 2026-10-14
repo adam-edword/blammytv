@@ -13,9 +13,10 @@ const net = vi.hoisted(() => ({
   call: vi.fn(),
   sources: vi.fn(),
   prepare: vi.fn(),
+  setSubs: vi.fn(),
 }));
 vi.mock("./account", () => ({ jfCall: net.call }));
-vi.mock("./client", () => ({ jfSources: net.sources, jfPrepareStream: net.prepare }));
+vi.mock("./client", () => ({ jfSources: net.sources, jfPrepareStream: net.prepare, jfSetSubtitles: net.setSubs }));
 
 import { fetchJfPage, loadJfDiscover, loadJfVod, peekJfVod, resolveJfItem, resolveJfList, searchJf } from "./vod";
 import { BASE, EP1, EP3, FIX, SEVERANCE, ZZZ, item } from "./fixture";
@@ -60,6 +61,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   net.call.mockImplementation((_m: string, path: string, opts?: { query?: Record<string, string> }) => serve(path, opts));
   net.prepare.mockResolvedValue({ ok: true, needsAuth: false, status: 206, offOrigin: false });
+  net.setSubs.mockResolvedValue(1);
   net.sources.mockImplementation(async (id: string) => ({
     status: 200,
     sources: (FIX.playbackInfo[id] ?? FIX.playbackInfo[EP3]).MediaSources,
@@ -208,8 +210,39 @@ describe("resolveJfList", () => {
     expect(l.sources.length).toBeGreaterThan(0);
   });
 
+  it("tells native the files that sit beside the video, by index, for the streams it lists", async () => {
+    signIn();
+    await loadJfVod(true);
+    const l = await resolveJfList("series", "tt11280740:1:3");
+    expect(net.setSubs).toHaveBeenCalledTimes(1);
+    const entries = net.setSubs.mock.calls[0][0];
+    expect(entries.map((e: { streamUrl: string }) => e.streamUrl)).toEqual(l.sources.map((s) => s.streamUrl));
+    expect(entries[0].subtitles).toEqual([{ index: 0, title: "English - SUBRIP - External", language: "eng" }]);
+    // The page names no address for a subtitle, and nothing in it is a credential.
+    expect(JSON.stringify(entries[0].subtitles)).not.toMatch(/http|Subtitles\/|api_?key|token/i);
+    expect(JSON.stringify(entries)).not.toMatch(/api_?key|token/i);
+    expect(credentialFree()).toBe(true);
+  });
+
+  it("still lists the files when native will not take the subtitles", async () => {
+    signIn();
+    net.setSubs.mockRejectedValue(new Error("not signed in to Jellyfin"));
+    const l = await resolveJfList("movie", `jf:${ZZZ}`);
+    expect(l.sources.length).toBeGreaterThan(0);
+    net.setSubs.mockResolvedValue(null);
+    expect((await resolveJfList("movie", `jf:${ZZZ}`)).sources.length).toBeGreaterThan(0);
+  });
+
+  it("registers nothing when there is nothing to list", async () => {
+    signIn();
+    net.sources.mockResolvedValueOnce({ status: 404, sources: [] });
+    await resolveJfList("movie", `jf:${ZZZ}`);
+    expect(net.setSubs).not.toHaveBeenCalled();
+  });
+
   it("is empty with no server", async () => {
     expect(await resolveJfList("movie", "tt1")).toEqual({ sources: [], notices: [] });
+    expect(net.setSubs).not.toHaveBeenCalled();
   });
 });
 
