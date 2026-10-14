@@ -120,6 +120,7 @@ export const KEY_GROUPS = {
     // Sync bookkeeping tied to an account: what Trakt, MAL and AIOStreams
     // each count as played, and AIOStreams' packed ids.
     "aioWatched",
+    "jfWatched",
     "malWatched",
     "aiojfIds",
     "tmdbKey",

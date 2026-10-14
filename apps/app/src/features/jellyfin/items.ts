@@ -19,6 +19,8 @@ export interface JfItem {
   CollectionType?: string;
   SeriesId?: string;
   SeriesName?: string;
+  /** The tag of the show's poster, on an episode: Next Up draws the show's. */
+  SeriesPrimaryImageTag?: string;
   /** An episode's number. */
   IndexNumber?: number;
   /** An episode's season (0 for specials). */

@@ -6,6 +6,8 @@
  */
 
 import { load, remove, save } from "../../lib/storage";
+import type { UpNextCard } from "../aiojf/rules";
+import { forgetJfWatched } from "../stream/watched";
 import type { JfStatus } from "./client";
 
 export interface JfLocal {
@@ -18,6 +20,15 @@ export interface JfLocal {
   signedIn?: { base: string; userName?: string; userId?: string; serverName?: string };
   /** The last thing that went wrong, said plainly, for Settings. */
   problem?: string;
+  /** When the last sync finished, ms. */
+  lastSync?: number;
+  /** The episodes the server says are next for the shows you follow, for the
+   * Stream home. Art is fetched from `signedIn.base` (images need no token). */
+  nextUp?: UpNextCard[];
+  /** Continue Watching entry (`<title id>|<episode id>`) to the Jellyfin item
+   * its resume point is on, as of the last sync: what clearing a card clears
+   * on the server. Ids the server gave, no more. */
+  resumeJids?: Record<string, string>;
 }
 
 const KEY = "jellyfin";
@@ -37,6 +48,10 @@ export function saveJf(patch: Partial<JfLocal>): JfLocal {
  * a screen that reads it re-reads. */
 export const JF_CHANGED = "blammytv:jf-changed";
 
+/** Said when a sync changed anything a screen shows (the Next Up row, the
+ * ticks, the Settings line), or when a sign-out cleared it. */
+export const JF_SYNCED = "blammytv:jf-synced";
+
 /** Bumped by every sign-out, so a read already under way can tell it has been
  * overtaken and write nothing back into the store it just cleared. */
 let forgets = 0;
@@ -52,6 +67,8 @@ export function forgetJf(): void {
   // file stays the bottom of the module.
   remove("jfVodCache");
   remove("jfIds");
+  // The ticks it counted go with it, as AIOStreams' do.
+  forgetJfWatched();
 }
 
 /**

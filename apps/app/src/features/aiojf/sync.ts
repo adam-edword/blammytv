@@ -80,8 +80,8 @@ export function syncAiojf(): Promise<SyncResult> {
   return running;
 }
 
-interface Listed {
-  items: BaseItem[] | null;
+export interface Listed<T = BaseItem> {
+  items: T[] | null;
   status: number;
   /** `TotalRecordCount`, when the answer had one. */
   total?: number;
@@ -104,17 +104,25 @@ async function list(path: string, query: Record<string, string>): Promise<Listed
  * partial one: the caller replaces the ledger whole, and the missing pages
  * would un-tick everything past them.
  */
-export async function readPlayed(page: (startIndex: number, limit: number) => Promise<Listed>): Promise<Listed> {
-  const items: BaseItem[] = [];
+export async function readPlayed<T = BaseItem>(
+  page: (startIndex: number, limit: number) => Promise<Listed<T>>,
+  /** How many to stop at, and how many to ask for in one request. */
+  { max = PLAYED_MAX, chunk = Infinity }: { max?: number; chunk?: number } = {},
+): Promise<Listed<T> & { capped?: boolean }> {
+  const items: T[] = [];
   let status = 200;
-  while (items.length < PLAYED_MAX) {
-    const r = await page(items.length, PLAYED_MAX - items.length);
+  let total: number | undefined;
+  while (items.length < max) {
+    const r = await page(items.length, Math.min(chunk, max - items.length));
     status = r.status;
     if (!r.items) return { items: null, status };
     items.push(...r.items);
-    if (r.items.length === 0 || (r.total !== undefined && items.length >= r.total)) break;
+    total = r.total ?? total;
+    if (r.items.length === 0 || (total !== undefined && items.length >= total)) break;
   }
-  return { items: items.slice(0, PLAYED_MAX), status };
+  // Stopped at `max` with more behind it: the caller says so.
+  const capped = items.length >= max && (total === undefined || total > max);
+  return { items: items.slice(0, max), status, ...(capped ? { capped } : {}) };
 }
 
 /** What did not decode: not a film, a show or an episode in this app's ids. */

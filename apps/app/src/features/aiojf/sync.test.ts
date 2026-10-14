@@ -103,6 +103,23 @@ describe("readPlayed (plan 023: AIOStreams answers a page at a time)", () => {
     expect(r.items?.length).toBe(PLAYED_MAX);
   });
 
+  it("asks for no more than a chunk at a time when it is given one (a Jellyfin server, which holds more)", async () => {
+    const s = server(1200, 5000);
+    const r = await readPlayed(s.page, { max: 5000, chunk: 500 });
+    expect(s.asked).toEqual([[0, 500], [500, 500], [1000, 500]]);
+    expect(r.items?.length).toBe(1200);
+    expect(r.capped).toBeUndefined();
+  });
+
+  it("says so when it stopped at the cap with more behind it", async () => {
+    const s = server(900, 5000);
+    const r = await readPlayed(s.page, { max: 600, chunk: 300 });
+    expect(r.items?.length).toBe(600);
+    expect(r.capped).toBe(true);
+    const exact = await readPlayed(server(600, 5000).page, { max: 600, chunk: 300 });
+    expect(exact.capped).toBeUndefined();
+  });
+
   it("an instance holding nothing played is an empty list, not a failure", async () => {
     const s = server(0, 250);
     const r = await readPlayed(s.page);

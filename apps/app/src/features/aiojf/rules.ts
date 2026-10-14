@@ -13,6 +13,7 @@
  */
 
 import type { SkipRange } from "../stream/aniskip";
+import type { VodFrom } from "../stream/model";
 import type { WatchEntry } from "../stream/watching";
 import { blammyId, unpack } from "./ids";
 
@@ -209,6 +210,9 @@ export function episodeLabel(season: number, episode: number, title?: string): s
 export interface Resume {
   /** The title's id; an episode's series. */
   id: string;
+  /** Where the position was read: a Jellyfin server of the user's own, so the
+   * card resumes from its file (watching.ts `from`). Absent for AIOStreams. */
+  from?: VodFrom;
   episodeId?: string;
   posSec: number;
   durSec?: number;
@@ -308,6 +312,10 @@ export function mergeAioProgress(entries: readonly WatchEntry[], incoming: reado
       posSec: r.posSec,
       durSec,
     };
+    // The position belongs to the side that gave it: a card taken over by one
+    // that is not from Jellyfin resumes from the addon again.
+    if (r.from) next.from = r.from;
+    else delete next.from;
     if (r.episodeId) {
       next.episodeId = r.episodeId;
       next.season = r.season;

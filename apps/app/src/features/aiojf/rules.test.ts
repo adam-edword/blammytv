@@ -385,6 +385,20 @@ describe("mergeAioProgress (plan 023, D3)", () => {
     ...over,
   });
 
+  it("marks a card whose position came from the user's Jellyfin, and a later AIOStreams point takes the mark off", () => {
+    const [jf] = mergeAioProgress([], [film1({ from: "jf" })]);
+    expect(jf.from).toBe("jf");
+    const [aio] = mergeAioProgress([jf], [film1({ at: T("2026-09-21T10:00:00Z"), posSec: 100 })]);
+    expect(aio).not.toHaveProperty("from");
+    expect(aio.posSec).toBe(100);
+  });
+
+  it("leaves the mark when this side is the older", () => {
+    const [kept] = mergeAioProgress([localFilm({ from: "jf", at: T("2026-09-25T00:00:00Z") })], [film1()]);
+    expect(kept.from).toBe("jf");
+    expect(kept.posSec).toBe(60);
+  });
+
   it("a film played elsewhere joins Continue Watching at its position", () => {
     expect(mergeAioProgress([], [film1({ year: 2020 })])).toEqual([
       { id: "tt1", title: "Film tt1", kind: "movie", year: 2020, at: T("2026-09-20T10:00:00Z"), posSec: 3600, durSec: 7200 },

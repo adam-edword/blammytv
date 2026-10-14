@@ -71,7 +71,7 @@ import {
   takeOpenRequest,
   takeResumeRequest,
 } from "./openRequest";
-import { filmWatched, loadAioWatched, loadWatched, markWatched } from "./watched";
+import { filmWatched, loadAioWatched, loadJfWatched, loadWatched, markWatched } from "./watched";
 import { loadAioConn } from "../aiojf/conn";
 import { loadJfVod, peekJfVod } from "../jellyfin/vod";
 import { JF_CHANGED, loadJfConn } from "../jellyfin/store";
@@ -117,6 +117,8 @@ import { useAiojfReport } from "../aiojf/report";
 import { playSkips } from "../aiojf/skips";
 import { useAioTicks } from "../aiojf/ticks";
 import { UpNextRows } from "../aiojf/UpNextRows";
+import { JfUpNextRow } from "../jellyfin/UpNextRow";
+import { useJfReport } from "../jellyfin/report";
 import { rememberForMal } from "../mal/sync";
 import { useMalTicks } from "../mal/ticks";
 import { loadTrakt, TRAKT_SYNCED } from "../trakt/store";
@@ -156,6 +158,8 @@ type Load =
 /** Your Jellyfin's libraries (plan 027): the same states, and `off` with no
  * server signed in. */
 type JfLoad = Load | { status: "off" };
+
+const NO_ITEMS: ReadonlyMap<string, VodItem> = new Map();
 
 const initialJf = (): JfLoad => {
   if (!loadJfConn()) return { status: "off" };
@@ -1590,6 +1594,20 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       : null,
   );
 
+  // Your Jellyfin (plan 027, D5): a play from it is reported to it, so its
+  // other apps show it and resume from it. Nothing for any other source.
+  useJfReport(
+    playing && playing.item.from === "jf"
+      ? {
+          itemId: playing.item.id,
+          kind: playing.item.kind,
+          episodeId: playing.episodeId,
+          streamUrl: playing.url,
+          popped: playing.popped,
+        }
+      : null,
+  );
+
   // MyAnimeList (plan 021): what a tick needs to find the title on MAL
   // (whether it is anime, and a series' seasons).
   const playingItem = playing?.item;
@@ -2207,6 +2225,8 @@ function Home({
         {/* What AIOStreams has next for you (plan 023, A5): its own rows
           * under Continue Watching, empty ones not drawn. */}
         {aio && <UpNextRows catalog={aio.items} metaFields={metaFields} onOpen={onOpen} />}
+        {/* And your Jellyfin's own (plan 027, D5). */}
+        {jfOn && <JfUpNextRow catalog={jfData?.items ?? NO_ITEMS} metaFields={metaFields} onOpen={onOpen} shared={aioOn} />}
         {shown.map(({ row, items }) => (
           <section key={row.id} className="media-row">
             <h3 className="media-row__title">{row.title}</h3>
@@ -2610,7 +2630,8 @@ function GenrePills({ genres }: { genres: string[] }) {
  * "Watched" (plan 023): its list carries no day. */
 function watchedOn(id: string): string | null {
   const at = loadTrakt().movies?.[id];
-  if (at == null) return loadAioWatched().films.includes(id) ? "Watched" : null;
+  if (at == null)
+    return loadAioWatched().films.includes(id) || loadJfWatched().films.includes(id) ? "Watched" : null;
   if (!at) return "Watched";
   const d = new Date(at);
   const sameYear = d.getFullYear() === new Date().getFullYear();

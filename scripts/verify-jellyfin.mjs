@@ -216,6 +216,10 @@ const openStreamTab = async (p) => {
   await p.locator(".settings-section").first().waitFor({ timeout: 10_000 });
 };
 const section = (p) => p.locator('[data-setting="jellyfin"]');
+const closeSettings = async (p) => {
+  await p.keyboard.press("Escape");
+  await p.locator(".settings__body").first().waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+};
 /** Everything the page keeps or shows, as one string, to look for the token in. */
 const everything = (p) =>
   p.evaluate(() => JSON.stringify({ ls: { ...localStorage }, ss: { ...sessionStorage }, dom: document.body.innerText, calls: window.__calls }));
@@ -477,6 +481,148 @@ await fake("/__reset", { method: "POST" });
   await p.waitForTimeout(2500);
   const lines = await p.locator(".vod-source").allInnerTexts();
   check("a Jellyfin card in Discover opens the server's file and never asks the addon", streamAsks().length === before && lines.length >= 1 && /MKV|MP4/i.test(lines[0]), JSON.stringify({ before, now: streamAsks().length, lines }));
+  await p.context().close();
+}
+
+// ============================================== Reporting what you watch
+// A play from your Jellyfin is reported to it: a start, a progress report every
+// ten seconds (paused when the position holds), and a stop with the real
+// position. The app marks nothing played itself: the server keeps the position
+// by its own rules, and a second device (a fresh page) finds it in Resume.
+const TICKS = 10_000_000;
+/** A call as the signed-in user, from this process: a way to be "the other app". */
+const asUser = async (method, path, body) => {
+  const a = await (await fetch(FAKE + "/Users/AuthenticateByName", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ Username: FIX.user.Name, Pw: "pw" }) })).json();
+  const h = { authorization: `MediaBrowser Token="${a.AccessToken}"`, "content-type": "application/json" };
+  const r = await fetch(FAKE + path, { method, headers: h, ...(body != null ? { body: JSON.stringify(body) } : {}) });
+  await fetch(FAKE + "/Sessions/Logout", { method: "POST", headers: h });
+  return r;
+};
+const reports = async () => (await faked()).filter((c) => c.path.startsWith("/Sessions/Playing"));
+await fake("/__reset", { method: "POST" });
+{
+  const p = await openPage({ signed: true });
+  await p.locator('.stream-card[data-hint="Severance"]').first().click({ timeout: 15_000 });
+  await p.locator(".episode-card").first().waitFor({ timeout: 15_000 });
+  await p.locator(".episode-card").nth(2).click();
+  await p.locator(".vod-source").first().waitFor({ timeout: 15_000 });
+  // The episode is 600 seconds long: half way.
+  await p.evaluate(() => ((window.__dur = 600), (window.__pos = 300)));
+  await fake("/__log", { method: "DELETE" });
+  await p.locator(".vod-source").first().click();
+  await waitFor(p, async () => (await reports()).some((c) => c.path === "/Sessions/Playing"), 20_000);
+  const start = (await reports()).find((c) => c.path === "/Sessions/Playing");
+  await waitFor(p, async () => (await opens(p)).length > 0, 15_000);
+  const url = (await opens(p))[0] ?? "";
+  const src = new URL(url).searchParams.get("mediaSourceId");
+  check(
+    "a play starts a session on the server: the right item, the file it plays, its position",
+    start?.body?.ItemId === EP3 && start.body.MediaSourceId === src && /^[0-9a-f]{32}$/.test(src ?? "") && start.body.PositionTicks === 300 * TICKS && start.body.PlayMethod === "DirectPlay",
+    JSON.stringify(start?.body),
+  );
+  check("  under the play session the file lookup was given", typeof start?.body?.PlaySessionId === "string" && start.body.PlaySessionId.length > 8, JSON.stringify(start?.body?.PlaySessionId));
+  await p.evaluate(() => (window.__pos = 330));
+  await waitFor(p, async () => (await reports()).some((c) => c.path === "/Sessions/Playing/Progress"), 20_000);
+  const prog = (await reports()).find((c) => c.path === "/Sessions/Playing/Progress");
+  check("  and every ten seconds a progress report with where it is", prog?.body?.PositionTicks === 330 * TICKS && prog.body.IsPaused === false, JSON.stringify(prog?.body));
+  // Still: a pause.
+  const n0 = (await reports()).filter((c) => c.path === "/Sessions/Playing/Progress").length;
+  await waitFor(p, async () => (await reports()).filter((c) => c.path === "/Sessions/Playing/Progress").length > n0, 20_000);
+  const held = (await reports()).filter((c) => c.path === "/Sessions/Playing/Progress").at(-1);
+  check("  a position that holds still is reported as paused", held?.body?.IsPaused === true && held.body.PositionTicks === 330 * TICKS, JSON.stringify(held?.body));
+  // Leave.
+  const ov = await p.locator(".theater-overlay").first().boundingBox();
+  await p.mouse.move(ov.x + ov.width / 2, ov.y + ov.height / 2);
+  await p.mouse.move(ov.x + ov.width / 2 + 20, ov.y + ov.height / 2 + 10);
+  await p.getByRole("button", { name: "Back", exact: true }).first().click({ timeout: 5000 });
+  await waitFor(p, async () => (await reports()).some((c) => c.path === "/Sessions/Playing/Stopped"), 10_000);
+  const stop = (await reports()).find((c) => c.path === "/Sessions/Playing/Stopped");
+  check("leaving ends the session with the position it was left at", stop?.body?.ItemId === EP3 && stop.body.PositionTicks === 330 * TICKS, JSON.stringify(stop?.body));
+  const all = await faked();
+  check("  the app marked nothing played itself: the server's rules decide", !all.some((c) => c.path.startsWith("/UserPlayedItems")), JSON.stringify(all.filter((c) => c.path.startsWith("/UserPlayedItems"))));
+  check("  and no report carried a credential in its address", (await reports()).every((c) => !Object.keys(c.query).some((k) => /^(api_?key|token)$/i.test(k))));
+  const ud = (await fake("/__state")).ud[EP3];
+  check("the server kept the position (half way is between its lines), and it is not played", ud?.PlaybackPositionTicks === 330 * TICKS && ud.Played === false, JSON.stringify(ud));
+  await p.context().close();
+}
+{
+  // Another app, a fresh page: it finds where you left off in Resume.
+  const p = await openPage({ signed: true });
+  const card = p.locator(".continue-card", { hasText: "Severance" }).first();
+  await card.waitFor({ timeout: 20_000 });
+  const cw = (await storeOf(p, "watching")) ?? [];
+  const e = cw.find((x) => x.id === "tt11280740");
+  check(
+    "a fresh device finds the half-watched episode in Continue Watching, from Jellyfin, where it was left",
+    e?.from === "jf" && e.episodeId === "tt11280740:1:3" && e.posSec === 330 && e.title === "Severance" && e.season === 1 && e.episode === 3,
+    JSON.stringify(e),
+  );
+  check("  and Next Up does not list it twice (nothing is played yet)", (await p.locator(".media-row__title", { hasText: /^Next Up/ }).count()) === 0);
+  await p.context().close();
+}
+
+// ======================================================= Syncing with the server
+await fake("/__reset", { method: "POST" });
+{
+  // The other apps: episode 1 played, episode 3 half way.
+  await asUser("POST", `/UserPlayedItems/${FIX.episodeIds[0]}`);
+  await asUser("POST", `/UserItems/${EP3}/UserData`, { PlaybackPositionTicks: 120 * TICKS, Played: false });
+  const p = await openPage({ signed: true });
+  const card = p.locator(".continue-card", { hasText: "Severance" }).first();
+  await card.waitFor({ timeout: 20_000 });
+  const ws = await storeOf(p, "jfWatched");
+  check("what the server says is played is ticked, in a store of its own", JSON.stringify(ws?.episodes) === JSON.stringify({ tt11280740: ["tt11280740:1:1"] }) && (ws?.films ?? []).length === 0, JSON.stringify(ws));
+  check("  and none of it is in the ledger Trakt and MAL push", !(await storeOf(p, "watchedEpisodes"))?.tt11280740);
+  const rowTitle = await p.locator(".media-row__title", { hasText: /^Next Up/ }).first().innerText();
+  const row = p.locator(".media-row", { has: p.locator(".media-row__title", { hasText: /^Next Up/ }) }).first();
+  const rowText = await row.innerText();
+  check("Next Up is a row on the Stream home, with the next episode of the show you are on", rowTitle === "Next Up" && /Severance/.test(rowText) && /Half Loop/.test(rowText), rowText);
+  const nx = p.native.st.calls.filter(([c, a]) => c === "jf_request" && a.path === "/Shows/NextUp");
+  check("  asked with EnableResumable off (a half-watched episode is Continue Watching's)", nx.length >= 1 && nx.every(([, a]) => a.query?.EnableResumable === "false"), JSON.stringify(nx.map(([, a]) => a.query)));
+  // The show's page ticks what the server has as played.
+  await row.locator(".stream-card").first().click();
+  await p.locator(".episode-card").first().waitFor({ timeout: 15_000 });
+  const ticked = await p.locator(".episode-card", { has: p.locator(".episode-card__seen") }).allInnerTexts();
+  check("the show's page ticks episode 1, and only it", ticked.length === 1 && /Good News About Hell/.test(ticked[0]), JSON.stringify(ticked));
+  await p.locator(".vod-back").first().click();
+  await goTo(p, "home");
+
+  // Settings: the line and Sync now.
+  await openStreamTab(p);
+  const s = section(p);
+  check("Settings says when it last synced", /Synced/.test(await s.innerText()), await s.innerText());
+  const reads = () => p.native.st.calls.filter(([c, a]) => c === "jf_request" && a.path === "/UserItems/Resume").length;
+  const before = reads();
+  await s.getByRole("button", { name: "Sync now" }).click();
+  check("  and Sync now reads the server again", await waitFor(p, async () => reads() > before, 10_000));
+  await closeSettings(p);
+
+  // The other app un-marks it: the next sync un-ticks here.
+  await asUser("DELETE", `/UserPlayedItems/${FIX.episodeIds[0]}`);
+  await openStreamTab(p);
+  await section(p).getByRole("button", { name: "Sync now" }).click();
+  const unticked = await waitFor(p, async () => ((await storeOf(p, "jfWatched"))?.episodes?.tt11280740 ?? []).length === 0, 10_000);
+  check("un-marking it on the server un-ticks it here at the next sync", unticked, JSON.stringify(await storeOf(p, "jfWatched")));
+  await closeSettings(p);
+
+  // Clearing the card clears the server's position, or the next sync brings it back.
+  const cardNow = p.locator(".continue-card", { hasText: "Severance" }).first();
+  await cardNow.waitFor({ timeout: 10_000 });
+  await cardNow.focus();
+  await p.keyboard.press("Delete");
+  const posts = () => p.native.st.calls.filter(([c, a]) => c === "jf_request" && a.method === "POST" && a.path === `/UserItems/${EP3}/UserData`);
+  await waitFor(p, async () => posts().length > 0, 8000);
+  const body = posts()[0]?.[1]?.body;
+  check("clearing the card resets the server's position for that episode", body?.PlaybackPositionTicks === 0 && body.Played === false, JSON.stringify(body));
+  check("  and the server took it", (await fake("/__state")).ud[EP3]?.PlaybackPositionTicks === 0);
+  await openStreamTab(p);
+  const r0 = reads();
+  await section(p).getByRole("button", { name: "Sync now" }).click();
+  await waitFor(p, async () => reads() > r0, 10_000);
+  await p.waitForTimeout(800);
+  await closeSettings(p);
+  check("a cleared card stays gone after the next sync", (await p.locator(".continue-card", { hasText: "Severance" }).count()) === 0 && ((await storeOf(p, "watching")) ?? []).every((w) => w.id !== "tt11280740"), JSON.stringify(await storeOf(p, "watching")));
+  check("nothing in any of it carried the token to the page", !(await everything(p)).includes(p.native.st.token));
   await p.context().close();
 }
 

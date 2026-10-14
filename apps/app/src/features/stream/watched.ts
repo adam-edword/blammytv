@@ -20,6 +20,11 @@ const MAL_KEY = "malWatched";
  * sync. Replaced whole on each AIOStreams sync, so un-marking in another of
  * its apps un-ticks here too. Episodes by series, and the films. */
 const AIO_KEY = "aioWatched";
+/** What your own Jellyfin counts as played (plan 027, D5), apart from the
+ * others for the same reason: Trakt replaces the ledger's IMDb series on every
+ * sync. Replaced whole on each Jellyfin sync, so un-marking it there un-ticks
+ * here. It only ever shows a tick: nothing in it is sent to Trakt or MAL. */
+const JF_KEY = "jfWatched";
 
 type WatchedMap = Record<string, string[]>;
 
@@ -33,13 +38,38 @@ export function loadAioWatched(): AioPlayed {
   return { episodes: v.episodes ?? {}, films: v.films ?? [] };
 }
 
-/** A tick shows if any store has it: yours, Trakt's (the ledger), MAL's or
- * AIOStreams' (D3). */
+export function loadJfWatched(): AioPlayed {
+  const v = load<Partial<AioPlayed>>(JF_KEY, VERSION, {});
+  return { episodes: v.episodes ?? {}, films: v.films ?? [] };
+}
+
+/** A tick shows if any store has it: yours, Trakt's (the ledger), MAL's,
+ * AIOStreams' (D3) or your Jellyfin's. A Set, so an episode two of them have
+ * is one tick. */
 export function loadWatched(seriesId: string): Set<string> {
   const map = load<WatchedMap>(KEY, VERSION, {});
   const mal = load<WatchedMap>(MAL_KEY, VERSION, {});
   const aio = loadAioWatched().episodes;
-  return new Set([...(map[seriesId] ?? []), ...(mal[seriesId] ?? []), ...(aio[seriesId] ?? [])]);
+  const jf = loadJfWatched().episodes;
+  return new Set([
+    ...(map[seriesId] ?? []),
+    ...(mal[seriesId] ?? []),
+    ...(aio[seriesId] ?? []),
+    ...(jf[seriesId] ?? []),
+  ]);
+}
+
+/** Your Jellyfin's played list, in place of the last one. True when it changed. */
+export function replaceJfWatched(next: AioPlayed): boolean {
+  const before = JSON.stringify(loadJfWatched());
+  if (before === JSON.stringify(next)) return false;
+  save(JF_KEY, VERSION, next);
+  return true;
+}
+
+/** Jellyfin signed out: its ticks go with it. */
+export function forgetJfWatched(): void {
+  remove(JF_KEY);
 }
 
 /** AIOStreams' played list, in place of the last one. True when it changed. */

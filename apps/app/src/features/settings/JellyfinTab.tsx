@@ -5,7 +5,9 @@ import { AioCode } from "../aiojf/AioCode";
 import { readSignIn, signOutOfJf } from "../jellyfin/account";
 import type { JfStatus } from "../jellyfin/client";
 import { PLAIN_NOTE, sendsPlain } from "../jellyfin/plain";
-import { JF_CHANGED } from "../jellyfin/store";
+import { JF_CHANGED, JF_SYNCED, loadJf } from "../jellyfin/store";
+import { syncJf } from "../jellyfin/sync";
+import { ago } from "../trakt/account";
 import { APPROVE_NOTE, useJfSignIn } from "../jellyfin/useSignIn";
 
 /**
@@ -44,10 +46,21 @@ export function JellyfinTab() {
   const [armed, setArmed] = useState(false);
   const [signedOut, setSignedOut] = useState<string | null>(null);
 
+  const [syncing, setSyncing] = useState(false);
+  const [, bump] = useState(0);
+  const startSync = () => {
+    setSyncing(true);
+    void syncJf().finally(() => {
+      setSyncing(false);
+      bump((n) => n + 1);
+    });
+  };
+
   const flow = useJfSignIn((s) => {
     setStatus(s);
     setPassword("");
     setSignedOut(null);
+    if (s.connected) startSync();
   });
 
   const refresh = useCallback(async () => {
@@ -59,8 +72,14 @@ export function JellyfinTab() {
     void refresh();
     // A sign-out, or a 401 that signed this device out: read it again.
     const onChanged = () => void refresh();
+    // A sync landed: the line under the name moves.
+    const onSynced = () => bump((n) => n + 1);
     window.addEventListener(JF_CHANGED, onChanged);
-    return () => window.removeEventListener(JF_CHANGED, onChanged);
+    window.addEventListener(JF_SYNCED, onSynced);
+    return () => {
+      window.removeEventListener(JF_CHANGED, onChanged);
+      window.removeEventListener(JF_SYNCED, onSynced);
+    };
   }, [refresh]);
 
   const starting = flow.phase.at === "starting";
@@ -115,6 +134,12 @@ export function JellyfinTab() {
 
   const connected = status.connected;
   const origin = originOf(status.base);
+  const local = loadJf();
+  const syncLine = local.problem
+    ? `Last sync hit a snag: ${local.problem}`
+    : local.lastSync
+      ? `Synced ${ago(local.lastSync)}.`
+      : "Syncing for the first time.";
 
   return (
     <section className="settings-section" data-setting="jellyfin">
@@ -132,7 +157,10 @@ export function JellyfinTab() {
               </p>
             )}
             <p className="settings__section-note settings__section-note--dim">
-              Your movie and show libraries are rows in Stream and Discover. Tested on Jellyfin 12.x.
+              Your movie and show libraries are rows in Stream and Discover, and what you watch syncs with the server. Tested on Jellyfin 12.x.
+            </p>
+            <p className="settings__section-note settings__section-note--dim" data-jf-sync>
+              {syncLine}
             </p>
             {sendsPlain(status.base) && (
               <p className="settings__section-note settings__section-note--dim" data-jf-plain>
@@ -141,6 +169,9 @@ export function JellyfinTab() {
             )}
           </div>
           <div className="aio-row__actions">
+            <Button variant="secondary" type="button" disabled={syncing} onClick={startSync}>
+              {syncing ? "Syncing…" : "Sync now"}
+            </Button>
             <Button
               variant={armed ? "destructive" : "outline"}
               type="button"

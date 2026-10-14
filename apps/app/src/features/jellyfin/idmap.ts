@@ -46,6 +46,13 @@ export function jfIdFor(base: string, key: string): string | null {
   return id && HEX32.test(id) ? id : null;
 }
 
+/** The key a Jellyfin id was read under, or null when none is known. Only
+ * titles that have an IMDb key are here: a `jf:` key is its id, and says so. */
+export function jfKeyFor(base: string, jellyfinId: string): string | null {
+  for (const [key, id] of read(base)) if (id === jellyfinId) return key;
+  return null;
+}
+
 /** Remember what a list named. Each entry is `[titleKey, jellyfinId]`. A `jf:`
  * key needs no entry. */
 export function rememberJfIds(base: string, entries: Iterable<readonly [string, string]>): void {

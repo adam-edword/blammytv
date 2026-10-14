@@ -357,6 +357,19 @@ async function jellyfinIdOf(conn: JfConn, kind: "movie" | "series", key: string)
   return episodeIds.get(`${conn.key}|${key}`) ?? null;
 }
 
+/** The Jellyfin item a film's or an episode's key names, or null when this
+ * device cannot tell. The reports, the skip markers and the sync's "clear this
+ * card" all ask the server about an item by this. */
+export async function jfItemIdFor(kind: "movie" | "series", key: string): Promise<string | null> {
+  const conn = loadJfConn();
+  return conn ? jellyfinIdOf(conn, kind, key) : null;
+}
+
+/** The play session the server minted for an item's last file lookup, so what
+ * is reported while it plays is filed under it. This session only. */
+const playSessions = new Map<string, string>();
+export const playSessionOf = (jid: string): string | undefined => playSessions.get(jid);
+
 export interface JfList {
   sources: StreamSource[];
   notices: string[];
@@ -375,6 +388,7 @@ export async function resolveJfList(kind: "movie" | "series", key: string): Prom
   const r = await jfSources(jid);
   if (r.status === 404) return { sources: [], notices: ["Jellyfin does not have this title any more."] };
   if (r.status !== 200) return { sources: [], notices: [`Jellyfin answered ${r.status}.`] };
+  if (r.playSessionId) playSessions.set(jid, r.playSessionId);
   const sources = mapStreams(streamsOf(conn.base, jid, r.sources));
   if (sources.length === 0) return { sources, notices: ["Jellyfin has no playable file for this."] };
   await jfPrepareStream(sources[0].streamUrl).catch((e) =>

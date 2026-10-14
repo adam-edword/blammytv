@@ -20,6 +20,7 @@ import { SportsScreen } from "../features/sports/SportsScreen";
 import { MultiviewTab } from "../features/live/MultiviewTab";
 import { watchPlaylists } from "../features/live/source";
 import { useAiojfSync } from "../features/aiojf/sync";
+import { useJfSync } from "../features/jellyfin/sync";
 import { useMalSync } from "../features/mal/sync";
 import { useTraktSync } from "../features/trakt/sync";
 import {
@@ -72,6 +73,7 @@ export function App() {
   useTraktSync();
   useMalSync();
   useAiojfSync();
+  useJfSync();
   // Nav is two facts, not one: which SIDE of the app (Live TV vs Stream)
   // and which Stream PAGE (the pill rail). streamTab survives a trip to
   // Live TV — coming back lands where you were; the startup setting only

@@ -14,6 +14,7 @@
 
 import { getAniskipRanges, type SkipRange } from "../stream/aniskip";
 import type { VodItem } from "../stream/model";
+import { getJfSkips } from "../jellyfin/skips";
 import { aioCall } from "./account";
 import { aiojfStatus } from "./client";
 import { packedFor } from "./report";
@@ -43,16 +44,23 @@ export async function getAioSkips(
   return ranges;
 }
 
-/** The skip ranges for what is about to play: AniSkip's, else AIOStreams'. */
+/** The skip ranges for what is about to play: AniSkip's, else AIOStreams'. For
+ * a file from your own Jellyfin: that server's, else AniSkip's. */
 export async function playSkips(
   item: VodItem,
   episodeId: string | null | undefined,
   season?: number,
 ): Promise<SkipRange[]> {
+  // A file from the user's own Jellyfin: its server's markers are the ones
+  // made for that file, so they land on the right frames; AniSkip's are the
+  // community's for a typical release, and AIOStreams' were made against a
+  // different file. Whatever the server has none for falls to AniSkip.
+  if (item.from === "jf") {
+    const own = await getJfSkips(item, episodeId).catch(() => []);
+    if (own.length) return own;
+    return getAniskipRanges(item, episodeId).catch(() => []);
+  }
   const exact = await getAniskipRanges(item, episodeId).catch(() => []);
   if (exact.length) return exact;
-  // A file from the user's own Jellyfin is not the one AIOStreams' markers were
-  // made against, and its times would land on the wrong frames.
-  if (item.from === "jf") return [];
   return getAioSkips(item, episodeId, season).catch(() => []);
 }
