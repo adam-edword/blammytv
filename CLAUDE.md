@@ -67,7 +67,7 @@ mvconvert.rs, HEVC conversion through an actual ffmpeg included), and so
 do Trakt's and MAL's (trakt.rs and mal.rs, against fakes) and multi-view's
 sound listener and jitter buffer (mvaudio.rs; its cpal output, mvaudio_out.rs,
 needs a device and is type-checked only) and AIOStreams' Jellyfin side
-(aiojf.rs, against a fake) and the player settings' checks (mpvprefs.rs) and the dead-link probe (mpvopen.rs, against local servers) and the Vulkan loader's order (mpvvulkan.rs) and About's versions and update notes (about.rs) and the log's read-back (logtail.rs) and the settings file's checks (settingsfile.rs) and a playlist's User-Agent (mpvagent.rs), from a host crate that includes the files as they
+(aiojf.rs, against a fake) and a Jellyfin server's own client (jf.rs, against a fake) and the player settings' checks (mpvprefs.rs) and the dead-link probe (mpvopen.rs, against local servers) and the Vulkan loader's order (mpvvulkan.rs) and About's versions and update notes (about.rs) and the log's read-back (logtail.rs) and the settings file's checks (settingsfile.rs) and a playlist's User-Agent (mpvagent.rs), from a host crate that includes the files as they
 are:
 
 ```
@@ -75,7 +75,7 @@ curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 246 tests (v0.11.42+): 52 for the proxy (35 mvproxy, 17 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 22 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 16 for mpvprefs, 17 for mpvopen, 9 for mpvvulkan, 8 for about, 16 for logtail, 14 for settingsfile, 10 for mpvagent. On CI the Windows job runs the same tests with the
+Baseline 289 tests (plan 027 batch 1+): 52 for the proxy (35 mvproxy, 17 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 22 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 43 for a Jellyfin server's own client (jf.rs), 16 for mpvprefs, 17 for mpvopen, 9 for mpvvulkan, 8 for about, 16 for logtail, 14 for settingsfile, 10 for mpvagent. On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 

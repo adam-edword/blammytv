@@ -1,6 +1,7 @@
 mod about;
 mod aiojf;
 mod frontend;
+mod jf;
 mod logtail;
 mod mal;
 mod mpv;
@@ -1321,6 +1322,89 @@ async fn aiojf_disconnect() {
     aiojf_client().disconnect().await
 }
 
+/// A Jellyfin server of the user's own (plan 027): one client for the run,
+/// the same shape as AIOStreams' above. The address is the server's, typed
+/// in Settings. A dev run keeps its session under its own name.
+fn jf_client() -> &'static std::sync::Arc<jf::Jf> {
+    static CLIENT: OnceLock<std::sync::Arc<jf::Jf>> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        let cfg = jf::Config {
+            app_version: env!("CARGO_PKG_VERSION").to_string(),
+            // Windows sets it; the header says "Windows" when it is absent.
+            device_name: std::env::var("COMPUTERNAME").unwrap_or_default(),
+        };
+        #[cfg(windows)]
+        let vault: Box<dyn jf::Vault> = Box::new(jf::WindowsVault {
+            target: if tauri::is_dev() {
+                "BlammyTV/jellyfin-dev"
+            } else {
+                "BlammyTV/jellyfin"
+            }
+            .into(),
+        });
+        #[cfg(not(windows))]
+        let vault: Box<dyn jf::Vault> = Box::new(jf::MemoryVault::default());
+        jf::Jf::new(cfg, http_client().clone(), vault)
+    })
+}
+
+/// Whether a Jellyfin session is kept, and whose.
+#[tauri::command]
+fn jf_status() -> jf::Status {
+    jf_client().status()
+}
+
+/// Sign in to a Jellyfin server by user name and password. The password goes
+/// to the server once and is not kept. Rejects with `unsupported: ...` (not a
+/// Jellyfin, an AIOStreams, too old), `denied: ...` (wrong login) or a plain
+/// reason.
+#[tauri::command]
+async fn jf_sign_in(address: String, user: String, password: String) -> Result<jf::Status, String> {
+    jf_client().sign_in(&address, &user, &password).await
+}
+
+/// Start Quick Connect: the code to type into Jellyfin's own web page.
+#[tauri::command]
+async fn jf_quick_connect(address: String) -> Result<jf::Started, String> {
+    jf_client().quick_connect(&address).await
+}
+
+/// One poll of the Quick Connect: approved, pending, expired or error.
+#[tauri::command]
+async fn jf_poll() -> Result<jf::Poll, String> {
+    jf_client().poll().await
+}
+
+/// A Jellyfin API call by path (`/UserItems/Resume`), with the session's token
+/// added here. Only the calls the app makes are sent (jf.rs `on_the_list`);
+/// anything else rejects with `refused: ...` and sends nothing. The answer
+/// comes back as data, a 4xx included, with the token taken out of it, and a
+/// 401 signs out here.
+#[tauri::command]
+async fn jf_request(
+    method: String,
+    path: String,
+    query: Option<std::collections::HashMap<String, String>>,
+    body: Option<serde_json::Value>,
+) -> Result<jf::Reply, String> {
+    jf_client().request(&method, &path, query, body).await
+}
+
+/// The media sources of one item (`PlaybackInfo`), trimmed to what the app
+/// shows: the full answer carries paths and the token. Rejects with
+/// `refused: ...` for an `itemId` that is not 32 lower case hex.
+#[tauri::command]
+async fn jf_sources(item_id: String) -> Result<jf::Sources, String> {
+    jf_client().sources(&item_id).await
+}
+
+/// Sign out of Jellyfin, here and there. True when the server confirmed the
+/// token is revoked.
+#[tauri::command]
+async fn jf_disconnect() -> bool {
+    jf_client().disconnect().await
+}
+
 /// Forensic GET for the settings Connection Test. Unlike `http_get`, a
 /// non-2xx status is DATA here, not an error: the point is to answer "WHO
 /// rejected this request" from a tester's screenshot — a WAF in front of
@@ -1809,6 +1893,13 @@ pub fn run() {
             aiojf_request,
             aiojf_sources,
             aiojf_disconnect,
+            jf_status,
+            jf_sign_in,
+            jf_quick_connect,
+            jf_poll,
+            jf_request,
+            jf_sources,
+            jf_disconnect,
             check_update,
             check_update_info,
             about_versions,
