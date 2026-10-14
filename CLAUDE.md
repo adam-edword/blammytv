@@ -201,9 +201,12 @@ design review, etc.), use the skill instead of re-implementing.
 
 ## Ponytail: on for every session
 
-At the start of every session, load the `ponytail` skill and follow it at the
-default level (full) for all work. A builder's brief says so too. Adam can
-switch it with `/ponytail lite|ultra` or turn it off with "stop ponytail".
+Follow the `ponytail` skill at the default level (full) for all work. A
+SessionStart and a SubagentStart hook (`.claude/hooks/ponytail.mjs`) inject it
+into every session and every builder, so it doesn't depend on the skill
+matching. If you don't see "PONYTAIL MODE ACTIVE" in your context, load the
+skill yourself. Adam can switch it with `/ponytail lite|ultra` or turn it off
+with "stop ponytail".
 
 It sits under everything above, not over it: data before a fix, the gates, and
 the Confusion Protocol still apply, and the skill's own "never cut" list covers
