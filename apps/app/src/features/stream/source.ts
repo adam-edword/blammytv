@@ -2,11 +2,12 @@ import { scrubbedMessage } from "../../lib/errors";
 import { aioCatalog, aioManifest, aioMeta, aioStreams } from "../../data/aio";
 import { fetchMeta, isSeriesType, type CatalogDef } from "../../data/stremio";
 import { loadAioConn, type AioConn } from "../aiojf/conn";
+import { jfVodKey, resolveJfItem, resolveJfList } from "../jellyfin/vod";
 import { loadHeroSources } from "../settings/aiostreams";
 import { loadRowCap } from "../settings/rowCap";
 import { load as loadStored, save as saveStored } from "../../lib/storage";
 import { mapStreams, metaPreviewToVod, metaToVod, noticesOf } from "./mapper";
-import type { StreamRow, StreamSource, VodData, VodItem } from "./model";
+import type { StreamRow, StreamSource, VodData, VodFrom, VodItem } from "./model";
 
 /**
  * The seam between the Stream tab and the user's AIOStreams addon —
@@ -36,10 +37,16 @@ let inflight: { key: string; promise: Promise<VodData> } | null = null;
 
 /** The identity of the catalog a screen is showing. Exported because the
  * home tab's remembered scroll offset is only meaningful against the same
- * one: a changed addon (or a sign-in in its place), hero set or row cap
- * re-lays the whole page. */
-export const configKey = () =>
-  JSON.stringify([loadAioConn()?.key ?? "", loadHeroSources(), loadRowCap()]);
+ * one: a changed addon (or a sign-in in its place), a Jellyfin server in or
+ * out, hero set or row cap re-lays the whole page. The AIOStreams build's own
+ * cache is keyed by `aioKey`: a Jellyfin sign-in does not change it. */
+export const configKey = () => {
+  const jf = jfVodKey();
+  // With no Jellyfin the key is the addon's own, as it was before one existed.
+  return jf ? JSON.stringify([loadAioConn()?.key ?? "", loadHeroSources(), loadRowCap(), jf]) : aioKey();
+};
+
+const aioKey = () => JSON.stringify([loadAioConn()?.key ?? "", loadHeroSources(), loadRowCap()]);
 
 const DISK_KEY = "vodCache";
 /** 2 since v0.9.123: a version-1 mirror could hold a hero of bare catalog
@@ -86,7 +93,7 @@ function diskSave(key: string, at: number, data: VodData): void {
 /** The last built catalog for the current config, ANY age — display it
  * immediately; loadVod refreshes (and repaints) if it's past the TTL. */
 export function peekVod(): VodData | null {
-  const key = configKey();
+  const key = aioKey();
   if (cache && cache.key === key) return cache.data;
   const disk = diskLoad(key);
   if (disk) {
@@ -99,7 +106,7 @@ export function peekVod(): VodData | null {
 }
 
 export async function loadVod(force = false): Promise<VodData> {
-  const key = configKey();
+  const key = aioKey();
   if (!force && cache && cache.key === key) {
     if (Date.now() - cache.at < CACHE_TTL_MS) return cache.data;
     cache = null;
@@ -113,7 +120,7 @@ export async function loadVod(force = false): Promise<VodData> {
     // Only successful, non-empty builds are worth pinning for the TTL —
     // and only if the config hasn't moved on while this one was in flight
     // (a late finisher must not clobber a newer build's cache/mirror).
-    if (!data.error && data.items.size > 0 && configKey() === key) {
+    if (!data.error && data.items.size > 0 && aioKey() === key) {
       const at = Date.now();
       cache = { key, at, data };
       diskSave(key, at, data);
@@ -270,7 +277,10 @@ export function keepHero(shown: VodData | null, next: VodData): VodData {
 export async function resolveVodItem(
   type: "movie" | "series",
   id: string,
+  from?: VodFrom,
 ): Promise<VodItem | null> {
+  // An item read from the user's Jellyfin is asked of it, and of nothing else.
+  if (from === "jf") return resolveJfItem(id);
   const conn = loadAioConn();
   if (!conn) return null;
   const { meta } = await aioMeta(conn, type, id);
@@ -335,7 +345,7 @@ function mergeVod(primary: VodItem, fb: VodItem): VodItem {
 export async function resolveVodSources(
   kind: "movie" | "series",
   id: string,
-  opts: { refresh?: boolean } = {},
+  opts: { refresh?: boolean; from?: VodFrom } = {},
 ): Promise<StreamSource[]> {
   return (await resolveVodList(kind, id, opts)).sources;
 }
@@ -346,8 +356,10 @@ export async function resolveVodSources(
 export async function resolveVodList(
   kind: "movie" | "series",
   id: string,
-  opts: { refresh?: boolean } = {},
+  opts: { refresh?: boolean; from?: VodFrom } = {},
 ): Promise<{ sources: StreamSource[]; notices: string[] }> {
+  // The user's own server already holds its files: one read, no search.
+  if (opts.from === "jf") return resolveJfList(kind, id);
   const conn = loadAioConn();
   if (!conn) return { sources: [], notices: [] };
   const { streams = [] } = await aioStreams(conn, kind, id, opts);

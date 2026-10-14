@@ -1374,7 +1374,7 @@ let UNTICKED = null;
   );
   check(
     "  Export says what goes in it and that the sign-ins never do; Import says your settings are replaced, the sign-ins stay, and a file's playlists and AIOStreams replace yours",
-    /looks, playback settings, lists/i.test(where.exportNote) && /Trakt, MyAnimeList and AIOStreams sign-ins never go in it/.test(where.exportNote) &&
+    /looks, playback settings, lists/i.test(where.exportNote) && /Trakt, MyAnimeList, AIOStreams and Jellyfin sign-ins never go in it/.test(where.exportNote) &&
       /settings are replaced/i.test(where.importNote) && /sign-ins stay/i.test(where.importNote) && /playlists and AIOStreams, they replace yours/i.test(where.importNote),
     JSON.stringify({ e: where.exportNote, i: where.importNote }),
   );

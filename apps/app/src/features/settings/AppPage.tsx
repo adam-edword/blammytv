@@ -88,7 +88,7 @@ export function AppPage() {
             <h4 className="customize-row__title">Clear All Login Info</h4>
             <p className="settings__section-note settings__section-note--dim">
               Removes every playlist, your AIOStreams manifest and your Trakt,
-              MyAnimeList and AIOStreams sign-ins from this device.
+              MyAnimeList, AIOStreams and Jellyfin sign-ins from this device.
             </p>
           </div>
           <ConfirmButton label="Clear…" onConfirm={clearLogins} />

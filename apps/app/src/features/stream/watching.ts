@@ -1,6 +1,6 @@
 import { hasId, loadList, save } from "../../lib/storage";
 import { nextEpisode } from "./mapper";
-import type { Episode, Season } from "./model";
+import type { Episode, Season, VodFrom } from "./model";
 
 /**
  * Continue Watching: a recency-ordered record of what was played in the
@@ -11,6 +11,9 @@ import type { Episode, Season } from "./model";
 export interface WatchEntry {
   /** Title id; episodes carry the episode stream id too. */
   id: string;
+  /** Not the addon's: a title played from the user's Jellyfin (plan 027), so a
+   * resume asks the server for its file, not the addon. Absent for the addon. */
+  from?: VodFrom;
   episodeId?: string;
   title: string;
   /** Episode label ("S1 · E4 — …") when applicable. */

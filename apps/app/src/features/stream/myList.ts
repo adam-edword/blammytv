@@ -13,6 +13,9 @@
 
 export interface ListEntry {
   id: string;
+  /** Saved from the user's own Jellyfin (plan 027): the card opens it there.
+   * Absent for the addon. */
+  from?: "jf";
   title: string;
   kind: "movie" | "series";
   poster?: string;

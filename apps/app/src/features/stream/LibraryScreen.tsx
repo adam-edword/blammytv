@@ -62,6 +62,7 @@ import { TRAKT_SYNCED } from "../trakt/store";
  * full meta exactly like a Discover pick. */
 const toItem = (e: ListEntry): VodItem => ({
   id: e.id,
+  ...(e.from ? { from: e.from } : {}),
   title: e.title,
   kind: e.kind,
   ...(e.poster ? { poster: e.poster } : {}),

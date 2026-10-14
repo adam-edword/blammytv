@@ -112,6 +112,11 @@ export const KEY_GROUPS = {
     // where it is and who. The token is in the OS vault, and the address is
     // the one thing in it worth keeping private, so no file carries it.
     "jellyfin",
+    // What was read from that server, kept for the next launch: the catalog
+    // mirror (titles, and the address in their art) and the ids its titles
+    // have there. Caches, cleared with the sign-in (jellyfin/store.ts).
+    "jfVodCache",
+    "jfIds",
     // Sync bookkeeping tied to an account: what Trakt, MAL and AIOStreams
     // each count as played, and AIOStreams' packed ids.
     "aioWatched",

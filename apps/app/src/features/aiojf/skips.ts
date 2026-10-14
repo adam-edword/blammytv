@@ -51,5 +51,8 @@ export async function playSkips(
 ): Promise<SkipRange[]> {
   const exact = await getAniskipRanges(item, episodeId).catch(() => []);
   if (exact.length) return exact;
+  // A file from the user's own Jellyfin is not the one AIOStreams' markers were
+  // made against, and its times would land on the wrong frames.
+  if (item.from === "jf") return [];
   return getAioSkips(item, episodeId, season).catch(() => []);
 }

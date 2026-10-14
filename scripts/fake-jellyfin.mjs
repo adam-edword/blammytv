@@ -34,7 +34,8 @@
 //
 // Hooks for harnesses: GET /__log, DELETE /__log, GET /__state, POST /__reset,
 // POST /__approve?code=, POST /__segments/{id} (body: array of segments),
-// POST /__setpass?pw=.
+// POST /__setpass?pw=, POST /__genres/{id}?names=Action,Drama (sets what an item
+// lists as its genres, put back by /__reset).
 import http from "node:http";
 import { readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
@@ -64,6 +65,8 @@ reset();
 // ---- the library's shape ----
 const items = FIX.items;
 const movieId = FIX.movieId;
+const genres0 = new Map(Object.values(items).map((i) => [i.Id, i.Genres]));
+const restoreGenres = () => genres0.forEach((g, id) => (items[id].Genres = g));
 const kids = {
   [FIX.views[0].Id]: [movieId, ...FIX.junk.map((j) => j.Id)],
   [FIX.views[1].Id]: [...FIX.seriesIds],
@@ -222,14 +225,18 @@ http
         if (m === "DELETE") log = [];
         return send(res, 200, log);
       }
-      if (p === "/__reset") return reset(), send(res, 200, { ok: true });
+      if (p === "/__reset") return reset(), restoreGenres(), send(res, 200, { ok: true });
       if (p === "/__state") return send(res, 200, { ud: Object.fromEntries(ud), tokens: tokens.size });
       if (p === "/__setpass") return (PASSWORD = url.searchParams.get("pw") || "pw"), send(res, 200, {});
       if (p === "/__approve") {
         for (const v of qc.values()) if (v.code === qget(url, "code")) v.approved = true;
         return send(res, 200, { ok: true });
       }
-      if (seg[1] === "__segments") return segments.set(seg[2], await body(req)), send(res, 200, {});
+      if (seg[0] === "__segments") return segments.set(seg[1], await body(req)), send(res, 200, {});
+      if (seg[0] === "__genres" && items[seg[1]]) {
+        items[seg[1]].Genres = (url.searchParams.get("names") || "").split(",").filter(Boolean);
+        return send(res, 200, {});
+      }
       return send(res, 404, "");
     }
     const entry = { method: m, path: p, query: Object.fromEntries(url.searchParams), auth: req.headers.authorization ? "header" : "" };

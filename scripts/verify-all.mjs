@@ -46,6 +46,7 @@ const SERVERS = [
   { name: "fake-stalker", port: 8083, probe: "/", env: { LAX: "1" } },
   { name: "fake-aio", port: 8084, probe: "/manifest.json" },
   { name: "fake-keybox", port: 8085, probe: "/" },
+  { name: "fake-jellyfin", port: 8196, probe: "/System/Info/Public" },
 ];
 
 /** Harnesses that are not browser runs and take arguments of their own. */

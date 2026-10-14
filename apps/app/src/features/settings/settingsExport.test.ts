@@ -595,6 +595,14 @@ describe("an artwork address that looks like it carries a key", () => {
   });
 });
 
+describe("a Jellyfin server of your own: its art holds the server's address, so a file without logins leaves it out", () => {
+  const ID = "941ac528e71c63eb996ee5f7a2fee913";
+  it("drops an image address as the server gives it (an item id and a 32 hex tag)", () => {
+    expect(artCarriesKey(`http://192.168.1.50:8096/Items/${ID}/Images/Primary?tag=ff33905518665095161669a6d8da1b20`)).toBe(true);
+    expect(artCarriesKey(`https://jf.example.com/Items/${ID}/Images/Backdrop/0?tag=ff33905518665095161669a6d8da1b20`)).toBe(true);
+  });
+});
+
 describe("AIOStreams' sign-in art: an item id is no secret, a tag is judged by the address it points to", () => {
   it("keeps the real-shape addresses of browse.test.ts: a 32 hex id, a poster, a backdrop and a logo tag", () => {
     expect(artCarriesKey(`${AIO_BASE}/Items/${AIO_ID}/Images/Primary?tag=${AIO_TAG}`)).toBe(false);

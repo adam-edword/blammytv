@@ -156,6 +156,7 @@ function defaultListId(lists: UserList[]): string | null {
 
 const toEntry = (item: VodItem): ListEntry => ({
   id: item.id,
+  ...(item.from ? { from: item.from } : {}),
   title: item.title,
   kind: item.kind,
   ...(item.poster ? { poster: item.poster } : {}),

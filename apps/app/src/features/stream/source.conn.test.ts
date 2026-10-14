@@ -14,8 +14,18 @@ const aio = vi.hoisted(() => ({
   aioCatalog: vi.fn(),
 }));
 vi.mock("../../data/aio", () => aio);
+const jf = vi.hoisted(() => ({
+  key: "",
+  resolveJfItem: vi.fn(async () => ({ id: "tt1", from: "jf" })),
+  resolveJfList: vi.fn(async () => ({ sources: [], notices: ["from jellyfin"] })),
+}));
+vi.mock("../jellyfin/vod", () => ({
+  jfVodKey: () => jf.key,
+  resolveJfItem: jf.resolveJfItem,
+  resolveJfList: jf.resolveJfList,
+}));
 
-import { configKey, resolveVodList, resolveVodSources } from "./source";
+import { configKey, resolveVodItem, resolveVodList, resolveVodSources } from "./source";
 
 const manifest: AioConn = { kind: "manifest", url: "https://aio.example.com/m/manifest.json", key: "manifest:https://aio.example.com/m/manifest.json" };
 const signin: AioConn = { kind: "signin", base: "https://aio.example.com/jellyfin", key: "signin:https://aio.example.com/jellyfin|Adam" };
@@ -23,6 +33,41 @@ const signin: AioConn = { kind: "signin", base: "https://aio.example.com/jellyfi
 beforeEach(() => {
   vi.clearAllMocks();
   conn = signin;
+  jf.key = "";
+});
+
+describe("an item from your Jellyfin", () => {
+  it("is asked of the server alone: its files, whatever the addon is signed in as", async () => {
+    for (const c of [signin, null]) {
+      conn = c;
+      const l = await resolveVodList("movie", "tt1", { from: "jf" });
+      expect(l.notices).toEqual(["from jellyfin"]);
+      expect((await resolveVodSources("series", "tt1:1:2", { from: "jf" }))).toEqual([]);
+    }
+    expect(aio.aioStreams).not.toHaveBeenCalled();
+    expect(jf.resolveJfList).toHaveBeenCalledWith("series", "tt1:1:2");
+  });
+
+  it("has its detail from the server, and the addon is not asked", async () => {
+    const v = await resolveVodItem("movie", "tt1", "jf");
+    expect(v).toMatchObject({ id: "tt1", from: "jf" });
+    expect(aio.aioMeta).not.toHaveBeenCalled();
+  });
+
+  it("an item with no origin is still the addon's", async () => {
+    await resolveVodSources("movie", "tt1");
+    expect(jf.resolveJfList).not.toHaveBeenCalled();
+    expect(aio.aioStreams).toHaveBeenCalled();
+  });
+
+  it("moves the screen's key when a server comes or goes, and leaves the addon's own key alone", () => {
+    const without = configKey();
+    jf.key = '["jf:https://jf.example.com|u1",40]';
+    const withJf = configKey();
+    expect(withJf).not.toBe(without);
+    jf.key = "";
+    expect(configKey()).toBe(without);
+  });
 });
 
 describe("resolveVodSources", () => {

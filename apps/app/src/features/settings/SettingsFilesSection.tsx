@@ -121,8 +121,8 @@ function ExportRow({ files }: { files: Files }) {
         <p className="settings__section-note settings__section-note--dim">
           Saves your looks, playback settings, lists, favourites, Continue
           Watching and the rest to a file you choose, to move to another PC or
-          keep as a backup. Your Trakt, MyAnimeList and AIOStreams sign-ins
-          never go in it.
+          keep as a backup. Your Trakt, MyAnimeList, AIOStreams and Jellyfin
+          sign-ins never go in it.
         </p>
         <label className="settings-check">
           <input

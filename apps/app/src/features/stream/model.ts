@@ -61,8 +61,15 @@ export interface Season {
   episodes: Episode[];
 }
 
+/** Where an item was read from, when it is not the AIOStreams addon: the user's
+ * own Jellyfin server (plan 027). The id alone cannot say (a `tt…` is shared
+ * between every source), so this travels with the item, and the resolvers in
+ * source.ts route on it. Absent means the addon. */
+export type VodFrom = "jf";
+
 export interface VodItem {
   id: string;
+  from?: VodFrom;
   title: string;
   kind: "movie" | "series";
   year?: number;

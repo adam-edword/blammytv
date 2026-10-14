@@ -73,6 +73,8 @@ import {
 } from "./openRequest";
 import { filmWatched, loadAioWatched, loadWatched, markWatched } from "./watched";
 import { loadAioConn } from "../aiojf/conn";
+import { loadJfVod, peekJfVod } from "../jellyfin/vod";
+import { JF_CHANGED, loadJfConn } from "../jellyfin/store";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
 import { countdownFrom, loadAutoplayNext } from "../settings/upNext";
@@ -150,6 +152,16 @@ type Load =
   | { status: "ready"; data: VodData }
   | { status: "error"; message: string };
 
+/** Your Jellyfin's libraries (plan 027): the same states, and `off` with no
+ * server signed in. */
+type JfLoad = Load | { status: "off" };
+
+const initialJf = (): JfLoad => {
+  if (!loadJfConn()) return { status: "off" };
+  const cached = peekJfVod();
+  return cached ? { status: "ready", data: cached } : { status: "loading" };
+};
+
 /** What a play of this episode is called and carries, as the Up Next roll
  * names it. */
 function episodeTarget(season: Season, episode: Episode) {
@@ -162,8 +174,8 @@ function episodeTarget(season: Season, episode: Episode) {
 
 /** Ask for an episode's sources now, to be taken by the roll to it
  * (prefetch.ts). */
-function prefetchEpisode(episodeId: string) {
-  prefetchSources(episodeId, () => resolveVodSources("series", episodeId));
+function prefetchEpisode(episodeId: string, from: VodItem["from"]) {
+  prefetchSources(episodeId, () => resolveVodSources("series", episodeId, { from }));
 }
 
 export function StreamScreen({ home }: { home?: number } = {}) {
@@ -171,6 +183,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
     const cached = peekVod();
     return cached ? { status: "ready", data: cached } : { status: "loading" };
   });
+  const [jf, setJf] = useState<JfLoad>(initialJf);
   const [playing, setPlayingRaw] = useState<{
     url: string;
     item: VodItem;
@@ -320,6 +333,8 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       setWatching(
         recordWatching({
           id: p.item.id,
+          // Played from the user's Jellyfin: a resume asks it, not the addon.
+          ...(p.item.from ? { from: p.item.from } : {}),
           episodeId: p.episodeId,
           title: p.item.title,
           label: p.label,
@@ -410,6 +425,42 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       stale = true;
     };
   }, [vodTick]);
+  // Your Jellyfin's libraries load beside the addon's and never sink them: an
+  // error here is this server's alone.
+  useEffect(() => {
+    if (!loadJfConn()) {
+      setJf({ status: "off" });
+      return;
+    }
+    let stale = false;
+    loadJfVod().then(
+      (data) =>
+        !stale &&
+        setJf((prev) =>
+          data.error
+            ? prev.status === "ready"
+              ? prev
+              : { status: "error", message: data.error }
+            : { status: "ready", data: keepHero(prev.status === "ready" ? prev.data : null, data) },
+        ),
+      (e) =>
+        !stale &&
+        setJf((prev) => (prev.status === "ready" ? prev : { status: "error", message: scrubbedMessage(e) })),
+    );
+    return () => {
+      stale = true;
+    };
+  }, [vodTick]);
+  // A sign-in or a sign-out lands while this screen is up (a 401 ends one at
+  // any time): load again for what is there now.
+  useEffect(() => {
+    const again = () => {
+      setJf(initialJf());
+      setVodTick((t) => t + 1);
+    };
+    window.addEventListener(JF_CHANGED, again);
+    return () => window.removeEventListener(JF_CHANGED, again);
+  }, []);
 
   // Set when the current stack was seeded by a Discover/My List hand-off:
   // backing all the way out returns THERE, not to Stream home. The ref dies
@@ -442,7 +493,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
   const resolveIntoView = useCallback(async (item: VodItem) => {
     setMetaState({ id: item.id, s: "pending" });
     try {
-      const full = await resolveVodItem(item.kind, item.id);
+      const full = await resolveVodItem(item.kind, item.id, item.from);
       if (full)
         // Full meta landing is a correction to the page you are on, not a
         // navigation: it must not push history or move the scroll.
@@ -551,7 +602,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         title: item.title,
       });
       try {
-        const sources = await resolveVodSources("movie", item.id);
+        const sources = await resolveVodSources("movie", item.id, { from: item.from });
         if (gen !== resolveGen.current) return; // cancelled while we waited
         const idx = sources.findIndex((s) => s.cached);
         if (idx >= 0)
@@ -696,7 +747,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       };
       try {
         // A kept list that failed is asked for again, not shown.
-        const ask = () => resolveVodSources("series", episode.id);
+        const ask = () => resolveVodSources("series", episode.id, { from: item.from });
         const sources = await (kept ? kept.catch(ask) : ask());
         if (gen !== resolveGen.current) return; // cancelled while we waited
         // Cached only — see watchNow. No cached → the source screen below.
@@ -824,7 +875,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
     };
     // Refresh: the dead link came from a list AIOStreams may still hold, and
     // Retry's whole job is a new search (plan 024, D3).
-    void resolveVodSources(p.item.kind, p.episodeId ?? p.item.id, { refresh: true }).then(
+    void resolveVodSources(p.item.kind, p.episodeId ?? p.item.id, { refresh: true, from: p.item.from }).then(
       (list) => {
         if (!same()) return;
         if (list.length === 0) {
@@ -861,6 +912,14 @@ export function StreamScreen({ home }: { home?: number } = {}) {
   // re-consume the mailbox) every time the catalog updates.
   const loadRef = useRef(load);
   loadRef.current = load;
+  const jfRef = useRef(jf);
+  jfRef.current = jf;
+  /** The catalog's own copy of a Continue Watching entry's title, if it holds
+   * one: from the source the entry was played from. */
+  const catalogItem = useCallback((e: WatchEntry): VodItem | undefined => {
+    const l = e.from === "jf" ? jfRef.current : loadRef.current;
+    return l.status === "ready" ? l.data.items.get(e.id) : undefined;
+  }, []);
 
   const quickResume = useCallback(
     async (entry: WatchEntry, known?: VodItem) => {
@@ -903,12 +962,12 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       const rolling = kind === "series" && !!entry.episodeId && isFinished(entry);
       let sourcesPromise = rolling
         ? undefined
-        : resolveVodSources(kind, entry.episodeId ?? entry.id);
+        : resolveVodSources(kind, entry.episodeId ?? entry.id, { from: entry.from });
       sourcesPromise?.catch(() => {});
 
       let item = known;
       if (!item || (kind === "series" && item.seasons.length === 0)) {
-        const full = await resolveVodItem(kind, entry.id).catch(() => null);
+        const full = await resolveVodItem(kind, entry.id, entry.from).catch(() => null);
         if (gen !== resolveGen.current) return; // cancelled while we waited
         if (full) item = full;
         // The catalog preview had no clearlogo; the full meta does —
@@ -923,6 +982,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         setResolving(null);
         void open({
           id: entry.id,
+          ...(entry.from ? { from: entry.from } : {}),
           title: entry.title,
           kind,
           ...(entry.art ? { backdrop: entry.art } : {}),
@@ -949,7 +1009,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         ? episodeTarget(next.season, next.episode)
         : { episodeId: entry.episodeId, label: entry.label, episodeInfo };
       if (!sourcesPromise) {
-        sourcesPromise = resolveVodSources(kind, target.episodeId ?? entry.id);
+        sourcesPromise = resolveVodSources(kind, target.episodeId ?? entry.id, { from: entry.from });
         sourcesPromise.catch(() => {});
       }
       try {
@@ -1036,7 +1096,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         !item.synopsis ||
         (kind === "series" && item.seasons.length === 0);
       if (sparse) {
-        const full = await resolveVodItem(kind, entry.id).catch(() => null);
+        const full = await resolveVodItem(kind, entry.id, entry.from).catch(() => null);
         if (gen !== resolveGen.current) return; // cancelled while we waited
         if (full) item = full;
       }
@@ -1046,6 +1106,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         // light entry data, which shows the resolve error and a retry.
         void open({
           id: entry.id,
+          ...(entry.from ? { from: entry.from } : {}),
           title: entry.title,
           kind,
           ...(entry.art ? { backdrop: entry.art } : {}),
@@ -1143,8 +1204,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       const req = takeResumeRequest();
       if (!req) return;
       const { entry, intent } = req;
-      const l = loadRef.current;
-      const item = l.status === "ready" ? l.data.items.get(entry.id) : undefined;
+      const item = catalogItem(entry);
       // Same arming as the item mailbox: a resume that falls back to a
       // detail or source screen owes a return to the Library on back-out.
       // One that goes straight to playback pushes nothing and owes nothing.
@@ -1159,7 +1219,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
     };
     consume();
     return onResumeRequest(consume);
-  }, [quickResume, openSources]);
+  }, [quickResume, openSources, catalogItem]);
 
   const [panelTick, setPanelTick] = useState(0);
   useEffect(() => {
@@ -1170,7 +1230,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
     if (panelSeedRef.current) return;
     let stale = false;
     setPanelSources(null);
-    resolveVodSources(p.item.kind, p.episodeId ?? p.item.id).then(
+    resolveVodSources(p.item.kind, p.episodeId ?? p.item.id, { from: p.item.from }).then(
       (list) => !stale && setPanelSources(list),
       () => !stale && setPanelSources("failed"),
     );
@@ -1295,7 +1355,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
             if (nxt) {
               // Its sources, asked for now if the credits did not already:
               // the countdown below is time the roll no longer waits after.
-              prefetchEpisode(nxt.episode.id);
+              prefetchEpisode(nxt.episode.id, p.item.from);
               // Re-arm the countdown HERE, not just in the [upNext]
               // effect: after a fired countdown the state rests at 0, and
               // the fire effect would see 0 + the new card in the same
@@ -1330,7 +1390,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         if (!nxt || miniDismissedRef.current === nxt.episode.id) return;
         // The card's window is the first moment the next episode is likely:
         // ask for its sources now, so the roll has them (prefetch.ts).
-        prefetchEpisode(nxt.episode.id);
+        prefetchEpisode(nxt.episode.id, p.item.from);
         setUpNextMini({ item: p.item, ...nxt });
       },
     },
@@ -1514,9 +1574,11 @@ export function StreamScreen({ home }: { home?: number } = {}) {
   );
 
   // AIOStreams (plan 023, A2): what plays here is reported to it too, so its
-  // other apps show it. Does nothing until its sync is connected.
+  // other apps show it. Does nothing until its sync is connected, and nothing
+  // for a play from your own Jellyfin.
   useAiojfReport(
-    playing
+    // Not for a file from your own Jellyfin: that play is not AIOStreams'.
+    playing && playing.item.from !== "jf"
       ? {
           itemId: playing.item.id,
           kind: playing.item.kind,
@@ -1906,15 +1968,14 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       {view.at === "home" && (
         <Home
           load={load}
+          jf={jf}
           onRetry={() => setVodTick((t) => t + 1)}
           onOpen={cardOpen}
           onWatchNow={watchNow}
           watching={watching}
           onClearWatching={(id) => setWatching(clearWatching(id))}
           onOpenWatching={(e) => {
-            const item =
-              load.status === "ready" ? load.data.items.get(e.id) : undefined;
-            void quickResume(e, item);
+            void quickResume(e, catalogItem(e));
           }}
           onSourcesWatching={(e) => {
             // `items` only holds what the CURRENTLY loaded catalog rows
@@ -1926,9 +1987,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
             // openSources resolves the item itself and falls back to the
             // detail page when even that fails, so a miss is no longer a
             // dead end.
-            const item =
-              load.status === "ready" ? load.data.items.get(e.id) : undefined;
-            void openSources(e, item);
+            void openSources(e, catalogItem(e));
           }}
         />
       )}
@@ -1998,6 +2057,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
 
 function Home({
   load,
+  jf,
   onOpen,
   onWatchNow,
   watching,
@@ -2007,6 +2067,7 @@ function Home({
   onRetry,
 }: {
   load: Load;
+  jf: JfLoad;
   onOpen: (i: VodItem) => void;
   onWatchNow: (i: VodItem) => void;
   watching: WatchEntry[];
@@ -2025,26 +2086,34 @@ function Home({
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   useEffect(() => onCardMetaChange(setMetaFields), []);
   // The tab's states are the StateCard (plan 019, K8).
-  if (!loadAioConn()) {
+  const aioOn = !!loadAioConn();
+  const jfOn = jf.status !== "off";
+  if (!aioOn && !jfOn) {
     return (
       <StateCard
         className="stream__note"
         icon={<StreamIcon size={28} />}
         title="Movies and shows, one tab over from live"
-        sub="Sign in to your AIOStreams in Settings → Sources → Stream and the catalog appears here."
+        sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream and the catalog appears here."
       />
     );
   }
-  if (load.status === "loading")
-    return (
-      <StateCard
-        className="stream__note"
-        role="status"
-        busy
-        title="Loading your catalog…"
-      />
-    );
-  if (load.status === "error")
+  // What is ready from each source. One that is not never holds back the
+  // other: your Jellyfin up and the addon down still shows your library.
+  const aio = aioOn && load.status === "ready" ? load.data : null;
+  const jfData = jf.status === "ready" ? jf.data : null;
+  if (!aio && !jfData) {
+    if ((aioOn && load.status === "loading") || jf.status === "loading")
+      return (
+        <StateCard
+          className="stream__note"
+          role="status"
+          busy
+          title="Loading your catalog…"
+        />
+      );
+    const aioErr = aioOn && load.status === "error" ? load.message : null;
+    const jfErr = jf.status === "error" ? jf.message : null;
     return (
       <StateCard
         className="stream__note"
@@ -2053,10 +2122,12 @@ function Home({
         title="Couldn’t load your catalog"
         sub={
           <>
-            {load.message}.{" "}
-            {loadAioConn()?.kind === "signin"
-              ? "Check your AIOStreams sign-in in Settings → Sources → Stream."
-              : "Check the manifest URL in Settings → Sources → Stream."}
+            {aioErr ?? jfErr}.{" "}
+            {aioErr
+              ? loadAioConn()?.kind === "signin"
+                ? "Check your AIOStreams sign-in in Settings → Sources → Stream."
+                : "Check the manifest URL in Settings → Sources → Stream."
+              : "Check your Jellyfin sign-in in Settings → Sources → Stream."}
           </>
         }
         // Live's error states retry; siblings match (the audit's dead-end
@@ -2068,20 +2139,30 @@ function Home({
         }
       />
     );
-  const { data } = load;
-  const featured = data.featured
-    .map((id) => data.items.get(id))
+  }
+  // The hero is the addon's picks; with none (no addon, or it is down) it is
+  // drawn from your library's.
+  const heroFrom = aio && aio.featured.length > 0 ? aio : jfData;
+  const featured = (heroFrom?.featured ?? [])
+    .map((id) => heroFrom?.items.get(id))
     .filter((v): v is VodItem => !!v);
   // Finished movies retire from Continue Watching (display-only filter —
   // the entry survives for resume bookkeeping).
   const activeWatching = watching.filter((e) => !retiredFromContinue(e));
+  // The rows to draw, each with the items it names: the addon's, then your
+  // Jellyfin's. The two never share a map, so a title in both is two cards,
+  // each opening its own source.
+  const shown = [
+    ...(aio ? aio.rows.map((row) => ({ row, items: aio.items })) : []),
+    ...(jfData ? jfData.rows.map((row) => ({ row, items: jfData.items })) : []),
+  ];
   // A "ready" catalog can still be EMPTY (buildVod swallows per-catalog
   // failures into empty rows) — without this branch that rendered a
   // completely blank tab. Discover and Live both narrate the same state.
   if (
     featured.length === 0 &&
     activeWatching.length === 0 &&
-    data.rows.every((r) => r.itemIds.length === 0)
+    shown.every(({ row }) => row.itemIds.length === 0)
   )
     return (
       <StateCard
@@ -2089,9 +2170,11 @@ function Home({
         icon={<MoviesIcon size={28} />}
         title="Nothing came back from your catalogs"
         sub={
-          loadAioConn()?.kind === "signin"
-            ? "You’re signed in, but every catalog came back empty. Check your AIOStreams sign-in in Settings → Sources → Stream, or just try again in a minute."
-            : "The manifest loaded but every catalog returned empty. Check the manifest in Settings → Sources, or just try again in a minute."
+          aioOn
+            ? loadAioConn()?.kind === "signin"
+              ? "You’re signed in, but every catalog came back empty. Check your AIOStreams sign-in in Settings → Sources → Stream, or just try again in a minute."
+              : "The manifest loaded but every catalog returned empty. Check the manifest in Settings → Sources, or just try again in a minute."
+            : "Your Jellyfin has no movie or show libraries to show. Check them in Jellyfin, or just try again in a minute."
         }
       />
     );
@@ -2122,13 +2205,13 @@ function Home({
         )}
         {/* What AIOStreams has next for you (plan 023, A5): its own rows
           * under Continue Watching, empty ones not drawn. */}
-        <UpNextRows catalog={data.items} metaFields={metaFields} onOpen={onOpen} />
-        {data.rows.map((row) => (
+        {aio && <UpNextRows catalog={aio.items} metaFields={metaFields} onOpen={onOpen} />}
+        {shown.map(({ row, items }) => (
           <section key={row.id} className="media-row">
             <h3 className="media-row__title">{row.title}</h3>
             <RowScroller>
               {row.itemIds.map((id) => {
-                const item = data.items.get(id);
+                const item = items.get(id);
                 return item ? (
                   <Card
                     key={id}
@@ -2563,7 +2646,9 @@ function Detail({
   const moreGenre = item.genres[0];
   useEffect(() => {
     setMore([]);
-    if (episodeId || !onOpenItem || !moreGenre) return;
+    // Not for a title from your Jellyfin: the neighbours come from the addon's
+    // catalogs, and the card they would open plays the addon's streams.
+    if (episodeId || !onOpenItem || !moreGenre || item.from) return;
     let stale = false;
     (async () => {
       try {
@@ -2598,13 +2683,13 @@ function Detail({
     return () => {
       stale = true;
     };
-  }, [item.id, item.kind, moreGenre, episodeId, onOpenItem]);
+  }, [item.id, item.kind, item.from, moreGenre, episodeId, onOpenItem]);
   const [sourcesTick, setSourcesTick] = useState(0);
   useEffect(() => {
     let stale = false;
     setSources(null);
     setNotices([]);
-    resolveVodList(item.kind, episodeId ?? item.id).then(
+    resolveVodList(item.kind, episodeId ?? item.id, { from: item.from }).then(
       (l) => {
         if (stale) return;
         setNotices(l.notices);
@@ -2615,7 +2700,7 @@ function Detail({
     return () => {
       stale = true;
     };
-  }, [item.kind, item.id, episodeId, sourcesTick]);
+  }, [item.kind, item.id, item.from, episodeId, sourcesTick]);
 
   return (
     <div className="vod-detail on-picture">

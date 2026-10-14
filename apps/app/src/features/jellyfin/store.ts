@@ -5,7 +5,7 @@
  * without asking the native side while it renders.
  */
 
-import { load, save } from "../../lib/storage";
+import { load, remove, save } from "../../lib/storage";
 import type { JfStatus } from "./client";
 
 export interface JfLocal {
@@ -47,6 +47,11 @@ export const forgetCount = (): number => forgets;
 export function forgetJf(): void {
   forgets++;
   save(KEY, VERSION, {});
+  // What was read from that server goes with it: its catalog mirror and the
+  // ids its titles had (vod.ts, idmap.ts). Named here, not imported, so this
+  // file stays the bottom of the module.
+  remove("jfVodCache");
+  remove("jfIds");
 }
 
 /**
