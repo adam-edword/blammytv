@@ -45,7 +45,7 @@ import {
 import { useLogoInk } from "../../lib/logoInk";
 import { isModalOpen } from "../../lib/modalOpen";
 import { VodLoading } from "./VodLoading";
-import { openErrorLine } from "./openError";
+import { jellyfinRefused, openErrorLine } from "./openError";
 import {
   PLAYER_FAULT_LINE,
   currentPlayerFault,
@@ -720,18 +720,24 @@ export function TheaterOverlay({
   // source is starting (or the player closing) and nobody reads the card, so
   // it would be one more request against a debrid account for nothing.
   const [deadWhy, setDeadWhy] = useState<string | null>(null);
+  // The same answer, when it says a Jellyfin turned its own sign-in away: the
+  // card's first line then says that, and not that the stream is bad.
+  const [deadJfLogin, setDeadJfLogin] = useState(false);
   useEffect(() => {
     if (tune !== "dead" || !vodSrc || !isTauri()) return;
     if (loadSourceFailover() && api()?.nextSource) return;
     let stale = false;
     tauriMpvOpenError()
       .then((a) => {
-        if (!stale) setDeadWhy(openErrorLine(a));
+        if (stale) return;
+        setDeadWhy(openErrorLine(a));
+        setDeadJfLogin(jellyfinRefused(a));
       })
       .catch(() => {});
     return () => {
       stale = true;
       setDeadWhy(null);
+      setDeadJfLogin(false);
     };
   }, [tune, vodSrc]);
   // Auto-failover: the moment the watchdog declares the source dead, jump
@@ -1611,6 +1617,7 @@ export function TheaterOverlay({
             vod={vod}
             fault={fault !== null}
             why={fault ? fault.why : deadWhy}
+            jfLogin={!fault && deadJfLogin}
             compact
           />
         )}
@@ -1673,6 +1680,7 @@ export function TheaterOverlay({
           vod={vod}
           fault={fault !== null}
           why={fault ? fault.why : deadWhy}
+          jfLogin={!fault && deadJfLogin}
           opened={time != null}
         />
       )}
@@ -2370,6 +2378,7 @@ function TuneCard({
   opened = false,
   fault = false,
   why = null,
+  jfLogin = false,
 }: {
   meta: TheaterMeta | null;
   phase: "waiting" | "retrying" | "dead";
@@ -2384,6 +2393,11 @@ function TuneCard({
    * (openError.ts). A fault: what native said, shortened. None when there is
    * nothing to say or it has not answered yet. */
   why?: string | null;
+  /** VOD, dead: a Jellyfin refused the sign-in it was sent (openError.ts
+   * `jellyfinRefused`). The first line says the server wants a login, since
+   * "it's the stream, not you" is the wrong thing to tell someone whose
+   * sign-in has ended. */
+  jfLogin?: boolean;
   /** VOD: mpv has opened the file (a position and a duration are in), so
    * the loading bar reads Buffering rather than Opening. */
   opened?: boolean;
@@ -2429,7 +2443,9 @@ function TuneCard({
           <p className="tune__dead-msg">
             {fault
               ? PLAYER_FAULT_LINE
-              : vod
+              : jfLogin
+                ? "Your Jellyfin wants a login for that file."
+                : vod
                 ? "This source isn\u2019t responding. It\u2019s the stream, not you."
                 : "This channel isn\u2019t responding. It\u2019s the stream, not you."}
           </p>

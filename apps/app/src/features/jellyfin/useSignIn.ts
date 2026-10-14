@@ -36,11 +36,15 @@ const EXPIRED = "The code ran out. Try Quick Connect again for a new one.";
 export function startNote(e: unknown): string {
   const why = String(e instanceof Error ? e.message : e);
   if (why.startsWith("denied:")) return "Wrong user name or password.";
+  // Native names the address it lands on (a redirect to another server is
+  // refused before any password goes out), already cut to an origin.
+  if (why.startsWith("redirected:")) return why.slice("redirected:".length).trim();
   if (why.startsWith("unsupported-build:"))
     return "Signing in to Jellyfin needs the latest BlammyTV. Update the app and try again.";
   if (why.startsWith("unsupported:")) {
     if (/AIOStreams/.test(why)) return "That is an AIOStreams address. Sign in to it under AIOStreams above.";
-    if (/too old/i.test(why)) return "That Jellyfin is too old. BlammyTV needs Jellyfin 10.9 or later.";
+    if (/too old/i.test(why))
+      return "That Jellyfin is too old for BlammyTV. It is tested on Jellyfin 12.x.";
     if (/Quick Connect/i.test(why)) return "Quick Connect is turned off on that server. Sign in with your password.";
     return "That address is not a Jellyfin server.";
   }

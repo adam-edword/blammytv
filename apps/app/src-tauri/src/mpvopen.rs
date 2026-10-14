@@ -77,6 +77,12 @@ pub struct Answer {
     pub content_type: Option<String>,
     /// When it did not answer: "timeout", "refused", "dns" or "network".
     pub failure: Option<&'static str>,
+    /// The request carried the Jellyfin sign-in, the way mpv's did, so a 401
+    /// or a 403 is the server refusing that sign-in and not a link that needs
+    /// none. A bare flag: the sign-in itself never leaves native. Left out of
+    /// the answer when false, so every other file's answer is what it was.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub signed_in_to_jellyfin: bool,
 }
 
 /// `text/html; charset=UTF-8` as `text/html`: the media type alone, lower
@@ -98,6 +104,7 @@ pub fn answered(status: u16, content_type: Option<&str>) -> Answer {
         status: Some(status),
         content_type: content_type.and_then(media_type),
         failure: None,
+        signed_in_to_jellyfin: false,
     }
 }
 
@@ -107,6 +114,7 @@ pub fn failed(kind: &'static str) -> Answer {
         status: None,
         content_type: None,
         failure: Some(kind),
+        signed_in_to_jellyfin: false,
     }
 }
 
@@ -138,6 +146,17 @@ pub fn failure_kind(e: &reqwest::Error) -> &'static str {
     }
 }
 
+/// `probe_signed` with no sign-in, as the tests below drive it.
+#[cfg(test)]
+pub async fn probe_as(
+    client: &reqwest::Client,
+    url: &str,
+    wait: Duration,
+    user_agent: Option<&str>,
+) -> Answer {
+    probe_signed(client, url, wait, user_agent, None).await
+}
+
 /// Ask `url` for its first byte and report what came back. Only the head of
 /// the answer is read: a server that ignores the range and starts sending the
 /// whole film is dropped as soon as its headers are in. `client` is the app's
@@ -146,20 +165,34 @@ pub fn failure_kind(e: &reqwest::Error) -> &'static str {
 ///
 /// `user_agent` is the playlist's own, when it has one: sent over the client's,
 /// which `.header` replaces (the way `http_get` merges its headers). Without
-/// one the request is the one it always was. The tests drive `probe`, which is
-/// this with none.
-pub async fn probe_as(
+/// one the request is the one it always was.
+///
+/// `authorization` is the value mpv was given for a Jellyfin stream that needs
+/// the sign-in (jf.rs `auth_header_for`), so the question is asked the way mpv
+/// asked it. Without it a stream that wants the token answers 401 to the probe
+/// whatever went wrong in the player. The value is marked sensitive (kept out
+/// of any debug print), and reqwest drops `Authorization` on a redirect to
+/// another origin, which is where the stream check (`jf_prepare_stream`)
+/// already refuses to give a token.
+pub async fn probe_signed(
     client: &reqwest::Client,
     url: &str,
     wait: Duration,
     user_agent: Option<&str>,
+    authorization: Option<&str>,
 ) -> Answer {
     let mut get = client.get(url).header(reqwest::header::RANGE, "bytes=0-0");
     if let Some(agent) = crate::mpvagent::header_value(user_agent) {
         get = get.header(reqwest::header::USER_AGENT, agent);
     }
+    let mut signed = false;
+    if let Some(mut v) = authorization.and_then(|a| reqwest::header::HeaderValue::from_str(a).ok()) {
+        v.set_sensitive(true);
+        get = get.header(reqwest::header::AUTHORIZATION, v);
+        signed = true;
+    }
     let sent = get.timeout(wait).send().await;
-    match sent {
+    let mut answer = match sent {
         Ok(res) => answered(
             res.status().as_u16(),
             res.headers()
@@ -167,7 +200,9 @@ pub async fn probe_as(
                 .and_then(|v| v.to_str().ok()),
         ),
         Err(e) => failed(failure_kind(&e)),
-    }
+    };
+    answer.signed_in_to_jellyfin = signed;
+    answer
 }
 
 /// `probe_as` with no agent of its own, which is what the tests below drive.
@@ -443,6 +478,70 @@ mod tests {
                 "{}",
                 heads[0]
             );
+        });
+    }
+
+    #[test]
+    fn it_asks_with_the_jellyfin_sign_in_when_it_is_given_one_and_says_so() {
+        run(async {
+            let fake = Fake::start().await;
+            let value = "MediaBrowser Token=\"tok-12345678\"";
+            let a = probe_signed(
+                &client(),
+                &fake.url("/403"),
+                Duration::from_secs(5),
+                None,
+                Some(value),
+            )
+            .await;
+            assert_eq!(a.status, Some(403));
+            assert!(a.signed_in_to_jellyfin);
+            let b = probe_signed(&client(), &fake.url("/403"), Duration::from_secs(5), None, None).await;
+            assert!(!b.signed_in_to_jellyfin);
+            let heads = fake.heads.lock().unwrap();
+            let lower = heads[0].to_ascii_lowercase();
+            assert!(
+                lower.contains("authorization: mediabrowser token=\"tok-12345678\"\r\n"),
+                "{}",
+                heads[0]
+            );
+            assert!(!heads[1].to_ascii_lowercase().contains("authorization:"), "{}", heads[1]);
+        });
+    }
+
+    #[test]
+    fn the_sign_in_is_not_in_the_answer_only_that_it_was_sent() {
+        run(async {
+            let fake = Fake::start().await;
+            let a = probe_signed(
+                &client(),
+                &fake.url("/403"),
+                Duration::from_secs(5),
+                None,
+                Some("MediaBrowser Token=\"tok-12345678\""),
+            )
+            .await;
+            let wire = serde_json::to_string(&a).unwrap();
+            assert!(!wire.contains("tok-12345678") && !wire.contains("MediaBrowser"), "{wire}");
+            assert!(wire.contains("\"signedInToJellyfin\":true"), "{wire}");
+        });
+    }
+
+    #[test]
+    fn a_value_that_is_not_a_header_is_not_sent_and_not_claimed() {
+        run(async {
+            let fake = Fake::start().await;
+            let a = probe_signed(
+                &client(),
+                &fake.url("/403"),
+                Duration::from_secs(5),
+                None,
+                Some("bad\r\nvalue"),
+            )
+            .await;
+            assert_eq!(a.status, Some(403));
+            assert!(!a.signed_in_to_jellyfin);
+            assert!(!fake.heads.lock().unwrap()[0].to_ascii_lowercase().contains("authorization:"));
         });
     }
 

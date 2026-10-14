@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OpenAnswer } from "../../lib/tauri";
-import { openErrorLine } from "./openError";
+import { jellyfinRefused, openErrorLine } from "./openError";
 
 const got = (status: number, contentType: string | null = null): OpenAnswer => ({
   status,
@@ -86,5 +86,26 @@ describe("openErrorLine", () => {
       down("dns"),
     ])
       expect(openErrorLine(a) ?? "", JSON.stringify(a)).not.toContain(key);
+  });
+
+  it("says a Jellyfin that refuses its own sign-in wants a login, not that the link expired", () => {
+    const jf = (status: number): OpenAnswer => ({ ...got(status), signedInToJellyfin: true });
+    for (const code of [401, 403]) {
+      const line = openErrorLine(jf(code)) ?? "";
+      expect(line, String(code)).toContain(`Your Jellyfin refused the file (${code})`);
+      expect(line).toContain("sign in again");
+      expect(line).not.toMatch(/Debrid|expire/);
+      expect(jellyfinRefused(jf(code))).toBe(true);
+    }
+  });
+
+  it("leaves every other answer for a Jellyfin stream as it was", () => {
+    const jf = (status: number): OpenAnswer => ({ ...got(status), signedInToJellyfin: true });
+    expect(openErrorLine(jf(404))).toBe("The link answered 404 (Not found).");
+    expect(openErrorLine(jf(500))).toBe("The link answered 500.");
+    expect(jellyfinRefused(jf(404))).toBe(false);
+    // The same 401 or 403 from a link the sign-in was not sent to is a link.
+    expect(jellyfinRefused(got(403))).toBe(false);
+    expect(openErrorLine(got(403))).toMatch(/Debrid links expire/);
   });
 });

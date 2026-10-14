@@ -414,6 +414,10 @@ export interface OpenAnswer {
   /** `type/subtype` as the server sent it, lower case. */
   contentType: string | null;
   failure: "timeout" | "refused" | "dns" | "network" | null;
+  /** The request carried the Jellyfin sign-in, as the player's did, so a 401
+   * or 403 is the server refusing that sign-in. Absent when false (native
+   * leaves it out), and from a build before the Jellyfin source. */
+  signedInToJellyfin?: boolean;
 }
 /** One request for the first byte of the file the player last opened, to say
  * why it would not. Takes no address: native asks about the one it handed mpv.

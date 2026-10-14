@@ -332,6 +332,39 @@ async function film({ modes = [], answer, failover = false } = {}) {
   await ctx.close();
 }
 
+// A Jellyfin stream the player was given the sign-in for, refused anyway: the
+// card says the server wants a login, not that the stream is bad (plan 027).
+{
+  const { ctx, page } = await film({
+    modes: [[".", "dead"]],
+    answer: { status: 401, contentType: null, failure: null, signedInToJellyfin: true },
+  });
+  await cardAt(page, 2500);
+  await page.waitForFunction(() => !!document.querySelector(".tune__dead-why"), null, { timeout: 5000 }).catch(() => {});
+  const first = await page.locator(".tune__dead-msg").first().innerText().catch(() => null);
+  const why = await page.locator(".tune__dead-why").first().innerText().catch(() => null);
+  check(
+    "a Jellyfin that refuses its own sign-in: the card says it wants a login, not that it is the stream",
+    first === "Your Jellyfin wants a login for that file." && /^Your Jellyfin refused the file \(401\)\. .*sign in again/.test(why ?? ""),
+    JSON.stringify({ first, why }),
+  );
+  await ctx.close();
+}
+{
+  // The same status from a link the sign-in was not sent to is a link: nothing
+  // about a login, and the card's own line.
+  const { ctx, page } = await film({
+    modes: [[".", "dead"]],
+    answer: { status: 401, contentType: null, failure: null },
+  });
+  await cardAt(page, 2500);
+  await page.waitForFunction(() => !!document.querySelector(".tune__dead-why"), null, { timeout: 5000 }).catch(() => {});
+  const first = await page.locator(".tune__dead-msg").first().innerText().catch(() => null);
+  const why = await page.locator(".tune__dead-why").first().innerText().catch(() => null);
+  check("  and the same 401 from any other link is the link's: today's line and 'The link answered 401.'", first === FIRST_LINE && why === "The link answered 401.", JSON.stringify({ first, why }));
+  await ctx.close();
+}
+
 // ---- With Auto Source Failover on, the next source plays, once -------------
 {
   const { ctx, page } = await film({

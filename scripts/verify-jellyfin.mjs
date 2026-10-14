@@ -227,6 +227,14 @@ await fake("/__reset", { method: "POST" });
   await s.waitFor({ timeout: 10_000 });
   check("Settings → Sources → Stream has a Jellyfin section beside AIOStreams", (await s.count()) === 1 && /Server address/.test(await s.innerText()));
 
+  check("  and says which Jellyfin it was tested on", /Tested on Jellyfin 12\.x/.test(await s.innerText()));
+  const plain = async (addr) => {
+    await s.getByLabel("Server address").fill(addr);
+    return (await s.locator("[data-jf-plain]").count()) === 1;
+  };
+  check("an address that goes over plain http to another machine says it is not encrypted", (await plain("192.168.1.20:8096")) && /not encrypted/.test(await s.locator("[data-jf-plain]").innerText()));
+  check("  and one to an https name, or to this PC, says nothing", !(await plain("jellyfin.example.com")) && !(await plain("https://192.168.1.20:8920")) && !(await plain(`localhost:${PORT}`)) && !(await plain("127.0.0.1")));
+
   await s.getByLabel("Server address").fill(`localhost:${PORT}`);
   await s.getByLabel("User name").fill(FIX.user.Name);
   await s.getByLabel("Password").fill("not-the-password");

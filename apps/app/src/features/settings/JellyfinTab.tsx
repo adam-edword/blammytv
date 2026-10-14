@@ -4,6 +4,7 @@ import { isTauri } from "../../lib/tauri";
 import { AioCode } from "../aiojf/AioCode";
 import { readSignIn, signOutOfJf } from "../jellyfin/account";
 import type { JfStatus } from "../jellyfin/client";
+import { PLAIN_NOTE, sendsPlain } from "../jellyfin/plain";
 import { JF_CHANGED } from "../jellyfin/store";
 import { APPROVE_NOTE, useJfSignIn } from "../jellyfin/useSignIn";
 
@@ -131,8 +132,13 @@ export function JellyfinTab() {
               </p>
             )}
             <p className="settings__section-note settings__section-note--dim">
-              Your movie and show libraries are rows in Stream and Discover.
+              Your movie and show libraries are rows in Stream and Discover. Tested on Jellyfin 12.x.
             </p>
+            {sendsPlain(status.base) && (
+              <p className="settings__section-note settings__section-note--dim" data-jf-plain>
+                {PLAIN_NOTE}
+              </p>
+            )}
           </div>
           <div className="aio-row__actions">
             <Button
@@ -162,7 +168,7 @@ export function JellyfinTab() {
         <>
           <p className="settings__section-note">
             Sign in to your own Jellyfin server. Its movie and show libraries become rows under the Stream tab
-            and in Discover, and a title you open from one plays your own files.
+            and in Discover, and a title you open from one plays your own files. Tested on Jellyfin 12.x.
           </p>
           <div className="settings-field">
             <label className="settings-field__label" htmlFor={addressId}>
@@ -219,6 +225,11 @@ export function JellyfinTab() {
               />
             </div>
           </div>
+          {sendsPlain(address) && (
+            <p className="settings__section-note settings__section-note--dim" data-jf-plain>
+              {PLAIN_NOTE}
+            </p>
+          )}
           {note && (
             <p className="settings__section-note settings__section-note--dim" role="alert">
               {note}

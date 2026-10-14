@@ -1255,6 +1255,14 @@ impl Jf {
         stream_header(token)
     }
 
+    /// `auth_header_for`'s value alone, for a request the app makes itself
+    /// with the same sign-in mpv was given (the dead-link probe, mpvopen.rs).
+    pub fn authorization_for(&self, url: &str) -> Option<String> {
+        self.auth_header_for(url)?
+            .strip_prefix("Authorization: ")
+            .map(str::to_string)
+    }
+
     fn session(&self) -> Result<Session, String> {
         self.state
             .lock()
@@ -2930,6 +2938,11 @@ mod tests {
                 let line = j.auth_header_for(&url).unwrap();
                 assert_eq!(line, format!("Authorization: MediaBrowser Token=\"{TOKEN1}\""));
                 assert!(crate::mpvheader::clean(&line));
+                // The probe's form: the value, with no header name.
+                assert_eq!(
+                    j.authorization_for(&url).as_deref(),
+                    Some(format!("MediaBrowser Token=\"{TOKEN1}\"").as_str())
+                );
             }
         });
     }

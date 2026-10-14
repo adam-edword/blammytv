@@ -612,7 +612,7 @@ const shot = async (p, name) => {
   const text = (await note.innerText()).replace(/\n/g, " | ");
   check(
     "With no connection, Stream's empty state points at signing in",
-    /Sign in to your AIOStreams in Settings → Sources → Stream/.test(text) && !/manifest/i.test(text),
+    /Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream/.test(text) && !/manifest/i.test(text),
     text,
   );
   await p.close();

@@ -17,10 +17,19 @@ import type { OpenAnswer } from "../../lib/tauri";
  * nothing the server said is echoed back: the content type is compared, never
  * shown.
  */
+/** A Jellyfin stream the player was given the sign-in for, and the server
+ * still said no: a login problem, not a stream that is bad. The probe sent
+ * the same header, which is what makes the answer mean that. */
+export function jellyfinRefused(a: OpenAnswer): boolean {
+  return a.signedInToJellyfin === true && (a.status === 401 || a.status === 403);
+}
+
 export function openErrorLine(a: OpenAnswer): string | null {
   if (a.failure) return "The server didn’t answer.";
   const s = a.status;
   if (s === null || !Number.isInteger(s)) return null;
+  if (jellyfinRefused(a))
+    return `Your Jellyfin refused the file (${s}). Your sign-in may have ended: sign in again under Settings → Sources → Stream.`;
   if (s === 403)
     return "The link answered 403 (Forbidden). Debrid links expire; try another source.";
   // 410 is the same news as 404 for a link: it is gone.

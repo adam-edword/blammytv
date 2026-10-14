@@ -13,7 +13,10 @@
  * Only IMDb is used. TMDB and TVDB ids are on the items too, but nothing
  * downstream reads a `tmdb:` or `tvdb:` key (only `tt…` and `kitsu:` are known),
  * so a title with just those would be keyed by something that reads nowhere; its
- * own `jf:` id is the honest key. An episode's own IMDb id is never used: it
+ * own `jf:` id is the honest key. That has a cost, and it is accepted: such a
+ * title does not share its watched state, Trakt scrobbles or Continue Watching
+ * with the same title from any other source, and the same film held on two
+ * servers is two entries. An episode's own IMDb id is never used: it
  * names the episode, and Stremio's episode id is the show's id plus numbers.
  *
  * A `tt…` key is shared with every other source that knows the title, which is

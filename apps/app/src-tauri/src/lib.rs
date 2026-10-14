@@ -739,8 +739,17 @@ async fn mpv_open_error() -> Result<mpvopen::Answer, String> {
     // With the agent the file was opened with: a provider that refuses the
     // wrong one refuses it here as it did for mpv.
     let agent = mpv::loaded_agent();
-    let answer =
-        mpvopen::probe_as(http_client(), &url, mpvopen::PROBE_WAIT, agent.as_deref()).await;
+    // And with the Jellyfin sign-in, when that is what mpv was given for it:
+    // without it a stream that wants the token answers 401 whatever happened.
+    let authorization = jf_client_started().and_then(|c| c.authorization_for(&url));
+    let answer = mpvopen::probe_signed(
+        http_client(),
+        &url,
+        mpvopen::PROBE_WAIT,
+        agent.as_deref(),
+        authorization.as_deref(),
+    )
+    .await;
     log::info!(
         "[mpv-open] {}",
         match (answer.status, answer.failure) {
