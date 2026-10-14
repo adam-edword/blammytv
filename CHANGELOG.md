@@ -2,7 +2,10 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
-## 0.11.49: Sign in to AIOStreams, a day of guide, and Settings rebuilt (2026-10-14)
+## Unreleased: Sign in to AIOStreams, a day of guide, and Settings rebuilt
+
+Everything since 0.11.12, held on 2026-10-14 for plan 027 (your own
+Jellyfin server). The heading takes the real version when it ships.
 
 Sign in to your AIOStreams instead of pasting a manifest, a guide that
 scrolls a whole day ahead, and Settings in five pages with a lot more in

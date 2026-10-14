@@ -308,6 +308,12 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    link. It is drawn as plain text (a `#` heading loses its `#`, nothing is
    clickable), and only the first six lines show.
 
+   **Push `main` only when the release is going out.** A push to `main`
+   deploys the site and the docs (`.github/workflows/deploy-pages.yml`), so
+   a `main` pushed ahead of a release that is then held puts docs for
+   features nobody has yet in front of everyone (2026-10-14, the held
+   0.11.49).
+
 4. **Publish the GitHub Release** (GitHub → Releases → Draft a new release):
    - Tag: `v<version>` (e.g. `v0.2.0`).
    - Upload `BlammyTV_<version>_x64-setup.exe` as an asset.
