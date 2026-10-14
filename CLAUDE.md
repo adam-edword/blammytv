@@ -199,6 +199,15 @@ tech wins: no framework-of-the-month, no clever abstractions for hypothetical
 reuse. When a task matches an installed Claude Code skill (security review,
 design review, etc.), use the skill instead of re-implementing.
 
+## Finding code
+
+`.mcp.json` starts Augment's Context Engine (auggie) in every session. When
+its `codebase-retrieval` tool is in your list, ask it first for "where is X"
+and "how does Y work" across the repo, then read the files it names. Grep
+stays the tool for an exact string. With no Augment login (no
+`AUGMENT_SESSION_AUTH`, no local `auggie login`) the server exits at startup,
+the tool isn't there, and grep and glob are the fallback.
+
 ## Writing style
 
 Applies to everything you produce: chat replies, docs, commit messages, code
