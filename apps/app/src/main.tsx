@@ -28,6 +28,9 @@ import { applyThemePref, loadThemePref } from "./features/settings/theme";
 // in it. Only in the app: a plain browser tab has no file to write to.
 installAppLog({ isTauri, send: tauriAppLog });
 
+// base.css hides the nav over a playing video on a Mac by hand, and needs to know it is one.
+if (navigator.userAgent.includes("Macintosh")) document.documentElement.dataset.os = "mac";
+
 // Apply saved appearance before first paint so nothing flashes.
 //
 // A STORED ACCENT IS HONOURED AGAIN, because the picker is back

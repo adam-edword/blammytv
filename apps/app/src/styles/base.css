@@ -248,6 +248,15 @@ button {
   pointer-events: auto;
 }
 
+/* WebKit paints an element with a backdrop-filter through its ancestor's
+ * clip-path, so on a Mac the nav's glass (and its icons) show over the video
+ * hole while a VOD plays. Everywhere else the clip alone removes the nav, as
+ * the Stream player's screenshot shows. Unless the player is popped out and
+ * the app is in use again. */
+:root[data-os="mac"]:has(.vod-stage:not(.vod-stage--popped)) .header {
+  visibility: hidden;
+}
+
 /* Nav glass: the same treatment as the settings card (--card-glass fill +
  * uniform 10px backdrop blur) as one flat window — no progression. mpv
  * video never sits under the nav, so backdrop-filter is safe here. */
