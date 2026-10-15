@@ -3,27 +3,25 @@ title: Playback
 description: Streams that buffer, stall, refuse to start, or play without a picture.
 ---
 
-Playback problems split into three groups, and telling them apart is most of
-the work. Start here.
+Playback problems come in a few kinds, and telling them apart is most of the
+work.
 
-## First, ask the player what it thinks
+## Open the stats overlay
 
 Press <kbd>i</kbd> in theater or fullscreen for the stats overlay. It reports
-what mpv is actually doing rather than what the interface can infer, and it
-separates the cases below immediately.
+what mpv is doing rather than what the interface can infer, and it separates
+the cases below.
 
 The interface can't tell "the source is dead" from "we left it paused" from
-"the video output never started". All three look like a stalled screen. The
-overlay can.
+"the video output never started". All three look like a stalled screen, and
+the overlay tells them apart.
 
 ## It buffers forever, then errors
 
-The source isn't delivering. Nothing on your machine will fix a stream that
-isn't arriving.
+The source isn't delivering.
 
 - **Try another source.** On VOD, the card offers **Try next available
-  source**. This fixes it most of the time, because individual sources go bad
-  constantly.
+  source**. Individual sources go bad, so this often fixes it.
 - **Turn on Auto source-failover** (Settings) if you'd rather it move on by
   itself. It's off by default on purpose: automatic jumping burns through your
   resolved sources without asking, including on stalls that would have
@@ -62,7 +60,7 @@ Usually the video output, not the source.
 - **Close other players.** Two apps pulling from the same provider compete for
   your connection cap and your bandwidth.
 
-## The whole app is slow, not just playback
+## The whole app is slow
 
 - Hide categories you don't watch. A six-figure channel list is real work to
   load, even though the guide only renders what's on screen.
@@ -70,7 +68,7 @@ Usually the video output, not the source.
 
 ## Nothing here helped
 
-The app is open source, and the parts that touch playback are the parts most
-worth reading. See [Architecture](/contributing/architecture/). Issues are
-welcome on [GitHub](https://github.com/adam-edword/blammytv/issues), and a
-stats overlay screenshot is the most useful thing to attach.
+The app is open source, and [Architecture](/contributing/architecture/) maps
+the parts that touch playback. Issues are welcome on
+[GitHub](https://github.com/adam-edword/blammytv/issues), and a stats overlay
+screenshot is the most useful thing to attach.

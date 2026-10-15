@@ -23,9 +23,9 @@ Jellyfin work side by side too: each one's rows stay its own.
 :::note[M3U and Stalker are lightly tested]
 Xtream and AIOStreams are what most people run and what gets exercised daily.
 M3U and Stalker are fully implemented and load through the same code, but
-they've had far less real-world use. If one misbehaves, that's worth an
-[issue](https://github.com/adam-edword/blammytv/issues) rather than an
-assumption that you've set it up wrong.
+they've had far less real-world use. If one misbehaves, [open an
+issue](https://github.com/adam-edword/blammytv/issues) rather than assuming
+you've set it up wrong.
 :::
 
 Add as many as you like. Each has its own on/off switch, so you can keep a

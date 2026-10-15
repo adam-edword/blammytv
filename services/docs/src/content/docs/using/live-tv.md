@@ -1,6 +1,6 @@
 ---
 title: Live TV
-description: The channel guide, favourites, the player and its keyboard shortcuts.
+description: The channel guide, favorites, the player and its keyboard shortcuts.
 ---
 
 The Live TV tab is a programme guide over every channel your
@@ -23,8 +23,7 @@ limits](/troubleshooting/connections/).
 With no category selected, the guide shows every channel from every enabled
 source, in provider order. On a large playlist that means the first thing you
 see is whatever your provider happened to list first. Hiding the categories
-you never watch, per source in Settings, is the quickest way to make this
-screen yours.
+you never watch, per source in Settings, is the quickest way to cut it down.
 :::
 
 ## The guide
@@ -33,9 +32,8 @@ A standard EPG grid: channels down the side, time across the top. It renders
 only the rows in view, so a hundred-thousand-channel playlist scrolls at the
 same speed as a small one.
 
-Channels with no programme data show **No Information** lanes. That's a
-property of your source, not a fault. See [Sources](/sources/) for which kinds
-carry a guide.
+Channels with no programme data show **No Information** lanes. That's your
+source, not the app. See [Sources](/sources/) for which kinds carry a guide.
 
 The guide often arrives a moment after the channels do. It's the largest
 download of the load, so the channel list paints first and the programmes fill
@@ -48,8 +46,7 @@ and then **fullscreen**. Live TV keeps a ladder on `Escape`: close the menu,
 then leave fullscreen, then collapse back to mini.
 
 Press <kbd>i</kbd> in theater or fullscreen for a stats overlay showing what
-mpv is actually doing. It's the quickest way to tell a dead source from a slow
-one.
+mpv is doing. It's the quickest way to tell a dead source from a slow one.
 
 ## Keyboard shortcuts
 
@@ -69,7 +66,7 @@ These work whether the player has focus or the guide does.
 
 Volume and mute persist across everything you play, including the Stream tab.
 
-## Favourites and recents
+## Favorites and recents
 
 Star a channel to put it in **Favorites**, where you can arrange it by hand.
 That order is yours and doesn't get re-sorted. **Recents** is maintained

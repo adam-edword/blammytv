@@ -121,7 +121,7 @@ anything on its own. See [where your data goes](/how-it-works/).
 - **Jellyfin's Live TV.** Live channels come from the [live TV
   sources](/sources/).
 - **More than one server.**
-- **Older servers, as a promise.** It's only been tried on Jellyfin 12.x, so
-  an older server may not work.
+- **Older servers.** It's only been tried on Jellyfin 12.x, so an older
+  server may not work.
 - **More Like This** on a title's page still comes from your addon, not from
   Jellyfin.

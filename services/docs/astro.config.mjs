@@ -16,7 +16,7 @@ export default defineConfig({
     starlight({
       title: "BlammyTV",
       description:
-        "Documentation for BlammyTV, a free and elegant IPTV and Stremio player for Windows.",
+        "Documentation for BlammyTV, a free IPTV and Stremio player for Windows.",
       logo: {
         src: "./public/logo.svg",
         alt: "BlammyTV",

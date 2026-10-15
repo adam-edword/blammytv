@@ -7,10 +7,7 @@ What's new in the BlammyTV desktop app, newest first.
 Everything since 0.11.12, held on 2026-10-14 for plan 027 (your own
 Jellyfin server). The heading takes the real version when it ships.
 
-Sign in to your AIOStreams instead of pasting a manifest, a guide that
-scrolls a whole day ahead, and Settings in five pages with a lot more in
-them. A full update, like 0.11.12: parts of it are in the app itself, so it
-installs.
+This one runs the installer, like 0.11.12.
 
 ### AIOStreams
 
@@ -52,11 +49,11 @@ installs.
 
 ### Stream and the player
 
-- **Surround reaches a surround setup.** Every 5.1 film used to be
+- **5.1 and 7.1 play in surround.** Every 5.1 film used to be
   squeezed to stereo. Settings → Playback → Audio Channels picks Automatic,
   Stereo, 5.1 or 7.1, and the stats overlay (i) shows what reached your
   device.
-- **More of Playback is yours:** Autoplay Next Episode (off, 5, 10 or 20
+- **New in Settings → Playback:** Autoplay Next Episode (off, 5, 10 or 20
   seconds), when the Up Next card shows, Intro, Recap, Credits and Preview
   each skipped by a button, automatically or not at all, Subtitle Size,
   and the pop-out's size and corner.
@@ -80,7 +77,7 @@ installs.
 ### Live TV
 
 - **The guide scrolls a whole day ahead**, with Earlier, Now and Later in
-  its corner, and scrolls more smoothly.
+  its corner.
 - **The guide stops downloading again every time you open the app.** Each
   playlist reuses its guide for 12 hours, while its channels still refresh
   every launch. Settings → Sources says when guides last refreshed, with
@@ -90,15 +87,13 @@ installs.
 - **A playlist can have an extra guide and its own User-Agent**, under
   Settings → Sources → the playlist → Advanced. The extra guide fills in
   the channels the provider's left empty.
-- The folded sidebar is a tidy icon rail, and channel logos sit on a plate
+- The folded sidebar is a rail of icons, and channel logos sit on a plate
   that matches the theme instead of a white square.
 
 ### Multi-view
 
-- **Sound on PCs where 0.11.12 had none.** On some PCs the copy of the
-  sound tile that 0.11.12 sent to the app was silent, so Multi-view
-  played nothing. The tile now plays its own sound until the copy carries
-  some, and a copy that goes quiet is taken again.
+- **Sound on PCs where 0.11.12 had none.** A tile plays its own sound until
+  the app's copy has some, and takes it again if it goes quiet.
 
 ### Settings
 
@@ -112,7 +107,7 @@ installs.
   last lines on your clipboard for a bug report. Web addresses are cut to
   the site's name, and passwords and tokens stay out.
 - **Export and Import Settings.** Your playlists and passwords go in only if
-  you tick the box that says so, and your favourites, recents, guide fixes
+  you tick the box that says so, and your favorites, recents, guide fixes
   and multi-view grid go with them, since they point at your playlists'
   channels. A file without playlists leaves yours as they are.
 - Escape on a language picker closes Settings.

@@ -3,11 +3,8 @@ title: Where your data goes
 description: Every host BlammyTV contacts, what each one gets, and what stays on your machine.
 ---
 
-BlammyTV asks you for provider credentials, so it's fair to ask what it does
-with them. They stay on your machine, and every request for your content goes
-straight from your machine to the provider you configured.
-
-Below is every host the app talks to, and what each one receives.
+Your provider credentials stay on your machine, and every request for your
+content goes straight from your machine to the provider you configured.
 
 ## Your content
 
@@ -59,9 +56,8 @@ to report to.
   addresses and your AIOStreams manifest URL, if you use one, never leave your
   machine. They're scrubbed out of error messages too, so a diagnostic can't
   carry one by accident.
-- **It has no analytics.** No page views, no session tracking, no third-party
-  analytics service. The only things that report what you watch are Trakt,
-  MyAnimeList, your AIOStreams instance and your Jellyfin server, if you
+- **It has no analytics.** The only things that report what you watch are
+  Trakt, MyAnimeList, your AIOStreams instance and your Jellyfin server, if you
   connect them, because that's their job.
 
 Viewing activity does reach two third parties as a side effect of features:
@@ -88,19 +84,18 @@ ask for help.
 Settings → App → Export Settings writes your settings to a file you choose:
 looks, playback, your lists and Continue Watching. Playlists and your
 AIOStreams manifest go in only if you tick the box that says the file then has
-your passwords in it, and your favourites, recents, guide fixes and multi-view
+your passwords in it, and your favorites, recents, guide fixes and multi-view
 grid go in with them, because they point at your playlists' channels. Trakt,
 MyAnimeList, AIOStreams and Jellyfin sign-ins never go in. Without the box, a
 poster address that carries a service's key is left out too. Import Settings
-reads one back, and a file without playlists leaves your favourites, recents,
+reads one back, and a file without playlists leaves your favorites, recents,
 guide fixes and multi-view grid as they are.
 
 :::caution[Credentials are stored in the clear]
 Playlist passwords, portal MAC addresses and, if you use one, your AIOStreams
 manifest URL are saved as plain text, not encrypted. Anything running as your
-Windows user can read them. That's the same posture as most desktop IPTV
-clients, but you should know rather than assume otherwise. If your machine is
-shared, your provider credentials are shared.
+Windows user can read them. Most desktop IPTV clients store them the same way.
+If your machine is shared, your provider credentials are shared.
 
 Trakt, MyAnimeList, your AIOStreams sign-in and your Jellyfin sign-in are the
 exception: they're kept in Windows Credential Manager, not in the app's

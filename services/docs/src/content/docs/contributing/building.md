@@ -37,4 +37,4 @@ fails one locally will fail there too.
 ## Contributing
 
 Read `CLAUDE.md` in the repository root before opening a pull request. It's
-the working agreement the project is actually developed under, and it's short.
+the working agreement the project is developed under, and it's short.

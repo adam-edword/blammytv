@@ -26,8 +26,7 @@ Go to **Settings → Sources → Stream**, type the address and press
    then **Connect**, and enter the code.
 4. If your config has household users, you pick yours there.
 
-That's it. BlammyTV notices the approval on its own, and the Stream tab fills
-in.
+BlammyTV notices the approval and fills the Stream tab.
 
 Nothing secret lands in the app's profile. Your sign-in is kept in Windows
 Credential Manager, and the app's pages never see it. **Disconnect** (same
@@ -39,8 +38,6 @@ It needs AIOStreams 2.35 or later with its Jellyfin side on, which it is by
 default.
 
 ### What signing in costs
-
-Browsing over the sign-in is not quite the same as browsing over a manifest:
 
 - **25 sources per title.** The instance can raise that to 50. Your config can
   only lower it.
@@ -123,21 +120,19 @@ With a manifest URL, it runs three:
 | Step | What it proves |
 |---|---|
 | **Manifest** | The URL resolves and returns a valid addon manifest |
-| **Catalog** | A browsable catalog actually returns titles |
+| **Catalog** | A browsable catalog returns titles |
 | **Streams** | A known test title returns playable sources |
 
-That distinction matters more than it sounds. An external `curl` test once
-reported everything healthy while the app got a 403 on every request, because
-the two weren't making the same kind of request at all. When a manifest step
-fails, the test also reports who rejected it: the status, the serving host's
-headers, and how the response body starts. That one line is usually the whole
-diagnosis.
+An external `curl` test once reported everything healthy while the app got a
+403 on every request, because the two weren't making the same kind of request
+at all. When a manifest step fails, the test also reports who rejected it: the
+status, the serving host's headers, and how the response body starts.
 
-## Two failures worth naming
+## Two common failures
 
 **Cloudflare bot protection.** If the test reports a challenge, the host in
 front of your instance is demanding an interactive browser check. Nothing on
-your machine and nothing in this app can pass that, and it affects
+your machine or in this app can pass that, and it affects
 Stremio-style clients generally. The fix is on the hosting side. Whoever runs
 the instance needs to exempt it from bot protection, or you need to move your
 config to a different instance.
@@ -158,8 +153,8 @@ server hosting your manifest.
 - **Artwork and synopses**, filled in from Cinemeta where your catalog is
   sparse.
 
-One bad catalog never sinks the tab. Rows are fetched independently, so a
-single failing one goes missing while everything else loads.
+Rows are fetched independently, so a single failing one goes missing while
+everything else loads.
 
 ## Tuning
 

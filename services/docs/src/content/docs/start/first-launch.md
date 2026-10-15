@@ -4,8 +4,7 @@ description: What the setup flow asks for, and what you can skip.
 ---
 
 The first time you open BlammyTV it runs a short setup. Five questions and a
-short tour, and you can leave any of the questions for later. Nothing here is
-permanent, and all of it lives in **Settings** afterwards.
+short tour. Skip any of them: it's all in **Settings** later.
 
 ## 1. Sign in to AIOStreams
 
@@ -29,12 +28,10 @@ or **Stalker/MAG**) and fill in the fields for it.
 
 Skip this if you only want movies and shows. See [Sources](/sources/).
 
-:::note[Setup verifies, it doesn't just collect]
+:::note[Setup tests each source]
 The source steps run a real connection when you press Continue, using the
-same machinery the app uses in anger rather than a URL format check. If it
-fails you get the actual reason and a **Continue anyway** button.
-Verification never blocks setup, so a provider that's down for ten minutes
-can't lock you out of your own app.
+same connection the app makes. If it fails you get the reason and a
+**Continue anyway** button.
 :::
 
 ## 3. Follow what you watch
@@ -54,8 +51,7 @@ are changeable any time in **Settings → Appearance**.
 Where BlammyTV lands when you start it: **Live TV**, **Stream · Home**, or
 **Stream · Discover**. The default is Live TV.
 
-Set this honestly rather than aspirationally. It's the screen you'll see every
-single launch.
+Pick the one you use most. You'll see it every launch.
 
 ## A few things to find
 
@@ -64,19 +60,18 @@ there.
 
 ## Done
 
-A nudge towards Settings. That's it.
+A pointer to Settings.
 
 ## After setup
 
 If you skipped a source, add it in **Settings → Sources**: **Live
 TV** for a playlist, **Stream** for movies and shows. The Live TV pane has the
 same form the setup flow used. The Stream pane has the same sign-in, and adds
-a **Connection Test** that reports which request failed rather than just that
-something did.
+a **Connection Test** that reports which request failed.
 
 ## Where to go next
 
 - [Sources](/sources/), what each playlist kind needs
-- [Live TV](/using/live-tv/), the guide, favourites and the player
+- [Live TV](/using/live-tv/), the guide, favorites and the player
 - [Stream & VOD](/using/stream/), browsing movies and shows
 - [Themes](/using/themes/), your accent colour and light or dark

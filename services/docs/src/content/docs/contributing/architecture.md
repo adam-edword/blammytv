@@ -3,8 +3,8 @@ title: Architecture
 description: How BlammyTV is put together, for anyone reading the source.
 ---
 
-This page is orientation for contributors, enough to find your way around.
-It's deliberately shallow. The deep design notes live in the repository.
+This page is a shallow orientation for contributors. The deep design notes
+live in the repository.
 
 ## The stack
 
@@ -28,12 +28,12 @@ scripts/           release and verification tooling
 
 ## The player
 
-The interesting part. mpv renders into its own child window rather than into a
-canvas the web layer owns, so the two can't simply be stacked in document
-order. BlammyTV uses what the codebase calls the inverted arrangement: mpv's
-window sits at the **bottom** of the z-order, the webview is transparent and
-sits above it, and the interface punches a hole through itself with a CSS
-`clip-path` wherever video should show through.
+mpv renders into its own child window rather than into a canvas the web layer
+owns, so the two can't be stacked in document order. BlammyTV uses what the
+codebase calls the inverted arrangement: mpv's window sits at the **bottom** of
+the z-order, the webview is transparent and sits above it, and the interface
+punches a hole through itself with a CSS `clip-path` wherever video should show
+through.
 
 Internalise this before touching that code: the video is not an element on the
 page. Nothing in CSS can move it, and the hole and the native window have to
@@ -47,8 +47,7 @@ creating a new player per stream.
 ## Native commands
 
 The front end can't call arbitrary code. It can only invoke commands the Rust
-side has explicitly registered, and those are the entire native surface. Worth
-remembering when reasoning about what the interface is capable of.
+side has explicitly registered, and those are the entire native surface.
 
 Sync commands run on the UI thread inside WebView2's callback, so anything
 slow in one of them shows up directly as interface stutter.
@@ -56,5 +55,4 @@ slow in one of them shows up directly as interface stutter.
 ## Where the real detail lives
 
 `plans/` in the repository holds a file per piece of work, written at the time
-with the measurements that justified each decision. That's the honest record.
-This page is the map.
+with the measurements that justified each decision.

@@ -22,8 +22,8 @@ hero at the top.
 
 ## Discover
 
-Search across your catalogs. Same cards, same behaviour. Use this when you
-know what you want.
+Search across your catalogs. The cards work the same as on Home. Use this when
+you know what you want.
 
 ## Opening a title
 
@@ -43,10 +43,9 @@ part-way through without opening it first.
 ## The player
 
 Same player as [Live TV](/using/live-tv/), and the [same keyboard
-shortcuts](/using/live-tv/#keyboard-shortcuts), with two differences that
-matter for VOD:
+shortcuts](/using/live-tv/#keyboard-shortcuts), with two differences for VOD:
 
-- **A scrubber**, because there's something to seek through.
+- **A scrubber** to seek with.
 - **`Escape` toggles theater and fullscreen** rather than stepping down and
   out. The ✕ is the only way out of the player. Live TV keeps the ladder, VOD
   doesn't, so a stray keypress can't dump you out of a film.
@@ -58,10 +57,10 @@ language, subtitle language, playback speed. They're matched by language, not
 by track number, because track numbering is per-file and means nothing across
 episodes.
 
-Only real choices count. Playing an episode that happens to default to a
-different track doesn't silently become your new preference.
+Only choices you make count. An episode that defaults to a different track
+doesn't become your new preference.
 
-Volume and mute are separate. Those ride every playback, live included.
+Volume and mute are separate. Those apply to every playback, live included.
 
 ## When a source dies mid-play
 

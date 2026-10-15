@@ -31,7 +31,7 @@ should be treated as a password.
   made-up number.
 - **A guide only if the playlist carries one.** M3U entries can reference EPG
   ids, but the file itself isn't a guide. Channels with no programme data show
-  "No Information" lanes. That's a property of the playlist, not a fault.
+  "No Information" lanes. That's the playlist, not the app.
 
 ## If it fails
 
@@ -41,8 +41,8 @@ should be treated as a password.
 - **It downloaded but produced nothing.** The file isn't an M3U, or it's an
   error page served with a 200 status. Some providers return HTML explaining
   that your subscription lapsed instead of an HTTP error.
-- **Huge playlists take a while.** A six-figure channel list is a real
-  download followed by a real parse. It isn't stuck. Watch the loading label,
+- **Huge playlists take a while.** A six-figure channel list is a large
+  download followed by a long parse. It isn't stuck. Watch the loading label,
   which names the stage it's on.
 
 Hide the categories you never watch once it loads. See the note on

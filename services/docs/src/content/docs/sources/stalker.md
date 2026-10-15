@@ -18,7 +18,7 @@ Add it under **Settings → Sources → Live TV → Stalker/MAG**.
 
 The MAC is the credential here. Portals authorise a device address rather than
 a username and password, so anyone with your MAC has your subscription. Treat
-it exactly as you would a password.
+it like a password.
 
 ## The endpoint probe
 

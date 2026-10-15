@@ -3,8 +3,7 @@
 </p>
 
 <p align="center">
-  A self-contained desktop client for live TV &amp; on-demand: Xtream Codes for IPTV, AIOStreams (+ debrid) for movies &amp; shows.<br/>
-  Windows sideload, <strong>"boomer-proof"</strong> UX, designer-focused UI.
+  A self-contained desktop client for live TV &amp; on-demand: Xtream Codes for IPTV, AIOStreams (+ debrid) for movies &amp; shows.
 </p>
 
 ---
@@ -12,31 +11,25 @@
 ## Download & install (Windows)
 
 1. **Download** the latest installer from the [**Releases page**](https://github.com/adam-edword/blammytv/releases/latest): grab `BlammyTV_<version>_x64-setup.exe` under *Assets*.
-2. **Run it.** Windows SmartScreen will say *"Windows protected your PC"* because the build isn't code-signed, click **More info → Run anyway**. (It's an unsigned indie app, not malware.)
-3. **On first launch,** paste your **AIOStreams manifest URL** when prompted. That's all you need to start watching movies & shows.
+2. **Run it.** Windows SmartScreen will say *"Windows protected your PC"* because the build isn't code-signed, click **More info → Run anyway**.
+3. **On first launch,** sign in to your **AIOStreams**: type its address and approve the code it shows. A manifest URL still works instead.
 4. **For live TV (optional):** add your Xtream playlist under **Settings → Sources** (server URL + username + password). It's kept separate from your AIOStreams setup.
 
-From there the app **updates itself**: new versions install on launch, or via **Settings → App → Check for updates**. Each person uses their own AIOStreams URL; nothing is shared.
+From there the app **checks for updates** when it starts. A new version installs when you press **Install**, in the header or in **Settings → App → Updates**. Each person uses their own AIOStreams URL; nothing is shared.
 
 ## What it is
 
-BlammyTV is a streaming client built for one job: making live TV and on-demand feel effortless. Live channels come from Xtream Codes panels; movies and shows resolve on demand through AIOStreams + debrid. There's a full EPG guide, a "now playing" hero, and a native libmpv player that does real 4K60.
+BlammyTV is a free Windows player for live TV and on-demand. Live channels come from Xtream Codes panels; movies and shows resolve on demand through AIOStreams + debrid. There's a full EPG guide, a "now playing" hero, and a native libmpv player that does 4K60.
 
-It's **self-contained**: there's no server to run. The app builds its own catalog on-device from your AIOStreams manifest URL and your Xtream playlists, fetching directly from the Rust side so it isn't blocked by browser CORS. Sideload-only (store review isn't worth the hassle), and the whole design goal is a **boomer-proof** experience: simple enough that anyone can pick it up and just watch, no manual required.
+It's **self-contained**: there's no server to run. The app builds its own catalog on-device from your AIOStreams manifest URL and your Xtream playlists, fetching directly from the Rust side so it isn't blocked by browser CORS. Sideload-only (store review isn't worth the hassle). The goal is **boomer-proof**: anyone can open it and watch.
 
 ## What you get
 
-- **Live TV with a real guide**: an EPG time-grid with a live "now" indicator, category rails, quality badges (4K / HDR / FHD parsed from channel names), and a "now playing" hero that previews whatever programme card you hover.
+- **Live TV**: an EPG time-grid with a live "now" indicator, category rails, quality badges (4K / HDR / FHD parsed from channel names), and a "now playing" hero that previews whatever programme card you hover.
 - **Movies & shows**: a browsable VOD layout backed by AIOStreams; title detail, artwork, and ranked playable sources resolve on demand. Titles with missing metadata fall back to Stremio's free **Cinemeta**.
-- **A player that doesn't compromise**: a native libmpv player on Windows for true 4K60, with mini / theater / fullscreen / pop-out modes.
-- **Self-updating**: new versions install on launch from GitHub Releases (or on demand from Settings).
-- **Personal & local**: a cosmetic profile (name + avatar), recolorable accent, light/dark theme, and a squircle UI, all stored on-device.
-
-## Status
-
-> **v0.0.x: a ground-up rebuild, targeting the new Figma designs.**
-
-The frontend is being rebuilt from scratch against the "IPTV EPG Redesign" Figma file; the battle-tested native layer (`src-tauri`: the libmpv player, Schannel TLS fetches, self-updater) carries over intact. Release ladder: **v0.1.0** the Live tab begins, **v0.2.0** live TV complete + AIOStreams begins, **v0.3.0** the Stream tab is done. The previous working alpha (v0.2.4) lives in the pre-rebuild history and on the Releases page.
+- **Native player**: a native libmpv player on Windows for 4K60, with mini / theater / fullscreen / pop-out modes.
+- **Self-updating**: it checks GitHub Releases when it starts, and a new version installs when you press Install.
+- **Profile and theme**: a cosmetic profile (name + avatar), recolorable accent, light/dark theme, and a squircle UI, all stored on-device.
 
 ## How it works
 
@@ -66,7 +59,7 @@ pnpm monorepo with a single app (for now).
 ```bash
 pnpm install
 
-pnpm dev          # web client only (apps/app) at http://localhost:1420 — demo data, fast hot-reload
+pnpm dev          # web client only (apps/app) at http://localhost:1420: demo data, fast hot-reload
 pnpm typecheck    # typecheck every package
 pnpm lint         # eslint (flat config)
 pnpm test         # vitest across packages
@@ -76,7 +69,7 @@ pnpm build        # build all packages
 `pnpm dev` runs the frontend in a browser, great for UI work, but live TV and real AIOStreams need the native layer. For the real thing, from `apps/app`:
 
 ```bash
-pnpm tauri dev    # the full desktop app — native player + on-device AIOStreams/Xtream
+pnpm tauri dev    # the full desktop app: native player + on-device AIOStreams/Xtream
 pnpm tauri build  # produce the signed Windows installer + self-update artifacts
 ```
 
@@ -86,7 +79,7 @@ Cutting and publishing a release (signing keys, `latest.json`, GitHub Releases) 
 
 The Live tab is an EPG frame: a "now playing" hero with a live mini-player, a source/folder sidebar, and a time-grid guide with a live "now" indicator. Styling is plain CSS (no Tailwind), driven by design tokens extracted from the Figma file into `apps/app/src/styles/tokens.css`, a black theme built on `#0f0f0f` surfaces and the `#c22727` red family. The "Stack Sans" typeface is self-hosted (bundled via Fontsource in `apps/app/src/fonts.ts`), with a system-font fallback in the `--font-headline` / `--font-text` variables.
 
-The desktop player is the interesting bit: native **mpv** (loaded at runtime from `libmpv-2.dll`) renders into a child window for true 4K60, parked at the **bottom** of the window's z-order, underneath the transparent React webview, which paints everything else and cuts a clip-path hole where the video shows through (the arrangement Desktop Telly uses). One window, controls-on-video, no readback, and the settings panel opens *over* a still-playing stream. See `apps/app/src-tauri/src/inv.rs`.
+The desktop player is native **mpv** (loaded at runtime from `libmpv-2.dll`). It renders into a child window for 4K60, parked at the **bottom** of the window's z-order, underneath the transparent React webview, which paints everything else and cuts a clip-path hole where the video shows through (the arrangement Desktop Telly uses). One window, controls-on-video, no readback, and the settings panel opens *over* a still-playing stream. See `apps/app/src-tauri/src/inv.rs`.
 
 ## Contributing
 

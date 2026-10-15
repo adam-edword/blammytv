@@ -4,8 +4,7 @@ description: How BlammyTV checks for, verifies and applies an update.
 ---
 
 BlammyTV updates itself. The check runs against release manifests published on
-GitHub. That's the one request the app makes on its own behalf rather than on
-a provider's.
+GitHub.
 
 ## What gets verified
 
@@ -37,7 +36,13 @@ BlammyTV separates the native shell from the interface it renders:
 
 ## Turning it off
 
-If you'd rather control this yourself, install from the
+There's no switch. The app checks for a new version a few seconds after it
+starts, and **Settings → App → Updates** has a **Check for updates** button
+for checking on demand. A new installer waits until you press **Install**
+there, or the chip in the header. A new interface build is staged in the
+background and applies the next time you open the app.
+
+To update by hand instead, install from the
 [Releases page](https://github.com/adam-edword/blammytv/releases/latest) like
 any other app. Nothing about the release artefacts depends on the updater
 having run.
