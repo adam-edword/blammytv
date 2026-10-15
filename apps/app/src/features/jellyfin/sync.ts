@@ -221,15 +221,27 @@ async function pass(): Promise<SyncResult> {
 }
 
 /**
+ * A play reported from here is on the server as `jid` (the id the server's own
+ * lists gave, report.ts): file it where `forgetResume` looks, so the card it
+ * leaves in Continue Watching can be cleared before any sync has run since the
+ * play. `gen` is `forgetCount()` from before `jid` was looked up: a sign-out
+ * since then means nothing is written. The next sync replaces `resumeJids` whole.
+ */
+export function noteResumeJid(itemId: string, episodeId: string | undefined, jid: string, gen: number): void {
+  if (forgetCount() !== gen) return;
+  saveJf({ resumeJids: { ...loadJf().resumeJids, [resumeKey(itemId, episodeId)]: jid } });
+}
+
+/**
  * Clear the server's resume point for the cards cleared here, or the next sync
  * brings them back (as aiojf/sync.ts `forgetResume` does for AIOStreams). A
  * position of 0 is how Jellyfin's own clients clear one.
  *
- * Only for a card the last sync saw a resume point for (`resumeJids`, ids the
- * server gave), one with a position and not finished, and not one the server
- * counts as played: the reset writes `Played: false`, and a played mark is
- * never removed from here. Best effort: a failure is silent, and nothing goes
- * out when not signed in.
+ * Only for a card the last sync saw a resume point for, or a play made since
+ * reported (`resumeJids`, ids the server gave), one with a position and not
+ * finished, and not one the server counts as played: the reset writes
+ * `Played: false`, and a played mark is never removed from here. Best effort: a
+ * failure is silent, and nothing goes out when not signed in.
  */
 export async function forgetResume(gone: readonly WatchEntry[]): Promise<void> {
   const conn = loadJfConn();

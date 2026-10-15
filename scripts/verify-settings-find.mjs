@@ -587,7 +587,7 @@ async function registryMatches(page, positions, label, absent = []) {
   }), STREAM_ROWS);
   check(
     "with no AIOStreams, \"preferred language\" still lists the row and opens Playback on the sign-in note",
-    s?.rows[0]?.label === "Preferred Language" && (await current(page)) === "Playback" && /Sign in to your AIOStreams in Settings/.test(note.text),
+    s?.rows[0]?.label === "Preferred Language" && (await current(page)) === "Playback" && /Sign in to your AIOStreams or your Jellyfin in Settings/.test(note.text),
     JSON.stringify({ s: s?.rows[0], text: note.text.slice(0, 100) }),
   );
   check(

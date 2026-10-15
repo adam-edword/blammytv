@@ -112,7 +112,9 @@ installs.
   last lines on your clipboard for a bug report. Web addresses are cut to
   the site's name, and passwords and tokens stay out.
 - **Export and Import Settings.** Your playlists and passwords go in only if
-  you tick the box that says so.
+  you tick the box that says so, and your favourites, recents, guide fixes
+  and multi-view grid go with them, since they point at your playlists'
+  channels. A file without playlists leaves yours as they are.
 - Escape on a language picker closes Settings.
 
 ### Around the app

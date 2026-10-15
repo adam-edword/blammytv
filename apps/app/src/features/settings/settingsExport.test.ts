@@ -205,10 +205,10 @@ describe("building the settings file", () => {
     expect(f.includesLogins).toBe(false);
   });
 
-  it("with logins adds the playlists, the manifest and the hero sources, and still no never", () => {
+  it("with logins adds the playlists, the manifest, the hero sources and what is keyed to the playlists, and still no never", () => {
     seedEverything();
     const f = buildSettingsFile({ logins: true, now: NOW });
-    expect(Object.keys(f.keys).sort()).toEqual(keysOf("looks", "playback", "yours", "logins"));
+    expect(Object.keys(f.keys).sort()).toEqual(keysOf("looks", "playback", "yours", "withPlaylists", "logins"));
     for (const k of KEY_GROUPS.never) expect(f.keys, k).not.toHaveProperty(k);
     expect(f.includesLogins).toBe(true);
   });
@@ -240,10 +240,10 @@ describe("building the settings file", () => {
 
   it("keeps each key's envelope as it is stored, version and all", () => {
     put("theme", "light", 3);
-    put("favorites", ["t:1", "t:2"]);
+    put("watchedEpisodes", { tt1: ["tt1:1:1", "tt1:1:2"] });
     const f = buildSettingsFile({ logins: false });
     expect(f.keys.theme).toEqual({ v: 3, data: "light" });
-    expect(f.keys.favorites).toEqual({ v: 1, data: ["t:1", "t:2"] });
+    expect(f.keys.watchedEpisodes).toEqual({ v: 1, data: { tt1: ["tt1:1:1", "tt1:1:2"] } });
   });
 
   it("leaves out a key that isn't stored and one that isn't an envelope", () => {
@@ -341,11 +341,11 @@ describe("reading a settings file", () => {
 
 describe("applying a settings file", () => {
   it("writes a key of the looks, playback and yours groups as the envelope it is", () => {
-    const file = fileText({}, { accent: env("#336699", 2), oneClickPlay: env(true), favorites: env(["t:1"]) });
+    const file = fileText({}, { accent: env("#336699", 2), oneClickPlay: env(true), watchedEpisodes: env({ tt1: ["tt1:1:1"] }) });
     expect(applySettingsFile(file)).toEqual({ ok: true, written: 3 });
     expect(JSON.parse(stored("accent")!)).toEqual({ v: 2, data: "#336699" });
     expect(JSON.parse(stored("oneClickPlay")!)).toEqual({ v: 1, data: true });
-    expect(JSON.parse(stored("favorites")!)).toEqual({ v: 1, data: ["t:1"] });
+    expect(JSON.parse(stored("watchedEpisodes")!)).toEqual({ v: 1, data: { tt1: ["tt1:1:1"] } });
   });
 
   it("replaces what was there, and leaves alone a key the file does not mention", () => {
@@ -396,10 +396,10 @@ describe("applying a settings file", () => {
       showHero: null,
       oneClickPlay: [1, 2],
       sourceFailover: 7,
-      favorites: env(["ok"]),
+      watchedEpisodes: env({ tt1: ["tt1:1:1"] }),
     };
     expect(applySettingsFile(fileText({}, bad))).toEqual({ ok: true, written: 1 });
-    expect(Object.keys(Object.fromEntries(mem))).toEqual(["blammytv.favorites"]);
+    expect(Object.keys(Object.fromEntries(mem))).toEqual(["blammytv.watchedEpisodes"]);
   });
 
   it("writes exactly { v, data }, dropping what else rode along on an envelope", () => {
@@ -448,15 +448,15 @@ describe("applying a settings file", () => {
 
   it("puts back every key already written when the store refuses one", () => {
     put("theme", "dark");
-    put("favorites", ["mine"]);
-    refuse = new Set(["blammytv.recents"]);
-    const file = fileText({}, { theme: env("light"), favorites: env(["theirs"]), accent: env("#336699", 2), recents: env(["x"]), startupTab: env("stream") });
+    put("watchedEpisodes", { mine: ["mine:1:1"] });
+    refuse = new Set(["blammytv.watching"]);
+    const file = fileText({}, { theme: env("light"), watchedEpisodes: env({ theirs: ["theirs:1:1"] }), accent: env("#336699", 2), watching: env(["x"]), startupTab: env("stream") });
     expect(applySettingsFile(file)).toEqual({ ok: false, reason: COULD_NOT_WRITE });
     expect(JSON.parse(stored("theme")!).data).toBe("dark");
-    expect(JSON.parse(stored("favorites")!).data).toEqual(["mine"]);
+    expect(JSON.parse(stored("watchedEpisodes")!).data).toEqual({ mine: ["mine:1:1"] });
     // A key there was none of is gone again, not left holding the file's value.
     expect(stored("accent")).toBeNull();
-    expect(stored("recents")).toBeNull();
+    expect(stored("watching")).toBeNull();
     expect(stored("startupTab")).toBeNull();
   });
 
@@ -466,8 +466,8 @@ describe("applying a settings file", () => {
     applySettingsFile("not json");
     applySettingsFile(fileText({ format: 2 }));
     applySettingsFile(fileText({}, { trakt: env(1) }));
-    refuse = new Set(["blammytv.recents"]);
-    applySettingsFile(fileText({}, { theme: env("dark"), recents: env([]) }));
+    refuse = new Set(["blammytv.watching"]);
+    applySettingsFile(fileText({}, { theme: env("dark"), watching: env([]) }));
     for (const s of spies) expect(s).not.toHaveBeenCalled();
   });
 
@@ -492,6 +492,104 @@ describe("applying a settings file", () => {
     expect(JSON.parse(stored("playlists")!).data[0].id).toBe("mine");
     expect(stored("aiostreams")).toBeNull();
     expect(JSON.parse(stored("theme")!).data).toBe("data-of-theme");
+  });
+});
+
+// ============================================================================
+// Keys that name this PC's playlists or channels travel with the playlists.
+// ============================================================================
+
+/** The four keys whose values are a playlist id or a channel id
+ * (`${playlistId}:${streamId}`). A playlist id is random per PC, so on another
+ * PC none of them match anything. */
+const LINKED = ["favorites", "recents", "guideFixes", "multiviewGrid"] as const;
+/** What the keys of `yours` that hold none of those (a title id, a league path,
+ * a tile count) are filed as: they go in every file. */
+const PORTABLE = ["lists", "watching", "watchedEpisodes", "sports-follows", "multiviewLayouts", "multiviewSplits", "multiviewVolume", "multiviewScores"] as const;
+
+/** One PC's worth of the linked keys, every id naming `pc`'s own playlist. */
+const linkedOf = (pc: string): Record<(typeof LINKED)[number], unknown> => ({
+  favorites: [`${pc}:1`, `${pc}:2`],
+  recents: [`${pc}:2`],
+  guideFixes: { [pc]: { [`${pc}:1`]: "guide.one" } },
+  multiviewGrid: { picks: [{ channelId: `${pc}:1`, label: `${pc} one` }], sound: `${pc}:1` },
+});
+const putLinked = (pc: string) => {
+  for (const [k, data] of Object.entries(linkedOf(pc))) put(k, data);
+};
+const rawOf = (keys: readonly string[]) => Object.fromEntries(keys.map((k) => [k, stored(k)]));
+
+describe("keys that name this PC's playlists or channels travel with the playlists", () => {
+  it("files the four of them apart from the rest of yours, and the rest stay in yours", () => {
+    for (const k of LINKED) expect(groupOf(k), k).toBe("withPlaylists");
+    for (const k of PORTABLE) expect(groupOf(k), k).toBe("yours");
+    expect([...KEY_GROUPS.yours].sort()).toEqual([...PORTABLE].sort());
+    expect([...KEY_GROUPS.withPlaylists].sort()).toEqual([...LINKED].sort());
+  });
+
+  it("leaves them out of a file made without the box, and puts them in one made with it", () => {
+    putLinked("pcA");
+    put("lists", [{ id: "l1", name: "Weekend", at: 1, entries: [] }]);
+    put("watching", [{ id: "tt1", title: "Film", at: 1 }]);
+    put("multiviewLayouts", { 2: "focus" }, 2);
+    put("theme", "light");
+    const off = buildSettingsFile({ logins: false });
+    for (const k of LINKED) expect(off.keys, k).not.toHaveProperty(k);
+    // Not an id of the PC's playlists anywhere in the text, and the rest is there.
+    expect(JSON.stringify(off)).not.toContain("pcA");
+    expect(Object.keys(off.keys).sort()).toEqual(["lists", "multiviewLayouts", "theme", "watching"]);
+    const on = buildSettingsFile({ logins: true });
+    for (const [k, data] of Object.entries(linkedOf("pcA"))) expect(on.keys[k], k).toEqual({ v: 1, data });
+  });
+
+  it("leaves this PC's own untouched when the file has no playlists: a file made on another PC, and an older build's file that still carries them", () => {
+    putLinked("pcA");
+    put("theme", "light");
+    const madeElsewhere = JSON.stringify(buildSettingsFile({ logins: false }));
+    // What a build from before this change wrote without the box.
+    const olderBuild = fileText({ includesLogins: false }, { theme: env("light"), ...Object.fromEntries(Object.entries(linkedOf("pcA")).map(([k, data]) => [k, env(data)])) });
+    for (const file of [madeElsewhere, olderBuild]) {
+      mem.clear();
+      putLinked("pcB");
+      put("theme", "dark");
+      const before = rawOf(LINKED);
+      expect(applySettingsFile(file)).toEqual({ ok: true, written: 1 });
+      expect(JSON.parse(stored("theme")!).data).toBe("light");
+      expect(rawOf(LINKED)).toEqual(before);
+      expect(JSON.stringify(before)).toContain("pcB");
+    }
+  });
+
+  it("replaces them, as before, when the file has the playlists", () => {
+    putLinked("pcA");
+    put("playlists", [{ ...PLAYLIST, id: "pcA" }]);
+    const file = JSON.stringify(buildSettingsFile({ logins: true }));
+    mem.clear();
+    putLinked("pcB");
+    put("playlists", [{ ...PLAYLIST, id: "pcB" }]);
+    expect(applySettingsFile(file)).toEqual({ ok: true, written: 1 + LINKED.length });
+    for (const [k, data] of Object.entries(linkedOf("pcA"))) expect(JSON.parse(stored(k)!), k).toEqual({ v: 1, data });
+    expect(JSON.parse(stored("playlists")!).data[0].id).toBe("pcA");
+  });
+
+  it("takes them only when the file says it has the playlists, not on its say-so that they are there", () => {
+    const linked = Object.fromEntries(Object.entries(linkedOf("pcA")).map(([k, data]) => [k, env(data)]));
+    putLinked("pcB");
+    const before = rawOf(LINKED);
+    for (const includesLogins of [false, undefined, "true", 1, null]) {
+      expect(applySettingsFile(fileText({ includesLogins }, linked)), String(includesLogins)).toEqual({ ok: false, reason: NOTHING_TO_IMPORT });
+      expect(rawOf(LINKED), String(includesLogins)).toEqual(before);
+    }
+  });
+
+  it("puts every key back when the store refuses one of them", () => {
+    putLinked("pcB");
+    put("theme", "dark");
+    const before = rawOf([...LINKED, "theme"]);
+    refuse = new Set(["blammytv.multiviewGrid"]);
+    const linked = Object.fromEntries(Object.entries(linkedOf("pcA")).map(([k, data]) => [k, env(data)]));
+    expect(applySettingsFile(fileText({ includesLogins: true }, { theme: env("light"), ...linked }))).toEqual({ ok: false, reason: COULD_NOT_WRITE });
+    expect(rawOf([...LINKED, "theme"])).toEqual(before);
   });
 });
 
@@ -801,9 +899,10 @@ describe("building the settings file without logins: artwork that carries a key"
     const before = JSON.stringify([...mem]);
     const f = buildSettingsFile({ logins: false });
     expect(JSON.stringify([...mem])).toBe(before);
-    expect(f.keys.favorites).toEqual({ v: 1, data: ["p1:101"] });
+    // The favourite is stored, and is not in a file made without the playlists.
+    expect(f.keys).not.toHaveProperty("favorites");
     expect(f.includesLogins).toBe(false);
-    expect(Object.keys(f.keys).sort()).toEqual(["favorites", "lists", "watching"]);
+    expect(Object.keys(f.keys).sort()).toEqual(["lists", "watching"]);
   });
 
   it("looks only at the artwork fields of the two keys that have any", () => {

@@ -529,7 +529,7 @@ for (const [old, want] of [
 {
   const { ctx, page } = await open({ store: { startupTab: { v: 1, data: "stream" } } });
   await openSettings(page);
-  const want = /Sign in to your AIOStreams in Settings → Sources → Stream/;
+  const want = /Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream/;
   await tab(page, "Playback").click();
   await page.waitForTimeout(300);
   const playNote = (await page.locator(".settings__body").innerText()).replace(/\n/g, " ");

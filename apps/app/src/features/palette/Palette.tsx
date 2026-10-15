@@ -121,7 +121,7 @@ export function Palette({
   onOpenChange: (open: boolean) => void;
   /** Whether there is a playlist, so the Live places and channels exist. */
   hasLive: boolean;
-  /** Whether there is a manifest, so Stream's places and titles exist. */
+  /** Whether there is an AIOStreams or a Jellyfin, so Stream's places and titles exist. */
   hasStream: boolean;
   onChannel: (channelId: string) => void;
   onTitle: (item: VodItem) => void;

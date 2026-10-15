@@ -19,7 +19,8 @@ import { tauriMpvStatus } from "../../lib/tauri";
 import { isFinished, loadWatching } from "../stream/watching";
 import { jfCall } from "./account";
 import { mediaSourceOf, reportBody } from "./rules";
-import { loadJfConn } from "./store";
+import { forgetCount, loadJfConn } from "./store";
+import { noteResumeJid } from "./sync";
 import { jfItemIdFor, playSessionOf } from "./vod";
 
 export interface JfReportTarget {
@@ -57,7 +58,11 @@ export function useJfReport(t: JfReportTarget | null): void {
     let lastPos: number | null = null;
     const ready: Promise<boolean> = (async () => {
       if (!loadJfConn()) return false;
+      const gen = forgetCount();
       jid = await jfItemIdFor(target.kind, target.kind === "movie" ? target.itemId : (target.episodeId ?? ""));
+      // The card this play leaves is cleared on the server by this id, with no
+      // sync needed in between (sync.ts `forgetResume`).
+      if (jid) noteResumeJid(target.itemId, target.episodeId, jid, gen);
       return jid !== null;
     })().catch(() => false);
 

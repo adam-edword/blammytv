@@ -240,7 +240,7 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
     JSON.stringify(rows) === JSON.stringify(["Audio Channels", "Subtitle Size", "Pop-out"]) && JSON.stringify(ids) === JSON.stringify(["audio-channels", "subtitle-size", "popout"]),
     JSON.stringify({ rows, ids }),
   );
-  check("  under the sign-in note for the rest", /Sign in to your AIOStreams in Settings/.test(note), note.slice(0, 120));
+  check("  under the sign-in note for the rest", /Sign in to your AIOStreams or your Jellyfin in Settings/.test(note), note.slice(0, 120));
   await ctx.close();
 }
 

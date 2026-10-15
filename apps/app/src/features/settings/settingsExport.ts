@@ -13,9 +13,20 @@ import { hasTokenRun } from "../../lib/scrub";
  * is in no group, so a new setting cannot be left out by being forgotten.
  *
  *   looks, playback, yours   always exported. Appearance and playback
- *                            settings; your lists, favourites, Continue
- *                            Watching, watched episodes, guide fixes, followed
- *                            teams and multi-view layouts.
+ *                            settings; your lists, Continue Watching, watched
+ *                            episodes, followed leagues and teams and the
+ *                            multi-view layouts, splits, volume and scores.
+ *   withPlaylists            only when the person ticks the box, with the
+ *                            playlists. The keys whose values are a playlist id
+ *                            or a channel id (`${playlistId}:${streamId}`):
+ *                            favourites, recents, guide fixes and the saved
+ *                            multi-view grid. A playlist id is random per PC, so
+ *                            on another PC none of them match anything. The
+ *                            Favourites and the grid come up empty, and the next
+ *                            `savePlaylists` drops the guide fixes of a playlist
+ *                            that is not there (live/guideFix.ts). An import
+ *                            takes them under the same condition, so a file
+ *                            without playlists leaves this PC's as they are.
  *   logins                   only when the person ticks the box. Everything
  *                            Clear All Login Info clears that lives in storage
  *                            (AppPage.tsx `clearLogins`): the playlists, which
@@ -86,20 +97,22 @@ export const KEY_GROUPS = {
     // Settings → Sources → Content: what the app shows, not a login.
     "showAdult",
   ],
+  // Titles are Stremio ids, leagues and teams are the sports source's, and the
+  // multi-view settings are a tile count or a flag: none names a playlist.
   yours: [
-    "favorites",
-    "recents",
-    "guideFixes",
     "lists",
     "watching",
     "watchedEpisodes",
     "sports-follows",
-    "multiviewGrid",
     "multiviewLayouts",
     "multiviewSplits",
     "multiviewVolume",
     "multiviewScores",
   ],
+  // A channel id is `${playlistId}:${streamId}` (live/source.ts channelId).
+  // `guideFixes` is playlist id, then channel id, then the guide's id. The grid
+  // holds the channel ids of its tiles and the one with the sound.
+  withPlaylists: ["favorites", "recents", "guideFixes", "multiviewGrid"],
   logins: ["playlists", "aiostreams", "heroSources"],
   never: [
     // The sign-ins' bookkeeping and queues. The tokens are in the OS vault.
@@ -156,6 +169,10 @@ export type KeyGroup = keyof typeof KEY_GROUPS;
 /** The groups an export always holds, in the order the file lists them. */
 const ALWAYS: readonly KeyGroup[] = ["looks", "playback", "yours"];
 
+/** The groups that go in a file, and are taken from one, only with the box
+ * ticked: the playlists and what is keyed to them. */
+const WITH_BOX: readonly KeyGroup[] = ["logins", "withPlaylists"];
+
 const GROUP_OF: ReadonlyMap<string, KeyGroup> = new Map(
   (Object.keys(KEY_GROUPS) as KeyGroup[]).flatMap((g) =>
     (KEY_GROUPS[g] as readonly string[]).map((k): [string, KeyGroup] => [k, g]),
@@ -179,7 +196,8 @@ export interface SettingsFile {
   /** ISO time. */
   exported: string;
   /** Whether the box was ticked: the playlists, the manifest and the hero
-   * sources are in the file, and an import may write them. */
+   * sources are in the file, with the favourites, recents, guide fixes and
+   * multi-view grid that name their channels, and an import may write them. */
   includesLogins: boolean;
   /** Key (without the prefix) to its stored envelope, as it is on disk. */
   keys: Record<string, Envelope<unknown>>;
@@ -381,13 +399,14 @@ function storedEnvelope(key: string): Envelope<unknown> | null {
 /**
  * The settings file, as an object. A key that is not stored, or is stored as
  * something that is not an envelope, is left out. With `logins` false the file
- * holds no playlist, no manifest and no hero source, and none of the artwork
+ * holds no playlist, no manifest and no hero source, none of the keys that
+ * name a playlist's channels (`withPlaylists`), and none of the artwork
  * addresses that look like they carry a key (`artCarriesKey`); with it true it
  * holds those too, and every artwork address as stored; the `never` group is
  * in neither.
  */
 export function buildSettingsFile(opts: { logins: boolean; now?: Date }): SettingsFile {
-  const groups: readonly KeyGroup[] = opts.logins ? [...ALWAYS, "logins"] : ALWAYS;
+  const groups: readonly KeyGroup[] = opts.logins ? [...ALWAYS, ...WITH_BOX] : ALWAYS;
   const keys: Record<string, Envelope<unknown>> = {};
   for (const g of groups)
     for (const k of KEY_GROUPS[g] as readonly string[]) {
@@ -450,11 +469,13 @@ export type Imported = { ok: true; written: number } | { ok: false; reason: stri
 
 /**
  * Apply a settings file's text. Only a key this build files in looks, playback
- * or yours is written, and one in logins only when the file says it includes
- * logins; a key in never is not written whatever the file says, and nor is one
- * this build has no group for. Each is written only if it is an envelope,
- * `{ v: number, data }`, and as exactly that. A key the file does not mention
- * is left as it is.
+ * or yours is written, and one in logins or withPlaylists only when the file
+ * says it includes logins; a key in never is not written whatever the file
+ * says, and nor is one this build has no group for. A file made without the
+ * box leaves this PC's favourites, recents, guide fixes and multi-view grid as
+ * they are, an older build's file that still carries them included. Each is
+ * written only if it is an envelope, `{ v: number, data }`, and as exactly
+ * that. A key the file does not mention is left as it is.
  *
  * All or nothing as far as the store allows: the keys are checked first, then
  * written, and a write the store refuses puts back every key already written.
@@ -472,7 +493,7 @@ export function applySettingsFile(text: string): Imported {
   for (const [key, value] of Object.entries(parsed.keys)) {
     const group = groupOf(key);
     if (!group || group === "never") continue;
-    if (group === "logins" && !parsed.includesLogins) continue;
+    if (WITH_BOX.includes(group) && !parsed.includesLogins) continue;
     if (!isEnvelope(value)) continue;
     todo.push({ key, raw: JSON.stringify({ v: value.v, data: value.data }) });
   }

@@ -191,9 +191,9 @@ export function SettingsModal({
   // `card`), so this waits for it, and then the page and its row are in the
   // DOM. The row is scrolled to the middle of the body, lit for FOUND_MS, and
   // takes focus from the card, which Radix gave it on opening. A row that
-  // isn't there is not an error: Playback without an AIOStreams shows a note
-  // in its place, a hidden carousel has no sources row. The page just opens,
-  // with nothing lit and focus on the card.
+  // isn't there is not an error: Playback with neither an AIOStreams nor a
+  // Jellyfin shows a note in its place, a hidden carousel has no sources row.
+  // The page just opens, with nothing lit and focus on the card.
   useEffect(() => {
     const body = bodyRef.current;
     if (!card || !body || !find) return;

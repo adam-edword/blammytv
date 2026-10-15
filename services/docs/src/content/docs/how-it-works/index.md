@@ -86,11 +86,14 @@ Diagnostics puts its last lines on your clipboard, for you to paste where you
 ask for help.
 
 Settings → App → Export Settings writes your settings to a file you choose:
-looks, playback, your lists, favourites and Continue Watching. Playlists and
-your AIOStreams manifest go in only if you tick the box that says the file
-then has your passwords in it, and Trakt, MyAnimeList, AIOStreams and Jellyfin
-sign-ins never do. Without the box, a poster address that carries a service's key is
-left out too. Import Settings reads one back.
+looks, playback, your lists and Continue Watching. Playlists and your
+AIOStreams manifest go in only if you tick the box that says the file then has
+your passwords in it, and your favourites, recents, guide fixes and multi-view
+grid go in with them, because they point at your playlists' channels. Trakt,
+MyAnimeList, AIOStreams and Jellyfin sign-ins never go in. Without the box, a
+poster address that carries a service's key is left out too. Import Settings
+reads one back, and a file without playlists leaves your favourites, recents,
+guide fixes and multi-view grid as they are.
 
 :::caution[Credentials are stored in the clear]
 Playlist passwords, portal MAC addresses and, if you use one, your AIOStreams

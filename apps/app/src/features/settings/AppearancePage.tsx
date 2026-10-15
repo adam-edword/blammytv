@@ -4,6 +4,7 @@ import { EYEBROW } from "../../ui/eyebrow";
 import { Segmented } from "../../ui/Segmented";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioConn } from "../aiojf/conn";
+import { loadJfConn } from "../jellyfin/store";
 import { HeroSourcesSection } from "./HeroSourcesSection";
 import { loadShowHero, saveShowHero } from "./showHero";
 import {
@@ -107,11 +108,14 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
 
   // What the catalog surfaces SHOW, moved off the AIOStreams tab: these
   // describe the app's appearance, not the connection that feeds it. Still
-  // gated on a configured manifest, because with none there are no cards,
-  // no VOD overlay and no rows for them to govern. Read once per mount, and
-  // a page mounts each time you arrive, so signing in on Sources reveals
-  // them on your way here.
-  const hasAddon = useRef(!!loadAioConn()).current;
+  // gated on a source, an AIOStreams or a Jellyfin, because with neither there
+  // are no cards, no VOD overlay and no rows for them to govern. Read once per
+  // mount, and a page mounts each time you arrive, so signing in on Sources
+  // reveals them on your way here. Hero Slider Sources is the one row that
+  // needs the AIOStreams itself: it picks that addon's catalogs, and a
+  // Jellyfin's hero is drawn from its libraries (jellyfin/vod.ts).
+  const hasAio = useRef(!!loadAioConn()).current;
+  const hasStream = useRef(hasAio || !!loadJfConn()).current;
 
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   const toggleMeta = (key: CardMetaField) => {
@@ -235,14 +239,14 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
         <Segmented role="tabs" label="Media" options={WORLD_TABS} value={world} onChange={setWorld} />
       </div>
 
-      {world === "stream" && !hasAddon && <SignInNote />}
+      {world === "stream" && !hasStream && <SignInNote />}
 
       {/* One section, not four. Each control keeps its own label, but the
         * 21px block headings and the rule between every one of them made a
         * four-item panel read like four pages. ONE section for the whole
         * panel. Chip groups stack (too wide to sit beside a label); the rest
         * are normal rows. How Stream PLAYS is on the Playback page. */}
-      {world === "stream" && hasAddon && (
+      {world === "stream" && hasStream && (
         <section className="settings-section">
           {/* Above the sources picker, because it decides whether that
             * picker means anything: sources FOR a hero that is not there
@@ -266,7 +270,7 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
             />
           </div>
 
-          {hero && <HeroSourcesSection />}
+          {hero && hasAio && <HeroSourcesSection />}
 
           <div className="customize-stack" data-setting="card-details">
             <div>

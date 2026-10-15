@@ -16,9 +16,9 @@ vi.mock("./account", () => ({ jfCall: net.call, readSignIn: net.signIn }));
 
 import { BASE, EP1, EP2, EP3, FIX, SEVERANCE, ZZZ, ZZZ_EP, item } from "./fixture";
 import type { JfItem } from "./items";
-import { forgetJf, JF_SYNCED, loadJf, noteSignIn } from "./store";
+import { forgetCount, forgetJf, JF_SYNCED, loadJf, noteSignIn } from "./store";
 import { forgetSeries } from "./series";
-import { forgetResume, syncJf } from "./sync";
+import { forgetResume, noteResumeJid, syncJf } from "./sync";
 import { TRAKT_SYNCED } from "../trakt/store";
 import { loadLedger, loadWatched, loadJfWatched, replaceJfWatched } from "../stream/watched";
 import { save } from "../../lib/storage";
@@ -315,6 +315,35 @@ describe("forgetResume", () => {
   it("does nothing when not signed in", async () => {
     await synced();
     forgetJf();
+    await forgetResume([card()]);
+    expect(net.call).not.toHaveBeenCalled();
+  });
+
+  it("resets the position of a play made since the last sync, once the play has named its item", async () => {
+    // No sync has seen this episode: only the report did.
+    noteResumeJid(SEV, `${SEV}:1:2`, EP2, forgetCount());
+    await forgetResume([card()]);
+    expect(net.call).toHaveBeenCalledTimes(1);
+    expect(net.call.mock.calls[0].slice(0, 2)).toEqual(["POST", `/UserItems/${EP2}/UserData`]);
+    expect(net.call.mock.calls[0][2].body).toEqual({ PlaybackPositionTicks: 0, Played: false });
+  });
+
+  it("keeps what a sync filed, and files a film under its title alone", async () => {
+    await synced();
+    noteResumeJid("tt2043923", undefined, "movie-jid", forgetCount());
+    expect(loadJf().resumeJids).toEqual({ [`${SEV}|${SEV}:1:2`]: EP2, "tt2043923|": "movie-jid" });
+  });
+
+  it("writes nothing for a play overtaken by a sign-out", async () => {
+    const gen = forgetCount();
+    forgetJf();
+    noteResumeJid(SEV, `${SEV}:1:2`, EP2, gen);
+    expect(loadJf().resumeJids).toBeUndefined();
+  });
+
+  it("still leaves a played play alone: it is a mark, never un-played from here", async () => {
+    noteResumeJid(SEV, `${SEV}:1:2`, EP2, forgetCount());
+    replaceJfWatched({ episodes: { [SEV]: [`${SEV}:1:2`] }, films: [] });
     await forgetResume([card()]);
     expect(net.call).not.toHaveBeenCalled();
   });

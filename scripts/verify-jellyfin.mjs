@@ -20,6 +20,11 @@
 // - Discover, with and without AIOStreams: the libraries are in the grid and
 //   the genre rail, a genre asks the server for that genre, a search finds
 //   your titles, and a card opens the server's file with no addon asked.
+// - Continue Watching: a card cleared after a play, with no sync since, still
+//   resets the server's position (the play itself names the item).
+// - With only a Jellyfin signed in, Settings → Playback and Appearance show
+//   Stream's rows (Hero Slider Sources, which picks AIOStreams catalogs, stays
+//   out) and Ctrl+K has Stream's places; with nothing signed in, neither.
 // - Clear All Login Info signs out, and takes the catalog mirror and the ids.
 //
 // Offline, as every harness is: every host but localhost is aborted.
@@ -636,6 +641,131 @@ await fake("/__reset", { method: "POST" });
   await closeSettings(p);
   check("a cleared card stays gone after the next sync", (await p.locator(".continue-card", { hasText: "Severance" }).count()) === 0 && ((await storeOf(p, "watching")) ?? []).every((w) => w.id !== "tt11280740"), JSON.stringify(await storeOf(p, "watching")));
   check("nothing in any of it carried the token to the page", !(await everything(p)).includes(p.native.st.token));
+  await p.context().close();
+}
+
+// ========================= Clearing the card of what you just played
+// The sync is what names the server's item for each Continue Watching card, and
+// it runs at launch, on focus after 15 minutes away, after a sign-in and on Sync
+// now. So a card from a play made since then is not in its list: the clear has to
+// know the item from the play itself, or the server keeps the position and the
+// next sync brings the card back.
+await fake("/__reset", { method: "POST" });
+{
+  const p = await openPage({ signed: true });
+  await p.locator('.stream-card[data-hint="Severance"]').first().click({ timeout: 15_000 });
+  await p.locator(".episode-card").first().waitFor({ timeout: 15_000 });
+  await p.locator(".episode-card").nth(2).click();
+  await p.locator(".vod-source").first().waitFor({ timeout: 15_000 });
+  await p.evaluate(() => ((window.__dur = 600), (window.__pos = 300)));
+  await fake("/__log", { method: "DELETE" });
+  const resumeReads = () => p.native.st.calls.filter(([c, a]) => c === "jf_request" && a.path === "/UserItems/Resume").length;
+  const syncedBefore = resumeReads();
+  await p.locator(".vod-source").first().click();
+  await waitFor(p, async () => (await reports()).some((c) => c.path === "/Sessions/Playing"), 20_000);
+  await p.evaluate(() => (window.__pos = 330));
+  await p.waitForTimeout(6000); // the 5s progress tick writes the position to Continue Watching
+  const ov = await p.locator(".theater-overlay").first().boundingBox();
+  await p.mouse.move(ov.x + ov.width / 2, ov.y + ov.height / 2);
+  await p.mouse.move(ov.x + ov.width / 2 + 20, ov.y + ov.height / 2 + 10);
+  await p.getByRole("button", { name: "Back", exact: true }).first().click({ timeout: 5000 });
+  await waitFor(p, async () => (await reports()).some((c) => c.path === "/Sessions/Playing/Stopped"), 10_000);
+  await goTo(p, "home");
+  const card = p.locator(".continue-card", { hasText: "Severance" }).first();
+  await card.waitFor({ timeout: 10_000 });
+  const kept = (await fake("/__state")).ud[EP3];
+  check(
+    "(set up) the episode was played part way and left: the server holds its position, and the card is there",
+    kept?.PlaybackPositionTicks > 0 && kept.Played === false && resumeReads() === syncedBefore,
+    JSON.stringify({ kept, reads: [syncedBefore, resumeReads()] }),
+  );
+  await card.focus();
+  await p.keyboard.press("Delete");
+  const posted = async () => (await faked()).filter((c) => c.method === "POST" && c.path === `/UserItems/${EP3}/UserData`);
+  const sent = await waitFor(p, async () => (await posted()).length > 0, 8000);
+  const body = p.native.st.calls.filter(([c, a]) => c === "jf_request" && a.method === "POST" && a.path === `/UserItems/${EP3}/UserData`)[0]?.[1]?.body;
+  check(
+    "clearing it with no sync since the play resets the server's position for that episode",
+    sent && body?.PlaybackPositionTicks === 0 && body.Played === false && resumeReads() === syncedBefore,
+    JSON.stringify({ sent, body, reads: [syncedBefore, resumeReads()] }),
+  );
+  const ud = (await fake("/__state")).ud[EP3];
+  check("  and the server took it: no position, not played", ud?.PlaybackPositionTicks === 0 && ud.Played === false, JSON.stringify(ud));
+  check("  and the card stays cleared", (await p.locator(".continue-card", { hasText: "Severance" }).count()) === 0);
+  await p.context().close();
+}
+
+// ============ Stream's settings and the palette, with only a Jellyfin
+// Stream works on a Jellyfin alone, and its rows change what a Jellyfin play
+// does (skipping, the autoplay countdown, the row size), so Settings shows them
+// and Ctrl+K has Stream's places: neither waits for an AIOStreams.
+await fake("/__reset", { method: "POST" });
+{
+  const p = await openPage({ signed: true });
+  await p.locator(".media-row__title", { hasText: /^Movies$/ }).first().waitFor({ timeout: 15_000 });
+  const places = async () => {
+    await p.keyboard.press("Control+k");
+    await p.locator(".palette").waitFor({ timeout: 4000 });
+    const names = await p.evaluate(() => [...document.querySelectorAll(".palette .mvpick__row .mvpick__nametext")].map((r) => r.textContent));
+    await p.keyboard.press("Escape");
+    await p.locator(".palette").waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+    return names;
+  };
+  const named = await places();
+  check("Ctrl+K with only a Jellyfin has Stream, Discover and Library to go to", ["Stream", "Discover", "Library"].every((n) => named.includes(n)), JSON.stringify(named));
+
+  await openSettings(p);
+  await p.getByRole("tab", { name: "Playback", exact: true }).click();
+  await p.waitForTimeout(400);
+  const PLAY = ["one-click-play", "source-failover", "autoplay-next", "up-next-card", "skipping", "preferred-language"];
+  const playHave = await p.evaluate((ids) => ids.map((id) => document.querySelectorAll(`.settings__body [data-setting="${id}"]`).length), PLAY);
+  const playText = (await p.locator(".settings__body").innerText()).replace(/\n/g, " ");
+  check(
+    "  Playback shows Autoplay Next Episode and the rest of Stream's rows, not the sign-in note",
+    playHave.every((n) => n === 1) && /Autoplay Next Episode/.test(playText) && !/Sign in to your/.test(playText),
+    JSON.stringify({ playHave, text: playText.slice(0, 120) }),
+  );
+
+  await p.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await p.waitForTimeout(400);
+  const LOOK = ["featured-carousel", "card-details", "player-overlay", "row-size"];
+  const lookHave = await p.evaluate((ids) => ids.map((id) => document.querySelectorAll(`.settings__body [data-setting="${id}"]`).length), LOOK);
+  const lookText = (await p.locator(".settings__body").innerText()).replace(/\n/g, " ");
+  check(
+    "  Appearance's Stream pill shows the carousel, card details, player overlay and row size, not the sign-in note",
+    lookHave.every((n) => n === 1) && !/Sign in to your/.test(lookText),
+    JSON.stringify({ lookHave, text: lookText.slice(0, 120) }),
+  );
+  // The hero comes from the library with no addon, so the carousel is real here;
+  // what stays out is the picker of AIOStreams catalogs, which has none to list.
+  const carouselOn = await p.evaluate(() => document.querySelector('[data-setting="featured-carousel"] [role=switch]')?.getAttribute("aria-checked") ?? null);
+  check(
+    "  and Hero Slider Sources stays out, with the carousel on: it picks AIOStreams catalogs",
+    carouselOn === "true" && (await p.locator('[data-setting="hero-sources"]').count()) === 0,
+    String(carouselOn),
+  );
+  await closeSettings(p);
+  await p.context().close();
+}
+{
+  // The control: signed in to nothing, neither the places nor the rows appear.
+  const p = await openPage({});
+  await p.waitForSelector(".navcap", { timeout: 20_000 });
+  await p.keyboard.press("Control+k");
+  await p.locator(".palette").waitFor({ timeout: 4000 });
+  const named = await p.evaluate(() => [...document.querySelectorAll(".palette .mvpick__row .mvpick__nametext")].map((r) => r.textContent));
+  await p.keyboard.press("Escape");
+  await p.locator(".palette").waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+  check("(control) Ctrl+K with nothing signed in has none of Stream's places", named.includes("Settings") && !["Stream", "Discover", "Library"].some((n) => named.includes(n)), JSON.stringify(named));
+  await openSettings(p);
+  await p.getByRole("tab", { name: "Playback", exact: true }).click();
+  await p.waitForTimeout(400);
+  const text = (await p.locator(".settings__body").innerText()).replace(/\n/g, " ");
+  check(
+    "  and Playback says to sign in to an AIOStreams or a Jellyfin, with no Stream rows",
+    /Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream/.test(text) && (await p.locator('.settings__body [data-setting="autoplay-next"]').count()) === 0,
+    text.slice(0, 160),
+  );
   await p.context().close();
 }
 

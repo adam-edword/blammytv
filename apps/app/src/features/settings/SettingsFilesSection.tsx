@@ -14,8 +14,9 @@ import { NOT_A_SETTINGS_FILE, applySettingsFile, buildSettingsFile, settingsFile
  * What goes in the file, and what an import will take from one, is
  * settingsExport.ts. Playlists and the AIOStreams manifest have passwords in
  * them, so they go in only when the box is ticked, and it is off every time
- * this page opens. The Trakt, MyAnimeList and AIOStreams sign-ins never go in a
- * file.
+ * this page opens. So do the favourites, recents, guide fixes and multi-view
+ * grid: they name the playlists' channels, and a playlist id is this PC's own.
+ * The Trakt, MyAnimeList, AIOStreams and Jellyfin sign-ins never go in a file.
  *
  * The file dialogs are native's (`settings_export`, `settings_import`): the
  * page never names a path, and it is handed only the file name, to say "Saved
@@ -119,10 +120,11 @@ function ExportRow({ files }: { files: Files }) {
       <div>
         <h4 className="customize-row__title">Export Settings</h4>
         <p className="settings__section-note settings__section-note--dim">
-          Saves your looks, playback settings, lists, favourites, Continue
-          Watching and the rest to a file you choose, to move to another PC or
-          keep as a backup. Your Trakt, MyAnimeList, AIOStreams and Jellyfin
-          sign-ins never go in it.
+          Saves your looks, playback settings, lists, Continue Watching and the
+          rest to a file you choose, to move to another PC or keep as a backup.
+          Favourites, recents, guide fixes and the multi-view grid belong to
+          your playlists, so they go in only when you tick the box. Your Trakt,
+          MyAnimeList, AIOStreams and Jellyfin sign-ins never go in it.
         </p>
         <label className="settings-check">
           <input
@@ -207,7 +209,10 @@ function ImportRow({ files }: { files: Files }) {
         <p className="settings__section-note settings__section-note--dim">
           Your settings are replaced by the ones in a file from Export. Your
           sign-ins stay. When the file has playlists and AIOStreams, they
-          replace yours. The window restarts to take them.
+          replace yours, along with its favourites, recents, guide fixes and
+          multi-view grid. A file without playlists leaves your favourites,
+          recents, guide fixes and multi-view grid as they are. The window
+          restarts to take the file.
         </p>
         {problem && (
           <p className="settings-said settings-said--error" role="alert">

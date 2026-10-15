@@ -28,10 +28,12 @@
 //     with a count for a repeat, the console gets them as it always did, and a
 //     plain browser sends nothing;
 //   - Export and Import Settings (P4c): a file with the settings and no login
-//     (no playlist, no manifest, no sign-in) unless the box is ticked, and then
-//     the playlists and the manifest but still no sign-in; an import of that file
+//     (no playlist, no manifest, no sign-in, and no favourites, which name the
+//     playlists' channels) unless the box is ticked, and then the playlists, the
+//     manifest and the favourites but still no sign-in; an import of that file
 //     into a fresh page restores a look, a list and the playlists and reloads
-//     the window; a Trakt, MyAnimeList or TMDB key in the file changes nothing; a
+//     the window; a file without playlists leaves this PC's favourites and
+//     recents as they were; a Trakt, MyAnimeList or TMDB key in the file changes nothing; a
 //     file that is not BlammyTV's changes nothing and says so; the two dialogs
 //     are native's, stubbed here, and an older native greys both buttons.
 //
@@ -1421,10 +1423,11 @@ let UNTICKED = null;
     JSON.stringify({ ...UNTICKED, keys: Object.keys(UNTICKED.keys) }),
   );
   check(
-    "  it holds the look, the list, the favourites and the playback setting, each as the stored envelope",
+    "  it holds the look, the list and the playback setting, each as the stored envelope, and not the favourites: they name the old PC's playlists' channels, and travel with the playlists",
     JSON.stringify(UNTICKED.keys.accent) === JSON.stringify({ v: 2, data: "#3366cc" }) &&
       UNTICKED.keys.lists?.data?.[0]?.name === "Weekend" &&
-      JSON.stringify(UNTICKED.keys.favorites) === JSON.stringify({ v: 1, data: ["p1:101", "p1:102"] }) &&
+      !hasKey(UNTICKED, "favorites") &&
+      !first.json.includes("p1:101") &&
       UNTICKED.keys.oneClickPlay?.data === true &&
       UNTICKED.keys.startupTab?.data === "live",
     JSON.stringify(Object.keys(UNTICKED.keys)),
@@ -1487,6 +1490,11 @@ let UNTICKED = null;
       JSON.stringify(TICKED.keys.heroSources?.data) === JSON.stringify(["movie:fake-catalog"]),
     JSON.stringify(Object.keys(TICKED.keys)),
   );
+  check(
+    "  and the favourites that name those playlists' channels, as stored",
+    JSON.stringify(TICKED.keys.favorites) === JSON.stringify({ v: 1, data: ["p1:101", "p1:102"] }),
+    JSON.stringify(TICKED.keys.favorites),
+  );
   const tkW = TICKED.keys.watching?.data ?? [];
   const tkL = TICKED.keys.lists?.data?.[0]?.entries ?? [];
   check(
@@ -1503,7 +1511,9 @@ let UNTICKED = null;
     "  and everything else the unticked file had, unchanged (the two keys that hold artwork have the same entries, with the artwork back)",
     Object.keys(UNTICKED.keys).every((k) => ["watching", "lists"].includes(k) || JSON.stringify(TICKED.keys[k]) === JSON.stringify(UNTICKED.keys[k])) &&
       ["watching", "lists"].every((k) => TICKED.keys[k]?.v === UNTICKED.keys[k]?.v) &&
-      Object.keys(TICKED.keys).length === Object.keys(UNTICKED.keys).length + 3,
+      // The box adds the playlists, the manifest, the hero sources and the
+      // favourites (the one key of withPlaylists this harness seeds).
+      Object.keys(TICKED.keys).length === Object.keys(UNTICKED.keys).length + 4,
     `${Object.keys(UNTICKED.keys).length} / ${Object.keys(TICKED.keys).length}`,
   );
 
@@ -1592,7 +1602,9 @@ let UNTICKED = null;
 {
   // The same, but a file made with the box off: this PC's own playlists stay.
   const own = { v: 1, data: [{ kind: "xtream", id: "mine", name: "Mine", enabled: true, server: "http://mine.example.invalid:8080", username: "mine", password: "MINE-NOT-REAL" }] };
-  const { ctx, page } = await open({ tauri: true, store: { ...NEW_PC, playlists: own, aiostreams: { v: 1, data: "http://mine.example.invalid/m.json" } }, native: { importAnswer: JSON.stringify(UNTICKED) } });
+  const ownFavs = { v: 1, data: ["mine:7", "mine:8"] };
+  const ownRecents = { v: 1, data: ["mine:8"] };
+  const { ctx, page } = await open({ tauri: true, store: { ...NEW_PC, playlists: own, aiostreams: { v: 1, data: "http://mine.example.invalid/m.json" }, favorites: ownFavs, recents: ownRecents }, native: { importAnswer: JSON.stringify(UNTICKED) } });
   await openApp(page);
   await mark(page);
   await pressImport(page, { reloads: true });
@@ -1600,10 +1612,27 @@ let UNTICKED = null;
     "a file made with the box off brings the look and the lists and leaves this PC's playlists and manifest where they were",
     (await storedJson(page, "accent")).data === "#3366cc" && (await storedJson(page, "lists")).data[0].name === "Weekend" && JSON.stringify(await storedJson(page, "playlists")) === JSON.stringify(own) && (await storedJson(page, "aiostreams")).data === "http://mine.example.invalid/m.json",
   );
+  check(
+    "  and this PC's own favourites and recents, which name its playlists' channels, are exactly as they were",
+    JSON.stringify(await storedJson(page, "favorites")) === JSON.stringify(ownFavs) && JSON.stringify(await storedJson(page, "recents")) === JSON.stringify(ownRecents),
+  );
   const arrived = (await storedJson(page, "watching")).data;
   check(
     "  and Continue Watching comes in as it was written: the entry with no art for the RPDB one, the metahub one with its art",
     arrived.length === 4 && arrived[0].title === "Keyed Film" && !("art" in arrived[0]) && arrived[1].art === METAHUB_ART && arrived[2].art === AIO_ART_OK && !("art" in arrived[3]) && !SECRETS.some((x) => JSON.stringify(arrived).includes(x)),
+  );
+  await ctx.close();
+}
+{
+  // A file from a build before the favourites travelled with the playlists: no box, and the favourites in it anyway.
+  const legacy = { ...UNTICKED, keys: { ...UNTICKED.keys, favorites: OLD_PC.favorites } };
+  const mine = { v: 1, data: ["mine:7"] };
+  const { ctx, page } = await open({ tauri: true, store: { ...NEW_PC, favorites: mine }, native: { importAnswer: JSON.stringify(legacy) } });
+  await openApp(page);
+  await pressImport(page, { reloads: true });
+  check(
+    "an older build's file, made with the box off but with favourites in it: this PC's favourites stay, and the look still comes in",
+    JSON.stringify(await storedJson(page, "favorites")) === JSON.stringify(mine) && (await storedJson(page, "accent")).data === "#3366cc",
   );
   await ctx.close();
 }
