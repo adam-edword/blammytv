@@ -57,6 +57,61 @@ server:
 - **A Jellyfin-side Trakt plugin** would count a play from here twice. The
   docs say so; there is no in-app note.
 
+## Against AIOStreams' own Jellyfin client (2026-10-15)
+
+Adam asked whether ours works the way AIOStreams' new app does. Read from
+Viren070/AIOStreams at `59a0a02` (static, nothing run; AGPL, so ideas only).
+Their `packages/web` is a general Jellyfin client, with extras when the
+server is an AIOStreams, and their desktop app draws libmpv under a
+transparent web view, the same shape as ours. Paths below are under their
+`packages/web/src/`.
+
+**The same:** password and Quick Connect sign-in; `/Sessions/Logout` on
+sign-out; direct play of the file only, no transcoding
+(`lib/playback/stream.ts`); reports every 10 s with `IsPaused`, `CanSeek`
+and `PlayMethod: DirectPlay`, and the server's own thresholds deciding
+played (`lib/playback/reporter.ts:43-70`); `MediaSegments` for skipping;
+Next Up with `EnableResumable=false`; clearing Continue Watching as position
+0; a `/web/index.html` address cut back to the server (`lib/servers.ts:137-157`,
+ours `jf.rs:424-443`).
+
+**Where ours is safer, and stays that way:** their token is plain JSON in
+localStorage, in jellyfin-web's own `jellyfin_credentials` shape
+(`lib/credentials.ts`), and rides in every stream URL as `ApiKey`
+(`lib/playback/stream.ts:8-19`). Ours is in Credential Manager, never
+reaches the page, and goes to mpv as a header only when the server refuses
+the stream without it. Their client can call anything the token can; ours is
+an allow list, which matters because an admin's token can delete media.
+
+**What they have that we don't**, roughly by worth:
+
+1. **Sized images.** Every image asks for `maxWidth` (the display width in
+   device pixels, rounded to fixed steps) and `quality=90`
+   (`lib/images.ts:7-34`). Ours asks for the original (`items.ts:56-64`).
+   Not measured on Adam's server.
+2. **A stop that couldn't be sent is kept**, and sent as the position once
+   the server answers again (`lib/playback/reporter.ts:84-146`). Ours drops
+   it, so a network blip at the end of a play loses where you were.
+3. **Watched and unwatched by hand** (`POST`/`DELETE /UserPlayedItems`,
+   `lib/queries.ts:817-836`), and "watched up to here". Our guard already
+   allows the calls; nothing in the app makes them.
+4. **Favourites**: a heart (`/UserFavoriteItems/{id}`, `lib/queries.ts:909-921`)
+   and a Favourites page.
+5. **Live watch state**: the server's WebSocket `UserDataChanged` refreshes
+   what's watched within a second (`lib/server-events.ts`). Ours waits for
+   the next sync.
+6. **Track choice from the server**: the Jellyfin user's own audio and
+   subtitle settings (`lib/user-config.ts`), and the picks remembered per
+   show in `DisplayPreferences` (`lib/playback/show-tracks.ts`).
+7. **A richer title page**: person pages, similar titles
+   (`/Items/{id}/Similar`), trailers, ratings, studios.
+8. **"Who's watching?"**: the server's public users as a grid at sign-in
+   (`/Users/Public`, `pages/sign-in.tsx:487-491`).
+9. Several servers (D7 kept one), offline downloads (their desktop and
+   Android shells only), search suggestions and history.
+
+Not worth taking: the token in localStorage and in stream URLs.
+
 ## Start here
 
 You are a new session with none of the context that wrote this. In order:
