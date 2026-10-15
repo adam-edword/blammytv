@@ -20,8 +20,17 @@ mod trakt;
 
 #[cfg(windows)]
 mod credman;
+// The same three calls on the Mac, over the Keychain.
+#[cfg(target_os = "macos")]
+#[path = "keychain.rs"]
+mod credman;
 #[cfg(windows)]
 mod inv;
+// The Mac's video surface, same job and same three calls as inv.rs.
+#[cfg(target_os = "macos")]
+mod inv_mac;
+#[cfg(target_os = "macos")]
+use inv_mac as inv;
 #[cfg(windows)]
 mod mvaudio_out;
 #[cfg(windows)]
@@ -133,6 +142,17 @@ fn popout_open(
 
 // ---- Inverted-layer player (THE architecture; see inv.rs). Rects are PHYSICAL px. ----
 
+/// What inv::open binds the video to: the HWND on Windows, the NSWindow on
+/// macOS (inv_mac.rs), both as the integer they are.
+#[cfg(windows)]
+fn native_handle(window: &tauri::WebviewWindow) -> Result<isize, String> {
+    Ok(window.hwnd().map_err(|e| e.to_string())?.0 as isize)
+}
+#[cfg(target_os = "macos")]
+fn native_handle(window: &tauri::WebviewWindow) -> Result<isize, String> {
+    Ok(window.ns_window().map_err(|e| e.to_string())? as isize)
+}
+
 // Flat on purpose: these names ARE the IPC payload, and the frontend ships
 // apart from this binary (two-tier updates), so bundling them into a struct
 // would break every build on the other side of a mismatch.
@@ -158,9 +178,9 @@ fn inv_open(
     // Native says what mpv may open, not only the frontend (audit X1).
     mpvurl::http_only(&url)?;
     let agent = mpvagent::clean(user_agent)?;
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
-        let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
+        let hwnd = native_handle(&window)?;
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .run_on_main_thread(move || {
@@ -179,7 +199,7 @@ fn inv_open(
             .map_err(|e| e.to_string())?;
         rx.recv().map_err(|e| e.to_string())?
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (window, url, x, y, w, h, start, live, agent);
         Ok(())
@@ -188,14 +208,14 @@ fn inv_open(
 
 #[tauri::command]
 fn inv_set_rect(window: tauri::WebviewWindow, x: i32, y: i32, w: u32, h: u32) -> Result<(), String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         window
             .run_on_main_thread(move || inv::set_rect(x, y, w, h))
             .map_err(|e| e.to_string())?;
         Ok(())
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (window, x, y, w, h);
         Ok(())
@@ -204,7 +224,7 @@ fn inv_set_rect(window: tauri::WebviewWindow, x: i32, y: i32, w: u32, h: u32) ->
 
 #[tauri::command]
 fn inv_stop(window: tauri::WebviewWindow) -> Result<(), String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         let (tx, rx) = std::sync::mpsc::channel();
         window
@@ -216,7 +236,7 @@ fn inv_stop(window: tauri::WebviewWindow) -> Result<(), String> {
         rx.recv().map_err(|e| e.to_string())?;
         Ok(())
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = window;
         Ok(())
@@ -1104,6 +1124,22 @@ fn mv_audio_stats() -> mvaudio::Stats {
     mvaudio::stats()
 }
 
+/// What the Jellyfin side lists this device as: Windows' COMPUTERNAME, or the
+/// Mac's name from scutil ("Mac" if that says nothing).
+fn computer_name() -> String {
+    #[cfg(target_os = "macos")]
+    return std::process::Command::new("scutil")
+        .args(["--get", "ComputerName"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(|| "Mac".into());
+    #[cfg(not(target_os = "macos"))]
+    std::env::var("COMPUTERNAME").unwrap_or_default()
+}
+
 /// Trakt (plan 015): one client for the run. Its client id is compiled in
 /// by build.rs from apps/app/.env.local (TRAKT_CLIENT_ID; Trakt no longer
 /// issues a secret) and is empty in a build without it, which then says
@@ -1122,8 +1158,8 @@ fn trakt_client() -> &'static std::sync::Arc<trakt::Trakt> {
             auth_base: "https://auth.trakt.tv".into(),
             user_agent: format!("BlammyTV/{}", env!("CARGO_PKG_VERSION")),
         };
-        #[cfg(windows)]
-        let vault: Box<dyn trakt::Vault> = Box::new(trakt::WindowsVault {
+        #[cfg(any(windows, target_os = "macos"))]
+        let vault: Box<dyn trakt::Vault> = Box::new(trakt::SystemVault {
             target: if tauri::is_dev() {
                 "BlammyTV/trakt-dev"
             } else {
@@ -1131,7 +1167,7 @@ fn trakt_client() -> &'static std::sync::Arc<trakt::Trakt> {
             }
             .into(),
         });
-        #[cfg(not(windows))]
+        #[cfg(not(any(windows, target_os = "macos")))]
         let vault: Box<dyn trakt::Vault> = Box::new(trakt::MemoryVault::default());
         trakt::Trakt::new(cfg, http_client().clone(), vault)
     })
@@ -1188,8 +1224,8 @@ fn mal_client() -> &'static std::sync::Arc<mal::Mal> {
             sign_in_for: std::time::Duration::from_secs(600),
             user_agent: format!("BlammyTV/{}", env!("CARGO_PKG_VERSION")),
         };
-        #[cfg(windows)]
-        let vault: Box<dyn trakt::Vault> = Box::new(mal::WindowsVault {
+        #[cfg(any(windows, target_os = "macos"))]
+        let vault: Box<dyn trakt::Vault> = Box::new(mal::SystemVault {
             target: if tauri::is_dev() {
                 "BlammyTV/mal-dev"
             } else {
@@ -1197,7 +1233,7 @@ fn mal_client() -> &'static std::sync::Arc<mal::Mal> {
             }
             .into(),
         });
-        #[cfg(not(windows))]
+        #[cfg(not(any(windows, target_os = "macos")))]
         let vault: Box<dyn trakt::Vault> = Box::new(trakt::MemoryVault::default());
         mal::Mal::new(cfg, http_client().clone(), vault)
     })
@@ -1257,10 +1293,10 @@ fn aiojf_client() -> &'static std::sync::Arc<aiojf::Aiojf> {
         let cfg = aiojf::Config {
             app_version: env!("CARGO_PKG_VERSION").to_string(),
             // Windows sets it; the header says "Windows" when it is absent.
-            device_name: std::env::var("COMPUTERNAME").unwrap_or_default(),
+            device_name: computer_name(),
         };
-        #[cfg(windows)]
-        let vault: Box<dyn aiojf::Vault> = Box::new(aiojf::WindowsVault {
+        #[cfg(any(windows, target_os = "macos"))]
+        let vault: Box<dyn aiojf::Vault> = Box::new(aiojf::SystemVault {
             target: if tauri::is_dev() {
                 "BlammyTV/aiostreams-dev"
             } else {
@@ -1268,7 +1304,7 @@ fn aiojf_client() -> &'static std::sync::Arc<aiojf::Aiojf> {
             }
             .into(),
         });
-        #[cfg(not(windows))]
+        #[cfg(not(any(windows, target_os = "macos")))]
         let vault: Box<dyn aiojf::Vault> = Box::new(aiojf::MemoryVault::default());
         aiojf::Aiojf::new(cfg, http_client().clone(), vault)
     })
@@ -1881,6 +1917,23 @@ pub fn run() {
                         }
                         let _ = std::fs::write(p, b"1");
                     }
+                }
+                // macOS: make the video view and the player once the window
+                // is up, so the first play is not the one that pays for them
+                // (a half-second black and stutter on the main thread).
+                #[cfg(target_os = "macos")]
+                {
+                    let win = win.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+                        let on_main = win.clone();
+                        let _ = win.run_on_main_thread(move || {
+                            let warmed = native_handle(&on_main).and_then(inv::warm_up);
+                            if let Err(e) = warmed {
+                                log::warn!("[mpv] warm-up skipped: {e}");
+                            }
+                        });
+                    });
                 }
             }
 

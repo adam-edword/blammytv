@@ -96,3 +96,15 @@ windows = { version = "0.61", features = [
     "Win32_Media_Audio",
     "Win32_System_Com",
 ] }
+
+# The Mac's video surface (inv_mac.rs): an NSOpenGLView under the webview that
+# libmpv's render API draws into. All of these are already in the tree via
+# tauri. The webview is made transparent here (inv_mac.rs), not with Tauri's
+# `macOSPrivateApi`: that needs a `tauri` feature in the shared dependency
+# line, which the Windows build's allowlist check would then reject.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSOpenGL", "NSOpenGLView", "NSView", "NSResponder", "NSWindow", "NSScreen", "NSColor"] }
+objc2-foundation = { version = "0.3", features = ["NSGeometry", "NSArray", "NSString", "NSValue", "NSKeyValueCoding"] }
+# The Keychain (keychain.rs). Already in the tree: reqwest's native-tls uses it.
+security-framework = "3"
