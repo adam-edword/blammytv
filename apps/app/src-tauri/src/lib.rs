@@ -1799,13 +1799,16 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
-// Buy links: open a checkout URL in the SYSTEM browser. The webview blocks
-// target=_blank navigation by design, so this command is the app's only
-// external-nav path. https-only — nothing else has business leaving the app.
+// Open a web page in the SYSTEM browser: Trakt's and MAL's sign-in pages,
+// and your AIOStreams configure page. The webview blocks target=_blank
+// navigation by design, so this command is the app's only external-nav
+// path. Web pages only, no other scheme. http too: an AIOStreams on your
+// own network is often served without TLS, and its configure page is where
+// the sign-in code is approved.
 #[tauri::command]
 fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
-    if !url.starts_with("https://") {
-        return Err("only https urls can be opened".into());
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("only web pages can be opened".into());
     }
     use tauri_plugin_opener::OpenerExt;
     app.opener()

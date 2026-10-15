@@ -24,7 +24,8 @@ installs.
   resume points come back into Continue Watching, with Next Up and Upcoming
   rows under it. Sync now is in Settings.
 - Skip Intro uses AIOStreams' own markers where AniSkip has none.
-- Next Up no longer repeats what Continue Watching already shows.
+- Next Up no longer lists an episode you're part way through: that one is
+  in Continue Watching.
 
 ### Jellyfin
 
@@ -32,7 +33,7 @@ installs.
   Jellyfin signs in by user name and password or by Quick Connect. The
   sign-in is kept in Windows Credential Manager, never in a settings file,
   and Disconnect and Clear All Login Info sign this device out on the server
-  too. Tested on Jellyfin 12.x.
+  too. Built against Jellyfin 12.2.
 - **Its libraries are rows.** Each movie and show library is a row on the
   Stream home and a catalog in Discover, with search and genres. A title in
   both your Jellyfin and AIOStreams is two cards, and the one you click is
@@ -46,7 +47,8 @@ installs.
   under Continue Watching.
   Clearing a card clears the server's position too. Skip Intro, Recap and
   Credits use the server's own markers.
-- Nothing from Jellyfin is sent to Trakt or MyAnimeList.
+- Watched marks from your server never go to Trakt or MyAnimeList. What you
+  play from it does, like any source.
 
 ### Stream and the player
 

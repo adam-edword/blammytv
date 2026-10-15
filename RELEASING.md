@@ -309,10 +309,11 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    clickable), and only the first six lines show.
 
    **Push `main` only when the release is going out.** A push to `main`
-   deploys the site and the docs (`.github/workflows/deploy-pages.yml`), so
-   a `main` pushed ahead of a release that is then held puts docs for
-   features nobody has yet in front of everyone (2026-10-14, the held
-   0.11.49).
+   publishes the app's web build to GitHub Pages
+   (`.github/workflows/deploy-pages.yml`), so a `main` pushed ahead of a
+   release that is then held (2026-10-14, the held 0.11.49) puts features
+   nobody has installed there. It does NOT put the docs or the website live:
+   those deploy from their own branches, in step 6.
 
 4. **Publish the GitHub Release** (GitHub → Releases → Draft a new release):
    - Tag: `v<version>` (e.g. `v0.2.0`).
@@ -334,6 +335,14 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    same for `frontend.json` if the release published one. Eight seconds, and
    it is the difference between "I published a release" and "the release
    works".
+
+6. **Put the docs and the website live.** Coolify serves docs.eddtv.org from
+   the `docs` branch and the website from `website`
+   (`services/docs/README.md`, `services/site/README.md`), and neither moves
+   when `main` does. Bring each up to date with `main`: a fast-forward when
+   it is one (`git push origin main:docs`), otherwise merge `main` into it and
+   push. Neither should ever hold a commit `main` doesn't have. Then open
+   docs.eddtv.org and check a page that is new in this release is there.
 
 ## Frontend-only release (the hot channel, plan 008)
 
