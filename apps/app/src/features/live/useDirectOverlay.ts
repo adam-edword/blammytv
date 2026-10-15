@@ -190,7 +190,13 @@ export function useDirectOverlay(
 
   // Status poll while a stream is open; a channel switch re-arms loading.
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      // Armed for the NEXT stream before it renders: its overlay reads this
+      // in a state initializer, and a stale false put the whole control bar
+      // on screen for a frame before the effect below flipped it back.
+      s.loading = true;
+      return;
+    }
     s.loading = true;
     s.dead = false;
     s.endedFired = false;
