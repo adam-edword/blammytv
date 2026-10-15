@@ -49,9 +49,11 @@ Browsing over the sign-in is not quite the same as browsing over a manifest:
 
 If any of that gets in your way, the manifest still works. See below.
 
-## Sync
+## Where you left off
 
-Signing in also syncs what you watch with your other AIOStreams apps:
+Signing in also lets you pick up where you left off in any of your AIOStreams
+apps. It isn't a watch history: for that, connect Trakt or MyAnimeList in
+**Settings → Accounts**.
 
 - **What you play here shows in AIOStreams' other apps**, with how far you got.
   Something you finish is marked played.

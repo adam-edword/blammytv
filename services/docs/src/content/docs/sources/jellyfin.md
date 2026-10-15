@@ -62,9 +62,11 @@ genre filter (they use the calls Jellyfin's own API documents), subtitle files
 in the real player, and artwork in the real app window.
 :::
 
-## Sync
+## Where you left off
 
-Signing in also syncs what you watch, both ways:
+Signing in also lets you pick up where you left off in any of your Jellyfin
+apps. It isn't a watch history: for that, connect Trakt or MyAnimeList in
+**Settings → Accounts**.
 
 - **What you play here is reported to your server**, with how far you got.
   The server's own rules decide when something counts as finished, the same

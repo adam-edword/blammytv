@@ -112,6 +112,16 @@ an allow list, which matters because an admin's token can delete media.
 
 Not worth taking: the token in localStorage and in stream URLs.
 
+**Decided 2026-10-15: none of the above gets built.** Adam runs Jellyfin
+only as a test server, not day to day, so nobody here would use these or
+check them in real use. Jellyfin stays as built. Also not built: a switch
+for "this server sends my plays to Trakt" (to stop a double count when a
+Jellyfin Trakt plugin or an AIOStreams tracker addon also reports). Nobody
+has seen that double, and the docs' caution notes on both source pages
+already cover it. Instead, the app's copy for AIOStreams and Jellyfin now
+says "pick up where you left off" rather than "syncs what you watch", so
+they no longer read like two more trackers beside Trakt and MyAnimeList.
+
 ## Start here
 
 You are a new session with none of the context that wrote this. In order:

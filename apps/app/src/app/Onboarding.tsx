@@ -768,7 +768,8 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
             </h1>
             <p className="onb-sub" style={idx(1)}>
               Type your AIOStreams address and approve the code it gives you. No manifest URL to
-              paste. Signing in also syncs what you watch with your other AIOStreams apps.
+              paste. Signing in also lets you pick up where you left off in any of your
+              AIOStreams apps.
             </p>
             <input
               className="onb-input"
