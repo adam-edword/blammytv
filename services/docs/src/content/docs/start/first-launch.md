@@ -13,8 +13,8 @@ Type your AIOStreams address, like `aiostreams.example.com`, and press
 **Continue**. BlammyTV shows a 6-digit code. Press **Open AIOStreams**, then on
 your configure page choose **Save & Install**, **Jellyfin apps**, **Connect**,
 and enter the code. BlammyTV notices on its own and moves on. This powers the
-**Stream** tab, which is movies and shows. Signing in also lets you pick up
-where you left off in any of your AIOStreams apps.
+**Stream** tab, which is movies and shows. Once you're in, any app signed in
+to your AIOStreams picks up where you left off.
 
 If your instance has its Jellyfin side off, press **Use a manifest URL
 instead** and paste your manifest URL. BlammyTV will test it before accepting

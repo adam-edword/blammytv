@@ -827,7 +827,7 @@ if (!FAST) {
   const sub = await page.$$eval(".onb-sub", (els) => els.map((e) => e.textContent).join(" "));
   const input = page.getByPlaceholder("aiostreams.example.com", { exact: true });
   check("step 1 is the sign-in: a title, the pick-up-where-you-left-off line, an address field",
-    (await titleOf(page)) === "Sign in to AIOStreams" && /Signing in also lets you pick up where you left off in any of your AIOStreams apps\./.test(sub) && (await input.count()) === 1,
+    (await titleOf(page)) === "Sign in to AIOStreams" && /Once you're in, any app signed in to your AIOStreams picks up where you left off\./.test(sub) && (await input.count()) === 1,
     JSON.stringify({ title: await titleOf(page), sub }));
   check("  the manifest and \"I'll do this later\" are one click away, quietly",
     (await page.getByRole("button", { name: "Use a manifest URL instead" }).count()) === 1 &&

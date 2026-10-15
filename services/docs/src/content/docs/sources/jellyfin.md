@@ -64,9 +64,9 @@ in the real player, and artwork in the real app window.
 
 ## Where you left off
 
-Signing in also lets you pick up where you left off in any of your Jellyfin
-apps. It isn't a watch history: for that, connect Trakt or MyAnimeList in
-**Settings → Accounts**.
+Once you're in, any app signed in to your server as you picks up where you
+left off, BlammyTV included. It isn't a watch history: for that, connect Trakt
+or MyAnimeList in **Settings → Accounts**.
 
 - **What you play here is reported to your server**, with how far you got.
   The server's own rules decide when something counts as finished, the same

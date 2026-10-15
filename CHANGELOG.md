@@ -19,10 +19,10 @@ installs.
   approve on its configure page. The sign-in is kept in Windows Credential
   Manager, and a manifest URL you'd stored is deleted. "Use a manifest URL
   instead" is still there.
-- **Pick up where you left off in any of your AIOStreams apps.** What you
-  play, how far in and what you finish go to your AIOStreams; its resume
-  points come back into Continue Watching, with Next Up and Upcoming rows
-  under it. Sync now is in Settings.
+- **Any app signed in to your AIOStreams picks up where you left off.**
+  What you play, how far in and what you finish go to your AIOStreams; its
+  resume points come back into Continue Watching, with Next Up and Upcoming
+  rows under it. Sync now is in Settings.
 - Skip Intro uses AIOStreams' own markers where AniSkip has none.
 - Next Up no longer repeats what Continue Watching already shows.
 
@@ -40,10 +40,10 @@ installs.
 - **A title opens with the files your server has for it,** and plays them
   direct. A subtitle file beside the video shows in the subtitle menu with
   its name and language.
-- **Pick up where you left off in any of your Jellyfin apps.** Plays are
-  reported to the server, its resume points join Continue Watching, what it
-  says you watched ticks in the episode grid, and a Next Up row sits under
-  Continue Watching.
+- **Any app signed in to your server picks up where you left off.** Plays
+  are reported to the server, its resume points join Continue Watching, what
+  it says you watched ticks in the episode grid, and a Next Up row sits
+  under Continue Watching.
   Clearing a card clears the server's position too. Skip Intro, Recap and
   Credits use the server's own markers.
 - Nothing from Jellyfin is sent to Trakt or MyAnimeList.

@@ -244,7 +244,7 @@ export function AioStreamsTab() {
             <>
               <p className="settings__section-note">
                 Sign in with your AIOStreams address. It powers the movies and series under the Stream tab,
-                and lets you pick up where you left off in any of your AIOStreams apps.
+                and any app signed in to your AIOStreams picks up where you left off.
               </p>
               <div className="settings-field">
                 <label className="settings-field__label" htmlFor={addressId}>

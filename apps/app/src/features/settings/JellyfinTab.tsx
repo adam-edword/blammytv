@@ -157,7 +157,7 @@ export function JellyfinTab() {
               </p>
             )}
             <p className="settings__section-note settings__section-note--dim">
-              Your movie and show libraries are rows in Stream and Discover, and you pick up where you left off in any of your Jellyfin apps. Tested on Jellyfin 12.x.
+              Your movie and show libraries are rows in Stream and Discover, and any app signed in to your server picks up where you left off. Tested on Jellyfin 12.x.
             </p>
             <p className="settings__section-note settings__section-note--dim" data-jf-clear>
               Clearing a card from Continue Watching also resets that item's position on your server. A played mark is never removed.

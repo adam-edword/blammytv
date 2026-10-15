@@ -51,8 +51,10 @@ If any of that gets in your way, the manifest still works. See below.
 
 ## Where you left off
 
-Signing in also lets you pick up where you left off in any of your AIOStreams
-apps. It isn't a watch history: for that, connect Trakt or MyAnimeList in
+Once you're in, any app signed in to your AIOStreams as you picks up where you
+left off: the AIOStreams app, Jellyfin apps like Infuse, and BlammyTV. An app
+that only has your manifest, like Stremio or BlammyTV with a manifest URL,
+doesn't. It isn't a watch history: for that, connect Trakt or MyAnimeList in
 **Settings → Accounts**.
 
 - **What you play here shows in AIOStreams' other apps**, with how far you got.
