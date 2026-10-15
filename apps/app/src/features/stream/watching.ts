@@ -117,6 +117,29 @@ export function updateWatchingProgress(
   return list;
 }
 
+/** The source now playing, for a resume to go back to: a switch mid-watch (a
+ * failover, Retry's pick, the player's Sources panel) moves the entry's file
+ * name and binge group with it, in place and keeping its progress. What the
+ * new source does not send goes, as a new play's entry has it, so a resume
+ * never goes back to the file that died. The same source again changes
+ * nothing. */
+export function updateWatchingSource(
+  id: string,
+  src: { fileName?: string; bingeGroup?: string },
+): WatchEntry[] {
+  const list = loadWatching().map((e) => {
+    if (e.id !== id) return e;
+    const next = { ...e };
+    if (src.fileName) next.fileName = src.fileName;
+    else delete next.fileName;
+    if (src.bingeGroup) next.bingeGroup = src.bingeGroup;
+    else delete next.bingeGroup;
+    return next;
+  });
+  save(KEY, VERSION, list);
+  return list;
+}
+
 /** Where to resume this entry, or undefined for start-from-zero: needs a
  * meaningful position (>60s in), not effectively finished (≥90% when the
  * duration is known — the SAME threshold as the watched ledger and

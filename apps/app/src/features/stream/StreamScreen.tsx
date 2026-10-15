@@ -59,7 +59,7 @@ import {
 } from "./source";
 import { readStreamScroll, saveStreamScroll } from "./session";
 import { SaveButton } from "./SaveButton";
-import { isOut, nextEpisode, nextUpEpisode, pickCachedIndex, pickResumeIndex } from "./mapper";
+import { isOut, nextEpisode, nextUpEpisode, openingSeason, pickCachedIndex, pickResumeIndex } from "./mapper";
 import { dropPrefetch, prefetchSources, takePrefetched } from "./prefetch";
 import type { SkipRange } from "./aniskip";
 import {
@@ -75,6 +75,7 @@ import { filmWatched, loadAioWatched, loadJfWatched, loadWatched, markWatched } 
 import { loadAioConn } from "../aiojf/conn";
 import { loadJfVod, peekJfVod } from "../jellyfin/vod";
 import { JF_CHANGED, loadJfConn } from "../jellyfin/store";
+import { AIO_CONN_CHANGED } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
 import { countdownFrom, loadAutoplayNext } from "../settings/upNext";
@@ -101,6 +102,7 @@ import {
   retiredFromContinue,
   rolledForward,
   updateWatchingProgress,
+  updateWatchingSource,
   type WatchEntry,
 } from "./watching";
 import {
@@ -167,6 +169,13 @@ const initialJf = (): JfLoad => {
   return cached ? { status: "ready", data: cached } : { status: "loading" };
 };
 
+/** The addon's catalog as it stands for the connection now: the last build for
+ * it, if one is kept, else loading. */
+const initialLoad = (): Load => {
+  const cached = peekVod();
+  return cached ? { status: "ready", data: cached } : { status: "loading" };
+};
+
 /** What a play of this episode is called and carries, as the Up Next roll
  * names it. */
 function episodeTarget(season: Season, episode: Episode) {
@@ -184,10 +193,7 @@ function prefetchEpisode(episodeId: string, from: VodItem["from"]) {
 }
 
 export function StreamScreen({ home }: { home?: number } = {}) {
-  const [load, setLoad] = useState<Load>(() => {
-    const cached = peekVod();
-    return cached ? { status: "ready", data: cached } : { status: "loading" };
-  });
+  const [load, setLoad] = useState<Load>(initialLoad);
   const [jf, setJf] = useState<JfLoad>(initialJf);
   const [playing, setPlayingRaw] = useState<{
     url: string;
@@ -465,6 +471,20 @@ export function StreamScreen({ home }: { home?: number } = {}) {
     };
     window.addEventListener(JF_CHANGED, again);
     return () => window.removeEventListener(JF_CHANGED, again);
+  }, []);
+  // The same for AIOStreams: a sign-in, a sign-out, a 401 that ends one, or a
+  // manifest saved or cleared. This tab is mounted before any of it on a first
+  // run (under onboarding) and behind Settings, so it had read no connection
+  // and kept that empty catalog, or kept the old one after a Disconnect. The
+  // old build goes with the old connection: its hero and rows are not the new
+  // one's.
+  useEffect(() => {
+    const again = () => {
+      setLoad(initialLoad());
+      setVodTick((t) => t + 1);
+    };
+    window.addEventListener(AIO_CONN_CHANGED, again);
+    return () => window.removeEventListener(AIO_CONN_CHANGED, again);
   }, []);
 
   // Set when the current stack was seeded by a Discover/My List hand-off:
@@ -845,6 +865,8 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       queue: rest,
       resumeAt: at,
     });
+    // Resume goes back to what you were watching, not to the one that died.
+    setWatching(updateWatchingSource(p.item.id, next));
   }, [setPlaying]);
 
   // VOD "Retry" (the dead card) = re-RESOLVE, not re-loadfile. mpv's
@@ -903,6 +925,8 @@ export function StreamScreen({ home }: { home?: number } = {}) {
           resumeAt: at,
           reloadTick: (p.reloadTick ?? 0) + 1,
         });
+        // The best cached one now, which may not be the one that was playing.
+        setWatching(updateWatchingSource(p.item.id, pick));
       },
       () => {
         if (same()) void tauriMpvGoLive().catch(() => {});
@@ -1269,6 +1293,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       // The same url counts as a new stream only with a new tick (streamKey).
       ...(again ? { reloadTick: (p.reloadTick ?? 0) + 1 } : {}),
     });
+    setWatching(updateWatchingSource(p.item.id, src));
   },
     [closePanel],
   );
@@ -2918,36 +2943,34 @@ function Episodes({
     () => loadWatching().find((w) => w.id === item.id),
     [item.id],
   );
-  const nextUp = useMemo(() => {
-    const finished =
-      !!entry?.posSec && !!entry?.durSec && entry.posSec >= entry.durSec * 0.9;
-    return nextUpEpisode(
-      item.seasons,
-      watched,
-      entry ? { episodeId: entry.episodeId, finished } : undefined,
-    );
-  }, [item, watched, entry]);
+  const last = useMemo(
+    () =>
+      entry
+        ? {
+            episodeId: entry.episodeId,
+            finished:
+              !!entry.posSec && !!entry.durSec && entry.posSec >= entry.durSec * 0.9,
+          }
+        : undefined,
+    [entry],
+  );
+  const nextUp = useMemo(
+    () => nextUpEpisode(item.seasons, watched, last),
+    [item, watched, last],
+  );
   // Smart resume: open on the season you're actually in, not Season 1.
   // The screen mounts with the LIGHTWEIGHT item (seasons: []) and the
   // full meta lands async — the initializer alone always saw an empty
   // list and parked everyone on Specials/Season 1 (fleet finding). The
   // effect syncs once the seasons arrive, standing down after a manual
-  // season pick.
-  const [seasonIdx, setSeasonIdx] = useState(() => {
-    if (!nextUp) return 0;
-    const idx = item.seasons.findIndex((se) =>
-      se.episodes.some((e) => e.id === nextUp),
-    );
-    return idx >= 0 ? idx : 0;
-  });
+  // season pick. Caught up (the next episode not out yet) there is no Next
+  // up, and it opens where that next episode is, not on the first tab.
+  const openAt = openingSeason(item.seasons, nextUp, last);
+  const [seasonIdx, setSeasonIdx] = useState(openAt);
   const pickedSeasonRef = useRef(false);
   useEffect(() => {
-    if (pickedSeasonRef.current || !nextUp) return;
-    const idx = item.seasons.findIndex((se) =>
-      se.episodes.some((e) => e.id === nextUp),
-    );
-    if (idx >= 0) setSeasonIdx(idx);
-  }, [item, nextUp]);
+    if (!pickedSeasonRef.current) setSeasonIdx(openAt);
+  }, [openAt]);
   const season =
     item.seasons[Math.min(seasonIdx, Math.max(0, item.seasons.length - 1))];
   const now = Date.now();

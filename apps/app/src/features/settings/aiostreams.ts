@@ -13,9 +13,11 @@ export function loadAioUrl(): string {
   return typeof url === "string" ? url : "";
 }
 
-/** Said when the stored URL changes, for the screens that show it
- * (Settings' AIOStreams tab). */
-export const AIO_URL_CHANGED = "blammytv:aio-url-changed";
+/** Said when the way to AIOStreams changes (conn.ts): the manifest URL saved
+ * or cleared here, a sign-in recorded or ended (aiojf/account.ts). Settings'
+ * AIOStreams tab re-reads its field, and Stream, Discover and the hero picker
+ * load again. Jellyfin's twin is JF_CHANGED. */
+export const AIO_CONN_CHANGED = "blammytv:aio-conn-changed";
 
 /**
  * Store the manifest URL, or remove it with an empty one. It signs out of
@@ -29,7 +31,7 @@ export function saveAioUrl(url: string): void {
   const prev = loadAioUrl();
   save(KEY, VERSION, next);
   if (next === prev) return;
-  window.dispatchEvent(new Event(AIO_URL_CHANGED));
+  window.dispatchEvent(new Event(AIO_CONN_CHANGED));
 }
 
 export function isValidManifestUrl(url: string): boolean {

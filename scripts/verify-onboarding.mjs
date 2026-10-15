@@ -8,6 +8,7 @@
 // stubbed (section 11 on): a code and its approval, the manifest fallback
 // verifying for real, the follow step shown with configured stubs and skipped
 // both ways with none, Back across the skipped step.
+import http from "node:http";
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
@@ -780,7 +781,16 @@ const tauriStub = ({ o, base, configure }) => {
         window.__connected = true;
         return Promise.resolve("approved");
       }
-      if (cmd === "aiojf_request") return Promise.resolve({ status: 200, body: JSON.stringify({ Items: [], TotalRecordCount: 0 }) });
+      if (cmd === "aiojf_request") {
+        if (!o.serve) return Promise.resolve({ status: 200, body: JSON.stringify({ Items: [], TotalRecordCount: 0 }) });
+        // 11g: AIOStreams' Jellyfin side is a small server in the harness.
+        const q = args.query ? "?" + new URLSearchParams(args.query) : "";
+        return fetch(base + args.path + q, {
+          method: args.method,
+          headers: { "content-type": "application/json" },
+          ...(args.body != null ? { body: JSON.stringify(args.body) } : {}),
+        }).then(async (r) => ({ status: r.status, body: await r.text() }));
+      }
       if (cmd === "aiojf_disconnect") {
         window.__connected = false;
         return Promise.resolve();
@@ -801,7 +811,7 @@ const newTauriPage = async (o = {}, init = {}) => {
   const page = await newPage(init);
   // Offline, as every harness is: only localhost answers.
   await page.context().route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
-  await page.addInitScript(tauriStub, { o, base: BASE, configure: CONFIGURE });
+  await page.addInitScript(tauriStub, { o, base: o.base ?? BASE, configure: CONFIGURE });
   await page.goto("http://localhost:4173/?onboarding=1");
   await page.waitForSelector(".onb");
   return page;
@@ -1038,6 +1048,113 @@ if (!FAST) {
   check("with the sign-in step in the flow, Skip setup still goes straight to the finale", landing);
   await page.close();
 }
+
+// 11g. A first run with no playlist, and a sign-in (or a manifest) made on step
+//      1, with NO reload. Stream is mounted under the overlay from the first
+//      frame, with nothing to read, so it had loaded an empty catalog; nothing
+//      told it the connection had changed, and finishing showed "Nothing came
+//      back from your catalogs" until the next launch. A marker on window
+//      proves the page was never reloaded. The sign-in reads AIOStreams' Jellyfin
+//      side, which is a small server here (what verify-signin-ui serves, less).
+const AIO_VIEWS = [
+  { id: "a2" + "1".repeat(30), type: "movie", cid: "fake.trending", name: "Trending Movies" },
+  { id: "a2" + "2".repeat(30), type: "series", cid: "fake.shows", name: "Popular Shows" },
+];
+const TT0111161 = "a1110100000001b239ffffffff000000";
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==", "base64");
+const asList = (items) => ({ Items: items, TotalRecordCount: items.length, StartIndex: 0 });
+const jfSide = http.createServer((rq, rs) => {
+  const url = new URL(rq.url, "http://x");
+  const path = url.pathname.replace(/^\/jellyfin/, "");
+  const cors = {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+    "access-control-allow-headers": rq.headers["access-control-request-headers"] ?? "*",
+  };
+  const send = (status, payload) => {
+    rs.writeHead(status, { "content-type": "application/json", ...cors });
+    rs.end(payload === undefined ? "" : JSON.stringify(payload));
+  };
+  if (rq.method === "OPTIONS") {
+    rs.writeHead(204, cors);
+    return rs.end();
+  }
+  if (path === "/UserViews")
+    return send(200, asList(AIO_VIEWS.map((v) => ({ Id: v.id, Type: "CollectionFolder", Name: v.name, IsFolder: true, Path: `/aiostreams/${v.type}/${v.cid}` }))));
+  if (path === "/Genres") return send(200, asList([{ Name: "Drama", Type: "Genre" }]));
+  if (path === "/Items" && url.searchParams.get("ParentId"))
+    return send(200, asList([{
+      Id: TT0111161, Type: "Movie", Name: "Fake Movie One", ProductionYear: 2024, Genres: ["Drama"],
+      ProviderIds: { Imdb: "tt0111161" }, Path: "/aiostreams/movie/tt0111161/Fake Movie One.mkv",
+      ImageTags: { Primary: "tag1" }, UserData: { PlaybackPositionTicks: 0, PlayCount: 0, IsFavorite: false, Played: false },
+    }]));
+  if (/^\/Items\/[^/]+\/Images\//.test(path)) {
+    rs.writeHead(200, { "content-type": "image/png", ...cors });
+    return rs.end(PNG);
+  }
+  // The first sync's lists, and anything else unscoped: nothing.
+  if (rq.method === "GET" && ["/UserItems/Resume", "/Items", "/Shows/NextUp", "/Shows/Upcoming"].includes(path)) return send(200, asList([]));
+  return send(404, { Message: "fake jellyfin has no " + path });
+});
+await new Promise((r) => jfSide.listen(0, "127.0.0.1", r));
+const JF_SIDE = `http://127.0.0.1:${jfSide.address().port}/jellyfin`;
+
+/** From the Live TV step to the app: skip it, walk the rest, and wait for the
+ * overlay to let go. */
+const finishOnboarding = async (page) => {
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  await page.getByRole("button", { name: /later/ }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-tour", { timeout: 8000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "Enter BlammyTV" }).click();
+  return page.waitForFunction(() => !document.querySelector(".onb"), null, { timeout: 15000 }).then(() => true, () => false);
+};
+/** What Stream shows now: the rows it has, the first one's title, and the note
+ * if it is showing one instead. */
+const streamNow = (page) =>
+  page.evaluate(() => ({
+    rows: document.querySelectorAll(".stream .media-row").length,
+    first: document.querySelector(".stream .media-row__title")?.textContent ?? "",
+    note: document.querySelector(".stream__note")?.textContent?.slice(0, 60) ?? "",
+    kept: window.__kept === 1,
+  }));
+
+if (!FAST) {
+  const page = await newTauriPage({ serve: true, base: JF_SIDE });
+  await page.evaluate(() => (window.__kept = 1));
+  await toStep1(page);
+  const input = page.getByPlaceholder("aiostreams.example.com", { exact: true });
+  await input.fill("aiostreams.example.com");
+  await input.press("Enter");
+  await page.waitForSelector(".onb-hint--ok", { timeout: 14_000 });
+  const released = await finishOnboarding(page);
+  await page.locator(".stream .media-row__title", { hasText: /^Trending Movies$/ }).first().waitFor({ timeout: 15_000 }).catch(() => {});
+  const now = await streamNow(page);
+  check("11g: a first run that signs in on step 1 finishes onto Stream's rows, with no reload",
+    released && now.kept && now.rows > 0 && now.first === "Trending Movies" && now.note === "", JSON.stringify({ released, ...now }));
+  await page.close();
+}
+if (!FAST) {
+  // The manifest way writes the connection through saveAioUrl instead.
+  const page = await newTauriPage({});
+  await page.evaluate(() => (window.__kept = 1));
+  await toStep1(page);
+  await page.getByRole("button", { name: "Use a manifest URL instead" }).click();
+  await page.getByPlaceholder(/manifest\.json/).fill("http://localhost:8084/manifest.json");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-hint--ok", { timeout: 10_000 });
+  const released = await finishOnboarding(page);
+  await page.locator(".stream .media-row").first().waitFor({ timeout: 15_000 }).catch(() => {});
+  const now = await streamNow(page);
+  check("  and one that pastes a manifest on step 1 does too",
+    released && now.kept && now.rows > 0 && now.note === "", JSON.stringify({ released, ...now }));
+  await page.close();
+}
+jfSide.close();
 
 await browser.close();
 const pass = results.filter(Boolean).length;

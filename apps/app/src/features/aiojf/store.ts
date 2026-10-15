@@ -70,7 +70,8 @@ export function forgetAiojf(): void {
  * records the sign-in. Anything else clears it: not connected, or a build
  * that cannot search sources, which leaves Stream on its manifest. A status
  * that says the build has no sync at all tells nothing, so it changes
- * nothing.
+ * nothing. Returns whether the record changed, for `readSignIn` to say
+ * AIO_CONN_CHANGED.
  *
  * A sign-in also deletes a stored manifest URL (plan 024, D4): the sign-in
  * wins over any manifest, and the URL is a password in plain text that has
@@ -80,12 +81,14 @@ export function forgetAiojf(): void {
  * with it, as Clear All Login Info takes it: its key held `manifest:<url>`
  * (stream/source.ts `configKey`).
  */
-export function noteSignIn(s: AiojfStatus, canSource: boolean): void {
-  if (!s.supported) return;
+export function noteSignIn(s: AiojfStatus, canSource: boolean): boolean {
+  if (!s.supported) return false;
   const now = loadAiojf().signedIn;
+  let changed = false;
   if (s.connected && s.base && canSource) {
     if (now?.base !== s.base || now.userName !== s.userName) {
       saveAiojf({ signedIn: { base: s.base, ...(s.userName ? { userName: s.userName } : {}) } });
+      changed = true;
     }
     // Every read that finds the sign-in, not only the first: a sign-in
     // recorded before D4 (v0.11.17) still has its manifest. Settings offers
@@ -96,7 +99,9 @@ export function noteSignIn(s: AiojfStatus, canSource: boolean): void {
     }
   } else if (now) {
     saveAiojf({ signedIn: undefined });
+    changed = true;
   }
+  return changed;
 }
 
 /** Packed ids of titles finished here whose played mark could not be sent,

@@ -84,6 +84,15 @@ describe("the sign-in this device holds", () => {
     expect(JSON.stringify(loadAiojf())).not.toContain("u1");
   });
 
+  it("says whether the record changed: recorded, the same again, followed, cleared", () => {
+    expect(noteSignIn(on, true)).toBe(true);
+    expect(noteSignIn(on, true)).toBe(false);
+    expect(noteSignIn({ ...on, userName: "Eve" }, true)).toBe(true);
+    expect(noteSignIn({ supported: false, connected: false }, false)).toBe(false);
+    expect(noteSignIn({ supported: true, connected: false }, false)).toBe(true);
+    expect(noteSignIn({ supported: true, connected: false }, false)).toBe(false);
+  });
+
   it("follows a changed user or base", () => {
     noteSignIn(on, true);
     noteSignIn({ ...on, userName: "Eve" }, true);

@@ -11,7 +11,7 @@ import { syncAiojf } from "../aiojf/sync";
 import { APPROVE_NOTE, useAioSignIn } from "../aiojf/useSignIn";
 import { ago } from "../trakt/account";
 import { probeAioConn, probeAioStreams, probeVerdict, type ProbeStep } from "./aioProbe";
-import { AIO_URL_CHANGED, isValidManifestUrl, loadAioUrl, saveAioUrl } from "./aiostreams";
+import { AIO_CONN_CHANGED, isValidManifestUrl, loadAioUrl, saveAioUrl } from "./aiostreams";
 import { Hint } from "../../ui/Hint";
 
 /**
@@ -112,10 +112,10 @@ export function AioStreamsTab() {
       setSavedUrl(stored);
     };
     window.addEventListener(AIOJF_SYNCED, onSynced);
-    window.addEventListener(AIO_URL_CHANGED, onUrl);
+    window.addEventListener(AIO_CONN_CHANGED, onUrl);
     return () => {
       window.removeEventListener(AIOJF_SYNCED, onSynced);
-      window.removeEventListener(AIO_URL_CHANGED, onUrl);
+      window.removeEventListener(AIO_CONN_CHANGED, onUrl);
     };
   }, [refresh]);
 

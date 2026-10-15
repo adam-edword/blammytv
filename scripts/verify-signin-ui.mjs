@@ -264,6 +264,8 @@ const stub = ({ base, manifest, configure, o }) => {
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "stream" }));
   if (o.manifest) localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: manifest }));
+  // A sign-in this device already holds, as the first status read would have recorded it.
+  if (o.signedIn) localStorage.setItem("blammytv.aiojf", JSON.stringify({ v: 1, data: { signedIn: { base, userName: "Adam" } } }));
 };
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
@@ -293,6 +295,16 @@ const toStreamTab = async (p) => {
   await p.getByRole("tab", { name: "Sources", exact: true }).click();
   await p.locator(".customize-rail").getByRole("tab", { name: "Stream", exact: true }).click();
   await p.locator(".settings-section").first().waitFor({ timeout: 10_000 });
+};
+/** Stream, mounted behind Settings, once the sign-in has ended: no rows left,
+ * and the note it shows with no connection. Waits for it, then says what was there. */
+const streamGone = async (p) => {
+  await waitFor(p, () => p.evaluate(() => document.querySelectorAll(".stream .media-row").length === 0), 8000);
+  const now = await p.evaluate(() => ({
+    rows: document.querySelectorAll(".stream .media-row").length,
+    note: document.querySelector(".stream__note")?.textContent?.slice(0, 200) ?? "",
+  }));
+  return { ...now, ok: now.rows === 0 && /Sign in to your AIOStreams or your Jellyfin/.test(now.note) };
 };
 /** The address field. Exact: the manifest field's placeholder holds the host too. */
 const addr = (p) => p.getByPlaceholder("aiostreams.example.com", { exact: true });
@@ -377,6 +389,10 @@ const shot = async (p, name) => {
     text,
   );
   await shot(p, "signin-on");
+  // Stream is mounted behind the modal the whole time (the startup tab), and read
+  // nothing when it loaded. The sign-in is a change it has to hear: no reload.
+  const behind = await p.locator(".stream .media-row__title", { hasText: /^Trending Movies$/ }).first().waitFor({ state: "attached", timeout: 15_000 }).then(() => true, () => false);
+  check("  and Stream behind Settings, never reloaded, loads the instance's rows", behind && calls.some((c) => c.path === "/UserViews"));
 
   // ------------------------------------------------------ the Connection Test
   await p.getByRole("button", { name: /Run Connection Test/ }).click();
@@ -416,6 +432,26 @@ const shot = async (p, name) => {
   const off = await p.getByRole("button", { name: "Connect", exact: true }).waitFor({ timeout: 6000 }).then(() => true, () => false);
   const dis = (await callsOf(p, "aiojf_disconnect")).length;
   check("Disconnect signs the device out: the address field is back, the sign-in is gone", off && dis === 1 && !(await storeOf(p, "aiojf"))?.signedIn, JSON.stringify({ off, dis, aiojf: await storeOf(p, "aiojf") }));
+  const gone = await streamGone(p);
+  check("  and Stream behind Settings drops the rows it had, to its signed-out state", behind && gone.ok, JSON.stringify(gone));
+  await p.close();
+}
+
+// Disconnect with Stream already showing the instance's rows (the sign-in was
+// recorded at an earlier launch): the rows go with the sign-in, they are not
+// left up until the next launch.
+{
+  reset();
+  const p = await openPage({ connected: true, signedIn: true });
+  const rowsUp = await p.locator(".stream .media-row__title", { hasText: /^Trending Movies$/ }).first().waitFor({ state: "attached", timeout: 20_000 }).then(() => true, () => false);
+  await toStreamTab(p);
+  const row = p.locator(".aio-row");
+  await row.locator(".customize-row__title", { hasText: "Signed in as Adam" }).waitFor({ timeout: 8000 });
+  await row.getByRole("button", { name: "Disconnect", exact: true }).click();
+  await row.getByRole("button", { name: /Click again to confirm/ }).click();
+  await p.getByRole("button", { name: "Connect", exact: true }).waitFor({ timeout: 6000 });
+  const gone = await streamGone(p);
+  check("Disconnect while Stream shows the instance's rows: Stream goes to its signed-out state, not the old rows", rowsUp && gone.ok, JSON.stringify({ rowsUp, ...gone }));
   await p.close();
 }
 

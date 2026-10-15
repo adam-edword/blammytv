@@ -9,6 +9,7 @@ import {
   nextEpisode,
   nextUpEpisode,
   noticesOf,
+  openingSeason,
   pickCachedIndex,
   pickResumeIndex,
 } from "./mapper";
@@ -460,6 +461,64 @@ describe("an episode that has not aired", () => {
     expect(nextUpEpisode(seasons, watched, { episodeId: "tt1:1:2", finished: true }, NOW)).toBeNull();
     // An unwatched one that has aired is still the answer.
     expect(nextUpEpisode(seasons, new Set(["tt1:1:1"]), undefined, NOW)).toBe("tt1:1:2");
+  });
+
+  it("nextUpEpisode: caught up means caught up, an older gap is not where you left off", () => {
+    // 1:1 was never watched (a gap), 1:2 is finished, and 1:3 airs in three days.
+    const gap = new Set(["tt1:1:2"]);
+    expect(nextUpEpisode(seasons, gap, { episodeId: "tt1:1:2", finished: true }, NOW)).toBeNull();
+    // Without the entry that says where you are, the first unwatched that aired is still the answer.
+    expect(nextUpEpisode(seasons, gap, undefined, NOW)).toBe("tt1:1:1");
+    // The day it airs, the one after the last finished is the answer, as it was.
+    const day = new Date(2026, 9, 14, 9, 0).getTime();
+    expect(nextUpEpisode(seasons, gap, { episodeId: "tt1:1:2", finished: true }, day)).toBe("tt1:1:3");
+    // Unfinished is still resumed, aired or not.
+    expect(nextUpEpisode(seasons, gap, { episodeId: "tt1:1:2", finished: false }, NOW)).toBe("tt1:1:2");
+  });
+
+  it("nextUpEpisode: with nothing after the last finished, an older gap is still the answer", () => {
+    // The finale, with 1:1 never watched: there is no next episode to be caught up with.
+    const flat = mapSeasons([
+      { id: "x:1:1", season: 1, episode: 1, name: "a" },
+      { id: "x:1:2", season: 1, episode: 2, name: "b" },
+    ]);
+    expect(nextUpEpisode(flat, new Set(["x:1:2"]), { episodeId: "x:1:2", finished: true }, NOW)).toBe("x:1:1");
+  });
+});
+
+describe("the season the episode grid opens on", () => {
+  const NOW = new Date(2026, 9, 11, 15, 0).getTime();
+  // Specials first, as mapSeasons puts them: Season 1 is the second tab, not the first.
+  const seasons = mapSeasons([
+    { id: "tt1:0:1", season: 0, episode: 1, name: "special" },
+    { id: "tt1:1:1", season: 1, episode: 1, name: "a", released: "2026-10-04T00:00:00Z" },
+    { id: "tt1:1:2", season: 1, episode: 2, name: "b", released: "2026-10-11T00:00:00Z" },
+    { id: "tt1:1:3", season: 1, episode: 3, name: "c", released: "2026-10-14T00:00:00Z" },
+    { id: "tt1:2:1", season: 2, episode: 1, name: "d", released: "2027-02-01T05:00:00.000Z" },
+  ]);
+  const at = (nextUp: string | null, last?: { episodeId?: string; finished: boolean }) =>
+    seasons[openingSeason(seasons, nextUp, last)].name;
+
+  it("is the Next up episode's", () => {
+    expect(at("tt1:1:2", { episodeId: "tt1:1:2", finished: false })).toBe("Season 1");
+  });
+
+  it("caught up with the next not out, is that episode's, not Specials", () => {
+    // Finished 1:2; 1:3 airs in three days. Next up is nothing, the grid opens where 1:3 is.
+    expect(nextUpEpisode(seasons, new Set(["tt1:1:1", "tt1:1:2"]), { episodeId: "tt1:1:2", finished: true }, NOW)).toBeNull();
+    expect(at(null, { episodeId: "tt1:1:2", finished: true })).toBe("Season 1");
+    // And when that episode starts a new season, that season.
+    expect(at(null, { episodeId: "tt1:1:3", finished: true })).toBe("Season 2");
+  });
+
+  it("with no episode after the last watched, is the last watched one's", () => {
+    expect(at(null, { episodeId: "tt1:2:1", finished: true })).toBe("Season 2");
+  });
+
+  it("with nothing to go on, is the first", () => {
+    expect(openingSeason(seasons, null)).toBe(0);
+    expect(openingSeason([], null, { episodeId: "tt1:1:2", finished: true })).toBe(0);
+    expect(openingSeason(seasons, null, { episodeId: "gone", finished: true })).toBe(0);
   });
 });
 

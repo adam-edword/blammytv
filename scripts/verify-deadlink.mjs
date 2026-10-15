@@ -220,13 +220,13 @@ async function cardAt(page, max, step = 50) {
  * after it, and the load is re-stamped to now, which is the zero every check
  * counts from.
  */
-async function film({ modes = [], answer, failover = false } = {}) {
+async function film({ modes = [], answer, failover = false, movie = MOVIE } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.clock.install();
-  await page.addInitScript(stub, { live: false, aio: AIO, movie: MOVIE, failover, playlists: null });
+  await page.addInitScript(stub, { live: false, aio: AIO, movie, failover, playlists: null });
   await page.goto(APP, { waitUntil: "domcontentloaded" });
   const skip = page.getByRole("button", { name: /skip setup/i }).first();
   if (await skip.isVisible().catch(() => false)) await skip.click();
@@ -388,6 +388,39 @@ async function film({ modes = [], answer, failover = false } = {}) {
     "  once: nothing opens again, nothing reloads, and the reason is never asked for",
     (await opens(page)).length === 2 && (await calls(page, "mpv_go_live")) === 0 && (await calls(page, "mpv_open_error")) === 0,
     JSON.stringify(await opens(page)),
+  );
+  await ctx.close();
+}
+
+// ---- The entry follows the source that took over --------------------------
+// Resume goes back to the file you were watching: after a failover that is the
+// one it landed on, not the one the play began on (which is dead). The film with
+// two releases sends file names, so both halves of the entry can be told apart.
+{
+  const TWO = { id: "tt500002", title: "Fake Movie Two Releases", kind: "movie", posSec: 600, durSec: 5400, at: Date.now() };
+  const { ctx, page } = await film({
+    movie: TWO,
+    modes: [
+      ["-4k", "dead"],
+      ["-1080", "healthy"],
+    ],
+    failover: true,
+  });
+  const entryOf = () => page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.watching")).data[0]);
+  const began = await entryOf();
+  await cardAt(page, 2500);
+  await pump(page, 1500);
+  const urls = await opens(page);
+  const landed = await entryOf();
+  check(
+    "the play began on the 4K file, and the entry said so",
+    /-4k/.test(urls[0]) && began.fileName === "Two.Releases.2160p.WEB-DL.mkv" && began.bingeGroup === "fake|2160p|x265",
+    JSON.stringify({ urls, began: [began.fileName, began.bingeGroup] }),
+  );
+  check(
+    "  a failover to the 1080p file moves the entry's file name and binge group with it",
+    urls.length === 2 && /-1080/.test(urls[1]) && landed.fileName === "Two.Releases.1080p.BluRay.mkv" && landed.bingeGroup === "fake|1080p",
+    JSON.stringify({ urls, landed: [landed.fileName, landed.bingeGroup] }),
   );
   await ctx.close();
 }

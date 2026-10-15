@@ -52,6 +52,7 @@ import {
   takeRecommendRequest,
 } from "./recommend";
 import { JF_CHANGED } from "../jellyfin/store";
+import { AIO_CONN_CHANGED } from "../settings/aiostreams";
 import { readDiscoverSession, saveDiscoverSession } from "./session";
 
 /**
@@ -261,11 +262,16 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
 
   // Bumped by the error state's Try-again — re-runs the config load.
   const [cfgTick, setCfgTick] = useState(0);
-  // A sign-in to Jellyfin that lands, or ends (a 401), while this tab is up.
+  // A sign-in to Jellyfin or to AIOStreams that lands, or ends (a 401), or a
+  // manifest saved or cleared, while this tab is up (Settings opens over it).
   useEffect(() => {
     const again = () => setCfgTick((t) => t + 1);
     window.addEventListener(JF_CHANGED, again);
-    return () => window.removeEventListener(JF_CHANGED, again);
+    window.addEventListener(AIO_CONN_CHANGED, again);
+    return () => {
+      window.removeEventListener(JF_CHANGED, again);
+      window.removeEventListener(AIO_CONN_CHANGED, again);
+    };
   }, []);
   useEffect(() => {
     let stale = false;

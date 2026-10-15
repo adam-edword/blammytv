@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Combobox,
   ComboboxChip,
@@ -15,6 +15,7 @@ import { aioCatalogDefs } from "../../data/aio";
 import type { AioCatalog } from "../../data/aiostreams";
 import { loadAioConn } from "../aiojf/conn";
 import {
+  AIO_CONN_CHANGED,
   isValidManifestUrl,
   loadHeroSources,
   saveHeroSources,
@@ -40,9 +41,14 @@ function typeLabel(type: string): string {
 }
 
 export function HeroSourcesSection() {
-  // Read once per mount: this panel is not where the connection is edited,
-  // so there is nothing here that can change it under us.
-  const conn = useRef(loadAioConn()).current;
+  // This panel is not where the connection is edited, but it can end under us
+  // (a 401 signs the device out), so it reads again when it changes.
+  const [conn, setConn] = useState(loadAioConn);
+  useEffect(() => {
+    const again = () => setConn(loadAioConn());
+    window.addEventListener(AIO_CONN_CHANGED, again);
+    return () => window.removeEventListener(AIO_CONN_CHANGED, again);
+  }, []);
   const [catalogs, setCatalogs] = useState<Catalogs>({ status: "idle" });
   const [selected, setSelected] = useState<string[]>(loadHeroSources);
 

@@ -9,6 +9,7 @@ import {
   retiredFromContinue,
   rolledForward,
   updateWatchingProgress,
+  updateWatchingSource,
   type WatchEntry,
 } from "./watching";
 
@@ -128,6 +129,36 @@ describe("the source an entry was on", () => {
     const [only] = loadWatching();
     expect(only.fileName).toBe("B.mkv");
     expect(only.bingeGroup).toBeUndefined();
+  });
+});
+
+describe("updateWatchingSource", () => {
+  it("moves the entry to the source now playing, in place and keeping its progress", () => {
+    recordWatching(entry({ id: "a", at: 1 }));
+    recordWatching(entry({ id: "b", at: 2, fileName: "A.mkv", bingeGroup: "g1", posSec: 900, durSec: 6000 }));
+    const list = updateWatchingSource("b", { fileName: "B.mkv", bingeGroup: "g2" });
+    expect(list.map((e) => e.id)).toEqual(["b", "a"]);
+    expect(list[0]).toMatchObject({ fileName: "B.mkv", bingeGroup: "g2", posSec: 900, durSec: 6000, at: 2 });
+    expect(loadWatching()[0]).toMatchObject({ fileName: "B.mkv", bingeGroup: "g2" });
+  });
+
+  it("drops what the new source does not send, so a resume never goes back to the old file", () => {
+    recordWatching(entry({ id: "a", fileName: "A.mkv", bingeGroup: "g1" }));
+    const [e] = updateWatchingSource("a", { bingeGroup: "g2" });
+    expect("fileName" in e).toBe(false);
+    expect(e.bingeGroup).toBe("g2");
+    const [none] = updateWatchingSource("a", {});
+    expect("fileName" in none).toBe(false);
+    expect("bingeGroup" in none).toBe(false);
+  });
+
+  it("changes nothing for the source it is already on, and nothing for a title it has no entry for", () => {
+    recordWatching(entry({ id: "a", fileName: "A.mkv", bingeGroup: "g1", posSec: 5 }));
+    const before = JSON.stringify(loadWatching());
+    updateWatchingSource("a", { fileName: "A.mkv", bingeGroup: "g1" });
+    expect(JSON.stringify(loadWatching())).toBe(before);
+    updateWatchingSource("zz", { fileName: "Z.mkv" });
+    expect(JSON.stringify(loadWatching())).toBe(before);
   });
 });
 

@@ -254,7 +254,9 @@ export function metaPreviewToVod(m: MetaPreview): VodItem {
  * The episode a returning viewer should land on: the last-played episode
  * while it's unfinished (resume it), the one after it once finished, else
  * the first unwatched episode in season order (specials never count).
- * Null = fresh series or everything watched.
+ * Null = fresh series or everything watched, or caught up: the one after
+ * the last finished is not out yet, so there is nothing to play, and an
+ * older gap is not where you left off (the grid opens on `openingSeason`).
  */
 export function nextUpEpisode(
   seasons: Season[],
@@ -264,8 +266,8 @@ export function nextUpEpisode(
 ): string | null {
   if (last?.episodeId) {
     if (!last.finished) return last.episodeId;
-    const nxt = nextEpisode(seasons, last.episodeId, now);
-    if (nxt) return nxt.episode.id;
+    const after = episodeAfter(seasons, last.episodeId);
+    if (after) return isOut(after.episode, now) ? after.episode.id : null;
   }
   // An episode that is not out is not where you land: it cannot be played.
   for (const s of seasons) {
@@ -312,32 +314,62 @@ export function isOut(e: Pick<Episode, "airsAt">, now: number = Date.now()): boo
   return e.airsAt <= new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
 }
 
-/** The episode after `episodeId` in playback order: next in its season,
- * else the first of the following season (Specials/season 0 excluded as a
- * "next" target — nobody binge-rolls INTO specials). Null at series end
- * or when the id isn't found. Null too when that episode is not out yet
- * (isOut): the end of the last aired episode is the end of the run, so
- * neither Up Next card offers one that would search for nothing. */
+/** The episode after `episodeId` in playback order, out or not: next in its
+ * season, else the first of the following season (Specials/season 0
+ * excluded as a "next" target: nobody binge-rolls INTO specials). Null at
+ * series end or when the id isn't found. */
+function episodeAfter(
+  seasons: Season[],
+  episodeId: string,
+): { season: Season; episode: Episode } | null {
+  for (let si = 0; si < seasons.length; si++) {
+    const idx = seasons[si].episodes.findIndex((e) => e.id === episodeId);
+    if (idx === -1) continue;
+    if (idx + 1 < seasons[si].episodes.length)
+      return { season: seasons[si], episode: seasons[si].episodes[idx + 1] };
+    for (let sj = si + 1; sj < seasons.length; sj++) {
+      if (seasons[sj].number === 0) continue;
+      if (seasons[sj].episodes.length > 0)
+        return { season: seasons[sj], episode: seasons[sj].episodes[0] };
+    }
+    return null;
+  }
+  return null;
+}
+
+/** `episodeAfter`, when it is out. Null too when it is not out yet (isOut):
+ * the end of the last aired episode is the end of the run, so neither Up Next
+ * card offers one that would search for nothing. */
 export function nextEpisode(
   seasons: Season[],
   episodeId: string,
   now: number = Date.now(),
 ): { season: Season; episode: Episode } | null {
-  const ifOut = (season: Season, episode: Episode) =>
-    isOut(episode, now) ? { season, episode } : null;
-  for (let si = 0; si < seasons.length; si++) {
-    const idx = seasons[si].episodes.findIndex((e) => e.id === episodeId);
-    if (idx === -1) continue;
-    if (idx + 1 < seasons[si].episodes.length)
-      return ifOut(seasons[si], seasons[si].episodes[idx + 1]);
-    for (let sj = si + 1; sj < seasons.length; sj++) {
-      if (seasons[sj].number === 0) continue;
-      if (seasons[sj].episodes.length > 0)
-        return ifOut(seasons[sj], seasons[sj].episodes[0]);
-    }
-    return null;
-  }
-  return null;
+  const after = episodeAfter(seasons, episodeId);
+  return after && isOut(after.episode, now) ? after : null;
+}
+
+/**
+ * The index of the season the episode grid opens on. The Next up episode's;
+ * caught up, with the one after the last finished not out yet, that one's
+ * (where the show is, and its dim tile with the day); with no episode after
+ * the last finished, that one's. Season 0 (Specials) is the first tab, so the
+ * fallback of 0 is only for a show with nothing to go on.
+ */
+export function openingSeason(
+  seasons: Season[],
+  nextUp: string | null,
+  last?: { episodeId?: string; finished: boolean },
+): number {
+  const target =
+    nextUp ??
+    (last?.episodeId
+      ? (episodeAfter(seasons, last.episodeId)?.episode.id ?? last.episodeId)
+      : undefined);
+  const idx = target
+    ? seasons.findIndex((se) => se.episodes.some((e) => e.id === target))
+    : -1;
+  return idx >= 0 ? idx : 0;
 }
 
 // ---------------------------------------------------------------------------

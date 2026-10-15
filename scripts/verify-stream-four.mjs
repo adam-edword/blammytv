@@ -376,6 +376,33 @@ const is1080 = (u) => !!u && u.includes("tt500002-1080.mp4");
   check("a resume keeps the entry on the source it played", e.fileName === FILE_1080 && e.bingeGroup === "fake|1080p", JSON.stringify(e));
   await ctx.close();
 }
+{
+  // A switch mid-watch goes through the player's Sources panel, not through a
+  // play starting: the entry has to follow it, or the next resume goes back to
+  // the file the watch began on.
+  const { ctx, page } = await open(film(), { tauri: true });
+  const entryOf = () => page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.watching")).data[0]);
+  const first = await resumeUrl(page);
+  const began = await entryOf();
+  await page.getByRole("button", { name: "Sources", exact: true }).first().click({ force: true, timeout: 10_000 });
+  const pick = page.locator(".vod-panel .vod-source", { hasText: "Two Releases 1080p" }).first();
+  await pick.waitFor({ timeout: 15_000 });
+  await pick.click();
+  await page.waitForFunction(() => window.__tauriCalls.filter((c) => c[0] === "inv_open").length >= 2, null, { timeout: 15_000 });
+  const switched = await entryOf();
+  const urls = await opened(page);
+  check(
+    "the watch began on the first cached file, and the entry said so",
+    is4k(first) && began.fileName === "Two.Releases.2160p.WEB-DL.mkv" && began.bingeGroup === "fake|2160p|x265",
+    JSON.stringify({ first, began: [began.fileName, began.bingeGroup] }),
+  );
+  check(
+    "  a pick in the player's Sources panel moves the entry's file name and binge group to it",
+    is1080(urls[1]) && switched.fileName === FILE_1080 && switched.bingeGroup === "fake|1080p",
+    JSON.stringify({ urls, switched: [switched.fileName, switched.bingeGroup] }),
+  );
+  await ctx.close();
+}
 
 // ======================================================================= 3
 // An episode that has not aired.

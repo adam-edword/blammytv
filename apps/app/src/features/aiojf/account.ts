@@ -13,9 +13,20 @@ import {
   type AiojfStatus,
   type SourcesReply,
 } from "./client";
-import { AIOJF_SYNCED, forgetAiojf, forgetCount, noteSignIn } from "./store";
+import { AIO_CONN_CHANGED } from "../settings/aiostreams";
+import { AIOJF_SYNCED, forgetAiojf, forgetCount, loadAiojf, noteSignIn } from "./store";
 
 let signingOut: Promise<void> | null = null;
+
+/** `forgetAiojf`, said to the screens: the sync's (AIOJF_SYNCED), and, when it
+ * ended a sign-in that Stream and Discover were reading through, the
+ * connection's (AIO_CONN_CHANGED), so they load again for what is there now. */
+function forget(): void {
+  const held = !!loadAiojf().signedIn;
+  forgetAiojf();
+  window.dispatchEvent(new Event(AIOJF_SYNCED));
+  if (held) window.dispatchEvent(new Event(AIO_CONN_CHANGED));
+}
 
 /** Forget AIOStreams' sync on this device: the session (the token is the
  * native side's to drop), the bookkeeping, the queue, the ticks. Your
@@ -26,8 +37,7 @@ let signingOut: Promise<void> | null = null;
 export function signOutOfAio(): Promise<void> {
   signingOut ??= (async () => {
     await aiojfDisconnect().catch(() => {});
-    forgetAiojf();
-    window.dispatchEvent(new Event(AIOJF_SYNCED));
+    forget();
   })().finally(() => {
     signingOut = null;
   });
@@ -42,21 +52,21 @@ export function signOutOfAio(): Promise<void> {
 export async function reconcile(): Promise<void> {
   const s = await aiojfStatus();
   if (s.connected) return;
-  forgetAiojf();
-  window.dispatchEvent(new Event(AIOJF_SYNCED));
+  forget();
 }
 
 /**
  * The native side's status, and the sign-in this device holds brought in step
  * with it (store.ts `noteSignIn`): Stream reads AIOStreams over the sign-in
  * only while that is recorded. A sign-out that lands while the status is on
- * its way wins, so a stale "connected" never writes it back.
+ * its way wins, so a stale "connected" never writes it back. Says
+ * AIO_CONN_CHANGED when the record changed.
  */
 export async function readSignIn(): Promise<AiojfStatus> {
   const gen = forgetCount();
   const s = await aiojfStatus();
   const canSource = s.connected ? await aiojfCanSource() : false;
-  if (gen === forgetCount()) noteSignIn(s, canSource);
+  if (gen === forgetCount() && noteSignIn(s, canSource)) window.dispatchEvent(new Event(AIO_CONN_CHANGED));
   return s;
 }
 
