@@ -28,6 +28,8 @@ dist-ssr/
 
 # libmpv runtime DLL (place locally for tauri build; not committed)
 **/src-tauri/*.dll
+# libmpv for the Mac bundle (scripts/bundle-libmpv-macos.sh)
+**/src-tauri/libmpv-macos/
 # ffmpeg for multi-view's HEVC conversion (scripts/fetch-ffmpeg.mjs)
 **/src-tauri/ffmpeg.exe
 # the fallback Vulkan loader and its licence (scripts/fetch-vulkan.mjs)
