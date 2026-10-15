@@ -41,7 +41,6 @@ const check = (n, ok, d = "") => {
 const XTREAM = { v: 1, data: [{ kind: "xtream", id: "t", name: "Test", enabled: true, server: "http://localhost:8081", username: "u", password: "p" }] };
 const AIO = { v: 1, data: "http://localhost:8084/manifest.json" };
 const PAGES = ["Sources", "Playback", "Appearance", "Accounts", "App"];
-const BLURBS = ["What you watch", "How it plays", "How it looks", "Who you are", "The app itself"];
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const errors = [];
@@ -122,17 +121,16 @@ const closeSettings = async (page) => {
     return {
       orient: el.getAttribute("aria-orientation"),
       names: tabs.map((t) => t.getAttribute("aria-label")),
-      blurbs: tabs.map((t) => document.getElementById(t.getAttribute("aria-describedby") ?? "")?.textContent),
-      text: tabs.map((t) => t.textContent),
+      text: tabs.map((t) => t.textContent.trim()),
       icons: tabs.map((t) => !!t.querySelector(".rail__icon svg")),
       stops: tabs.map((t) => t.tabIndex),
     };
   });
   check("the rail lists the five pages in order", JSON.stringify(shape.names) === JSON.stringify(PAGES), JSON.stringify(shape.names));
-  check("  each with its line under the name", JSON.stringify(shape.blurbs) === JSON.stringify(BLURBS), JSON.stringify(shape.blurbs));
+  check("  each its name alone, with no line under it (v0.11.56)", JSON.stringify(shape.text) === JSON.stringify(PAGES), JSON.stringify(shape.text));
   check(
-    "  and a mark, a name and a line to read, in a vertical tablist with one tab stop",
-    shape.orient === "vertical" && shape.icons.every(Boolean) && shape.text.every((t, i) => t.includes(PAGES[i]) && t.includes(BLURBS[i])) && shape.stops.filter((s) => s === 0).length === 1,
+    "  and a mark and a name, in a vertical tablist with one tab stop",
+    shape.orient === "vertical" && shape.icons.every(Boolean) && shape.stops.filter((s) => s === 0).length === 1,
     JSON.stringify(shape),
   );
   check("a fresh profile opens on Sources", (await current(page)) === "Sources", String(await current(page)));

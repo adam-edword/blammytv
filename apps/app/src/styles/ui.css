@@ -181,8 +181,7 @@
   flex: none;
   display: grid;
   place-items: center;
-  /* The name's line box, so the mark sits on the name and not between the
-   * two lines. */
+  /* The name's line box, so the mark sits level with the name. */
   height: 20px;
   color: var(--text-muted);
   transition: color var(--dur-hover) var(--ease-out);
@@ -191,21 +190,11 @@
 .rail__opt.is-on .rail__icon {
   color: var(--text);
 }
-.rail__text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
 .rail__name {
+  min-width: 0;
   font-size: 14px;
   font-weight: 600;
   line-height: 20px;
-}
-.rail__blurb {
-  font-size: 12px;
-  line-height: 1.35;
-  color: var(--text-muted);
 }
 /* The pointer is on it: the app's hover fill, the one every row of the Guide's
  * sidebar wears (Button's `ghost`, --tint-hover). Not on the chosen item, whose

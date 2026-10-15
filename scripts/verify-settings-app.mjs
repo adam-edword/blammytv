@@ -406,7 +406,7 @@ const appVersion = (page) =>
     await closePalette();
   }
   check(
-    '"shortcuts", "keyboard" and "keys" each put Keyboard Shortcuts first in the palette, filed under Settings · The app itself',
+    '"shortcuts", "keyboard" and "keys" each put Keyboard Shortcuts first in the palette, filed under Settings · App',
     Object.values(found).every((f) => f?.label === "Keyboard Shortcuts" && /^Settings · /.test(f.sub ?? "")),
     JSON.stringify(found),
   );

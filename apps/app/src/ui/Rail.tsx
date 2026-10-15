@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -9,22 +8,20 @@ import {
 } from "react";
 import { tabKeyTarget } from "./tabKeys";
 
-/** One page of the rail: its key, its name, the line under it and its mark. */
+/** One page of the rail: its key, its name and its mark. */
 export interface RailItem<K extends string> {
   key: K;
   label: string;
-  /** The one-line description under the name. */
-  blurb: string;
   icon?: ReactNode;
 }
 
 /**
  * A vertical tablist: Settings' five pages down the left of the card (plan
- * 025). Each item is a mark, a name and a line saying what the page is for.
+ * 025). Each item is a mark and a name.
  *
  * A SEPARATE CONTROL, NOT A SEGMENTED ORIENTATION. Segmented is a capsule: a
  * pill track, one word per option, a thumb measured along x, a track that
- * scrolls sideways and a wheel handler for it. A column of two-line items
+ * scrolls sideways and a wheel handler for it. A column of items with a mark
  * shares none of that but its keys, so the keys are the shared part
  * (`tabKeyTarget`) and the rest is drawn for the column.
  *
@@ -32,10 +29,6 @@ export interface RailItem<K extends string> {
  * and it is a THUMB that glides between items on the spring (the standing
  * rule from plan 014, the thumb stays), not a background that jumps. One tab
  * stop; the arrows move the choice and the focus together; Home and End jump.
- *
- * The item's accessible name is its label alone. The line under it is its
- * description, so a screen reader says "Playback, tab, 2 of 5, how it plays"
- * rather than reading the two as one name.
  */
 export function Rail<K extends string>({
   items,
@@ -53,11 +46,10 @@ export function Rail<K extends string>({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [thumb, setThumb] = useState({ y: 0, h: 0, snap: true });
-  const id = useId();
 
   // Two effects, split as Segmented's are: a change of choice glides; the
-  // late signals that should not animate (the webfont landing, a resize that
-  // re-flows the blurbs) snap, and read the live value from a ref.
+  // late signals that should not animate (the webfont landing, a resize) snap,
+  // and read the live value from a ref.
   const valueRef = useRef(value);
   valueRef.current = value;
   const measure = useCallback((snap: boolean) => {
@@ -135,7 +127,6 @@ export function Rail<K extends string>({
             data-rail={o.key}
             className={"rail__opt" + (on ? " is-on" : "")}
             aria-label={o.label}
-            aria-describedby={`${id}-${o.key}`}
             aria-selected={on}
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(o.key)}
@@ -146,12 +137,7 @@ export function Rail<K extends string>({
                 {o.icon}
               </span>
             )}
-            <span className="rail__text">
-              <span className="rail__name">{o.label}</span>
-              <span className="rail__blurb" id={`${id}-${o.key}`}>
-                {o.blurb}
-              </span>
-            </span>
+            <span className="rail__name">{o.label}</span>
           </button>
         );
       })}

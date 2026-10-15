@@ -197,7 +197,7 @@ export function Palette({
       go("Settings", "Where you left off", <SettingsIcon size={16} />, { kind: "settings" }),
       // One place per page, in the rail's order and in the rail's words.
       ...SETTINGS_PAGES.map((p) =>
-        go(p.label, `Settings · ${p.blurb}`, <SettingsIcon size={16} />, { kind: "settings", tab: p.key }),
+        go(p.label, "Settings", <SettingsIcon size={16} />, { kind: "settings", tab: p.key }),
       ),
     ];
   }, [hasLive, hasStream]);

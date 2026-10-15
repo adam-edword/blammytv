@@ -2,16 +2,15 @@ import { load, save } from "../../lib/storage";
 
 /**
  * Settings' five pages, in the order the rail lists them. Each is one
- * question (the filing rule from 0.8.0, see SettingsModal): the name, and the
- * line under it that says what the question is. The palette lists the same
- * five, so the words live here and nowhere else.
+ * question (the filing rule from 0.8.0, see SettingsModal), named by one word.
+ * The palette lists the same five, so the names live here and nowhere else.
  */
 export const SETTINGS_PAGES = [
-  { key: "sources", label: "Sources", blurb: "What you watch" },
-  { key: "playback", label: "Playback", blurb: "How it plays" },
-  { key: "appearance", label: "Appearance", blurb: "How it looks" },
-  { key: "accounts", label: "Accounts", blurb: "Who you are" },
-  { key: "app", label: "App", blurb: "The app itself" },
+  { key: "sources", label: "Sources" },
+  { key: "playback", label: "Playback" },
+  { key: "appearance", label: "Appearance" },
+  { key: "accounts", label: "Accounts" },
+  { key: "app", label: "App" },
 ] as const;
 
 export type SettingsTab = (typeof SETTINGS_PAGES)[number]["key"];

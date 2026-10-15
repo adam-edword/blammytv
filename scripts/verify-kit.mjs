@@ -361,32 +361,31 @@ const dimmedText = () =>
   const rail = page.getByRole("tablist", { name: "Settings" });
   const tab = (n) => rail.getByRole("tab", { name: n, exact: true });
   const PAGES = ["Sources", "Playback", "Appearance", "Accounts", "App"];
-  const BLURBS = ["What you watch", "How it plays", "How it looks", "Who you are", "The app itself"];
   await tab("Sources").click();
-  const shape = await rail.evaluate((el, blurbs) => {
+  const shape = await rail.evaluate((el) => {
     const tabs = [...el.querySelectorAll("[role=tab]")];
     return {
       orient: el.getAttribute("aria-orientation"),
       names: tabs.map((t) => t.getAttribute("aria-label")),
-      // The name is the label alone; the line under it is its description.
-      described: tabs.map((t) => document.getElementById(t.getAttribute("aria-describedby") ?? "")?.textContent),
-      blurbsOk: blurbs.every((b, i) => document.getElementById(tabs[i].getAttribute("aria-describedby") ?? "")?.textContent === b),
+      // What each page reads as: its name, and no line under it (Adam,
+      // v0.11.56: the lines were an AI tell).
+      text: tabs.map((t) => t.textContent.trim()),
       stops: tabs.map((t) => t.tabIndex),
       selected: tabs.map((t) => t.getAttribute("aria-selected")),
       // One column: each item sits below the last.
       column: tabs.every((t, i) => i === 0 || t.getBoundingClientRect().top >= tabs[i - 1].getBoundingClientRect().bottom - 0.5),
       width: Math.round(el.getBoundingClientRect().width),
     };
-  }, BLURBS);
+  });
   check(
     "K2b. the rail is a vertical tablist of the five pages, in order, 180px wide",
     shape.orient === "vertical" && JSON.stringify(shape.names) === JSON.stringify(PAGES) && shape.column && shape.width === 180,
     JSON.stringify(shape),
   );
   check(
-    "  each page's line is its description, not part of its name",
-    shape.blurbsOk,
-    JSON.stringify(shape.described),
+    "  each page reads as its name alone",
+    JSON.stringify(shape.text) === JSON.stringify(PAGES),
+    JSON.stringify(shape.text),
   );
   check(
     "  one tab stop: the chosen page's",
@@ -394,16 +393,14 @@ const dimmedText = () =>
     JSON.stringify({ stops: shape.stops, selected: shape.selected }),
   );
   const tintOn = await token("--tint-on");
-  const muted = await token("--text-muted", "color");
   const paint = await rail.evaluate((el) => {
     const th = el.querySelector(".rail__thumb");
-    const blurb = el.querySelector(".rail__blurb");
-    return { thumb: getComputedStyle(th).backgroundColor, blurb: getComputedStyle(blurb).color, radius: getComputedStyle(th).borderTopLeftRadius };
+    return { thumb: getComputedStyle(th).backgroundColor, radius: getComputedStyle(th).borderTopLeftRadius };
   });
   check(
-    "  the chosen page is Segmented's chip (the 16% tint) and its line is the muted text",
-    paint.thumb === tintOn && paint.blurb === muted,
-    JSON.stringify({ ...paint, tintOn, muted }),
+    "  the chosen page is Segmented's chip (the 16% tint)",
+    paint.thumb === tintOn,
+    JSON.stringify({ ...paint, tintOn }),
   );
 
   // The pointer on a page: the app's hover fill (the one the Guide sidebar's
