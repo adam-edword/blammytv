@@ -142,6 +142,9 @@ function refreshInBackground(playlists: LoadableSource[], key: string) {
 type EpgPhase = {
   programmes: Map<string, Programme[]>;
   epgError?: string;
+  /** The source has no guide of its own to download, so its `epgError` is a
+   * note and not a failed download (LiveGroup.noOwnGuide). */
+  noOwnGuide?: true;
   /** The channels the guide declares, when one was downloaded and read. Set
    * even when none matched, which is when it is most wanted (Fix guide…). */
   guideChannels?: GuideChannel[];
@@ -507,9 +510,10 @@ export function watchPlaylists(): () => void {
  *     config's guide and not another's;
  *  3. this source's group there has a `guideAt` younger than
  *     GUIDE_REFRESH_MS and no `error` or `epgError` (a guide that failed is
- *     retried by the next load, never pinned). An extra guide that gave
- *     nothing does NOT stop it: that is retried with the next refresh, not
- *     paid for with the provider's whole guide on every launch;
+ *     retried by the next load, never pinned). Two notes do NOT stop it: an
+ *     extra guide that gave nothing, which is retried with the next refresh
+ *     and not paid for with the provider's whole guide on every launch, and
+ *     the `epgError` of a source with no guide of its own (`noOwnGuide`);
  *  4. that catalog still covers now, so a guide that has run out of schedule
  *     is downloaded whatever its age.
  *
@@ -519,9 +523,12 @@ export function watchPlaylists(): () => void {
  * the hand fixes of a Stalker portal, which only an extra guide ever reads
  * (`appliedFixKey`).
  *
- * A source with nothing to download (an M3U with no url-tvg) carries an
- * epgError, so it "downloads", which costs nothing, and it never stops
- * another source from reusing its own.
+ * A source with no guide of its own (an M3U with no url-tvg, a portal whose
+ * get_epg_info comes back empty) has an epgError and no stamp, so it "downloads",
+ * which costs nothing unless it has an extra guide, and it never stops another
+ * source from reusing its own. With an extra guide that filled channels, that
+ * is its guide: it is stamped (with `noOwnGuide`, which says the epgError is a
+ * note and not a failure) and reused like any other.
  */
 function canReuseGuide(
   prior: Prior | null,
@@ -536,7 +543,8 @@ function canReuseGuide(
   // the provider's whole guide again on every launch (Adam's is ~95MB), to
   // fail the same way. The extra guide is asked again with the next refresh
   // (GUIDE_REFRESH_MS, or Refresh now); its last fills are kept meanwhile.
-  if (!g || g.guideAt === undefined || g.error || g.epgError) return false;
+  if (!g || g.guideAt === undefined || g.error) return false;
+  if (g.epgError && !g.noOwnGuide) return false;
   // A fix saved since this guide was parsed: its refresh never landed (the
   // app was closed first), so reusing it would leave the fix unapplied for up
   // to GUIDE_REFRESH_MS. Download it with the fix in the index.
@@ -661,7 +669,8 @@ async function doLoad(
     data.guidePending = true;
     const settled = Promise.all(built.map((b) => b.epg)).then((phases) => {
       // When each source's guide was last good. A source that downloaded and
-      // got programmes without an epgError is stamped now. One that reused
+      // got programmes without an epgError is stamped now, and so is one with
+      // no guide of its own whose extra guide filled channels. One that reused
       // its guide keeps the stamp it had, which is how the guide ages across
       // loads that don't touch it. One whose guide failed gets none, so the
       // next load retries it.
@@ -679,15 +688,31 @@ async function doLoad(
         let g = list?.length ? { ...b.group, guideChannels: list } : b.group;
         // The extra guide's own note, beside epgError and never instead of it.
         if (phases[i].extraGuideError) g = { ...g, extraGuideError: phases[i].extraGuideError };
-        if (phases[i].epgError)
-          return { ...g, epgError: phases[i].epgError };
+        // A source with no guide of its own, whose extra guide filled channels,
+        // has a guide, and it is that one. It keeps its note, which says the
+        // provider declares none, and is stamped below like any other.
+        const extraOnly = !!phases[i].noOwnGuide && !!phases[i].fills?.size;
+        if (phases[i].epgError) {
+          g = { ...g, epgError: phases[i].epgError };
+          if (!extraOnly) return g;
+          g = { ...g, noOwnGuide: true };
+        }
         if (reuse[i]) {
           const had = prior?.data.groups.find((x) => x.id === b.group.id);
-          return had?.guideAt === undefined
-            ? g
-            : { ...g, guideAt: had.guideAt, guideFixKey: had.guideFixKey };
+          if (had?.guideAt === undefined) return g;
+          // The reused phase is empty on purpose and has no notes to give, so
+          // the ones the guide was made with are carried, as its stamp is:
+          // the extra guide is not asked again for up to GUIDE_REFRESH_MS, and
+          // until it is, Settings → Sources reads what the last ask said.
+          return {
+            ...g,
+            guideAt: had.guideAt,
+            guideFixKey: had.guideFixKey,
+            ...(had.noOwnGuide ? { noOwnGuide: had.noOwnGuide, epgError: had.epgError } : {}),
+            ...(had.extraGuideError ? { extraGuideError: had.extraGuideError } : {}),
+          };
         }
-        return phases[i].programmes.size > 0
+        return phases[i].programmes.size > 0 || extraOnly
           ? { ...g, guideAt: landed, guideFixKey: phases[i].fixKey || undefined }
           : g;
       });
@@ -1158,6 +1183,7 @@ async function buildM3uSource(
         return {
           programmes: none,
           epgError: "the playlist declares no guide (no url-tvg header)",
+          noOwnGuide: true,
         };
       if (epgIdx.size === 0)
         return {
@@ -1199,7 +1225,9 @@ async function buildM3uSource(
               url: extra,
               agent,
               now,
-              phase,
+              // The fixes the extra guide is matched with, for the stamp: a
+              // playlist with no guide of its own has no other to carry them.
+              phase: { ...phase, fixKey: fixKey(fixes) },
               ours: channels.map((c) => c.id),
               index: () => epgIdx,
             }),
@@ -1351,6 +1379,7 @@ async function buildStalkerSource(
               programmes,
               epgError:
                 "the portal returned no guide data (get_epg_info empty)",
+              noOwnGuide: true,
             }
           : { programmes };
       } catch (err) {

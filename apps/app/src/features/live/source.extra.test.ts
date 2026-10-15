@@ -98,14 +98,15 @@ const bytes = (s: string) => new TextEncoder().encode(s).buffer;
 const stamp = (d: Date) => d.toISOString().replace(/[-:T]/g, "").slice(0, 14) + " +0000";
 const sec = (ms: number) => Math.floor(ms / 1000);
 
-/** An XMLTV document: for each [id, name, title] one programme on now. */
-const guide = (at: number, rows: [id: string, name: string, title: string][]) =>
+/** An XMLTV document: for each [id, name, title] one programme on now, an hour
+ * long unless `span` says otherwise. */
+const guide = (at: number, rows: [id: string, name: string, title: string][], span = 60 * MIN) =>
   "<tv>" +
   rows.map(([id, name]) => `<channel id="${id}"><display-name>${name}</display-name></channel>`).join("") +
   rows
     .map(
       ([id, , title]) =>
-        `<programme start="${stamp(new Date(at - 10 * MIN))}" stop="${stamp(new Date(at + 60 * MIN))}" channel="${id}"><title>${title}</title></programme>`,
+        `<programme start="${stamp(new Date(at - 10 * MIN))}" stop="${stamp(new Date(at + span))}" channel="${id}"><title>${title}</title></programme>`,
     )
     .join("") +
   "</tv>";
@@ -577,6 +578,231 @@ describe("the reuse key covers the extra guide and the agent", () => {
     await m.loadLive(new Date());
     await until(() => fetchXmltv.mock.calls.length > 0);
     expect(fetchXmltv).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a source with no guide of its own reuses the extra guide that is its only one", () => {
+  // An M3U with no url-tvg, and a portal whose get_epg_info comes back empty:
+  // nothing to download from the provider, so the extra guide is all the guide
+  // the source has, and it is reused for GUIDE_REFRESH_MS like any other.
+  const NONE = ["#EXTM3U", '#EXTINF:-1 tvg-id="two.epg" group-title="UK",Two', "http://host/live/2.ts"].join("\n");
+
+  /** The first load of a session, once the guide has landed and been stamped. */
+  async function stamped(id: string) {
+    const m = await import("./source");
+    await m.loadLive(new Date());
+    await until(() => m.lookupLive()?.groups.find((g) => g.id === id)?.guideAt);
+    for (const f of [httpGetBytes, httpGetText, fetchXmltv, fetchEpg, fetchChannels]) f.mockClear();
+    return m;
+  }
+  /** The next load, `after` ms on: the memory cache has aged out, and it
+   * resolves once that load's guide phase has replaced the catalog. */
+  async function remount(m: Awaited<ReturnType<typeof stamped>>, after: number) {
+    const before = m.lookupLive();
+    vi.setSystemTime(T + after);
+    await m.loadLive(new Date());
+    await until(() => m.lookupLive() !== before);
+  }
+
+  describe("an M3U with no url-tvg", () => {
+    beforeEach(() => {
+      playlists = [m3u("M", { extraGuide: EXTRA })];
+      httpGetText.mockResolvedValue(NONE);
+    });
+
+    it("is stamped when its extra guide fills a channel, and keeps the note that it declares none", async () => {
+      const m = await stamped("M");
+      const g = group(m.lookupLive()!, "M");
+      expect(g.guideAt).toBe(T);
+      expect(g.epgError).toMatch(/declares no guide/);
+      expect(title(m.lookupLive()!, "M:two.epg")).toBe("Extra Two");
+    });
+
+    it("a second load inside twelve hours does not fetch the extra guide, and keeps what it filled", async () => {
+      const m = await stamped("M");
+      await remount(m, 31 * MIN);
+      expect(httpGetText).toHaveBeenCalledTimes(1);
+      expect(httpGetBytes).not.toHaveBeenCalled();
+      const d = m.lookupLive()!;
+      expect(title(d, "M:two.epg")).toBe("Extra Two");
+      expect(group(d, "M").guideAt).toBe(T);
+    });
+
+    it("past twelve hours it fetches the extra guide again and renews the stamp", async () => {
+      const m = await stamped("M");
+      await remount(m, 13 * HOUR);
+      await until(() => group(m.lookupLive()!, "M").guideAt === T + 13 * HOUR);
+      expect(httpGetBytes).toHaveBeenCalledTimes(1);
+      expect(httpGetBytes).toHaveBeenCalledWith(EXTRA, undefined, 180);
+    });
+
+    it("the note reads the same after a reused load as after the load that made the guide", async () => {
+      // Three hours of schedule, so it still covers now at the second remount.
+      httpGetBytes.mockImplementation(async () => bytes(guide(Date.now(), [["two.epg", "Two", "Extra Two"]], 3 * HOUR)));
+      const m = await stamped("M");
+      const first = group(m.lookupLive()!, "M");
+      await remount(m, 31 * MIN);
+      const again = group(m.lookupLive()!, "M");
+      expect(again.epgError).toBe(first.epgError);
+      expect(again.extraGuideError).toBe(first.extraGuideError);
+      // And once more: carried from a reused load, not only from a fresh one.
+      await remount(m, 62 * MIN);
+      expect(group(m.lookupLive()!, "M").epgError).toBe(first.epgError);
+      expect(httpGetBytes).not.toHaveBeenCalled();
+    });
+
+    it("a relaunch from the disk record reuses it too", async () => {
+      const m = await stamped("M");
+      disk = { at: Date.now(), data: m.lookupLive()!, normalized: true };
+      vi.resetModules();
+      vi.setSystemTime(T + 40 * MIN);
+      const next = await import("./source");
+      const hydrated = await next.loadLive(new Date());
+      // The revalidation behind the hydrate has settled once it replaces it.
+      await until(() => next.lookupLive() !== hydrated);
+      expect(httpGetText).toHaveBeenCalledTimes(1);
+      expect(httpGetBytes).not.toHaveBeenCalled();
+      const d = next.lookupLive()!;
+      expect(title(d, "M:two.epg")).toBe("Extra Two");
+      expect(group(d, "M").guideAt).toBe(T);
+      expect(group(d, "M").epgError).toMatch(/declares no guide/);
+    });
+
+    it("a hand fix saved since is not left out: the guide is fetched again", async () => {
+      const m = await stamped("M");
+      saveGuideFix("M", "M:two.epg", "four.epg");
+      await remount(m, 31 * MIN);
+      expect(httpGetBytes).toHaveBeenCalledTimes(1);
+    });
+
+    it("a fix the guide was matched with is part of the stamp, so the same fixes still reuse it", async () => {
+      saveGuideFix("M", "M:two.epg", "four.epg");
+      const m = await stamped("M");
+      expect(group(m.lookupLive()!, "M").guideFixKey).toBe(fixKey({ "M:two.epg": "four.epg" }));
+      await remount(m, 31 * MIN);
+      expect(httpGetBytes).not.toHaveBeenCalled();
+    });
+
+    it("an extra guide that gave nothing leaves it unstamped, so the next load asks again", async () => {
+      httpGetBytes.mockRejectedValue(new Error("timed out"));
+      const m = await import("./source");
+      await m.loadLive(new Date());
+      await until(() => group(m.lookupLive()!, "M").extraGuideError);
+      expect(group(m.lookupLive()!, "M").guideAt).toBeUndefined();
+      httpGetBytes.mockClear();
+      vi.setSystemTime(T + 31 * MIN);
+      await m.loadLive(new Date());
+      await until(() => httpGetBytes.mock.calls.length > 0);
+      expect(httpGetBytes).toHaveBeenCalledWith(EXTRA, undefined, 180);
+    });
+  });
+
+  describe("a provider's own guide that fails is still tried again by the next load", () => {
+    it("an M3U whose declared guide does not download, the extra guide filling meanwhile", async () => {
+      playlists = [m3u("M", { extraGuide: EXTRA })];
+      httpGetBytes.mockImplementation(async (url: string) => {
+        if (url.startsWith("http://epg.example")) throw new Error("timed out");
+        return bytes(guide(Date.now(), [["two.epg", "Two", "Extra Two"]]));
+      });
+      const m = await import("./source");
+      await m.loadLive(new Date());
+      await until(() => group(m.lookupLive()!, "M").epgError);
+      expect(group(m.lookupLive()!, "M").epgError).toMatch(/guide download failed/);
+      expect(title(m.lookupLive()!, "M:two.epg")).toBe("Extra Two");
+      expect(group(m.lookupLive()!, "M").guideAt).toBeUndefined();
+      httpGetBytes.mockClear();
+      vi.setSystemTime(T + 31 * MIN);
+      await m.loadLive(new Date());
+      await until(() => httpGetBytes.mock.calls.length >= 2);
+      expect(httpGetBytes.mock.calls.map((c) => c[0])).toEqual(["http://epg.example/guide.xml", EXTRA]);
+    });
+
+    it("a portal whose get_epg_info fails", async () => {
+      playlists = [stalker("S", { extraGuide: EXTRA })];
+      fetchEpg.mockRejectedValue(new Error("timed out"));
+      httpGetBytes.mockImplementation(async () =>
+        bytes(guide(Date.now(), [["s2.xml", "Stal Two", "Extra Stal Two"]])),
+      );
+      const m = await import("./source");
+      await m.loadLive(new Date());
+      await until(() => group(m.lookupLive()!, "S").epgError);
+      expect(group(m.lookupLive()!, "S").epgError).toMatch(/guide download failed/);
+      expect(group(m.lookupLive()!, "S").guideAt).toBeUndefined();
+      fetchEpg.mockClear();
+      vi.setSystemTime(T + 31 * MIN);
+      await m.loadLive(new Date());
+      await until(() => fetchEpg.mock.calls.length > 0);
+      expect(fetchEpg).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("a Stalker portal with no guide of its own", () => {
+    beforeEach(() => {
+      playlists = [stalker("S", { extraGuide: EXTRA })];
+      fetchEpg.mockResolvedValue(new Map());
+      httpGetBytes.mockImplementation(async () =>
+        bytes(
+          guide(Date.now(), [
+            ["s1.xml", "Stal One", "Extra Stal One"],
+            ["s2.xml", "Stal Two", "Extra Stal Two"],
+          ]),
+        ),
+      );
+    });
+
+    it("is stamped when its extra guide fills a channel, and keeps the portal's note", async () => {
+      const m = await stamped("S");
+      const g = group(m.lookupLive()!, "S");
+      expect(g.guideAt).toBe(T);
+      expect(g.epgError).toMatch(/returned no guide data/);
+      expect(title(m.lookupLive()!, "S:101")).toBe("Extra Stal One");
+    });
+
+    it("a second load inside twelve hours asks neither the portal nor the extra guide, and keeps the fills", async () => {
+      const m = await stamped("S");
+      await remount(m, 31 * MIN);
+      expect(fetchChannels).toHaveBeenCalledTimes(1);
+      expect(fetchEpg).not.toHaveBeenCalled();
+      expect(httpGetBytes).not.toHaveBeenCalled();
+      const d = m.lookupLive()!;
+      expect(title(d, "S:102")).toBe("Extra Stal Two");
+      expect(group(d, "S").epgError).toMatch(/returned no guide data/);
+    });
+
+    it("past twelve hours it asks for both again", async () => {
+      const m = await stamped("S");
+      await remount(m, 13 * HOUR);
+      await until(() => group(m.lookupLive()!, "S").guideAt === T + 13 * HOUR);
+      expect(fetchEpg).toHaveBeenCalledTimes(1);
+      expect(httpGetBytes).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("an extra guide's note on a source that has a guide of its own", () => {
+    it("reads the same after a reused load as after the load that produced it", async () => {
+      playlists = [xtream("A", { extraGuide: EXTRA })];
+      httpGetBytes.mockRejectedValue(new Error("connect failed"));
+      const m = await stamped("A");
+      const first = group(m.lookupLive()!, "A").extraGuideError;
+      expect(first).toMatch(/^download failed/);
+      await remount(m, 31 * MIN);
+      // Reused: neither guide was asked, and Settings → Sources still says why
+      // the extra one gave nothing, for as long as it is not asked again.
+      expect(fetchXmltv).not.toHaveBeenCalled();
+      expect(httpGetBytes).not.toHaveBeenCalled();
+      expect(group(m.lookupLive()!, "A").extraGuideError).toBe(first);
+      expect(group(m.lookupLive()!, "A").guideAt).toBe(T);
+    });
+
+    it("and is gone when the extra guide is asked again and gives something", async () => {
+      playlists = [xtream("A", { extraGuide: EXTRA })];
+      httpGetBytes.mockRejectedValue(new Error("connect failed"));
+      const m = await stamped("A");
+      httpGetBytes.mockImplementation(async () => bytes(guide(Date.now(), [["two.epg", "Two", "Extra Two"]])));
+      await remount(m, 13 * HOUR);
+      await until(() => group(m.lookupLive()!, "A").guideAt === T + 13 * HOUR);
+      expect(group(m.lookupLive()!, "A").extraGuideError).toBeUndefined();
+    });
   });
 });
 

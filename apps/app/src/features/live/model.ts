@@ -82,9 +82,10 @@ export interface LiveGroup {
    * behind it is invisible in a packaged build. */
   epgError?: string;
   /** When this source's guide was downloaded and parsed, with programmes and
-   * no epgError (ms since epoch). A load reuses a guide younger than
-   * GUIDE_REFRESH_MS instead of downloading it again (source.ts), and
-   * Settings → Sources reads it for "Last refreshed". Absent when the
+   * no epgError (ms since epoch), or, for a source with no guide of its own
+   * (`noOwnGuide`), when its extra guide filled channels. A load reuses a
+   * guide younger than GUIDE_REFRESH_MS instead of downloading it again
+   * (source.ts), and Settings → Sources reads it for "Last refreshed". Absent when the
    * guide has never landed or failed the last time, so the next load
    * retries it. A disk record from before this field gets the record's own
    * `at` at the hydrate. */
@@ -107,9 +108,17 @@ export interface LiveGroup {
    * asked and gave nothing: it would not download, would not read, or matched
    * none of the channels the provider's guide left empty. A note of its own
    * beside `epgError`, because it never costs the provider's guide anything.
-   * Settings → Sources shows it; a guide that carries one is downloaded again
-   * by the next load rather than reused. */
+   * Settings → Sources shows it. A guide that carries one is still reused
+   * (it is asked again with the next refresh, not on every launch), and the
+   * note is carried with it, as `guideAt` is. */
   extraGuideError?: string;
+  /** This source has no guide of its own to download (an M3U with no url-tvg,
+   * a Stalker portal whose get_epg_info comes back empty), so its `epgError`
+   * says so and is a note, not a failed download. Set only with a `guideAt`:
+   * the extra guide filled channels, and that is the guide the source has.
+   * A guide reused with it keeps the note. An `epgError` without this is a
+   * guide that failed, and the next load tries it again. */
+  noOwnGuide?: true;
 }
 
 export interface LiveData {
