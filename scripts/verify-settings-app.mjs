@@ -834,13 +834,25 @@ for (const [label, status] of [
       ]),
     JSON.stringify(rows),
   );
-  const blurb = await page.locator("[data-setting='about'] .settings__section-note").innerText();
+  const blurb = await page.locator("[data-setting='about'] > div > .settings__section-note").innerText();
   check("  under a one-line note", blurb.length > 0 && !blurb.includes("\n"), blurb);
   const fit = await page.evaluate(() => {
     const body = document.querySelector(".settings__body");
     return { sideways: body.scrollWidth > body.clientWidth + 1 };
   });
   check("  and it fits", !fit.sideways);
+  // The GPL's notice: mpv and FFmpeg ship in the installer.
+  const gpl = page.locator("[data-setting='about'] [data-about-licenses]");
+  const gplText = (await gpl.innerText()).replace(/\s+/g, " ").trim();
+  check("  then a line saying mpv and FFmpeg are GPL, with a way to their licenses and source", gplText === "mpv and FFmpeg are free software under the GNU GPL. Their licenses and source", gplText);
+  await gpl.getByRole("button", { name: "Their licenses and source" }).click();
+  await page.waitForTimeout(200);
+  const opened = await calls(page, "open_external");
+  check(
+    "  which opens the notice in the browser",
+    opened.length === 1 && opened[0]?.url === "https://github.com/adam-edword/blammytv/blob/main/apps/app/src-tauri/licenses/THIRD-PARTY-NOTICES.txt",
+    JSON.stringify(opened),
+  );
   await ctx.close();
 }
 {
@@ -955,7 +967,7 @@ async function pressCopy(page, said = "Copied") {
     where.buttons.join("|") === "Copy" && /no analytics/i.test(where.note) && /no reports/i.test(where.note) && /only when you copy/i.test(where.note) && !where.noteLines.includes("\n") && !where.sideways,
     JSON.stringify(where),
   );
-  check("  and no Open Log Folder (open_external opens https addresses and nothing else)", !where.anyFolderButton);
+  check("  and no Open Log Folder (open_external opens web addresses and nothing else)", !where.anyFolderButton);
   check("log_tail is not asked until the button is pressed", (await calls(page, "log_tail")).length === 0);
 
   await pressCopy(page);

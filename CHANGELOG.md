@@ -116,6 +116,9 @@ This one runs the installer, like 0.11.12.
 
 - Pressing the tab you're already on takes it home: Stream, Discover and
   Library.
+- Settings → App → About says mpv and FFmpeg are free software under the
+  GNU GPL, and links their licenses and source. The installer carries the
+  same notice and the license text.
 - Continue Watching cards tilt and catch the light like the other cards.
 - Windows' sound settings list the player as "BlammyTV Player".
 

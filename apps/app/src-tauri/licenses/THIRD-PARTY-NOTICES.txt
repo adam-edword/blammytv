@@ -1,0 +1,52 @@
+BlammyTV: third-party software in the Windows installer
+
+BlammyTV is free. These programs come with it, made by others, under their
+own licenses.
+
+
+libmpv (libmpv-2.dll), the player
+
+  mpv v0.41.0-1078-g35af06172b, built by shinchiro/mpv-winbuild-cmake
+  (the 20260926 build).
+  License: the GNU General Public License, version 2 or later. This build
+  links FFmpeg and other libraries under GPL version 3, so the file as a
+  whole is covered by GPL version 3. See GPL-3.0.txt.
+  Source: https://github.com/mpv-player/mpv, commit 35af06172b.
+
+
+FFmpeg (ffmpeg.exe), which converts multi-view's HEVC streams
+
+  FFmpeg, git 243dfa399, built by shinchiro/mpv-winbuild-cmake (the 20260926
+  build), configured with --enable-gpl --enable-version3.
+  License: the GNU General Public License, version 3 or later. See
+  GPL-3.0.txt.
+  Source: https://git.ffmpeg.org/ffmpeg.git, commit 243dfa399.
+
+
+Libraries inside both builds
+
+  Both files also contain libraries the build links in (x264, x265, dav1d,
+  libass, libplacebo, FreeType, HarfBuzz and others), each under its own
+  free license. The build recipe names every one, with its version and where
+  its source is: https://github.com/shinchiro/mpv-winbuild-cmake
+
+
+The exact files
+
+  The two archives the installer's copies come from are mirrored at
+  https://github.com/adam-edword/blammytv/releases/tag/deps-20260926
+  and their SHA-256 sums are in scripts/deps.json in the same repository.
+
+
+Getting the source
+
+  Each project's source is at the address above. If one of those stops
+  working, email support@eddtv.org and we'll send you the source for the
+  version in your installer, at no charge beyond the cost of sending it.
+  This offer stands for three years from the release that included it.
+
+
+Vulkan loader (vulkan/vulkan-1.dll)
+
+  The LunarG Vulkan Runtime 1.4.363.0. Its license is VulkanRT-License.txt,
+  beside it.

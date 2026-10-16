@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { APP_VERSION } from "../../lib/version";
-import { isTauri, tauriAboutVersions } from "../../lib/tauri";
+import { isTauri, openExternal, tauriAboutVersions } from "../../lib/tauri";
+import { Button } from "../../components/ui/button";
 import { aboutRows, type AboutRow } from "./aboutRows";
 
 /**
@@ -14,7 +15,14 @@ import { aboutRows, type AboutRow } from "./aboutRows";
  * A row native could not fill is not drawn, and an older native with no such
  * command draws none of them: no error text either way. Version strings only;
  * native sends no path, URL or name.
+ *
+ * Under the rows, where the GPL's notice goes: mpv and FFmpeg ship in the
+ * installer, so the app says what they are and where their source is. The
+ * same notice and the license text are installed beside them (licenses/).
  */
+const LICENSES_URL =
+  "https://github.com/adam-edword/blammytv/blob/main/apps/app/src-tauri/licenses/THIRD-PARTY-NOTICES.txt";
+
 export function AboutSection() {
   const [rows, setRows] = useState<AboutRow[]>([]);
   useEffect(() => {
@@ -51,6 +59,18 @@ export function AboutSection() {
           </div>
         ))}
       </dl>
+      <p className="settings__section-note settings__section-note--dim" data-about-licenses>
+        mpv and FFmpeg are free software under the GNU GPL.{" "}
+        <Button
+          variant="link"
+          size="sm"
+          type="button"
+          className="h-auto p-0 text-muted-foreground"
+          onClick={() => openExternal(LICENSES_URL)}
+        >
+          Their licenses and source
+        </Button>
+      </p>
     </div>
   );
 }

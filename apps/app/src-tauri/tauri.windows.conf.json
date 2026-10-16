@@ -5,7 +5,9 @@
       "libmpv-2.dll",
       "ffmpeg.exe",
       "vulkan/vulkan-1.dll",
-      "vulkan/VulkanRT-License.txt"
+      "vulkan/VulkanRT-License.txt",
+      "licenses/THIRD-PARTY-NOTICES.txt",
+      "licenses/GPL-3.0.txt"
     ]
   }
 }
