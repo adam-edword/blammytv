@@ -163,16 +163,17 @@ check(
   Math.abs(geo.canvas - (geo.laneX + GUIDE_HOURS * 60 * PX_PER_MIN)) < 0.5,
   `canvas ${geo.canvas}px, expected ${geo.laneX + GUIDE_HOURS * 60 * PX_PER_MIN}px`,
 );
-// "ESPN Hour 2" starts at the window's own start (the panel floors to the
-// half hour, as the Guide does), so a cell N hours later sits N * 60
-// minutes further along, whatever the clock says.
-const ref = await programme("ESPN Hour 2");
-const far = await programme("ESPN Hour 14");
+// "ESPN Hour 3" starts an hour after the panel's half hour, so it is inside
+// the window on either half hour (Hour 2 is pinned at the edge once the
+// window rolls past its start), and a cell N hours later sits N * 60 minutes
+// further along, whatever the clock says.
+const ref = await programme("ESPN Hour 3");
+const far = await programme("ESPN Hour 15");
 const farWant = ref ? ref.left + 12 * 60 * PX_PER_MIN : NaN;
 check(
   "a programme 12 hours ahead is in the DOM at the right left",
   !!far && far.left >= 10 * 60 * PX_PER_MIN && Math.abs(far.left - farWant) < 1.5 && Math.abs(far.inLane - far.left) < 1.5,
-  far ? `left ${far.left}, expected ${farWant}, in its lane ${far.inLane}` : "ESPN Hour 14 is not in the DOM",
+  far ? `left ${far.left}, expected ${farWant}, in its lane ${far.inLane}` : "ESPN Hour 15 is not in the DOM",
 );
 
 // ---- at rest, the buttons say where you are ----
@@ -255,7 +256,7 @@ const ticks = await page.evaluate(() =>
   [...document.querySelectorAll(".guide__tick")].map((t) => ({ text: t.textContent, left: parseFloat(t.style.left) })),
 );
 const named = ticks.filter((t) => WEEKDAY.test(t.text));
-// Which instant that tick is: the window starts where "ESPN Hour 2" does.
+// Which instant that tick is, worked back from where "ESPN Hour 3" starts.
 const refStart = ref ? Number(ref.key.split(":")[0]) : NaN;
 const winStart = refStart - (ref ? ref.left / PX_PER_MIN : 0) * 60_000;
 const at = named[0] ? new Date(winStart + ((named[0].left - geo.laneX) / PX_PER_MIN) * 60_000) : null;
@@ -328,8 +329,12 @@ const rowCells = await page.evaluate(() => {
   const row = document.querySelector(".guide__row");
   return [...row.querySelectorAll(".guide__cell[data-key]")].map((c) => ({ title: c.dataset.hint, left: Number(c.dataset.left), width: Number(c.dataset.width) }));
 });
-// A cell well inside the view (not the one pinned at the edge).
-const watched = rowCells.find((c) => c.left > 2500 + 300 && c.left + c.width < 2500 + 1000);
+// A cell well inside the view (not the one pinned at the edge). The hourly
+// cells start on whichever half hour the guide was fetched in, and the
+// window can roll to the other one mid-run (CI crossed 06:30 once and found
+// no cell that fit 2800-3500), so take the one starting in the 570px after
+// 2800: there is always exactly one.
+const watched = rowCells.find((c) => c.left > 2500 + 300 && c.left <= 2500 + 300 + 60 * PX_PER_MIN);
 const was = watched ? await programme(watched.title) : null;
 const scrollBefore = (await jump()).x;
 await page.clock.fastForward("31:00");
