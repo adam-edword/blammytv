@@ -189,7 +189,7 @@ html:not(.scrub) .feat figure {
 }
 html:not(.scrub) .feat img { width: 100%; height: auto; border-radius: clamp(10px, 1.5vw, 18px); }
 html:not(.scrub) .feat img + img { display: none; }
-html:not(.scrub) .board { aspect-ratio: 1697 / 901; border-radius: clamp(10px, 1.5vw, 18px); }
+html:not(.scrub) .board { aspect-ratio: 1700 / 910; border-radius: clamp(10px, 1.5vw, 18px); }
 html:not(.scrub) .cap { margin-top: 28px; }
 
 /* Your Colors: a drawing (type and swatches), never dressed up as a screenshot. */
@@ -377,21 +377,48 @@ footer { border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 40px var(--gr)
       <ol class="feat-list">
         <li class="feat" data-name="Live TV">
           <figure>
-            <img src="assets/Guide.webp" width="1697" height="901" decoding="async" alt="The Live TV guide, with a channel playing above it">
-            <img src="assets/Guide_Theater.webp" width="1697" height="901" decoding="async" alt="A channel playing in theater mode beside the channel list">
+            <img src="assets/Guide.webp" width="1700" height="910" decoding="async" alt="The Live TV guide, with a channel playing above it">
           </figure>
           <div class="cap" data-plate>
             <h2>Live TV with a Real Guide</h2>
             <p>Every channel you add lands in one guide. See what's on now and next, scroll a whole day ahead, and star the channels you watch most.</p>
           </div>
         </li>
+        <li class="feat" data-name="Multi-View">
+          <figure>
+            <img src="assets/Multi_View.webp" width="1700" height="910" decoding="async" alt="Multi-View with one big channel and two smaller ones beside it">
+          </figure>
+          <div class="cap" data-plate>
+            <h2>Up to Four Channels at Once</h2>
+            <p>Right-click a channel in the Guide to add it. Watch them in a grid, or make one big and keep the rest beside it.</p>
+          </div>
+        </li>
+        <li class="feat" data-name="Sports">
+          <figure>
+            <img src="assets/Sports.webp" width="1700" height="910" decoding="async" alt="Sports, with today's games and a list of leagues down the side">
+          </figure>
+          <div class="cap" data-plate>
+            <h2>Find the Game</h2>
+            <p>See today's games for the leagues you follow, with the channels showing them.</p>
+          </div>
+        </li>
         <li class="feat" data-name="Stream">
           <figure>
-            <img src="assets/Stream_Home.webp" width="1697" height="901" decoding="async" alt="The Stream home page, with a hero slider over Continue Watching">
+            <img src="assets/Stream_Home.webp" width="1700" height="910" decoding="async" alt="The Stream home page, with a hero slider above a row of anime">
+            <img src="assets/Stream_Title.webp" width="1700" height="910" decoding="async" alt="A movie's page, with its sources listed down the right side">
           </figure>
           <div class="cap" data-plate>
             <h2>Movies and Shows</h2>
             <p>Sign in to AIOStreams or your own Jellyfin server, and your movies and shows fill the home page. Continue Watching keeps your place.</p>
+          </div>
+        </li>
+        <li class="feat" data-name="Discover">
+          <figure>
+            <img src="assets/Stream_Discover.webp" width="1700" height="910" decoding="async" alt="Discover, with genre tiles above a grid of shows">
+          </figure>
+          <div class="cap" data-plate>
+            <h2>Find Something to Watch</h2>
+            <p>Browse your catalogs by genre, or see what's popular right now.</p>
           </div>
         </li>
         <li class="feat" data-name="Player">
@@ -401,15 +428,6 @@ footer { border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 40px var(--gr)
           <div class="cap" data-plate>
             <h2>A Real Player, Built In</h2>
             <p>Everything plays in mpv, built right in. Surround sound works, and Skip Intro jumps past the opening.</p>
-          </div>
-        </li>
-        <li class="feat" data-name="Discover">
-          <figure>
-            <img src="assets/Stream_Discover.webp" width="1697" height="901" decoding="async" alt="Discover, with genre tiles above a row of popular titles">
-          </figure>
-          <div class="cap" data-plate>
-            <h2>Find Something to Watch</h2>
-            <p>Browse your catalogs by genre, or see what's popular right now.</p>
           </div>
         </li>
         <li class="feat" data-name="Your Colors">
@@ -555,7 +573,7 @@ footer { border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 40px var(--gr)
   };
   const REV = 1, FEAT = 1, TAIL = 0.15;
   const P_BOOT = KNOTS[KNOTS.length - 1][0], P_REV = P_BOOT + REV, P_END = P_REV + FEAT * feats.length, TOTAL = P_END + TAIL;
-  const RATIO = 1697 / 901;
+  const RATIO = 1700 / 910;
 
   root.classList.add("scrub");
 
@@ -576,7 +594,7 @@ footer { border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 40px var(--gr)
     const b = Math.round(clamp(W * 0.011, 8, 16));
     // The bar sits 16px inside the screen's bottom edge; captions keep 32px above it.
     const capH = narrow ? 210 : 104, ctlH = 36.5 * s + 16 + 38 + 32, topPad = narrow ? 64 : 48, gap = narrow ? 20 : 28;
-    let ws = Math.min(W - 2 * g, 1697 + 2 * b) - 2 * b;   // up to the screenshots' own width
+    let ws = Math.min(W - 2 * g, 1700 + 2 * b) - 2 * b;   // up to the screenshots' own width
     ws = Math.max(160, Math.min(ws, (H - topPad - capH - ctlH - gap - 2 * b) * RATIO));
     const hs = ws / RATIO, wo = ws + 2 * b, ho = hs + 2 * b;
     const top = topPad + Math.max(0, (H - topPad - ctlH - (ho + gap + capH)) / 2);
