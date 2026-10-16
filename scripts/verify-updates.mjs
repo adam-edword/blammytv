@@ -93,7 +93,7 @@ await page.waitForTimeout(4200);
 await page.evaluate(() => {
   window.__staged = "0.10.9";
 });
-await row.getByRole("button", { name: /Check for updates|up to date/ }).click();
+await row.getByRole("button", { name: /Check for Updates|up to date/ }).click();
 await page.waitForTimeout(400);
 check(
   "a bundle staged after Settings opened: Check for updates says it's ready",
@@ -117,12 +117,12 @@ await page.evaluate(() => {
 await page.keyboard.press("Escape");
 await page.locator("[data-slot='dialog-content']").waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
 await page.getByRole("button", { name: "Settings", exact: true }).first().click();
-await row.getByRole("button", { name: /Check for updates|up to date/ }).waitFor({ timeout: 10_000 });
+await row.getByRole("button", { name: /Check for Updates|up to date/ }).waitFor({ timeout: 10_000 });
 await page.evaluate(() => {
   window.__staged = "0.10.9";
   window.__native = "0.11.0";
 });
-await row.getByRole("button", { name: /Check for updates|up to date/ }).click();
+await row.getByRole("button", { name: /Check for Updates|up to date/ }).click();
 const installBtn = row.getByRole("button", { name: "Install v0.11.0" });
 const shown = await installBtn.waitFor({ timeout: 5000 }).then(() => true, () => false);
 check("an installer found shows ahead of a waiting bundle", shown, await note());

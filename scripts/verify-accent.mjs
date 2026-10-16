@@ -167,7 +167,7 @@ check("Custom chip draws the active colour", chipFill === "rgb(255, 106, 0)", ch
 // 6. Reset clears storage, the DOM and the picker's tick together.
 // Two presses since the pages (v0.11.26): Reset arms, then confirms.
 await page.getByRole("button", { name: "Reset", exact: true }).click();
-await page.getByRole("button", { name: "Click again to confirm" }).click();
+await page.getByRole("button", { name: "Click Again to Confirm" }).click();
 check("Reset removes the inline accent", (await root()).inline === "");
 check(
   "Reset re-ticks Default",

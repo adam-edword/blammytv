@@ -116,10 +116,10 @@ export function HeroSourcesSection() {
   return (
     <div className="customize-stack" data-setting="hero-sources">
       <div>
-        <h4 className="customize-row__title">Hero Slider Sources</h4>
+        <h4 className="customize-row__title">Carousel Catalogs</h4>
         <p className="settings__section-note settings__section-note--dim">
-          The catalogs the hero pulls from, shuffled each load. Empty uses a
-          mix of everything.
+          The carousel draws from these catalogs. With none picked, it uses
+          all of them.
         </p>
       </div>
       {catalogs.status === "loading" && (
@@ -129,7 +129,8 @@ export function HeroSourcesSection() {
       )}
       {catalogs.status === "error" && (
         <p className="settings__section-note settings__section-note--dim">
-          Couldn&rsquo;t reach the manifest. Check the URL.
+          Couldn&rsquo;t load the catalogs. Check your AIOStreams sign-in or
+          manifest URL.
         </p>
       )}
       {/*
@@ -190,7 +191,7 @@ export function HeroSourcesSection() {
                 ))
               }
             </ComboboxValue>
-            <ComboboxChipsInput placeholder="Add sources…" />
+            <ComboboxChipsInput placeholder="Add catalogs…" />
           </ComboboxChips>
           <ComboboxContent anchor={anchor}>
             <ComboboxEmpty>No catalog found.</ComboboxEmpty>

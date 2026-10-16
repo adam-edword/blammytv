@@ -197,7 +197,7 @@ export function AioStreamsTab() {
             <div className="customize-row aio-row">
               <div>
                 <h4 className="customize-row__title">
-                  {status.userName ? `Signed in as ${status.userName}` : "Signed in"}
+                  {status.userName ? `Signed In as ${status.userName}` : "Signed In"}
                 </h4>
                 {origin && <p className="settings__section-note settings__section-note--dim">{origin}</p>}
                 <p className="settings__section-note settings__section-note--dim">{syncLine}</p>
@@ -212,7 +212,7 @@ export function AioStreamsTab() {
               </div>
               <div className="aio-row__actions">
                 <Button variant="secondary" type="button" disabled={syncing} onClick={startSync}>
-                  {syncing ? "Syncing…" : "Sync now"}
+                  {syncing ? "Syncing…" : "Sync Now"}
                 </Button>
                 <Button
                   variant={armed ? "destructive" : "outline"}
@@ -220,14 +220,14 @@ export function AioStreamsTab() {
                   className={armed ? "" : "hover:border-destructive hover:text-destructive"}
                   onClick={disconnect}
                 >
-                  {armed ? "Click again to confirm" : "Disconnect"}
+                  {armed ? "Click Again to Confirm" : "Disconnect"}
                 </Button>
               </div>
             </div>
           ) : quick ? (
             <div className="customize-row aio-row">
               <div>
-                <h4 className="customize-row__title">Sign in to AIOStreams</h4>
+                <h4 className="customize-row__title">Sign In to AIOStreams</h4>
                 <AioCode code={quick.code} copied={flow.copied} onCopy={() => void flow.copyCode(quick.code)} />
                 <p className="settings__section-note settings__section-note--dim">{APPROVE_NOTE}</p>
               </div>
@@ -248,7 +248,7 @@ export function AioStreamsTab() {
               </p>
               <div className="settings-field">
                 <label className="settings-field__label" htmlFor={addressId}>
-                  AIOStreams address
+                  AIOStreams Address
                 </label>
                 <div className="settings-field__control">
                   <input
@@ -283,7 +283,7 @@ export function AioStreamsTab() {
                   className="h-auto p-0 text-muted-foreground"
                   onClick={() => setRevealed(true)}
                 >
-                  Use a manifest URL instead
+                  Use a Manifest URL Instead
                 </Button>
               )}
             </>
@@ -360,8 +360,8 @@ export function AioStreamsTab() {
           <h3 className="settings-section__list-title">Connection Test</h3>
           <p className="settings__section-note settings__section-note--dim">
             {conn.kind === "signin"
-              ? "Checks your sign-in the way the app uses it: your catalogs, and a stream lookup for a known test title. Screenshot the result when reporting a problem; it never shows your address."
-              : "Checks your instance the same way the app talks to it: manifest, a catalog page, and a stream lookup. Screenshot the result when reporting a problem; it never shows your URL."}
+              ? "Checks your catalogs and looks up streams for a known test title, the way the app does. The result never shows your address, so you can screenshot it when you report a problem."
+              : "Checks the manifest, a catalog page and a stream lookup, the way the app does. The result never shows your URL, so you can screenshot it when you report a problem."}
           </p>
           <Button
             variant="secondary"

@@ -147,7 +147,7 @@ check(
 await pick("Light");
 // Two presses since the pages (v0.11.26): Reset arms, then confirms.
 await page.getByRole("button", { name: "Reset", exact: true }).click();
-await page.getByRole("button", { name: "Click again to confirm" }).click();
+await page.getByRole("button", { name: "Click Again to Confirm" }).click();
 await page.waitForTimeout(150);
 check(
   "Reset Appearance goes back to Dark",

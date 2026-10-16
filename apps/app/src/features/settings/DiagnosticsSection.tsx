@@ -68,8 +68,8 @@ export function DiagnosticsSection() {
       <div>
         <h4 className="customize-row__title">Copy Diagnostics</h4>
         <p className="settings__section-note settings__section-note--dim">
-          We have no analytics and send no reports. Diagnostics leave this PC
-          only when you copy them.
+          The app has no analytics and sends no reports. Diagnostics leave this
+          PC only when you copy them.
         </p>
       </div>
       <Button
@@ -85,7 +85,7 @@ export function DiagnosticsSection() {
           : phase === "copied"
             ? "Copied"
             : phase === "failed"
-              ? "Couldn't copy"
+              ? "Couldn't Copy"
               : "Copy"}
       </Button>
     </div>

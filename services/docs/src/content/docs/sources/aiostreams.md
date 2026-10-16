@@ -79,8 +79,8 @@ with the title, season and episode. That's your instance's setting. See
 Some instances can't sign in. ElfHosted ships with the Jellyfin side off, and
 a sign-in needs it. For those, there's still the manifest URL.
 
-Under **Settings → Sources → Stream**, press **Use a manifest URL
-instead**. It's one field, your **manifest URL**, from your instance's
+Under **Settings → Sources → Stream**, press **Use a Manifest URL
+Instead**. It's one field, your **manifest URL**, from your instance's
 configure page. It looks something like:
 
 ```
@@ -147,7 +147,7 @@ server hosting your manifest.
 - **Catalog rows** on the Stream home tab, one per browsable catalog your
   config exposes.
 - **A featured hero**, drawn from your catalogs. You can pin which ones it
-  uses under **Settings → Appearance → Stream → Hero Slider Sources**, or
+  uses under **Settings → Appearance → Stream → Carousel Catalogs**, or
   leave it on the default mix.
 - **Search**, on the Discover tab.
 - **Artwork and synopses**, filled in from Cinemeta where your catalog is
@@ -158,7 +158,7 @@ everything else loads.
 
 ## Tuning
 
-- **Catalog Row Size** (Settings) sets how many titles each row holds. The
+- **Titles per Row** (Settings) sets how many titles each row holds. The
   default is 40.
 - **One-click play** (Settings, off by default) makes a click on a *movie*
   card start the best already-resolved source instead of opening its detail

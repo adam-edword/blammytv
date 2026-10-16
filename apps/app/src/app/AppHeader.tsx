@@ -88,7 +88,7 @@ const DESTS: Array<{
   beta?: boolean;
 }> = [
   { key: "guide", label: "Guide", side: "live", Icon: GuideIcon },
-  { key: "multiview", label: "Multi-view", side: "live", Icon: MultiviewIcon },
+  { key: "multiview", label: "Multi-View", side: "live", Icon: MultiviewIcon },
   { key: "sports", label: "Sports", side: "live", Icon: SportsIcon, beta: true },
   { key: "home", label: "Stream", side: "stream", Icon: StreamIcon },
   { key: "discover", label: "Discover", side: "stream", Icon: DiscoverIcon },

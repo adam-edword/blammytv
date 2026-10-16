@@ -76,7 +76,7 @@ export function TraktSection() {
       code = await traktDeviceStart();
     } catch (e) {
       if (mine !== attempt.current.n) return;
-      return setPhase({ at: "off", note: `Trakt didn't answer: ${e instanceof Error ? e.message : String(e)}` });
+      return setPhase({ at: "off", note: `Trakt didn't answer: ${e instanceof Error ? e.message : String(e)}. Try again.` });
     }
     if (mine !== attempt.current.n) return;
     setPhase({ at: "code", code });
@@ -142,9 +142,9 @@ export function TraktSection() {
     phase.at === "unconfigured"
       ? "This build has no Trakt keys, so Trakt is off."
       : phase.at === "off"
-        ? (phase.note ?? "Send what you watch to Trakt, and bring back what you watched elsewhere, where you left off, and your watchlist.")
+        ? (phase.note ?? "Sends what you watch to Trakt, and brings back your history, progress and watchlist.")
         : phase.at === "code"
-          ? `Go to ${phase.code.verification_url.replace(/^https?:\/\//, "")} on any device and enter the code. Open Trakt copies it for you. This page notices on its own.`
+          ? `Go to ${phase.code.verification_url.replace(/^https?:\/\//, "")} on any device and enter the code. Open Trakt copies it for you, and this page notices when you're done.`
           : local.problem && local.problem !== "not connected"
             ? `Last sync failed: ${local.problem}`
             : local.capped
@@ -157,14 +157,14 @@ export function TraktSection() {
     <div className="customize-row trakt-row" data-setting="trakt">
       <div>
         <h4 className="customize-row__title">
-          {phase.at === "on" ? (user ? `Trakt: ${user}` : "Trakt: connected") : "Trakt"}
+          {phase.at === "on" ? (user ? `Trakt: ${user}` : "Trakt: Connected") : "Trakt"}
         </h4>
         {phase.at === "code" && (
           <div className="trakt-row__codeline">
             <p className="trakt-row__code" aria-label={`Code ${phase.code.user_code}`}>
               {phase.code.user_code}
             </p>
-            <Hint label={copied ? "Copied" : "Copy code"}>
+            <Hint label={copied ? "Copied" : "Copy Code"}>
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -204,7 +204,7 @@ export function TraktSection() {
       {phase.at === "on" && (
         <div className="trakt-row__actions">
           <Button variant="secondary" type="button" disabled={syncing} onClick={syncNow}>
-            {syncing ? "Syncing…" : "Sync now"}
+            {syncing ? "Syncing…" : "Sync Now"}
           </Button>
           <Button
             variant={armed ? "destructive" : "outline"}
@@ -212,7 +212,7 @@ export function TraktSection() {
             className={armed ? "" : "hover:border-destructive hover:text-destructive"}
             onClick={disconnect}
           >
-            {armed ? "Click again to confirm" : "Disconnect"}
+            {armed ? "Click Again to Confirm" : "Disconnect"}
           </Button>
         </div>
       )}

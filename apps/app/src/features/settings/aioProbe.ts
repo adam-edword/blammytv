@@ -90,7 +90,8 @@ export function probeVerdict(steps: ProbeStep[]): string | undefined {
     return (
       "Cloudflare's bot check on this instance is blocking app traffic " +
       "from your network. Nothing on your PC can fix it. Ask whoever " +
-      "hosts it to exempt it, or move your config to another instance."
+      "hosts the instance to let BlammyTV through, or move your config " +
+      "to another instance."
     );
   }
   if (failed.some((s) => /HTTP 40[13]\b/.test(s.detail))) {
@@ -169,14 +170,14 @@ export async function probeAioStreams(
     const res = await fetchStreams(manifestUrl, "movie", "tt0111161");
     const n = (res.streams ?? []).length;
     steps.push({
-      label: "Streams (test title)",
+      label: "Streams (Test Title)",
       ok: true,
       detail: `OK, ${n} source${n === 1 ? "" : "s"}`,
     });
   } catch (e) {
     const detail = scrubbedMessage(e);
     steps.push({
-      label: "Streams (test title)",
+      label: "Streams (Test Title)",
       ok: false,
       detail,
       forensic: probeWorthy(detail)
@@ -211,9 +212,9 @@ export async function probeSignIn(conn: SignInConn): Promise<ProbeStep[]> {
   try {
     const res = await aioStreams(conn, "movie", "tt0111161", { refresh: true });
     const n = (res.streams ?? []).length;
-    steps.push({ label: "Sources (test title)", ok: true, detail: `OK, ${n} source${n === 1 ? "" : "s"}` });
+    steps.push({ label: "Sources (Test Title)", ok: true, detail: `OK, ${n} source${n === 1 ? "" : "s"}` });
   } catch (e) {
-    steps.push({ label: "Sources (test title)", ok: false, detail: scrubbedMessage(e) });
+    steps.push({ label: "Sources (Test Title)", ok: false, detail: scrubbedMessage(e) });
   }
   return steps;
 }

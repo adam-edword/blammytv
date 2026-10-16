@@ -419,11 +419,11 @@ const openSettings = async (p) => {
   if (process.env.SHOT_DIR) await p2.locator(".settings-section", { has: p2.locator(".trakt-row") }).first().screenshot({ path: `${process.env.SHOT_DIR}/trakt-connected.png` });
   check(
     "  approved, it names the account, syncs, and offers Sync now and Disconnect",
-    on && synced && buttons.includes("Sync now") && buttons.includes("Disconnect"),
+    on && synced && buttons.includes("Sync Now") && buttons.includes("Disconnect"),
     JSON.stringify({ on, synced, buttons }),
   );
   await p2.locator(".trakt-row").getByRole("button", { name: "Disconnect" }).click();
-  await p2.locator(".trakt-row").getByRole("button", { name: /Click again to confirm/ }).click();
+  await p2.locator(".trakt-row").getByRole("button", { name: /Click Again to Confirm/ }).click();
   const off = await p2.locator(".trakt-row").getByRole("button", { name: "Connect" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
   const after = await p2.evaluate(() => ({
     disconnect: window.__calls.some(([c]) => c === "trakt_disconnect"),

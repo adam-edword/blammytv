@@ -303,12 +303,12 @@ export interface AdvancedProblems {
 export function advancedProblems(f: AdvancedForm): AdvancedProblems {
   const out: AdvancedProblems = {};
   const guide = f.extraGuide.trim();
-  if (guide && !isHttpUrl(guide)) out.extraGuide = "That needs to start with http:// or https://.";
+  if (guide && !isHttpUrl(guide)) out.extraGuide = "Start the address with http:// or https://.";
   if (!userAgentOk(f.userAgent))
     out.userAgent =
       f.userAgent.trim().length > USER_AGENT_MAX
-        ? `That is over ${USER_AGENT_MAX} characters.`
-        : "Plain letters, numbers and punctuation only.";
+        ? `Use ${USER_AGENT_MAX} characters or fewer.`
+        : "Use plain letters, numbers and punctuation only.";
   return out;
 }
 

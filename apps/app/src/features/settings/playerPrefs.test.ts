@@ -214,11 +214,11 @@ describe("Pop-out", () => {
     expect(POPOUT_SIZE_TABS.map((t) => t.label)).toEqual(["Small", "Medium", "Large"]);
     expect(POPOUT_SIZE_TABS.map((t) => t.key)).toEqual(["small", "medium", "large"]);
     expect(POPOUT_CORNERS.map((t) => t.label)).toEqual([
-      "Centre",
-      "Top left",
-      "Top right",
-      "Bottom left",
-      "Bottom right",
+      "Center",
+      "Top Left",
+      "Top Right",
+      "Bottom Left",
+      "Bottom Right",
     ]);
     // The keys are the words native reads (mpvprefs.rs).
     expect(POPOUT_CORNERS.map((t) => t.key)).toEqual([

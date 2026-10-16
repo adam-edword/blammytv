@@ -758,7 +758,7 @@ check(
 await openAioTab(page);
 const row = page.locator(".aio-row");
 await row.getByRole("button", { name: "Sync now" }).waitFor({ timeout: 8000 });
-check("Settings names the account AIOStreams signed in", /Signed in as Adam/.test(await row.innerText()), (await row.innerText()).replace(/\n/g, " | "));
+check("Settings names the account AIOStreams signed in", /Signed In as Adam/.test(await row.innerText()), (await row.innerText()).replace(/\n/g, " | "));
 check(
   "  and says so once about Trakt trackers",
   /Leave any Trakt tracker out of your AIOStreams setup, or each play counts twice\./.test(await row.innerText()),
@@ -944,7 +944,7 @@ const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\
   const before = userData().length;
   const clear = p.getByRole("button", { name: "Clear History", exact: true });
   await clear.click();
-  await p.getByRole("button", { name: "Click again to confirm" }).click();
+  await p.getByRole("button", { name: "Click Again to Confirm" }).click();
   await waitFor(p, async () => userData().length > before, 8000);
   await p.waitForTimeout(1200);
   const posted = userData().slice(before);
@@ -964,7 +964,7 @@ const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\
   await p.locator('.library__card[data-hint="Library"]').first().click({ timeout: 15_000 });
   const before = userData().length;
   await p.getByRole("button", { name: "Clear History", exact: true }).click();
-  await p.getByRole("button", { name: "Click again to confirm" }).click();
+  await p.getByRole("button", { name: "Click Again to Confirm" }).click();
   await waitFor(p, async () => ((await storeOf(p, "watching")) ?? []).length === 0, 8000);
   await p.waitForTimeout(1200);
   check(
@@ -1010,13 +1010,13 @@ const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\
   const synced = await waitFor(p, async () => calls.slice(before).some((c) => c.path === "/UserItems/Resume"), 8000);
   await r.getByRole("button", { name: "Sync now" }).waitFor({ timeout: 8000 }).catch(() => {});
   const buttons = await r.getByRole("button").allInnerTexts();
-  check("  approved on a later poll, it names the account, syncs, and offers Sync now and Disconnect", on && synced && buttons.includes("Sync now") && buttons.includes("Disconnect"), JSON.stringify({ on, synced, buttons }));
+  check("  approved on a later poll, it names the account, syncs, and offers Sync Now and Disconnect", on && synced && buttons.includes("Sync Now") && buttons.includes("Disconnect"), JSON.stringify({ on, synced, buttons }));
   check("  and it says when it last synced", /Synced (just now|a minute ago)/.test(await r.innerText()), (await r.innerText()).replace(/\n/g, " | "));
   check("  and says once about Trakt trackers", /Leave any Trakt tracker out of your AIOStreams setup, or each play counts twice\./.test(await r.innerText()));
 
   // Disconnect: two clicks, the token dropped natively, everything kept goes.
   await r.getByRole("button", { name: "Disconnect", exact: true }).click();
-  await r.getByRole("button", { name: /Click again to confirm/ }).click();
+  await r.getByRole("button", { name: /Click Again to Confirm/ }).click();
   const gone = await connect.waitFor({ timeout: 5000 }).then(() => true, () => false);
   const wiped = { played: await storeOf(p, "aioWatched"), aiojf: await storeOf(p, "aiojf"), dis: await p.evaluate(() => window.__calls.filter(([c]) => c === "aiojf_disconnect").length) };
   check(
@@ -1121,7 +1121,7 @@ const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\
   // Stream pane is opened again, which is where the row has to be gone.
   await p.getByRole("tab", { name: "App", exact: true }).click();
   await p.getByRole("button", { name: "Clear…" }).click();
-  await p.getByRole("button", { name: "Click again to confirm" }).click();
+  await p.getByRole("button", { name: "Click Again to Confirm" }).click();
   await p.getByRole("tab", { name: "Sources", exact: true }).click();
   await p.locator(".customize-rail").getByRole("tab", { name: "Stream", exact: true }).click();
   const gone = await waitFor(p, async () => (await p.locator(".aio-row").count()) === 0, 5000);

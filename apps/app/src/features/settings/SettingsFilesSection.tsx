@@ -110,7 +110,7 @@ function ExportRow({ files }: { files: Files }) {
       const name = await tauriSettingsExport(json, settingsFileName());
       if (live.current && name) setSaved(name);
     } catch (e) {
-      if (live.current) setProblem(said(e, ["too-big", "That's too big to save as a file."]) || "Couldn't save the file.");
+      if (live.current) setProblem(said(e, ["too-big", "That's too big to save as a file."]) || "Couldn't save the file. Try a different folder.");
     }
     busy.current = false;
   };
@@ -120,9 +120,8 @@ function ExportRow({ files }: { files: Files }) {
       <div>
         <h4 className="customize-row__title">Export Settings</h4>
         <p className="settings__section-note settings__section-note--dim">
-          Saves your settings to a file, for another PC or a backup. Playlists,
-          and the favorites, recents, guide fixes and multi-view grid that point
-          at them, go in only if you tick the box. Sign-ins never do.
+          Saves your settings, without your sign-ins, to a file for another PC
+          or a backup.
         </p>
         <label className="settings-check">
           <input
@@ -130,8 +129,12 @@ function ExportRow({ files }: { files: Files }) {
             checked={logins}
             onChange={(e) => setLogins(e.target.checked)}
           />
-          <span>Include playlists and AIOStreams (has your passwords in it)</span>
+          <span>Include Playlists and AIOStreams</span>
         </label>
+        <p className="settings__section-note settings__section-note--dim mt-2" data-export-logins>
+          The file will hold your passwords, along with the favorites, recents,
+          guide fixes and multi-view grid that go with those playlists.
+        </p>
         {saved && (
           <p className="settings-said" role="status">
             Saved as {saved}
@@ -183,7 +186,7 @@ function ImportRow({ files }: { files: Files }) {
         if (live.current)
           setProblem(
             said(e, ["too-big", "That file is too big to be a settings file."], ["not-text", NOT_A_SETTINGS_FILE]) ||
-              "Couldn't read that file.",
+              "Couldn't read that file. Choose another one.",
           );
         return;
       }
@@ -205,9 +208,8 @@ function ImportRow({ files }: { files: Files }) {
       <div>
         <h4 className="customize-row__title">Import Settings</h4>
         <p className="settings__section-note settings__section-note--dim">
-          Replaces your settings with a file from Export. Your sign-ins stay.
-          A file with playlists brings its favorites, recents, guide fixes and
-          grid too. The window restarts.
+          Replaces your settings with the ones in an exported file, playlists
+          included if it has them. Your sign-ins stay, and the window restarts.
         </p>
         {problem && (
           <p className="settings-said settings-said--error" role="alert">
@@ -216,7 +218,7 @@ function ImportRow({ files }: { files: Files }) {
         )}
       </div>
       {files === "yes" ? (
-        <ConfirmButton label="Import…" confirmLabel="Click again to replace" onConfirm={() => void run()} />
+        <ConfirmButton label="Import…" confirmLabel="Click Again to Replace" onConfirm={() => void run()} />
       ) : (
         <Off files={files}>Import…</Off>
       )}

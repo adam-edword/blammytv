@@ -47,12 +47,12 @@ export type UpNextCard = "credits" | "last" | "never";
 
 /** The picker options. */
 export const UP_NEXT_CARD_TABS: Array<{ key: UpNextCard; label: string }> = [
-  { key: "credits", label: "At the credits" },
-  { key: "last", label: "Last minute" },
+  { key: "credits", label: "At the Credits" },
+  { key: "last", label: "Last Minute" },
   { key: "never", label: "Never" },
 ];
 
-/** How close to the end "Last minute" is, in seconds. */
+/** How close to the end "Last Minute" is, in seconds. */
 export const LAST_MINUTE = 60;
 
 const CARD_KEY = "upNextCard";

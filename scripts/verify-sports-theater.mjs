@@ -162,7 +162,7 @@ async function open(pos, fixture, win) {
   // Plan 017, P6b: the game joins multi-view from here, as the Guide's does.
   check(
     "and the top right offers Watch in multi-view",
-    (await page.locator(".theater-topright").getByLabel("Watch in Multi-view").count()) === 1,
+    (await page.locator(".theater-topright").getByLabel("Watch in Multi-View").count()) === 1,
   );
 
   const live = await page.locator(".theater-live").getAttribute("class");

@@ -350,7 +350,7 @@ const focusedLabel = (page) =>
   // A channel sent from the Guide to a full grid: pick the tile it replaces.
   await goTo(page, "guide");
   await page.locator('.guide__row[data-channel="t:108"] .guide__card').click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Add to Multi-view" }).click();
+  await page.getByRole("menuitem", { name: "Add to Multi-View" }).click();
   await page.waitForSelector(".mvchoose", { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(600);
   const picking = await clearance();

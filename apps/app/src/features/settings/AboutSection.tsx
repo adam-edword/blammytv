@@ -68,7 +68,7 @@ export function AboutSection() {
           className="h-auto p-0 text-muted-foreground"
           onClick={() => openExternal(LICENSES_URL)}
         >
-          Their licenses and source
+          Licenses and Source Code
         </Button>
       </p>
     </div>

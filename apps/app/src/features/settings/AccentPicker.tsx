@@ -232,7 +232,7 @@ export function AccentPicker({
            * left an empty strip down its right side. */}
           <div className="mt-3 flex w-[220px] items-center gap-2">
             {eyeDropper && (
-              <Hint label="Pick from screen">
+              <Hint label="Pick from Screen">
               <Button
                 variant="outline"
                 size="icon"

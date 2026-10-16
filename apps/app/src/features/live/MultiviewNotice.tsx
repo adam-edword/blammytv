@@ -59,7 +59,7 @@ export function MultiviewNotice({
           * later cascade layer than player.css, so the notice's own are
           * restated here. */}
         <DialogTitle className="mvnotice__title text-[21px] leading-normal font-bold tracking-[-0.01em]">
-          Multi-view
+          Multi-View
         </DialogTitle>
         <DialogDescription className="mvnotice__sub text-[13px] text-(--text-muted)">
           Plays in Your Browser, Not mpv

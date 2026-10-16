@@ -37,7 +37,7 @@ BlammyTV separates the native shell from the interface it renders:
 ## Turning it off
 
 There's no switch. The app checks for a new version a few seconds after it
-starts, and **Settings → App → Updates** has a **Check for updates** button
+starts, and **Settings → App → Updates** has a **Check for Updates** button
 for checking on demand. A new installer waits until you press **Install**
 there, or the chip in the header. A new interface build is staged in the
 background and applies the next time you open the app.

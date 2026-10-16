@@ -247,12 +247,12 @@ const stored = (page) =>
   // A bad address, and a bad agent: said, and not savable.
   await guideField.fill("ftp://example.com/guide.xml");
   const saveBtn = body(page).getByRole("button", { name: "Save" });
-  check("an address that is not http or https says so", (await body(page).textContent()).includes("That needs to start with http:// or https://."));
+  check("an address that is not http or https says so", (await body(page).textContent()).includes("Start the address with http:// or https://."));
   check("  and cannot be saved", await saveBtn.isDisabled());
   check("  the field is marked invalid for a screen reader", (await guideField.getAttribute("aria-invalid")) === "true");
   await guideField.fill(`${PANEL}/extra.xml`);
   await agentField.fill("badé agent");
-  check("an agent with a character a header should not carry says so and cannot be saved", (await body(page).textContent()).includes("Plain letters, numbers and punctuation only.") && (await saveBtn.isDisabled()));
+  check("an agent with a character a header should not carry says so and cannot be saved", (await body(page).textContent()).includes("Use plain letters, numbers and punctuation only.") && (await saveBtn.isDisabled()));
   await agentField.fill(AGENT);
   check("put back as it was, there is nothing to save again", (await saveBtn.count()) === 0);
 
@@ -284,7 +284,7 @@ const stored = (page) =>
   await body(page).getByRole("button", { name: "Save" }).click();
   const p = await stored(page);
   check("Save puts the new address on the playlist, and the agent stays", p?.extraGuide === `${PANEL}/extra-broken.xml` && p?.userAgent === AGENT, JSON.stringify(p));
-  const noted = await waitFor(page, async () => /Extra guide: download failed/.test((await page.locator(".playlist-row__status").allTextContents()).join("|")), 25_000);
+  const noted = await waitFor(page, async () => /Extra Guide: download failed/.test((await page.locator(".playlist-row__status").allTextContents()).join("|")), 25_000);
   const notes = await page.locator(".playlist-row__status").allTextContents();
   check("the playlist's row says the extra guide failed, as a note of its own", noted, JSON.stringify(notes));
   check("  without the address in it", !notes.join("|").includes("extra-broken") && !notes.join("|").includes("localhost:8081/"), JSON.stringify(notes));

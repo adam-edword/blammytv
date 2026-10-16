@@ -24,11 +24,11 @@ describe("composeDiagnostics", () => {
       "BlammyTV diagnostics, 2026-10-12T10:15:30.000Z",
       "",
       "App: 0.11.37",
-      "Native build: 0.11.36",
+      "Native Build: 0.11.36",
       "mpv: 0.41.0-dev-g8aca7b0d5",
-      "FFmpeg in the player: 7.1.1",
-      "FFmpeg for multi-view: N-127271-gba987fe24d",
-      "Vulkan loader: Windows' own",
+      "FFmpeg in the Player: 7.1.1",
+      "FFmpeg for Multi-View: N-127271-gba987fe24d",
+      "Vulkan Loader: Windows' own",
       `Webview: ${UA}`,
       "",
       "Log, the last 2 lines:",
@@ -70,7 +70,7 @@ describe("composeDiagnostics", () => {
     const text = composeDiagnostics(input({ log: null }));
     expect(text).toContain("Log: the log wasn't available.");
     expect(text).toContain("App: 0.11.37");
-    expect(text).toContain("Native build: 0.11.36");
+    expect(text).toContain("Native Build: 0.11.36");
     expect(text).toContain(`Webview: ${UA}`);
     expect(text).not.toContain("Log, the last");
   });

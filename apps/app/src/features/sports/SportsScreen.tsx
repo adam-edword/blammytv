@@ -752,7 +752,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
             onClick={requestMultiview}
           >
             <MultiviewIcon size={17} />
-            Multi-view
+            Multi-View
           </Button>
         );
         // EARLIER DAYS, heading the board (Adam's, off a screenshot): the

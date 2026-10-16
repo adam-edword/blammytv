@@ -152,7 +152,7 @@ const fits = (loc) =>
   await del.click();
   const armed = page.getByRole("button", { name: "Click again to remove Test" });
   await armed.waitFor({ timeout: 5_000 });
-  check("armed, the playlist delete says Sure?", (await armed.textContent())?.trim() === "Sure?");
+  check("armed, the playlist delete says Confirm (it said Sure? until 0.12)", (await armed.textContent())?.trim() === "Confirm");
   check("and the word fits inside the button", await fits(armed));
   check("and it is destructive", isRed(await bg(armed)), await bg(armed));
   await ctx.close();

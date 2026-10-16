@@ -114,7 +114,7 @@ const goTab = (name) => page.getByRole("tab", { name, exact: true }).click();
 const clear = page.getByRole("button", { name: "Clear…" });
 await goTab("App");
 await clear.click();
-await page.getByRole("button", { name: "Click again to confirm" }).click();
+await page.getByRole("button", { name: "Click Again to Confirm" }).click();
 await page.waitForTimeout(500);
 
 check("the playlist leaves storage", (await stored("playlists"))?.length === 0, JSON.stringify(await stored("playlists")));
@@ -143,7 +143,7 @@ await manifest.waitFor({ timeout: 5000 });
 const shown = await manifest.inputValue();
 await goTab("App");
 await clear.click();
-await page.getByRole("button", { name: "Click again to confirm" }).click();
+await page.getByRole("button", { name: "Click Again to Confirm" }).click();
 await page.waitForTimeout(500);
 await goTab("Sources");
 await page.getByRole("tab", { name: "Stream" }).click();

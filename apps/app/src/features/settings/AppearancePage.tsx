@@ -73,7 +73,13 @@ const WORLD_TABS = [
  */
 // The accent picker lives here again (ROADMAP decision 1). Theme packs and
 // the Themes Pass are parked in old/themes and come back later with new looks.
-export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stream" }) {
+export function AppearancePage({
+  initialWorld,
+  onSignIn,
+}: {
+  initialWorld?: "live" | "stream";
+  onSignIn: () => void;
+}) {
   // Appearance (plan 022): Dark, Light, or Windows' own setting.
   const [theme, setTheme] = useState<ThemePref>(loadThemePref);
   const pickTheme = (next: ThemePref) => {
@@ -111,7 +117,7 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
   // gated on a source, an AIOStreams or a Jellyfin, because with neither there
   // are no cards, no VOD overlay and no rows for them to govern. Read once per
   // mount, and a page mounts each time you arrive, so signing in on Sources
-  // reveals them on your way here. Hero Slider Sources is the one row that
+  // reveals them on your way here. Carousel Catalogs is the one row that
   // needs the AIOStreams itself: it picks that addon's catalogs, and a
   // Jellyfin's hero is drawn from its libraries (jellyfin/vod.ts).
   const hasAio = useRef(!!loadAioConn()).current;
@@ -192,10 +198,7 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
         {/* Stacked, not a row: nine swatches do not fit beside a label. */}
         <div className="customize-stack" data-setting="accent">
           <div>
-            <h4 className="customize-row__title">Accent</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Buttons, toggles and highlights. Default follows light and dark.
-            </p>
+            <h4 className="customize-row__title">Accent Color</h4>
           </div>
           <AccentPicker key={accentKey} />
         </div>
@@ -230,7 +233,7 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
         <Segmented role="tabs" label="Media" options={WORLD_TABS} value={world} onChange={setWorld} />
       </div>
 
-      {world === "stream" && !hasStream && <SignInNote />}
+      {world === "stream" && !hasStream && <SignInNote onSignIn={onSignIn} />}
 
       {/* One section, not four. Each control keeps its own label, but the
         * 21px block headings and the rule between every one of them made a
@@ -245,9 +248,6 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
           <div className="customize-row" data-setting="featured-carousel">
             <div>
               <h4 className="customize-row__title">Featured Carousel</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                The big sliding banner at the top of Stream.
-              </p>
             </div>
             <Toggle
               on={hero}
@@ -266,8 +266,7 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
             <div>
               <h4 className="customize-row__title">Card Details</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Under a card&rsquo;s title. Runtime shows only where the catalog
-                provides it.
+                Runtime only appears when the catalog has it.
               </p>
             </div>
             <div className="meta-pick" role="group" aria-label="Card details">
@@ -305,12 +304,9 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
 
           <div className="customize-stack" data-setting="player-overlay">
             <div>
-              <h4 className="customize-row__title">Player Overlay</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                Beside the title art during playback.
-              </p>
+              <h4 className="customize-row__title">Info While Playing</h4>
             </div>
-            <div className="meta-pick" role="group" aria-label="Player overlay">
+            <div className="meta-pick" role="group" aria-label="Info while playing">
               {OVERLAY_META_FIELDS.map((f) => (
                 <Button
                   variant={
@@ -333,9 +329,9 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
 
           <div className="customize-row" data-setting="row-size">
             <div>
-              <h4 className="customize-row__title">Catalog Row Size</h4>
+              <h4 className="customize-row__title">Titles per Row</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Titles per row. A higher cap means longer loads.
+                More titles take longer to load.
               </p>
             </div>
             <div className="rowcap">
@@ -366,7 +362,7 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
                   }}
                 />
               ) : (
-                <Hint label="Click to type an exact value">
+                <Hint label="Click to Type an Exact Value">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -391,9 +387,6 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
           <div className="customize-row" data-setting="channel-numbers">
             <div>
               <h4 className="customize-row__title">Channel Numbers</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                From your provider.
-              </p>
             </div>
             <Toggle
               on={chanNum}
@@ -411,7 +404,8 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
           <div>
             <h4 className="customize-row__title">Reset Appearance</h4>
             <p className="settings__section-note settings__section-note--dim">
-              Accent, appearance, clock and channel numbers back to defaults.
+              The accent color, light or dark mode, clock format and channel
+              numbers go back to their defaults.
             </p>
           </div>
           <ConfirmButton label="Reset" onConfirm={reset} />

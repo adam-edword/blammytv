@@ -344,13 +344,13 @@ const openSettings = async (p) => {
   if (process.env.SHOT_DIR) await p2.locator(".settings-section", { has: row }).first().screenshot({ path: `${process.env.SHOT_DIR}/mal-connected.png` });
   check(
     "  approved, it names the account, syncs, and offers Sync now and Disconnect",
-    on && synced && buttons.includes("Sync now") && buttons.includes("Disconnect"),
+    on && synced && buttons.includes("Sync Now") && buttons.includes("Disconnect"),
     JSON.stringify({ on, synced, buttons }),
   );
   // What a series page would have ticked from MAL, to see it go.
   await p2.evaluate(() => localStorage.setItem("blammytv.malWatched", JSON.stringify({ v: 1, data: { tt200001: ["tt200001:1:1"] } })));
   await row.getByRole("button", { name: "Disconnect" }).click();
-  await row.getByRole("button", { name: /Click again to confirm/ }).click();
+  await row.getByRole("button", { name: /Click Again to Confirm/ }).click();
   const off = await row.getByRole("button", { name: "Connect" }).waitFor({ timeout: 5000 }).then(() => true, () => false);
   const after = await p2.evaluate(() => ({
     disconnect: window.__calls.some(([c]) => c === "mal_disconnect"),

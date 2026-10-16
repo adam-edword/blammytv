@@ -171,10 +171,10 @@ check("the disk record keeps the guide's channel list for the Xtream source and 
 // ---- The menu
 await menuOn(BAD);
 check("Fix guide… is in the menu for a channel of an Xtream source", (await itemNamed("Fix Guide…").count()) === 1);
-check("  beside the item that was there", (await itemNamed("Add to Multi-view").count()) === 1);
+check("  beside the item that was there", (await itemNamed("Add to Multi-View").count()) === 1);
 await closeMenu();
 await menuOn(STALKER);
-check("  and not for a Stalker channel", (await itemNamed("Fix Guide…").count()) === 0 && (await itemNamed("Add to Multi-view").count()) === 1);
+check("  and not for a Stalker channel", (await itemNamed("Fix Guide…").count()) === 0 && (await itemNamed("Add to Multi-View").count()) === 1);
 await closeMenu();
 
 // ---- The dialog

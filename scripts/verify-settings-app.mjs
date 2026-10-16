@@ -2,7 +2,7 @@
 // P4a; v0.11.36), and Copy Diagnostics and a log the page writes to (P4b), and
 // Export and Import Settings (P4c), with the native side stubbed.
 //
-// Three rows between Updates and Replay Onboarding:
+// Three rows between Updates and Replay Setup:
 //
 //   - Keyboard Shortcuts: a list of what the keys do, opened inline by Show and
 //     shut by Hide, in the app's own Kbd chips. The list is shortcuts.ts,
@@ -215,7 +215,7 @@ const notesOf = async (page) => {
 };
 /** Check for updates, and wait for the row to say something other than checking. */
 async function checkNow(page) {
-  await updateRow(page).getByRole("button", { name: /Check for updates|up to date|Try again/ }).click();
+  await updateRow(page).getByRole("button", { name: /Check for Updates|up to date|Try Again/ }).click();
   await page.waitForFunction(
     () => !/Checking/.test(document.querySelector("[data-setting='updates'] button")?.textContent ?? ""),
     null,
@@ -237,10 +237,10 @@ const appVersion = (page) =>
   await openApp(page);
   const rows = await titles(page);
   check(
-    "App: Updates, Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, Export Settings, Import Settings, then Clear All Login Info",
+    "App: Updates, Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, then Clear All Login Info",
     rows.length === 8 &&
       /^BlammyTV v/.test(rows[0]) &&
-      rows.slice(1).join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
+      rows.slice(1).join("|") === "Keyboard Shortcuts|About|Replay Setup|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
     JSON.stringify(rows),
   );
   const row = page.locator("[data-setting='shortcuts']");
@@ -285,13 +285,13 @@ const appVersion = (page) =>
   );
   const drawn = await page.evaluate(() => {
     const first = document.querySelector(".shortcuts__row");
-    const second = [...document.querySelectorAll(".shortcuts__row")].find((r) => /Search titles/.test(r.textContent ?? ""));
+    const second = [...document.querySelectorAll(".shortcuts__row")].find((r) => /Search Titles/.test(r.textContent ?? ""));
     const text = (e) => [...e.querySelectorAll(".kbd, .shortcuts__plus, .shortcuts__or")].map((x) => x.textContent).join(" ");
     return { first: first && text(first), second: second && text(second), what: first?.querySelector(".shortcuts__what")?.textContent };
   });
   check(
     "  keys held together are joined with +, and two ways to do it with 'or'",
-    drawn.first === "Ctrl + K" && drawn.second === "/ or Ctrl + F" && /palette/.test(drawn.what ?? ""),
+    drawn.first === "Ctrl + K" && drawn.second === "/ or Ctrl + F" && /Search BlammyTV/.test(drawn.what ?? ""),
     JSON.stringify(drawn),
   );
   const top = await page.evaluate(() => {
@@ -449,8 +449,8 @@ const appVersion = (page) =>
   const groups = await table(page);
   const any = groups.find((g) => g.title === "Anywhere");
   const byWhat = (g, w) => g?.shortcuts.find((s) => s.what === w);
-  const palEntry = any?.shortcuts.find((s) => /palette/.test(s.what));
-  const searchEntry = byWhat(any, "Search titles");
+  const palEntry = any?.shortcuts.find((s) => /Search BlammyTV/.test(s.what));
+  const searchEntry = byWhat(any, "Search Titles");
   const escEntry = any?.shortcuts.find((s) => s.keys.some((c) => c.join() === "Esc"));
   check(
     "Anywhere has the three keys the code has: the palette, search, and Escape",
@@ -510,25 +510,25 @@ const sent = (page) => page.evaluate(() => window.__api.splice(0));
  * does, in the order they can be pressed (Mute before the volume, which
  * unmutes; Down before Up, since the volume starts at the top). */
 const PLAYER = [
-  ["Play or pause", (c) => c.some((x) => x[0] === "setPause")],
+  ["Play or Pause", (c) => c.some((x) => x[0] === "setPause")],
   ["Mute", (c) => c.some((x) => x[0] === "setMute" && x[1] === true)],
-  ["Volume down", (c) => c.some((x) => x[0] === "setVolume" && x[1] === 95)],
-  ["Volume up", (c) => c.some((x) => x[0] === "setVolume" && x[1] === 100) && c.some((x) => x[0] === "setMute" && x[1] === false)],
-  ["Back 5 seconds", (c) => c.some((x) => x[0] === "seek" && x[1] === -5)],
-  ["Forward 5 seconds", (c) => c.some((x) => x[0] === "seek" && x[1] === 5)],
-  ["Back 10 seconds", (c) => c.some((x) => x[0] === "seek" && x[1] === -10)],
-  ["Forward 10 seconds", (c) => c.some((x) => x[0] === "seek" && x[1] === 10)],
-  ["Full screen", (c) => c.some((x) => x[0] === "fullscreen")],
-  ["Subtitles 0.1s earlier", (c) => c.some((x) => x[0] === "subDelay" && Math.abs(x[1] + 0.1) < 1e-9)],
-  ["Subtitles 0.1s later", (c) => c.some((x) => x[0] === "subDelay" && Math.abs(x[1] - 0.1) < 1e-9)],
+  ["Volume Down", (c) => c.some((x) => x[0] === "setVolume" && x[1] === 95)],
+  ["Volume Up", (c) => c.some((x) => x[0] === "setVolume" && x[1] === 100) && c.some((x) => x[0] === "setMute" && x[1] === false)],
+  ["Back 5 Seconds", (c) => c.some((x) => x[0] === "seek" && x[1] === -5)],
+  ["Forward 5 Seconds", (c) => c.some((x) => x[0] === "seek" && x[1] === 5)],
+  ["Back 10 Seconds", (c) => c.some((x) => x[0] === "seek" && x[1] === -10)],
+  ["Forward 10 Seconds", (c) => c.some((x) => x[0] === "seek" && x[1] === 10)],
+  ["Full Screen", (c) => c.some((x) => x[0] === "fullscreen")],
+  ["Subtitles 0.1s Earlier", (c) => c.some((x) => x[0] === "subDelay" && Math.abs(x[1] + 0.1) < 1e-9)],
+  ["Subtitles 0.1s Later", (c) => c.some((x) => x[0] === "subDelay" && Math.abs(x[1] - 0.1) < 1e-9)],
 ];
 {
   const { ctx, page } = await open({ path: "?overlay=1", mock: mockBridge });
   await page.waitForSelector(".theater-overlay");
   await page.waitForTimeout(400);
   const groups = await table(page);
-  const every = groups.find((g) => g.title === "Every player");
-  const stats = every?.shortcuts.find((s) => s.what === "Stats for nerds");
+  const every = groups.find((g) => g.title === "Every Player");
+  const stats = every?.shortcuts.find((s) => s.what === "Stats for Nerds");
   const lines = every?.shortcuts.filter((s) => s !== stats) ?? [];
   check(
     "the player group has exactly the lines this harness presses (a new line, or one reworded, has no check until it gets one)",
@@ -559,8 +559,8 @@ const PLAYER = [
 
   // T and Esc in the Live TV player. The overlay asks the host to collapse;
   // what the host does with it is the host's (LiveScreen: the mini player).
-  const live = groups.find((g) => g.title === "Live TV player");
-  const sports = groups.find((g) => g.title === "Sports player");
+  const live = groups.find((g) => g.title === "Live TV Player");
+  const sports = groups.find((g) => g.title === "Sports Player");
   const tKey = (g) => g?.shortcuts.find((s) => s.keys.some((c) => c.join() === "T"))?.keys[0].map(pwKey).join("+");
   const escKey = (g) => g?.shortcuts.find((s) => s.keys.some((c) => c.join() === "Esc"))?.keys[0].map(pwKey).join("+");
   await sent(page);
@@ -594,7 +594,7 @@ const PLAYER = [
   await page.waitForSelector(".theater-overlay");
   await page.waitForTimeout(400);
   const groups = await table(page);
-  const g = groups.find((x) => x.title === "Stream player");
+  const g = groups.find((x) => x.title === "Stream Player");
   const key = (k) => g?.shortcuts.find((s) => s.keys.some((c) => c.join() === k))?.keys[0].map(pwKey).join("+");
   await sent(page);
   await page.keyboard.press(key("T"));
@@ -616,7 +616,7 @@ const PLAYER = [
   await page.waitForSelector(".theater-overlay");
   await page.waitForTimeout(400);
   const groups = await table(page);
-  const entry = groups.find((x) => x.title === "Every player")?.shortcuts.find((s) => s.what === "Stats for nerds");
+  const entry = groups.find((x) => x.title === "Every Player")?.shortcuts.find((s) => s.what === "Stats for Nerds");
   const key = entry?.keys[0].map(pwKey).join("+");
   await page.keyboard.press(key);
   const up = await page.waitForSelector(".stats-overlay", { timeout: 3000 }).then(() => true, () => false);
@@ -704,7 +704,7 @@ const PLAYER = [
   await openApp(page);
   await checkNow(page);
   const text = await note(page);
-  check("a check that fails says so: 'failed' and the reason", /Update check failed: .*did not answer/.test(text), text);
+  check("a check that fails says so: 'failed' and the reason", /Couldn't check for updates: .*did not answer/.test(text), text);
   check("  with Try again, and no notes", (await updateRow(page).getByRole("button", { name: "Try again" }).count()) === 1 && (await notesOf(page)) === null);
   await ctx.close();
 }
@@ -826,11 +826,11 @@ for (const [label, status] of [
     JSON.stringify(rows) ===
       JSON.stringify([
         ["App", version],
-        ["Native build", "0.11.36"],
+        ["Native Build", "0.11.36"],
         ["mpv", "0.41.0-dev-g8aca7b0d5"],
-        ["FFmpeg in the player", "7.1.1"],
-        ["FFmpeg for multi-view", "N-127271-gba987fe24d"],
-        ["Vulkan loader", "Windows' own"],
+        ["FFmpeg in the Player", "7.1.1"],
+        ["FFmpeg for Multi-View", "N-127271-gba987fe24d"],
+        ["Vulkan Loader", "Windows' own"],
       ]),
     JSON.stringify(rows),
   );
@@ -844,8 +844,8 @@ for (const [label, status] of [
   // The GPL's notice: mpv and FFmpeg ship in the installer.
   const gpl = page.locator("[data-setting='about'] [data-about-licenses]");
   const gplText = (await gpl.innerText()).replace(/\s+/g, " ").trim();
-  check("  then a line saying mpv and FFmpeg are GPL, with a way to their licenses and source", gplText === "mpv and FFmpeg are free software under the GNU GPL. Their licenses and source", gplText);
-  await gpl.getByRole("button", { name: "Their licenses and source" }).click();
+  check("  then a line saying mpv and FFmpeg are GPL, with a way to their licenses and source", gplText === "mpv and FFmpeg are free software under the GNU GPL. Licenses and Source Code", gplText);
+  await gpl.getByRole("button", { name: "Licenses and Source Code" }).click();
   await page.waitForTimeout(200);
   const opened = await calls(page, "open_external");
   check(
@@ -860,7 +860,7 @@ for (const [label, status] of [
   const { ctx, page } = await open({ tauri: true, native: { about: { native: "0.11.36" } } });
   await openApp(page);
   const rows = await page.locator("[data-setting='about'] .about__row dt").allInnerTexts();
-  check("a partial answer (only the native build) draws the app's row and that row, no others", JSON.stringify(rows) === JSON.stringify(["App", "Native build"]), JSON.stringify(rows));
+  check("a partial answer (only the native build) draws the app's row and that row, no others", JSON.stringify(rows) === JSON.stringify(["App", "Native Build"]), JSON.stringify(rows));
   await ctx.close();
 }
 for (const [label, about] of [
@@ -892,8 +892,8 @@ for (const [label, about] of [
   check("a browser (no native at all) shows the app's version alone", JSON.stringify(rows) === JSON.stringify(["App"]), JSON.stringify(rows));
   const titlesNow = await titles(page);
   check(
-    "  and the page is Keyboard Shortcuts, About, Replay Onboarding, Copy Diagnostics, Export Settings, Import Settings, Clear All Login Info (no update row there)",
-    titlesNow.join("|") === "Keyboard Shortcuts|About|Replay Onboarding|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
+    "  and the page is Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, Clear All Login Info (no update row there)",
+    titlesNow.join("|") === "Keyboard Shortcuts|About|Replay Setup|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
     JSON.stringify(titlesNow),
   );
   await ctx.close();
@@ -959,7 +959,7 @@ async function pressCopy(page, said = "Copied") {
   });
   check(
     "App has a Privacy and data heading, with Copy Diagnostics under it and above Clear All Login Info",
-    where.heads.join("|") === "App|Privacy and data" && where.underPrivacy && where.beforeClear,
+    where.heads.join("|") === "App|Privacy and Data" && where.underPrivacy && where.beforeClear,
     JSON.stringify(where),
   );
   check(
@@ -979,11 +979,11 @@ async function pressCopy(page, said = "Copied") {
     "  the app's version and every row native sent, with the webview's user agent",
     text.startsWith("BlammyTV diagnostics, ") &&
       text.includes(`App: ${version}`) &&
-      text.includes("Native build: 0.11.36") &&
+      text.includes("Native Build: 0.11.36") &&
       text.includes("mpv: 0.41.0-dev-g8aca7b0d5") &&
-      text.includes("FFmpeg in the player: 7.1.1") &&
-      text.includes("FFmpeg for multi-view: N-127271-gba987fe24d") &&
-      text.includes("Vulkan loader: Windows' own") &&
+      text.includes("FFmpeg in the Player: 7.1.1") &&
+      text.includes("FFmpeg for Multi-View: N-127271-gba987fe24d") &&
+      text.includes("Vulkan Loader: Windows' own") &&
       text.includes(`Webview: ${ua}`),
     JSON.stringify(text.slice(0, 300)),
   );
@@ -1026,7 +1026,7 @@ async function pressCopy(page, said = "Copied") {
   );
   check(
     "  with the versions native did give, and the webview",
-    text.includes("Native build: 0.11.36") && text.includes("mpv: 0.41.0-dev-g8aca7b0d5") && text.includes("Webview: "),
+    text.includes("Native Build: 0.11.36") && text.includes("mpv: 0.41.0-dev-g8aca7b0d5") && text.includes("Webview: "),
   );
   check("  and nothing unhandled", (await page.evaluate(() => window.__unhandled)).length === 0);
   await ctx.close();
@@ -1040,7 +1040,7 @@ async function pressCopy(page, said = "Copied") {
   const version = await appVersion(page);
   check(
     "with neither about_versions nor log_tail, it copies the app's version and the webview, and says the log wasn't available",
-    text.includes(`App: ${version}`) && text.includes("Webview: ") && /the log wasn't available/.test(text) && !/Native build|mpv:/.test(text),
+    text.includes(`App: ${version}`) && text.includes("Webview: ") && /the log wasn't available/.test(text) && !/Native Build|mpv:/.test(text),
     JSON.stringify(text),
   );
   await ctx.close();
@@ -1104,8 +1104,8 @@ for (const [label, tail] of [
   await page.evaluate(() => {
     navigator.clipboard.writeText = () => Promise.reject(new Error("denied"));
   });
-  await pressCopy(page, "Couldn't copy");
-  check("a clipboard that refuses: the button says Couldn't copy, not Copied", (await diagButton(page).innerText()) === "Couldn't copy");
+  await pressCopy(page, "Couldn't Copy");
+  check("a clipboard that refuses: the button says Couldn't copy, not Copied", (await diagButton(page).innerText()) === "Couldn't Copy");
   await page.waitForTimeout(1900);
   check("  and goes back to Copy", (await diagButton(page).innerText()) === "Copy");
   check("  and nothing unhandled", (await page.evaluate(() => window.__unhandled)).length === 0);
@@ -1378,24 +1378,26 @@ let UNTICKED = null;
       exportNote: at("export-settings")?.querySelector(".settings__section-note")?.textContent ?? "",
       importNote: at("import-settings")?.querySelector(".settings__section-note")?.textContent ?? "",
       boxLabel: at("export-settings")?.querySelector(".settings-check")?.textContent?.trim(),
+      boxNote: at("export-settings")?.querySelector("[data-export-logins]")?.textContent ?? "",
       sideways: body.scrollWidth > body.clientWidth + 1,
     };
   });
   check(
     "Privacy and data holds Copy Diagnostics, Export Settings and Import Settings in that order, in one section, and Clear All Login Info stays after them",
-    where.heads.join("|") === "App|Privacy and data" && where.order && where.sections === 1,
+    where.heads.join("|") === "App|Privacy and Data" && where.order && where.sections === 1,
     JSON.stringify(where),
   );
   check(
-    "  Export says it saves your settings and that playlists go in only if you tick the box and sign-ins never do; Import says it replaces your settings, the sign-ins stay, and a file with playlists brings its own favorites, recents, guide fixes and grid",
-    /Saves your settings to a file/.test(where.exportNote) && /go in only if you tick the box/.test(where.exportNote) && /Sign-ins never do\./.test(where.exportNote) &&
-      /Replaces your settings/.test(where.importNote) && /Your sign-ins stay\./.test(where.importNote) && /A file with playlists brings its favorites, recents, guide fixes and grid too\./.test(where.importNote),
+    "  Export says it saves your settings without your sign-ins; Import says it replaces your settings, playlists included if the file has them, the sign-ins stay, and the window restarts",
+    /Saves your settings, without your sign-ins, to a file/.test(where.exportNote) &&
+      /Replaces your settings/.test(where.importNote) && /playlists included if it has them\./.test(where.importNote) && /Your sign-ins stay, and the window restarts\./.test(where.importNote),
     JSON.stringify({ e: where.exportNote, i: where.importNote }),
   );
   check(
-    "  the box reads 'Include playlists and AIOStreams (has your passwords in it)' and is off",
-    where.boxLabel === "Include playlists and AIOStreams (has your passwords in it)" && !(await box(page).isChecked()),
-    where.boxLabel,
+    "  the box reads 'Include Playlists and AIOStreams' and is off, and the line under it says the file will hold your passwords, with the favorites, recents, guide fixes and multi-view grid that go with those playlists",
+    where.boxLabel === "Include Playlists and AIOStreams" && !(await box(page).isChecked()) &&
+      /The file will hold your passwords/.test(where.boxNote) && /favorites, recents, guide fixes and multi-view grid/.test(where.boxNote),
+    JSON.stringify({ label: where.boxLabel, note: where.boxNote }),
   );
   check(
     "  the buttons are Export… and, behind two presses, Import…; neither is greyed on a native that has the commands",
@@ -1547,7 +1549,7 @@ let UNTICKED = null;
   await setNative(page, { exportAnswer: { reject: "could not write the file: Access is denied. (os error 5)" } });
   await pressExport(page, 4);
   const failed = await said(page, exportRow);
-  check("a write that fails says 'Couldn't save the file.' and none of what the system said", failed === "Couldn't save the file." && !/denied|os error/i.test(failed), String(failed));
+  check("a write that fails says 'Couldn't save the file. Try a different folder.' and none of what the system said", failed === "Couldn't save the file. Try a different folder." && !/denied|os error/i.test(failed), String(failed));
   await setNative(page, { exportAnswer: { reject: "too-big" } });
   await pressExport(page, 5);
   check("a file over native's cap says so in a line", (await said(page, exportRow)) === "That's too big to save as a file.");
@@ -1580,7 +1582,7 @@ let UNTICKED = null;
     await new Promise((r) => setTimeout(r, 60));
     return el.textContent;
   });
-  check("the first press of Import only arms it: the label says what the second does, and no file chooser has opened", armed === "Click again to replace" && (await calls(page, "settings_import")).length === 0, armed);
+  check("the first press of Import only arms it: the label says what the second does, and no file chooser has opened", armed === "Click Again to Replace" && (await calls(page, "settings_import")).length === 0, armed);
   const load = page.waitForEvent("load", { timeout: 15_000 });
   await importBtn(page).click();
   await load;
@@ -1690,16 +1692,16 @@ let UNTICKED = null;
 
 // What a file that is no use leaves, and says.
 for (const [label, answer, line] of [
-  ["a JSON file that is not BlammyTV's", JSON.stringify({ name: "other", version: "1.0.0", settings: { theme: "dark" } }), "That isn't a BlammyTV settings file."],
-  ["text that is not JSON", "this is just a text file\nwith two lines", "That isn't a BlammyTV settings file."],
-  ["an empty file", "", "That isn't a BlammyTV settings file."],
-  ["a BlammyTV file of the wrong kind", JSON.stringify({ app: "BlammyTV", kind: "diagnostics", format: 1, keys: {} }), "That isn't a BlammyTV settings file."],
-  ["another app's settings file", JSON.stringify({ ...TICKED, app: "Telly" }), "That isn't a BlammyTV settings file."],
+  ["a JSON file that is not BlammyTV's", JSON.stringify({ name: "other", version: "1.0.0", settings: { theme: "dark" } }), "That isn't a BlammyTV settings file. Choose one saved with Export Settings."],
+  ["text that is not JSON", "this is just a text file\nwith two lines", "That isn't a BlammyTV settings file. Choose one saved with Export Settings."],
+  ["an empty file", "", "That isn't a BlammyTV settings file. Choose one saved with Export Settings."],
+  ["a BlammyTV file of the wrong kind", JSON.stringify({ app: "BlammyTV", kind: "diagnostics", format: 1, keys: {} }), "That isn't a BlammyTV settings file. Choose one saved with Export Settings."],
+  ["another app's settings file", JSON.stringify({ ...TICKED, app: "Telly" }), "That isn't a BlammyTV settings file. Choose one saved with Export Settings."],
   ["a file from a newer format", JSON.stringify({ ...TICKED, format: 2 }), "That settings file is from a newer BlammyTV. Update the app, then try again."],
   ["a file with nothing for this build in it", JSON.stringify({ ...TICKED, keys: { trakt: { v: 1, data: {} }, fromANewerBuild: { v: 1, data: 1 } } }), "There is nothing in that file to import."],
   ["a file that is too big", { reject: "too-big" }, "That file is too big to be a settings file."],
-  ["a file that is not text", { reject: "not-text" }, "That isn't a BlammyTV settings file."],
-  ["a file the system would not read", { reject: "could not read the file: Access is denied. (os error 5)" }, "Couldn't read that file."],
+  ["a file that is not text", { reject: "not-text" }, "That isn't a BlammyTV settings file. Choose one saved with Export Settings."],
+  ["a file the system would not read", { reject: "could not read the file: Access is denied. (os error 5)" }, "Couldn't read that file. Choose another one."],
 ]) {
   const { ctx, page } = await open({ tauri: true, store: NEW_PC, native: { importAnswer: answer } });
   await openApp(page);
@@ -1733,7 +1735,7 @@ for (const [label, answer, line] of [
   const msg = await said(page, importRow);
   await setNative(page, { importAnswer: null });
   await pressImport(page, { reloads: false });
-  check("  a refusal's line is gone on the next try", msg === "That isn't a BlammyTV settings file." && (await said(page, importRow)) === null);
+  check("  a refusal's line is gone on the next try", msg === "That isn't a BlammyTV settings file. Choose one saved with Export Settings." && (await said(page, importRow)) === null);
   await ctx.close();
 }
 {

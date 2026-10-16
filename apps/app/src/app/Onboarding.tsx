@@ -124,7 +124,7 @@ const LAST_STEP = STEP.done;
  * right-click menu, multi-view's four-tile ceiling, Discover's genre rail
  * and search, Sports' games with the channels that carry them. */
 const TOUR = [
-  { name: "Multi-view", line: "Up to four channels at once. Right-click a channel in the Guide to add it." },
+  { name: "Multi-View", line: "Up to four channels at once. Right-click a channel in the Guide to add it." },
   { name: "Discover", line: "Search your catalogs, or browse them by genre." },
   { name: "Sports", line: "Today’s games, with the channels showing them." },
 ] as const;

@@ -13,9 +13,9 @@ server, or both. It has three views on the rail: **Home**, **Discover** and
 Rows of posters, one per browsable catalog your addon exposes, with a featured
 hero at the top.
 
-- **Catalog Row Size** (Settings → Appearance) controls how many titles each row holds. 40
+- **Titles per Row** (Settings → Appearance) controls how many titles each row holds. 40
   by default.
-- **Hero Slider Sources** (Settings → Appearance) pins which catalogs the hero draws from. Leave it
+- **Carousel Catalogs** (Settings → Appearance) pins which catalogs the hero draws from. Leave it
   empty for the default mix.
 - Rows load independently, so one failing catalog goes missing rather than
   taking the page down with it.

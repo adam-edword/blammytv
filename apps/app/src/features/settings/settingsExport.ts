@@ -432,7 +432,7 @@ export function settingsFileName(now: Date = new Date()): string {
 
 /** What a person reads when a file is no use. One line each, and none of them
  * repeats anything the file said. */
-export const NOT_A_SETTINGS_FILE = "That isn't a BlammyTV settings file.";
+export const NOT_A_SETTINGS_FILE = "That isn't a BlammyTV settings file. Choose one saved with Export Settings.";
 export const FILE_TOO_NEW = "That settings file is from a newer BlammyTV. Update the app, then try again.";
 export const NOTHING_TO_IMPORT = "There is nothing in that file to import.";
 export const COULD_NOT_WRITE = "Couldn't write the settings, so nothing was changed.";

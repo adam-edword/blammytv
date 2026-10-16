@@ -41,7 +41,7 @@ export interface SettingRow {
 export const SETTINGS_INDEX: readonly SettingRow[] = [
   {
     id: "playlists",
-    label: "Your playlists",
+    label: "Playlists",
     page: "sources",
     world: "live",
     keywords: ["playlist", "xtream", "m3u", "stalker", "mag", "iptv", "live tv", "channels", "guide", "epg", "refresh", "folders", "categories", "hide"],
@@ -55,10 +55,10 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
   },
   {
     id: "add-playlist",
-    label: "Add a playlist",
+    label: "Add Playlist",
     page: "sources",
     world: "live",
-    keywords: ["add", "new", "xtream", "m3u", "stalker", "mag", "server", "username", "password", "portal", "mac", "url"],
+    keywords: ["add a playlist", "add", "new", "xtream", "m3u", "stalker", "mag", "server", "username", "password", "portal", "mac", "url"],
   },
   {
     id: "content",
@@ -96,9 +96,9 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
   },
   {
     id: "source-failover",
-    label: "Auto Source Failover",
+    label: "Switch Sources When One Fails",
     page: "playback",
-    keywords: ["fallback", "retry", "dead", "next source"],
+    keywords: ["auto source failover", "failover", "fallback", "retry", "dead", "next source", "switch source"],
   },
   {
     id: "autoplay-next",
@@ -126,9 +126,9 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
   },
   {
     id: "audio-channels",
-    label: "Audio Channels",
+    label: "Speaker Setup",
     page: "playback",
-    keywords: ["surround", "5.1", "7.1", "stereo", "receiver", "speakers", "downmix", "audio", "sound", "hdmi"],
+    keywords: ["audio channels", "channels", "surround", "5.1", "7.1", "stereo", "receiver", "speakers", "downmix", "audio", "sound", "hdmi"],
   },
   {
     id: "subtitle-size",
@@ -138,13 +138,13 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
   },
   {
     id: "popout",
-    label: "Pop-out",
+    label: "Pop-Out Window",
     page: "playback",
-    keywords: ["popout", "pop out", "pip", "picture in picture", "window", "corner", "floating", "position", "size"],
+    keywords: ["pop-out", "popout", "pop out", "pip", "picture in picture", "window", "corner", "floating", "position", "size"],
   },
   {
     id: "accent",
-    label: "Accent",
+    label: "Accent Color",
     page: "appearance",
     keywords: ["colour", "color", "theme", "highlight"],
   },
@@ -175,10 +175,10 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
   },
   {
     id: "hero-sources",
-    label: "Hero Slider Sources",
+    label: "Carousel Catalogs",
     page: "appearance",
     world: "stream",
-    keywords: ["hero", "carousel", "catalogs"],
+    keywords: ["hero slider sources", "hero slider", "hero", "slider", "carousel", "catalogs", "sources"],
   },
   {
     id: "card-details",
@@ -189,17 +189,17 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
   },
   {
     id: "player-overlay",
-    label: "Player Overlay",
+    label: "Info While Playing",
     page: "appearance",
     world: "stream",
-    keywords: ["overlay", "info", "osd"],
+    keywords: ["player overlay", "overlay", "info", "osd"],
   },
   {
     id: "row-size",
-    label: "Catalog Row Size",
+    label: "Titles per Row",
     page: "appearance",
     world: "stream",
-    keywords: ["row size", "titles per row", "catalog", "cap"],
+    keywords: ["catalog row size", "row size", "titles per row", "catalog", "cap"],
   },
   {
     id: "channel-numbers",
@@ -246,9 +246,9 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
   },
   {
     id: "replay-onboarding",
-    label: "Replay Onboarding",
+    label: "Replay Setup",
     page: "app",
-    keywords: ["welcome", "setup", "tour", "onboarding"],
+    keywords: ["replay onboarding", "welcome", "setup", "tour", "onboarding"],
   },
   {
     id: "copy-diagnostics",

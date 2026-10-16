@@ -23,7 +23,7 @@
 // - Continue Watching: a card cleared after a play, with no sync since, still
 //   resets the server's position (the play itself names the item).
 // - With only a Jellyfin signed in, Settings → Playback and Appearance show
-//   Stream's rows (Hero Slider Sources, which picks AIOStreams catalogs, stays
+//   Stream's rows (Carousel Catalogs, which picks AIOStreams catalogs, stays
 //   out) and Ctrl+K has Stream's places; with nothing signed in, neither.
 // - Clear All Login Info signs out, and takes the catalog mirror and the ids.
 //
@@ -240,7 +240,7 @@ await fake("/__reset", { method: "POST" });
   await openStreamTab(p);
   const s = section(p);
   await s.waitFor({ timeout: 10_000 });
-  check("Settings → Sources → Stream has a Jellyfin section beside AIOStreams", (await s.count()) === 1 && /Server address/.test(await s.innerText()));
+  check("Settings → Sources → Stream has a Jellyfin section beside AIOStreams", (await s.count()) === 1 && /Server Address/.test(await s.innerText()));
 
   check("  and says which Jellyfin it was tested on", /Tested on Jellyfin 12\.x/.test(await s.innerText()));
   const plain = async (addr) => {
@@ -253,13 +253,13 @@ await fake("/__reset", { method: "POST" });
   await s.getByLabel("Server address").fill(`localhost:${PORT}`);
   await s.getByLabel("User name").fill(FIX.user.Name);
   await s.getByLabel("Password").fill("not-the-password");
-  await s.getByRole("button", { name: "Sign in", exact: true }).click();
+  await s.getByRole("button", { name: "Sign In", exact: true }).click();
   const denied = await waitFor(p, async () => /Wrong user name or password/.test(await s.innerText()));
   check("a wrong password says so, and signs in to nothing", denied && !p.native.st.token && (await storeOf(p, "jellyfin"))?.signedIn == null);
 
   await s.getByLabel("Password").fill("pw");
-  await s.getByRole("button", { name: "Sign in", exact: true }).click();
-  const signedIn = await waitFor(p, async () => new RegExp(`Signed in as ${FIX.user.Name}`).test(await s.innerText()));
+  await s.getByRole("button", { name: "Sign In", exact: true }).click();
+  const signedIn = await waitFor(p, async () => new RegExp(`Signed In as ${FIX.user.Name}`).test(await s.innerText()));
   const rec = await storeOf(p, "jellyfin");
   check("the right one shows who is signed in", signedIn, await s.innerText());
   check("  and the page keeps who and where, no more", rec?.signedIn?.base === FAKE && rec.signedIn.userName === FIX.user.Name && !("token" in rec.signedIn), JSON.stringify(rec));
@@ -272,8 +272,8 @@ await fake("/__reset", { method: "POST" });
 
   const btn = s.getByRole("button", { name: "Disconnect", exact: true });
   await btn.click();
-  check("Disconnect asks twice", (await s.getByRole("button", { name: /Click again to confirm/ }).count()) === 1 && !!p.native.st.token);
-  await s.getByRole("button", { name: /Click again to confirm/ }).click();
+  check("Disconnect asks twice", (await s.getByRole("button", { name: /Click Again to Confirm/ }).count()) === 1 && !!p.native.st.token);
+  await s.getByRole("button", { name: /Click Again to Confirm/ }).click();
   const out = await waitFor(p, async () => (await s.getByLabel("Server address").count()) === 1);
   const state = await fake("/__state");
   check("  then signs out here and on the server", out && !p.native.st.token && state.tokens === 0 && (await storeOf(p, "jellyfin"))?.signedIn == null, JSON.stringify(state));
@@ -285,7 +285,7 @@ await fake("/__reset", { method: "POST" });
   const shown = (await s.innerText()).match(/\d{3}\s?\d{3}|\d{6}/)?.[0]?.replace(/\s/g, "");
   check("Quick Connect shows the six digit code to type into Jellyfin", code && /^\d{6}$/.test(shown ?? ""), await s.innerText());
   await fake(`/__approve?code=${shown}`);
-  const approved = await waitFor(p, async () => new RegExp(`Signed in as ${FIX.user.Name}`).test(await s.innerText()), 15_000);
+  const approved = await waitFor(p, async () => new RegExp(`Signed In as ${FIX.user.Name}`).test(await s.innerText()), 15_000);
   check("  and notices the approval on its own", approved && !!p.native.st.token);
   await p.context().close();
 }
@@ -722,7 +722,7 @@ await fake("/__reset", { method: "POST" });
   const playText = (await p.locator(".settings__body").innerText()).replace(/\n/g, " ");
   check(
     "  Playback shows Autoplay Next Episode and the rest of Stream's rows, not the sign-in note",
-    playHave.every((n) => n === 1) && /Autoplay Next Episode/.test(playText) && !/Sign in to your/.test(playText),
+    playHave.every((n) => n === 1) && /Autoplay Next Episode/.test(playText) && !/to see these settings/.test(playText),
     JSON.stringify({ playHave, text: playText.slice(0, 120) }),
   );
 
@@ -733,14 +733,14 @@ await fake("/__reset", { method: "POST" });
   const lookText = (await p.locator(".settings__body").innerText()).replace(/\n/g, " ");
   check(
     "  Appearance's Stream pill shows the carousel, card details, player overlay and row size, not the sign-in note",
-    lookHave.every((n) => n === 1) && !/Sign in to your/.test(lookText),
+    lookHave.every((n) => n === 1) && !/to see these settings/.test(lookText),
     JSON.stringify({ lookHave, text: lookText.slice(0, 120) }),
   );
   // The hero comes from the library with no addon, so the carousel is real here;
   // what stays out is the picker of AIOStreams catalogs, which has none to list.
   const carouselOn = await p.evaluate(() => document.querySelector('[data-setting="featured-carousel"] [role=switch]')?.getAttribute("aria-checked") ?? null);
   check(
-    "  and Hero Slider Sources stays out, with the carousel on: it picks AIOStreams catalogs",
+    "  and Carousel Catalogs stays out, with the carousel on: it picks AIOStreams catalogs",
     carouselOn === "true" && (await p.locator('[data-setting="hero-sources"]').count()) === 0,
     String(carouselOn),
   );
@@ -763,7 +763,7 @@ await fake("/__reset", { method: "POST" });
   const text = (await p.locator(".settings__body").innerText()).replace(/\n/g, " ");
   check(
     "  and Playback says to sign in to an AIOStreams or a Jellyfin, with no Stream rows",
-    /Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream/.test(text) && (await p.locator('.settings__body [data-setting="autoplay-next"]').count()) === 0,
+    /Sign in to AIOStreams or Jellyfin to see these settings/.test(text) && (await p.getByRole("button", { name: "Go to Sources" }).count()) === 1 && (await p.locator('.settings__body [data-setting="autoplay-next"]').count()) === 0,
     text.slice(0, 160),
   );
   await p.context().close();

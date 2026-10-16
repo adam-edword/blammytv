@@ -489,7 +489,7 @@ async function registryMatches(page, positions, label, absent = []) {
   const cl = await landed(page, "clear-logins");
   const armed = await page.evaluate(() => ({
     label: document.querySelector("[data-setting='clear-logins'] button")?.textContent,
-    confirms: [...document.querySelectorAll("button")].filter((b) => /Click again to confirm/.test(b.textContent ?? "")).length,
+    confirms: [...document.querySelectorAll("button")].filter((b) => /Click Again to Confirm/.test(b.textContent ?? "")).length,
   }));
   check('"clear" opens App with Clear All Login Info lit and focused', (await current(page)) === "App" && !!cl && cl.lit && cl.inRow && cl.focusLabel === "Clear…", `${await current(page)} / ${JSON.stringify(cl)}`);
   check('  and NOT armed: the label is still "Clear…" and nothing asks to confirm', armed.label === "Clear…" && armed.confirms === 0, JSON.stringify(armed));
@@ -567,7 +567,7 @@ async function registryMatches(page, positions, label, absent = []) {
 // ====================================================================
 {
   // No AIOStreams: Playback shows the sign-in note where Stream's rows would be.
-  // The Player group (Audio Channels, Subtitle Size, Pop-out, v0.11.29) is for
+  // The Player group (Speaker Setup, Subtitle Size, Pop-Out Window; Audio Channels and Pop-out until 0.12) is for
   // Live TV too and is drawn without one: that is what a find can still land
   // on. The query was "subtitle" until Subtitle Size took that word.
   const errorsBefore = errors.length;
@@ -587,7 +587,7 @@ async function registryMatches(page, positions, label, absent = []) {
   }), STREAM_ROWS);
   check(
     "with no AIOStreams, \"preferred language\" still lists the row and opens Playback on the sign-in note",
-    s?.rows[0]?.label === "Preferred Language" && (await current(page)) === "Playback" && /Sign in to your AIOStreams or your Jellyfin in Settings/.test(note.text),
+    s?.rows[0]?.label === "Preferred Language" && (await current(page)) === "Playback" && /Sign in to AIOStreams or Jellyfin to see these settings/.test(note.text),
     JSON.stringify({ s: s?.rows[0], text: note.text.slice(0, 100) }),
   );
   check(
@@ -604,8 +604,8 @@ async function registryMatches(page, positions, label, absent = []) {
   await settle(page);
   const ac = await landed(page, "audio-channels");
   check(
-    "  and \"surround\" lands on Audio Channels there: lit, in view, focus on Automatic",
-    sur?.rows[0]?.label === "Audio Channels" && (await current(page)) === "Playback" && !!ac && ac.lit && ac.inView && ac.inRow && /Automatic/.test(ac.focusLabel ?? ""),
+    "  and \"surround\" lands on Speaker Setup there: lit, in view, focus on Automatic",
+    sur?.rows[0]?.label === "Speaker Setup" && (await current(page)) === "Playback" && !!ac && ac.lit && ac.inView && ac.inRow && /Automatic/.test(ac.focusLabel ?? ""),
     JSON.stringify({ row: sur?.rows[0], ac }),
   );
   check("  and no page error", errors.length === errorsBefore, errors.slice(errorsBefore, errorsBefore + 2).join(" | "));
@@ -629,7 +629,7 @@ async function registryMatches(page, positions, label, absent = []) {
   }));
   check(
     "with the carousel off, \"hero slider\" opens Appearance on Stream with nothing lit and focus on the card",
-    s?.rows[0]?.label === "Hero Slider Sources" && (await current(page)) === "Appearance" && (await pill(page, "Media")) === "Stream" && !st.hero && st.carousel && st.lit === 0 && st.onCard,
+    s?.rows[0]?.label === "Carousel Catalogs" && (await current(page)) === "Appearance" && (await pill(page, "Media")) === "Stream" && !st.hero && st.carousel && st.lit === 0 && st.onCard,
     JSON.stringify({ s: s?.rows[0], st }),
   );
   check("  and no page error", errors.length === errorsBefore, errors.slice(errorsBefore, errorsBefore + 2).join(" | "));

@@ -76,9 +76,9 @@ describe("findSettings", () => {
     expect(ids("audio channels")[0]).toBe("audio-channels");
     for (const q of ["surround", "5.1", "7.1", "stereo", "receiver", "speakers", "downmix"])
       expect(ids(q), q).toContain("audio-channels");
-    // "audio" is the label's first word here and a keyword on Preferred
-    // Language, so the label comes first.
-    expect(ids("audio").slice(0, 2)).toEqual(["audio-channels", "preferred-language"]);
+    // "audio" is a keyword on both Preferred Language and Speaker Setup (which
+    // was Audio Channels until 0.12), so the registry's order decides.
+    expect(ids("audio").slice(0, 2)).toEqual(["preferred-language", "audio-channels"]);
 
     expect(ids("subtitle size")[0]).toBe("subtitle-size");
     for (const q of ["subs", "captions", "font", "text size", "bigger"])
@@ -109,7 +109,7 @@ describe("findSettings", () => {
     expect(ids("version").slice(0, 2)).toEqual(["updates", "about"]);
     expect(settingById("shortcuts")?.page).toBe("app");
     expect(settingById("about")?.page).toBe("app");
-    // The same page as the update row, between it and Replay Onboarding.
+    // The same page as the update row, between it and Replay Setup.
     const order = SETTINGS_INDEX.map((r) => r.id);
     expect(order.indexOf("updates")).toBeLessThan(order.indexOf("shortcuts"));
     expect(order.indexOf("shortcuts")).toBeLessThan(order.indexOf("about"));
@@ -122,7 +122,7 @@ describe("findSettings", () => {
     for (const q of ["log", "logs", "support", "debug", "bug", "report", "privacy", "analytics", "telemetry", "clipboard"])
       expect(ids(q), q).toContain("copy-diagnostics");
     expect(settingById("copy-diagnostics")?.page).toBe("app");
-    // On the page where it is drawn: after Replay Onboarding, and the one
+    // On the page where it is drawn: after Replay Setup, and the one
     // destructive row stays last. Export and Import came between the two in
     // P4c, so Copy Diagnostics is now the third from last, not the second.
     const order = SETTINGS_INDEX.filter((r) => r.page === "app").map((r) => r.id);
@@ -164,8 +164,8 @@ describe("findSettings", () => {
   });
 
   it("puts a label that contains the query before a keyword that does", () => {
-    // "up": Updates starts with it, Startup Tab contains it, and Replay
-    // Onboarding has it only in a keyword ("setup").
+    // "up": Updates starts with it, Startup Tab contains it, and Replay Setup
+    // does too, after it in the registry.
     const got = ids("up");
     const at = (id: string) => got.indexOf(id);
     expect(at("updates")).toBeGreaterThanOrEqual(0);

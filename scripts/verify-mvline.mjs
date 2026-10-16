@@ -459,7 +459,7 @@ const barState = async (page) => ({
 async function sendFromGuide(page, row) {
   await row.waitFor({ timeout: 20_000 });
   await row.locator(".guide__card").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Add to Multi-view" }).click();
+  await page.getByRole("menuitem", { name: "Add to Multi-View" }).click();
   await page.locator(".mvtab").waitFor({ timeout: 10_000 });
 }
 {

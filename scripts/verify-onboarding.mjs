@@ -19,7 +19,7 @@ const check = (n, ok, x = "") => { results.push(ok); console.log(`${ok ? "✓" :
 
 /** The tour's three things, as the step says them. */
 const TOUR = [
-  ["Multi-view", "Up to four channels at once. Right-click a channel in the Guide to add it."],
+  ["Multi-View", "Up to four channels at once. Right-click a channel in the Guide to add it."],
   ["Discover", "Search your catalogs, or browse them by genre."],
   ["Sports", "Today\u2019s games, with the channels showing them."],
 ];

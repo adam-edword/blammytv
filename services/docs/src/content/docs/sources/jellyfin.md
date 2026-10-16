@@ -84,7 +84,7 @@ or MyAnimeList in **Settings → Accounts**.
   play, this is the only place BlammyTV writes watch state to your server.
 
 It syncs when the app opens, when you come back to it after a while, after you
-sign in, and from **Sync now**. **Settings → Sources → Stream → Jellyfin**
+sign in, and from **Sync Now**. **Settings → Sources → Stream → Jellyfin**
 shows when it last ran.
 
 :::caution[Trakt and your Jellyfin]

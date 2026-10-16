@@ -19,11 +19,11 @@ describe("aboutRows", () => {
       "Windows' own",
     ]);
     expect(rows.map((r) => r.label)).toEqual([
-      "Native build",
+      "Native Build",
       "mpv",
-      "FFmpeg in the player",
-      "FFmpeg for multi-view",
-      "Vulkan loader",
+      "FFmpeg in the Player",
+      "FFmpeg for Multi-View",
+      "Vulkan Loader",
     ]);
   });
 

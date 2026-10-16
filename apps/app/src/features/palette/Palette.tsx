@@ -183,7 +183,7 @@ export function Palette({
       ...(hasLive
         ? [
             go("Guide", "Live TV", <GuideIcon size={16} />, { kind: "live", tab: "guide" }),
-            go("Multi-view", "Live TV", <MultiviewIcon size={16} />, { kind: "live", tab: "multiview" }),
+            go("Multi-View", "Live TV", <MultiviewIcon size={16} />, { kind: "live", tab: "multiview" }),
             go("Sports", "Live TV", <SportsIcon size={16} />, { kind: "live", tab: "sports" }),
           ]
         : []),

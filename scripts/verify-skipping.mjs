@@ -544,17 +544,17 @@ const grp = (page, name) => page.locator(`.settings__body [role=group][aria-labe
 await settings({}, async (page) => {
   const lines = {};
   for (const t of ["Intro", "Recap", "Credits", "Preview"]) lines[t] = await pressed(page, t);
-  const sw = await page.getByRole("switch", { name: "Combine credits and preview" }).getAttribute("aria-checked");
+  const sw = await page.getByRole("switch", { name: "Skip credits and preview together" }).getAttribute("aria-checked");
   check(
     "Settings → Playback on a fresh profile: every type a Button, Combine off, Autoplay 10s, Up Next Card at the credits",
-    Object.values(lines).every((v) => v === "Button") && sw === "false" && (await pressed(page, "Autoplay next episode")) === "10s" && (await pressed(page, "Up next card")) === "At the credits",
+    Object.values(lines).every((v) => v === "Button") && sw === "false" && (await pressed(page, "Autoplay next episode")) === "10s" && (await pressed(page, "Up next card")) === "At the Credits",
     JSON.stringify({ lines, sw }),
   );
   await grp(page, "Intro").getByRole("button", { name: "Automatic", exact: true }).click();
   await grp(page, "Credits").getByRole("button", { name: "Off", exact: true }).click();
-  await page.getByRole("switch", { name: "Combine credits and preview" }).click();
+  await page.getByRole("switch", { name: "Skip credits and preview together" }).click();
   await grp(page, "Autoplay next episode").getByRole("button", { name: "5s", exact: true }).click();
-  await grp(page, "Up next card").getByRole("button", { name: "Last minute", exact: true }).click();
+  await grp(page, "Up next card").getByRole("button", { name: "Last Minute", exact: true }).click();
   await page.waitForTimeout(200);
   const s = await stored(page, "skipping");
   check(
@@ -564,7 +564,7 @@ await settings({}, async (page) => {
   );
   check(
     "  and Intro shows Automatic, Credits Off, the switch on, 5s and Last minute",
-    (await pressed(page, "Intro")) === "Automatic" && (await pressed(page, "Credits")) === "Off" && (await page.getByRole("switch", { name: "Combine credits and preview" }).getAttribute("aria-checked")) === "true" && (await pressed(page, "Autoplay next episode")) === "5s" && (await pressed(page, "Up next card")) === "Last minute",
+    (await pressed(page, "Intro")) === "Automatic" && (await pressed(page, "Credits")) === "Off" && (await page.getByRole("switch", { name: "Skip credits and preview together" }).getAttribute("aria-checked")) === "true" && (await pressed(page, "Autoplay next episode")) === "5s" && (await pressed(page, "Up next card")) === "Last Minute",
   );
   await grp(page, "Autoplay next episode").getByRole("button", { name: "Off", exact: true }).click();
   await page.waitForTimeout(150);
@@ -578,7 +578,7 @@ await settings({ skipBehavior: envelope("hidden") }, async (page) => {
 await settings({ skipBehavior: envelope("combine") }, async (page) => {
   const lines = [];
   for (const t of ["Intro", "Recap", "Credits", "Preview"]) lines.push(await pressed(page, t));
-  const sw = await page.getByRole("switch", { name: "Combine credits and preview" }).getAttribute("aria-checked");
+  const sw = await page.getByRole("switch", { name: "Skip credits and preview together" }).getAttribute("aria-checked");
   check("an old combine shows as Button on every line with Combine on", lines.every((v) => v === "Button") && sw === "true", JSON.stringify({ lines, sw }));
 });
 

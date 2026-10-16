@@ -119,7 +119,7 @@ describe("Up Next Card", () => {
 
   it("offers the three, in the order Settings draws them", () => {
     expect(UP_NEXT_CARD_TABS.map((t) => t.key)).toEqual(["credits", "last", "never"]);
-    expect(UP_NEXT_CARD_TABS.map((t) => t.label)).toEqual(["At the credits", "Last minute", "Never"]);
+    expect(UP_NEXT_CARD_TABS.map((t) => t.label)).toEqual(["At the Credits", "Last Minute", "Never"]);
   });
 });
 

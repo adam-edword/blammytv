@@ -8,7 +8,7 @@ Appearance**.
 
 ## What you can change
 
-- **Accent:** the default, seven colours, or your own. It paints buttons,
+- **Accent Color:** the default, seven colours, or your own. It paints buttons,
   toggles and highlights. The default follows light and dark.
 - **Appearance:** Dark, Light, or Match Windows, which follows Windows as
   you change it.

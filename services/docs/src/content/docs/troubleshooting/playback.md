@@ -64,7 +64,7 @@ Usually the video output, not the source.
 
 - Hide categories you don't watch. A six-figure channel list is real work to
   load, even though the guide only renders what's on screen.
-- Reduce **Catalog Row Size** (Settings) if the Stream tab is the slow part.
+- Reduce **Titles per Row** (Settings) if the Stream tab is the slow part.
 
 ## Nothing here helped
 

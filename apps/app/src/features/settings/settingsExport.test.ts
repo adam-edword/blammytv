@@ -325,7 +325,7 @@ describe("reading a settings file", () => {
       const got = parseSettingsFile(text);
       expect(got, text.slice(0, 50)).toEqual({ ok: false, reason: NOT_A_SETTINGS_FILE });
     }
-    expect(NOT_A_SETTINGS_FILE).toBe("That isn't a BlammyTV settings file.");
+    expect(NOT_A_SETTINGS_FILE).toBe("That isn't a BlammyTV settings file. Choose one saved with Export Settings.");
     expect(NOT_A_SETTINGS_FILE).not.toContain("\n");
   });
 

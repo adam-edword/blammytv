@@ -19,11 +19,11 @@ export interface AboutRow {
 
 /** The fields native may send, in the order the rows are drawn. */
 export const ABOUT_FIELDS: ReadonlyArray<{ key: string; label: string }> = [
-  { key: "native", label: "Native build" },
+  { key: "native", label: "Native Build" },
   { key: "mpv", label: "mpv" },
-  { key: "ffmpeg", label: "FFmpeg in the player" },
-  { key: "bundledFfmpeg", label: "FFmpeg for multi-view" },
-  { key: "vulkan", label: "Vulkan loader" },
+  { key: "ffmpeg", label: "FFmpeg in the Player" },
+  { key: "bundledFfmpeg", label: "FFmpeg for Multi-View" },
+  { key: "vulkan", label: "Vulkan Loader" },
 ];
 
 /** The longest value shown. Native cuts at 64; this is the page's own limit. */

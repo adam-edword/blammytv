@@ -48,7 +48,7 @@ type Categories =
 
 // Xtream has none: its fields say it.
 const DESCRIPTIONS: Partial<Record<PlaylistKind, string>> = {
-  m3u: "EPG data comes along when the playlist links it.",
+  m3u: "The playlist's guide loads too, if it links one.",
   stalker: "Use the MAC address your provider registered.",
 };
 
@@ -138,7 +138,7 @@ export function PlaylistsTab() {
             <>
               <div className="settings-form__row">
                 <Field
-                  label="Name (optional)"
+                  label="Name (Optional)"
                   value={form.name}
                   onChange={set("name")}
                   placeholder="Living Room IPTV"
@@ -170,7 +170,7 @@ export function PlaylistsTab() {
           {kind === "m3u" && (
             <div className="settings-form__row">
               <Field
-                label="Name (optional)"
+                label="Name (Optional)"
                 value={form.name}
                 onChange={set("name")}
                 placeholder="Living Room IPTV"
@@ -187,7 +187,7 @@ export function PlaylistsTab() {
             <>
               <div className="settings-form__row">
                 <Field
-                  label="Name (optional)"
+                  label="Name (Optional)"
                   value={form.name}
                   onChange={set("name")}
                   placeholder="Living Room IPTV"
@@ -201,7 +201,7 @@ export function PlaylistsTab() {
               </div>
               <div className="settings-form__row">
                 <Field
-                  label="MAC address"
+                  label="MAC Address"
                   value={form.mac}
                   onChange={set("mac")}
                   placeholder="00:1A:79:12:34:56"
@@ -222,10 +222,10 @@ export function PlaylistsTab() {
       </section>
 
       <section className="settings-section" data-setting="playlists">
-        <h3 className={`settings-section__list-title ${EYEBROW}`}>Your playlists</h3>
+        <h3 className={`settings-section__list-title ${EYEBROW}`}>Playlists</h3>
         {playlists.length === 0 ? (
           <p className="settings__section-note settings__section-note--dim">
-            Nothing here yet. Add your first playlist above.
+            No playlists yet. Add one above.
           </p>
         ) : (
           playlists.map((p) => (
@@ -255,12 +255,12 @@ export function PlaylistsTab() {
                       <>
                         {g?.epgError && (
                           <span className="playlist-row__status">
-                            Channels OK · guide: {g.epgError}
+                            Channels OK · Guide: {g.epgError}
                           </span>
                         )}
                         {g?.extraGuideError && (
                           <span className="playlist-row__status" data-note="extra-guide">
-                            Extra guide: {g.extraGuideError}
+                            Extra Guide: {g.extraGuideError}
                           </span>
                         )}
                       </>
@@ -321,9 +321,9 @@ export function PlaylistsTab() {
                   >
                     <ChevronIcon />
                   </Button>
-                  <Hint label={armedDeleteId === p.id ? "Click again to remove" : "Delete"}>
+                  <Hint label={armedDeleteId === p.id ? "Click Again to Remove" : "Delete"}>
                   <Button
-                    // Armed, it says "Sure?", so it needs a button that can
+                    // Armed, it says "Confirm", so it needs a button that can
                     // hold a word: `icon-sm` is a 32px square and the word
                     // spilled out of it. Destructive once armed, the danger
                     // voice the `--armed` rule gave it before v0.9.56's
@@ -352,7 +352,7 @@ export function PlaylistsTab() {
                       update(removePlaylist(playlists, p.id));
                     }}
                   >
-                    {armedDeleteId === p.id ? "Sure?" : <CloseIcon className="size-3.5" />}
+                    {armedDeleteId === p.id ? "Confirm" : <CloseIcon className="size-3.5" />}
                   </Button>
                   </Hint>
                 </div>
@@ -386,11 +386,7 @@ export function PlaylistsTab() {
         <div className="playlist-item">
           <div className="playlist-row">
             <div className="playlist-row__text">
-              <span className="playlist-row__name">Show adult content</span>
-              <span className="playlist-row__source">
-                Off keeps adult folders and channels out of Live TV. Flagged
-                by your provider, or caught by name.
-              </span>
+              <span className="playlist-row__name">Show Adult Content</span>
             </div>
             <div className="playlist-row__actions">
               <Toggle
@@ -460,8 +456,8 @@ function FolderEditor({
       <div className="source-list">
         <p className="settings__section-note settings__section-note--dim">
           {hidden.length === 0
-            ? `Nothing hidden. Choosing folders up front for ${KIND_LABELS[playlist.kind]} playlists arrives with its live-TV client; until then, hide them from the guide and they will appear here.`
-            : `Hidden from the guide. Choosing folders up front arrives with ${KIND_LABELS[playlist.kind]}'s live-TV client.`}
+            ? "Nothing is hidden. Hide a folder from the guide and it shows up here."
+            : "These folders are hidden from the guide."}
         </p>
         {hidden.map((id) => (
           <div className="source-row" key={id}>
@@ -501,7 +497,7 @@ function FolderEditor({
     return (
       <div className="source-list source-list--note">
         <p className="settings__section-note settings__section-note--dim">
-          The server reports no live categories.
+          The server didn&rsquo;t send any folders.
         </p>
       </div>
     );
@@ -559,7 +555,7 @@ function FolderEditor({
           disabled={visible.length === 0}
           onClick={() => setMany(visible.map((c) => c.id), allShown)}
         >
-          {allShown ? "Hide all" : "Show all"}
+          {allShown ? "Hide All" : "Show All"}
         </Button>
         {dirty && (
           <>
@@ -609,8 +605,8 @@ function FolderEditor({
         ))}
         {adultHidden > 0 && (
           <p className="settings__section-note settings__section-note--dim">
-            {adultHidden} adult {adultHidden === 1 ? "folder" : "folders"} hidden
-            · turn on “Show adult content” below to manage{" "}
+            {adultHidden} adult {adultHidden === 1 ? "folder is" : "folders are"} hidden.
+            Turn on “Show Adult Content” below to see{" "}
             {adultHidden === 1 ? "it" : "them"}.
           </p>
         )}
@@ -660,7 +656,7 @@ function AdvancedFields({
   return (
     <div id={id} className="playlist-advanced__body">
       <Field
-        label="Extra guide (XMLTV URL)"
+        label="Extra Guide (XMLTV URL)"
         value={draft.extraGuide}
         onChange={(v) => setDraft((d) => ({ ...d, extraGuide: v }))}
         placeholder="https://example.com/guide.xml"
@@ -733,7 +729,7 @@ function GuideRefresh({ stamps }: { stamps: number[] }) {
         disabled={refreshing}
         onClick={press}
       >
-        {refreshing ? "Refreshing…" : "Refresh now"}
+        {refreshing ? "Refreshing…" : "Refresh Now"}
       </Button>
     </div>
   );

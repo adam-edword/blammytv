@@ -324,7 +324,7 @@ const shot = async (p, name) => {
   const connectBtn = p.getByRole("button", { name: "Connect", exact: true });
   check(
     "Signed out with nothing stored: the sign-in leads, with an AIOStreams address field and Connect",
-    (await field.count()) === 1 && (await connectBtn.count()) === 1 && (await p.getByText("AIOStreams address", { exact: true }).count()) === 1,
+    (await field.count()) === 1 && (await connectBtn.count()) === 1 && (await p.getByText("AIOStreams Address", { exact: true }).count()) === 1,
   );
   check("  Connect waits for an address", await connectBtn.isDisabled());
   check(
@@ -363,7 +363,7 @@ const shot = async (p, name) => {
   const buttons = await row.getByRole("button").allInnerTexts();
   check(
     "Approved on a later poll it says who is signed in, with Sync now and Disconnect",
-    on && buttons.includes("Sync now") && buttons.includes("Disconnect") && !buttons.includes("Connect"),
+    on && buttons.includes("Sync Now") && buttons.includes("Disconnect") && !buttons.includes("Connect"),
     JSON.stringify({ on, buttons }),
   );
   check(
@@ -401,7 +401,7 @@ const shot = async (p, name) => {
   const ask = await p.evaluate(() => window.__sourceAsks ?? []);
   check(
     "The Connection Test signed in: the catalogs (not counting search), then the test title's sources",
-    rows.length === 2 && rows.every((r) => !r.bad) && /Catalogs.*OK, 2 catalogs/.test(rows[0].text) && /Sources \(test title\).*OK, 3 sources/.test(rows[1].text),
+    rows.length === 2 && rows.every((r) => !r.bad) && /Catalogs.*OK, 2 catalogs/.test(rows[0].text) && /Sources \(Test Title\).*OK, 3 sources/.test(rows[1].text),
     JSON.stringify(rows.map((r) => r.text)),
   );
   check(
@@ -428,7 +428,7 @@ const shot = async (p, name) => {
 
   // ------------------------------------------------------ Disconnect
   await row.getByRole("button", { name: "Disconnect", exact: true }).click();
-  await row.getByRole("button", { name: /Click again to confirm/ }).click();
+  await row.getByRole("button", { name: /Click Again to Confirm/ }).click();
   const off = await p.getByRole("button", { name: "Connect", exact: true }).waitFor({ timeout: 6000 }).then(() => true, () => false);
   const dis = (await callsOf(p, "aiojf_disconnect")).length;
   check("Disconnect signs the device out: the address field is back, the sign-in is gone", off && dis === 1 && !(await storeOf(p, "aiojf"))?.signedIn, JSON.stringify({ off, dis, aiojf: await storeOf(p, "aiojf") }));
@@ -448,7 +448,7 @@ const shot = async (p, name) => {
   const row = p.locator(".aio-row");
   await row.locator(".customize-row__title", { hasText: "Signed in as Adam" }).waitFor({ timeout: 8000 });
   await row.getByRole("button", { name: "Disconnect", exact: true }).click();
-  await row.getByRole("button", { name: /Click again to confirm/ }).click();
+  await row.getByRole("button", { name: /Click Again to Confirm/ }).click();
   await p.getByRole("button", { name: "Connect", exact: true }).waitFor({ timeout: 6000 });
   const gone = await streamGone(p);
   check("Disconnect while Stream shows the instance's rows: Stream goes to its signed-out state, not the old rows", rowsUp && gone.ok, JSON.stringify({ rowsUp, ...gone }));
@@ -474,7 +474,7 @@ const shot = async (p, name) => {
   const rows = await p.$$eval(".aio-probe__row", (els) => els.map((e) => e.textContent));
   check(
     "  Submit saves it and runs the manifest test: manifest, catalog, streams",
-    (await storeOf(p, "aiostreams")) === MANIFEST_URL && rows.length === 3 && /Manifest.*OK, 3 catalogs/.test(rows[0]) && /Streams \(test title\).*OK/.test(rows[2]),
+    (await storeOf(p, "aiostreams")) === MANIFEST_URL && rows.length === 3 && /Manifest.*OK, 3 catalogs/.test(rows[0]) && /Streams \(Test Title\).*OK/.test(rows[2]),
     JSON.stringify(rows),
   );
   check("  and none of it touched the sign-in", (await callsOf(p, "aiojf_disconnect")).length === 0 && (await callsOf(p, "aiojf_start")).length === 0);

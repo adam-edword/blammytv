@@ -112,11 +112,11 @@ export const POPOUT_SIZE_TABS: Array<{ key: PopoutSize; label: string }> = [
 /** Where it opens: the middle, which is what it always did, then the corners
  * top to bottom. */
 export const POPOUT_CORNERS: Array<{ key: PopoutCorner; label: string }> = [
-  { key: "center", label: "Centre" },
-  { key: "top-left", label: "Top left" },
-  { key: "top-right", label: "Top right" },
-  { key: "bottom-left", label: "Bottom left" },
-  { key: "bottom-right", label: "Bottom right" },
+  { key: "center", label: "Center" },
+  { key: "top-left", label: "Top Left" },
+  { key: "top-right", label: "Top Right" },
+  { key: "bottom-left", label: "Bottom Left" },
+  { key: "bottom-right", label: "Bottom Right" },
 ];
 
 const POP_SIZE = choice<PopoutSize>(

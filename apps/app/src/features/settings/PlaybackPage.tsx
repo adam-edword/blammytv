@@ -70,11 +70,11 @@ const LANG_OPTIONS: ComboboxOption[] = LANGUAGES.map((l) => ({
   keywords: [l.code],
 }));
 const AUDIO_OPTIONS: ComboboxOption[] = [
-  { value: AUTO, label: "No preference" },
+  { value: AUTO, label: "No Preference" },
   ...LANG_OPTIONS,
 ];
 const SUB_OPTIONS: ComboboxOption[] = [
-  { value: AUTO, label: "No preference" },
+  { value: AUTO, label: "No Preference" },
   { value: SUBS_OFF, label: "Off" },
   ...LANG_OPTIONS,
 ];
@@ -98,7 +98,7 @@ const SUB_OPTIONS: ComboboxOption[] = [
  * plays through the same one, and pops out the same way, so they are there
  * with or without a source.
  */
-export function PlaybackPage() {
+export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
   const hasStream = useRef(!!loadAioConn() || !!loadJfConn()).current;
 
   const [oneClick, setOneClick] = useState<boolean>(loadOneClickPlay);
@@ -122,7 +122,7 @@ export function PlaybackPage() {
   return (
     <>
       <h3 className={`settings__group ${EYEBROW}`}>Stream</h3>
-      {!hasStream && <SignInNote />}
+      {!hasStream && <SignInNote onSignIn={onSignIn} />}
 
       {hasStream && (
         <section className="settings-section">
@@ -130,8 +130,8 @@ export function PlaybackPage() {
             <div>
               <h4 className="customize-row__title">One-Click Play Movies</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Clicking a movie plays the best cached source right away.
-                Uncached is never auto-played.
+                Clicking a movie plays the best cached source right away, never
+                an uncached one.
               </p>
             </div>
             <Toggle
@@ -147,11 +147,7 @@ export function PlaybackPage() {
 
           <div className="customize-row" data-setting="source-failover">
             <div>
-              <h4 className="customize-row__title">Auto Source Failover</h4>
-              <p className="settings__section-note settings__section-note--dim">
-                A source dying mid-play jumps to the next cached one. Off shows
-                a button instead.
-              </p>
+              <h4 className="customize-row__title">Switch Sources When One Fails</h4>
             </div>
             <Toggle
               on={failover}
@@ -160,7 +156,7 @@ export function PlaybackPage() {
                 setFailover(next);
                 saveSourceFailover(next);
               }}
-              label="Auto source failover"
+              label="Switch sources when one fails"
             />
           </div>
 
@@ -168,8 +164,8 @@ export function PlaybackPage() {
             <div>
               <h4 className="customize-row__title">Autoplay Next Episode</h4>
               <p className="settings__section-note settings__section-note--dim">
-                The next episode starts by itself when one ends, after the
-                countdown. Off waits for you.
+                When an episode ends, the next one starts by itself after the
+                countdown.
               </p>
             </div>
             <Segmented
@@ -189,9 +185,8 @@ export function PlaybackPage() {
             <div>
               <h4 className="customize-row__title">Up Next Card</h4>
               <p className="settings__section-note settings__section-note--dim">
-                The corner card that offers the next episode while one is
-                still playing. At the credits goes by the file&rsquo;s own
-                markers and chapters; Last minute is the final 60 seconds.
+                At the Credits relies on the file&rsquo;s own markers and
+                chapters.
               </p>
             </div>
             <Segmented
@@ -211,8 +206,8 @@ export function PlaybackPage() {
             <div>
               <h4 className="customize-row__title">Skipping</h4>
               <p className="settings__section-note settings__section-note--dim">
-                From the file&rsquo;s chapters and skip markers. Combine makes
-                the credits and the preview after them one jump.
+                Skipping works from the file&rsquo;s own chapters and skip
+                markers.
               </p>
             </div>
             <div className="skip-lines">
@@ -228,7 +223,7 @@ export function PlaybackPage() {
                 </div>
               ))}
               <div className="skip-line">
-                <span className="skip-line__label">Combine Credits &amp; Preview</span>
+                <span className="skip-line__label">Skip Credits and Preview Together</span>
                 <Toggle
                   on={skipping.combine}
                   onChange={(on) => {
@@ -236,7 +231,7 @@ export function PlaybackPage() {
                     setSkipping(next);
                     saveSkipping(next);
                   }}
-                  label="Combine credits and preview"
+                  label="Skip credits and preview together"
                 />
               </div>
             </div>
@@ -249,9 +244,8 @@ export function PlaybackPage() {
             <div>
               <h4 className="customize-row__title">Preferred Language</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Every stream tries to load these. A track you pick by hand on a
-                particular show still wins for that show, and anything the
-                stream doesn&rsquo;t carry is left alone.
+                If you pick another language on a show, it remembers that for
+                the show.
               </p>
             </div>
             <div className="customize-langs">
@@ -262,7 +256,7 @@ export function PlaybackPage() {
                   ariaLabel="Preferred audio language"
                   options={AUDIO_OPTIONS}
                   value={audioLang}
-                  placeholder="No preference"
+                  placeholder="No Preference"
                   emptyText="No language found."
                   onChange={(v) => {
                     setAudioLang(v);
@@ -277,7 +271,7 @@ export function PlaybackPage() {
                   ariaLabel="Preferred subtitle language"
                   options={SUB_OPTIONS}
                   value={subLang}
-                  placeholder="No preference"
+                  placeholder="No Preference"
                   emptyText="No language found."
                   onChange={(v) => {
                     setSubLang(v);
@@ -295,18 +289,14 @@ export function PlaybackPage() {
       <section className="settings-section">
         <div className="customize-stack" data-setting="audio-channels">
           <div>
-            <h4 className="customize-row__title">Audio Channels</h4>
+            <h4 className="customize-row__title">Speaker Setup</h4>
             <p className="settings__section-note settings__section-note--dim">
-              What the app asks your sound device for. Automatic follows what
-              Windows has set. 5.1 and 7.1 are what your speakers can take: a
-              film keeps its own layout up to that, so stereo stays stereo.
-              Stereo is the way back if a receiver misbehaves. A change
-              restarts the sound for a moment.
+              If a receiver has trouble with surround sound, pick Stereo.
             </p>
           </div>
           <Segmented
             className="self-start"
-            label="Audio channels"
+            label="Speaker setup"
             options={AUDIO_CHANNEL_TABS}
             value={audioChannels}
             onChange={(k: AudioChannels) => {
@@ -320,9 +310,7 @@ export function PlaybackPage() {
           <div>
             <h4 className="customize-row__title">Subtitle Size</h4>
             <p className="settings__section-note settings__section-note--dim">
-              Text subtitles. Picture-based ones (PGS) keep their own size. To
-              fix the timing, press Z or X in the player: each moves them a
-              tenth of a second.
+              Picture-based subtitles keep their own size.
             </p>
           </div>
           <Segmented
@@ -340,10 +328,9 @@ export function PlaybackPage() {
         {/* Stacked: two choices, and the corner has five words. */}
         <div className="customize-stack" data-setting="popout">
           <div>
-            <h4 className="customize-row__title">Pop-out</h4>
+            <h4 className="customize-row__title">Pop-Out Window</h4>
             <p className="settings__section-note settings__section-note--dim">
-              How much of the screen the pop-out window takes, and which corner
-              it opens in. Drag and resize it once it is up.
+              You can still drag and resize it once it is open.
             </p>
           </div>
           <div className="setting-lines">

@@ -179,8 +179,8 @@ check(
   noteText.includes(`Last refreshed ${expected}.`),
   `${JSON.stringify(noteText)} vs ${expected}`,
 );
-const button = page.getByRole("button", { name: /^Refresh(ing…| now)$/ });
-check("with a Refresh now button", (await button.textContent()) === "Refresh now");
+const button = page.getByRole("button", { name: /^Refresh(ing…| Now)$/ });
+check("with a Refresh Now button", (await button.textContent()) === "Refresh Now");
 
 // ---- Refresh now
 // Hold the download back, so the button has something to wait for.
@@ -198,7 +198,7 @@ check(
   (await button.textContent()) === "Refreshing…" && streamLoads() === before.streams + 1,
   `${await button.textContent()}, ${streamLoads() - before.streams} channel loads`,
 );
-const back = await waitFor(async () => (await button.textContent()) === "Refresh now", 20_000);
+const back = await waitFor(async () => (await button.textContent()) === "Refresh Now", 20_000);
 check("then returns once the guide has landed", back && (await button.isEnabled()));
 check("Refresh now downloaded a fresh guide, once", guideLoads() === before.guides + 1, `${guideLoads() - before.guides}`);
 await page.unroute("**/xmltv.php*");

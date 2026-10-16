@@ -126,6 +126,13 @@ export function SettingsModal({
     setTab(t);
     setSeed(undefined);
   };
+  // The button on Playback and Appearance when there is nothing to sign in to
+  // yet (SignInNote): Sources, on its Stream pill, where the sign-ins are.
+  const toStreamSources = () => {
+    saveSettingsTab("sources");
+    setTab("sources");
+    setSeed("stream");
+  };
   // The exit beat: Radix's `open` stays true until the card has faded, and
   // App unmounts it after (useClosingExit).
   const { closing, requestClose } = useClosingExit(onClose);
@@ -344,8 +351,8 @@ export function SettingsModal({
                   onScroll={(e) => markFades(e.currentTarget)}
                 >
                   {tab === "sources" && <SourcesPage initialWorld={seed} />}
-                  {tab === "playback" && <PlaybackPage />}
-                  {tab === "appearance" && <AppearancePage initialWorld={seed} />}
+                  {tab === "playback" && <PlaybackPage onSignIn={toStreamSources} />}
+                  {tab === "appearance" && <AppearancePage initialWorld={seed} onSignIn={toStreamSources} />}
                   {tab === "accounts" && <AccountsPage />}
                   {tab === "app" && <AppPage />}
                 </div>

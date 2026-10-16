@@ -1738,11 +1738,11 @@ export function TheaterOverlay({
           * grid and takes the sound (plan 017, P6b). The player stops as
           * its screen is left, which frees the connection for the grid. */}
         {!vod && api()?.multiview && (
-          <Hint label="Watch in Multi-view">
+          <Hint label="Watch in Multi-View">
             <Button variant="chip" size="icon"
               type="button"
               className="player__btn"
-              aria-label="Watch in Multi-view"
+              aria-label="Watch in Multi-View"
               onClick={() => api()?.multiview?.()}
             >
               <MultiviewIcon size={20} />

@@ -159,60 +159,60 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
   await openPlayback(page);
   const rows = await titles(page);
   check(
-    "Playback: Stream's rows, then the Player group: Audio Channels, Subtitle Size, Pop-out",
+    "Playback: Stream's rows, then the Player group: Speaker Setup, Subtitle Size, Pop-Out Window",
     JSON.stringify(rows) ===
-      JSON.stringify(["One-Click Play Movies", "Auto Source Failover", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Audio Channels", "Subtitle Size", "Pop-out"]),
+      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop-Out Window"]),
     JSON.stringify(rows),
   );
   const groups = await page.locator(".settings__body .settings__group").allInnerTexts();
   check("  under two eyebrows, Stream and Player, with no Live TV / Stream pill", JSON.stringify(groups.map((g) => g.toLowerCase())) === JSON.stringify(["stream", "player"]) && (await page.locator(".settings__body .customize-rail").count()) === 0, JSON.stringify(groups));
   const names = await page.evaluate(() => {
     const g = (n) => [...document.querySelectorAll(`.settings__body [role=group][aria-label='${n}'] button`)].map((b) => b.textContent).join();
-    return { audio: g("Audio channels"), sub: g("Subtitle size"), size: g("Pop-out size"), corner: g("Pop-out corner") };
+    return { audio: g("Speaker setup"), sub: g("Subtitle size"), size: g("Pop-out size"), corner: g("Pop-out corner") };
   });
   check(
-    "  with their choices: Automatic, Stereo, 5.1, 7.1; Small, Normal, Large, Larger; Small, Medium, Large; Centre and the four corners",
-    names.audio === "Automatic,Stereo,5.1,7.1" && names.sub === "Small,Normal,Large,Larger" && names.size === "Small,Medium,Large" && names.corner === "Centre,Top left,Top right,Bottom left,Bottom right",
+    "  with their choices: Automatic, Stereo, 5.1, 7.1; Small, Normal, Large, Larger; Small, Medium, Large; Center and the four corners",
+    names.audio === "Automatic,Stereo,5.1,7.1" && names.sub === "Small,Normal,Large,Larger" && names.size === "Small,Medium,Large" && names.corner === "Center,Top Left,Top Right,Bottom Left,Bottom Right",
     JSON.stringify(names),
   );
   const dflt = {
-    audio: await pressed(page, "Audio channels"),
+    audio: await pressed(page, "Speaker setup"),
     sub: await pressed(page, "Subtitle size"),
     size: await pressed(page, "Pop-out size"),
     corner: await pressed(page, "Pop-out corner"),
   };
   check(
-    "  and on a fresh profile: Automatic, Normal, Large and Centre",
-    dflt.audio.join() === "Automatic" && dflt.sub.join() === "Normal" && dflt.size.join() === "Large" && dflt.corner.join() === "Centre",
+    "  and on a fresh profile: Automatic, Normal, Large and Center",
+    dflt.audio.join() === "Automatic" && dflt.sub.join() === "Normal" && dflt.size.join() === "Large" && dflt.corner.join() === "Center",
     JSON.stringify(dflt),
   );
   const nothing = await page.evaluate(() => ["audioChannels", "subtitleSize", "popoutSize", "popoutCorner"].map((k) => localStorage.getItem(`blammytv.${k}`)));
   check("  and nothing is stored until one is chosen", nothing.every((v) => v === null), JSON.stringify(nothing));
 
-  await seg(page, "Audio channels").getByRole("button", { name: "7.1", exact: true }).click();
+  await seg(page, "Speaker setup").getByRole("button", { name: "7.1", exact: true }).click();
   await seg(page, "Subtitle size").getByRole("button", { name: "Larger", exact: true }).click();
   await seg(page, "Pop-out size").getByRole("button", { name: "Small", exact: true }).click();
-  await seg(page, "Pop-out corner").getByRole("button", { name: "Bottom left", exact: true }).click();
+  await seg(page, "Pop-out corner").getByRole("button", { name: "Bottom Left", exact: true }).click();
   await page.waitForTimeout(200);
   const keep = {
     audio: await stored(page, "audioChannels"),
     sub: await stored(page, "subtitleSize"),
     size: await stored(page, "popoutSize"),
     corner: await stored(page, "popoutCorner"),
-    now: [(await pressed(page, "Audio channels")).join(), (await pressed(page, "Subtitle size")).join(), (await pressed(page, "Pop-out size")).join(), (await pressed(page, "Pop-out corner")).join()],
+    now: [(await pressed(page, "Speaker setup")).join(), (await pressed(page, "Subtitle size")).join(), (await pressed(page, "Pop-out size")).join(), (await pressed(page, "Pop-out corner")).join()],
   };
   check(
     "a click stores its choice, versioned, and the control shows it",
     JSON.stringify([keep.audio, keep.sub, keep.size, keep.corner]) ===
       JSON.stringify([{ v: 1, data: "7.1" }, { v: 1, data: "larger" }, { v: 1, data: "small" }, { v: 1, data: "bottom-left" }]) &&
-      keep.now.join("|") === "7.1|Larger|Small|Bottom left",
+      keep.now.join("|") === "7.1|Larger|Small|Bottom Left",
     JSON.stringify(keep),
   );
   // A reload: what was chosen is what Settings shows.
   await page.reload({ waitUntil: "domcontentloaded" });
   await openPlayback(page);
-  const again = [(await pressed(page, "Audio channels")).join(), (await pressed(page, "Subtitle size")).join(), (await pressed(page, "Pop-out size")).join(), (await pressed(page, "Pop-out corner")).join()];
-  check("  and after a restart too", again.join("|") === "7.1|Larger|Small|Bottom left", again.join("|"));
+  const again = [(await pressed(page, "Speaker setup")).join(), (await pressed(page, "Subtitle size")).join(), (await pressed(page, "Pop-out size")).join(), (await pressed(page, "Pop-out corner")).join()];
+  check("  and after a restart too", again.join("|") === "7.1|Larger|Small|Bottom Left", again.join("|"));
   await ctx.close();
 }
 
@@ -220,8 +220,8 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
 {
   const { ctx, page } = await open({ store: { audioChannels: "quadraphonic", subtitleSize: 9, popoutSize: "huge", popoutCorner: "middle" } });
   await openPlayback(page);
-  const got = [(await pressed(page, "Audio channels")).join(), (await pressed(page, "Subtitle size")).join(), (await pressed(page, "Pop-out size")).join(), (await pressed(page, "Pop-out corner")).join()];
-  check("stored values nobody offers read as the defaults", got.join("|") === "Automatic|Normal|Large|Centre", got.join("|"));
+  const got = [(await pressed(page, "Speaker setup")).join(), (await pressed(page, "Subtitle size")).join(), (await pressed(page, "Pop-out size")).join(), (await pressed(page, "Pop-out corner")).join()];
+  check("stored values nobody offers read as the defaults", got.join("|") === "Automatic|Normal|Large|Center", got.join("|"));
   await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "mpv_prefs"), null, { timeout: 5000 }).catch(() => {});
   const sent = await calls(page, "mpv_prefs");
   check("  and native is told the defaults, never the junk", sent.length === 1 && sent[0].audioChannels === "auto-safe" && sent[0].subScale === 1, JSON.stringify(sent));
@@ -237,10 +237,10 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
   const ids = await page.evaluate(() => [...document.querySelectorAll(".settings__body [data-setting]")].map((e) => e.dataset.setting));
   check(
     "with no AIOStreams the Player group is still there, and Stream's rows are not",
-    JSON.stringify(rows) === JSON.stringify(["Audio Channels", "Subtitle Size", "Pop-out"]) && JSON.stringify(ids) === JSON.stringify(["audio-channels", "subtitle-size", "popout"]),
+    JSON.stringify(rows) === JSON.stringify(["Speaker Setup", "Subtitle Size", "Pop-Out Window"]) && JSON.stringify(ids) === JSON.stringify(["audio-channels", "subtitle-size", "popout"]),
     JSON.stringify({ rows, ids }),
   );
-  check("  under the sign-in note for the rest", /Sign in to your AIOStreams or your Jellyfin in Settings/.test(note), note.slice(0, 120));
+  check("  under the sign-in note for the rest", /Sign in to AIOStreams or Jellyfin to see these settings/.test(note), note.slice(0, 120));
   await ctx.close();
 }
 
@@ -278,11 +278,11 @@ for (const [label, width] of [["wide", 1440], ["narrow", 700]]) {
     JSON.stringify(first),
   );
   await openPlayback(page);
-  await seg(page, "Audio channels").getByRole("button", { name: "Stereo", exact: true }).click();
+  await seg(page, "Speaker setup").getByRole("button", { name: "Stereo", exact: true }).click();
   await page.waitForTimeout(200);
   const afterAudio = await calls(page, "mpv_prefs");
   check(
-    "Audio Channels to Stereo calls it with stereo, and the subtitle size as it stands",
+    "Speaker Setup to Stereo calls it with stereo, and the subtitle size as it stands",
     afterAudio.length === 2 && afterAudio[1].audioChannels === "stereo" && afterAudio[1].subScale === 1.25,
     JSON.stringify(afterAudio.slice(1)),
   );
@@ -296,18 +296,18 @@ for (const [label, width] of [["wide", 1440], ["narrow", 700]]) {
     afterSub.length === 4 && afterSub[2].subScale === 1.5 && afterSub[3].subScale === 1.25 && afterSub.slice(2).every((c) => c.audioChannels === "stereo"),
     JSON.stringify(afterSub.slice(2)),
   );
-  await seg(page, "Audio channels").getByRole("button", { name: "Automatic", exact: true }).click();
+  await seg(page, "Speaker setup").getByRole("button", { name: "Automatic", exact: true }).click();
   await page.waitForTimeout(200);
   const last = (await calls(page, "mpv_prefs")).at(-1);
   check("Automatic is mpv's own word for it, auto-safe", last?.audioChannels === "auto-safe", JSON.stringify(last));
   // Choosing what is already chosen is nothing new for mpv.
   const n = (await calls(page, "mpv_prefs")).length;
-  await seg(page, "Audio channels").getByRole("button", { name: "Automatic", exact: true }).click();
+  await seg(page, "Speaker setup").getByRole("button", { name: "Automatic", exact: true }).click();
   await page.waitForTimeout(200);
   check("  and choosing it again is no new call", (await calls(page, "mpv_prefs")).length === n, String(n));
   // The pop-out's two are not mpv_prefs: they ride popout_open.
   await seg(page, "Pop-out size").getByRole("button", { name: "Small", exact: true }).click();
-  await seg(page, "Pop-out corner").getByRole("button", { name: "Top right", exact: true }).click();
+  await seg(page, "Pop-out corner").getByRole("button", { name: "Top Right", exact: true }).click();
   await page.waitForTimeout(200);
   check("the pop-out's size and corner do not go through mpv_prefs", (await calls(page, "mpv_prefs")).length === n, String(n));
   await ctx.close();
@@ -320,11 +320,11 @@ for (const [label, width] of [["wide", 1440], ["narrow", 700]]) {
   await page.waitForSelector(".navcap", { timeout: 20_000 });
   await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "mpv_prefs"), null, { timeout: 10_000 }).catch(() => {});
   await openPlayback(page);
-  await seg(page, "Audio channels").getByRole("button", { name: "Stereo", exact: true }).click();
+  await seg(page, "Speaker setup").getByRole("button", { name: "Stereo", exact: true }).click();
   await seg(page, "Subtitle size").getByRole("button", { name: "Small", exact: true }).click();
   await page.waitForTimeout(400);
   const asked = (await calls(page, "mpv_prefs")).length;
-  check("a native build that rejects mpv_prefs is asked, and Settings still works: both choices are kept and shown", asked >= 2 && (await stored(page, "audioChannels"))?.data === "stereo" && (await stored(page, "subtitleSize"))?.data === "small" && (await pressed(page, "Audio channels")).join() === "Stereo" && (await pressed(page, "Subtitle size")).join() === "Small", JSON.stringify({ asked }));
+  check("a native build that rejects mpv_prefs is asked, and Settings still works: both choices are kept and shown", asked >= 2 && (await stored(page, "audioChannels"))?.data === "stereo" && (await stored(page, "subtitleSize"))?.data === "small" && (await pressed(page, "Speaker setup")).join() === "Stereo" && (await pressed(page, "Subtitle size")).join() === "Small", JSON.stringify({ asked }));
   const un = await unhandled(page);
   check("  and no page error, and no rejection left uncaught", errors.length === errorsBefore && un.length === 0, JSON.stringify({ errors: errors.slice(errorsBefore, errorsBefore + 2), un }));
   await ctx.close();
@@ -335,11 +335,11 @@ for (const [label, width] of [["wide", 1440], ["narrow", 700]]) {
   const errorsBefore = errors.length;
   const { ctx, page } = await open({ tauri: false });
   await openPlayback(page);
-  await seg(page, "Audio channels").getByRole("button", { name: "Stereo", exact: true }).click();
+  await seg(page, "Speaker setup").getByRole("button", { name: "Stereo", exact: true }).click();
   await page.waitForTimeout(300);
   check(
     "in a plain browser tab Settings works with no native side, and no page error",
-    (await stored(page, "audioChannels"))?.data === "stereo" && (await pressed(page, "Audio channels")).join() === "Stereo" && errors.length === errorsBefore,
+    (await stored(page, "audioChannels"))?.data === "stereo" && (await pressed(page, "Speaker setup")).join() === "Stereo" && errors.length === errorsBefore,
     errors.slice(errorsBefore, errorsBefore + 2).join(" | "),
   );
   await ctx.close();

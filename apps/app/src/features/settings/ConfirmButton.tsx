@@ -18,7 +18,7 @@ import { Button } from "../../components/ui/button";
  */
 export function ConfirmButton({
   label,
-  confirmLabel = "Click again to confirm",
+  confirmLabel = "Click Again to Confirm",
   onConfirm,
 }: {
   /** The resting word: "Clear…", "Reset". */

@@ -113,7 +113,7 @@ export function JellyfinTab() {
       setSignedOut(
         revoked
           ? null
-          : "Signed out here, but the server could not be reached, so your sign-in still stands there. Remove this device from your Jellyfin dashboard, Devices.",
+          : "Signed out here, but the server couldn't be reached, so you're still signed in there. To end it, remove this device under Devices in your Jellyfin dashboard.",
       ),
     );
   };
@@ -126,7 +126,7 @@ export function JellyfinTab() {
       <section className="settings-section" data-setting="jellyfin">
         <h3 className="settings-section__list-title">Jellyfin</h3>
         <p className="settings__section-note settings__section-note--dim">
-          Signing in to your own Jellyfin server needs the latest BlammyTV. Update the app and it shows up here.
+          Signing in to your Jellyfin server needs the latest BlammyTV. Update the app and it shows up here.
         </p>
       </section>
     ) : null;
@@ -148,7 +148,7 @@ export function JellyfinTab() {
         <div className="customize-row aio-row">
           <div>
             <h4 className="customize-row__title">
-              {status.userName ? `Signed in as ${status.userName}` : "Signed in"}
+              {status.userName ? `Signed In as ${status.userName}` : "Signed In"}
             </h4>
             {(status.serverName || origin) && (
               <p className="settings__section-note settings__section-note--dim">
@@ -173,7 +173,7 @@ export function JellyfinTab() {
           </div>
           <div className="aio-row__actions">
             <Button variant="secondary" type="button" disabled={syncing} onClick={startSync}>
-              {syncing ? "Syncing…" : "Sync now"}
+              {syncing ? "Syncing…" : "Sync Now"}
             </Button>
             <Button
               variant={armed ? "destructive" : "outline"}
@@ -181,14 +181,14 @@ export function JellyfinTab() {
               className={armed ? "" : "hover:border-destructive hover:text-destructive"}
               onClick={disconnect}
             >
-              {armed ? "Click again to confirm" : "Disconnect"}
+              {armed ? "Click Again to Confirm" : "Disconnect"}
             </Button>
           </div>
         </div>
       ) : quick ? (
         <div className="customize-row aio-row">
           <div>
-            <h4 className="customize-row__title">Sign in to {quick.serverName || "Jellyfin"}</h4>
+            <h4 className="customize-row__title">Sign In to {quick.serverName || "Jellyfin"}</h4>
             <AioCode code={quick.code} copied={copied} onCopy={() => void copyCode(quick.code)} />
             <p className="settings__section-note settings__section-note--dim">{APPROVE_NOTE}</p>
           </div>
@@ -201,12 +201,12 @@ export function JellyfinTab() {
       ) : (
         <>
           <p className="settings__section-note">
-            Sign in to your own Jellyfin server. Its movie and show libraries become rows under the Stream tab
-            and in Discover, and a title you open from one plays your own files. Tested on Jellyfin 12.x.
+            Sign in to your Jellyfin server. Its movie and show libraries become rows in Stream and Discover,
+            and a title you open from one plays your own files. Tested on Jellyfin 12.x.
           </p>
           <div className="settings-field">
             <label className="settings-field__label" htmlFor={addressId}>
-              Server address
+              Server Address
             </label>
             <div className="settings-field__control">
               <input
@@ -224,7 +224,7 @@ export function JellyfinTab() {
           </div>
           <div className="settings-field">
             <label className="settings-field__label" htmlFor={userId}>
-              User name
+              User Name
             </label>
             <div className="settings-field__control">
               <input
@@ -276,7 +276,7 @@ export function JellyfinTab() {
           )}
           <div className="aio-row__actions">
             <Button variant="default" type="button" disabled={!canSubmit} onClick={signIn}>
-              {starting ? "Signing in…" : "Sign in"}
+              {starting ? "Signing In…" : "Sign In"}
             </Button>
             <Button
               variant="secondary"

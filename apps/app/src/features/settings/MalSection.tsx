@@ -71,7 +71,7 @@ export function MalSection() {
       url = await malSignInStart();
     } catch (e) {
       if (mine !== attempt.current.n) return;
-      return setPhase({ at: "off", note: `Couldn't start the sign-in: ${e instanceof Error ? e.message : String(e)}.` });
+      return setPhase({ at: "off", note: `Couldn't start the sign-in: ${e instanceof Error ? e.message : String(e)}. Try again.` });
     }
     if (mine !== attempt.current.n) {
       // Gone while it started: nothing will poll it, so free the port now.
@@ -145,9 +145,9 @@ export function MalSection() {
     phase.at === "unconfigured"
       ? "This build has no MyAnimeList key, so MyAnimeList is off."
       : phase.at === "off"
-        ? (phase.note ?? "Send the anime episodes you finish to your MyAnimeList, and tick the ones it says you've seen.")
+        ? (phase.note ?? "Sends the anime episodes you finish to MyAnimeList, and marks the ones it says you've watched.")
         : phase.at === "waiting"
-          ? "Approve BlammyTV on MyAnimeList in your browser. This page notices on its own."
+          ? "Approve BlammyTV on MyAnimeList in your browser. This page notices when you're done."
           : local.problem
             ? `Last sync failed: ${local.problem}.`
             : local.lastSync
@@ -158,7 +158,7 @@ export function MalSection() {
     <div className="customize-row mal-row" data-setting="mal">
       <div>
         <h4 className="customize-row__title">
-          {phase.at === "on" ? (user ? `MyAnimeList: ${user}` : "MyAnimeList: connected") : "MyAnimeList"}
+          {phase.at === "on" ? (user ? `MyAnimeList: ${user}` : "MyAnimeList: Connected") : "MyAnimeList"}
         </h4>
         <p className="settings__section-note settings__section-note--dim">{note}</p>
       </div>
@@ -180,7 +180,7 @@ export function MalSection() {
       {phase.at === "on" && (
         <div className="mal-row__actions">
           <Button variant="secondary" type="button" disabled={syncing} onClick={syncNow}>
-            {syncing ? "Syncing…" : "Sync now"}
+            {syncing ? "Syncing…" : "Sync Now"}
           </Button>
           <Button
             variant={armed ? "destructive" : "outline"}
@@ -188,7 +188,7 @@ export function MalSection() {
             className={armed ? "" : "hover:border-destructive hover:text-destructive"}
             onClick={disconnect}
           >
-            {armed ? "Click again to confirm" : "Disconnect"}
+            {armed ? "Click Again to Confirm" : "Disconnect"}
           </Button>
         </div>
       )}

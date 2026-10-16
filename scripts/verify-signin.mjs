@@ -906,7 +906,7 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
 }
 
 // ============================================================ the hero picker
-// Settings → Appearance → Hero Slider Sources lists the catalogs on offer, and
+// Settings → Appearance → Carousel Catalogs (Hero Slider Sources until 0.12) lists the catalogs on offer, and
 // a required-genre catalog picked as a source is asked with a genre, since
 // AIOStreams answers nothing for one without.
 {
@@ -914,7 +914,7 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
   const page = await openPage({ connected: true, signedIn: true });
   await page.locator("button[aria-label='Settings']").click();
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
-  const input = page.getByPlaceholder("Add sources…");
+  const input = page.getByPlaceholder("Add catalogs…");
   await input.waitFor({ timeout: 15_000 });
   await input.click();
   await page.getByRole("option").first().waitFor({ timeout: 10_000 });

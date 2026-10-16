@@ -61,9 +61,9 @@ export function AppPage() {
 
         <div className="customize-row" data-setting="replay-onboarding">
           <div>
-            <h4 className="customize-row__title">Replay Onboarding</h4>
+            <h4 className="customize-row__title">Replay Setup</h4>
             <p className="settings__section-note settings__section-note--dim">
-              Nothing gets reset.
+              Your settings stay as they are.
             </p>
           </div>
           <Button
@@ -76,7 +76,7 @@ export function AppPage() {
         </div>
       </section>
 
-      <h3 className={`settings__group ${EYEBROW}`}>Privacy and data</h3>
+      <h3 className={`settings__group ${EYEBROW}`}>Privacy and Data</h3>
       <section className="settings-section">
         <DiagnosticsSection />
         <SettingsFilesSection />

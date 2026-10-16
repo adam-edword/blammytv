@@ -930,7 +930,7 @@ export const Guide = memo(function Guide({
               }
             >
               <MultiviewIcon size={16} />
-              Add to Multi-view
+              Add to Multi-View
             </ContextMenuItem>
             {menuFix && (
               <ContextMenuItem

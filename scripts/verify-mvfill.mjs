@@ -369,7 +369,7 @@ for (const live of [true, false]) {
 {
   const { page, ctx, errors } = await load({ noticeSeen: false });
   await goTo(page, "multiview");
-  const dialog = page.getByRole("dialog", { name: "Multi-view" });
+  const dialog = page.getByRole("dialog", { name: "Multi-View" });
   await dialog.waitFor({ timeout: 10_000 });
   const box = await dialog.boundingBox();
   const centred = Math.abs(box.x + box.width / 2 - W / 2) <= 2;

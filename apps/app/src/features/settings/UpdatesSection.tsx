@@ -123,12 +123,12 @@ export function UpdatesSection() {
             : phase.at === "installing"
               ? "Downloading and installing. The app restarts by itself."
               : phase.at === "error"
-                ? `Update check failed: ${phase.message}`
-                : "Updates install themselves with one click and keep your playlists."}
+                ? `Couldn't check for updates: ${phase.message}`
+                : "Updating keeps your playlists and settings."}
         </p>
         {notes.length > 0 && (
           <div className="update-notes">
-            <p className={`update-notes__title ${EYEBROW}`}>What&rsquo;s new</p>
+            <p className={`update-notes__title ${EYEBROW}`}>What&rsquo;s New</p>
             <p className="update-notes__body">{notes.join("\n")}</p>
           </div>
         )}
@@ -186,7 +186,7 @@ export function UpdatesSection() {
           }}
           aria-disabled={isPlaying()}
         >
-          Restart now
+          Restart Now
         </Button>
         </Hint>
       ) : (
@@ -202,8 +202,8 @@ export function UpdatesSection() {
             : phase.at === "current"
               ? "You're up to date ✓"
               : phase.at === "error"
-                ? "Try again"
-                : "Check for updates"}
+                ? "Try Again"
+                : "Check for Updates"}
         </Button>
       )}
     </div>

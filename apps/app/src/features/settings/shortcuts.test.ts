@@ -15,7 +15,7 @@ describe("SHORTCUT_GROUPS", () => {
   it("opens with Anywhere and names the places the code has keys in", () => {
     expect(SHORTCUT_GROUPS[0].title).toBe("Anywhere");
     const titles = SHORTCUT_GROUPS.map((g) => g.title);
-    for (const t of ["Every player", "Live TV player", "Stream player", "Sports player", "Multi-view"])
+    for (const t of ["Every Player", "Live TV Player", "Stream Player", "Sports Player", "Multi-View"])
       expect(titles, t).toContain(t);
   });
 
