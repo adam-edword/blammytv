@@ -23,8 +23,8 @@ describe("probeVerdict", () => {
           'answered HTTP 403, server: cloudflare · cf-mitigated: challenge · body starts "<!DOCTYPE html>"',
       },
     ]);
-    expect(v).toMatch(/bot protection/);
-    expect(v).toMatch(/can't be fixed/);
+    expect(v).toMatch(/Cloudflare's bot check/);
+    expect(v).toMatch(/Nothing on your PC can fix it/);
   });
 
   it("recognizes the challenge block page even without cf-mitigated", () => {
@@ -38,7 +38,7 @@ describe("probeVerdict", () => {
           'answered HTTP 403, server: cloudflare · body starts "<title>Just a moment...</title>"',
       },
     ]);
-    expect(v).toMatch(/bot protection/);
+    expect(v).toMatch(/Cloudflare's bot check/);
   });
 
   it("suggests a stale config on a plain 403 with no challenge markers", () => {
@@ -50,8 +50,8 @@ describe("probeVerdict", () => {
         forensic: 'answered HTTP 403, server: nginx · body starts "Forbidden"',
       },
     ]);
-    expect(v).toMatch(/expired or been regenerated/);
-    expect(v).toMatch(/If the error persists.*server.*hosting your manifest/);
+    expect(v).toMatch(/Copy the manifest URL from its configure page again/);
+    expect(v).toMatch(/Still refused\? Ask whoever runs it/);
   });
 
   it("stays silent on failures it can't diagnose", () => {

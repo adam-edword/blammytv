@@ -44,7 +44,7 @@ export function AboutSection() {
       <div>
         <h4 className="customize-row__title">About</h4>
         <p className="settings__section-note settings__section-note--dim">
-          What this install is made of. Handy to have when you ask for help.
+          Send these when you ask for help.
         </p>
       </div>
       <dl className="about">

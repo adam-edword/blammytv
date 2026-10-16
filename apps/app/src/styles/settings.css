@@ -9,15 +9,16 @@
    * Sources' usual height would sit centred. Every other page hangs from the
    * same top and takes the height its content needs, so the card does not move
    * between pages, only its bottom does. In a window too short to centre one,
-   * which is any under about 1150px tall, it is the 88px the nav needs: what a
+   * which is any under about 1090px tall, it is the 88px the nav needs: what a
    * short window always had. The card's max-height reads this too.
    *
-   * 974px is Sources measured at its usual size (Live TV, one playlist, the
-   * folders closed: 868px of page and 106px of card around it), not the 760px
+   * 915px is Sources measured at its usual size (Live TV, one playlist, the
+   * folders closed: 809px of page and 106px of card around it), not the 760px
    * a card measures when a 900px window cuts it short. Two playlists make it
-   * 1052, the folder editor open about 1220: the card is a little off centre
-   * for those, and grows down from the same top. */
-  --settings-top: max(88px, calc((100vh - 974px) / 2));
+   * 993, the folder editor open about 1160: the card is a little off centre
+   * for those, and grows down from the same top. It was 974 until v0.11.58
+   * took the Xtream form's description out. */
+  --settings-top: max(88px, calc((100vh - 915px) / 2));
   position: fixed;
   inset: 0;
   /* Above everything: the floating header (20), the theater backdrop (40),
@@ -501,6 +502,12 @@ input.rowcap__value--edit:focus-visible {
   font-weight: 700;
   font-size: 15px;
   margin: 0 0 2px;
+}
+/* A title with no note under it (Appearance, Startup Tab, Clock Format,
+ * Keyboard Shortcuts) has no gap to keep, and the 2px would sit it a pixel
+ * off the centre of its control. */
+.customize-row__title:last-child {
+  margin-bottom: 0;
 }
 
 /* Preferred Language: two comboboxes side by side, right-aligned like every

@@ -120,11 +120,9 @@ function ExportRow({ files }: { files: Files }) {
       <div>
         <h4 className="customize-row__title">Export Settings</h4>
         <p className="settings__section-note settings__section-note--dim">
-          Saves your looks, playback settings, lists, Continue Watching and the
-          rest to a file you choose, to move to another PC or keep as a backup.
-          Favourites, recents, guide fixes and the multi-view grid belong to
-          your playlists, so they go in only when you tick the box. Your Trakt,
-          MyAnimeList, AIOStreams and Jellyfin sign-ins never go in it.
+          Saves your settings to a file, for another PC or a backup. Playlists,
+          and the favorites, recents, guide fixes and multi-view grid that point
+          at them, go in only if you tick the box. Sign-ins never do.
         </p>
         <label className="settings-check">
           <input
@@ -207,12 +205,9 @@ function ImportRow({ files }: { files: Files }) {
       <div>
         <h4 className="customize-row__title">Import Settings</h4>
         <p className="settings__section-note settings__section-note--dim">
-          Your settings are replaced by the ones in a file from Export. Your
-          sign-ins stay. When the file has playlists and AIOStreams, they
-          replace yours, along with its favourites, recents, guide fixes and
-          multi-view grid. A file without playlists leaves your favourites,
-          recents, guide fixes and multi-view grid as they are. The window
-          restarts to take the file.
+          Replaces your settings with a file from Export. Your sign-ins stay.
+          A file with playlists brings its favorites, recents, guide fixes and
+          grid too. The window restarts.
         </p>
         {problem && (
           <p className="settings-said settings-said--error" role="alert">

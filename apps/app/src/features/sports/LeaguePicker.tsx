@@ -174,13 +174,13 @@ export function LeaguePicker({
       ) : (
         <p className="live-sidebar__note">
           {searching
-            ? "No favourites match."
+            ? "No favorites match."
             : /* Not an error, and the opposite of an empty board: with
                * nothing picked the hub shows every league that has anything
                * on. Saying so is the point — the board behind this panel is
                * deliberately more than anyone wants, and this is the line
                * that explains why and what to do about it. */
-              `No favourites yet, so all ${ALL_LEAGUES.length} leagues are on the board. Pick the ones you follow to narrow it.`}
+              `No favorites yet, so all ${ALL_LEAGUES.length} leagues are on the board. Pick the ones you follow to narrow it.`}
         </p>
       )}
 
@@ -247,8 +247,8 @@ export function LeaguePicker({
                   <Button variant="ghost" size="icon-sm"
                     type="button"
                     className="live-folder__hide leaguepick__fav"
-                    aria-label={`Add ${l.label} to favourites`}
-                    data-hint={`Add ${l.label} to favourites`}
+                    aria-label={`Add ${l.label} to favorites`}
+                    data-hint={`Add ${l.label} to favorites`}
                     onClick={() => toggle(l.path)}
                   >
                     {/* The guide's own star and its own swap: the ghost
@@ -268,7 +268,7 @@ export function LeaguePicker({
           ))
         ) : (
           <p className="live-sidebar__note">
-            {searching ? "Nothing else matches." : "Every league is a favourite."}
+            {searching ? "Nothing else matches." : "Every league is a favorite."}
           </p>
         )}
       </div>
@@ -332,12 +332,12 @@ function FavouriteTile({
         }
         aria-label={
           armed
-            ? `Click again to remove ${league.label} from favourites`
-            : `Remove ${league.label} from favourites`
+            ? `Click again to remove ${league.label} from favorites`
+            : `Remove ${league.label} from favorites`
         }
         onClick={onArm}
       >
-        {armed ? "Remove from Favorites" : <CloseIcon className="size-3" />}
+        {armed ? "Remove from favorites" : <CloseIcon className="size-3" />}
       </Button>
     </span>
   );

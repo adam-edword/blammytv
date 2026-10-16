@@ -175,7 +175,7 @@ export function AioStreamsTab() {
   const origin = originOf(status.base);
 
   const syncLine = local.problem
-    ? `Last sync hit a snag: ${local.problem}`
+    ? `Last sync failed: ${local.problem}`
     : local.lastSync
       ? `Synced ${ago(local.lastSync)}.`
       : "Syncing for the first time.";
@@ -243,7 +243,7 @@ export function AioStreamsTab() {
           ) : (
             <>
               <p className="settings__section-note">
-                Sign in with your AIOStreams address. It powers the movies and series under the Stream tab,
+                Sign in with your AIOStreams address. Stream&rsquo;s movies and series come from it,
                 and any app signed in to your AIOStreams picks up where you left off.
               </p>
               <div className="settings-field">
@@ -295,8 +295,8 @@ export function AioStreamsTab() {
         <section className="settings-section" data-setting="aiostreams">
           <h3 className="settings-section__list-title">AIOStreams Manifest</h3>
           <p className="settings__section-note">
-            Paste your AIOStreams manifest URL. It powers the movies and series
-            under the Stream tab.
+            Paste your AIOStreams manifest URL. Stream&rsquo;s movies and series
+            come from it.
           </p>
           {isTauri() && !signInOffered && (
             <p className="settings__section-note settings__section-note--dim">
@@ -320,7 +320,7 @@ export function AioStreamsTab() {
               />
               {url.trim() !== "" && (
                 <span className="settings-field__tools">
-                  <Hint label={copied ? "Copied!" : "Copy"}>
+                  <Hint label={copied ? "Copied" : "Copy"}>
                   <Button variant="ghost" size="icon-sm"
                     type="button"
                     className="settings-field__tool"

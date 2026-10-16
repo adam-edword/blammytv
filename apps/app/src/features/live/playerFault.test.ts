@@ -92,6 +92,6 @@ describe("the report", () => {
 describe("the card's first line", () => {
   it("is the player's, and never the stream's", () => {
     expect(PLAYER_FAULT_LINE).toBe("The player couldn\u2019t start.");
-    expect(PLAYER_FAULT_LINE).not.toMatch(/stream, not you/i);
+    expect(PLAYER_FAULT_LINE).not.toMatch(/isn.t responding/i);
   });
 });

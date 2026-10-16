@@ -149,7 +149,7 @@ export function MalSection() {
         : phase.at === "waiting"
           ? "Approve BlammyTV on MyAnimeList in your browser. This page notices on its own."
           : local.problem
-            ? `Last sync hit a snag: ${local.problem}.`
+            ? `Last sync failed: ${local.problem}.`
             : local.lastSync
               ? `Synced ${ago(local.lastSync)}.`
               : "Syncing for the first time.";

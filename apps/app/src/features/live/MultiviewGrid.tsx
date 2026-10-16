@@ -580,7 +580,7 @@ export function MultiviewGrid({
               </span>
               <span className="place__title">Add a channel</span>
               <span className="place__sub">
-                A live game or any channel. Or press <Kbd>A</Kbd>
+                Or press <Kbd>A</Kbd>
               </span>
             </button>
           ))}

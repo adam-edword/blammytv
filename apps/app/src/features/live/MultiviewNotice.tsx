@@ -68,8 +68,7 @@ export function MultiviewNotice({
         <ul className="mvnotice__list">
           <Point icon={<TvIcon size={18} />} title="Some streams play differently">
             HEVC channels are converted first, so they take a moment longer to
-            start, and some audio formats can come up silent. Normal playback
-            is unaffected.
+            start, and some audio formats can come up silent.
           </Point>
           <Point icon={<StatsIcon size={18} />} title="Every tile is a connection">
             {capLine(conns)}

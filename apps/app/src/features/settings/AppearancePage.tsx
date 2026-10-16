@@ -203,9 +203,6 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
         <div className="customize-row" data-setting="color-mode">
           <div>
             <h4 className="customize-row__title">Appearance</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Light, dark, or whatever Windows is set to.
-            </p>
           </div>
           <Segmented label="Appearance" options={THEME_TABS} value={theme} onChange={pickTheme} />
         </div>
@@ -213,9 +210,6 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
         <div className="customize-row" data-setting="startup-tab">
           <div>
             <h4 className="customize-row__title">Startup Tab</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              Where the app opens.
-            </p>
           </div>
           <Segmented label="Start on" options={STARTUP_TABS} value={startup} onChange={pickStartup} />
         </div>
@@ -223,9 +217,6 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
         <div className="customize-row" data-setting="clock-format">
           <div>
             <h4 className="customize-row__title">Clock Format</h4>
-            <p className="settings__section-note settings__section-note--dim">
-              How the header clock reads.
-            </p>
           </div>
           <Segmented label="Clock format" options={CLOCK_TABS} value={clock} onChange={pickClock} />
         </div>
@@ -255,8 +246,7 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
             <div>
               <h4 className="customize-row__title">Featured Carousel</h4>
               <p className="settings__section-note settings__section-note--dim">
-                The big sliding banner at the top of Stream. Off removes it
-                entirely and the rows start at the top.
+                The big sliding banner at the top of Stream.
               </p>
             </div>
             <Toggle
@@ -402,7 +392,7 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
             <div>
               <h4 className="customize-row__title">Channel Numbers</h4>
               <p className="settings__section-note settings__section-note--dim">
-                Show the provider&rsquo;s channel number beside the name.
+                From your provider.
               </p>
             </div>
             <Toggle
@@ -421,7 +411,7 @@ export function AppearancePage({ initialWorld }: { initialWorld?: "live" | "stre
           <div>
             <h4 className="customize-row__title">Reset Appearance</h4>
             <p className="settings__section-note settings__section-note--dim">
-              Accent, appearance and clock back to defaults.
+              Accent, appearance, clock and channel numbers back to defaults.
             </p>
           </div>
           <ConfirmButton label="Reset" onConfirm={reset} />

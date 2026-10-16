@@ -964,14 +964,6 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             onHideFolder={hideFolderNow}
           />
         )}
-
-        {!collapsed && mode !== "playlist" && (
-          <p className="live-sidebar__note">
-            {mode === "favorites"
-              ? "Starred channels fill the guide here."
-              : "Recently watched channels land here."}
-          </p>
-        )}
       </aside>
 
       {collapsed && tip && (
@@ -1141,9 +1133,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 sub={
                   mode === "favorites"
                     ? "Hover a channel card and hit the star."
-                    : mode === "recents"
-                      ? "Recents fill in as you tune around."
-                      : undefined
+                    : undefined
                 }
               />
             ) : (

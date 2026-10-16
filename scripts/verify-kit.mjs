@@ -966,12 +966,12 @@ const dimmedText = () =>
   })).catch(() => null);
   check(
     "Stream with no addon says so as a StateCard",
-    home?.state && home.icon && home.title === "Movies and shows, one tab over from live",
+    home?.state && home.icon && home.title === "No movies or shows yet",
     JSON.stringify(home),
   );
   await goTo(p2, "discover");
   const disc = await p2.locator(".discover--empty .state").evaluate((el) => el.querySelector(".state__title")?.textContent).catch(() => null);
-  check("  and so does Discover", disc === "Something new to watch", String(disc));
+  check("  and so does Discover", disc === "Nothing to discover yet", String(disc));
   await bare.close();
 
   // None of the old layouts is left to drift back.
@@ -2120,8 +2120,8 @@ const dimmedText = () =>
     stops.add(await page.evaluate(() => (document.activeElement?.closest(".settings") ? "in" : document.activeElement?.tagName)));
   }
   check(
-    "M2. Settings is a modal on Radix's Dialog: focus goes in, Tab stays in, the card where it was: 88 down at 900 high (v0.11.39: max(88, where a 974px Sources card is centred)) and centred across",
-    modal.inside && [...stops].join() === "in" && modal.top === Math.max(88, (H - 974) / 2) && Math.abs(modal.left - modal.right) <= 1 && modal.left > 48 && modal.parent === "modal-backdrop",
+    "M2. Settings is a modal on Radix's Dialog: focus goes in, Tab stays in, the card where it was: 88 down at 900 high (v0.11.39: max(88, where a 915px Sources card is centred; 974 before v0.11.58)) and centred across",
+    modal.inside && [...stops].join() === "in" && modal.top === Math.max(88, (H - 915) / 2) && Math.abs(modal.left - modal.right) <= 1 && modal.left > 48 && modal.parent === "modal-backdrop",
     JSON.stringify({ ...modal, stops: [...stops] }),
   );
   // And out by one Escape, pressed just after Tab leaves a control whose
@@ -2204,9 +2204,9 @@ const dimmedText = () =>
   // hanging from that top and growing down, and its page ending at its edge
   // (v0.11.39, Adam: "the sources page should be centered, and then from there
   // the card expands down"; and at the bottom of a page "content is cut hard
-  // against the card's edge"). The top is max(88, (window - 974) / 2): 974px is
+  // against the card's edge"). The top is max(88, (window - 915) / 2): 915px is
   // Sources at its usual size (one playlist, folders closed), so 88 in any
-  // window under ~1150 tall and centred above that. The page's scroller ends at
+  // window under ~1090 tall and centred above that. The page's scroller ends at
   // the card's inner edge (the bleed is the card's own padding), its last row
   // rests that padding clear of it, and the body fades at the bottom while
   // there is more below, as it does at the top once something is above.
@@ -2274,7 +2274,7 @@ const dimmedText = () =>
     const topsOf = (c) => PAGES.map((n) => c[n].top);
     check(
       "M2. the Settings card hangs from the same top on every page: 88 at 900 high, where a Sources card is centred at 1400",
-      new Set(topsOf(short)).size === 1 && short.Sources.top === 88 && new Set(topsOf(tall)).size === 1 && tall.Sources.top === Math.max(88, (1400 - 974) / 2),
+      new Set(topsOf(short)).size === 1 && short.Sources.top === 88 && new Set(topsOf(tall)).size === 1 && tall.Sources.top === Math.max(88, (1400 - 915) / 2),
       JSON.stringify({ short: topsOf(short), tall: topsOf(tall) }),
     );
     check(

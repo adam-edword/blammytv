@@ -781,8 +781,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         const note = unlinked && (
           <p className="sports__unlinked" role="status">
             {unlinked === "no-playlist"
-              ? "None of these are matched to channels yet. Add a playlist in Settings and BlammyTV will line these games up against it."
-              : "None of these are on a channel in your playlist. The game is still on; your provider just doesn't carry the networks showing it."}
+              ? "Add a playlist in Settings → Sources to match these to channels."
+              : "None of these are on a channel in your playlist. Your provider doesn't carry the networks showing it."}
           </p>
         );
         // THE SECOND ARM IS THE WAY BACK OUT. On `rowItems.length` alone, a
@@ -953,7 +953,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
           <SportsEmpty
             alert
             title="Couldn't reach the schedule."
-            note="The board keeps trying on its own, so this usually clears itself. Nothing is lost while it does."
+            note="It retries on its own."
           />
         ) : narrowed ? (
           /* MUCH RARER THAN IT WAS. The board reaches past its own window
@@ -983,11 +983,11 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               // their league had published nothing when a request had simply
               // failed. It says so and stops claiming anything.
               reachFailed
-                ? "nothing on the board, and the schedule source did not answer when asked what is next. This usually clears itself"
+                ? "nothing on the board, and the schedule source did not answer when asked what is next. It retries on its own"
                 : shown.teams.length > 0
                   ? "nothing on the schedule we can reach"
                   : "no fixtures published, not even further out"
-            }. Favourite a few more sports and the board fills itself.`}
+            }.`}
             action={{
               label: "Pick more sports",
               onClick: () => setReveal((n) => n + 1),
@@ -1000,7 +1000,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
            * It would take a genuinely dead day everywhere to land here. */
           <SportsEmpty
             title="Nothing on today."
-            note={`None of the ${ALL_LEAGUES.length} leagues has a game scheduled today or tomorrow. That is rare, so it is worth looking again shortly.`}
+            note={`None of the ${ALL_LEAGUES.length} leagues has a game scheduled today or tomorrow. Check back later.`}
           />
         ))}
       </div>

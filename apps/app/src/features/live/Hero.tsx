@@ -82,11 +82,7 @@ export function Hero({
             {current ? current.title : "No Information"}
           </h2>
         </div>
-        <p className="hero__synopsis">
-          {current
-            ? current.synopsis
-            : "This channel has no programme data right now."}
-        </p>
+        {current && <p className="hero__synopsis">{current.synopsis}</p>}
         <div className="hero__meta">
           {/* Only airing programmes wear LIVE: a hover-previewed future
            * show shouldn't claim to be live. */}

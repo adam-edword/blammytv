@@ -866,10 +866,9 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
   await note.waitFor({ timeout: 30_000 }).catch(() => {});
   const text = (await note.first().innerText().catch(() => "")).replace(/\n/g, " | ");
   check(
-    "Signed in with every catalog empty: the empty state talks about the sign-in, not a manifest",
+    "Signed in with every catalog empty: the empty state says so and to try again, and does not talk about a manifest",
     /Nothing came back from your catalogs/.test(text) &&
-      /signed in/.test(text) &&
-      /Check your AIOStreams sign-in in Settings → Sources → Stream/.test(text) &&
+      /Every catalog came back empty\. Try again in a minute\./.test(text) &&
       !/manifest/i.test(text),
     text,
   );

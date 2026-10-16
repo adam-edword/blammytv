@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
 import { Toggle } from "../../ui/Toggle";
 import { setSport, type filterSports } from "./mvScores";
 
@@ -25,12 +25,9 @@ export function MvScoresFilter({
   const shown = (path: string) => !hidden.includes(path);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="mvfilter gap-0 p-0 sm:max-w-[420px]">
+      <DialogContent className="mvfilter gap-0 p-0 sm:max-w-[420px]" aria-describedby={undefined}>
         <div className="mvfilter__head">
           <DialogTitle className="text-[17px] font-semibold">Scores row</DialogTitle>
-          <DialogDescription className="text-[13px] text-(--text-muted)">
-            The sports it shows. Changes apply as you make them.
-          </DialogDescription>
         </div>
         <div className="mvfilter__list">
           {sports.length === 0 && <p className="mvfilter__empty">No sports to choose from yet.</p>}

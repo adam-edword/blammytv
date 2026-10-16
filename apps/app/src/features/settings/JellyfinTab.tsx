@@ -136,7 +136,7 @@ export function JellyfinTab() {
   const origin = originOf(status.base);
   const local = loadJf();
   const syncLine = local.problem
-    ? `Last sync hit a snag: ${local.problem}`
+    ? `Last sync failed: ${local.problem}`
     : local.lastSync
       ? `Synced ${ago(local.lastSync)}.`
       : "Syncing for the first time.";

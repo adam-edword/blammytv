@@ -88,21 +88,16 @@ export function probeVerdict(steps: ProbeStep[]): string | undefined {
   const forensics = failed.map((s) => s.forensic ?? "").join(" ");
   if (/cf-mitigated: challenge/i.test(forensics) || /Just a moment/i.test(forensics)) {
     return (
-      "This instance sits behind Cloudflare bot protection, which is " +
-      "challenging app traffic from your network. That can't be fixed " +
-      "from your machine or by this app. It affects Stremio-style " +
-      "clients generally. Ask whoever hosts the instance to exempt it " +
-      "from bot protection, or move your config to another instance."
+      "Cloudflare's bot check on this instance is blocking app traffic " +
+      "from your network. Nothing on your PC can fix it. Ask whoever " +
+      "hosts it to exempt it, or move your config to another instance."
     );
   }
   if (failed.some((s) => /HTTP 40[13]\b/.test(s.detail))) {
     return (
-      "The instance rejected the request. If this URL worked before, " +
-      "your config link may have expired or been regenerated. Re-copy " +
-      "the manifest URL from your instance's configure page and submit " +
-      "it again. If the error persists, the problem is on the server " +
-      "hosting your manifest. Ask its operator to check for a firewall " +
-      "or bot protection blocking app traffic."
+      "The instance refused the request. Copy the manifest URL from its " +
+      "configure page again. Still refused? Ask whoever runs it to check " +
+      "for a firewall or bot protection."
     );
   }
   return undefined;

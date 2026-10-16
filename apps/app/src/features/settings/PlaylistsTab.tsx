@@ -46,12 +46,10 @@ type Categories =
 
 // KIND_TABS + the form model live in playlists.ts — shared with onboarding.
 
-const DESCRIPTIONS: Record<PlaylistKind, string> = {
-  xtream:
-    "Connect an Xtream Codes account: the server URL, username, and password from your provider.",
-  m3u: "Point at an M3U playlist URL from your provider. EPG data comes along when the playlist links it.",
-  stalker:
-    "Connect a Stalker/MAG portal: the portal URL and the MAC address your provider registered.",
+// Xtream has none: its fields say it.
+const DESCRIPTIONS: Partial<Record<PlaylistKind, string>> = {
+  m3u: "EPG data comes along when the playlist links it.",
+  stalker: "Use the MAC address your provider registered.",
 };
 
 export function PlaylistsTab() {
@@ -133,7 +131,7 @@ export function PlaylistsTab() {
         <h3 className="settings-section__list-title">
           Add {KIND_LABELS[kind]} Playlist
         </h3>
-        <p className="settings__section-note">{DESCRIPTIONS[kind]}</p>
+        {DESCRIPTIONS[kind] && <p className="settings__section-note">{DESCRIPTIONS[kind]}</p>}
 
         <div className="settings-form">
           {kind === "xtream" && (
@@ -494,9 +492,7 @@ function FolderEditor({
     return (
       <div className="source-list source-list--note">
         <p className="settings__section-note settings__section-note--dim">
-          Couldn&rsquo;t reach the server. Check the playlist&rsquo;s credentials, and
-          note the browser dev build can be blocked by CORS where the desktop
-          app isn't.
+          Couldn&rsquo;t reach the server. Check the playlist&rsquo;s login.
         </p>
       </div>
     );

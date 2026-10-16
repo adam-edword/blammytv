@@ -267,7 +267,7 @@ await page.locator('[data-dest="mylist"]').click();
 await page.waitForTimeout(600);
 check("Library empty state names what lands there on its own",
   (await page.locator(".library__empty").textContent() ?? "")
-    .includes("Anything you start watching"));
+    .includes("What you watch lands here."));
 check("and no list cards yet", (await page.locator(".library__card").count()) === 0);
 
 await page.locator('[data-dest="home"]').click();

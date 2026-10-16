@@ -492,7 +492,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
           const n = /(\d+) catalog/.exec(steps[0].detail)?.[1];
           setStreamsMsg({
             ok: true,
-            text: `Connected${n ? `, ${n} catalogs found` : ""}. Nice.`,
+            text: n ? `Connected. ${n} catalog${n === "1" ? "" : "s"}.` : "Connected.",
           });
           if (gen !== checkGen.current) return;
           window.clearTimeout(autoTimer.current);
@@ -728,7 +728,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
               Sign in to AIOStreams
             </h1>
             <p className="onb-hint onb-hint--ok" role="status" style={idx(1)}>
-              {signedIn.name ? `Signed in as ${signedIn.name}.` : "Signed in."} Nice.
+              {signedIn.name ? `Signed in as ${signedIn.name}.` : "Signed in."}
             </p>
             <div className="onb-row" style={idx(2)}>
               <Button variant="default" size="lg" type="button" className="onb-btn" onClick={advance}>
@@ -829,8 +829,8 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
             Bring your streams
           </h1>
           <p className="onb-sub" style={idx(1)}>
-            Paste your AIOStreams manifest URL to power movies and series.
-            We&rsquo;ll check the connection for real before moving on.
+            Paste your AIOStreams manifest URL. Stream&rsquo;s movies and series
+            come from it. We check it before you move on.
           </p>
           <input
             className={"onb-input" + (showManifestHint ? " is-invalid" : "")}
@@ -904,15 +904,14 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
           Connect Live TV
         </h1>
         <p className="onb-sub" style={idx(1)}>
-          Light up channels and the guide. Pick the format your provider
-          gave you.
+          Pick the type your provider gave you.
         </p>
         {existingTvCount > 0 && (
           <p className="onb-hint onb-hint--ok" style={idx(2)}>
             {existingTvCount === 1
               ? "1 playlist is"
               : `${existingTvCount} playlists are`}{" "}
-            already connected. Adding another is optional.
+            already connected.
           </p>
         )}
         <div className="onb-chips" style={idx(2)}>
@@ -1070,17 +1069,14 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     ) : step === STEP.look ? (
       <>
         <h1 className="onb-title" style={idx(0)}>
-          Make it yours
+          Accent and clock
         </h1>
-        <p className="onb-sub" style={idx(1)}>
-          Pick an accent and a clock. There&rsquo;s more in Settings.
-        </p>
         {/* The accent picker is back (v0.9.97). It left in v0.9.58 because
             the Themes panel held the only picker, and a colour chosen here
             would have had no way back. Settings has had its own since
             v0.9.79, so this is the same component, not a copy.
             One grid for both rows so the labels share a column. */}
-        <div className="onb-prefs" style={idx(2)}>
+        <div className="onb-prefs" style={idx(1)}>
           <span className="onb-chips__label">Accent</span>
           <AccentPicker portalContainer={root} />
           <span className="onb-chips__label">Clock</span>
@@ -1091,7 +1087,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
         <Button variant="default" size="lg"
           type="button"
           className="onb-btn"
-          style={idx(3)}
+          style={idx(2)}
           onClick={advance}
         >
           Continue
@@ -1102,11 +1098,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
         <h1 className="onb-title" style={idx(0)}>
           Where should we start?
         </h1>
-        <p className="onb-sub" style={idx(1)}>
-          The screen BlammyTV opens on. You can change it anytime in
-          Settings.
-        </p>
-        <div className="onb-chips" style={idx(2)}>
+        <div className="onb-chips" style={idx(1)}>
           <Segmented
             label="Start on"
             options={STARTUP_TABS}
@@ -1117,7 +1109,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
         <Button variant="default" size="lg"
           type="button"
           className="onb-btn"
-          style={idx(3)}
+          style={idx(2)}
           onClick={advance}
         >
           Continue
@@ -1148,7 +1140,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     ) : (
       <>
         <h1 className="onb-title" style={idx(0)}>
-          You&rsquo;re all set
+          Done.
         </h1>
         {/* A nav map stood here until v0.9.98: a "Live TV" and a "Stream"
             pill, drawn from the 0.9.0 header. The header became one flat
@@ -1156,8 +1148,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
             pills that looked like buttons and did nothing. The real nav is
             on screen a few seconds later, so nothing replaces it. */}
         <p className="onb-sub" style={idx(1)}>
-          Settings holds a lot more to make BlammyTV yours: sources,
-          playback, and a few surprises.
+          The rest is in Settings.
         </p>
         <Button variant="default" size="lg"
           type="button"

@@ -37,7 +37,7 @@ export function AioCode({
       <p className={onboarding ? "onb-code" : "trakt-row__code"} aria-label={`Code ${code}`}>
         {code}
       </p>
-      {onboarding ? button : <Hint label={copied ? "Copied!" : "Copy code"}>{button}</Hint>}
+      {onboarding ? button : <Hint label={copied ? "Copied" : "Copy code"}>{button}</Hint>}
     </div>
   );
 }

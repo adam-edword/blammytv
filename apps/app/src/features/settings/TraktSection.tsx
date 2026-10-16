@@ -146,7 +146,7 @@ export function TraktSection() {
         : phase.at === "code"
           ? `Go to ${phase.code.verification_url.replace(/^https?:\/\//, "")} on any device and enter the code. Open Trakt copies it for you. This page notices on its own.`
           : local.problem && local.problem !== "not connected"
-            ? `Last sync hit a snag: ${local.problem}`
+            ? `Last sync failed: ${local.problem}`
             : local.capped
               ? `${local.capped.count} ${local.capped.count === 1 ? "title" : "titles"} didn't fit on your Trakt watchlist${local.capped.limit ? ` (a free account holds ${local.capped.limit})` : ""}. They stay here.`
               : local.lastSync
@@ -164,7 +164,7 @@ export function TraktSection() {
             <p className="trakt-row__code" aria-label={`Code ${phase.code.user_code}`}>
               {phase.code.user_code}
             </p>
-            <Hint label={copied ? "Copied!" : "Copy code"}>
+            <Hint label={copied ? "Copied" : "Copy code"}>
               <Button
                 variant="ghost"
                 size="icon-sm"

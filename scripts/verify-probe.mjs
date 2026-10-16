@@ -68,7 +68,7 @@ check("challenged instance: forensic names cloudflare",
     && !cf.rows.some((r) => r.text.includes("/cf/manifest")),
   JSON.stringify(cf.rows.map(r => r.text)));
 check("challenged instance: plain-language verdict",
-  !!cf.verdict && /bot protection/.test(cf.verdict) && /can't be fixed/.test(cf.verdict),
+  !!cf.verdict && /Cloudflare's bot check/.test(cf.verdict) && /Nothing on your PC can fix it/.test(cf.verdict),
   String(cf.verdict));
 
 // Submitting a manifest URL auto-runs the test — a bad instance is
@@ -80,7 +80,7 @@ const auto = await readProbe(page);
 await page.screenshot({ path: "probe-autorun.png" });
 await page.close();
 check("submit auto-runs the test and shows the verdict",
-  auto.rows.length >= 1 && auto.rows[0].bad && !!auto.verdict && /bot protection/.test(auto.verdict),
+  auto.rows.length >= 1 && auto.rows[0].bad && !!auto.verdict && /Cloudflare's bot check/.test(auto.verdict),
   JSON.stringify({ rows: auto.rows.map(r => r.text), verdict: auto.verdict }));
 
 await browser.close();

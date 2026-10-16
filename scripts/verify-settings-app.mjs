@@ -248,8 +248,8 @@ const appVersion = (page) =>
   // The same button once it says Hide.
   const toggle = row.locator(".customize-row button");
   check(
-    "  the row has a one-line note and a Show button, and the list is not drawn",
-    (await row.locator(".settings__section-note").count()) === 1 &&
+    "  the row is its title and a Show button, with no note, and the list is not drawn",
+    (await row.locator(".customize-row > div").first().innerText()) === "Keyboard Shortcuts" &&
       (await show.count()) === 1 &&
       (await show.getAttribute("aria-expanded")) === "false" &&
       (await page.locator(".shortcuts").count()) === 0,
@@ -676,7 +676,7 @@ const PLAYER = [
   const text = await note(page);
   check(
     "a native with no check_update_info falls back to check_update: the version shows, no notes, no error",
-    /Version 0\.99\.1 is ready to install\./.test(text) && !/snag|not found|rejected/i.test(text) && (await notesOf(page)) === null && (await updateRow(page).locator(".update-notes").count()) === 0,
+    /Version 0\.99\.1 is ready to install\./.test(text) && !/failed|not found|rejected/i.test(text) && (await notesOf(page)) === null && (await updateRow(page).locator(".update-notes").count()) === 0,
     text,
   );
   const asked = await page.evaluate(() => window.__calls.map((c) => c[0]).filter((c) => /^check_update/.test(c)));
@@ -691,7 +691,7 @@ const PLAYER = [
   await checkNow(page);
   check(
     "  and 'up to date' comes the same way (check_update says nothing is waiting): no error, no notes",
-    (await updateRow(page).getByRole("button", { name: /up to date/ }).count()) === 1 && (await updateRow(page).locator(".update-notes").count()) === 0 && !/snag/.test(await note(page)),
+    (await updateRow(page).getByRole("button", { name: /up to date/ }).count()) === 1 && (await updateRow(page).locator(".update-notes").count()) === 0 && !/failed/.test(await note(page)),
   );
   // It reverts to the plain button after 4 seconds, as it did.
   await page.waitForTimeout(4400);
@@ -704,7 +704,7 @@ const PLAYER = [
   await openApp(page);
   await checkNow(page);
   const text = await note(page);
-  check("a check that fails says so, as it did: 'hit a snag' and the reason", /Update check hit a snag: .*did not answer/.test(text), text);
+  check("a check that fails says so: 'failed' and the reason", /Update check failed: .*did not answer/.test(text), text);
   check("  with Try again, and no notes", (await updateRow(page).getByRole("button", { name: "Try again" }).count()) === 1 && (await notesOf(page)) === null);
   await ctx.close();
 }
@@ -1387,9 +1387,9 @@ let UNTICKED = null;
     JSON.stringify(where),
   );
   check(
-    "  Export says what goes in it and that the sign-ins never do; Import says your settings are replaced, the sign-ins stay, and a file's playlists and AIOStreams replace yours",
-    /looks, playback settings, lists/i.test(where.exportNote) && /Trakt, MyAnimeList, AIOStreams and Jellyfin sign-ins never go in it/.test(where.exportNote) &&
-      /settings are replaced/i.test(where.importNote) && /sign-ins stay/i.test(where.importNote) && /playlists and AIOStreams, they replace yours/i.test(where.importNote),
+    "  Export says it saves your settings and that playlists go in only if you tick the box and sign-ins never do; Import says it replaces your settings, the sign-ins stay, and a file with playlists brings its own favorites, recents, guide fixes and grid",
+    /Saves your settings to a file/.test(where.exportNote) && /go in only if you tick the box/.test(where.exportNote) && /Sign-ins never do\./.test(where.exportNote) &&
+      /Replaces your settings/.test(where.importNote) && /Your sign-ins stay\./.test(where.importNote) && /A file with playlists brings its favorites, recents, guide fixes and grid too\./.test(where.importNote),
     JSON.stringify({ e: where.exportNote, i: where.importNote }),
   );
   check(

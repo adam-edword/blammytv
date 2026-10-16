@@ -211,10 +211,8 @@ export function PlaybackPage() {
             <div>
               <h4 className="customize-row__title">Skipping</h4>
               <p className="settings__section-note settings__section-note--dim">
-                What happens at an intro, recap, credits or preview, from the
-                file&rsquo;s chapters and skip markers: a button, skipped for
-                you, or nothing. Combine makes the credits and the preview
-                after them one jump.
+                From the file&rsquo;s chapters and skip markers. Combine makes
+                the credits and the preview after them one jump.
               </p>
             </div>
             <div className="skip-lines">

@@ -47,8 +47,8 @@ const MOVIE = {
   at: Date.now(),
 };
 const FAULT_LINE = "The player couldn’t start.";
-const STREAM_VOD = "This source isn’t responding. It’s the stream, not you.";
-const STREAM_LIVE = "This channel isn’t responding. It’s the stream, not you.";
+const STREAM_VOD = "This source isn’t responding.";
+const STREAM_LIVE = "This channel isn’t responding.";
 // What mpv.rs load_libmpv builds when no libmpv-2.dll will load. libloading's
 // own text for the failure carries no code, so this is all the user is given.
 const LIBMPV =
@@ -279,7 +279,7 @@ async function channel({ libmpv = LIBMPV, mode = "healthy" } = {}) {
   check(
     "  Retry is on it, and no next source: another source meets the same player",
     (await page.getByRole("button", { name: "Retry", exact: true }).count()) === 1 &&
-      (await page.getByRole("button", { name: /next available source/i }).count()) === 0,
+      (await page.getByRole("button", { name: /next source/i }).count()) === 0,
   );
   check(
     "  and nothing says it is the stream: the only line the card has shown since the open is the player's",

@@ -25,9 +25,6 @@ export function ShortcutsSection() {
       <div className="customize-row">
         <div>
           <h4 className="customize-row__title">Keyboard Shortcuts</h4>
-          <p className="settings__section-note settings__section-note--dim">
-            Every key the app answers to, by where it works.
-          </p>
         </div>
         <Button
           variant="secondary"

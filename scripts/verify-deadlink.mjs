@@ -46,7 +46,7 @@ const MOVIE = {
   durSec: 5400,
   at: Date.now(),
 };
-const FIRST_LINE = "This source isn’t responding. It’s the stream, not you.";
+const FIRST_LINE = "This source isn’t responding.";
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const errors = [];

@@ -123,7 +123,7 @@ export function UpdatesSection() {
             : phase.at === "installing"
               ? "Downloading and installing. The app restarts by itself."
               : phase.at === "error"
-                ? `Update check hit a snag: ${phase.message}`
+                ? `Update check failed: ${phase.message}`
                 : "Updates install themselves with one click and keep your playlists."}
         </p>
         {notes.length > 0 && (

@@ -63,7 +63,7 @@ export function AppPage() {
           <div>
             <h4 className="customize-row__title">Replay Onboarding</h4>
             <p className="settings__section-note settings__section-note--dim">
-              Walk through the welcome setup again. Nothing gets reset.
+              Nothing gets reset.
             </p>
           </div>
           <Button

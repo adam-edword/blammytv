@@ -1976,7 +1976,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
               type="button"
               onClick={() => void bringBack()}
             >
-              Bring It Back
+              Bring it back
             </Button>
             {/* ✕ = done with the pop-out too: close it and land on the
               * source selector (the view under the stage). */}
@@ -2137,8 +2137,8 @@ function Home({
       <StateCard
         className="stream__note"
         icon={<StreamIcon size={28} />}
-        title="Movies and shows, one tab over from live"
-        sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream and the catalog appears here."
+        title="No movies or shows yet"
+        sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream."
       />
     );
   }
@@ -2216,9 +2216,9 @@ function Home({
         sub={
           aioOn
             ? loadAioConn()?.kind === "signin"
-              ? "You’re signed in, but every catalog came back empty. Check your AIOStreams sign-in in Settings → Sources → Stream, or just try again in a minute."
-              : "The manifest loaded but every catalog returned empty. Check the manifest in Settings → Sources, or just try again in a minute."
-            : "Your Jellyfin has no movie or show libraries to show. Check them in Jellyfin, or just try again in a minute."
+              ? "Every catalog came back empty. Try again in a minute."
+              : "The manifest loaded but every catalog returned empty. Check the manifest in Settings → Sources, or try again in a minute."
+            : "Your Jellyfin has no movie or show libraries to show. Check them in Jellyfin, or try again in a minute."
         }
       />
     );

@@ -266,7 +266,7 @@ export function SportsSidebar({
             ))
           ) : (
             <p className="live-sidebar__note">
-              Clubs appear here once there are games to follow them to.
+              No clubs yet. They show up once they have games.
             </p>
           )}
         </div>

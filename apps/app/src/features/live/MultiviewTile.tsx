@@ -714,7 +714,7 @@ export function MultiviewTile({
             ? "Waiting for a free slot on your line."
             : recovering === "drop"
               ? "It dropped. Getting it back."
-              : "Trying again."
+              : undefined
         }
       />
     );

@@ -107,7 +107,7 @@ if (!FAST) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const okMsg = await page.waitForSelector(".onb-hint--ok", { timeout: 10000 }).then((el) => el.textContent()).catch(() => null);
   check("streams verification succeeds with catalog count",
-    !!okMsg && /Connected, 5 catalogs found/.test(okMsg), String(okMsg));
+    !!okMsg && okMsg === "Connected. 5 catalogs.", String(okMsg));
 
   // Auto-advance lands on Live TV.
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
@@ -180,7 +180,7 @@ if (!FAST) {
   // Done: the Settings nudge, then the hand-off.
   await page.getByRole("button", { name: "Enter BlammyTV" }).waitFor({ timeout: 8000 });
   const nudge = await page.$$eval(".onb-sub", (els) => els.map((e) => e.textContent).join(" "));
-  check("finale shows the Settings nudge", /Settings holds a lot more/.test(nudge), nudge);
+  check("finale shows the Settings nudge", nudge === "The rest is in Settings.", nudge);
   // Until v0.9.98 this step drew a map of the 0.9.0 nav as two filled
   // pills that were not buttons (Adam: "those look like buttons you can
   // click but they don't do anything"). The rule, not the old class name:
@@ -447,8 +447,8 @@ if (!FAST) {
   await page.locator(".onb-input").fill("http://localhost:8084/cf/manifest.json");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const verdict = await page.waitForSelector(".onb-hint:not(.onb-hint--ok)", { timeout: 12000 }).then((el) => el.textContent()).catch(() => null);
-  check("blocked instance: verdict names bot protection",
-    !!verdict && /bot protection/.test(verdict), String(verdict).slice(0, 90));
+  check("blocked instance: verdict names the Cloudflare bot check",
+    !!verdict && /Cloudflare's bot check/.test(verdict), String(verdict).slice(0, 90));
   const anyway = page.getByRole("button", { name: "Continue anyway" });
   check("ghost relabels to Continue anyway", await anyway.count() === 1);
   await anyway.click();
@@ -911,11 +911,11 @@ if (!FAST) {
   // Continue always works, with nothing connected.
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForSelector(".onb-prefs", { timeout: 8000 });
-  check("Continue with nothing connected goes on to Make it yours", (await titleOf(page)) === "Make it yours");
+  check("Continue with nothing connected goes on to Accent and clock", (await titleOf(page)) === "Accent and clock");
   // The tour's Back lands on the start step, and Back from there on this one.
   await page.getByRole("button", { name: "← Back" }).click();
   await page.waitForSelector(".onb-accounts", { timeout: 8000 });
-  check("Back from Make it yours returns to Follow what you watch", (await titleOf(page)) === "Follow what you watch");
+  check("Back from Accent and clock returns to Follow what you watch", (await titleOf(page)) === "Follow what you watch");
   // A sign-in left half done is closed with the step: MAL's port is given back.
   check("  leaving it cancelled the MyAnimeList sign-in that was waiting", (await callsOf(page, "mal_sign_in_cancel")).length >= 1);
   await page.getByRole("button", { name: "← Back" }).click();
@@ -949,8 +949,8 @@ if (!FAST) {
   // (A miss is a failed check here, not a throw: a step that is not skipped
   // never shows the next one's controls.)
   await page.waitForSelector(".onb-prefs", { timeout: 8000 }).catch(() => null);
-  check("with neither key, the step after Live TV is Make it yours",
-    (await titleOf(page)) === "Make it yours" && (await page.locator(".onb-accounts").count()) === 0, await titleOf(page));
+  check("with neither key, the step after Live TV is Accent and clock",
+    (await titleOf(page)) === "Accent and clock" && (await page.locator(".onb-accounts").count()) === 0, await titleOf(page));
   await page.getByRole("button", { name: "← Back" }).click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 }).catch(() => null);
   check("  and Back from it is Live TV", (await titleOf(page)) === "Connect Live TV" && (await page.locator(".onb-accounts").count()) === 0);
@@ -970,7 +970,7 @@ if (!FAST) {
   await manifestField.fill("http://localhost:8084/manifest.json");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const okMsg = await page.waitForSelector(".onb-hint--ok", { timeout: 10000 }).then((el) => el.textContent()).catch(() => null);
-  check("  the manifest still verifies for real: the catalog count", !!okMsg && /Connected, 5 catalogs found/.test(okMsg), String(okMsg));
+  check("  the manifest still verifies for real: the catalog count", !!okMsg && okMsg === "Connected. 5 catalogs.", String(okMsg));
   const advanced = await page.waitForSelector(".onb-fields", { timeout: 8000 }).then(() => true).catch(() => false);
   check("  saves, and advances", advanced && (await stored(page, "aiostreams")) === "http://localhost:8084/manifest.json");
   check("  and started no sign-in", (await callsOf(page, "aiojf_start")).length === 0);
@@ -984,8 +984,8 @@ if (!FAST) {
   await page.getByPlaceholder(/manifest\.json/).fill("http://localhost:8084/cf/manifest.json");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const verdict = await page.waitForSelector(".onb-hint:not(.onb-hint--ok)", { timeout: 12000 }).then((el) => el.textContent()).catch(() => null);
-  check("a blocked instance behind the fallback names bot protection and offers Continue anyway",
-    !!verdict && /bot protection/.test(verdict) && (await page.getByRole("button", { name: "Continue anyway" }).count()) === 1, String(verdict).slice(0, 80));
+  check("a blocked instance behind the fallback names the Cloudflare bot check and offers Continue anyway",
+    !!verdict && /Cloudflare's bot check/.test(verdict) && (await page.getByRole("button", { name: "Continue anyway" }).count()) === 1, String(verdict).slice(0, 80));
   await page.close();
 }
 

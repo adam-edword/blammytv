@@ -2446,8 +2446,8 @@ function TuneCard({
               : jfLogin
                 ? "Your Jellyfin wants a login for that file."
                 : vod
-                ? "This source isn\u2019t responding. It\u2019s the stream, not you."
-                : "This channel isn\u2019t responding. It\u2019s the stream, not you."}
+                ? "This source isn\u2019t responding."
+                : "This channel isn\u2019t responding."}
           </p>
           {(fault || vod) && why && <p className="tune__dead-why">{why}</p>}
           {/* Neither button bubbles: in the mini player a click anywhere
@@ -2477,7 +2477,7 @@ function TuneCard({
                 api()?.nextSource?.();
               }}
             >
-              Try next available source
+              Try the next source
             </Button>
           )}
         </div>

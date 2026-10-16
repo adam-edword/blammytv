@@ -442,8 +442,7 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
           * act from rather than a dead end. */}
         {watching.length === 0 && lists.length === 0 && (
           <p className="discover__note library__empty">
-            Anything you start watching lands in your Library on its own. Make
-            a list to keep the things you want to come back to.
+            What you watch lands here. Make a list for the rest.
           </p>
         )}
         <div className="disc-grid">

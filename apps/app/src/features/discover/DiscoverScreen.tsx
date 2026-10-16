@@ -516,8 +516,8 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         {cfg.message === "no addon configured" ? (
           <StateCard
             icon={<DiscoverIcon size={28} />}
-            title="Something new to watch"
-            sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream and this tab fills itself."
+            title="Nothing to discover yet"
+            sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream."
           />
         ) : (
           <StateCard
@@ -664,8 +664,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         ) : items.length === 0 ? (
           <StateCard
             icon={<DiscoverIcon size={28} />}
-            title="Nothing here"
-            sub={<>The catalog returned no titles{genre ? ` for ${genre}` : ""}.</>}
+            title="No titles"
           />
         ) : (
           <div className="disc-grid">

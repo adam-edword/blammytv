@@ -129,8 +129,7 @@ export function HeroSourcesSection() {
       )}
       {catalogs.status === "error" && (
         <p className="settings__section-note settings__section-note--dim">
-          Couldn&rsquo;t reach the manifest. Check the URL, and note the browser
-          dev build can be blocked by CORS where the desktop app isn&rsquo;t.
+          Couldn&rsquo;t reach the manifest. Check the URL.
         </p>
       )}
       {/*
