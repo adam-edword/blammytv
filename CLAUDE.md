@@ -263,6 +263,46 @@ comments, UI copy.
 The house voice is the site's FAQ copy in `services/site/index.html`: "Yup."
 "Nope." "None." Direct, second person, no throat-clearing. Match that.
 
+### Words in the app: follow Apple and Microsoft
+
+Every word a user reads in the app (labels, notes, buttons, empty states,
+errors, onboarding) follows Apple's and Microsoft's own writing guides, using
+whatever of them can be reached. Adam (0.12): "Microsoft and apples copy is
+very good & we should make a rule to follow them". The sources:
+
+- Apple, Human Interface Guidelines → Writing:
+  https://developer.apple.com/design/human-interface-guidelines/writing
+  (the page renders by script; its text is at
+  `https://developer.apple.com/tutorials/data/design/human-interface-guidelines/writing.json`,
+  which this container can fetch).
+- Apple, WWDC22 "Writing for interfaces":
+  https://developer.apple.com/videos/play/wwdc2022-10037
+- Microsoft Writing Style Guide, its top 10 tips first:
+  https://learn.microsoft.com/style-guide/top-10-tips-style-voice
+  (blocked from this container; read it where it can be reached, or search).
+
+What they agree on, and what this app holds to:
+
+- **Read it aloud.** Both say it. If you wouldn't say it to someone next to
+  you, rewrite it. "Off shows a button instead." fails: nobody talks like that.
+- **A setting's label does the work.** Make the label clear enough that it
+  needs nothing under it. Add a note only when the label can't carry it, and
+  then say what the setting does when it's ON; people infer the opposite
+  (Apple's own rule, its Handwashing Timer example). Never describe Off.
+- **Fewer words, plain ones.** Cut every word that isn't needed. No jargon: a
+  word that needs a note to explain it is the wrong word ("failover").
+- **Buttons are verbs**, and never cute ("Send", not "Let's do it!").
+- **No "we"** ("Unable to load content", not "We're having trouble loading
+  this content"), and "your" only where it's needed ("Favorites", not "Your
+  Favorites").
+- **Empty states say what to do next**, with a button to do it where there
+  can be one, not a menu path to go and find.
+- **Errors sit next to the problem**, don't blame, and say how to fix it.
+  No "oops".
+- **Capitalization is one style per kind of element, the same everywhere.**
+  Microsoft defaults to sentence case; new kinds of element take it.
+- **Contractions are fine. Put the most important thing first.**
+
 ## Delegation: orchestrate by task shape, not by default
 
 Standing permission to run subagents/workflows underneath the main session (no
