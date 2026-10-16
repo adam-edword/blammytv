@@ -27,12 +27,18 @@ chmod u+w "$out/libmpv.dylib"
 # -b bundle, -of overwrite, -p the prefix each library is told to find the
 # others at (beside itself), -s where @rpath libraries are looked for.
 dylibbundler -of -b -x "$out/libmpv.dylib" -d "$out" -p @loader_path/ -s "$prefix/lib"
-# Rewriting invalidates a signature, and Apple Silicon will not load unsigned code.
+# dylibbundler rewrites the dependencies of the -x file but not its own install
+# id, which would stay Homebrew's. Then, because rewriting invalidates a
+# signature and Apple Silicon will not load unsigned code, sign again.
+install_name_tool -id @loader_path/libmpv.dylib "$out/libmpv.dylib"
 codesign --force --sign - "$out"/*.dylib
 
-if otool -L "$out"/*.dylib | grep -q "$prefix"; then
+# Captured first: grep -q on a pipe can end it early, and pipefail then reads
+# otool's SIGPIPE as a failure.
+deps="$(otool -L "$out"/*.dylib)"
+if grep -q "$prefix" <<<"$deps"; then
   echo "✗ something in $out still points into Homebrew:" >&2
-  otool -L "$out"/*.dylib | grep "$prefix" >&2
+  grep "$prefix" <<<"$deps" >&2
   exit 1
 fi
 echo "✓ $(ls "$out" | wc -l | tr -d ' ') libraries in $out, none pointing into Homebrew"
