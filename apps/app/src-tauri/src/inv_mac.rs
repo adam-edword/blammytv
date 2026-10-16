@@ -62,7 +62,6 @@ const PARAM_BLOCK_FOR_TARGET_TIME: c_int = 12;
 struct Render {
     create: unsafe extern "C" fn(*mut *mut c_void, *mut c_void, *mut Param) -> c_int,
     set_update_callback: unsafe extern "C" fn(*mut c_void, Option<extern "C" fn(*mut c_void)>, *mut c_void),
-    free: unsafe extern "C" fn(*mut c_void),
     update: unsafe extern "C" fn(*mut c_void) -> u64,
     render: unsafe extern "C" fn(*mut c_void, *mut Param) -> c_int,
     report_swap: unsafe extern "C" fn(*mut c_void),
@@ -86,7 +85,6 @@ fn render_api() -> Result<&'static Render, String> {
             update: std::mem::transmute(sym(b"mpv_render_context_update\0")?),
             render: std::mem::transmute(sym(b"mpv_render_context_render\0")?),
             report_swap: std::mem::transmute(sym(b"mpv_render_context_report_swap\0")?),
-            free: std::mem::transmute(sym(b"mpv_render_context_free\0")?),
         };
         let _ = API.set(r);
     }
@@ -180,26 +178,6 @@ pub fn attach(mpv: *mut c_void) -> Result<(), String> {
     CTX.store(ctx, Ordering::Release);
     unsafe { (r.set_update_callback)(ctx, Some(on_update), null_mut()) };
     Ok(())
-}
-
-/// Free the render context. mpv aborts on purpose ("Broken API use:
-/// mpv_render_context_free() not called") when its core is destroyed with one
-/// alive, so this runs before `mpv_terminate_destroy` (mpv::shutdown). Draws
-/// after it find no context and do nothing.
-pub fn detach() {
-    let ctx = CTX.swap(null_mut(), Ordering::AcqRel);
-    let Ok(r) = render_api() else { return };
-    if ctx.is_null() {
-        return;
-    }
-    // The GL resources are released against the view's context.
-    if let Some(gl) = view().and_then(|v| v.openGLContext()) {
-        gl.makeCurrentContext();
-    }
-    unsafe {
-        (r.set_update_callback)(ctx, None, null_mut());
-        (r.free)(ctx);
-    }
 }
 
 /// A physical-px rect from the PAGE's top-left, as the view's frame: points,

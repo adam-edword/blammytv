@@ -132,14 +132,18 @@ fn popout_open(
     // On a Mac, mpv makes its own window through Cocoa, which needs the main
     // thread FREE: this command runs on it, so waiting for mpv here froze the
     // app (the first Mac player did exactly that). Start it on a thread and
-    // say how it went in the log.
+    // say how it went in the log. A failure also sends the same event as a
+    // closed pop-out, so the page brings playback back in the app (at the
+    // position it left) instead of leaving nothing on screen.
     #[cfg(target_os = "macos")]
     {
         std::thread::spawn(move || {
+            let back_to = hand.start.unwrap_or(0.0);
             if let Err(e) =
                 mpv::play_popout(&url, hand, size.as_deref(), corner.as_deref(), agent.as_deref())
             {
                 log::warn!("[popout] {e}");
+                emit_ui_pos("popout-closed", back_to);
             }
         });
         Ok(())
