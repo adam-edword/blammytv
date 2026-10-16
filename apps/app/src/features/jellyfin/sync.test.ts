@@ -334,6 +334,16 @@ describe("forgetResume", () => {
     expect(loadJf().resumeJids).toEqual({ [`${SEV}|${SEV}:1:2`]: EP2, "tt2043923|": "movie-jid" });
   });
 
+  it("keeps a play reported while a sync was already running", async () => {
+    // The server's Resume list is read before the play, so it can't name it.
+    net.call.mockImplementation((method: string, path: string, opts?: { query?: Record<string, string> }) => {
+      if (path === "/Shows/NextUp") noteResumeJid("tt2043923", undefined, "movie-jid", forgetCount());
+      return serve(method, path, opts);
+    });
+    await syncJf();
+    expect(loadJf().resumeJids).toEqual({ "tt2043923|": "movie-jid" });
+  });
+
   it("writes nothing for a play overtaken by a sign-out", async () => {
     const gen = forgetCount();
     forgetJf();

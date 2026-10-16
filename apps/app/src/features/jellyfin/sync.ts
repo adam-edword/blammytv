@@ -92,6 +92,7 @@ async function pass(): Promise<SyncResult> {
   // A sign-out while this pass waits on the server: stop, and write nothing
   // back into the store it just cleared.
   const gen = forgetCount();
+  const jidsBefore = loadJf().resumeJids;
   const gone = () => forgetCount() !== gen || loadJfConn()?.key !== conn.key;
   const overtaken: SyncResult = { ok: false, changed: false, problem: "signed out" };
   const fields = { Fields: "ProviderIds" };
@@ -191,9 +192,12 @@ async function pass(): Promise<SyncResult> {
     const prev = loadJf();
     const rows = (l: { nextUp?: UpNextCard[] }) => JSON.stringify(l.nextUp ?? null);
     if (cards && rows({ nextUp: cards }) !== rows(prev)) changed = true;
+    // A play reported while this pass ran (noteResumeJid) is newer than the
+    // Resume list read at its start, which can't name it: keep it.
+    const since = Object.entries(prev.resumeJids ?? {}).filter(([k, v]) => jidsBefore?.[k] !== v);
     saveJf({
       ...(cards ? { nextUp: cards } : {}),
-      ...(jids ? { resumeJids: jids } : {}),
+      ...(jids ? { resumeJids: { ...jids, ...Object.fromEntries(since) } } : {}),
       lastSync: Date.now(),
       problem,
     });
@@ -225,7 +229,8 @@ async function pass(): Promise<SyncResult> {
  * lists gave, report.ts): file it where `forgetResume` looks, so the card it
  * leaves in Continue Watching can be cleared before any sync has run since the
  * play. `gen` is `forgetCount()` from before `jid` was looked up: a sign-out
- * since then means nothing is written. The next sync replaces `resumeJids` whole.
+ * since then means nothing is written. The next sync to start after it replaces
+ * `resumeJids` whole; one already running keeps it.
  */
 export function noteResumeJid(itemId: string, episodeId: string | undefined, jid: string, gen: number): void {
   if (forgetCount() !== gen) return;
