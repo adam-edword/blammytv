@@ -385,7 +385,7 @@ for (const live of [true, false]) {
     centred && inside && stays,
     JSON.stringify({ centred, inside, stays, box }),
   );
-  await page.getByRole("button", { name: "Got it" }).click();
+  await page.getByRole("button", { name: "Got It" }).click();
   await dialog.waitFor({ state: "detached" });
   await page.reload({ waitUntil: "domcontentloaded" });
   await enter(page);

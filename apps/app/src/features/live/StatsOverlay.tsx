@@ -29,15 +29,15 @@ function buildRows(s: MpvStats): Array<[string, string]> {
   const res = resolution(s);
   if (res) rows.push(["Resolution", res]);
   // 3 significant figures, trailing zeros trimmed (25 fps, 59.9 fps, 30 fps).
-  if (s.fps != null) rows.push(["Frame rate", `${Number(s.fps.toPrecision(3))} fps`]);
+  if (s.fps != null) rows.push(["Frame Rate", `${Number(s.fps.toPrecision(3))} fps`]);
   if (s.videoCodec) rows.push(["Video", s.videoCodec]);
-  if (s.videoBitrate != null) rows.push(["Video rate", mbps(s.videoBitrate)]);
+  if (s.videoBitrate != null) rows.push(["Video Rate", mbps(s.videoBitrate)]);
   if (s.audioCodec) rows.push(["Audio", s.audioCodec]);
-  if (s.audioBitrate != null) rows.push(["Audio rate", mbps(s.audioBitrate)]);
+  if (s.audioBitrate != null) rows.push(["Audio Rate", mbps(s.audioBitrate)]);
   const ch = channels(s);
   if (ch) rows.push(["Channels", ch]);
-  if (s.hwdec) rows.push(["Hardware decode", s.hwdec]);
-  if (s.dropped != null) rows.push(["Dropped frames", String(s.dropped)]);
+  if (s.hwdec) rows.push(["Hardware Decode", s.hwdec]);
+  if (s.dropped != null) rows.push(["Dropped Frames", String(s.dropped)]);
   if (s.cache != null) rows.push(["Buffer", `${s.cache.toFixed(1)} s`]);
   return rows;
 }
@@ -68,7 +68,7 @@ export function StatsOverlay() {
     <div className="stats-overlay" data-interactive aria-live="polite">
       <p className="stats-overlay__head">
         <StatsIcon size={14} />
-        Stats for nerds
+        Stats for Nerds
       </p>
       {rows.length === 0 ? (
         <p className="stats-overlay__empty">Gathering…</p>

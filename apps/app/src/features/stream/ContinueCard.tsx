@@ -42,7 +42,7 @@ export function ContinueCard({
     entry.posSec && entry.durSec && entry.posSec < entry.durSec * 0.9
       ? Math.max(1, Math.round((entry.durSec - entry.posSec) / 60))
       : null;
-  const metaLine = [meta, leftMin != null ? `${leftMin}m left` : null]
+  const metaLine = [meta, leftMin != null ? `${leftMin}m Left` : null]
     .filter(Boolean)
     .join(" · ");
   const [holding, setHolding] = useState(false);
@@ -161,7 +161,7 @@ export function ContinueCard({
           Sources
         </Button>
         <span className="continue-card__hold" aria-hidden>
-          Keep holding to clear
+          Keep Holding to Clear
         </span>
         <span className="continue-card__holdbar" aria-hidden />
       </span>

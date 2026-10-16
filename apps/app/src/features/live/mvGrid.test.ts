@@ -78,41 +78,41 @@ describe("roomOn", () => {
 
 describe("the words", () => {
   it("meters the whole line first, as the Guide's pill does", () => {
-    expect(meterLine(roomOn({ max: 3, active: 2 }, 2, true))).toBe("2 of 3 streams in use");
+    expect(meterLine(roomOn({ max: 3, active: 2 }, 2, true))).toBe("2 of 3 Streams in Use");
     // Two here, one on another device: three in use on the line.
     expect(meterLine(roomOn({ max: 3, active: 3 }, 2, true))).toBe(
-      "3 of 3 streams in use · 1 elsewhere",
+      "3 of 3 Streams in Use · 1 Elsewhere",
     );
-    expect(meterLine(roomOn(null, 1, true))).toBe("1 stream");
+    expect(meterLine(roomOn(null, 1, true))).toBe("1 Stream");
   });
 
   it("does not count a stream the grid just closed as elsewhere", () => {
     // Closed a tile a moment ago; the panel still counts it.
-    expect(meterLine(roomOn({ max: 3, active: 3 }, 2, false))).toBe("2 of 3 streams in use");
+    expect(meterLine(roomOn({ max: 3, active: 3 }, 2, false))).toBe("2 of 3 Streams in Use");
   });
 
   it("says why Add is off, and nothing while it is on", () => {
     expect(fullReason(roomOn({ max: 3, active: 1 }, 1, true))).toBeNull();
-    expect(fullReason(roomOn({ max: 3, active: 3 }, 3, true))).toBe("Your line allows 3");
+    expect(fullReason(roomOn({ max: 3, active: 3 }, 3, true))).toBe("Your line allows 3.");
     expect(fullReason(roomOn({ max: 3, active: 3 }, 2, true))).toBe(
-      "Your line allows 3, and 1 is in use elsewhere",
+      "Your line allows 3, and 1 is in use elsewhere.",
     );
-    expect(fullReason(roomOn(null, 4, true))).toBe("Four is the most multi-view shows");
+    expect(fullReason(roomOn(null, 4, true))).toBe("Four is the most multi-view shows.");
   });
 
   it("counts what is left in the picker", () => {
-    expect(leftLine(roomOn({ max: 3, active: 1 }, 1, true))).toBe("2 more fit on your line");
-    expect(leftLine(roomOn({ max: 3, active: 2 }, 2, true))).toBe("1 more fits on your line");
-    expect(leftLine(roomOn({ max: 3, active: 3 }, 3, true))).toBe("Your line is full");
+    expect(leftLine(roomOn({ max: 3, active: 1 }, 1, true))).toBe("2 more fit on your line.");
+    expect(leftLine(roomOn({ max: 3, active: 2 }, 2, true))).toBe("1 more fits on your line.");
+    expect(leftLine(roomOn({ max: 3, active: 3 }, 3, true))).toBe("Your line is full.");
   });
 
   it("says what the grid has room for when several sources are enabled, not a limit it can't state (MV1)", () => {
     // Several sources: no single line, so roomOn has no limit to report.
-    expect(leftLine(roomOn(null, 2, true), true)).toBe("2 more fit in the grid");
-    expect(leftLine(roomOn(null, 3, true), true)).toBe("1 more fits in the grid");
-    expect(leftLine(roomOn(null, 4, true), true)).toBe("The grid is full");
+    expect(leftLine(roomOn(null, 2, true), true)).toBe("2 more fit in the grid.");
+    expect(leftLine(roomOn(null, 3, true), true)).toBe("1 more fits in the grid.");
+    expect(leftLine(roomOn(null, 4, true), true)).toBe("The grid is full.");
     // And one source says what it always did.
-    expect(leftLine(roomOn(null, 2, true), false)).toBe("Your provider doesn’t report a limit");
+    expect(leftLine(roomOn(null, 2, true), false)).toBe("Your provider doesn’t report a limit.");
   });
 });
 

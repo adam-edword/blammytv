@@ -247,7 +247,7 @@ const NEWS = "Fake News Channel";
   const held = (await opens()).length;
   check(
     "Retry on a full line waits for a free slot, and says so",
-    held === before && waitWords === "Waiting for a free slot on your line.",
+    held === before && waitWords === "Waiting for a Free Slot on Your Line",
     JSON.stringify({ held: held - before, waitWords }),
   );
   await page.evaluate(() => (window.__line = [2, 3]));
@@ -270,7 +270,7 @@ const NEWS = "Fake News Channel";
   check(
     "a dead tile cannot take the sound, and does not offer to",
     (await espn.getAttribute("aria-label")).includes("sound on") &&
-      (await sky.getByRole("button", { name: "Sound here" }).count()) === 0,
+      (await sky.getByRole("button", { name: "Sound Here" }).count()) === 0,
     JSON.stringify(await labels(page)),
   );
 
@@ -353,7 +353,7 @@ const NEWS = "Fake News Channel";
   const behind = await espn.locator(".mvtile__live").textContent();
   check(
     "a stall over a second shows Buffering, and the time it cost shows as behind live",
-    stalled === "stalled" && pill.trim() === "Buffering" && /^\ds behind live$/.test(behind),
+    stalled === "stalled" && pill.trim() === "Buffering" && /^\ds Behind Live$/.test(behind),
     `${stalled}, "${pill.trim()}", "${behind}"`,
   );
 
@@ -379,7 +379,7 @@ const NEWS = "Fake News Channel";
 
   const sky = tile(page, SKY);
   await sky.hover();
-  await sky.getByRole("button", { name: "Sound here" }).click();
+  await sky.getByRole("button", { name: "Sound Here" }).click();
   await page.waitForTimeout(200);
   const said = await page.locator(".sr-only[aria-live]").textContent();
   check(

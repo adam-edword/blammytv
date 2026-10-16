@@ -129,13 +129,13 @@ export function SourceList({
         <div className="srclist__foot">
           <span>
             <Kbd>↑</Kbd>
-            <Kbd>↓</Kbd> move
+            <Kbd>↓</Kbd> Move
           </span>
           <span>
-            <Kbd>↵</Kbd> play
+            <Kbd>↵</Kbd> Play
           </span>
           <span className="srclist__count">
-            {flat.length} {flat.length === 1 ? "source" : "sources"}
+            {flat.length} {flat.length === 1 ? "Source" : "Sources"}
           </span>
         </div>
       )}

@@ -315,8 +315,8 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
                 onClick={clearHistory}
               >
                 {armed === "history"
-                  ? "Click again to confirm"
-                  : "Clear history"}
+                  ? "Click Again to Confirm"
+                  : "Clear History"}
               </Button>
             </div>
           )}
@@ -327,7 +327,7 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
                 className="library__action"
                 onClick={() => pickCover(list)}
               >
-                Set cover
+                Set Cover
               </Button>
               {/* The Trakt Watchlist comes and goes with Trakt itself. */}
               {list.id !== TRAKT_LIST && (
@@ -356,7 +356,7 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
                 }
                 onClick={() => remove(list)}
               >
-                {armed === "delete" ? "Click again to confirm" : "Delete"}
+                {armed === "delete" ? "Click Again to Confirm" : "Delete"}
               </Button>
               </>
               )}
@@ -366,7 +366,7 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
         {(isHistory ? watching.length : (list?.entries.length ?? 0)) === 0 ? (
           <StateCard
             icon={<LibraryIcon size={28} />}
-            title={isHistory ? "Nothing watched yet" : "This list is empty"}
+            title={isHistory ? "Nothing Watched Yet" : "This list is empty."}
             sub={
               isHistory
                 ? "Anything you start shows up here."
@@ -436,7 +436,7 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
       )}
 
       <section className="library__lists">
-        <h3 className="media-row__title">Your lists</h3>
+        <h3 className="media-row__title">Your Lists</h3>
         {/* Nothing watched and nothing saved: say what this page is FOR.
           * The "+" card stays, so the empty state is still a place you can
           * act from rather than a dead end. */}
@@ -469,7 +469,7 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
             <div className="place library__new library__new--editing">
               <NameField
                 initial=""
-                placeholder="List name"
+                placeholder="List Name"
                 onCommit={commitNew}
                 onCancel={() => setCreating(false)}
                 className="library__new-input"
@@ -484,7 +484,7 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
               <span className="place__plus" aria-hidden>
                 <PlusIcon size={20} />
               </span>
-              <span className="place__title">New list</span>
+              <span className="place__title">New List</span>
             </button>
           )}
         </div>
@@ -547,7 +547,7 @@ function ListCard({
       </Tilt>
       <span className="stream-card__name">{name}</span>
       <span className="stream-card__meta">
-        {count} {count === 1 ? "title" : "titles"}
+        {count} {count === 1 ? "Title" : "Titles"}
       </span>
     </button>
   );

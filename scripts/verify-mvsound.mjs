@@ -456,7 +456,7 @@ async function wheel(page, name, dy) {
   const mine = [await hint(page, ESPN, "Watch"), await hint(page, ESPN, "Replace"), await hint(page, ESPN, "Close")];
   check(
     "the sound tile's buttons have the app's tooltips, naming their keys",
-    JSON.stringify(mine) === JSON.stringify(["Watch in player", "Replace (R)", "Close (Delete)"]),
+    JSON.stringify(mine) === JSON.stringify(["Watch in Player", "Replace (R)", "Close (Delete)"]),
     JSON.stringify(mine),
   );
   const theirs = [await hint(page, SKY, "Replace"), await hint(page, SKY, "Close")];

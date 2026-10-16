@@ -314,7 +314,7 @@ const focusedLabel = (page) =>
   const news = tile(page, NEWS);
   await news.locator(".mvtile__state--fail").waitFor({ timeout: 15_000 }).catch(() => {});
   const title = await news.locator(".mvtile__state .state__title").textContent().catch(() => null);
-  const watch = news.locator(".mvtile__state--fail").getByRole("button", { name: "Watch in player" });
+  const watch = news.locator(".mvtile__state--fail").getByRole("button", { name: "Watch in Player" });
   const offered = await watch.count();
   await watch.click().catch(() => {});
   await page.waitForTimeout(800);
@@ -350,7 +350,7 @@ const focusedLabel = (page) =>
   // A channel sent from the Guide to a full grid: pick the tile it replaces.
   await goTo(page, "guide");
   await page.locator('.guide__row[data-channel="t:108"] .guide__card').click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Add to multi-view" }).click();
+  await page.getByRole("menuitem", { name: "Add to Multi-view" }).click();
   await page.waitForSelector(".mvchoose", { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(600);
   const picking = await clearance();
@@ -442,7 +442,7 @@ const focusedLabel = (page) =>
   const tipText = await page.locator(".mvseam-tip").textContent().catch(() => null);
   check(
     "Tab goes from the big tile to the seam, and after a key its tip says \\ resets it",
-    next === "Fake ESPN 4K > seam > Fake Sky Sports FHD" && /\\ to reset/.test(tipText ?? "") && !/double-click/.test(tipText ?? ""),
+    next === "Fake ESPN 4K > seam > Fake Sky Sports FHD" && /\\ to Reset/.test(tipText ?? "") && !/double-click/i.test(tipText ?? ""),
     JSON.stringify({ next, tipText }),
   );
   // Focus on the sound tile while its ring is up: both rings, apart.

@@ -124,7 +124,7 @@ const menu = (page) => page.locator("[data-slot='context-menu-content']");
 /** Right-click a channel in the Guide and send it. */
 async function send(page, ch) {
   await page.locator(`.guide__row[data-channel="${ch.channelId}"] .guide__card`).click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Add to multi-view" }).click();
+  await page.getByRole("menuitem", { name: "Add to Multi-view" }).click();
   await page.waitForSelector(".mvtab", { timeout: 10_000 });
 }
 /** The grid as it stands: each tile's name, and which one has the sound. */
@@ -156,7 +156,7 @@ const settle = async (page, want) => {
   const text = await menu(page).innerText({ timeout: 3000 }).catch(() => "");
   check(
     "a channel's right-click menu names it and offers Add to multi-view",
-    text.includes(SKY.label) && (await page.getByRole("menuitem", { name: "Add to multi-view" }).count()) === 1,
+    text.includes(SKY.label) && (await page.getByRole("menuitem", { name: "Add to Multi-view" }).count()) === 1,
     JSON.stringify(text),
   );
   await page.keyboard.press("Escape");
@@ -217,7 +217,7 @@ const settle = async (page, want) => {
   const asked = await grid(page);
   check(
     "on a full line it asks for a tile: the bar names the channel, every tile offers the swap, nothing is added",
-    asked.prompt?.startsWith(`Pick a tile for ${SKY.label}`) &&
+    asked.prompt?.startsWith(`Pick a Tile for ${SKY.label}`) &&
       !asked.meter &&
       !asked.seg &&
       asked.names.length === 3 &&
@@ -331,10 +331,10 @@ const settle = async (page, want) => {
   await page.mouse.move(ov.x + ov.width / 2, ov.y + ov.height / 2);
   await page.waitForTimeout(400);
   const right = await page.locator(".theater-topright button").evaluateAll((b) => b.map((x) => x.getAttribute("aria-label")));
-  check("the player's top-right offers Watch in multi-view", right[0] === "Watch in multi-view", JSON.stringify(right));
+  check("the player's top-right offers Watch in multi-view", right[0] === "Watch in Multi-view", JSON.stringify(right));
 
   const stopsBefore = await page.evaluate(() => window.__calls.filter(([c]) => c === "inv_stop").length);
-  await page.getByRole("button", { name: "Watch in multi-view" }).click();
+  await page.getByRole("button", { name: "Watch in Multi-view" }).click();
   await page.waitForSelector(".mvtab", { timeout: 10_000 }).catch(() => {});
   await settle(page, 2);
   const back = await grid(page);

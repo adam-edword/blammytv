@@ -406,7 +406,7 @@ const served = async (id) => {
   const title = await tile(page, TOON).locator(".mvtile__state .state__title").textContent().catch(() => "");
   check(
     "four tiles on a line of five is the grid's ceiling, not the line's: a refusal there isn't \"your line is at its limit\"",
-    title === "Your provider refused this one",
+    title === "Your provider refused this one.",
     title,
   );
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));

@@ -206,11 +206,11 @@ export function SportsSidebar({
       }
     >
       <div className="live-sidebar__top">
-        <Hint label={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="right">
+        <Hint label={collapsed ? "Expand Sidebar" : "Collapse Sidebar"} side="right">
           <Button variant="ghost" size="icon"
                     type="button"
                     className="live-collapse"
-                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    aria-label={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                     aria-expanded={!collapsed}
                     onClick={() =>
                       setCollapsed((c) => {

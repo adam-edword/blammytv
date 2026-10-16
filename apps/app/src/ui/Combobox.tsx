@@ -50,7 +50,7 @@ export function Combobox({
   value,
   onChange,
   placeholder = "Select…",
-  emptyText = "Nothing found.",
+  emptyText = "Nothing Found",
   className,
   ariaLabel,
 }: {

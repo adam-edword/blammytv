@@ -904,7 +904,7 @@ async function buildXtreamSource(
     // Its own User-Agent, if any: the data layer sends it on every call, and
     // the extra guide's download below.
     const agent = cleanUserAgent(p.userAgent);
-    onStage?.(`Signing in to ${p.name}…`);
+    onStage?.(`Signing In to ${p.name}…`);
     await authenticate(p);
 
     // Kick the guide download off NOW — it's the longest leg (tens of MB)
@@ -916,7 +916,7 @@ async function buildXtreamSource(
     const xmlPromise = fetchGuide ? fetchXmltv(p) : null;
     xmlPromise?.catch(() => {});
 
-    onStage?.(`Fetching ${p.name} channels…`);
+    onStage?.(`Fetching ${p.name} Channels…`);
     await breathe();
     const t = performance.now();
     const [cats, streams] = await Promise.all([
@@ -1271,7 +1271,7 @@ async function buildStalkerSource(
     // only when there is a guide to match it against.
     const extra = extraGuideUrl(p.extraGuide);
     const agent = cleanUserAgent(p.userAgent);
-    onStage?.(`Signing in to ${p.name}…`);
+    onStage?.(`Signing In to ${p.name}…`);
     const genres = await fetchStalkerGenres(p);
 
     const showAdult = loadShowAdult();
@@ -1297,7 +1297,7 @@ async function buildStalkerSource(
       .filter((g) => userHidden.has(g.id))
       .map((g) => ({ id: g.id, name: g.title }));
 
-    onStage?.(`Fetching ${p.name} channels…`);
+    onStage?.(`Fetching ${p.name} Channels…`);
     await breathe();
     const t = performance.now();
     const raw = await fetchStalkerChannels(

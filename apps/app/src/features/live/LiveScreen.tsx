@@ -180,7 +180,7 @@ const SidebarSources = memo(function SidebarSources({
             )}
             {g.error && !collapsed && (
               <p className="live-group__error">
-                Couldn&rsquo;t load this playlist: {g.error}
+                Couldn&rsquo;t Load This Playlist: {g.error}
               </p>
             )}
             {open && g.folders.length > 0 && (
@@ -928,11 +928,11 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         className={"live-sidebar" + (collapsed ? " live-sidebar--collapsed" : "")}
       >
         <div className="live-sidebar__top">
-          <Hint label={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="right">
+          <Hint label={collapsed ? "Expand Sidebar" : "Collapse Sidebar"} side="right">
             <Button variant="ghost" size="icon"
                         type="button"
                         className="live-collapse"
-                        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        aria-label={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                         aria-expanded={!collapsed}
                         onClick={() => {
                           setTip(null);
@@ -1031,7 +1031,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             role="status"
             aria-live="polite"
             busy
-            title={stage ?? "Loading channels…"}
+            title={stage ?? "Loading Channels…"}
           />
         )}
         {(live.status === "error" ||
@@ -1040,7 +1040,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             className="live-status live-status--error"
             role="alert"
             icon={<WarnIcon size={28} />}
-            title="Couldn’t load your playlists"
+            title="Couldn’t Load Your Playlists"
             sub={
               <>
                 {live.status === "error"
@@ -1056,7 +1056,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 className="live-status__retry"
                 onClick={() => refresh(false)}
               >
-                Try again
+                Try Again
               </Button>
             }
           />
@@ -1066,7 +1066,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             className="live-status"
             role="status"
             icon={<TvIcon size={28} />}
-            title="No channels here yet"
+            title="No Channels Here Yet"
             sub="Add a playlist in Settings → Sources."
           />
         )}
@@ -1125,10 +1125,10 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 }
                 title={
                   mode === "favorites"
-                    ? "Nothing starred yet"
+                    ? "Nothing Starred Yet"
                     : mode === "recents"
-                      ? "Nothing watched yet"
-                      : "No channels in this folder"
+                      ? "Nothing Watched Yet"
+                      : "No Channels in This Folder"
                 }
                 sub={
                   mode === "favorites"
@@ -1158,7 +1158,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             {live.status === "ready" && live.data.guidePending && (
               <p className="guide-pending" role="status">
                 <span className="guide-pending__dot" aria-hidden />
-                Guide still downloading…
+                Guide Still Downloading…
               </p>
             )}
           </>

@@ -333,7 +333,7 @@ const savedGrid = (page) =>
   await page.keyboard.press("a");
   await page.locator(".mvpick__input").waitFor({ timeout: 5000 });
   await page.locator(".mvpick__input").fill("news");
-  await page.waitForFunction(() => /1 elsewhere/.test(document.querySelector(".mvmeter")?.getAttribute("aria-label") ?? ""), null, {
+  await page.waitForFunction(() => /1 Elsewhere/.test(document.querySelector(".mvmeter")?.getAttribute("aria-label") ?? ""), null, {
     timeout: 30_000,
   }).catch(() => {});
   const meter = await page.locator(".mvmeter").getAttribute("aria-label").catch(() => "");
@@ -343,7 +343,7 @@ const savedGrid = (page) =>
   const tiles = await page.locator(".mvtile:not(.mvtile--empty)").count();
   check(
     "a channel picked after the line filled asks which tile it replaces, rather than adding nothing",
-    /elsewhere/.test(meter ?? "") && /Pick a tile/.test(prompt ?? "") && prompt.includes(NEWS) && tiles === 2,
+    /Elsewhere/.test(meter ?? "") && /Pick a Tile/.test(prompt ?? "") && prompt.includes(NEWS) && tiles === 2,
     JSON.stringify({ meter, prompt, tiles }),
   );
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
@@ -459,7 +459,7 @@ const barState = async (page) => ({
 async function sendFromGuide(page, row) {
   await row.waitFor({ timeout: 20_000 });
   await row.locator(".guide__card").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Add to multi-view" }).click();
+  await page.getByRole("menuitem", { name: "Add to Multi-view" }).click();
   await page.locator(".mvtab").waitFor({ timeout: 10_000 });
 }
 {
@@ -476,7 +476,7 @@ async function sendFromGuide(page, row) {
   const opened = await aOpensPicker(page);
   check(
     "two lines, every tile on the line of one: not capped and not blocked, Add is offered and A opens it",
-    two.blocked === 0 && two.meter === "1 stream" && two.add === 1 && two.refuses === "false" && opened,
+    two.blocked === 0 && two.meter === "1 Stream" && two.add === 1 && two.refuses === "false" && opened,
     JSON.stringify({ ...two, opened }),
   );
   // The second line off: the line of one is the only source, and blocks as it always did.
@@ -506,18 +506,18 @@ async function sendFromGuide(page, row) {
   const opened = await aOpensPicker(page);
   check(
     "two lines, every tile on a line of two: not capped, Add is open",
-    two.blocked === 0 && two.meter === "2 streams" && two.refuses === "false" && opened,
+    two.blocked === 0 && two.meter === "2 Streams" && two.refuses === "false" && opened,
     JSON.stringify({ ...two, opened }),
   );
   await switchOff(page, "v");
   await page
-    .waitForFunction(() => /2 of 2 streams/.test(document.querySelector(".mvmeter")?.getAttribute("aria-label") ?? ""), null, { timeout: 8000 })
+    .waitForFunction(() => /2 of 2 Streams/.test(document.querySelector(".mvmeter")?.getAttribute("aria-label") ?? ""), null, { timeout: 8000 })
     .catch(() => {});
   const alone = await barState(page);
   const openedAlone = await aOpensPicker(page);
   check(
     "and alone, the line of two caps the grid: the meter reads it, Add refuses, A does not open it",
-    /2 of 2 streams/.test(alone.meter ?? "") && alone.refuses === "true" && !openedAlone,
+    /2 of 2 Streams/.test(alone.meter ?? "") && alone.refuses === "true" && !openedAlone,
     JSON.stringify({ ...alone, openedAlone }),
   );
   await ctx.close();
@@ -535,12 +535,12 @@ async function sendFromGuide(page, row) {
   const two = await barState(page);
   await switchOff(page, "t");
   await page
-    .waitForFunction(() => /of 5 streams/.test(document.querySelector(".mvmeter")?.getAttribute("aria-label") ?? ""), null, { timeout: 8000 })
+    .waitForFunction(() => /of 5 Streams/.test(document.querySelector(".mvmeter")?.getAttribute("aria-label") ?? ""), null, { timeout: 8000 })
     .catch(() => {});
   const alone = await barState(page);
   check(
     "every tile on the line of five: no cap beside another line, the meter reads five when it is alone",
-    two.meter === "1 stream" && two.blocked === 0 && /1 of 5 streams/.test(alone.meter ?? "") && alone.refuses === "false",
+    two.meter === "1 Stream" && two.blocked === 0 && /1 of 5 Streams/.test(alone.meter ?? "") && alone.refuses === "false",
     JSON.stringify({ two, alone }),
   );
   await ctx.close();
@@ -558,7 +558,7 @@ async function sendFromGuide(page, row) {
   const two = await barState(page);
   check(
     "tiles on two lines: no cap, no block (the counts have answered)",
-    two.blocked === 0 && two.meter === "2 streams" && two.refuses === "false",
+    two.blocked === 0 && two.meter === "2 Streams" && two.refuses === "false",
     JSON.stringify(two),
   );
   await ctx.close();
@@ -608,7 +608,7 @@ async function sendFromGuide(page, row) {
   const swapped = (await savedGrid(page)).map((p) => p.channelId);
   check(
     "a channel sent from the Guide to a grid on the line of one asks which tile it replaces, and replaces it",
-    asked && /^Pick a tile for Fake News Channel/.test(prompt ?? "") && JSON.stringify(waiting) === JSON.stringify(["t:101"]) &&
+    asked && /^Pick a Tile for Fake News Channel/.test(prompt ?? "") && JSON.stringify(waiting) === JSON.stringify(["t:101"]) &&
       after.blocked === 0 && JSON.stringify(swapped) === JSON.stringify(["t:103"]),
     JSON.stringify({ asked, prompt, waiting, swapped, ...after }),
   );
@@ -657,7 +657,7 @@ const tileIds = async (page) => (await savedGrid(page)).map((p) => p.channelId);
   const prompt = await page.locator(".mvchoose").textContent().catch(() => "");
   check(
     "two lines, every tile on the line of one: a channel on that line asks which tile it replaces",
-    asked && /^Pick a tile for Fake Sky Sports FHD/.test(prompt ?? "") && (await tileIds(page)).join() === "t:101" && (await nTiles()) === 1,
+    asked && /^Pick a Tile for Fake Sky Sports FHD/.test(prompt ?? "") && (await tileIds(page)).join() === "t:101" && (await nTiles()) === 1,
     JSON.stringify({ asked, prompt, grid: await tileIds(page) }),
   );
   check(
@@ -694,12 +694,12 @@ const tileIds = async (page) => (await savedGrid(page)).map((p) => p.channelId);
   );
   check(
     "  and the bar says why, naming the line",
-    /^Pick a tile on Test for Fake News Channel/.test(subset ?? ""),
+    /^Pick a Tile on Test for Fake News Channel/.test(subset ?? ""),
     JSON.stringify(subset),
   );
   check(
     "  and with several sources the picker says what the grid has room for, and marks the full line's row only",
-    /^2 more fit in the grid$/.test(footer ?? "") && notes.join() === "1,0",
+    /^2 more fit in the grid\.$/.test(footer ?? "") && notes.join() === "1,0",
     JSON.stringify({ footer, notes }),
   );
   // Nothing happens on the tile it may not replace, by pointer or by key.
@@ -758,7 +758,7 @@ const tileIds = async (page) => (await savedGrid(page)).map((p) => p.channelId);
   const off = await page.locator(".mvtile.is-pickoff").evaluateAll((els) => els.map((e) => e.getAttribute("data-mv")));
   check(
     "a channel sent from the Guide on the full line may replace only that line's tiles",
-    asked && /^Pick a tile on Test for Fake News Channel/.test(prompt ?? "") && JSON.stringify(off) === JSON.stringify(["tile:v:102"]),
+    asked && /^Pick a Tile on Test for Fake News Channel/.test(prompt ?? "") && JSON.stringify(off) === JSON.stringify(["tile:v:102"]),
     JSON.stringify({ asked, prompt, off }),
   );
   check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));

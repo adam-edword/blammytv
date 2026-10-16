@@ -56,11 +56,11 @@ export function MvScoresRow({
   let league = "";
   return (
     <section className="mvscores" aria-label="Live scores">
-      <Hint label="Choose sports">
+      <Hint label="Choose Sports">
         <button
           type="button"
           className={"mvscores__filter" + (filtered ? " is-filtered" : "")}
-          aria-label="Choose sports"
+          aria-label="Choose Sports"
           onClick={onFilter}
         >
           <LeaguesIcon size={18} />
@@ -70,10 +70,10 @@ export function MvScoresRow({
         {games.length === 0 ? (
           <p className="mvscores__empty">
             {!looked
-              ? "Looking for live games…"
+              ? "Looking for Live Games…"
               : filtered
-                ? "No live games in the sports you picked."
-                : "No live games right now."}
+                ? "No Live Games in the Sports You Picked"
+                : "No Live Games Right Now"}
           </p>
         ) : (
           games.map((g) => {
@@ -89,7 +89,7 @@ export function MvScoresRow({
                   * pointer through to this one (player.css). */}
                 <div
                   className={"mvscores__game" + (on ? " is-on" : "") + (can ? "" : " is-off")}
-                  data-hint={can ? undefined : "None of your channels carry it"}
+                  data-hint={can ? undefined : "None of your channels carry it."}
                 >
                   <CompactCard game={g} onOpen={can ? () => onOpen(g) : undefined} />
                 </div>

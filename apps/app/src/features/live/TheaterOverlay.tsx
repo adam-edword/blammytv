@@ -1705,11 +1705,11 @@ export function TheaterOverlay({
           * this is a screen you came to from somewhere, and the somewhere
           * is what you want. Same action either way: fullscreen steps back
           * to the theater, the theater steps back to where you were. */}
-        <Hint label={fs ? "Exit fullscreen" : "Back"}>
+        <Hint label={fs ? "Exit Fullscreen" : "Back"}>
           <Button variant="chip" size="icon"
             type="button"
             className="player__btn"
-            aria-label={fs ? "Exit fullscreen" : "Back"}
+            aria-label={fs ? "Exit Fullscreen" : "Back"}
             onClick={() => (fs ? api()?.exitFullscreen?.() : api()?.collapse?.())}
           >
             <BackArrowIcon className="size-5" />
@@ -1719,11 +1719,11 @@ export function TheaterOverlay({
           * fullscreen toggle applies to both: VOD theater ↔ OS
           * fullscreen.) */}
         {!vod && (
-          <Hint label={fav ? "Remove from favorites" : "Add to favorites"}>
+          <Hint label={fav ? "Remove from Favorites" : "Add to Favorites"}>
             <Button variant="chip" size="icon"
               type="button"
               className={"player__btn" + (fav ? " is-fav" : "")}
-              aria-label={fav ? "Remove from favorites" : "Add to favorites"}
+              aria-label={fav ? "Remove from Favorites" : "Add to Favorites"}
               aria-pressed={fav}
               onClick={toggleFav}
             >
@@ -1738,32 +1738,32 @@ export function TheaterOverlay({
           * grid and takes the sound (plan 017, P6b). The player stops as
           * its screen is left, which frees the connection for the grid. */}
         {!vod && api()?.multiview && (
-          <Hint label="Watch in multi-view">
+          <Hint label="Watch in Multi-view">
             <Button variant="chip" size="icon"
               type="button"
               className="player__btn"
-              aria-label="Watch in multi-view"
+              aria-label="Watch in Multi-view"
               onClick={() => api()?.multiview?.()}
             >
               <MultiviewIcon size={20} />
             </Button>
           </Hint>
         )}
-        <Hint label="Pop out">
+        <Hint label="Pop Out">
           <Button variant="chip" size="icon"
             type="button"
             className="player__btn"
-            aria-label="Pop out"
+            aria-label="Pop Out"
             onClick={() => api()?.popout?.()}
           >
             <PopoutIcon className="size-5" />
           </Button>
         </Hint>
-        <Hint label={fs ? "Exit fullscreen" : "Fullscreen"}>
+        <Hint label={fs ? "Exit Fullscreen" : "Fullscreen"}>
           <Button variant="chip" size="icon"
             type="button"
             className="player__btn"
-            aria-label={fs ? "Exit fullscreen" : "Fullscreen"}
+            aria-label={fs ? "Exit Fullscreen" : "Fullscreen"}
             onClick={toggleFullscreen}
           >
             {fs ? <ExitFullscreenIcon className="size-5" /> : <FullscreenIcon className="size-5" />}
@@ -1872,7 +1872,7 @@ export function TheaterOverlay({
             <>
               {/* Says so only while it is locked: a tooltip over the rail
                 * you are scrubbing would sit on the picture for nothing. */}
-              <Hint side="top" label="This source can't be seeked" off={seekable}>
+              <Hint side="top" label="This source can't be seeked." off={seekable}>
               <div
                 className={
                   "theater-seek__track theater-seek__track--vod" +
@@ -2017,11 +2017,11 @@ export function TheaterOverlay({
 
         <div className="theater-controls" data-interactive>
           <div className="theater-controls__group">
-            <Hint side="top" label={vod && !seekable ? "This source can't be seeked" : "Back 10 seconds"}>
+            <Hint side="top" label={vod && !seekable ? "This source can't be seeked." : "Back 10 Seconds"}>
               <Button variant="ghost" size="icon"
                 type="button"
                 className={"player__btn " + IN_CAPSULE}
-                aria-label="Back 10 seconds"
+                aria-label="Back 10 Seconds"
                 // aria-disabled, NOT disabled: Chromium suppresses the
                 // tooltip on a disabled control, so the explanation never
                 // reached the person who needed it. doSeek already refuses
@@ -2043,11 +2043,11 @@ export function TheaterOverlay({
                 {paused ? <PlayIcon className="size-6" /> : <PauseIcon className="size-6" />}
               </Button>
             </Hint>
-            <Hint side="top" label={vod && !seekable ? "This source can't be seeked" : "Forward 10 seconds"}>
+            <Hint side="top" label={vod && !seekable ? "This source can't be seeked." : "Forward 10 Seconds"}>
               <Button variant="ghost" size="icon"
                 type="button"
                 className={"player__btn " + IN_CAPSULE}
-                aria-label="Forward 10 seconds"
+                aria-label="Forward 10 Seconds"
                 aria-disabled={vod && !seekable}
                 onClick={() => doSeek(10)}
               >
@@ -2055,11 +2055,11 @@ export function TheaterOverlay({
               </Button>
             </Hint>
             {vod && meta?.vod?.hasNext && (
-              <Hint side="top" label="Next episode">
+              <Hint side="top" label="Next Episode">
                 <Button variant="ghost" size="icon"
                   type="button"
                   className={"player__btn " + IN_CAPSULE}
-                  aria-label="Next episode"
+                  aria-label="Next Episode"
                   onClick={() => api()?.nextEpisode?.()}
                 >
                   <NextEpisodeIcon className="size-5.5" />
@@ -2067,7 +2067,7 @@ export function TheaterOverlay({
               </Hint>
             )}
             {!vod && (
-              <Hint side="top" label="Jump to live">
+              <Hint side="top" label="Jump to Live">
                 {/* A pill inside the capsule, its word an eyebrow (plan 020, P4). */}
                 <Button variant="secondary" size="sm"
                   type="button"
@@ -2077,7 +2077,7 @@ export function TheaterOverlay({
                     " text-on-image" +
                     (atLive ? " is-live" : "")
                   }
-                  aria-label="Jump to live"
+                  aria-label="Jump to Live"
                   onClick={jumpLive}
                 >
                   <span className="theater-live__dot" />
@@ -2104,11 +2104,11 @@ export function TheaterOverlay({
             {/* Playback speed — VOD only (live has no rate to bend). */}
             {vod && (
               <div className="theater-tracks">
-                <Hint side="top" label="Playback speed" off={menu === "speed"}>
+                <Hint side="top" label="Playback Speed" off={menu === "speed"}>
                   <Button variant="ghost" size="icon"
                     type="button"
                     className={"player__btn player__btn--speed " + IN_CAPSULE}
-                    aria-label="Playback speed"
+                    aria-label="Playback Speed"
                     aria-haspopup="menu"
                     aria-expanded={menu === "speed"}
                     onClick={() =>
@@ -2141,11 +2141,11 @@ export function TheaterOverlay({
             {/* Stats for nerds (theater/fullscreen only; needs the shell for
               * the mpv_stats command). Toggles the top-left telemetry panel. */}
             {isTauri() && (
-              <Hint side="top" label="Stats for nerds">
+              <Hint side="top" label="Stats for Nerds">
                 <Button variant="ghost" size="icon"
                   type="button"
                   className={"player__btn " + IN_CAPSULE}
-                  aria-label="Stats for nerds"
+                  aria-label="Stats for Nerds"
                   aria-pressed={showStats}
                   onClick={() => setShowStats((v) => !v)}
                 >
@@ -2163,13 +2163,13 @@ export function TheaterOverlay({
             <div className="theater-tracks">
               <Hint
                 side="top"
-                label={(tracks?.audio.length ?? 0) < 2 ? "Only one audio track" : "Audio track"}
+                label={(tracks?.audio.length ?? 0) < 2 ? "Only One Audio Track" : "Audio Track"}
                 off={menu === "audio"}
               >
                 <Button variant="ghost" size="icon"
                   type="button"
                   className={"player__btn " + IN_CAPSULE}
-                  aria-label="Audio track"
+                  aria-label="Audio Track"
                   aria-haspopup="menu"
                   aria-expanded={menu === "audio"}
                   aria-disabled={(tracks?.audio.length ?? 0) < 2}
@@ -2203,7 +2203,7 @@ export function TheaterOverlay({
             <div className="theater-tracks">
               <Hint
                 side="top"
-                label={(tracks?.subs.length ?? 0) < 1 ? "No subtitles" : "Subtitles"}
+                label={(tracks?.subs.length ?? 0) < 1 ? "No Subtitles" : "Subtitles"}
                 off={menu === "subs"}
               >
                 <Button variant="ghost" size="icon"
@@ -2477,13 +2477,13 @@ function TuneCard({
                 api()?.nextSource?.();
               }}
             >
-              Try the next source
+              Try the Next Source
             </Button>
           )}
         </div>
       ) : (
         <span className="tune__status">
-          {phase === "retrying" ? "reconnecting" : "loading"}
+          {phase === "retrying" ? "Reconnecting" : "Loading"}
         </span>
       )}
     </div>

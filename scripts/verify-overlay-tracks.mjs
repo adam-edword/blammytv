@@ -102,7 +102,7 @@ const sizes = await page.evaluate(() => {
   };
   return {
     play: px(["Pause", "Play"]),
-    skip: px(["Back 10 seconds"]),
+    skip: px(["Back 10 Seconds"]),
     mute: px(["Mute", "Unmute"]),
   };
 });
@@ -121,17 +121,17 @@ check(
 await page.evaluate((t) => window.__pushTracks(t), TRACKS);
 await page.mouse.move(550, 300); // wake the chrome
 await page.mouse.move(560, 310);
-await page.waitForSelector('[aria-label="Audio track"]:not([aria-disabled=true])');
+await page.waitForSelector('[aria-label="Audio Track"]:not([aria-disabled=true])');
 check(
   "tracks push → audio + CC buttons enabled",
-  (await page.locator('[aria-label="Audio track"]:not([aria-disabled=true])').count()) ===
+  (await page.locator('[aria-label="Audio Track"]:not([aria-disabled=true])').count()) ===
     1 &&
     (await page.locator('[aria-label="Subtitles"]:not([aria-disabled=true])').count()) ===
       1,
 );
 
 // Audio menu: entries + current selection.
-await page.click('[aria-label="Audio track"]');
+await page.click('[aria-label="Audio Track"]');
 const items = page.locator('.track-menu [role="menuitemradio"]');
 check(
   "audio menu lists 2 tracks, English checked",
@@ -148,7 +148,7 @@ check(
   JSON.stringify(calls1.at(-1)) === '["selectAudio","2"]' &&
     (await page.locator(".track-menu").count()) === 0,
 );
-await page.click('[aria-label="Audio track"]');
+await page.click('[aria-label="Audio Track"]');
 check(
   "reopen → Español checked (optimistic)",
   (await items.nth(1).getAttribute("aria-checked")) === "true" &&
@@ -163,7 +163,7 @@ check(
 await page.mouse.move(560, 320);
 await page.waitForTimeout(250);
 const menuLook = await page.evaluate(() => {
-  const trigger = document.querySelector('[aria-label="Audio track"]');
+  const trigger = document.querySelector('[aria-label="Audio Track"]');
   const rows = [...document.querySelectorAll('.track-menu [role="menuitemradio"]')];
   const on = rows.find((r) => r.getAttribute("aria-checked") === "true");
   const off = rows.find((r) => r.getAttribute("aria-checked") === "false");
@@ -228,7 +228,7 @@ await page.evaluate(
     subs: TRACKS.subs,
   },
 );
-await page.click('[aria-label="Audio track"]');
+await page.click('[aria-label="Audio Track"]');
 check(
   "Rust re-push confirms selection",
   (await items.nth(1).getAttribute("aria-checked")) === "true",
@@ -295,9 +295,9 @@ const tipFor = async (label) => {
     .catch(() => null);
 };
 // Before any tracks: the greyed audio button still answers, and says why.
-const greyTip = await tipFor("Audio track");
+const greyTip = await tipFor("Audio Track");
 const tips = {
-  back: await tipFor("Back 10 seconds"),
+  back: await tipFor("Back 10 Seconds"),
   play: await tipFor("Pause"),
   mute: await tipFor("Mute"),
   exit: await tipFor("Back"),
@@ -317,14 +317,14 @@ check(
 );
 check(
   "  hovered, they say what they do, and the greyed audio button says why it's grey",
-  tips.back === "Back 10 seconds" && tips.play === "Pause" && tips.mute === "Mute" && tips.exit === "Back" &&
-    greyTip === "Only one audio track",
+  tips.back === "Back 10 Seconds" && tips.play === "Pause" && tips.mute === "Mute" && tips.exit === "Back" &&
+    greyTip === "Only One Audio Track",
   JSON.stringify({ ...tips, greyTip }),
 );
 
 await page3.evaluate((t) => window.__pushTracks(t), TRACKS);
 await page3.mouse.move(550, 300);
-await page3.waitForSelector('[aria-label="Audio track"]:not([aria-disabled=true])');
+await page3.waitForSelector('[aria-label="Audio Track"]:not([aria-disabled=true])');
 const look = await page3.evaluate(() => {
   const cs = (el) => el && getComputedStyle(el);
   const groups = [...document.querySelectorAll(".theater-controls__group")].map((g) => {
@@ -354,12 +354,12 @@ check(
 // The light theme: the page's tint turns dark there, and the player is still
 // over a picture, so its controls tint in the on-image white regardless.
 await page3.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
-await page3.click('[aria-label="Audio track"]');
+await page3.click('[aria-label="Audio Track"]');
 await page3.waitForSelector('.track-menu[aria-label="Audio tracks"]');
 await page3.mouse.move(550, 300); // off the button: its hover tint is not the question
 await page3.waitForTimeout(400); // Button eases its background
 const menu = await page3.evaluate(() => {
-  const open = getComputedStyle(document.querySelector('[aria-label="Audio track"]')).backgroundColor;
+  const open = getComputedStyle(document.querySelector('[aria-label="Audio Track"]')).backgroundColor;
   const head = getComputedStyle(document.querySelector(".track-menu__head"));
   const chosen = getComputedStyle(document.querySelector('.track-menu__item[aria-checked="true"]')).backgroundColor;
   return { open, head: { size: head.fontSize, caps: head.textTransform }, chosen };

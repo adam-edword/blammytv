@@ -3,7 +3,7 @@
 // v0.9.56's prune parked every `--armed` / `--danger` rule with the button
 // paint, and several of these buttons are `size="icon-sm"`, a 32px square.
 // So after it:
-//   - Library's "Clear history" and a list's "Delete" were plain outline
+//   - Library's "Clear History" and a list's "Delete" were plain outline
 //     buttons in every state, armed included, no danger colour anywhere;
 //   - a playlist's delete, armed, said "Sure?" out of a 32px square;
 //   - a list item's "Remove" sat on every poster, spilling out of one.
@@ -89,7 +89,7 @@ const fits = (loc) =>
   // History is the list card titled "Library" (LibraryScreen's HISTORY).
   await page.locator('.library__card[data-hint="Library"]').click({ timeout: 10_000 });
 
-  const clear = page.getByRole("button", { name: "Clear history" });
+  const clear = page.getByRole("button", { name: "Clear History" });
   await clear.waitFor({ timeout: 15_000 });
   check("Clear history is not destructive before it is armed", !isRed(await bg(clear)), await bg(clear));
   await clear.click();

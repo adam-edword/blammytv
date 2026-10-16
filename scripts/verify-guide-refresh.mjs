@@ -159,7 +159,7 @@ check("and the guide is NOT downloaded again", guideLoads() === 1, `${guideLoads
 check(
   "the programmes are still on the Guide once the reload has landed",
   (await page.locator('.guide__cell[data-hint^="ESPN Hour"]').count()) > 0 &&
-    !(await page.evaluate(() => document.body.innerText.includes("Loading guide"))),
+    !(await page.evaluate(() => document.body.innerText.includes("Loading Guide"))),
 );
 const stamp1 = oldest(await readRecord());
 check("the stamp is carried, not renewed", stamp1 === stamp0, `${stamp0} -> ${stamp1}`);

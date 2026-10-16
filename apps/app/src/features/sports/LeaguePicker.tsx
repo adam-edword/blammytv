@@ -151,7 +151,7 @@ export function LeaguePicker({
         className="settings-input leaguepick__search"
         type="search"
         value={query}
-        placeholder="Search leagues and sports…"
+        placeholder="Search Leagues and Sports…"
         aria-label="Search leagues and sports"
         spellCheck={false}
         autoComplete="off"
@@ -200,7 +200,7 @@ export function LeaguePicker({
           className="leaguepick__clear"
           onClick={onClearPicks}
         >
-          Clear filter
+          Clear Filter
           <span className="leaguepick__clearcount">{picked.length}</span>
         </Button>
       )}
@@ -247,8 +247,8 @@ export function LeaguePicker({
                   <Button variant="ghost" size="icon-sm"
                     type="button"
                     className="live-folder__hide leaguepick__fav"
-                    aria-label={`Add ${l.label} to favorites`}
-                    data-hint={`Add ${l.label} to favorites`}
+                    aria-label={`Add ${l.label} to Favorites`}
+                    data-hint={`Add ${l.label} to Favorites`}
                     onClick={() => toggle(l.path)}
                   >
                     {/* The guide's own star and its own swap: the ghost
@@ -337,7 +337,7 @@ function FavouriteTile({
         }
         onClick={onArm}
       >
-        {armed ? "Remove from favorites" : <CloseIcon className="size-3" />}
+        {armed ? "Remove from Favorites" : <CloseIcon className="size-3" />}
       </Button>
     </span>
   );

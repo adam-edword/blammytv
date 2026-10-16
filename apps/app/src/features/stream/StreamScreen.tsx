@@ -1807,7 +1807,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
               </div>
               <div className="vod-panel__list">
                 {panelSources === null && (
-                  <StateCard size="tile" onImage role="status" busy title="Finding sources…" />
+                  <StateCard size="tile" onImage role="status" busy title="Finding Sources…" />
                 )}
                 {panelSources === "failed" && (
                   <StateCard
@@ -1815,20 +1815,20 @@ export function StreamScreen({ home }: { home?: number } = {}) {
                     onImage
                     role="alert"
                     icon={<WarnIcon size={22} />}
-                    title="Couldn’t load sources"
+                    title="Couldn’t Load Sources"
                     actions={
                       <Button
                         variant="default"
                         type="button"
                         onClick={() => setPanelTick((t) => t + 1)}
                       >
-                        Try again
+                        Try Again
                       </Button>
                     }
                   />
                 )}
                 {Array.isArray(panelSources) && panelSources.length === 0 && (
-                  <StateCard size="tile" onImage icon={<PlayIcon size={22} />} title="No sources available" />
+                  <StateCard size="tile" onImage icon={<PlayIcon size={22} />} title="No Sources Available" />
                 )}
                 {Array.isArray(panelSources) && panelSources.length > 0 && (
                   // The film page's rows (plan 019, K10), the one playing
@@ -1876,7 +1876,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
                   aria-hidden
                 />
               )}
-              <p className="upnext__eyebrow">Up next</p>
+              <p className="upnext__eyebrow">Up Next</p>
               <h2 className="upnext__title">
                 S{upNext.season.number} · E{upNext.episode.number}:{" "}
                 {upNext.episode.title}
@@ -1890,7 +1890,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
                   type="button"
                   onClick={() => void playUpNext()}
                 >
-                  Play now
+                  Play Now
                 </Button>
                 <Button
                   variant="secondary"
@@ -1922,7 +1922,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
                 />
               )}
               <div className="upnext-mini__body">
-                <p className="upnext-mini__eyebrow">Up next</p>
+                <p className="upnext-mini__eyebrow">Up Next</p>
                 <p className="upnext-mini__title">
                   S{upNextMini.season.number} · E{upNextMini.episode.number}:{" "}
                   {upNextMini.episode.title}
@@ -1942,7 +1942,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
                       void playEpisode(m.item, m.season, m.episode);
                     }}
                   >
-                    Play now
+                    Play Now
                   </Button>
                 </div>
               </div>
@@ -1970,13 +1970,13 @@ export function StreamScreen({ home }: { home?: number } = {}) {
                 aria-hidden
               />
             )}
-            <p className="vod-pip__hint">Player popped out</p>
+            <p className="vod-pip__hint">Player popped out.</p>
             <Button
               variant="default"
               type="button"
               onClick={() => void bringBack()}
             >
-              Bring it back
+              Bring It Back
             </Button>
             {/* ✕ = done with the pop-out too: close it and land on the
               * source selector (the view under the stage). */}
@@ -2137,7 +2137,7 @@ function Home({
       <StateCard
         className="stream__note"
         icon={<StreamIcon size={28} />}
-        title="No movies or shows yet"
+        title="No Movies or Shows Yet"
         sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream."
       />
     );
@@ -2153,7 +2153,7 @@ function Home({
           className="stream__note"
           role="status"
           busy
-          title="Loading your catalog…"
+          title="Loading Your Catalog…"
         />
       );
     const aioErr = aioOn && load.status === "error" ? load.message : null;
@@ -2163,7 +2163,7 @@ function Home({
         className="stream__note"
         role="alert"
         icon={<WarnIcon size={28} />}
-        title="Couldn’t load your catalog"
+        title="Couldn’t Load Your Catalog"
         sub={
           <>
             {aioErr ?? jfErr}.{" "}
@@ -2178,7 +2178,7 @@ function Home({
         // finding).
         actions={
           <Button variant="default" type="button" onClick={onRetry}>
-            Try again
+            Try Again
           </Button>
         }
       />
@@ -2212,7 +2212,7 @@ function Home({
       <StateCard
         className="stream__note"
         icon={<MoviesIcon size={28} />}
-        title="Nothing came back from your catalogs"
+        title="Nothing came back from your catalogs."
         sub={
           aioOn
             ? loadAioConn()?.kind === "signin"
@@ -2558,7 +2558,7 @@ function Hero({
                       onWatchNow(item);
                     }}
                   >
-                    Watch now
+                    Watch Now
                   </Button>
                   <Button
                     variant="secondary"
@@ -2569,7 +2569,7 @@ function Hero({
                       onOpen(item);
                     }}
                   >
-                    More info
+                    More Info
                   </Button>
                 </div>
               </div>
@@ -2806,7 +2806,7 @@ function Detail({
           <h3 className="sr-only">Sources</h3>
           {/* The column's states are the StateCard (plan 019, K8). */}
           {sources === null && (
-            <StateCard size="tile" onImage role="status" busy title="Finding sources…" />
+            <StateCard size="tile" onImage role="status" busy title="Finding Sources…" />
           )}
           {sources === "failed" && (
             <StateCard
@@ -2814,14 +2814,14 @@ function Detail({
               onImage
               role="alert"
               icon={<WarnIcon size={22} />}
-              title="Couldn’t load sources"
+              title="Couldn’t Load Sources"
               actions={
                 <Button
                   variant="default"
                   type="button"
                   onClick={() => setSourcesTick((t) => t + 1)}
                 >
-                  Try again
+                  Try Again
                 </Button>
               }
             />
@@ -2831,7 +2831,7 @@ function Detail({
               size="tile"
               onImage
               icon={<PlayIcon size={22} />}
-              title="No sources available"
+              title="No Sources Available"
               sub={
                 <>
                   Your addons came back with nothing playable for this one.
@@ -3010,14 +3010,14 @@ function Episodes({
               className="vod-episodes__state"
               role="alert"
               icon={<WarnIcon size={22} />}
-              title="Couldn’t load episodes"
+              title="Couldn’t Load Episodes"
               actions={
                 <Button
                   variant="default"
                   type="button"
                   onClick={onRetryMeta}
                 >
-                  Try again
+                  Try Again
                 </Button>
               }
             />
@@ -3027,7 +3027,7 @@ function Episodes({
               onImage
               className="vod-episodes__state"
               icon={<PlayIcon size={22} />}
-              title="No episodes listed"
+              title="No Episodes Listed"
             />
           ) : (
             <StateCard
@@ -3036,7 +3036,7 @@ function Episodes({
               className="vod-episodes__state"
               role="status"
               busy
-              title="Loading episodes…"
+              title="Loading Episodes…"
             />
           )
         ) : (

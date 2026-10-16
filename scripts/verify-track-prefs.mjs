@@ -211,8 +211,8 @@ check("nothing else was selected", applied.length === 2, JSON.stringify(applied)
 // The menus agree, so the user sees what mpv was told.
 await page1.mouse.move(550, 300);
 await page1.mouse.move(560, 310);
-await page1.waitForSelector('[aria-label="Audio track"]:not([aria-disabled=true])');
-await page1.click('[aria-label="Audio track"]');
+await page1.waitForSelector('[aria-label="Audio Track"]:not([aria-disabled=true])');
+await page1.click('[aria-label="Audio Track"]');
 const audioItems = page1.locator('.track-menu [role="menuitemradio"]');
 check(
   "the audio menu shows Español checked",
@@ -270,8 +270,8 @@ const page4 = await openOverlay(
 await page4.evaluate((t) => window.__pushTracks(t), NEXT);
 await page4.mouse.move(550, 300);
 await page4.mouse.move(560, 310);
-await page4.waitForSelector('[aria-label="Audio track"]:not([aria-disabled=true])');
-await page4.click('[aria-label="Audio track"]');
+await page4.waitForSelector('[aria-label="Audio Track"]:not([aria-disabled=true])');
+await page4.click('[aria-label="Audio Track"]');
 await page4.locator('.track-menu [role="menuitemradio"]').nth(1).click();
 const stored = await page4.evaluate(() => ({
   global: JSON.parse(localStorage.getItem("blammytv.playbackPrefs") ?? "null"),

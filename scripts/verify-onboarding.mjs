@@ -58,7 +58,7 @@ if (!FAST) {
   const prefilled = await page.locator(".onb-input").inputValue();
   check("manifest pre-filled from saved settings",
     prefilled === "http://localhost:8084/manifest.json", prefilled);
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
   const note = await page.$eval(".onb-hint--ok", (el) => el.textContent).catch(() => "");
   check("TV step acknowledges existing playlists",
@@ -173,7 +173,7 @@ if (!FAST) {
   const tour = await page.$$eval(".onb-tour li", (lis) =>
     lis.map((li) => [li.querySelector(".onb-tour__name")?.textContent, li.querySelector(".onb-tour__line")?.textContent]));
   check("the tour is titled and has exactly three things to find, a line each",
-    tourTitle === "A few things to find" && JSON.stringify(tour) === JSON.stringify(TOUR),
+    tourTitle === "A Few Things to Find" && JSON.stringify(tour) === JSON.stringify(TOUR),
     JSON.stringify({ tourTitle, tour }));
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
@@ -300,7 +300,7 @@ const toTvStep = async (page) => {
   await page.waitForSelector(".onb");
   await page.getByRole("button", { name: "Get Started" }).click();
   await page.waitForSelector(".onb-input", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
 };
 const fillXtream = async (page) => {
@@ -437,7 +437,7 @@ if (!FAST) {
 }
 
 // 5. Blocked instance: the Cloudflare verdict surfaces IN onboarding,
-//    and "Continue anyway" saves + advances.
+//    and "Continue Anyway" saves + advances.
 if (!FAST) {
   const page = await newPage();
   await page.goto("http://localhost:4173/?onboarding=1");
@@ -449,7 +449,7 @@ if (!FAST) {
   const verdict = await page.waitForSelector(".onb-hint:not(.onb-hint--ok)", { timeout: 12000 }).then((el) => el.textContent()).catch(() => null);
   check("blocked instance: verdict names the Cloudflare bot check",
     !!verdict && /Cloudflare's bot check/.test(verdict), String(verdict).slice(0, 90));
-  const anyway = page.getByRole("button", { name: "Continue anyway" });
+  const anyway = page.getByRole("button", { name: "Continue Anyway" });
   check("ghost relabels to Continue anyway", await anyway.count() === 1);
   await anyway.click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
@@ -468,7 +468,7 @@ if (!FAST) {
   await page.waitForSelector(".onb");
   await page.getByRole("button", { name: "Get Started" }).click();
   await page.waitForSelector(".onb-input", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
   await page.waitForTimeout(2100); // past the settle point
   const settledAnims = await page.$eval(".onb-title", (el) => el.getAnimations().length);
@@ -511,9 +511,9 @@ const toAccentStep = async (page) => {
   await page.waitForSelector(".onb");
   await page.getByRole("button", { name: "Get Started" }).click();
   await page.waitForSelector(".onb-input", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-prefs", { timeout: 8000 });
   // Settled, so the entrance is not still moving the chip.
   await page.waitForTimeout(1800);
@@ -584,7 +584,7 @@ if (!FAST) {
   check("no Back on the logo step", !(await page.$(".onb-back")));
   await page.getByRole("button", { name: "Get Started" }).click();
   await page.waitForSelector(".onb-input", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
   await page.getByRole("button", { name: "← Back" }).click();
   const backToStreams = await page.waitForSelector(".onb-input", { timeout: 8000 }).then(() => true).catch(() => false);
@@ -602,7 +602,7 @@ if (!FAST) {
   const page = await newPage();
   await page.goto("http://localhost:4173/?onboarding=1");
   await page.waitForSelector(".onb");
-  await page.getByRole("button", { name: "Skip setup" }).click();
+  await page.getByRole("button", { name: "Skip Setup" }).click();
   const landing = await page.waitForSelector(".boot-scene.is-landing", { timeout: 10000 }).then(() => true).catch(() => false);
   // Input during the finale must not dismiss the overlay.
   await page.keyboard.press("Enter");
@@ -626,9 +626,9 @@ if (!FAST) {
   await page.goto("http://localhost:4173/?onboarding=1");
   await page.waitForSelector(".onb");
   await page.getByRole("button", { name: "Get Started" }).click();
-  await page.getByRole("button", { name: /later/ }).click(); // streams
+  await page.getByRole("button", { name: /do this later/i }).click(); // streams
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click(); // live tv
+  await page.getByRole("button", { name: /do this later/i }).click(); // live tv
   await page.waitForSelector(".onb-prefs", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
@@ -827,7 +827,7 @@ const whereIs = (page) =>
   });
 const toStep1 = async (page) => {
   await page.getByRole("button", { name: "Get Started" }).click();
-  await page.locator(".onb-title", { hasText: /Sign in to AIOStreams|Bring your streams/ }).waitFor({ timeout: 8000 });
+  await page.locator(".onb-title", { hasText: /Sign In to AIOStreams|Bring Your Streams/ }).waitFor({ timeout: 8000 });
 };
 
 // 11a. The sign-in: the address, a code, an approval that advances on its own.
@@ -837,11 +837,11 @@ if (!FAST) {
   const sub = await page.$$eval(".onb-sub", (els) => els.map((e) => e.textContent).join(" "));
   const input = page.getByPlaceholder("aiostreams.example.com", { exact: true });
   check("step 1 is the sign-in: a title, the pick-up-where-you-left-off line, an address field",
-    (await titleOf(page)) === "Sign in to AIOStreams" && /Once you're in, any app signed in to your AIOStreams picks up where you left off\./.test(sub) && (await input.count()) === 1,
+    (await titleOf(page)) === "Sign In to AIOStreams" && /Once you're in, any app signed in to your AIOStreams picks up where you left off\./.test(sub) && (await input.count()) === 1,
     JSON.stringify({ title: await titleOf(page), sub }));
   check("  the manifest and \"I'll do this later\" are one click away, quietly",
-    (await page.getByRole("button", { name: "Use a manifest URL instead" }).count()) === 1 &&
-      (await page.getByRole("button", { name: /later/ }).count()) === 1 &&
+    (await page.getByRole("button", { name: "Use a Manifest URL Instead" }).count()) === 1 &&
+      (await page.getByRole("button", { name: /do this later/i }).count()) === 1 &&
       (await page.locator(".onb-input[placeholder*='manifest']").count()) === 0);
   await input.fill("aiostreams.example.com");
   await input.press("Enter");
@@ -851,7 +851,7 @@ if (!FAST) {
     code === "654321" && starts.length === 1 && starts[0].manifestUrl === "aiostreams.example.com", JSON.stringify({ code, starts }));
   const selectable = await page.locator(".onb-code").evaluate((el) => getComputedStyle(el).userSelect);
   const fontSize = await page.locator(".onb-code").evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-  await page.getByRole("button", { name: "Copy code" }).click();
+  await page.getByRole("button", { name: "Copy Code" }).click();
   check("  the code is big, can be selected, and its button copies it",
     fontSize >= 32 && selectable === "text" && JSON.stringify(await page.evaluate(() => window.__copied)) === JSON.stringify(["654321"]),
     JSON.stringify({ fontSize, selectable }));
@@ -883,12 +883,12 @@ if (!FAST) {
 if (!FAST) {
   const page = await newTauriPage({ trakt: true, mal: true });
   await toStep1(page);
-  await page.getByRole("button", { name: /later/ }).click(); // sign in later
+  await page.getByRole("button", { name: /do this later/i }).click(); // sign in later
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click(); // live tv later
+  await page.getByRole("button", { name: /do this later/i }).click(); // live tv later
   await page.waitForSelector(".onb-accounts", { timeout: 8000 });
   check("with Trakt and MyAnimeList keys, the step after Live TV is Follow what you watch",
-    (await titleOf(page)) === "Follow what you watch", await titleOf(page));
+    (await titleOf(page)) === "Follow What You Watch", await titleOf(page));
   const sub = await page.$eval(".onb-sub", (e) => e.textContent);
   check("  one line on why", sub.replace(/\s+/g, " ") === "Trakt and MyAnimeList keep track of what you watch here, and bring back what you watched elsewhere.", sub);
   const rows = page.locator(".onb-accounts .customize-row__title");
@@ -911,11 +911,11 @@ if (!FAST) {
   // Continue always works, with nothing connected.
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForSelector(".onb-prefs", { timeout: 8000 });
-  check("Continue with nothing connected goes on to Accent and clock", (await titleOf(page)) === "Accent and clock");
+  check("Continue with nothing connected goes on to Accent and clock", (await titleOf(page)) === "Accent and Clock");
   // The tour's Back lands on the start step, and Back from there on this one.
   await page.getByRole("button", { name: "← Back" }).click();
   await page.waitForSelector(".onb-accounts", { timeout: 8000 });
-  check("Back from Accent and clock returns to Follow what you watch", (await titleOf(page)) === "Follow what you watch");
+  check("Back from Accent and clock returns to Follow what you watch", (await titleOf(page)) === "Follow What You Watch");
   // A sign-in left half done is closed with the step: MAL's port is given back.
   check("  leaving it cancelled the MyAnimeList sign-in that was waiting", (await callsOf(page, "mal_sign_in_cancel")).length >= 1);
   await page.getByRole("button", { name: "← Back" }).click();
@@ -928,9 +928,9 @@ if (!FAST) {
 if (!FAST) {
   const page = await newTauriPage({ mal: true });
   await toStep1(page);
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-accounts", { timeout: 8000 });
   await page.locator(".onb-accounts .mal-row").waitFor({ timeout: 8000 });
   check("a service whose app key is not in the build does not show",
@@ -942,31 +942,31 @@ if (!FAST) {
 if (!FAST) {
   const page = await newTauriPage({});
   await toStep1(page);
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   // The step after Live TV is the one on screen, not an empty one in between.
   // (A miss is a failed check here, not a throw: a step that is not skipped
   // never shows the next one's controls.)
   await page.waitForSelector(".onb-prefs", { timeout: 8000 }).catch(() => null);
   check("with neither key, the step after Live TV is Accent and clock",
-    (await titleOf(page)) === "Accent and clock" && (await page.locator(".onb-accounts").count()) === 0, await titleOf(page));
+    (await titleOf(page)) === "Accent and Clock" && (await page.locator(".onb-accounts").count()) === 0, await titleOf(page));
   await page.getByRole("button", { name: "← Back" }).click();
   await page.waitForSelector(".onb-fields", { timeout: 8000 }).catch(() => null);
   check("  and Back from it is Live TV", (await titleOf(page)) === "Connect Live TV" && (await page.locator(".onb-accounts").count()) === 0);
   await page.close();
 }
 
-// 11e. "Use a manifest URL instead" is today's step, verifying for real.
+// 11e. "Use a Manifest URL Instead" is today's step, verifying for real.
 if (!FAST) {
   const page = await newTauriPage({});
   await toStep1(page);
-  await page.getByRole("button", { name: "Use a manifest URL instead" }).click();
+  await page.getByRole("button", { name: "Use a Manifest URL Instead" }).click();
   const manifestField = page.getByPlaceholder(/manifest\.json/);
   await manifestField.waitFor({ timeout: 8000 });
   check("\"Use a manifest URL instead\" swaps in the manifest field, with a way back",
     (await page.getByPlaceholder("aiostreams.example.com", { exact: true }).count()) === 0 &&
-      (await page.getByRole("button", { name: "Sign in with an address instead" }).count()) === 1);
+      (await page.getByRole("button", { name: "Sign In with an Address Instead" }).count()) === 1);
   await manifestField.fill("http://localhost:8084/manifest.json");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const okMsg = await page.waitForSelector(".onb-hint--ok", { timeout: 10000 }).then((el) => el.textContent()).catch(() => null);
@@ -980,12 +980,12 @@ if (!FAST) {
   // The blocked instance's verdict still shows over the fallback.
   const page = await newTauriPage({});
   await toStep1(page);
-  await page.getByRole("button", { name: "Use a manifest URL instead" }).click();
+  await page.getByRole("button", { name: "Use a Manifest URL Instead" }).click();
   await page.getByPlaceholder(/manifest\.json/).fill("http://localhost:8084/cf/manifest.json");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   const verdict = await page.waitForSelector(".onb-hint:not(.onb-hint--ok)", { timeout: 12000 }).then((el) => el.textContent()).catch(() => null);
   check("a blocked instance behind the fallback names the Cloudflare bot check and offers Continue anyway",
-    !!verdict && /Cloudflare's bot check/.test(verdict) && (await page.getByRole("button", { name: "Continue anyway" }).count()) === 1, String(verdict).slice(0, 80));
+    !!verdict && /Cloudflare's bot check/.test(verdict) && (await page.getByRole("button", { name: "Continue Anyway" }).count()) === 1, String(verdict).slice(0, 80));
   await page.close();
 }
 
@@ -995,8 +995,8 @@ if (!FAST) {
   const page = await newTauriPage({ old: true });
   await toStep1(page);
   check("a native build from before the sign-in gets today's manifest step",
-    (await titleOf(page)) === "Bring your streams" && (await page.getByPlaceholder("aiostreams.example.com", { exact: true }).count()) === 0 &&
-      (await page.getByRole("button", { name: "Use a manifest URL instead" }).count()) === 0 && (await page.getByPlaceholder(/manifest\.json/).count()) === 1,
+    (await titleOf(page)) === "Bring Your Streams" && (await page.getByPlaceholder("aiostreams.example.com", { exact: true }).count()) === 0 &&
+      (await page.getByRole("button", { name: "Use a Manifest URL Instead" }).count()) === 0 && (await page.getByPlaceholder(/manifest\.json/).count()) === 1,
     await titleOf(page));
   await page.close();
 }
@@ -1021,7 +1021,7 @@ if (!FAST) {
   const said = await page.waitForSelector(".onb-hint", { timeout: 8000 }).then((el) => el.textContent()).catch(() => null);
   check("an instance with no Jellyfin side says it needs 2.35 with its Jellyfin side on",
     /needs version 2\.35 or later, with its Jellyfin side on/.test(String(said)), String(said));
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   check("  and \"I'll do this later\" still goes on", await page.waitForSelector(".onb-fields", { timeout: 8000 }).then(() => true).catch(() => false));
   await page.close();
 }
@@ -1043,7 +1043,7 @@ if (!FAST) {
 if (!FAST) {
   // Skip setup and the finale are what they were with the sign-in step in.
   const page = await newTauriPage({ trakt: true });
-  await page.getByRole("button", { name: "Skip setup" }).click();
+  await page.getByRole("button", { name: "Skip Setup" }).click();
   const landing = await page.waitForSelector(".boot-scene.is-landing", { timeout: 10000 }).then(() => true).catch(() => false);
   check("with the sign-in step in the flow, Skip setup still goes straight to the finale", landing);
   await page.close();
@@ -1103,7 +1103,7 @@ const JF_SIDE = `http://127.0.0.1:${jfSide.address().port}/jellyfin`;
  * overlay to let go. */
 const finishOnboarding = async (page) => {
   await page.waitForSelector(".onb-fields", { timeout: 8000 });
-  await page.getByRole("button", { name: /later/ }).click();
+  await page.getByRole("button", { name: /do this later/i }).click();
   await page.waitForSelector(".onb-prefs", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
@@ -1143,7 +1143,7 @@ if (!FAST) {
   const page = await newTauriPage({});
   await page.evaluate(() => (window.__kept = 1));
   await toStep1(page);
-  await page.getByRole("button", { name: "Use a manifest URL instead" }).click();
+  await page.getByRole("button", { name: "Use a Manifest URL Instead" }).click();
   await page.getByPlaceholder(/manifest\.json/).fill("http://localhost:8084/manifest.json");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForSelector(".onb-hint--ok", { timeout: 10_000 });

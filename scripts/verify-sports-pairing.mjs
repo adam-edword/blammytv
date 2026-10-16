@@ -141,7 +141,7 @@ const row = (page, name) => page.locator(".sportsrail", { hasText: name });
   await row(page, ESPN).click({ button: "right" });
   const menu = page.locator("[data-slot='context-menu-content']");
   const text = await menu.innerText({ timeout: 3000 }).catch(() => "");
-  await page.getByRole("menuitem", { name: "Wrong channel for this game" }).click();
+  await page.getByRole("menuitem", { name: "Wrong Channel for This Game" }).click();
   await page.waitForTimeout(300);
   const tag = await row(page, ESPN).locator(".sportsrail__wrong").count();
   const wrong = (await log(page)).find((e) => e.kind === "wrong");
@@ -151,7 +151,7 @@ const row = (page, name) => page.locator(".sportsrail", { hasText: name });
     JSON.stringify({ text, tag, wrong }),
   );
   await row(page, ESPN).click({ button: "right" });
-  const again = await page.getByRole("menuitem", { name: "Marked wrong for this game" }).getAttribute("data-disabled").catch(() => null);
+  const again = await page.getByRole("menuitem", { name: "Marked Wrong for This Game" }).getAttribute("data-disabled").catch(() => null);
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
   check("and the menu then says it is marked, and offers nothing more", again !== null, String(again));

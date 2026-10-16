@@ -212,7 +212,7 @@ const press = async (page, key) => {
   const natX = s0.x + s0.width / 2;
   check(
     "the tip says how big the big tile is, with the natural split marked above and below the pictures",
-    /^Big tile \d+% · double-click to reset$/.test(tip) &&
+    /^Big Tile \d+% · Double-Click to Reset$/.test(tip) &&
       guide.n === 2 &&
       guide.xs.every((x) => Math.abs(x - natX) <= 1.5),
     JSON.stringify({ tip, guide, natX }),

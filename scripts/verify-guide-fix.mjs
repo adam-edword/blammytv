@@ -147,7 +147,7 @@ async function closeMenu() {
 }
 async function openDialog(id) {
   await menuOn(id);
-  await itemNamed("Fix guide…").click();
+  await itemNamed("Fix Guide…").click();
   await dialog.waitFor({ timeout: 5000 });
 }
 const options = () => dialog.getByRole("option");
@@ -170,11 +170,11 @@ check("the disk record keeps the guide's channel list for the Xtream source and 
 
 // ---- The menu
 await menuOn(BAD);
-check("Fix guide… is in the menu for a channel of an Xtream source", (await itemNamed("Fix guide…").count()) === 1);
-check("  beside the item that was there", (await itemNamed("Add to multi-view").count()) === 1);
+check("Fix guide… is in the menu for a channel of an Xtream source", (await itemNamed("Fix Guide…").count()) === 1);
+check("  beside the item that was there", (await itemNamed("Add to Multi-view").count()) === 1);
 await closeMenu();
 await menuOn(STALKER);
-check("  and not for a Stalker channel", (await itemNamed("Fix guide…").count()) === 0 && (await itemNamed("Add to multi-view").count()) === 1);
+check("  and not for a Stalker channel", (await itemNamed("Fix Guide…").count()) === 0 && (await itemNamed("Add to Multi-view").count()) === 1);
 await closeMenu();
 
 // ---- The dialog
@@ -183,15 +183,15 @@ const title = await dialog.getByRole("heading").first().textContent();
 check("the dialog is titled with the channel's name", title === "US: Mismatched News FHD", String(title));
 check("  and says no guide matched", (await dialog.textContent()).includes("No guide matched"));
 const focused = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
-check("  with the search focused", focused === "Search the guide's channels", String(focused));
+check("  with the search focused", focused === "Search the Guide's Channels", String(focused));
 let names = await optionNames();
 const at = names.indexOf("Mismatched News");
 check("  and the guide's channel for a plausible name near the top of the list", at >= 0 && at <= 1, JSON.stringify(names));
 check("  then the next-closest name (one word in common), before the ones with none", names[0] === "Mismatched News" && names[1] === "News Wire", JSON.stringify(names));
 check("  every guide channel is there, under the cap", names.length === 6, String(names.length));
-const useBtn = dialog.getByRole("button", { name: "Use this guide" });
+const useBtn = dialog.getByRole("button", { name: "Use This Guide" });
 check("  Use this guide waits for a pick", await useBtn.isDisabled());
-check("  and there is no Remove fix to offer yet", (await dialog.getByRole("button", { name: "Remove fix" }).count()) === 0);
+check("  and there is no Remove fix to offer yet", (await dialog.getByRole("button", { name: "Remove Fix" }).count()) === 0);
 
 await dialog.getByRole("combobox").fill("wea");
 names = await optionNames();
@@ -254,9 +254,9 @@ check("  the store still has it", JSON.stringify(await fixes()) === JSON.stringi
 
 // ---- Remove fix
 await openDialog(BAD);
-check("the dialog now says it is fixed by you", (await dialog.textContent()).includes("Fixed by you: Mismatched News"));
+check("the dialog now says it is fixed by you", (await dialog.textContent()).includes("Fixed by You: Mismatched News"));
 check("  marks the current row", (await options().filter({ hasText: "Mismatched News" }).textContent()).includes("Current"));
-const remove = dialog.getByRole("button", { name: "Remove fix" });
+const remove = dialog.getByRole("button", { name: "Remove Fix" });
 check("  and offers Remove fix", (await remove.count()) === 1);
 const before2 = guideLoads();
 await remove.click();
@@ -294,7 +294,7 @@ await dialog.waitFor({ state: "detached", timeout: 5000 });
     await r.waitFor({ timeout: 30_000 });
     await p.waitForTimeout(2000);
     await r.locator(".guide__card").click({ button: "right" });
-    await p.getByRole("menuitem", { name: "Fix guide…" }).click();
+    await p.getByRole("menuitem", { name: "Fix Guide…" }).click();
     const d = p.getByRole("dialog");
     await d.waitFor({ timeout: 5000 });
     await d.getByRole("option").first().waitFor({ timeout: 20_000 });

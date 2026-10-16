@@ -27,10 +27,10 @@ export function MvScoresFilter({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="mvfilter gap-0 p-0 sm:max-w-[420px]" aria-describedby={undefined}>
         <div className="mvfilter__head">
-          <DialogTitle className="text-[17px] font-semibold">Scores row</DialogTitle>
+          <DialogTitle className="text-[17px] font-semibold">Scores Row</DialogTitle>
         </div>
         <div className="mvfilter__list">
-          {sports.length === 0 && <p className="mvfilter__empty">No sports to choose from yet.</p>}
+          {sports.length === 0 && <p className="mvfilter__empty">No Sports to Choose from Yet</p>}
           {sports.map(({ sport, leagues }) => {
             const one = leagues.length === 1;
             const any = leagues.some((l) => shown(l.path));

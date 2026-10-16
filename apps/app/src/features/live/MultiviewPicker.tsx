@@ -205,7 +205,7 @@ export function MultiviewPicker({
           }),
         )
         .filter((r) => !q || (r.kind === "feed" && r.name.toLowerCase().includes(q)));
-      return feeds.length ? [{ value: `${gameLabel(feedsOf)}: pick a feed`, items: addableFirst(feeds) }] : [];
+      return feeds.length ? [{ value: `${gameLabel(feedsOf)}: Pick a Feed`, items: addableFirst(feeds) }] : [];
     }
     const gameRows = games
       .filter((g) => g.channels[0])
@@ -241,7 +241,7 @@ export function MultiviewPicker({
             key: "fill",
             kind: "fill",
             channelId: "",
-            label: "Fill with live games",
+            label: "Fill with Live Games",
             games: fill,
             // "The ones you follow first" only when one of them is.
             followed: fill.some((g) => isFollowed(g, follows)),
@@ -249,7 +249,7 @@ export function MultiviewPicker({
         ]
       : [];
     if (gameRows.length)
-      out.push({ value: "Live games", items: [...fillRow, ...addableFirst(gameRows)] });
+      out.push({ value: "Live Games", items: [...fillRow, ...addableFirst(gameRows)] });
     if (q) {
       const found = searchChannels(live, q).map(channelRow);
       if (found.length) out.push({ value: "Channels", items: addableFirst(found) });
@@ -300,7 +300,7 @@ export function MultiviewPicker({
     );
   };
 
-  const title = mode.kind === "replace" ? `Replace ${mode.name}` : "Add a channel";
+  const title = mode.kind === "replace" ? `Replace ${mode.name}` : "Add a Channel";
 
   return (
     <Dialog
@@ -345,8 +345,8 @@ export function MultiviewPicker({
             )}
             <Autocomplete.Input
               className="mvpick__input"
-              placeholder={feedsOf ? "Search this game's feeds" : "Search your channels"}
-              aria-label={feedsOf ? "Search this game's feeds" : "Search your channels"}
+              placeholder={feedsOf ? "Search This Game's Feeds" : "Search Your Channels"}
+              aria-label={feedsOf ? "Search This Game's Feeds" : "Search Your Channels"}
               onKeyDown={(e) => {
                 if (feedsOf && e.key === "Backspace" && !query) {
                   e.preventDefault();
@@ -364,7 +364,7 @@ export function MultiviewPicker({
             <Autocomplete.Empty>
               <p className="mvpick__empty">
                 {!live
-                  ? "Loading your channels…"
+                  ? "Loading Your Channels…"
                   : query.trim()
                     ? "Nothing matches that."
                     : "Type to find a channel."}
@@ -410,10 +410,10 @@ export function MultiviewPicker({
                           {taken && (
                             <span className="mvpick__ingrid">
                               <CheckIcon size={14} />
-                              In the grid
+                              In the Grid
                             </span>
                           )}
-                          {replaces && <span className="mvpick__replaces">Replaces a tile</span>}
+                          {replaces && <span className="mvpick__replaces">Replaces a Tile</span>}
                         </Autocomplete.Item>
                       );
                     }}
@@ -443,7 +443,7 @@ function ChannelRow({
   const sub = [
     channel.number != null ? String(channel.number) : null,
     on?.title ?? null,
-    on ? `until ${formatClock(on.end, clock)}` : null,
+    on ? `Until ${formatClock(on.end, clock)}` : null,
   ].filter(Boolean);
   return (
     <>
@@ -469,8 +469,8 @@ function FillRow({ row }: { row: Extract<Row, { kind: "fill" }> }) {
       <span className="mvpick__meta">
         <span className="mvpick__name">{row.label}</span>
         <span className="mvpick__sub">
-          Adds {n === 1 ? "1 game" : `${n} games`}
-          {row.followed ? ", the ones you follow first" : ""}
+          Adds {n === 1 ? "1 Game" : `${n} Games`}
+          {row.followed ? ", the Ones You Follow First" : ""}
         </span>
       </span>
     </>
@@ -484,7 +484,7 @@ function GameRow({ row }: { row: Extract<Row, { kind: "game" }> }) {
       <span className="mvpick__game">
         <Matchup game={row.game} />
       </span>
-      <span className="mvpick__sub mvpick__gamechan">{n === 1 ? "1 feed" : `${n} feeds`}</span>
+      <span className="mvpick__sub mvpick__gamechan">{n === 1 ? "1 Feed" : `${n} Feeds`}</span>
     </>
   );
 }
@@ -511,7 +511,7 @@ function FeedRow({
           </span>
         </span>
       )}
-      {row.best && <span className="mvpick__best">Best match</span>}
+      {row.best && <span className="mvpick__best">Best Match</span>}
     </>
   );
 }

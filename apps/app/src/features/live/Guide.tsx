@@ -863,7 +863,7 @@ export const Guide = memo(function Guide({
                       className="guide__cell-body"
                       style={{ left: laneX + 16 }}
                     >
-                      {guidePending ? "Loading guide…" : "No Information"}
+                      {guidePending ? "Loading Guide…" : "No Information"}
                     </span>
                   </button>
                 ) : (
@@ -930,7 +930,7 @@ export const Guide = memo(function Guide({
               }
             >
               <MultiviewIcon size={16} />
-              Add to multi-view
+              Add to Multi-view
             </ContextMenuItem>
             {menuFix && (
               <ContextMenuItem
@@ -939,7 +939,7 @@ export const Guide = memo(function Guide({
                 }}
               >
                 <GuideIcon size={16} />
-                Fix guide…
+                Fix Guide…
               </ContextMenuItem>
             )}
           </>
@@ -970,7 +970,7 @@ export const Guide = memo(function Guide({
 
       {/* Drag the channel-card column wider/narrower; double-click resets it
        * to the default width. */}
-      <Hint label="Drag to resize · double-click to reset">
+      <Hint label="Drag to Resize · Double-Click to Reset">
       <div
         className={"guide-resize" + (resizing ? " guide-resize--active" : "")}
         role="separator"

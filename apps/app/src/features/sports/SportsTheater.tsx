@@ -690,11 +690,11 @@ export function SportsTheater({
           * control that nearly matched would be worse than reusing the
           * one people already know. */}
         <div className="sportstheater__fold">
-          <Hint label={folded ? "Expand channels" : "Collapse channels"} side="right">
+          <Hint label={folded ? "Expand Channels" : "Collapse Channels"} side="right">
             <Button variant="ghost" size="icon"
                         type="button"
                         className="live-collapse"
-                        aria-label={folded ? "Expand channels" : "Collapse channels"}
+                        aria-label={folded ? "Expand Channels" : "Collapse Channels"}
                         aria-expanded={!folded}
                         onClick={toggleFold}
                       >
@@ -764,7 +764,7 @@ export function SportsTheater({
                     aria-controls="sportstheater-guesses"
                     onClick={() => setGuessesFor(guessesOpen ? null : game.id)}
                   >
-                    <span className="sportstheater__guessname">Less likely</span>
+                    <span className="sportstheater__guessname">Less Likely</span>
                     <span className="sportstheater__railcount">{guesses.length}</span>
                     <ChevronIcon
                       className={"sportstheater__caret" + (guessesOpen ? "" : " sportstheater__caret--shut")}
@@ -783,10 +783,10 @@ export function SportsTheater({
             <p className="sportstheater__empty">
               {/* Same three states as the card: unknown is not none. */}
               {game.channelsPending
-                ? "Checking your channels\u2026"
+                ? "Checking Your Channels\u2026"
                 : game.broadcasts.length > 0
                   ? `On ${game.broadcasts.join(", ")}. None of your channels carry it.`
-                  : "No broadcast listed for this game."}
+                  : "No Broadcast Listed for This Game"}
             </p>
           )}
         </nav>
@@ -834,7 +834,7 @@ export function SportsTheater({
           * it: the picture is a native window a page element can't cover.
           * Gone when folded or fullscreen, where there is no edge to drag. */}
         {!folded && !fullscreen && (
-          <Hint label="Drag to resize · double-click to reset" side="right">
+          <Hint label="Drag to Resize · Double-Click to Reset" side="right">
             <div
               className={
                 "sportstheater__edge" + (resizing ? " sportstheater__edge--active" : "")
@@ -938,7 +938,7 @@ function Rail({
       <Lean className="sportsrail__tilt on-picture">
         <ChannelLogo name={channel.name} logo={channel.logo} size={34} lazy className="sportsrail__logo" />
         <span className="sportsrail__name">{channel.name}</span>
-        {wrong && <span className="sportsrail__wrong">Marked wrong</span>}
+        {wrong && <span className="sportsrail__wrong">Marked Wrong</span>}
         {channel.quality && (
           <span className="sportsrail__badge">{channel.quality}</span>
         )}
@@ -960,7 +960,7 @@ function Rail({
         {channel.name}
       </ContextMenuLabel>
       <ContextMenuItem disabled={wrong} onSelect={() => onWrong(channel)}>
-        {wrong ? "Marked wrong for this game" : "Wrong channel for this game"}
+        {wrong ? "Marked Wrong for This Game" : "Wrong Channel for This Game"}
       </ContextMenuItem>
     </ContextMenuContent>
     </ContextMenu>

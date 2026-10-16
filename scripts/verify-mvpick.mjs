@@ -193,7 +193,7 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   const rows = await page.locator(".mvpick__row").allInnerTexts();
   check(
     "typing searches, each row with its number, what is on and until when",
-    rows.length === 3 && /^Fake ESPN 4K[\s\S]*1 · ESPN Hour 2 · until /.test(rows[0]),
+    rows.length === 3 && /^Fake ESPN 4K[\s\S]*1 · ESPN Hour 2 · Until /.test(rows[0]),
     JSON.stringify(rows.map((r) => r.replace(/\n/g, " | "))),
   );
   // The palette's look (v0.10.26, Adam: "make the multiview ctrlk similar
@@ -290,7 +290,7 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
     JSON.stringify(order[order.length - 1]) === JSON.stringify([ESPN, true, false]) &&
       order[0][1] === false &&
       order[0][2] === true &&
-      (await page.locator(".mvpick__ingrid").first().textContent()) === "In the grid",
+      (await page.locator(".mvpick__ingrid").first().textContent()) === "In the Grid",
     JSON.stringify(order),
   );
   await input(page).fill("2");
@@ -307,7 +307,7 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   // Sound to Sky, then replace Sky: same place, same sound, closed first.
   const sky = tile(page, SKY);
   await sky.hover();
-  await sky.getByRole("button", { name: "Sound here" }).click();
+  await sky.getByRole("button", { name: "Sound Here" }).click();
   // Two open in Focus: the sound moved Sky into the big place, out from
   // under the pointer, so it is pointed at again where it is now.
   await page.waitForTimeout(500);
@@ -416,8 +416,8 @@ const tile = (page, name) => page.locator(`.mvtile[aria-label^="${name},"]`);
   const tip = await page.locator("[role='tooltip']").first().textContent({ timeout: 3000 }).catch(() => "");
   check(
     "a stream elsewhere counts once the panel's count settles: on the meter, and on Add",
-    early === "2 of 3 streams in use" &&
-      meter === "3 of 3 streams in use · 1 elsewhere" &&
+    early === "2 of 3 Streams in Use" &&
+      meter === "3 of 3 Streams in Use · 1 Elsewhere" &&
       hatched === 1 &&
       addOff === "true" &&
       tip.includes("Your line allows 3, and 1 is in use elsewhere"),

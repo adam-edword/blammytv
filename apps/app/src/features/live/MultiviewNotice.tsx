@@ -62,26 +62,26 @@ export function MultiviewNotice({
           Multi-view
         </DialogTitle>
         <DialogDescription className="mvnotice__sub text-[13px] text-(--text-muted)">
-          Plays in your browser, not mpv
+          Plays in Your Browser, Not mpv
         </DialogDescription>
 
         <ul className="mvnotice__list">
-          <Point icon={<TvIcon size={18} />} title="Some streams play differently">
+          <Point icon={<TvIcon size={18} />} title="Some streams play differently.">
             HEVC channels are converted first, so they take a moment longer to
             start, and some audio formats can come up silent.
           </Point>
-          <Point icon={<StatsIcon size={18} />} title="Every tile is a connection">
+          <Point icon={<StatsIcon size={18} />} title="Every tile is a connection.">
             {capLine(conns)}
           </Point>
-          <Point icon={<VolumeIcon size={18} />} title="One tile has sound">
+          <Point icon={<VolumeIcon size={18} />} title="One tile has sound.">
             Click any tile to move the audio to it.
           </Point>
         </ul>
 
         <Button type="button" size="lg" className="mvnotice__accept w-full" onClick={accept} autoFocus>
-          Got it
+          Got It
         </Button>
-        <p className="mvnotice__once">Shown once.</p>
+        <p className="mvnotice__once">Shown Once</p>
       </DialogContent>
     </Dialog>
   );

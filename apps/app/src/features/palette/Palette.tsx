@@ -189,12 +189,12 @@ export function Palette({
         : []),
       ...(hasStream
         ? [
-            go("Stream", "Movies and shows", <StreamIcon size={16} />, { kind: "stream", tab: "home" }),
-            go("Discover", "Movies and shows", <DiscoverIcon size={16} />, { kind: "stream", tab: "discover" }),
-            go("Library", "Movies and shows", <LibraryIcon size={16} />, { kind: "stream", tab: "mylist" }),
+            go("Stream", "Movies and Shows", <StreamIcon size={16} />, { kind: "stream", tab: "home" }),
+            go("Discover", "Movies and Shows", <DiscoverIcon size={16} />, { kind: "stream", tab: "discover" }),
+            go("Library", "Movies and Shows", <LibraryIcon size={16} />, { kind: "stream", tab: "mylist" }),
           ]
         : []),
-      go("Settings", "Where you left off", <SettingsIcon size={16} />, { kind: "settings" }),
+      go("Settings", "Where You Left Off", <SettingsIcon size={16} />, { kind: "settings" }),
       // One place per page, in the rail's order and in the rail's words.
       ...SETTINGS_PAGES.map((p) =>
         go(p.label, "Settings", <SettingsIcon size={16} />, { kind: "settings", tab: p.key }),
@@ -218,7 +218,7 @@ export function Palette({
           .map((c): Row => ({ key: `c:${c.id}`, kind: "channel", label: c.name, channel: c }));
         if (recent.length) out.push({ value: "Recent", items: recent });
       }
-      out.push({ value: "Go to", items: places });
+      out.push({ value: "Go To", items: places });
       return out;
     }
 
@@ -239,7 +239,7 @@ export function Palette({
         if (r.title.includes(q))
           later.push({ key: `p:${r.id}:${r.t}`, kind: "later", label: r.p.title, channel: r.channel, prog: r.p });
       }
-      if (later.length) out.push({ value: "On later", items: later });
+      if (later.length) out.push({ value: "On Later", items: later });
     }
 
     if (hasStream) {
@@ -287,13 +287,13 @@ export function Palette({
         })
         .slice(0, TITLES)
         .map((it): Row => ({ key: `t:${it.id}`, kind: "title", label: it.title, item: it, saved: saved.has(it.id) }));
-      if (hits.length) out.push({ value: "Films and series", items: hits });
+      if (hits.length) out.push({ value: "Films and Series", items: hits });
     }
 
     const go = places.filter(
       (r) => r.label.toLowerCase().includes(q) || (r.kind === "go" && r.sub.toLowerCase().includes(q)),
     );
-    if (go.length) out.push({ value: "Go to", items: go });
+    if (go.length) out.push({ value: "Go To", items: go });
 
     // Settings' own rows, after the places: "subtitle" finds Preferred
     // Language and Enter opens Settings on it. Only once something is typed;
@@ -350,7 +350,7 @@ export function Palette({
             <SearchIcon size={16} className="shrink-0 opacity-50" aria-hidden />
             <Autocomplete.Input
               className="mvpick__input"
-              placeholder="Channels, films and series, places"
+              placeholder="Channels, Films and Series, Places"
               aria-label="Search BlammyTV"
             />
           </div>
@@ -401,7 +401,7 @@ function PaletteRow({
     const sub = [
       c.number != null ? String(c.number) : null,
       on?.title ?? null,
-      on ? `until ${formatClock(on.end, clock)}` : null,
+      on ? `Until ${formatClock(on.end, clock)}` : null,
     ].filter(Boolean);
     return (
       <>
@@ -439,7 +439,7 @@ function PaletteRow({
       it.kind === "series" ? "Series" : "Movie",
       it.year ? String(it.year) : null,
       it.runtimeMin ? `${it.runtimeMin} min` : null,
-      row.saved ? "in your Library" : null,
+      row.saved ? "In Your Library" : null,
     ].filter(Boolean);
     return (
       <>

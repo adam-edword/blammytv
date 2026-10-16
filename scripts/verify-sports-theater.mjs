@@ -155,14 +155,14 @@ async function open(pos, fixture, win) {
   // live flag were lost anywhere the VOD-only controls would appear.
   check(
     "LIVE control set, not VOD",
-    (await page.getByLabel("Jump to live").count()) === 1 &&
+    (await page.getByLabel("Jump to Live").count()) === 1 &&
       (await page.getByLabel("Sources").count()) === 0 &&
-      (await page.getByLabel("Next episode").count()) === 0,
+      (await page.getByLabel("Next Episode").count()) === 0,
   );
   // Plan 017, P6b: the game joins multi-view from here, as the Guide's does.
   check(
     "and the top right offers Watch in multi-view",
-    (await page.locator(".theater-topright").getByLabel("Watch in multi-view").count()) === 1,
+    (await page.locator(".theater-topright").getByLabel("Watch in Multi-view").count()) === 1,
   );
 
   const live = await page.locator(".theater-live").getAttribute("class");
@@ -176,7 +176,7 @@ async function open(pos, fixture, win) {
   await page.mouse.move(800, 450);
   await page.mouse.move(802, 452);
   await page.waitForTimeout(400);
-  await page.getByLabel("Pop out").click();
+  await page.getByLabel("Pop Out").click();
   await page.waitForTimeout(300);
   const popout = await page.evaluate(
     () => window.__tauriCalls.filter((c) => c[0] === "popout_open").map((c) => c[1]),
@@ -291,7 +291,7 @@ async function open(pos, fixture, win) {
     !!document.querySelector(".sportstheater--full")));
   await wake();
   // Two of them in fullscreen (the corner control and the transport's).
-  await page.getByLabel("Exit fullscreen").first().click();
+  await page.getByLabel("Exit Fullscreen").first().click();
   await page.waitForTimeout(500);
   // BACK MEANS BACK. It used to stop the feed and keep you here, which left
   // a dead black stage and no chrome, because the chrome is what carried
@@ -554,7 +554,7 @@ async function open(pos, fixture, win) {
     "a sure channel shows no number, and the guess folds under Less likely with its count",
     shut.length === 2 &&
       /ESPN/.test(shut[0].name) && !shut[0].guess && shut[0].odds === null && shut[0].said &&
-      shut[1].fold === "Less likely1" &&
+      shut[1].fold === "Less Likely1" &&
       (await fold.getAttribute("aria-expanded")) === "false",
     JSON.stringify(shut),
   );
@@ -713,7 +713,7 @@ async function open(pos, fixture, win) {
 // A league whose schedule lists nothing falls back to the curated map's
 // networks (useGames presumedMatches), and the card says "Usually found on
 // US: CBS Sports Network". The theater's rail asked railFor with the
-// listing alone, so it said "No broadcast listed for this game." and played
+// listing alone, so it said "No Broadcast Listed for This Game" and played
 // nothing. fake-m3u has no CBS Sports Network, so this block's pages get a
 // playlist of their own with one.
 //
@@ -761,7 +761,7 @@ async function open(pos, fixture, win) {
       () =>
         document.querySelector(".sportstheater__rail .sportsrail") ||
         (document.querySelector(".sportstheater__empty") &&
-          !/Checking your channels/.test(document.querySelector(".sportstheater__empty").textContent)),
+          !/Checking Your Channels/.test(document.querySelector(".sportstheater__empty").textContent)),
       undefined,
       { timeout: 30_000 },
     );
@@ -799,7 +799,7 @@ async function open(pos, fixture, win) {
   const unknown = await look({ ...qualifier, id: "q2", leagueKey: "soccer/swe.1" });
   check(
     "a league the map doesn't know keeps the empty line, and plays nothing",
-    unknown.empty.join("") === "No broadcast listed for this game." &&
+    unknown.empty.join("") === "No Broadcast Listed for This Game" &&
       unknown.rows.length === 0 &&
       unknown.opened.length === 0,
     JSON.stringify(unknown),

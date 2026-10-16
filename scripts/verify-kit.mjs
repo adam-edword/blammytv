@@ -895,7 +895,7 @@ const dimmedText = () =>
   const fav = await readState(".guide-empty");
   check(
     "the Guide's empty Favorites is the same card: icon, headline in the text colour, the why muted by colour",
-    fav?.isState && fav.icon && fav.title === "Nothing starred yet" && fav.weight === "650" && fav.titleInk === text && fav.subInk === muted && fav.faded === 0,
+    fav?.isState && fav.icon && fav.title === "Nothing Starred Yet" && fav.weight === "650" && fav.titleInk === text && fav.subInk === muted && fav.faded === 0,
     JSON.stringify(fav),
   );
   await page.getByRole("tab", { name: "Playlist" }).click();
@@ -966,12 +966,12 @@ const dimmedText = () =>
   })).catch(() => null);
   check(
     "Stream with no addon says so as a StateCard",
-    home?.state && home.icon && home.title === "No movies or shows yet",
+    home?.state && home.icon && home.title === "No Movies or Shows Yet",
     JSON.stringify(home),
   );
   await goTo(p2, "discover");
   const disc = await p2.locator(".discover--empty .state").evaluate((el) => el.querySelector(".state__title")?.textContent).catch(() => null);
-  check("  and so does Discover", disc === "Nothing to discover yet", String(disc));
+  check("  and so does Discover", disc === "Nothing to Discover Yet", String(disc));
   await bare.close();
 
   // None of the old layouts is left to drift back.
@@ -1154,7 +1154,7 @@ const dimmedText = () =>
     col.rows.every((r) => r.lines.length >= 2 && r.lines[0].w === "600" && r.lines.slice(1).every((l) => l.w !== "600" && l.ink !== r.lines[0].ink)),
     JSON.stringify(col.rows[0].lines),
   );
-  check("  and the keys and the count along the bottom", /move.*play.*2 sources/.test(col.foot ?? ""), String(col.foot));
+  check("  and the keys and the count along the bottom", /Move.*Play.*2 Sources/.test(col.foot ?? ""), String(col.foot));
   // One tab stop; the arrows move through it.
   check("the list is one tab stop", col.rows.filter((r) => r.tab === 0).length === 1, col.rows.map((r) => r.tab).join());
   await page.locator(".vod-source").first().focus();
@@ -1330,7 +1330,7 @@ const dimmedText = () =>
   check("  and inside a row, where a list that scrolls would clip it", ok(row, "-2px"), JSON.stringify(row));
   const keys = await page.evaluate(() => [...document.querySelectorAll(".srclist__foot .kbd")].map((k) => k.textContent));
   const rawKbd = ["features/live/MultiviewPicker.tsx", "features/live/MultiviewGrid.tsx"].filter((f) =>
-    /<kbd>[^<]{1,3}<\/kbd>(?![^\n]*to reset)/.test(readFileSync(join(SRC, f), "utf8")),
+    /<kbd>[^<]{1,3}<\/kbd>(?![^\n]*to Reset)/.test(readFileSync(join(SRC, f), "utf8")),
   );
   check("keys are one chip: the source column's footer and multi-view's", keys.join(" ") === "↑ ↓ ↵" && rawKbd.length === 0, `${keys.join(" ")} ${rawKbd.join(" ")}`);
   await page.locator(".vod-back").click();
@@ -1418,7 +1418,7 @@ const dimmedText = () =>
   await page.keyboard.type("espn");
   await page.waitForTimeout(400);
   const secs = await page.evaluate(() => [...document.querySelectorAll(".palette .mvpick__sec")].map((e) => e.textContent));
-  check("  it finds channels and what is on later, under their headings", secs.includes("Channels") && secs.includes("On later"), secs.join(", "));
+  check("  it finds channels and what is on later, under their headings", secs.includes("Channels") && secs.includes("On Later"), secs.join(", "));
   // shadcn's stock Command (v0.10.25; Adam: "i do want it to look like
   // shadcn's stock look"): the dialog rounded-xl on the popover, 448 wide;
   // the field h-8 rounded-lg; headings text-xs font-medium muted, not an
@@ -1469,7 +1469,7 @@ const dimmedText = () =>
   await page.keyboard.press("Enter");
   const page1 = await page.locator(".vod-detail").waitFor({ timeout: 10_000 }).then(() => true, () => false);
   const title = await page.evaluate(() => document.querySelector(".vod-detail__title")?.textContent ?? document.querySelector(".vod-detail__logo")?.getAttribute("alt"));
-  check("  and a film opens its page on Stream", films.includes("Films and series") && page1 && title === "Fake Movie One", `${films.join(", ")} → ${title}`);
+  check("  and a film opens its page on Stream", films.includes("Films and Series") && page1 && title === "Fake Movie One", `${films.join(", ")} → ${title}`);
   await page.locator(".vod-back").click();
   await page.waitForTimeout(1500);
   const home = await page.evaluate(() => !document.querySelector(".vod-detail") && !!document.querySelector(".media-row, .shero, .stream"));
@@ -1747,7 +1747,7 @@ const dimmedText = () =>
   }));
   check(
     "  a draw opened with a click puts focus on Back without popping its label",
-    opened.focus === "Back to the board" && opened.bubbles.length === 0,
+    opened.focus === "Back to the Board" && opened.bubbles.length === 0,
     JSON.stringify(opened),
   );
   const onAll = () =>

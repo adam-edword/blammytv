@@ -942,7 +942,7 @@ const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\
   await goTo(p, "mylist");
   await p.locator('.library__card[data-hint="Library"]').first().click({ timeout: 15_000 });
   const before = userData().length;
-  const clear = p.getByRole("button", { name: "Clear history", exact: true });
+  const clear = p.getByRole("button", { name: "Clear History", exact: true });
   await clear.click();
   await p.getByRole("button", { name: "Click again to confirm" }).click();
   await waitFor(p, async () => userData().length > before, 8000);
@@ -963,7 +963,7 @@ const userData = () => calls.filter((c) => c.method === "POST" && /^\/UserItems\
   await goTo(p, "mylist");
   await p.locator('.library__card[data-hint="Library"]').first().click({ timeout: 15_000 });
   const before = userData().length;
-  await p.getByRole("button", { name: "Clear history", exact: true }).click();
+  await p.getByRole("button", { name: "Clear History", exact: true }).click();
   await p.getByRole("button", { name: "Click again to confirm" }).click();
   await waitFor(p, async () => ((await storeOf(p, "watching")) ?? []).length === 0, 8000);
   await p.waitForTimeout(1200);

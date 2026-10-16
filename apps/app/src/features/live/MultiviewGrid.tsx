@@ -578,9 +578,9 @@ export function MultiviewGrid({
               <span className="place__plus" aria-hidden>
                 <PlusIcon size={20} />
               </span>
-              <span className="place__title">Add a channel</span>
+              <span className="place__title">Add a Channel</span>
               <span className="place__sub">
-                Or press <Kbd>A</Kbd>
+                Or Press <Kbd>A</Kbd>
               </span>
             </button>
           ))}
@@ -610,15 +610,15 @@ export function MultiviewGrid({
               aria-hidden
               style={{ left: Math.round(seam.x), top: Math.max(4, Math.round(seam.top) - 42) }}
             >
-              Big tile <b>{Math.round(seam.split * 100)}%</b> ·{" "}
+              Big Tile <b>{Math.round(seam.split * 100)}%</b> ·{" "}
               {/* The reset for the hand that moved it: after [ or ], \ does
                 * it, and a double-click was the wrong advice (U13). */}
               {lastInputWasKey() ? (
                 <>
-                  <kbd>\</kbd> to reset
+                  <kbd>\</kbd> to Reset
                 </>
               ) : (
-                "double-click to reset"
+                "Double-Click to Reset"
               )}
             </div>
           </>

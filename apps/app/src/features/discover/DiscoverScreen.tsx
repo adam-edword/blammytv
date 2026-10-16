@@ -516,14 +516,14 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         {cfg.message === "no addon configured" ? (
           <StateCard
             icon={<DiscoverIcon size={28} />}
-            title="Nothing to discover yet"
+            title="Nothing to Discover Yet"
             sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream."
           />
         ) : (
           <StateCard
             role="alert"
             icon={<WarnIcon size={28} />}
-            title="Couldn’t load Discover"
+            title="Couldn’t Load Discover"
             sub={cfg.message}
             actions={
               <Button
@@ -531,7 +531,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
                 type="button"
                 onClick={() => setCfgTick((t) => t + 1)}
               >
-                Try again
+                Try Again
               </Button>
             }
           />
@@ -557,21 +557,21 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
             <StateCard
               role="alert"
               icon={<WarnIcon size={28} />}
-              title="Search didn’t go through"
+              title="Search didn’t go through."
               actions={
                 <Button
                   variant="default"
                   type="button"
                   onClick={() => setSearchTick((t) => t + 1)}
                 >
-                  Try again
+                  Try Again
                 </Button>
               }
             />
           ) : results.length === 0 ? (
             <StateCard
               icon={<SearchIcon size={28} />}
-              title={<>No results for “{q}”</>}
+              title={<>No Results for “{q}”</>}
             />
           ) : (
             <div className="disc-grid">
@@ -649,7 +649,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           <StateCard
             role="alert"
             icon={<WarnIcon size={28} />}
-            title="Discover didn’t load"
+            title="Discover didn’t load."
             sub="The catalog never answered."
             actions={
               <Button
@@ -657,14 +657,14 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
                 type="button"
                 onClick={() => void loadMore(true)}
               >
-                Try again
+                Try Again
               </Button>
             }
           />
         ) : items.length === 0 ? (
           <StateCard
             icon={<DiscoverIcon size={28} />}
-            title="No titles"
+            title="No Titles"
           />
         ) : (
           <div className="disc-grid">
@@ -680,7 +680,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         )}
         {phase === "more" && (
           <p className="discover__note" role="status">
-            Loading more…
+            Loading More…
           </p>
         )}
         <div ref={sentinelRef} className="discover__sentinel" aria-hidden />

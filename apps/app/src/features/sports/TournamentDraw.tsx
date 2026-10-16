@@ -173,7 +173,7 @@ export function TournamentDraw({
         * lines. A wrapper has no such number in it. */}
       <div className="tourndraw__head">
         <header className="tourndraw__top">
-          <BackButton ref={back} label="Back to the board" className="tourndraw__back" onClick={onClose} />
+          <BackButton ref={back} label="Back to the Board" className="tourndraw__back" onClick={onClose} />
           <div className="tourndraw__titles">
             <h2 className="tourndraw__title">{event.title}</h2>
             <p className="tourndraw__where">
@@ -252,7 +252,7 @@ export function TournamentDraw({
       ))}
 
       {shown.length === 0 && (
-        <StateCard icon={<LeaguesIcon size={28} />} title="Nothing in this draw today" />
+        <StateCard icon={<LeaguesIcon size={28} />} title="Nothing in This Draw Today" />
       )}
     </div>
   );

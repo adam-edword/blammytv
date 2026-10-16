@@ -7,7 +7,7 @@
 // - the tab asks ESPN nothing until the picker opens or a tile is a game;
 // - then it asks the leagues you follow, and the picker lists their live
 //   games on your channels;
-// - "Fill with live games" is the first row, adds as many as the line has
+// - "Fill with Live Games" is the first row, adds as many as the line has
 //   room for, and puts the game you follow first, and leaves a game that is
 //   already on the grid by another of its feeds alone;
 // - a game tile carries its score and clock, in the caption and under the
@@ -197,13 +197,13 @@ const rows = await page.locator(".mvpick__row").allInnerTexts();
 check(
   "opening the picker asks the leagues you follow, and lists their live games on your channels",
   JSON.stringify(leagues) === JSON.stringify(["football/nfl", "soccer/eng.1"]) &&
-    rows.some((r) => r.includes("Bills") && r.includes("1 feed")) &&
-    rows.some((r) => r.includes("Chelsea") && r.includes("1 feed")),
+    rows.some((r) => r.includes("Bills") && r.includes("1 Feed")) &&
+    rows.some((r) => r.includes("Chelsea") && r.includes("1 Feed")),
   JSON.stringify({ leagues, rows: rows.map((r) => r.replace(/\n/g, " | ")) }),
 );
 check(
   "Fill with live games is the first row, and says what it adds",
-  /^Fill with live games[\s\S]*Adds 2 games, the ones you follow first/.test(rows[0] ?? ""),
+  /^Fill with Live Games[\s\S]*Adds 2 Games, the Ones You Follow First/.test(rows[0] ?? ""),
   (rows[0] ?? "").replace(/\n/g, " | "),
 );
 // In the palette's look (v0.10.26), a game keeps the Sports matchup (Adam:
@@ -287,7 +287,7 @@ await bare.waitForFunction(() => document.querySelectorAll(".mvpick__game").leng
 const bareFill = (await bare.locator(".mvpick__row").first().innerText().catch(() => "")).replace(/\n/g, " | ");
 check(
   "following nothing, Fill offers both games and does not say it put yours first",
-  /^Fill with live games \| Adds 2 games$/.test(bareFill),
+  /^Fill with Live Games \| Adds 2 Games$/.test(bareFill),
   bareFill,
 );
 
@@ -326,7 +326,7 @@ check(
   await two.keyboard.press("a");
   await two.waitForFunction(() => document.querySelectorAll(".mvpick__game").length > 1, null, { timeout: 15_000 }).catch(() => {});
   const gameRow = two.locator(".mvpick__row", { hasText: "Bills" });
-  check("a game on two networks says it has 2 feeds", (await gameRow.innerText().catch(() => "")).includes("2 feeds"));
+  check("a game on two networks says it has 2 feeds", (await gameRow.innerText().catch(() => "")).includes("2 Feeds"));
 
   const feeds = async () => ({
     sec: (await two.locator(".mvpick__sec").allInnerTexts()).join(" / "),
@@ -341,10 +341,10 @@ check(
     "taking the game opens its feeds, the best match first and marked, and adds nothing yet",
     /bills at chiefs: pick a feed/i.test(f.sec) &&
       f.rows.length === 2 &&
-      /Fake ESPN 4K.*Best match/.test(f.rows[0]) &&
+      /Fake ESPN 4K.*Best Match/.test(f.rows[0]) &&
       /Fake Sky Sports FHD/.test(f.rows[1]) &&
-      !/Best match/.test(f.rows[1]) &&
-      f.input === "Search this game's feeds" &&
+      !/Best Match/.test(f.rows[1]) &&
+      f.input === "Search This Game's Feeds" &&
       (await two.locator(".mvtile:not(.mvtile--empty)").count()) === 0,
     JSON.stringify(f),
   );
@@ -354,7 +354,7 @@ check(
   const esc = await feeds();
   check(
     "Escape goes back to the list, and the picker stays open",
-    (await two.locator(".mvpick__input").count()) === 1 && esc.rows.some((r) => /Bills.*2 feeds/.test(r)),
+    (await two.locator(".mvpick__input").count()) === 1 && esc.rows.some((r) => /Bills.*2 Feeds/.test(r)),
     JSON.stringify(esc),
   );
   await gameRow.click();
@@ -362,7 +362,7 @@ check(
   await two.locator(".mvpick__input").press("Backspace");
   await two.waitForTimeout(250);
   const bs = await feeds();
-  check("so does Backspace in the empty search", bs.rows.some((r) => /Bills.*2 feeds/.test(r)), JSON.stringify(bs));
+  check("so does Backspace in the empty search", bs.rows.some((r) => /Bills.*2 Feeds/.test(r)), JSON.stringify(bs));
 
   // The second feed, which the old picker could never take.
   await gameRow.click();
@@ -381,8 +381,8 @@ check(
   check(
     "the feed you pick is the one the game's tile plays",
     JSON.stringify(added) === JSON.stringify(["Bills at Chiefs"]) &&
-      which.some((r) => /Fake Sky Sports FHD.*In the grid/.test(r)) &&
-      which.some((r) => /Fake ESPN 4K/.test(r) && !/In the grid/.test(r)),
+      which.some((r) => /Fake Sky Sports FHD.*In the Grid/.test(r)) &&
+      which.some((r) => /Fake ESPN 4K/.test(r) && !/In the Grid/.test(r)),
     JSON.stringify({ added, which }),
   );
   await two.locator(".mvpick__input").fill("");
@@ -391,12 +391,12 @@ check(
   const nflRow = await two.locator(".mvpick__row", { hasText: "Bills" }).innerText().catch(() => "");
   check(
     "a game is taken only once all its feeds are: Arsenal's one is, the Bills' other is free",
-    /In the grid/.test(epl) && !/In the grid/.test(nflRow),
+    /In the Grid/.test(epl) && !/In the Grid/.test(nflRow),
     JSON.stringify({ epl, nflRow }),
   );
   // And Fill leaves both alone (MV2): the Bills are on the grid by their
   // second feed, which used to leave their first one for Fill to add again.
-  const fillRows = await two.locator(".mvpick__row", { hasText: "Fill with live games" }).count();
+  const fillRows = await two.locator(".mvpick__row", { hasText: "Fill with Live Games" }).count();
   check(
     "Fill with live games does not offer a game that is already on the grid by another feed",
     fillRows === 0,
@@ -425,9 +425,9 @@ check(
   check(
     "R on a game's tile swaps it to another feed: the free one first, Enter takes it",
     /Fake ESPN 4K/.test(swap.rows[0] ?? "") &&
-      /Fake Sky Sports FHD.*In the grid/.test(swap.rows[1] ?? "") &&
-      after.some((r) => /Fake ESPN 4K.*In the grid/.test(r)) &&
-      after.some((r) => /Fake Sky Sports FHD/.test(r) && !/In the grid/.test(r)),
+      /Fake Sky Sports FHD.*In the Grid/.test(swap.rows[1] ?? "") &&
+      after.some((r) => /Fake ESPN 4K.*In the Grid/.test(r)) &&
+      after.some((r) => /Fake Sky Sports FHD/.test(r) && !/In the Grid/.test(r)),
     JSON.stringify({ swap: swap.rows, after }),
   );
 }

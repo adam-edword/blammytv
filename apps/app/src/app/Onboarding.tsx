@@ -717,7 +717,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
           style={idx(1)}
           onClick={advance}
         >
-          Get started
+          Get Started
         </Button>
       </>
     ) : step === STEP.signIn ? (
@@ -725,7 +725,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
         signedIn ? (
           <>
             <h1 className="onb-title" style={idx(0)}>
-              Sign in to AIOStreams
+              Sign In to AIOStreams
             </h1>
             <p className="onb-hint onb-hint--ok" role="status" style={idx(1)}>
               {signedIn.name ? `Signed in as ${signedIn.name}.` : "Signed in."}
@@ -739,7 +739,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
         ) : quick ? (
           <>
             <h1 className="onb-title" style={idx(0)}>
-              Sign in to AIOStreams
+              Sign In to AIOStreams
             </h1>
             <div style={idx(1)}>
               <AioCode
@@ -764,7 +764,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
         ) : (
           <>
             <h1 className="onb-title" style={idx(0)}>
-              Sign in to AIOStreams
+              Sign In to AIOStreams
             </h1>
             <p className="onb-sub" style={idx(1)}>
               Type your AIOStreams address and approve the code it gives you. No manifest URL to
@@ -808,7 +808,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
                 disabled={signInStarting}
                 onClick={ghostSignIn}
               >
-                I’ll do this later
+                I’ll Do This Later
               </Button>
               <Button
                 variant="ghost"
@@ -818,7 +818,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
                 disabled={signInStarting}
                 onClick={() => setUseManifest(true)}
               >
-                Use a manifest URL instead
+                Use a Manifest URL Instead
               </Button>
             </div>
           </>
@@ -826,7 +826,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
       ) : (
         <>
           <h1 className="onb-title" style={idx(0)}>
-            Bring your streams
+            Bring Your Streams
           </h1>
           <p className="onb-sub" style={idx(1)}>
             Paste your AIOStreams manifest URL. Stream&rsquo;s movies and series
@@ -881,7 +881,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
               disabled={streamsChecking}
               onClick={ghostStreams}
             >
-              {streamsFailed ? "Continue anyway" : "I’ll do this later"}
+              {streamsFailed ? "Continue Anyway" : "I’ll Do This Later"}
             </Button>
             {canSignIn && (
               <Button
@@ -892,7 +892,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
                 disabled={streamsChecking}
                 onClick={() => setUseManifest(false)}
               >
-                Sign in with an address instead
+                Sign In with an Address Instead
               </Button>
             )}
           </div>
@@ -1037,14 +1037,14 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
             disabled={tvChecking}
             onClick={ghostTv}
           >
-            {tvFailed ? "Add anyway" : "I’ll do this later"}
+            {tvFailed ? "Add Anyway" : "I’ll Do This Later"}
           </Button>
         </div>
       </>
     ) : step === STEP.follow ? (
       <>
         <h1 className="onb-title" style={idx(0)}>
-          Follow what you watch
+          Follow What You Watch
         </h1>
         <p className="onb-sub" style={idx(1)}>
           Trakt and MyAnimeList keep track of what you watch here, and bring
@@ -1069,7 +1069,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     ) : step === STEP.look ? (
       <>
         <h1 className="onb-title" style={idx(0)}>
-          Accent and clock
+          Accent and Clock
         </h1>
         {/* The accent picker is back (v0.9.97). It left in v0.9.58 because
             the Themes panel held the only picker, and a colour chosen here
@@ -1118,7 +1118,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     ) : step === STEP.tour ? (
       <>
         <h1 className="onb-title" style={idx(0)}>
-          A few things to find
+          A Few Things to Find
         </h1>
         <ul className="onb-tour" style={idx(1)}>
           {TOUR.map((t) => (
@@ -1140,7 +1140,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     ) : (
       <>
         <h1 className="onb-title" style={idx(0)}>
-          Done.
+          Done
         </h1>
         {/* A nav map stood here until v0.9.98: a "Live TV" and a "Stream"
             pill, drawn from the 0.9.0 header. The header became one flat
@@ -1202,7 +1202,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
       )}
       {!finale && step < LAST_STEP && (
         <Button variant="ghost" size="sm" type="button" className="onb-skip" onClick={finish}>
-          Skip setup
+          Skip Setup
         </Button>
       )}
     </div>

@@ -233,14 +233,14 @@ async function endEpisode(page, dur = DUR) {
     up === 1 && count === 0 && !/Playing in/i.test(text) && /Up next/i.test(text) && /S1 · E2/.test(text),
     JSON.stringify({ up, count, text }),
   );
-  check("  and offers Play now and Cancel as before", buttons.join() === "Play now,Cancel", JSON.stringify(buttons));
+  check("  and offers Play now and Cancel as before", buttons.join() === "Play Now,Cancel", JSON.stringify(buttons));
   await pump(page, 30_000);
   check(
     "  30 seconds later the next episode has not been played, and the card waits",
     (await rolled(page, "tt200001:1:2")) === 0 && (await cardUp(page)) === 1 && (await opened(page)).length === 1,
     JSON.stringify({ asked: await rolled(page, "tt200001:1:2"), up: await cardUp(page) }),
   );
-  await page.getByRole("button", { name: "Play now", exact: true }).click();
+  await page.getByRole("button", { name: "Play Now", exact: true }).click();
   const got = await pumpUntil(page, () => window.__tauriCalls.some((c) => c[0] === "inv_open" && c[1].url.includes("tt200001:1:2-")), null, { max: 5000 });
   check("  and Play now plays it", got);
   await ctx.close();
@@ -305,7 +305,7 @@ async function endEpisode(page, dur = DUR) {
   // Off, then a binge: the second card waits too.
   const { ctx, page } = await playing({ autoplayNext: 0 });
   await endEpisode(page);
-  await page.getByRole("button", { name: "Play now", exact: true }).click();
+  await page.getByRole("button", { name: "Play Now", exact: true }).click();
   await pumpUntil(page, () => window.__tauriCalls.some((c) => c[0] === "inv_open" && c[1].url.includes("tt200001:1:2-")), null, { max: 15_000 });
   await page.evaluate(() => {
     window.__pos = 100;

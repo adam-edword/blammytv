@@ -225,9 +225,9 @@ check(`the rim and the glare trace the capsule's own corner (${shape})`,
 // it: it drops every catalog whose type is not the selected one. So the
 // copy has to follow the tab, or the field is lying about why a result is
 // missing.
-for (const [tab, want] of [["all", "Search movies & series…"],
-                           ["movie", "Search movies…"],
-                           ["series", "Search series…"]]) {
+for (const [tab, want] of [["all", "Search Movies & Series…"],
+                           ["movie", "Search Movies…"],
+                           ["series", "Search Series…"]]) {
   await p.locator(`.navcap__row--sub [data-key="${tab}"]`).click();
   await p.waitForTimeout(400);
   const ph = await p.locator(".navcap__searchinput").getAttribute("placeholder");

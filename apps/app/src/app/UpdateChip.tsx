@@ -60,7 +60,7 @@ export function UpdateChip() {
   return (
     // Installing restarts the app, so not in the middle of something
     // (plan 016 F20): the press is refused and the hint says why.
-    <Hint label={isPlaying() ? "Finish watching first. Then install." : "Download and restart into the new version"}>
+    <Hint label={isPlaying() ? "Finish watching first. Then install." : "Download and Restart into the New Version"}>
     <Button variant="outline" size="sm"
       type="button"
       className={"update-chip" + (busy ? " update-chip--busy" : "")}
@@ -76,9 +76,9 @@ export function UpdateChip() {
       }}
     >
       <span className="update-chip__dot" aria-hidden />
-      {phase.at === "ready" && <>v{phase.version} ready</>}
+      {phase.at === "ready" && <>v{phase.version} Ready</>}
       {phase.at === "installing" && <>Installing…</>}
-      {phase.at === "error" && <>Update failed, retry</>}
+      {phase.at === "error" && <>Update Failed, Retry</>}
     </Button>
     </Hint>
   );

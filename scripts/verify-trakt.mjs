@@ -233,7 +233,7 @@ await page.locator(".library__bar-actions").first().waitFor({ timeout: 5000 }).c
 const actions = await page.locator(".library__bar-actions button").allInnerTexts();
 check(
   "  it can have a cover, and has no Rename or Delete (it comes and goes with Trakt)",
-  actions.includes("Set cover") && !actions.includes("Rename") && !actions.includes("Delete"),
+  actions.includes("Set Cover") && !actions.includes("Rename") && !actions.includes("Delete"),
   JSON.stringify(actions),
 );
 
@@ -297,9 +297,9 @@ await goTo(page, "mylist");
 // its root, then into the built-in history card.
 if (await page.locator(".library__bar .vod-back").count()) await page.locator(".library__bar .vod-back").first().click();
 await page.locator('.library__card[data-hint="Library"]').first().click({ timeout: 10_000 });
-const clear = page.getByRole("button", { name: /Clear history/ });
+const clear = page.getByRole("button", { name: /Clear History/ });
 await clear.click({ timeout: 10_000 });
-await page.getByRole("button", { name: /Click again to confirm/ }).click();
+await page.getByRole("button", { name: /Click again to confirm/i }).click();
 const deleted = await waitFor(() => seen("DELETE", "/sync/playback/888").length > 0, 5000);
 check(
   "clearing Continue Watching clears Trakt's paused positions too (the series paused elsewhere)",

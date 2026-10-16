@@ -93,7 +93,7 @@ export const HEVC_MIME = 'video/mp4; codecs="hvc1.1.6.L93.B0"';
 export function explainFailure(channel: string, f: FailureFacts): Failure {
   const offair = (reason: string): Failure => ({
     kind: "offair",
-    title: `${channel} is off the air`,
+    title: `${channel} is off the air.`,
     reason,
     retry: true,
   });
@@ -106,7 +106,7 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
     const what = codec ? codecName(codec) : "a format";
     return {
       kind: "decode",
-      title: "This one needs the main player",
+      title: "This one needs the main player.",
       reason: `It’s ${what}, which multi-view can’t play. The Guide’s player can.`,
       retry: false,
     };
@@ -124,7 +124,7 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
     if (why.includes("can't convert hevc"))
       return {
         kind: "decode",
-        title: "Couldn’t convert this one",
+        title: "Couldn’t Convert This One",
         reason: "It’s HEVC, and converting it for multi-view failed here. The Guide’s player can play it.",
         retry: true,
       };
@@ -137,7 +137,7 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
     if (!moved && (dns || why.includes("timed out") || why.includes("could not connect")))
       return {
         kind: "unreachable",
-        title: "Can’t reach your provider",
+        title: "Can’t Reach Your Provider",
         reason: dns
           ? "Nothing got through to it. Check your connection, then retry."
           : why.includes("timed out")
@@ -159,7 +159,7 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
   if (f.frozen)
     return {
       kind: "frozen",
-      title: `${channel} froze`,
+      title: `${channel} froze.`,
       reason: "No new picture for a while.",
       retry: true,
     };
@@ -174,14 +174,14 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
     if (f.atCap) {
       return {
         kind: "refused",
-        title: "Your line is at its limit",
+        title: "Your line is at its limit.",
         reason: `Your provider refused it (${f.code}). Close a stream here or on another device, then retry.`,
         retry: true,
       };
     }
     return {
       kind: "refused",
-      title: "Your provider refused this one",
+      title: "Your provider refused this one.",
       reason: `It answered ${f.code}.`,
       retry: true,
     };
@@ -190,7 +190,7 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
   if (f.network) {
     return {
       kind: "unreachable",
-      title: "Can’t reach your provider",
+      title: "Can’t Reach Your Provider",
       reason: "The connection didn’t go through.",
       retry: true,
     };
@@ -198,7 +198,7 @@ export function explainFailure(channel: string, f: FailureFacts): Failure {
 
   return {
     kind: "unknown",
-    title: `${channel} stopped`,
+    title: `${channel} stopped.`,
     reason: f.cut
       ? "The stream cut out."
       : f.media
@@ -234,8 +234,8 @@ export const BEHIND_MIN_S = 3;
 export function behindLabel(stalledS: number): string | null {
   if (stalledS < BEHIND_MIN_S) return null;
   const s = Math.round(stalledS);
-  if (s < 60) return `${s}s behind live`;
+  if (s < 60) return `${s}s Behind Live`;
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return `${m}:${String(r).padStart(2, "0")} behind live`;
+  return `${m}:${String(r).padStart(2, "0")} Behind Live`;
 }

@@ -356,7 +356,7 @@ await page.waitForTimeout(400);
 check(
   "a game none of your channels carry is dimmed, says why, and a click or Enter opens nothing",
   (await page.locator(".mvscores__game.is-off").count()) === 6 &&
-    mlbTitle === "None of your channels carry it" &&
+    mlbTitle === "None of your channels carry it." &&
     (await page.locator(".mvpick__input").count()) === 0,
   mlbTitle,
 );
@@ -477,7 +477,7 @@ await sw("American Football").click();
 await sw("Fútbol").click();
 await page.waitForTimeout(250);
 const emptyText = await page.locator(".mvscores__empty").textContent().catch(() => "");
-check("everything filtered out says so", emptyText === "No live games in the sports you picked.", emptyText);
+check("everything filtered out says so", emptyText === "No Live Games in the Sports You Picked", emptyText);
 await page.keyboard.press("Escape");
 await page.locator(".mvfilter").waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
 

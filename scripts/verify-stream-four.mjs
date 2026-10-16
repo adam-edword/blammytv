@@ -279,7 +279,7 @@ async function intoCredits(page) {
     await endEpisode(page);
     await pump(page, waitMs);
     const waiting = (await cardUp(page)) === 1 && (await askedAtFake("series", next)) - base === 1;
-    await page.getByRole("button", { name: "Play now", exact: true }).click();
+    await page.getByRole("button", { name: "Play Now", exact: true }).click();
     const rolled = await playedEp(page, next);
     const asks_ = (await askedAtFake("series", next)) - base;
     check(name, waiting && rolled && asks_ === asks, JSON.stringify({ waiting, rolled, asks: asks_ }));
@@ -303,7 +303,7 @@ async function intoCredits(page) {
   });
   const base = await askedAtFake("series", next);
   const mini = await intoCredits(page);
-  await page.locator(".upnext-mini").getByRole("button", { name: "Play now", exact: true }).click();
+  await page.locator(".upnext-mini").getByRole("button", { name: "Play Now", exact: true }).click();
   const rolled = await playedEp(page, next);
   const sourceScreen = await page.locator(".vod-detail").count();
   check(
@@ -503,10 +503,10 @@ const is1080 = (u) => !!u && u.includes("tt500002-1080.mp4");
   await page.locator("button.continue-card__sources").first().click();
   // Not the first .state: "Finding sources…" is one too, for as long as the
   // ask takes.
-  await page.locator(".vod-sources").getByText("No sources available").waitFor({ timeout: 15_000 });
+  await page.locator(".vod-sources").getByText("No Sources Available").waitFor({ timeout: 15_000 });
   const col = await page.locator(".vod-sources").first().innerText();
   const notes = await page.locator(".vod-sources .state__note").allInnerTexts();
-  check("a title nothing could be found for says there are no sources", /No sources available/.test(col) && (await page.locator(".vod-source").count()) === 0);
+  check("a title nothing could be found for says there are no sources", /No Sources Available/.test(col) && (await page.locator(".vod-source").count()) === 0);
   check(
     "  and says why, as AIOStreams said it: the error and the statistic",
     notes.length === 2 &&

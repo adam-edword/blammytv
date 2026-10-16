@@ -89,19 +89,19 @@ export function roomOn(
  * no limit reported there is no line to count against, only the grid.
  */
 export function meterLine(room: Room): string {
-  if (room.max === null) return `${room.used} ${room.used === 1 ? "stream" : "streams"}`;
+  if (room.max === null) return `${room.used} ${room.used === 1 ? "Stream" : "Streams"}`;
   const total = room.used + room.elsewhere;
-  const line = `${total} of ${room.max} ${room.max === 1 ? "stream" : "streams"} in use`;
-  return room.elsewhere > 0 ? `${line} · ${room.elsewhere} elsewhere` : line;
+  const line = `${total} of ${room.max} ${room.max === 1 ? "Stream" : "Streams"} in Use`;
+  return room.elsewhere > 0 ? `${line} · ${room.elsewhere} Elsewhere` : line;
 }
 
 /** Why Add is off, for its tooltip. Null while there is room. */
 export function fullReason(room: Room): string | null {
   if (room.left > 0) return null;
-  if (room.max === null || room.used >= MAX_TILES) return "Four is the most multi-view shows";
+  if (room.max === null || room.used >= MAX_TILES) return "Four is the most multi-view shows.";
   if (room.elsewhere > 0)
-    return `Your line allows ${room.max}, and ${room.elsewhere} ${room.elsewhere === 1 ? "is" : "are"} in use elsewhere`;
-  return `Your line allows ${room.max}`;
+    return `Your line allows ${room.max}, and ${room.elsewhere} ${room.elsewhere === 1 ? "is" : "are"} in use elsewhere.`;
+  return `Your line allows ${room.max}.`;
 }
 
 /**
@@ -111,12 +111,12 @@ export function fullReason(room: Room): string | null {
  */
 export function leftLine(room: Room, several = false): string {
   if (several) {
-    if (room.left === 0) return "The grid is full";
-    return room.left === 1 ? "1 more fits in the grid" : `${room.left} more fit in the grid`;
+    if (room.left === 0) return "The grid is full.";
+    return room.left === 1 ? "1 more fits in the grid." : `${room.left} more fit in the grid.`;
   }
-  if (room.left === 0) return "Your line is full";
-  if (room.max === null) return "Your provider doesn’t report a limit";
-  return room.left === 1 ? "1 more fits on your line" : `${room.left} more fit on your line`;
+  if (room.left === 0) return "Your line is full.";
+  if (room.max === null) return "Your provider doesn’t report a limit.";
+  return room.left === 1 ? "1 more fits on your line." : `${room.left} more fit on your line.`;
 }
 
 /** Add at the end. Never twice. Whether there is room is `placeFor`'s call. */

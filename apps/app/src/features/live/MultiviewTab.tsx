@@ -889,7 +889,7 @@ export function MultiviewTab() {
             // way out.
             <span className="mvchoose" role="status">
               <span className="mvchoose__words">
-                Pick a tile
+                Pick a Tile
                 <span className="mvchoose__for">
                   {choosable ? ` on ${playlistName(choosing.among[0])}` : ""} for {choosing.pick.label}
                 </span>
@@ -972,7 +972,7 @@ export function MultiviewTab() {
             </div>
           )}
           {!blocked && (
-            <Hint label={scores.on ? "Hide live scores (S)" : "Live scores (S)"}>
+            <Hint label={scores.on ? "Hide Live Scores (S)" : "Live Scores (S)"}>
               {/* The bar's own Button, like Mute and Full screen beside it: a
                 * plain <button> lost its chip when plan 019 moved the bar
                 * onto Button (v0.10.15). Pressed is the kit's own look.
@@ -998,7 +998,7 @@ export function MultiviewTab() {
             </Hint>
           )}
           {!blocked && (
-            <Hint label={full ?? "Add a channel (A)"}>
+            <Hint label={full ?? "Add a Channel (A)"}>
               <Button
                 type="button"
                 // Narrow, the word goes and Add is its plus in a circle. As a
@@ -1009,11 +1009,11 @@ export function MultiviewTab() {
                 onClick={openAdd}
               >
                 <PlusIcon size={16} />
-                <span className="mvbar__addword">Add channel</span>
+                <span className="mvbar__addword">Add Channel</span>
               </Button>
             </Hint>
           )}
-          <Hint label={fullscreen ? "Exit full screen (F)" : "Full screen (F)"}>
+          <Hint label={fullscreen ? "Exit Full Screen (F)" : "Full Screen (F)"}>
             <Button
               variant="secondary"
               size="icon"

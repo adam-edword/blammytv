@@ -402,7 +402,7 @@ const lineGroup = (page) => page.locator(".track-menu__delay");
 
   // The pop-out: both ride popout_open.
   await wake(page);
-  await page.getByRole("button", { name: "Pop out", exact: true }).click({ timeout: 5000 });
+  await page.getByRole("button", { name: "Pop Out", exact: true }).click({ timeout: 5000 });
   await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "popout_open"), null, { timeout: 5000 }).catch(() => {});
   const pop = await calls(page, "popout_open");
   check(
@@ -416,7 +416,7 @@ const lineGroup = (page) => page.locator(".track-menu__delay");
   const { ctx, page } = await playing();
   await page.evaluate(() => window.__tauriCalls.splice(0));
   await wake(page);
-  await page.getByRole("button", { name: "Pop out", exact: true }).click({ timeout: 5000 });
+  await page.getByRole("button", { name: "Pop Out", exact: true }).click({ timeout: 5000 });
   await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "popout_open"), null, { timeout: 5000 }).catch(() => {});
   const pop = await calls(page, "popout_open");
   check(
@@ -593,7 +593,7 @@ for (const [label, subs] of [["no subtitle track at all", []], ["a track that is
   await page.locator(".track-menu[aria-label='Subtitles']").waitFor();
   const before = await lineGroup(page).locator(".track-menu__delay-value").innerText();
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Jump to live", exact: true }).click();
+  await page.getByRole("button", { name: "Jump to Live", exact: true }).click();
   await page.waitForTimeout(200);
   await page.mouse.move(570, 330);
   await page.getByRole("button", { name: "Subtitles", exact: true }).click();

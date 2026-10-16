@@ -109,9 +109,9 @@ const DESTS: Array<{
  * so with Movies picked a series will never come back.
  */
 const SEARCH_SCOPE: Record<TypeFilter, string> = {
-  all: "movies & series",
-  movie: "movies",
-  series: "series",
+  all: "Movies & Series",
+  movie: "Movies",
+  series: "Series",
 };
 
 const FILTERS: Array<{

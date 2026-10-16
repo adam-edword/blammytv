@@ -130,7 +130,7 @@ export function SaveButton({ item }: { item: VodItem }) {
       ? "Add to Library"
       : inIds.length === 1
         ? `In ${lists.find((l) => l.id === inIds[0])?.name ?? "list"}`
-        : `In ${inIds.length} lists`;
+        : `In ${inIds.length} Lists`;
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -170,7 +170,7 @@ export function SaveButton({ item }: { item: VodItem }) {
           * `pl-8` to leave a gutter for the tick; Item and Label are `px-2`.
           * Without it the two kinds of row start at different x and the menu
           * reads as two lists that happen to share a box. */}
-        <DropdownMenuLabel inset>Save to</DropdownMenuLabel>
+        <DropdownMenuLabel inset>Save To</DropdownMenuLabel>
         {lists.map((l) => (
           <DropdownMenuCheckboxItem
             key={l.id}
@@ -198,7 +198,7 @@ export function SaveButton({ item }: { item: VodItem }) {
           >
             <NameField
               initial=""
-              placeholder="List name"
+              placeholder="List Name"
               ariaLabel="New list name"
               className="list-picker__input"
               onCommit={commitNew}
@@ -214,7 +214,7 @@ export function SaveButton({ item }: { item: VodItem }) {
             }}
           >
             <span aria-hidden>+</span>
-            <span className="list-picker__name">New list</span>
+            <span className="list-picker__name">New List</span>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

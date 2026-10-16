@@ -259,7 +259,7 @@ export function Recommender({
               className="rec__again"
               onClick={() => void find()}
             >
-              Something else
+              Something Else
             </Button>
           </div>
         )}

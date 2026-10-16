@@ -20,7 +20,7 @@ describe("explainFailure", () => {
     ]) {
       const f = explainFailure("Paramount+ 01", { code: 502, statusText: text });
       expect(f.kind).toBe("offair");
-      expect(f.title).toBe("Paramount+ 01 is off the air");
+      expect(f.title).toBe("Paramount+ 01 is off the air.");
       expect(f.reason).toMatch(/server that doesn.t exist/);
     }
   });
@@ -49,7 +49,7 @@ describe("explainFailure", () => {
     const slow = explainFailure("CN", { code: 502, statusText: "Bad Gateway: timed out (provider.tv)" });
     for (const f of [down, slow]) {
       expect(f.kind).toBe("unreachable");
-      expect(f.title).toBe("Can’t reach your provider");
+      expect(f.title).toBe("Can’t Reach Your Provider");
     }
     expect(down.reason).toMatch(/isn.t answering/);
     expect(slow.reason).toMatch(/didn.t answer in time/);
@@ -68,7 +68,7 @@ describe("explainFailure", () => {
     for (const cause of ["pipe:0: Invalid data found when processing input", "ffmpeg produced nothing for 20 seconds"]) {
       const f = explainFailure("GAME PASS 1", { code: 502, statusText: `Bad Gateway: can't convert HEVC: ${cause}` });
       expect(f.kind).toBe("decode");
-      expect(f.title).toBe("Couldn’t convert this one");
+      expect(f.title).toBe("Couldn’t Convert This One");
       expect(f.reason).toMatch(/HEVC/);
       expect(f.retry).toBe(true);
     }
@@ -92,7 +92,7 @@ describe("explainFailure", () => {
   it("says a refusal on a full line is the limit, and how to get past it", () => {
     const f = explainFailure("CN", { code: 403, atCap: true });
     expect(f.kind).toBe("refused");
-    expect(f.title).toBe("Your line is at its limit");
+    expect(f.title).toBe("Your line is at its limit.");
     expect(f.reason).toMatch(/\(403\)/);
     expect(f.reason).toMatch(/Close a stream/);
   });
@@ -110,7 +110,7 @@ describe("explainFailure", () => {
   it("says when nothing answered at all", () => {
     const f = explainFailure("CN", { network: true });
     expect(f.kind).toBe("unreachable");
-    expect(f.title).toBe("Can’t reach your provider");
+    expect(f.title).toBe("Can’t Reach Your Provider");
   });
 
   it("sends a codec the browser cannot play to the main player, with no retry", () => {
@@ -143,7 +143,7 @@ describe("explainFailure", () => {
   it("falls back to something honest", () => {
     const f = explainFailure("CN", {});
     expect(f.kind).toBe("unknown");
-    expect(f.title).toBe("CN stopped");
+    expect(f.title).toBe("CN stopped.");
   });
 });
 
@@ -226,7 +226,7 @@ describe("behindLabel", () => {
   });
 
   it("counts seconds, then minutes", () => {
-    expect(behindLabel(12.4)).toBe("12s behind live");
-    expect(behindLabel(75)).toBe("1:15 behind live");
+    expect(behindLabel(12.4)).toBe("12s Behind Live");
+    expect(behindLabel(75)).toBe("1:15 Behind Live");
   });
 });

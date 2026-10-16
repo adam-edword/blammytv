@@ -772,8 +772,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
               {earlierState === "loading"
                 ? "Loading…"
                 : earlierState === "error"
-                  ? "Couldn't load that. Try again"
-                  : "Show earlier days"}
+                  ? "Couldn't Load That. Try Again"
+                  : "Show Earlier Days"}
             </Button>
           </span>
         );
@@ -829,7 +829,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                     onClick={toggleHideFinished}
                     aria-pressed={hideFinished}
                   >
-                    Hide finished
+                    Hide Finished
                   </Button>
                 )}
               </div>
@@ -875,7 +875,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                     onClick={toggleCompact}
                     aria-pressed={compact}
                   >
-                    Compact results
+                    Compact Results
                   </Button>
                 )}
               </div>
@@ -940,8 +940,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
             {moreState === "loading"
               ? "Loading…"
               : moreState === "error"
-                ? "Couldn't load those. Try again"
-                : "Show more days"}
+                ? "Couldn't Load Those. Try Again"
+                : "Show More Days"}
           </Button>
         </div>
       )}
@@ -952,7 +952,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         ) : state === "error" ? (
           <SportsEmpty
             alert
-            title="Couldn't reach the schedule."
+            title="Couldn't Reach the Schedule"
             note="It retries on its own."
           />
         ) : narrowed ? (
@@ -974,7 +974,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
            * longer than that. Saying "not even further out" about a club
            * was the false claim this branch exists to stop telling. */
           <SportsEmpty
-            title="Nothing scheduled yet."
+            title="Nothing Scheduled Yet"
             note={`${followedNames} ${
               followedCount === 1 ? "has" : "have"
             } ${
@@ -989,7 +989,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                   : "no fixtures published, not even further out"
             }.`}
             action={{
-              label: "Pick more sports",
+              label: "Pick More Sports",
               onClick: () => setReveal((n) => n + 1),
             }}
           />
@@ -999,7 +999,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
            * and on the day this was measured 20 of them had something on.
            * It would take a genuinely dead day everywhere to land here. */
           <SportsEmpty
-            title="Nothing on today."
+            title="Nothing on Today"
             note={`None of the ${ALL_LEAGUES.length} leagues has a game scheduled today or tomorrow. Check back later.`}
           />
         ))}

@@ -663,7 +663,7 @@ export function MultiviewTile({
         className="mvtile__state mvtile__state--fail"
         data-kind="unresolved"
         icon={<WarnIcon size={22} />}
-        title={<>No stream for {name}</>}
+        title={<>No Stream for {name}</>}
         sub="Your provider didn’t give one for this channel."
         actions={
           <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onRetryResolve)}>
@@ -693,7 +693,7 @@ export function MultiviewTile({
                 * card, not only a hover icon (plan 018, U7). */}
               {failure.kind === "decode" && (
                 <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onWatch)}>
-                  Watch in player
+                  Watch in Player
                 </Button>
               )}
             </>
@@ -711,7 +711,7 @@ export function MultiviewTile({
         title={<>Reconnecting {name}</>}
         sub={
           forSlot
-            ? "Waiting for a free slot on your line."
+            ? "Waiting for a Free Slot on Your Line"
             : recovering === "drop"
               ? "It dropped. Getting it back."
               : undefined
@@ -816,12 +816,12 @@ export function MultiviewTile({
           {!focused && !dead && (
             <Button variant="chip" size="chip" type="button" className="mvchip" onClick={own(onFocus)}>
               <VolumeIcon size={15} className="size-[15px]" />
-              Sound here
+              Sound Here
             </Button>
           )}
           {/* The app's tooltips, not the browser's (ui/Hint). The keys are
             * named on the sound tile only: R and Delete act on it. */}
-          <Hint label="Watch in player">
+          <Hint label="Watch in Player">
             <Button
               variant="chip"
               size="icon-chip"

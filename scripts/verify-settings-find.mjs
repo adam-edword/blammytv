@@ -200,7 +200,7 @@ const alpha = (c) => {
   const idle = await sections(page);
   check(
     "before anything is typed there is no Settings section: places, not every row",
-    !idle.some((s) => s.name === "Settings") && idle.some((s) => s.name === "Go to"),
+    !idle.some((s) => s.name === "Settings") && idle.some((s) => s.name === "Go To"),
     JSON.stringify(idle.map((s) => s.name)),
   );
   await closePalette(page);
@@ -235,7 +235,7 @@ const alpha = (c) => {
   const order = ap.map((s) => s.name);
   check(
     "  and the Settings section comes after Go to",
-    order.indexOf("Go to") >= 0 && order.indexOf("Settings") > order.indexOf("Go to"),
+    order.indexOf("Go To") >= 0 && order.indexOf("Settings") > order.indexOf("Go To"),
     JSON.stringify(order),
   );
   check(

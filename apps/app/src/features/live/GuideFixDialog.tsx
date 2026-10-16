@@ -127,10 +127,10 @@ export function GuideFixDialog({
           </DialogTitle>
           <DialogDescription>
             {standing.kind === "fixed"
-              ? `Fixed by you: ${standing.name}`
+              ? `Fixed by You: ${standing.name}`
               : standing.kind === "matched"
                 ? `Matched to ${standing.name}`
-                : "No guide matched"}
+                : "No guide matched."}
           </DialogDescription>
         </DialogHeader>
 
@@ -139,8 +139,8 @@ export function GuideFixDialog({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Search the guide's channels"
-          aria-label="Search the guide's channels"
+          placeholder="Search the Guide's Channels"
+          aria-label="Search the Guide's Channels"
           role="combobox"
           aria-expanded
           aria-controls={listId}
@@ -151,7 +151,7 @@ export function GuideFixDialog({
 
         <div className="grid gap-1">
           {!query.trim() && rows.length > 0 && (
-            <p className="px-1 text-xs text-muted-foreground">Closest names first</p>
+            <p className="px-1 text-xs text-muted-foreground">Closest Names First</p>
           )}
           <div
             ref={listRef}
@@ -200,11 +200,11 @@ export function GuideFixDialog({
         <DialogFooter>
           {fixedId && (
             <Button type="button" variant="ghost" onClick={remove}>
-              Remove fix
+              Remove Fix
             </Button>
           )}
           <Button type="button" disabled={!picked} onClick={apply}>
-            Use this guide
+            Use This Guide
           </Button>
         </DialogFooter>
       </DialogContent>

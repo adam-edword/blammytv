@@ -25,7 +25,7 @@ export function AioCode({
       variant="ghost"
       size="icon-sm"
       type="button"
-      aria-label="Copy code"
+      aria-label="Copy Code"
       onClick={onCopy}
     >
       {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
@@ -37,7 +37,7 @@ export function AioCode({
       <p className={onboarding ? "onb-code" : "trakt-row__code"} aria-label={`Code ${code}`}>
         {code}
       </p>
-      {onboarding ? button : <Hint label={copied ? "Copied" : "Copy code"}>{button}</Hint>}
+      {onboarding ? button : <Hint label={copied ? "Copied" : "Copy Code"}>{button}</Hint>}
     </div>
   );
 }

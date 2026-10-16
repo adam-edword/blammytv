@@ -101,7 +101,7 @@ describe("the words (R9)", () => {
       statusText: "Bad Gateway: could not connect (http://provider.tv): No such host is known. (os error 11001)",
     });
     expect(f.kind).toBe("unreachable");
-    expect(f.title).toBe("Can’t reach your provider");
+    expect(f.title).toBe("Can’t Reach Your Provider");
   });
   it("still the channel's server when the provider sent it on to one that fails", () => {
     const f = explainFailure("ESPN", {

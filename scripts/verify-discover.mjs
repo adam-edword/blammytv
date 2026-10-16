@@ -289,7 +289,7 @@ check("Library grows a My List card",
   (await page.locator(".library__card", { hasText: "My List" }).count()) === 1);
 check("and the card counts its titles",
   ((await page.locator(".library__card .stream-card__meta").first().textContent()) ?? "")
-    .includes("1 title"));
+    .includes("1 Title"));
 
 // One level down: the titles themselves.
 await page.locator(".library__card", { hasText: "My List" }).click();
@@ -411,7 +411,7 @@ check("finished movie retired from Continue Watching",
   !cwTitles.includes("Fake Movie Five") && cwTitles.includes("Fake Movie Three") && cwTitles.includes("Fake Series One"),
   cwTitles.join(", "));
 const cwMeta = await page4.locator(".continue-card", { hasText: "Fake Movie Three" }).locator(".stream-card__meta").textContent();
-check("CW card shows time left", (cwMeta ?? "").includes("75m left"), cwMeta ?? "");
+check("CW card shows time left", (cwMeta ?? "").includes("75m Left"), cwMeta ?? "");
 // Detail: cast + More Like This (genre-matched, self excluded).
 await page4.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
 await page4.waitForSelector(".vod-detail", { timeout: 15_000 });
