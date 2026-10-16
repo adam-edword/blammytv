@@ -299,8 +299,16 @@ What they agree on, and what this app holds to:
   can be one, not a menu path to go and find.
 - **Errors sit next to the problem**, don't blame, and say how to fix it.
   No "oops".
-- **Capitalization is one style per kind of element, the same everywhere.**
-  Microsoft defaults to sentence case; new kinds of element take it.
+- **Title Case for everything that isn't a full sentence** (Adam, 0.12):
+  labels, buttons, titles, headings, tabs, menu items, chips, tooltips, and
+  an aria-label that is shown on screen too. Apple's title style: capitalize
+  every word except articles (a, an, the), "and" and "or", and prepositions
+  of four letters or fewer (at, by, for, from, in, into, of, off, on, onto,
+  to, up, via, with), unless the preposition is part of a verb phrase ("Sign
+  In", "Turn On", "Starting Up the Computer"). The first and last word are
+  always capitalized. No period. A full sentence is sentence case and ends
+  with a period. Source:
+  https://developer.apple.com/library/archive/documentation/FinalCutProX/Conceptual/FxPlugHIG/TextStyleGuidelines/TextStyleGuidelines.html
 - **Contractions are fine. Put the most important thing first.**
 
 ## Delegation: orchestrate by task shape, not by default
