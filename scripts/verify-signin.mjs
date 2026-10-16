@@ -837,6 +837,7 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
   // Discover: a catalog that lists no genres is asked by a genre page too.
   await goTo(page, "discover");
   await page.locator(".genre-card").first().waitFor({ timeout: 20_000 });
+  const clickedAt = Date.now();
   await page.locator(".genre-card", { hasText: "Action" }).first().click();
   await page.waitForFunction(() => document.querySelectorAll(".disc-grid .stream-card").length >= 40, null, { timeout: 20_000 }).catch(() => {});
   const plain = asked("GET", "/Items", (c) => c.query.ParentId === EXTRA_VIEWS[1].id && c.query.Genres === "Action")[0];
@@ -860,10 +861,18 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
     return { skeletons: wrap?.querySelectorAll(".disc-skel").length ?? -1, state: wrap?.querySelector(".state__title")?.textContent ?? null };
   });
   const genreAsks = asked("GET", "/Items", (c) => c.query.Genres === "Action").map((c) => c.query.ParentId?.slice(0, 8));
+  // 0539def0's CI run read 0 cards with no skeleton and no state card, so the
+  // grid filled between the two reads: slow, not stuck? When it fails, wait on
+  // (for the detail only) and say when Bagged Film showed, if it ever did.
+  let lateMs = null;
+  if (!bagged) {
+    const late = await waitFor(page, async () => (await page.locator(".disc-grid .stream-card__name", { hasText: "Bagged Film" }).count()) > 0, 30_000);
+    lateMs = late ? Date.now() - clickedAt : "never in 30s more";
+  }
   check(
     "  and its title is on the page",
     bagged && grid.includes("Bagged Film"),
-    `${grid.length} cards, genre on: ${JSON.stringify(genreOn)}, grid: ${JSON.stringify(gridState)}, genre asks: ${JSON.stringify(genreAsks)}`,
+    `${grid.length} cards, genre on: ${JSON.stringify(genreOn)}, grid: ${JSON.stringify(gridState)}, genre asks: ${JSON.stringify(genreAsks)}, Bagged Film showed after: ${lateMs}ms`,
   );
   await page.context().close();
 }
