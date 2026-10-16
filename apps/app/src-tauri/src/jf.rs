@@ -89,12 +89,12 @@ pub trait Vault: Send + Sync {
     fn clear(&self);
 }
 
-/// For the tests, and for any build that is not Windows.
-#[cfg(any(test, not(windows)))]
+/// For the tests, and for any build that is neither Windows nor a Mac.
+#[cfg(any(test, not(any(windows, target_os = "macos"))))]
 #[derive(Default)]
 pub struct MemoryVault(Mutex<Option<Session>>);
 
-#[cfg(any(test, not(windows)))]
+#[cfg(any(test, not(any(windows, target_os = "macos"))))]
 impl Vault for MemoryVault {
     fn load(&self) -> Option<Session> {
         self.0.lock().unwrap().clone()
@@ -209,7 +209,7 @@ pub const QUICK_CONNECT_OFF: &str = "unsupported: Quick Connect is turned off on
 pub const WRONG_LOGIN: &str = "denied: Wrong user name or password";
 
 /// A credential blob holds at most this many bytes (credman.rs).
-#[cfg(any(windows, test))]
+#[cfg(any(windows, target_os = "macos", test))]
 const BLOB_MAX: usize = 2560;
 /// The longest `Retry-After` a 429 is waited out for. Past it the 429 goes
 /// back to the page, which can choose to try later.
@@ -791,7 +791,7 @@ fn trim_sources(reply: Reply) -> Result<Sources, String> {
     })
 }
 
-#[cfg(any(windows, test))]
+#[cfg(any(windows, target_os = "macos", test))]
 fn encode(s: &Session) -> Result<Vec<u8>, String> {
     let blob = serde_json::to_vec(s).map_err(|e| e.to_string())?;
     if blob.len() > BLOB_MAX {
@@ -1526,15 +1526,16 @@ impl Jf {
     }
 }
 
-/// The session in Windows Credential Manager, as one generic credential
-/// holding the JSON above (credman.rs). Per user, on this machine only.
-#[cfg(windows)]
-pub struct WindowsVault {
+/// The session in Windows Credential Manager or the macOS Keychain, as one
+/// generic credential holding the JSON above (credman.rs, keychain.rs). Per
+/// user, on this machine only.
+#[cfg(any(windows, target_os = "macos"))]
+pub struct SystemVault {
     pub target: String,
 }
 
-#[cfg(windows)]
-impl Vault for WindowsVault {
+#[cfg(any(windows, target_os = "macos"))]
+impl Vault for SystemVault {
     fn load(&self) -> Option<Session> {
         serde_json::from_slice(&crate::credman::read(&self.target)?).ok()
     }
