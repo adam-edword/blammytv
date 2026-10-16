@@ -978,15 +978,21 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         // is a hole straight through to the desktop — which is exactly what a
         // channel switch flashed. mpv's own idle window is black, so letting
         // it keep the VO is both the fix and the idiomatic answer.
+        // On a Mac there is no render context yet (attach, below), and mpv logs
+        // a FATAL "No render context set" if its core thread wins that race.
+        #[cfg(not(target_os = "macos"))]
         set("force-window", "yes");
         if (l.initialize)(h) < 0 {
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());
         }
         #[cfg(target_os = "macos")]
-        if let Err(e) = crate::inv_mac::attach(h) {
-            (l.terminate_destroy)(h);
-            return Err(e);
+        {
+            if let Err(e) = crate::inv_mac::attach(h) {
+                (l.terminate_destroy)(h);
+                return Err(e);
+            }
+            set("force-window", "yes");
         }
         *g = Some(Player(h));
         PLAYER_WID.store(wid, Ordering::Relaxed);
@@ -1363,6 +1369,9 @@ pub fn unload() {
 pub fn shutdown() {
     let taken = PLAYER.lock().unwrap().take();
     if let (Some(p), Some(l)) = (taken, LIB.get()) {
+        // The render context goes first, or mpv aborts on the destroy.
+        #[cfg(target_os = "macos")]
+        crate::inv_mac::detach();
         unsafe { (l.terminate_destroy)(p.0) };
     }
 }
