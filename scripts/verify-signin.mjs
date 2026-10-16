@@ -852,7 +852,19 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
   const bagged = await waitFor(page, async () => (await page.locator(".disc-grid .stream-card__name", { hasText: "Bagged Film" }).count()) > 0, 15_000);
   const grid = await page.locator(".disc-grid .stream-card__name").allInnerTexts();
   const genreOn = await page.locator(".genre-card--on .genre-card__name").allInnerTexts();
-  check("  and its title is on the page", bagged && grid.includes("Bagged Film"), `${grid.length} cards, genre on: ${JSON.stringify(genreOn)}`);
+  // CI read "0 cards" a second time (0.12.0) and the page never does here: say
+  // which state the grid was in (still loading, a failure or empty card) and
+  // how many genre pages each catalog was asked for, so the next one says why.
+  const gridState = await page.evaluate(() => {
+    const wrap = document.querySelector(".discover__gridwrap");
+    return { skeletons: wrap?.querySelectorAll(".disc-skel").length ?? -1, state: wrap?.querySelector(".state__title")?.textContent ?? null };
+  });
+  const genreAsks = asked("GET", "/Items", (c) => c.query.Genres === "Action").map((c) => c.query.ParentId?.slice(0, 8));
+  check(
+    "  and its title is on the page",
+    bagged && grid.includes("Bagged Film"),
+    `${grid.length} cards, genre on: ${JSON.stringify(genreOn)}, grid: ${JSON.stringify(gridState)}, genre asks: ${JSON.stringify(genreAsks)}`,
+  );
   await page.context().close();
 }
 
