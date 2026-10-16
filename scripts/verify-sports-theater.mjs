@@ -115,9 +115,18 @@ const browser = await chromium.launch({
   executablePath: "/opt/pw-browsers/chromium",
 });
 
-async function open(pos, fixture, win) {
+// Pinned: the page turns Mac behaviour on from the user agent, and headless
+// Chromium on a Mac would otherwise send "Macintosh" and fail the fullscreen
+// repair checks below.
+const WINDOWS_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+const MAC_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+
+async function open(pos, fixture, win, userAgent = WINDOWS_UA) {
   const ctx = await browser.newContext({
     viewport: { width: 1600, height: 900 },
+    userAgent,
   });
   const page = await ctx.newPage();
   await page.addInitScript(stub(pos, fixture, win));
@@ -658,8 +667,8 @@ async function open(pos, fixture, win) {
     await page.mouse.move(720, 420);
     await page.waitForTimeout(250);
   };
-  const run = async (win) => {
-    const { page, ctx } = await open(82, undefined, win);
+  const run = async (win, userAgent) => {
+    const { page, ctx } = await open(82, undefined, win, userAgent);
     await wake(page);
     await page.getByLabel("Fullscreen").click();
     await page.waitForTimeout(2000);
@@ -699,6 +708,16 @@ async function open(pos, fixture, win) {
       JSON.stringify(kept.data[0].win) === "[2560,1440]" &&
       kept.data[0].fixed === false,
     split.stored ?? "nothing stored",
+  );
+
+  // The Mac's window is a title bar's height taller than its page, so the
+  // sizes always disagree there and the repair used to flash fullscreen. The
+  // same split as above, with a Mac user agent: switched once, never looked at.
+  const mac = await run({ width: 2560, height: 1440, fullscreen: true }, MAC_UA);
+  check(
+    "a Mac user agent is switched once, and the sizes are not compared",
+    JSON.stringify(mac.sets) === "[true]" && mac.stored === null && mac.looked === 0,
+    JSON.stringify(mac),
   );
 
   const silent = await run(null);

@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isMac } from "./os";
 import { loadList, save } from "./storage";
 import { tauriIsFullscreen, tauriSetFullscreen } from "./tauri";
 
@@ -123,7 +124,7 @@ export async function setFullscreenChecked(on: boolean): Promise<void> {
   // The Mac's window is 32pt taller than its page (the title bar's strip), so
   // this check always saw a mismatch there and "repaired" by flashing the
   // window fullscreen. The race it guards against is WebView2's.
-  if (document.documentElement.dataset.os === "mac") return;
+  if (isMac()) return;
 
   // The first mismatch is the one worth keeping: what was wrong, and then
   // whether the repair put it right.
