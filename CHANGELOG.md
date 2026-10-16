@@ -11,12 +11,12 @@ This one runs the installer, like 0.11.12.
 - **Sign in instead of pasting a manifest.** Settings → Sources → Stream,
   and onboarding, take your AIOStreams address and a Quick Connect code you
   approve on its configure page. The sign-in is kept in Windows Credential
-  Manager, and a manifest URL you'd stored is deleted. "Use a manifest URL
-  instead" is still there.
+  Manager, and a manifest URL you'd stored is deleted. "Use a Manifest URL
+  Instead" is still there.
 - **Any app signed in to your AIOStreams picks up where you left off.**
   What you play, how far in and what you finish go to your AIOStreams; its
   resume points come back into Continue Watching, with Next Up and Upcoming
-  rows under it. Sync now is in Settings.
+  rows under it. Sync Now is in Settings.
 - Skip Intro uses AIOStreams' own markers where AniSkip has none.
 - Next Up no longer lists an episode you're part way through: that one is
   in Continue Watching.
@@ -47,19 +47,19 @@ This one runs the installer, like 0.11.12.
 ### Stream and the player
 
 - **5.1 and 7.1 play in surround.** Every 5.1 film used to be
-  squeezed to stereo. Settings → Playback → Audio Channels picks Automatic,
+  squeezed to stereo. Settings → Playback → Speaker Setup picks Automatic,
   Stereo, 5.1 or 7.1, and the stats overlay (i) shows what reached your
   device.
 - **New in Settings → Playback:** Autoplay Next Episode (off, 5, 10 or 20
   seconds), when the Up Next card shows, Intro, Recap, Credits and Preview
   each skipped by a button, automatically or not at all, Subtitle Size,
-  and the pop-out's size and corner.
+  and the Pop-Out Window's size and corner.
 - **Subtitle delay.** z and x nudge subtitles a tenth of a second, and the
   Subtitles menu has a Delay line with Reset.
 - **A dead link fails in about a second, and says why** ("The link
   answered 403 (Forbidden). Debrid links expire; try another source."),
-  instead of after 40. With Auto Source Failover on, the next source
-  starts then.
+  instead of after 40. With Switch Sources When One Fails on, the next
+  source starts then.
 - **The next episode starts sooner**: its sources are found while the
   credits roll.
 - **Resume goes back to the file you were watching**, when it's still
@@ -78,8 +78,8 @@ This one runs the installer, like 0.11.12.
 - **The guide stops downloading again every time you open the app.** Each
   playlist reuses its guide for 12 hours, while its channels still refresh
   every launch. Settings → Sources says when guides last refreshed, with
-  Refresh now.
-- **Fix a channel's guide by hand:** right-click a channel → Fix guide…,
+  Refresh Now.
+- **Fix a channel's guide by hand:** right-click a channel → Fix Guide…,
   and pick its listings.
 - **A playlist can have an extra guide and its own User-Agent**, under
   Settings → Sources → the playlist → Advanced. The extra guide fills in
@@ -87,7 +87,7 @@ This one runs the installer, like 0.11.12.
 - The folded sidebar is a rail of icons, and channel logos sit on a plate
   that matches the theme instead of a white square.
 
-### Multi-view
+### Multi-View
 
 - **Sound on PCs where 0.11.12 had none.** A tile plays its own sound until
   the app's copy has some, and takes it again if it goes quiet.
@@ -105,7 +105,7 @@ This one runs the installer, like 0.11.12.
   the site's name, and passwords and tokens stay out.
 - **Export and Import Settings.** Your playlists and passwords go in only if
   you tick the box that says so, and your favorites, recents, guide fixes
-  and multi-view grid go with them, since they point at your playlists'
+  and Multi-View grid go with them, since they point at your playlists'
   channels. A file without playlists leaves yours as they are.
 - Escape on a language picker closes Settings.
 
@@ -118,6 +118,13 @@ This one runs the installer, like 0.11.12.
   same notice and the license text.
 - Continue Watching cards tilt and catch the light like the other cards.
 - Windows' sound settings list the player as "BlammyTV Player".
+- Every label in the app is Title Case now, and Settings' notes are
+  rewritten to be read aloud. Eight settings were renamed, and their old
+  names still find them in Ctrl+K: Auto Source Failover is Switch Sources
+  When One Fails, Audio Channels is Speaker Setup, Pop-out is Pop-Out
+  Window, Accent is Accent Color, Hero Slider Sources is Carousel Catalogs,
+  Player Overlay is Info While Playing, Catalog Row Size is Titles per Row
+  and Replay Onboarding is Replay Setup.
 
 ## 0.11.12: Multi-view on Discord, and a round of fixes (2026-10-03)
 

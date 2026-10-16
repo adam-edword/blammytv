@@ -18,7 +18,7 @@ address, like `jellyfin.example.com` or `192.168.1.20:8096`.
 Two ways in:
 
 - **User name and password.** Type the address, your user name and your
-  password, and press **Sign in**.
+  password, and press **Sign In**.
 - **Quick Connect.** Type the address and press **Use Quick Connect**.
   BlammyTV shows a code. In Jellyfin, open your user menu, then Quick Connect,
   and type it. BlammyTV notices on its own.

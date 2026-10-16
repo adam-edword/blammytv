@@ -83,13 +83,13 @@ ask for help.
 
 Settings → App → Export Settings writes your settings to a file you choose:
 looks, playback, your lists and Continue Watching. Playlists and your
-AIOStreams manifest go in only if you tick the box that says the file then has
-your passwords in it, and your favorites, recents, guide fixes and multi-view
-grid go in with them, because they point at your playlists' channels. Trakt,
-MyAnimeList, AIOStreams and Jellyfin sign-ins never go in. Without the box, a
-poster address that carries a service's key is left out too. Import Settings
-reads one back, and a file without playlists leaves your favorites, recents,
-guide fixes and multi-view grid as they are.
+AIOStreams manifest go in only if you tick **Include Playlists and
+AIOStreams**, which puts your passwords in the file. Your favorites, recents,
+guide fixes and Multi-View grid go in with them, because they point at your
+playlists' channels. Trakt, MyAnimeList, AIOStreams and Jellyfin sign-ins never
+go in. Without the box, a poster address that carries a service's key is left
+out too. Import Settings reads one back, and a file without playlists leaves
+your favorites, recents, guide fixes and Multi-View grid as they are.
 
 :::caution[Credentials are stored in the clear]
 Playlist passwords, portal MAC addresses and, if you use one, your AIOStreams
@@ -112,7 +112,7 @@ runtime from `libmpv-2.dll` next to the executable. Hardware decoding is on by
 default and falls back to software when the GPU can't handle a codec. Streams
 are pulled by mpv directly from the URL your provider returned.
 
-Multi-view is the exception. Its tiles play inside the app's own window, so
+Multi-View is the exception. Its tiles play inside the app's own window, so
 each stream goes through a small proxy the app runs on your machine, on
 loopback, where nothing else can reach it. A stream in HEVC, which that
 window can't decode, is converted there by a copy of ffmpeg that ships with

@@ -12,7 +12,7 @@ don't need the box.
 | Field | Looks like |
 |---|---|
 | **Portal URL** | `http://example.com` or `http://example.com/c/` |
-| **MAC address** | `00:1A:79:XX:XX:XX` |
+| **MAC Address** | `00:1A:79:XX:XX:XX` |
 
 Add it under **Settings → Sources → Live TV → Stalker/MAG**.
 

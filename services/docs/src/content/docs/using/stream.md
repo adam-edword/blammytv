@@ -30,7 +30,7 @@ you know what you want.
 Clicking a card opens its detail page: artwork, synopsis, and the list of
 **sources** the addon resolved for it. Pick one to play.
 
-**One-click play** (Settings, off by default) changes this for *movies*. A
+**One-Click Play Movies** (Settings, off by default) changes this for *movies*. A
 click starts the best already-resolved source immediately instead of opening
 the page. Series always open their page, because there's no single obvious
 thing to play. If nothing is resolved yet, the click falls back to the detail
@@ -64,10 +64,10 @@ Volume and mute are separate. Those apply to every playback, live included.
 
 ## When a source dies mid-play
 
-By default nothing happens automatically. The card offers **Try next available
-source** and waits for you.
+By default nothing happens automatically. The card offers **Try the Next
+Source** and waits for you.
 
-Turn on **Auto source-failover** in Settings if you'd rather it move on by
+Turn on **Switch Sources When One Fails** in Settings if you'd rather it move on by
 itself. It's off by default on purpose: an automatic jump burns through your
 resolved sources without asking, which is wrong when a stream stalls for a
 moment and would have recovered.

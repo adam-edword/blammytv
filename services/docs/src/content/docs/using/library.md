@@ -28,9 +28,9 @@ list paints instantly without going back to the network.
 
 You can:
 
-- **Create** and **rename** lists
+- **Create** and **Rename** lists
 - **Add** a title from its detail page, with the save button
-- **Set a cover**, or let the list derive art from its first entry
+- **Set Cover**, or let the list derive art from its first entry
 - **Delete** a list, or remove single entries
 
 Lists are ordered by when you created them.

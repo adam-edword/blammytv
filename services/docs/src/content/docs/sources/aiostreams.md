@@ -63,7 +63,7 @@ doesn't. It isn't a watch history: for that, connect Trakt or MyAnimeList in
   AIOStreams' markers. Anime keeps BlammyTV's own AniSkip timings.
 
 **Settings → Sources → Stream** shows when it last synced, and
-**Sync now** runs one on the spot.
+**Sync Now** runs one on the spot.
 
 :::caution[Leave Trakt trackers out of your AIOStreams setup]
 If you connect Trakt in BlammyTV, it already reports what you play. A Trakt
@@ -80,7 +80,7 @@ Some instances can't sign in. ElfHosted ships with the Jellyfin side off, and
 a sign-in needs it. For those, there's still the manifest URL.
 
 Under **Settings → Sources → Stream**, press **Use a Manifest URL
-Instead**. It's one field, your **manifest URL**, from your instance's
+Instead**. It's one field, your **Manifest URL**, from your instance's
 configure page. It looks something like:
 
 ```
@@ -113,7 +113,7 @@ Signed in, it runs two:
 | Step | What it proves |
 |---|---|
 | **Catalogs** | Your sign-in works and your catalogs come back |
-| **Sources** | A known test title returns playable sources |
+| **Sources (Test Title)** | A known test title returns playable sources |
 
 With a manifest URL, it runs three:
 
@@ -121,7 +121,7 @@ With a manifest URL, it runs three:
 |---|---|
 | **Manifest** | The URL resolves and returns a valid addon manifest |
 | **Catalog** | A browsable catalog returns titles |
-| **Streams** | A known test title returns playable sources |
+| **Streams (Test Title)** | A known test title returns playable sources |
 
 An external `curl` test once reported everything healthy while the app got a
 403 on every request, because the two weren't making the same kind of request
@@ -160,7 +160,7 @@ everything else loads.
 
 - **Titles per Row** (Settings) sets how many titles each row holds. The
   default is 40.
-- **One-click play** (Settings, off by default) makes a click on a *movie*
+- **One-Click Play Movies** (Settings, off by default) makes a click on a *movie*
   card start the best already-resolved source instead of opening its detail
   page. Series always open their detail page, since there's no single obvious
   thing to play. When nothing is resolved yet, the click falls back to the

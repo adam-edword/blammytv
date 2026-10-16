@@ -15,8 +15,8 @@ and enter the code. BlammyTV notices on its own and moves on. This powers the
 **Stream** tab, which is movies and shows. Once you're in, any app signed in
 to your AIOStreams picks up where you left off.
 
-If your instance has its Jellyfin side off, press **Use a manifest URL
-instead** and paste your manifest URL. BlammyTV will test it before accepting
+If your instance has its Jellyfin side off, press **Use a Manifest URL
+Instead** and paste your manifest URL. BlammyTV will test it before accepting
 it.
 
 Skip this if you only want live TV. See [AIOStreams](/sources/aiostreams/).
@@ -31,7 +31,7 @@ Skip this if you only want movies and shows. See [Sources](/sources/).
 :::note[Setup tests each source]
 The source steps run a real connection when you press Continue, using the
 same connection the app makes. If it fails you get the reason and a
-**Continue anyway** button.
+**Continue Anyway** button.
 :::
 
 ## 3. Follow what you watch
@@ -48,14 +48,14 @@ are changeable any time in **Settings → Appearance**.
 
 ## 5. Which tab to open on
 
-Where BlammyTV lands when you start it: **Live TV**, **Stream · Home**, or
+Where BlammyTV lands when you start it: **Live TV**, **Stream**, or
 **Stream · Discover**. The default is Live TV.
 
 Pick the one you use most. You'll see it every launch.
 
 ## A few things to find
 
-Three lines on **Multi-view**, **Discover** and **Sports**, so you know they're
+Three lines on **Multi-View**, **Discover** and **Sports**, so you know they're
 there.
 
 ## Done

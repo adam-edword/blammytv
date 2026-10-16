@@ -9,7 +9,7 @@ is the kind you want.
 
 ## What you need
 
-One field, the **playlist URL**. Add it under **Settings → Sources → Live TV →
+One field, the **Playlist URL**. Add it under **Settings → Sources → Live TV →
 M3U**.
 
 BlammyTV downloads the playlist and reads it in place. There's no separate

@@ -20,9 +20,9 @@ the overlay tells them apart.
 
 The source isn't delivering.
 
-- **Try another source.** On VOD, the card offers **Try next available
-  source**. Individual sources go bad, so this often fixes it.
-- **Turn on Auto source-failover** (Settings) if you'd rather it move on by
+- **Try another source.** On VOD, the card offers **Try the Next
+  Source**. Individual sources go bad, so this often fixes it.
+- **Turn on Switch Sources When One Fails** (Settings) if you'd rather it move on by
   itself. It's off by default on purpose: automatic jumping burns through your
   resolved sources without asking, including on stalls that would have
   recovered.
@@ -54,7 +54,7 @@ Usually the video output, not the source.
 
 ## It stutters
 
-- Check the stats overlay for **frame drops**. Drops mean decode or output is
+- Check the stats overlay for **Dropped Frames**. Drops mean decode or output is
   behind, which is a machine or driver problem. No drops with visible stutter
   means the picture is arriving fine and something else is hitching.
 - **Close other players.** Two apps pulling from the same provider compete for
