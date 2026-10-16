@@ -1402,11 +1402,10 @@ fn jf_client() -> &'static std::sync::Arc<jf::Jf> {
     JF_CLIENT.get_or_init(|| {
         let cfg = jf::Config {
             app_version: env!("CARGO_PKG_VERSION").to_string(),
-            // Windows sets it; the header says "Windows" when it is absent.
-            device_name: std::env::var("COMPUTERNAME").unwrap_or_default(),
+            device_name: computer_name(),
         };
-        #[cfg(windows)]
-        let vault: Box<dyn jf::Vault> = Box::new(jf::WindowsVault {
+        #[cfg(any(windows, target_os = "macos"))]
+        let vault: Box<dyn jf::Vault> = Box::new(jf::SystemVault {
             target: if tauri::is_dev() {
                 "BlammyTV/jellyfin-dev"
             } else {
@@ -1414,7 +1413,7 @@ fn jf_client() -> &'static std::sync::Arc<jf::Jf> {
             }
             .into(),
         });
-        #[cfg(not(windows))]
+        #[cfg(not(any(windows, target_os = "macos")))]
         let vault: Box<dyn jf::Vault> = Box::new(jf::MemoryVault::default());
         jf::Jf::new(cfg, http_client().clone(), vault)
     })
