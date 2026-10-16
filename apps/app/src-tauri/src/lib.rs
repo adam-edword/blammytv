@@ -61,11 +61,11 @@ pub fn emit_ui_pos(event: &str, pos: f64) {
 // Current popout playback position (seconds) — used to reclaim it in-app.
 #[tauri::command]
 fn popout_pos() -> f64 {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         mpv::popout_pos()
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         0.0
     }
@@ -74,7 +74,7 @@ fn popout_pos() -> f64 {
 // Close the popout window (used by the "Bring it back" button).
 #[tauri::command]
 fn popout_stop() {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         mpv::stop_popout();
     }
@@ -110,7 +110,7 @@ fn popout_open(
     mpvurl::http_only(&url)?;
     let agent = mpvagent::clean(user_agent)?;
     let hand;
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         let (tx, rx) = std::sync::mpsc::channel();
         window
@@ -124,13 +124,29 @@ fn popout_open(
             .map_err(|e| e.to_string())?;
         hand = rx.recv().map_err(|e| e.to_string())?;
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         hand = mpv::Handoff::default();
         let _ = (&window, live);
     }
+    // On a Mac, mpv makes its own window through Cocoa, which needs the main
+    // thread FREE: this command runs on it, so waiting for mpv here froze the
+    // app (the first Mac player did exactly that). Start it on a thread and
+    // say how it went in the log.
+    #[cfg(target_os = "macos")]
+    {
+        std::thread::spawn(move || {
+            if let Err(e) =
+                mpv::play_popout(&url, hand, size.as_deref(), corner.as_deref(), agent.as_deref())
+            {
+                log::warn!("[popout] {e}");
+            }
+        });
+        Ok(())
+    }
     // Own mpv instance so the in-app teardown (fired by the React unmount)
     // can't terminate it.
+    #[cfg(not(target_os = "macos"))]
     mpv::play_popout(
         &url,
         hand,
