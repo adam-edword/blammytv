@@ -27,6 +27,7 @@
 //   (vite on :4173)
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-playerfault.mjs
 import { createRequire } from "node:module";
+import { pauseSoon } from "./clock-pause.mjs";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
 
@@ -209,8 +210,7 @@ async function cardWithin(page, max = 4000) {
 }
 /** Stop the page's clock where it is, so what follows is counted in fake time. */
 async function freeze(page) {
-  const now = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(now + 20);
+  await pauseSoon(page);
 }
 
 /** A film from its Continue Watching card, playing, in real time. */

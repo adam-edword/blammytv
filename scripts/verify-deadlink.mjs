@@ -27,6 +27,7 @@
 //   (vite on :4173)
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-deadlink.mjs
 import { createRequire } from "node:module";
+import { pauseSoon } from "./clock-pause.mjs";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
 
@@ -246,8 +247,7 @@ async function film({ modes = [], answer, failover = false, movie = MOVIE } = {}
   await card.click({ timeout: 5000 });
   await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "inv_open"), null, { timeout: 25_000 });
   await page.waitForFunction(() => window.__tauriCalls.filter((c) => c[0] === "mpv_status").length >= 3, null, { timeout: 15_000 });
-  const now = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(now + 20);
+  await pauseSoon(page);
   await page.evaluate(
     ({ modes, answer }) => {
       window.__modes = modes;
@@ -541,8 +541,7 @@ async function film({ modes = [], answer, failover = false, movie = MOVIE } = {}
   await page.locator(".guide__channel button").first().click();
   await page.locator(".mini-overlay .tune").waitFor({ timeout: 10_000 });
   await page.waitForFunction(() => window.__tauriCalls.filter((c) => c[0] === "mpv_status").length >= 3, null, { timeout: 15_000 });
-  const now = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(now + 20);
+  await pauseSoon(page);
   // The same status a dead VOD link reads: idle, long after the load.
   await page.evaluate(() => {
     window.__modes = [[".", "dead"]];

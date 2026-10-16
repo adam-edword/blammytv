@@ -29,6 +29,7 @@
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-stream-four.mjs
 import { createRequire } from "node:module";
 import { goTo } from "./nav-settle.mjs";
+import { pauseSoon } from "./clock-pause.mjs";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
 
@@ -175,8 +176,7 @@ async function playing(entry, opts = {}) {
   await clickWhenStill(page, page.locator(".continue-card").first());
   await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "inv_open"), null, { timeout: 25_000 });
   await page.waitForFunction(() => window.__tauriCalls.filter((c) => c[0] === "mpv_status").length >= 3, null, { timeout: 15_000 });
-  const now = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(now + 20);
+  await pauseSoon(page);
   return { ctx, page };
 }
 

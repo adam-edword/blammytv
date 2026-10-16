@@ -28,6 +28,7 @@
 //   (vite on :4173)
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-upnext.mjs
 import { createRequire } from "node:module";
+import { pauseSoon } from "./clock-pause.mjs";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
 
@@ -138,8 +139,7 @@ async function playing(store = {}, { chapters = [] } = {}) {
   await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "inv_open"), null, { timeout: 25_000 });
   // On screen: mpv has reported a presented frame a few times over.
   await page.waitForFunction(() => window.__tauriCalls.filter((c) => c[0] === "mpv_status").length >= 3, null, { timeout: 15_000 });
-  const now = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(now + 20);
+  await pauseSoon(page);
   return { ctx, page };
 }
 
