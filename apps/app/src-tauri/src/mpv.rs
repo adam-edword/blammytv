@@ -1369,9 +1369,6 @@ pub fn unload() {
 pub fn shutdown() {
     let taken = PLAYER.lock().unwrap().take();
     if let (Some(p), Some(l)) = (taken, LIB.get()) {
-        // The render context goes first, or mpv aborts on the destroy.
-        #[cfg(target_os = "macos")]
-        crate::inv_mac::detach();
         unsafe { (l.terminate_destroy)(p.0) };
     }
 }
