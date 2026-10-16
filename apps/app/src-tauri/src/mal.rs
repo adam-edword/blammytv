@@ -642,20 +642,20 @@ impl Mal {
 /// credentials: each of MAL's tokens is about a kilobyte, and one blob holds
 /// 2,560 bytes. `{target}/access` holds the access token, `{target}/refresh`
 /// the refresh token and when the access token runs out.
-#[cfg(windows)]
-pub struct WindowsVault {
+#[cfg(any(windows, target_os = "macos"))]
+pub struct SystemVault {
     pub target: String,
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 #[derive(Serialize, Deserialize)]
 struct Refresh {
     refresh_token: String,
     expires_at: u64,
 }
 
-#[cfg(windows)]
-impl WindowsVault {
+#[cfg(any(windows, target_os = "macos"))]
+impl SystemVault {
     fn access(&self) -> String {
         format!("{}/access", self.target)
     }
@@ -664,8 +664,8 @@ impl WindowsVault {
     }
 }
 
-#[cfg(windows)]
-impl Vault for WindowsVault {
+#[cfg(any(windows, target_os = "macos"))]
+impl Vault for SystemVault {
     fn load(&self) -> Option<Tokens> {
         let access = String::from_utf8(crate::credman::read(&self.access())?).ok()?;
         let r: Refresh = serde_json::from_slice(&crate::credman::read(&self.refresh())?).ok()?;
@@ -1285,10 +1285,10 @@ mod tests {
         })
     }
 
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     #[test]
-    fn the_windows_vault_keeps_two_kilobyte_tokens() {
-        let v = WindowsVault {
+    fn the_system_vault_keeps_two_kilobyte_tokens() {
+        let v = SystemVault {
             target: format!("BlammyTV/mal-test-{}", std::process::id()),
         };
         v.clear();
