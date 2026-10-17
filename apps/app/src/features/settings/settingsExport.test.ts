@@ -179,7 +179,7 @@ describe("a login is what Clear All Login Info clears", () => {
   it("calls what the logins group, the sign-ins and the caches were made from, and nothing else", () => {
     expect(body).not.toBe("");
     // A call added here is a login this file has not been asked about.
-    expect(calls).toEqual(["diskClear", "removeStored", "saveAioUrl", "saveHeroSources", "savePlaylists", "signOutOfAio", "signOutOfJf", "signOutOfMal", "signOutOfTrakt"]);
+    expect(calls).toEqual(["diskClear", "forgetXtLists", "removeStored", "saveAioUrl", "saveHeroSources", "savePlaylists", "signOutOfAio", "signOutOfJf", "signOutOfMal", "signOutOfTrakt"]);
     expect(body).toMatch(/removeStored\("vodCache"\)/);
   });
 

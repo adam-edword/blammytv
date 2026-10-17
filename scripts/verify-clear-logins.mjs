@@ -84,6 +84,26 @@ const diskRecord = () =>
         };
       }),
   );
+/** How many playlists' movie and show lists are on disk (plan 028): each is
+ * kept under its account's fingerprint, the password in it. */
+const vodRecords = () =>
+  page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const open = indexedDB.open("blammytv-vod", 1);
+        open.onerror = () => resolve(-1);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains("lists")) return resolve(0), db.close();
+          const rq = db.transaction("lists").objectStore("lists").count();
+          rq.onsuccess = () => {
+            resolve(rq.result);
+            db.close();
+          };
+          rq.onerror = () => resolve(-1);
+        };
+      }),
+  );
 const waitFor = async (fn, ms) => {
   const end = Date.now() + ms;
   while (Date.now() < end) {
@@ -97,6 +117,10 @@ await page.goto(URL, { waitUntil: "domcontentloaded" });
 // The catalog lands and is written to disk: that is the copy to clear.
 const cached = await waitFor(async () => (await diskRecord())?.channels > 0, 30_000);
 check("the guide's copy is on disk before the clear", cached, JSON.stringify(await diskRecord()));
+// The playlist's movie and show lists are read at launch too (the fake serves
+// this user none, and the read is kept all the same, under the account).
+const vodCached = await waitFor(async () => (await vodRecords()) > 0, 15_000);
+check("the playlist's movie and show lists are on disk before the clear", vodCached, String(await vodRecords()));
 
 await page.getByRole("button", { name: "Settings", exact: true }).first().click();
 const toggle = page.getByRole("switch", { name: "Test enabled" });
@@ -129,6 +153,8 @@ check(
 );
 const gone = await waitFor(async () => (await diskRecord()) === null, 5000);
 check("the guide's copy on disk goes too", gone, JSON.stringify(await diskRecord()));
+const vodGone = await waitFor(async () => (await vodRecords()) === 0, 5000);
+check("  and so do the playlist's movie and show lists", vodGone, String(await vodRecords()));
 
 // The Stream pane, cleared while it was the one showing: opened first, so
 // it holds the manifest, then the clear from App, then opened again.

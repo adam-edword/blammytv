@@ -5,6 +5,7 @@ import { loadAioConn, type AioConn } from "../aiojf/conn";
 import { jfVodKey, resolveJfItem, resolveJfList } from "../jellyfin/vod";
 import { loadHeroSources } from "../settings/aiostreams";
 import { loadRowCap } from "../settings/rowCap";
+import { resolveXtItem, resolveXtList, xtVodKey } from "../xtvod/vod";
 import { load as loadStored, save as saveStored } from "../../lib/storage";
 import { mapStreams, metaPreviewToVod, metaToVod, noticesOf } from "./mapper";
 import type { StreamRow, StreamSource, VodData, VodFrom, VodItem } from "./model";
@@ -42,8 +43,12 @@ let inflight: { key: string; promise: Promise<VodData> } | null = null;
  * cache is keyed by `aioKey`: a Jellyfin sign-in does not change it. */
 export const configKey = () => {
   const jf = jfVodKey();
-  // With no Jellyfin the key is the addon's own, as it was before one existed.
-  return jf ? JSON.stringify([loadAioConn()?.key ?? "", loadHeroSources(), loadRowCap(), jf]) : aioKey();
+  const xt = xtVodKey();
+  // With neither a Jellyfin nor an Xtream library the key is the addon's own,
+  // as it was before they existed; with a Jellyfin alone, the one it had.
+  return jf || xt
+    ? JSON.stringify([loadAioConn()?.key ?? "", loadHeroSources(), loadRowCap(), jf, ...(xt ? [xt] : [])])
+    : aioKey();
 };
 
 const aioKey = () => JSON.stringify([loadAioConn()?.key ?? "", loadHeroSources(), loadRowCap()]);
@@ -280,7 +285,9 @@ export async function resolveVodItem(
   from?: VodFrom,
 ): Promise<VodItem | null> {
   // An item read from the user's Jellyfin is asked of it, and of nothing else.
+  // So is one from an Xtream playlist, of that playlist's panel.
   if (from === "jf") return resolveJfItem(id);
+  if (from === "xt") return resolveXtItem(id);
   const conn = loadAioConn();
   if (!conn) return null;
   const { meta } = await aioMeta(conn, type, id);
@@ -358,8 +365,10 @@ export async function resolveVodList(
   id: string,
   opts: { refresh?: boolean; from?: VodFrom } = {},
 ): Promise<{ sources: StreamSource[]; notices: string[] }> {
-  // The user's own server already holds its files: one read, no search.
+  // The user's own server already holds its files: one read, no search. A
+  // provider's are built from its library, with no read at all for a film.
   if (opts.from === "jf") return resolveJfList(kind, id);
+  if (opts.from === "xt") return resolveXtList(kind, id);
   const conn = loadAioConn();
   if (!conn) return { sources: [], notices: [] };
   const { streams = [] } = await aioStreams(conn, kind, id, opts);

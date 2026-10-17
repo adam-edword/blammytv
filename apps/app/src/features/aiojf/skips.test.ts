@@ -88,6 +88,18 @@ describe("getAioSkips", () => {
   });
 });
 
+describe("playSkips for a file from an Xtream playlist", () => {
+  it("asks neither AniSkip nor AIOStreams: the title has no id either could be asked about", async () => {
+    aniskip.mockResolvedValue([{ type: "op", start: 5, end: 85 }]);
+    call.mockResolvedValue(ok(intro));
+    const xt = { id: "xt:p:s:t4521", kind: "series", from: "xt" } as VodItem;
+    expect(await playSkips(xt, "xt:p:s:t4521:1:1", 1)).toEqual([]);
+    expect(aniskip).not.toHaveBeenCalled();
+    expect(call).not.toHaveBeenCalled();
+    expect(status).not.toHaveBeenCalled();
+  });
+});
+
 describe("playSkips (plan 023, D4)", () => {
   it("keeps AniSkip first: AIOStreams is not asked when AniSkip has ranges", async () => {
     aniskip.mockResolvedValue([{ type: "op", start: 5, end: 85 }]);

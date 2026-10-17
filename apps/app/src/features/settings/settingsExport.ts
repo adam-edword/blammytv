@@ -42,7 +42,8 @@ import { hasTokenRun } from "../../lib/scrub";
  * `clearLogins` stays the definition of a login. Only the playlists, the
  * manifest and the hero sources are stored keys of that kind; the other things
  * it clears are sign-ins (never, the Jellyfin one included), the catalog mirror (`vodCache`, a cache) and
- * the guide's copy on disk (IndexedDB, not here). The test reads `clearLogins`
+ * the guide's copy and the playlists' movie and show lists on disk (IndexedDB,
+ * not here; plan 028's `forgetXtLists`). The test reads `clearLogins`
  * too, so a call added to it makes it fail until this file has been looked at.
  *
  * Artwork is the one thing in an always-exported group that can hold a key. A
@@ -142,6 +143,14 @@ export const KEY_GROUPS = {
     "aniskipIndex",
     "kitsuMalIndex",
     "discoverArt",
+    // An Xtream playlist's movies and shows (plan 028, xtvod/store.ts). `xtVod`
+    // is the choices over them, by playlist id: whether a library is off and
+    // the folders picked. Filed here until Settings carries it with the
+    // playlists (batch 4), where it belongs: it names playlist ids. `xtVodHeld`
+    // is what each playlist's last good load held, the app's own bookkeeping,
+    // filled by the next launch.
+    "xtVod",
+    "xtVodHeld",
     // One-time flags. `myList` and `skipBehavior` are the keys `lists` and
     // `skipping` replaced: read once to migrate and left alone since, so the
     // new keys carry everything.

@@ -60,6 +60,9 @@ export async function playSkips(
     if (own.length) return own;
     return getAniskipRanges(item, episodeId).catch(() => []);
   }
+  // A file from an Xtream playlist: its title has no IMDb or Kitsu id to ask
+  // either of them about, and AIOStreams must not be asked about it at all.
+  if (item.from === "xt") return [];
   const exact = await getAniskipRanges(item, episodeId).catch(() => []);
   if (exact.length) return exact;
   return getAioSkips(item, episodeId, season).catch(() => []);

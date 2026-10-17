@@ -13,6 +13,7 @@ import { signOutOfTrakt } from "../trakt/account";
 import { savePlaylists } from "./playlists";
 import { saveAioUrl, saveHeroSources } from "./aiostreams";
 import { diskClear } from "../live/diskCache";
+import { forgetXtLists } from "../xtvod/vod";
 import { requestOnboardingReplay } from "../../app/onboardingGate";
 import { ConfirmButton } from "./ConfirmButton";
 
@@ -38,6 +39,9 @@ export function AppPage() {
     // The guide's copy on disk, the same way (Xtream credentials in its key
     // and in every stream URL).
     void diskClear();
+    // And each playlist's movie and show lists (plan 028), kept under their
+    // account's server, user name and password.
+    void forgetXtLists();
     // And the Trakt, MyAnimeList and AIOStreams sign-ins (plans 015, 021,
     // 024), which are logins like the others. Clearing the manifest URL above
     // signs out of nothing, so the AIOStreams one goes here.

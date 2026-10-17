@@ -558,6 +558,12 @@ http
         const answer = vodAnswer(action, url.searchParams);
         if (answer !== undefined) return res.end(JSON.stringify(answer));
       }
+      // The user "novod": a live-only panel that fails the movie and show
+      // calls outright instead of answering [] (verify-xtvod).
+      if (url.searchParams.get("username") === "novod" && vodAnswer(action, url.searchParams) !== undefined) {
+        res.statusCode = 500;
+        return res.end("no such action");
+      }
       if (action === "get_live_categories")
         return res.end(JSON.stringify(CATEGORIES));
       if (action === "get_live_streams")

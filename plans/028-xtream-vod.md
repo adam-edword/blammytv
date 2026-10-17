@@ -46,11 +46,13 @@ Not in it, on purpose:
 - **D3, search across everything, and Discover.** Search covers the whole
   library whether or not a folder is picked. No genre rail for its movies:
   the movie list carries no genres.
-  - **Open:** what feeds Discover's grid. Discover has no catalog picker
-    (every catalog feeds one mixed grid), so "its folders in the picker" was
-    wrong. Options put to Adam: (a) every folder feeds the grid, (b) one
-    Movies and one Shows feed per playlist, newest first, from the full
-    lists, (c) only the picked folders. Recommended (b).
+  - **What feeds Discover's grid: (b), one Movies and one Shows feed per
+    playlist, newest first, from the full lists** (Adam, 2026-10-17: "agreed
+    with b"). Discover has no catalog picker (every catalog feeds one mixed
+    grid), so "its folders in the picker" was wrong. Not (a), every folder as
+    a feed: his folders are mostly genres, so 58 feeds mix the same titles in
+    from 58 directions. Not (c), only the picked folders: a fresh install
+    would have an empty Discover until something was picked.
 
 ## The data (Adam's provider, 2026-10-17)
 

@@ -5,6 +5,7 @@ import { Combobox, type ComboboxOption } from "../../ui/Combobox";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioConn } from "../aiojf/conn";
 import { loadJfConn } from "../jellyfin/store";
+import { hasXtLibrary } from "../xtvod/store";
 import { loadOneClickPlay, saveOneClickPlay } from "./oneClickPlay";
 import { loadSourceFailover, saveSourceFailover } from "./failover";
 import {
@@ -88,9 +89,10 @@ const SUB_OPTIONS: ComboboxOption[] = [
  * and Pop-out are P3b.
  *
  * TWO GROUPS, so there is no Live TV / Stream pill. Stream's rows are about
- * what the app does with an episode, and are gated on an AIOStreams or a
- * Jellyfin, because with neither there is nothing to play and nothing for them
- * to govern. All six change a Jellyfin play too: One-Click Play and Failover
+ * what the app does with an episode, and are gated on an AIOStreams, a
+ * Jellyfin or a playlist with movies or shows, because with none there is
+ * nothing to play and nothing for them to govern. All six change a Jellyfin
+ * play too: One-Click Play and Failover
  * go through the same sources list, Autoplay is Stream's countdown, Skipping,
  * the Up Next card and Preferred Language are the player's. Read
  * once per mount, and a page mounts each time you arrive, so signing in on
@@ -99,7 +101,7 @@ const SUB_OPTIONS: ComboboxOption[] = [
  * with or without a source.
  */
 export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
-  const hasStream = useRef(!!loadAioConn() || !!loadJfConn()).current;
+  const hasStream = useRef(!!loadAioConn() || !!loadJfConn() || hasXtLibrary()).current;
 
   const [oneClick, setOneClick] = useState<boolean>(loadOneClickPlay);
   const [failover, setFailover] = useState<boolean>(loadSourceFailover);

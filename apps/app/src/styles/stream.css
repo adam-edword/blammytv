@@ -218,6 +218,30 @@
   /* 2px here + the scroller's 18px hover headroom = the old 16px+4px gap. */
   margin-bottom: 2px;
 }
+/* The folder picker for a provider's movies and shows (plan 028): a section of
+ * the page in the rows' rhythm, and on an Xtream-only Stream the page itself.
+ * Its chips are Card Details' (.meta-pick, settings.css). */
+.xtpick {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.xtpick__note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.xtpick__label {
+  margin: 0 0 8px;
+  font-family: var(--font-headline);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.xtpick__acts,
+.xtpick__reopen {
+  display: flex;
+}
 /* The viewport owns the page-padding bleed + anchors scrims/arrows. */
 .media-row__viewport {
   position: relative;

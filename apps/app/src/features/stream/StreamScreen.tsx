@@ -47,7 +47,7 @@ import { InvertedPlayer } from "../live/InvertedPlayer";
 import { VodLoading } from "../live/VodLoading";
 import { TheaterOverlay } from "../live/TheaterOverlay";
 import { useDirectOverlay } from "../live/useDirectOverlay";
-import type { Episode, Season, StreamSource, VodData, VodItem } from "./model";
+import type { Episode, Season, StreamRow, StreamSource, VodData, VodItem } from "./model";
 import {
   configKey,
   keepHero,
@@ -75,6 +75,10 @@ import { filmWatched, loadAioWatched, loadJfWatched, loadWatched, markWatched } 
 import { loadAioConn } from "../aiojf/conn";
 import { loadJfVod, peekJfVod } from "../jellyfin/vod";
 import { JF_CHANGED, loadJfConn } from "../jellyfin/store";
+import { eligiblePlaylists, hasXtLibrary, XT_CHANGED, xtLibraryPending } from "../xtvod/store";
+import { loadXtVod, peekXtVod, XT_LOADED, xtLibraries, xtUserAgent } from "../xtvod/vod";
+import { XtPickerSlot } from "../xtvod/XtPicker";
+import { onPlaylistsChange } from "../settings/playlists";
 import { AIO_CONN_CHANGED } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
@@ -161,11 +165,26 @@ type Load =
  * server signed in. */
 type JfLoad = Load | { status: "off" };
 
+/** An Xtream playlist's movies and shows (plan 028): the same states, and `off`
+ * with no playlist whose library is on. */
+type XtLoad = JfLoad;
+
 const NO_ITEMS: ReadonlyMap<string, VodItem> = new Map();
+
+/** One block of the Stream home after Continue Watching: a row and the items it
+ * names, or (`library`) the end of a playlist's rows, where its folder picker
+ * or the button that opens it sits. */
+type Shown = { row: StreamRow; items: ReadonlyMap<string, VodItem> } | { library: string };
 
 const initialJf = (): JfLoad => {
   if (!loadJfConn()) return { status: "off" };
   const cached = peekJfVod();
+  return cached ? { status: "ready", data: cached } : { status: "loading" };
+};
+
+const initialXt = (): XtLoad => {
+  if (eligiblePlaylists().length === 0) return { status: "off" };
+  const cached = peekXtVod();
   return cached ? { status: "ready", data: cached } : { status: "loading" };
 };
 
@@ -195,6 +214,10 @@ function prefetchEpisode(episodeId: string, from: VodItem["from"]) {
 export function StreamScreen({ home }: { home?: number } = {}) {
   const [load, setLoad] = useState<Load>(initialLoad);
   const [jf, setJf] = useState<JfLoad>(initialJf);
+  const [xt, setXt] = useState<XtLoad>(initialXt);
+  // Bumped when the Xtream libraries or the choices over them move: re-runs the
+  // load below without re-running the others.
+  const [xtTick, setXtTick] = useState(0);
   const [playing, setPlayingRaw] = useState<{
     url: string;
     item: VodItem;
@@ -215,6 +238,11 @@ export function StreamScreen({ home }: { home?: number } = {}) {
     /** Playing in the PiP window: the stage stays (black), video doesn't. */
     popped?: boolean;
   } | null>(null);
+  // A playlist's own User-Agent rides every call to its panel and must reach mpv
+  // too (plan 028). Derived from what plays, so every place that starts a play
+  // has it without each passing one.
+  const agentFor = playing?.item.from === "xt" ? playing.item.id : null;
+  const playAgent = useMemo(() => (agentFor ? xtUserAgent(agentFor) : undefined), [agentFor]);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
   // A Trakt sync can move Continue Watching (plan 015, T4).
   useEffect(() => {
@@ -471,6 +499,51 @@ export function StreamScreen({ home }: { home?: number } = {}) {
     };
     window.addEventListener(JF_CHANGED, again);
     return () => window.removeEventListener(JF_CHANGED, again);
+  }, []);
+  // An Xtream playlist's movies and shows (plan 028) load beside the others and
+  // never sink them: an error here is that playlist's alone. Not keepHero'd
+  // like the others: its hero is the newest picked shows, not a random draw,
+  // and it must follow the picks.
+  useEffect(() => {
+    if (eligiblePlaylists().length === 0) {
+      setXt({ status: "off" });
+      return;
+    }
+    let stale = false;
+    loadXtVod().then(
+      (data) =>
+        !stale &&
+        setXt((prev) =>
+          data.error
+            ? prev.status === "ready"
+              ? prev
+              : { status: "error", message: data.error }
+            : { status: "ready", data },
+        ),
+      (e) =>
+        !stale &&
+        setXt((prev) => (prev.status === "ready" ? prev : { status: "error", message: scrubbedMessage(e) })),
+    );
+    return () => {
+      stale = true;
+    };
+  }, [vodTick, xtTick]);
+  // A pick, the switch, a playlist or the adult filter changing, or the lists
+  // landing (from disk, or read again): draw what the libraries in memory give
+  // now, at once, then load for anything still missing. A pick costs no call.
+  useEffect(() => {
+    const again = () => {
+      setXt(initialXt());
+      setXtTick((t) => t + 1);
+    };
+    window.addEventListener(XT_CHANGED, again);
+    window.addEventListener(XT_LOADED, again);
+    const off = onPlaylistsChange(again);
+    return () => {
+      window.removeEventListener(XT_CHANGED, again);
+      window.removeEventListener(XT_LOADED, again);
+      off();
+    };
   }, []);
   // The same for AIOStreams: a sign-in, a sign-out, a 401 that ends one, or a
   // manifest saved or cleared. This tab is mounted before any of it on a first
@@ -943,10 +1016,12 @@ export function StreamScreen({ home }: { home?: number } = {}) {
   loadRef.current = load;
   const jfRef = useRef(jf);
   jfRef.current = jf;
+  const xtRef = useRef(xt);
+  xtRef.current = xt;
   /** The catalog's own copy of a Continue Watching entry's title, if it holds
    * one: from the source the entry was played from. */
   const catalogItem = useCallback((e: WatchEntry): VodItem | undefined => {
-    const l = e.from === "jf" ? jfRef.current : loadRef.current;
+    const l = e.from === "jf" ? jfRef.current : e.from === "xt" ? xtRef.current : loadRef.current;
     return l.status === "ready" ? l.data.items.get(e.id) : undefined;
   }, []);
 
@@ -1350,7 +1425,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         if (!playing) return;
         const shell = document.querySelector<HTMLElement>(".app-shell");
         if (shell) shell.style.clipPath = "";
-        void tauriPopoutOpen(playing.url, false).catch(() => {});
+        void tauriPopoutOpen(playing.url, false, undefined, playAgent).catch(() => {});
         // Old-app pattern: popping out drops OS fullscreen — the popped
         // placeholder is a normal windowed app view.
         setPlayingRaw({ ...playing, popped: true, mode: "theater" });
@@ -1605,10 +1680,10 @@ export function StreamScreen({ home }: { home?: number } = {}) {
 
   // AIOStreams (plan 023, A2): what plays here is reported to it too, so its
   // other apps show it. Does nothing until its sync is connected, and nothing
-  // for a play from your own Jellyfin.
+  // for a play from your own Jellyfin or a provider's playlist.
   useAiojfReport(
-    // Not for a file from your own Jellyfin: that play is not AIOStreams'.
-    playing && playing.item.from !== "jf"
+    // Only the addon's own: a file from a Jellyfin or a playlist is not AIOStreams'.
+    playing && !playing.item.from
       ? {
           itemId: playing.item.id,
           kind: playing.item.kind,
@@ -1749,6 +1824,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
             squared
             ready={videoReady}
             start={playing.resumeAt}
+            userAgent={playAgent}
           />
         )}
         {!playing.popped &&
@@ -2013,6 +2089,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         <Home
           load={load}
           jf={jf}
+          xt={xt}
           onRetry={() => setVodTick((t) => t + 1)}
           onOpen={cardOpen}
           onWatchNow={watchNow}
@@ -2102,6 +2179,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
 function Home({
   load,
   jf,
+  xt,
   onOpen,
   onWatchNow,
   watching,
@@ -2112,6 +2190,7 @@ function Home({
 }: {
   load: Load;
   jf: JfLoad;
+  xt: XtLoad;
   onOpen: (i: VodItem) => void;
   onWatchNow: (i: VodItem) => void;
   watching: WatchEntry[];
@@ -2132,7 +2211,14 @@ function Home({
   // The tab's states are the StateCard (plan 019, K8).
   const aioOn = !!loadAioConn();
   const jfOn = jf.status !== "off";
-  if (!aioOn && !jfOn) {
+  // A provider's playlist counts once it has been seen to hold a movie or a show
+  // (hasXtLibrary, which is known at launch), or while a playlist never read
+  // yet is loading. Not when its panel fails the list calls before it was ever
+  // read: most playlists are live TV only, and that user's Stream says "No
+  // Movies or Shows Yet" as it always did, not that a catalog failed.
+  const xtOn =
+    xt.status !== "off" && (hasXtLibrary() || (xt.status === "loading" && xtLibraryPending()));
+  if (!aioOn && !jfOn && !xtOn) {
     return (
       <StateCard
         className="stream__note"
@@ -2146,8 +2232,9 @@ function Home({
   // other: your Jellyfin up and the addon down still shows your library.
   const aio = aioOn && load.status === "ready" ? load.data : null;
   const jfData = jf.status === "ready" ? jf.data : null;
-  if (!aio && !jfData) {
-    if ((aioOn && load.status === "loading") || jf.status === "loading")
+  const xtData = xtOn && xt.status === "ready" ? xt.data : null;
+  if (!aio && !jfData && !xtData) {
+    if ((aioOn && load.status === "loading") || jf.status === "loading" || xt.status === "loading")
       return (
         <StateCard
           className="stream__note"
@@ -2158,6 +2245,7 @@ function Home({
       );
     const aioErr = aioOn && load.status === "error" ? load.message : null;
     const jfErr = jf.status === "error" ? jf.message : null;
+    const xtErr = xt.status === "error" ? xt.message : null;
     return (
       <StateCard
         className="stream__note"
@@ -2166,12 +2254,14 @@ function Home({
         title="Couldn’t Load Your Catalog"
         sub={
           <>
-            {aioErr ?? jfErr}.{" "}
+            {aioErr ?? jfErr ?? xtErr}.{" "}
             {aioErr
               ? loadAioConn()?.kind === "signin"
                 ? "Check your AIOStreams sign-in in Settings → Sources → Stream."
                 : "Check the manifest URL in Settings → Sources → Stream."
-              : "Check your Jellyfin sign-in in Settings → Sources → Stream."}
+              : jfErr
+                ? "Check your Jellyfin sign-in in Settings → Sources → Stream."
+                : "Check your playlist in Settings → Sources."}
           </>
         }
         // Live's error states retry; siblings match (the audit's dead-end
@@ -2185,8 +2275,8 @@ function Home({
     );
   }
   // The hero is the addon's picks; with none (no addon, or it is down) it is
-  // drawn from your library's.
-  const heroFrom = aio && aio.featured.length > 0 ? aio : jfData;
+  // drawn from your Jellyfin's libraries, and failing those, your playlists'.
+  const heroFrom = [aio, jfData, xtData].find((d) => d && d.featured.length > 0) ?? null;
   const featured = (heroFrom?.featured ?? [])
     .map((id) => heroFrom?.items.get(id))
     .filter((v): v is VodItem => !!v);
@@ -2194,19 +2284,28 @@ function Home({
   // the entry survives for resume bookkeeping).
   const activeWatching = watching.filter((e) => !retiredFromContinue(e));
   // The rows to draw, each with the items it names: the addon's, then your
-  // Jellyfin's. The two never share a map, so a title in both is two cards,
-  // each opening its own source.
-  const shown = [
+  // Jellyfin's, then each playlist's with its folder picker after them. The
+  // sources never share a map, so a title in two is two cards, each opening its
+  // own source.
+  const libs = xtData ? xtLibraries() : [];
+  const shown: Shown[] = [
     ...(aio ? aio.rows.map((row) => ({ row, items: aio.items })) : []),
     ...(jfData ? jfData.rows.map((row) => ({ row, items: jfData.items })) : []),
+    ...(xtData
+      ? libs.flatMap((lib): Shown[] => [
+          ...xtData.rows.filter((r) => r.id.startsWith(`xt:${lib.id}:`)).map((row) => ({ row, items: xtData.items })),
+          { library: lib.id },
+        ])
+      : []),
   ];
   // A "ready" catalog can still be EMPTY (buildVod swallows per-catalog
   // failures into empty rows) — without this branch that rendered a
-  // completely blank tab. Discover and Live both narrate the same state.
+  // completely blank tab. Discover and Live both narrate the same state. A
+  // playlist's library is never empty in this sense: its picker is the page.
   if (
     featured.length === 0 &&
     activeWatching.length === 0 &&
-    shown.every(({ row }) => row.itemIds.length === 0)
+    shown.every((b) => "row" in b && b.row.itemIds.length === 0)
   )
     return (
       <StateCard
@@ -2218,7 +2317,9 @@ function Home({
             ? loadAioConn()?.kind === "signin"
               ? "Every catalog came back empty. Try again in a minute."
               : "The manifest loaded but every catalog returned empty. Check the manifest in Settings → Sources, or try again in a minute."
-            : "Your Jellyfin has no movie or show libraries to show. Check them in Jellyfin, or try again in a minute."
+            : jfOn
+              ? "Your Jellyfin has no movie or show libraries to show. Check them in Jellyfin, or try again in a minute."
+              : "Your playlist has no movies or shows to show. Check it in Settings → Sources, or try again in a minute."
         }
       />
     );
@@ -2252,24 +2353,28 @@ function Home({
         {aio && <UpNextRows catalog={aio.items} metaFields={metaFields} onOpen={onOpen} />}
         {/* And your Jellyfin's own (plan 027, D5). */}
         {jfOn && <JfUpNextRow catalog={jfData?.items ?? NO_ITEMS} metaFields={metaFields} onOpen={onOpen} shared={aioOn} />}
-        {shown.map(({ row, items }) => (
-          <section key={row.id} className="media-row">
-            <h3 className="media-row__title">{row.title}</h3>
-            <RowScroller>
-              {row.itemIds.map((id) => {
-                const item = items.get(id);
-                return item ? (
-                  <Card
-                    key={id}
-                    item={item}
-                    metaFields={metaFields}
-                    onOpen={onOpen}
-                  />
-                ) : null;
-              })}
-            </RowScroller>
-          </section>
-        ))}
+        {shown.map((b) =>
+          "library" in b ? (
+            <XtPickerSlot key={`pick:${b.library}`} playlistId={b.library} />
+          ) : (
+            <section key={b.row.id} className="media-row">
+              <h3 className="media-row__title">{b.row.title}</h3>
+              <RowScroller>
+                {b.row.itemIds.map((id) => {
+                  const item = b.items.get(id);
+                  return item ? (
+                    <Card
+                      key={id}
+                      item={item}
+                      metaFields={metaFields}
+                      onOpen={onOpen}
+                    />
+                  ) : null;
+                })}
+              </RowScroller>
+            </section>
+          ),
+        )}
       </div>
     </>
   );
