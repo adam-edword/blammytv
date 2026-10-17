@@ -35,6 +35,20 @@ Not in it, on purpose:
   shows puts them in Stream, with a switch per playlist to turn that off. A
   playlist-only user's Stream tab, which today says "No Movies or Shows
   Yet", has their provider's library in it.
+- **The picker, redesigned (Adam, 2026-10-17, after the chip version in
+  v0.12.1 read as "a row of text").** Four directions were drawn on a canvas
+  (artifact "Stream Folder Picker"); he took three, each for its own place:
+  - **Stream with no other source** (no AIOStreams, no Jellyfin, a playlist
+    with movies or shows, nothing picked yet): the page is **B, Collections**,
+    a grid of folder cards, each a fanned stack of three of its newest
+    posters, picked with the accent ring and a check.
+  - **Stream with other sources**: a button after the rows opens **D, the
+    Rows drawer** from the right, over Stream: search, Movies and Shows,
+    each folder with a small poster stack and a switch, rows appearing
+    behind it as they are switched on. The same drawer is how a
+    playlist-only user edits their rows once they have some.
+  - **Settings**: **C**'s pills, a round poster beside each folder's name,
+    under the playlist.
 - **The switch and the picks are not stored on the playlist.** Any save of
   the playlist list makes Live reload its channels (`live/source.ts:492`,
   `LiveScreen.tsx:505`), and a folder pick must not cost a guide reload.
