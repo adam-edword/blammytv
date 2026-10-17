@@ -62,10 +62,11 @@ export interface Season {
 }
 
 /** Where an item was read from, when it is not the AIOStreams addon: the user's
- * own Jellyfin server (plan 027). The id alone cannot say (a `tt…` is shared
- * between every source), so this travels with the item, and the resolvers in
- * source.ts route on it. Absent means the addon. */
-export type VodFrom = "jf";
+ * own Jellyfin server (plan 027, `jf`) or an Xtream playlist's movies and shows
+ * (plan 028, `xt`). The id alone cannot say (a `tt…` is shared between every
+ * source), so this travels with the item, and the resolvers in source.ts route
+ * on it. Absent means the addon. */
+export type VodFrom = "jf" | "xt";
 
 export interface VodItem {
   id: string;

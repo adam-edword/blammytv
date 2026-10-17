@@ -112,11 +112,14 @@ export async function httpGetJson<T>(
      * that send ACAO:* (Stremio addons do, by spec; Xtream panels don't,
      * so their callers must not set this). */
     browserRetryOn403?: boolean;
+    /** The request's timeout in seconds (Rust's default is 30), as httpGetText
+     * takes it: for a whole-library list that is megabytes long. */
+    timeoutSecs?: number;
   },
 ): Promise<T> {
   let body: string;
   try {
-    body = await httpGetText(url, headers);
+    body = await httpGetText(url, headers, opts?.timeoutSecs);
   } catch (e) {
     const is403 = e instanceof Error && /HTTP 403/.test(e.message);
     if (!is403 || !opts?.browserRetryOn403 || !isTauri()) throw e;

@@ -434,7 +434,7 @@ function castNames(
  * `2008-01-21T05:00:00.000Z`, which as an instant read "Jan 20, 2008"
  * anywhere west of UTC-5. One calendarDay serves both, because every episode
  * asks (see AIR_DATE). Nothing for a date that is missing or not one. */
-function releaseOf(released?: string | null): { airDate?: string; airsAt?: number } {
+export function releaseOf(released?: string | null): { airDate?: string; airsAt?: number } {
   if (!released) return {};
   const day = calendarDay(released);
   if (Number.isNaN(day.getTime())) return {};

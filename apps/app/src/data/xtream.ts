@@ -127,8 +127,10 @@ export async function authenticate(p: XtreamPlaylist): Promise<void> {
   }
 }
 
-export async function fetchLiveCategories(
+/** A category list, any kind: live, movies or shows answer in one shape. */
+async function fetchCategories(
   p: XtreamPlaylist,
+  url: string,
 ): Promise<XtreamCategory[]> {
   const raw = await httpGetJson<
     Array<{
@@ -136,7 +138,7 @@ export async function fetchLiveCategories(
       category_name?: string;
       is_adult?: number | string | null;
     }>
-  >(liveCategoriesUrl(p), asked(p));
+  >(url, asked(p));
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((c) => c.category_id != null)
@@ -147,11 +149,94 @@ export async function fetchLiveCategories(
     }));
 }
 
+export async function fetchLiveCategories(
+  p: XtreamPlaylist,
+): Promise<XtreamCategory[]> {
+  return fetchCategories(p, liveCategoriesUrl(p));
+}
+
 export async function fetchLiveStreams(
   p: XtreamPlaylist,
 ): Promise<XtreamStream[]> {
   const raw = await httpGetJson<XtreamStream[]>(liveStreamsUrl(p), asked(p));
   return Array.isArray(raw) ? raw.filter((s) => s.stream_id != null) : [];
+}
+
+// A provider's movies and shows (plan 028). These answer raw: the numbers come
+// as numbers or strings and fields go missing, and features/xtvod reads them.
+// Movie folders and show folders are two lists, and a movie folder and a show
+// folder can share an id.
+
+/** A whole-library list is megabytes (one provider's movie list is 10.2 MB and
+ * took 4.1 s on a fast line), and the client's 30 seconds default starved the
+ * guide the same way (see fetchXmltv). */
+const LIST_TIMEOUT_SECS = 120;
+
+/** Raw entries of a list call: the array, or none when the panel answers
+ * anything else (an error object, a bare string). */
+const entries = (raw: unknown): unknown[] => (Array.isArray(raw) ? raw : []);
+
+export async function fetchVodCategories(
+  p: XtreamPlaylist,
+): Promise<XtreamCategory[]> {
+  return fetchCategories(p, playerApiUrl(p, { action: "get_vod_categories" }));
+}
+
+export async function fetchSeriesCategories(
+  p: XtreamPlaylist,
+): Promise<XtreamCategory[]> {
+  return fetchCategories(
+    p,
+    playerApiUrl(p, { action: "get_series_categories" }),
+  );
+}
+
+/** Every movie the account holds, as the panel sent them. */
+export async function fetchVodStreams(p: XtreamPlaylist): Promise<unknown[]> {
+  return entries(
+    await httpGetJson<unknown>(
+      playerApiUrl(p, { action: "get_vod_streams" }),
+      asked(p),
+      { timeoutSecs: LIST_TIMEOUT_SECS },
+    ),
+  );
+}
+
+/** Every show the account holds, as the panel sent them. */
+export async function fetchSeries(p: XtreamPlaylist): Promise<unknown[]> {
+  return entries(
+    await httpGetJson<unknown>(
+      playerApiUrl(p, { action: "get_series" }),
+      asked(p),
+      { timeoutSecs: LIST_TIMEOUT_SECS },
+    ),
+  );
+}
+
+/** One movie's page: `{ info, movie_data }`, whatever the panel sent (an
+ * empty array for an id it does not have). */
+export async function fetchVodInfo(
+  p: XtreamPlaylist,
+  vodId: string | number,
+): Promise<unknown> {
+  return httpGetJson<unknown>(
+    playerApiUrl(p, { action: "get_vod_info", vod_id: String(vodId) }),
+    asked(p),
+  );
+}
+
+/** One show's page: `{ info, episodes }`, whatever the panel sent. */
+export async function fetchSeriesInfo(
+  p: XtreamPlaylist,
+  seriesId: string | number,
+): Promise<unknown> {
+  return httpGetJson<unknown>(
+    playerApiUrl(p, {
+      action: "get_series_info",
+      series_id: String(seriesId),
+    }),
+    asked(p),
+  );
 }
 
 /** The full XMLTV EPG for the account — one document, all channels.
