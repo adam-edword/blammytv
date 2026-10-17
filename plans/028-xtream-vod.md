@@ -49,6 +49,13 @@ Not in it, on purpose:
     playlist-only user edits their rows once they have some.
   - **Settings**: **C**'s pills, a round poster beside each folder's name,
     under the playlist.
+  - **All three stage the picks and commit them with a button**, none live
+    (Adam: "all of these should be commits instead of live updates"). B's
+    is "Show Rows", D's and C's say what they save. The button that opens D
+    reads "Add Rows from Your Playlist" before anything is picked and "Edit
+    Rows" after; with several playlists B and D group the folders under each
+    playlist's name. One data layer (folders, their posters, the staged
+    picks), three thin views over it.
 - **The switch and the picks are not stored on the playlist.** Any save of
   the playlist list makes Live reload its channels (`live/source.ts:492`,
   `LiveScreen.tsx:505`), and a folder pick must not cost a guide reload.
