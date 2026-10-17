@@ -149,6 +149,20 @@ describe("findSettings", () => {
     expect(order.slice(-4)).toEqual(["copy-diagnostics", "export-settings", "import-settings", "clear-logins"]);
   });
 
+  it("finds an Xtream playlist's movies and shows, and its folder picker, by what a person would type (plan 028)", () => {
+    expect(ids("movies and shows")[0]).toBe("playlist-library");
+    expect(ids("choose folders")[0]).toBe("playlist-library-folders");
+    for (const q of ["movies", "shows", "films", "tv shows", "vod", "library", "turn off", "switch"]) expect(ids(q), q).toContain("playlist-library");
+    for (const q of ["folders", "pick", "rows", "genres"]) expect(ids(q), q).toContain("playlist-library-folders");
+    // They sit under the playlists, in the Live TV pill, where the playlists are.
+    for (const id of ["playlist-library", "playlist-library-folders"]) {
+      expect(settingById(id)?.page, id).toBe("sources");
+      expect(settingById(id)?.world, id).toBe("live");
+    }
+    // The Live TV folders row is still found by "folders", after the picker whose label has it.
+    expect(ids("folders").indexOf("playlists")).toBeGreaterThan(ids("folders").indexOf("playlist-library-folders"));
+  });
+
   it("finds a label by its own words", () => {
     expect(ids("row size")[0]).toBe("row-size");
     expect(ids("channel numbers")[0]).toBe("channel-numbers");

@@ -1,9 +1,9 @@
-import { useEffect, useReducer, useState } from "react";
+import { useState } from "react";
 import { Button } from "../../components/ui/button";
-import { onPlaylistsChange } from "../settings/playlists";
 import type { XtKind } from "./keys";
-import { loadPicks, togglePick, XT_CHANGED } from "./store";
-import { XT_LOADED, xtLibraries, type XtLibraryView } from "./vod";
+import { loadPicks, togglePick } from "./store";
+import { useXtRefresh } from "./useXtRefresh";
+import { xtLibraries, type XtLibraryView } from "./vod";
 
 /**
  * Which of a provider's folders are rows in Stream (plan 028, D2). Every folder
@@ -16,22 +16,6 @@ import { XT_LOADED, xtLibraries, type XtLibraryView } from "./vod";
  * shows are two groups because they are two lists of folders: both can have an
  * "Action", and the ids can even be the same.
  */
-
-/** Draw again when anything the picker shows may have moved: a pick or the
- * switch, the lists being read, a playlist or the adult filter changing. */
-function useXtRefresh(): void {
-  const [, bump] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => {
-    window.addEventListener(XT_CHANGED, bump);
-    window.addEventListener(XT_LOADED, bump);
-    const off = onPlaylistsChange(bump);
-    return () => {
-      window.removeEventListener(XT_CHANGED, bump);
-      window.removeEventListener(XT_LOADED, bump);
-      off();
-    };
-  }, []);
-}
 
 /** What to call the heading and the button that opens it: with more than one
  * library it has to say which. */

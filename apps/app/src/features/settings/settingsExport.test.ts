@@ -499,10 +499,11 @@ describe("applying a settings file", () => {
 // Keys that name this PC's playlists or channels travel with the playlists.
 // ============================================================================
 
-/** The four keys whose values are a playlist id or a channel id
+/** The five keys whose values are a playlist id or a channel id
  * (`${playlistId}:${streamId}`). A playlist id is random per PC, so on another
- * PC none of them match anything. */
-const LINKED = ["favorites", "recents", "guideFixes", "multiviewGrid"] as const;
+ * PC none of them match anything. `xtVod` (plan 028) joined the four on purpose:
+ * an Xtream library's switch and folder picks are keyed by playlist id. */
+const LINKED = ["favorites", "recents", "guideFixes", "multiviewGrid", "xtVod"] as const;
 /** What the keys of `yours` that hold none of those (a title id, a league path,
  * a tile count) are filed as: they go in every file. */
 const PORTABLE = ["lists", "watching", "watchedEpisodes", "sports-follows", "multiviewLayouts", "multiviewSplits", "multiviewVolume", "multiviewScores"] as const;
@@ -513,6 +514,7 @@ const linkedOf = (pc: string): Record<(typeof LINKED)[number], unknown> => ({
   recents: [`${pc}:2`],
   guideFixes: { [pc]: { [`${pc}:1`]: "guide.one" } },
   multiviewGrid: { picks: [{ channelId: `${pc}:1`, label: `${pc} one` }], sound: `${pc}:1` },
+  xtVod: { [pc]: { off: true, picks: { movie: ["12"], series: ["13"] } } },
 });
 const putLinked = (pc: string) => {
   for (const [k, data] of Object.entries(linkedOf(pc))) put(k, data);
@@ -520,7 +522,7 @@ const putLinked = (pc: string) => {
 const rawOf = (keys: readonly string[]) => Object.fromEntries(keys.map((k) => [k, stored(k)]));
 
 describe("keys that name this PC's playlists or channels travel with the playlists", () => {
-  it("files the four of them apart from the rest of yours, and the rest stay in yours", () => {
+  it("files the five of them apart from the rest of yours, and the rest stay in yours", () => {
     for (const k of LINKED) expect(groupOf(k), k).toBe("withPlaylists");
     for (const k of PORTABLE) expect(groupOf(k), k).toBe("yours");
     expect([...KEY_GROUPS.yours].sort()).toEqual([...PORTABLE].sort());
@@ -580,6 +582,37 @@ describe("keys that name this PC's playlists or channels travel with the playlis
       expect(applySettingsFile(fileText({ includesLogins }, linked)), String(includesLogins)).toEqual({ ok: false, reason: NOTHING_TO_IMPORT });
       expect(rawOf(LINKED), String(includesLogins)).toEqual(before);
     }
+  });
+
+  it("carries an Xtream library's choices with the playlists and never what it held", () => {
+    expect(groupOf("xtVod")).toBe("withPlaylists");
+    expect(groupOf("xtVodHeld")).toBe("never");
+    const choices = { pcA: { off: true }, pcB: { picks: { movie: ["12"] } } };
+    put("xtVod", choices);
+    put("xtVodHeld", { pcA: { movies: 9, shows: 4 } });
+    // Without the box: the choices are not in the file, and no playlist id with them.
+    const off = buildSettingsFile({ logins: false });
+    expect(off.keys).not.toHaveProperty("xtVod");
+    expect(off.keys).not.toHaveProperty("xtVodHeld");
+    expect(JSON.stringify(off)).not.toContain("pcA");
+    // With it: the choices are, and the counts still are not.
+    const on = buildSettingsFile({ logins: true });
+    expect(on.keys.xtVod).toEqual({ v: 1, data: choices });
+    expect(on.keys).not.toHaveProperty("xtVodHeld");
+
+    // An import takes them under the same condition as the favourites: a file
+    // that says it has the playlists, and no other. The counts are never taken,
+    // whatever the file says.
+    const theirs = { gone: { off: true } };
+    const file = (includesLogins: unknown) => fileText({ includesLogins }, { xtVod: env(theirs), xtVodHeld: env({ gone: { movies: 1, shows: 1 } }), theme: env("light") });
+    const before = rawOf(["xtVod", "xtVodHeld"]);
+    expect(applySettingsFile(file(false))).toEqual({ ok: true, written: 1 });
+    expect(rawOf(["xtVod", "xtVodHeld"])).toEqual(before);
+    for (const claim of [undefined, "true", 1, null]) expect(applySettingsFile(file(claim)), String(claim)).toEqual({ ok: true, written: 1 });
+    expect(rawOf(["xtVod", "xtVodHeld"])).toEqual(before);
+    expect(applySettingsFile(file(true))).toEqual({ ok: true, written: 2 });
+    expect(JSON.parse(stored("xtVod")!)).toEqual({ v: 1, data: theirs });
+    expect(stored("xtVodHeld")).toBe(before.xtVodHeld);
   });
 
   it("puts every key back when the store refuses one of them", () => {

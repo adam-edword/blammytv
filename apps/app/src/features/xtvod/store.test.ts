@@ -13,6 +13,7 @@ const bus = new EventTarget();
 vi.stubGlobal("window", bus);
 
 import {
+  dropXtFor,
   eligiblePlaylists,
   hasXtLibrary,
   xtLibraryPending,
@@ -216,5 +217,55 @@ describe("xtLibraryPending", () => {
     seed(pl("a", { enabled: false }), pl("b"));
     setLibraryOff("b", true);
     expect(xtLibraryPending()).toBe(false);
+  });
+});
+
+describe("a playlist that is gone", () => {
+  it("takes its choices and its record of what it held, and returns who it took", () => {
+    setLibraryOff("a", true);
+    setPicks("b", "movie", ["12"]);
+    setPicks("c", "series", ["3"]);
+    saveHeld("a", { movies: 1, shows: 2 });
+    saveHeld("b", { movies: 3, shows: 0 });
+    saveHeld("c", { movies: 0, shows: 4 });
+    expect(dropXtFor(["b"]).sort()).toEqual(["a", "c"]);
+    expect(isLibraryOff("a")).toBe(false);
+    expect(loadHeld("a")).toBeNull();
+    expect(loadPicks("c", "series")).toEqual([]);
+    expect(loadHeld("c")).toBeNull();
+    expect(loadPicks("b", "movie")).toEqual(["12"]);
+    expect(loadHeld("b")).toEqual({ movies: 3, shows: 0 });
+  });
+
+  it("takes one that has only a record of what it held, or only a choice", () => {
+    saveHeld("a", { movies: 1, shows: 0 });
+    setLibraryOff("b", true);
+    expect(dropXtFor([]).sort()).toEqual(["a", "b"]);
+    expect(mem.get("blammytv.xtVod")).toBe(JSON.stringify({ v: 1, data: {} }));
+    expect(mem.get("blammytv.xtVodHeld")).toBe(JSON.stringify({ v: 1, data: {} }));
+  });
+
+  it("writes nothing and says nothing when every playlist is still there", () => {
+    setPicks("a", "movie", ["1"]);
+    saveHeld("a", { movies: 1, shows: 0 });
+    const before = [...mem.entries()];
+    said = 0;
+    expect(dropXtFor(["a", "z"])).toEqual([]);
+    expect([...mem.entries()]).toEqual(before);
+    expect(said).toBe(0);
+  });
+
+  it("says nothing when it takes one: nothing draws a removed playlist's choices", () => {
+    setLibraryOff("a", true);
+    said = 0;
+    dropXtFor([]);
+    expect(said).toBe(0);
+  });
+
+  it("copes with a store that holds nothing, or junk", () => {
+    expect(dropXtFor(["a"])).toEqual([]);
+    mem.set("blammytv.xtVod", JSON.stringify({ v: 1, data: [1, 2] }));
+    mem.set("blammytv.xtVodHeld", JSON.stringify({ v: 1, data: "junk" }));
+    expect(dropXtFor(["a"])).toEqual([]);
   });
 });

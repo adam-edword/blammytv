@@ -304,7 +304,7 @@ const streamGone = async (p) => {
     rows: document.querySelectorAll(".stream .media-row").length,
     note: document.querySelector(".stream__note")?.textContent?.slice(0, 200) ?? "",
   }));
-  return { ...now, ok: now.rows === 0 && /Sign in to your AIOStreams or your Jellyfin/.test(now.note) };
+  return { ...now, ok: now.rows === 0 && /Sign in to AIOStreams or Jellyfin/.test(now.note) };
 };
 /** The address field. Exact: the manifest field's placeholder holds the host too. */
 const addr = (p) => p.getByPlaceholder("aiostreams.example.com", { exact: true });
@@ -648,7 +648,7 @@ const shot = async (p, name) => {
   const text = (await note.innerText()).replace(/\n/g, " | ");
   check(
     "With no connection, Stream's empty state points at signing in",
-    /Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream/.test(text) && !/manifest/i.test(text),
+    /Sign in to AIOStreams or Jellyfin, or add an Xtream playlist with movies and shows, in Settings → Sources\./.test(text) && !/manifest/i.test(text),
     text,
   );
   await p.close();

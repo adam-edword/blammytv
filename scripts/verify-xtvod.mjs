@@ -28,6 +28,15 @@
 // - A playlist with no movies or shows, or whose library is switched off, leaves
 //   Stream as it was: "No Movies or Shows Yet", and (switched off) no list call.
 // - Settings → Playback and Ctrl+K see a library as they see a Jellyfin.
+// - Settings → Sources (batch 4): a playlist with a provider library has the
+//   switch and the folder picker under its row, a live-only playlist has
+//   neither; picking there adds the row in Stream; the switch off empties
+//   Stream (and costs no download to turn back on); removing the playlist drops
+//   its choices, its record of what it held and its lists on disk.
+// - Discover (batch 5): with only a library, the grid is the provider's titles,
+//   newest first, with no genre rail; the Movies and Series chips filter it;
+//   a search finds a film in a folder nobody picked and a show; a result opens
+//   and plays the provider's file; nothing is found in a library switched off.
 //
 //   (vite on :4173; scripts/fake-panel.mjs on :8081)
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-xtvod.mjs
@@ -433,6 +442,7 @@ await p.context().close();
   await q.waitForTimeout(1200);
   const text = await q.locator("main").innerText();
   check("(control) a playlist that is live TV only is asked for its library, finds none, and Stream says so as it did", asked && /No Movies or Shows Yet/.test(text) && (await q.locator("[data-xtpick]").count()) === 0, text.slice(0, 80));
+  check("  and its sub is true for them: another way in, an Xtream playlist that has movies and shows", /Sign in to AIOStreams or Jellyfin, or add an Xtream playlist with movies and shows, in Settings → Sources\./.test(text), text);
   await q.keyboard.press("Control+k");
   await q.locator(".palette").waitFor({ timeout: 4000 });
   const names = await q.evaluate(() => [...document.querySelectorAll(".palette .mvpick__row .mvpick__nametext")].map((r) => r.textContent));
@@ -484,6 +494,245 @@ await p.context().close();
   await q.locator("[data-xtpick]").waitFor({ timeout: 5000 });
   const heading = await q.locator("[data-xtpick] .media-row__title").first().innerText();
   check("  the picker names the playlist it is for", heading === "Choose Folders from Alpha", heading);
+  await q.context().close();
+}
+
+// ============================================ Settings → Sources
+const openSources = async (p) => {
+  await p.getByRole("button", { name: "Settings", exact: true }).first().click({ timeout: 15_000 });
+  await p.locator(".settings__body").first().waitFor({ timeout: 10_000 });
+  await p.getByRole("tab", { name: "Sources", exact: true }).click();
+  await p.locator('.settings__body [data-setting="playlists"]').waitFor({ timeout: 10_000 });
+};
+const closeSettings = async (p) => {
+  await p.keyboard.press("Escape");
+  await p.locator(".settings__body").first().waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+  await p.waitForTimeout(300);
+};
+/** One playlist's block of Settings → Sources, by its name. */
+const item = (p, name) => p.locator(".playlist-item", { has: p.locator(".playlist-row__name", { hasText: new RegExp(`^${name}$`) }) });
+const LIBRARY = (name) => `${name} movies and shows in Stream and Discover`;
+const sw = (p, name) => item(p, name).getByRole("switch", { name: LIBRARY(name) });
+/** The records the app keeps on disk for the playlists' lists (blammytv-vod). */
+const diskKeys = (p) =>
+  p.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const rq = indexedDB.open("blammytv-vod", 1);
+        rq.onerror = () => resolve(null);
+        rq.onsuccess = () => {
+          const db = rq.result;
+          if (!db.objectStoreNames.contains("lists")) {
+            db.close();
+            return resolve([]);
+          }
+          const k = db.transaction("lists").objectStore("lists").getAllKeys();
+          k.onsuccess = () => {
+            db.close();
+            resolve(k.result.sort());
+          };
+          k.onerror = () => {
+            db.close();
+            resolve(null);
+          };
+        };
+      }),
+  );
+const LIVE_ONLY = () => playlist("u", { id: "live1", name: "Live Only" });
+const heldBoth = (p) => async () => {
+  const h = await storeOf(p, "xtVodHeld");
+  return !!h?.vod1 && !!h?.live1;
+};
+
+{
+  await clearLog();
+  const s = await openPage({ playlists: [playlist("vod", { name: "Vod Panel" }), LIVE_ONLY()] });
+  await s.locator("[data-xtpick]").first().waitFor({ timeout: 20_000 });
+  const read = await waitFor(s, heldBoth(s), 20_000);
+  await openSources(s);
+  const vodItem = item(s, "Vod Panel");
+  const liveItem = item(s, "Live Only");
+  check("(control) both playlists have been read, so a missing switch is not a late one", read && (await liveItem.count()) === 1 && (await vodItem.count()) === 1, JSON.stringify(await storeOf(s, "xtVodHeld")));
+  check(
+    "a playlist whose provider has movies and shows has the switch, on, and the folder picker, under its row",
+    (await vodItem.locator('[data-setting="playlist-library"]').count()) === 1 &&
+      (await sw(s, "Vod Panel").getAttribute("aria-checked")) === "true" &&
+      (await vodItem.locator('[data-setting="playlist-library-folders"] [data-xtpick]').count()) === 1,
+  );
+  check(
+    "  and a playlist that is live TV only has neither",
+    (await liveItem.locator('[data-setting="playlist-library"]').count()) === 0 && (await liveItem.locator("[data-xtpick]").count()) === 0 && (await s.locator('[data-setting="playlist-library"]').count()) === 1,
+  );
+  const text = await vodItem.locator(".playlist-library").innerText();
+  check("  the label says where they go, and the picker says what picking does", /Movies and Shows in Stream and Discover/.test(text) && /Choose Folders\n/.test(text) && /Each folder you pick becomes a row on Stream\./.test(text), JSON.stringify(text.slice(0, 120)));
+  const movies = await vodItem.locator('.xtpick__group[aria-label="Movies"] button').allInnerTexts();
+  const shows = await vodItem.locator('.xtpick__group[aria-label="Shows"] button').allInnerTexts();
+  check(
+    "  the folders are Stream's: movies and shows apart, and not the adult ones",
+    ["4K Movies", "Action", "Comedy"].every((n) => movies.includes(n)) && !movies.includes("Premium Vault") && !movies.includes("XXX Movies") && shows.length === 2,
+    JSON.stringify({ movies, shows }),
+  );
+  check("  and every folder starts off", (await vodItem.locator("[data-xtpick] button[aria-pressed='true']").count()) === 0);
+
+  // Picking in Settings adds the row in Stream.
+  await vodItem.locator('.xtpick__group[aria-label="Movies"] button', { hasText: /^Action$/ }).click();
+  await vodItem.locator('.xtpick__group[aria-label="Shows"] button', { hasText: /^Drama$/ }).click();
+  const picks = await storeOf(s, "xtVod");
+  check("picking Action and Drama in Settings keeps the picks in the library's store, as Stream's picker does", picks?.vod1?.picks?.movie?.includes("12") && picks.vod1.picks.series?.includes("12") && !("picks" in ((await storeOf(s, "playlists"))?.[0] ?? {})), JSON.stringify(picks));
+  check("  and they stay pressed there, the picker still up", (await vodItem.locator('.xtpick__group[aria-label="Movies"] button[aria-pressed="true"]').count()) === 1 && (await vodItem.locator("[data-xtpick]").count()) === 1);
+  await closeSettings(s);
+  await s.locator(".media-row__title", { hasText: /^Action$/ }).waitFor({ timeout: 5000 });
+  await s.locator(".media-row__title", { hasText: /^Drama$/ }).waitFor({ timeout: 5000 });
+  const titles = await rowTitles(s);
+  const cards = await rowCards(s, "Action");
+  check("  and Stream has both rows, the film once", titles.includes("Action") && titles.includes("Drama") && cards.filter((n) => n === "The Fantastic 4: First Steps").length === 1, JSON.stringify(titles));
+  const lists = listCalls(await panelLog());
+  check("  (a pick costs no call at all: the lists were read once each)", LISTS.every((a) => lists.filter((c) => c.action === a).length === 1), JSON.stringify(lists.map((c) => c.action)));
+
+  // The other way: a pick in Stream shows in Settings.
+  await s.getByRole("button", { name: "Choose Folders", exact: true }).click();
+  await chip(s, "Movies", "Comedy").click();
+  await s.locator(".media-row__title", { hasText: /^Comedy$/ }).waitFor({ timeout: 5000 });
+  await openSources(s);
+  check("a pick made in Stream is pressed in Settings", (await vodItem.locator('.xtpick__group[aria-label="Movies"] button[aria-pressed="true"]').allInnerTexts()).sort().join() === "Action,Comedy");
+  await closeSettings(s);
+
+  // The switch.
+  await clearLog();
+  await openSources(s);
+  await sw(s, "Vod Panel").click();
+  check("the switch off: it stays, off, and the picker goes", (await sw(s, "Vod Panel").getAttribute("aria-checked")) === "false" && (await vodItem.locator("[data-xtpick]").count()) === 0 && (await vodItem.locator('[data-setting="playlist-library"]').count()) === 1);
+  const off = await storeOf(s, "xtVod");
+  check("  kept in the library's store, with the picks still in it", off?.vod1?.off === true && off.vod1.picks?.movie?.includes("12"), JSON.stringify(off));
+  await closeSettings(s);
+  await waitFor(s, async () => /No Movies or Shows Yet/.test(await s.locator("main").innerText()), 8000);
+  check("  and Stream is as it was with no library: no row, no folder picker", (await s.locator(".media-row").count()) === 0 && (await s.locator("[data-xtpick]").count()) === 0 && /No Movies or Shows Yet/.test(await s.locator("main").innerText()));
+  await goTo(s, "discover");
+  const nothing = await waitFor(s, async () => /Nothing to Discover Yet/.test(await s.locator(".discover").innerText().catch(() => "")), 8000);
+  check("  and so is Discover", nothing);
+  await goTo(s, "home");
+  await openSources(s);
+  await sw(s, "Vod Panel").click();
+  check("the switch back on: on, and the picker is back with the picks pressed", (await sw(s, "Vod Panel").getAttribute("aria-checked")) === "true" && (await vodItem.locator('.xtpick__group[aria-label="Movies"] button[aria-pressed="true"]').count()) === 2);
+  await closeSettings(s);
+  await s.locator(".media-row__title", { hasText: /^Action$/ }).waitFor({ timeout: 8000 });
+  check("  Stream has its rows again", (await rowTitles(s)).includes("Action") && (await rowTitles(s)).includes("Drama"));
+  check("  and off and on again cost no download: the lists were still there", listCalls(await panelLog()).length === 0, JSON.stringify(listCalls(await panelLog()).map((c) => c.action)));
+  await s.context().close();
+}
+
+// ============================================ removing a playlist
+{
+  const r = await openPage({ playlists: [playlist("vod", { name: "Vod Panel" }), LIVE_ONLY()], seeds: { xtVod: { vod1: { off: false, picks: { movie: ["12"] } } } } });
+  await r.locator(".media-row__title", { hasText: /^Action$/ }).waitFor({ timeout: 20_000 });
+  const read = await waitFor(r, heldBoth(r), 20_000);
+  const on = await waitFor(r, async () => ((await diskKeys(r)) ?? []).join() === "live1,vod1", 10_000);
+  check("(control) both playlists' lists are on disk, with the choices and the record of what each held", read && on && !!(await storeOf(r, "xtVod"))?.vod1, JSON.stringify(await diskKeys(r)));
+  await openSources(r);
+  await item(r, "Vod Panel").getByRole("button", { name: "Delete Vod Panel" }).click();
+  await item(r, "Vod Panel").getByRole("button", { name: "Click again to remove Vod Panel" }).click();
+  await r.waitForTimeout(500);
+  const gone = await waitFor(r, async () => ((await diskKeys(r)) ?? ["?"]).join() === "live1", 8000);
+  const choices = await storeOf(r, "xtVod");
+  const held = await storeOf(r, "xtVodHeld");
+  check("removing a playlist drops its lists from disk, and leaves the other playlist's", gone, JSON.stringify(await diskKeys(r)));
+  check("  and its choices and its record of what it held, and not the other's", !choices || !("vod1" in choices), JSON.stringify(choices));
+  check("  the other's record of what it held is still there", !!held?.live1 && !held.vod1, JSON.stringify(held));
+  await r.context().close();
+}
+
+// ============================================ Discover
+{
+  const GRID = ["Quiet Harbor", "Plain Series", "Skyline Run", "Show Without Backdrop", "Midnight Express Lane", "Two Season Show"];
+  const MOVIES = ["Quiet Harbor", "Skyline Run", "Midnight Express Lane", "Second Wind", "Laugh Track", "Paper Moon Rising", "The Long Road Home", "Other Panel Spelling", "Kitchen Sink Story", "Home Movie Night", "The Fantastic 4: First Steps"];
+  const SHOWS = ["Plain Series", "Show Without Backdrop", "Two Season Show"];
+  await clearLog();
+  // Discover is the tab it opens on, with nothing picked and nothing read yet.
+  const d = await openPage({ seeds: { startupTab: "discover" } });
+  const names = () => d.locator(".disc-grid .stream-card__name").allInnerTexts();
+  const shown = await waitFor(d, async () => (await names()).length >= MOVIES.length + SHOWS.length, 20_000);
+  const all = await names();
+  check("Discover with only a provider's library: its titles are the grid, movies and shows alternating, newest first", shown && JSON.stringify(all.slice(0, GRID.length)) === JSON.stringify(GRID), JSON.stringify(all));
+  check("  every title once, and not the ones the adult filter keeps out", all.length === MOVIES.length + SHOWS.length && new Set(all).size === all.length && !all.some((n) => /Flagged|Vault|Name Caught/.test(n)), JSON.stringify(all));
+  check("  with no genre rail, since the lists carry no genres", (await d.locator(".genre-card").count()) === 0 && (await d.getByText("By Genre").count()) === 0);
+  check("  and no sign-in card, and nothing asked of AIOStreams", (await d.getByText("Nothing to Discover Yet").count()) === 0 && !d.requests.some((u) => u.includes(":8084")));
+  const calls = listCalls(await panelLog());
+  check("  paged from the lists already read: the four list calls, once each, and no search or other call", LISTS.every((a) => calls.filter((c) => c.action === a).length === 1) && (await panelLog()).filter((c) => c.user === "vod" && !LISTS.includes(c.action) && c.path === "/player_api.php").length === 0, JSON.stringify((await panelLog()).map((c) => c.action)));
+
+  // The type chips filter it.
+  await d.getByRole("button", { name: "Movies", exact: true }).click();
+  await waitFor(d, async () => JSON.stringify(await names()) === JSON.stringify(MOVIES), 8000);
+  check("the Movies chip leaves the movies, newest first", JSON.stringify(await names()) === JSON.stringify(MOVIES), JSON.stringify(await names()));
+  await d.getByRole("button", { name: "Series", exact: true }).click();
+  await waitFor(d, async () => JSON.stringify(await names()) === JSON.stringify(SHOWS), 8000);
+  check("  and the Series chip the shows", JSON.stringify(await names()) === JSON.stringify(SHOWS), JSON.stringify(await names()));
+  await d.getByRole("button", { name: "Any", exact: true }).click();
+  await waitFor(d, async () => (await names()).length === MOVIES.length + SHOWS.length, 8000);
+
+  // Search.
+  const search = d.locator(".navcap__searchinput");
+  await search.fill("QUIET harbor");
+  await waitFor(d, async () => (await d.locator(".disc-grid .stream-card", { hasText: "Quiet Harbor" }).count()) > 0, 10_000);
+  const found = await names();
+  check("a search finds a film in a folder no one picked, whatever the case, and nothing else", JSON.stringify(found) === JSON.stringify(["Quiet Harbor"]), JSON.stringify(found));
+  check("  heading and all: Results for the words typed", /Results for “QUIET harbor”/.test(await d.locator(".discover").innerText()));
+  await search.fill("two season");
+  await waitFor(d, async () => (await d.locator(".disc-grid .stream-card", { hasText: "Two Season Show" }).count()) > 0, 10_000);
+  check("  and a show, once, though the panel holds two copies of it", JSON.stringify(await names()) === JSON.stringify(["Two Season Show"]), JSON.stringify(await names()));
+  await search.fill("zzzzq");
+  await waitFor(d, async () => /No Results for/.test(await d.locator(".discover").innerText()), 10_000);
+  check("  and a word no title has is No Results, not a failure", !/didn’t go through/.test(await d.locator(".discover").innerText()));
+  check("  none of it asked the panel anything: no search or other call", (await panelLog()).filter((c) => c.user === "vod" && !LISTS.includes(c.action) && c.path === "/player_api.php").length === 0);
+
+  // A result opens, and plays the provider's file.
+  await search.fill("quiet harbor");
+  await d.locator(".disc-grid .stream-card", { hasText: "Quiet Harbor" }).first().click({ timeout: 10_000 });
+  await d.locator(".vod-source").first().waitFor({ timeout: 15_000 });
+  const sources = await d.locator(".vod-source").allInnerTexts();
+  check("a search result opens the provider's page, with its one file", sources.length === 1, JSON.stringify(sources));
+  await d.locator(".vod-source").first().click();
+  const started = await waitFor(d, async () => (await opens(d)).length > 0, 15_000);
+  const first = (await opens(d))[0];
+  check("  and playing it hands mpv the provider's address and the playlist's User-Agent", started && first.url === `${PANEL}/movie/vod/p/3016.mkv` && first.userAgent === UA, JSON.stringify(first));
+  check("  with nothing asked of AIOStreams", !d.requests.some((u) => u.includes(":8084")));
+  await d.context().close();
+}
+
+// ---- two libraries, one switched off
+{
+  const q = await openPage({
+    playlists: [playlist("vod", { id: "vod1", name: "Alpha" }), playlist("vod", { id: "vod2", name: "Beta", server: "http://127.0.0.1:8081" })],
+    seeds: { startupTab: "discover" },
+  });
+  const search = q.locator(".navcap__searchinput");
+  const names = () => q.locator(".disc-grid .stream-card__name").allInnerTexts();
+  await waitFor(q, async () => (await names()).length > 0, 20_000);
+  await search.fill("quiet harbor");
+  await waitFor(q, async () => (await names()).length === 2, 10_000);
+  check("with two libraries a search finds the film in each, as two cards", JSON.stringify(await names()) === JSON.stringify(["Quiet Harbor", "Quiet Harbor"]), JSON.stringify(await names()));
+  await openSources(q);
+  await sw(q, "Beta").click();
+  await closeSettings(q);
+  await waitFor(q, async () => (await names()).length === 1, 10_000);
+  check("  and with one switched off, only the other's", JSON.stringify(await names()) === JSON.stringify(["Quiet Harbor"]), JSON.stringify(await names()));
+  await q.locator(".disc-grid .stream-card", { hasText: "Quiet Harbor" }).first().click({ timeout: 10_000 });
+  await q.locator(".vod-source").first().waitFor({ timeout: 15_000 });
+  await q.locator(".vod-source").first().click();
+  const started = await waitFor(q, async () => (await opens(q)).length > 0, 15_000);
+  check("  which is Alpha's: the address is its server's", started && (await opens(q))[0].url === `${PANEL}/movie/vod/p/3016.mkv`, JSON.stringify(await opens(q)));
+  await q.context().close();
+}
+
+// ---- a live-only playlist on Discover
+{
+  const q = await openPage({ playlists: [playlist("u")], seeds: { startupTab: "discover" } });
+  const shown = await waitFor(q, async () => /Nothing to Discover Yet/.test(await q.locator(".discover").innerText().catch(() => "")), 15_000);
+  const text = await q.locator(".discover").innerText();
+  check(
+    "(control) a playlist that is live TV only is no source: Discover says Nothing to Discover Yet, with the way to get one",
+    shown && /Sign in to AIOStreams or Jellyfin, or add an Xtream playlist with movies and shows, in Settings → Sources\./.test(text) && !/Couldn.t Load/.test(text),
+    text,
+  );
   await q.context().close();
 }
 

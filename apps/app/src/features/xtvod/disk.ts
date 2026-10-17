@@ -144,6 +144,29 @@ export async function diskPut(pid: string, fp: string, at: number, lists: XtList
   });
 }
 
+/** Drop one playlist's lists: a playlist taken out of Settings takes its record
+ * with it, which holds the account's fingerprint (server, user name and
+ * password). */
+export async function diskDrop(pid: string): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  return new Promise((resolve) => {
+    const done = () => {
+      db.close();
+      resolve();
+    };
+    try {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(pid);
+      tx.oncomplete = done;
+      tx.onerror = done;
+      tx.onabort = done;
+    } catch {
+      done();
+    }
+  });
+}
+
 /** Drop every playlist's lists. Each record carries its account's fingerprint
  * (server, user name and password), so Clear All Login Info takes them all, as
  * it takes the guide's copy (live/diskCache.ts `diskClear`). */

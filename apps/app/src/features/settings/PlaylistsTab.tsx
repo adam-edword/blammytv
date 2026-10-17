@@ -38,6 +38,7 @@ import { useConnections } from "../live/connections";
 import { EYEBROW } from "../../ui/eyebrow";
 import { ChannelLogo } from "../../ui/ChannelLogo";
 import { Hint } from "../../ui/Hint";
+import { PlaylistLibrary } from "./PlaylistLibrary";
 
 type Categories =
   | { status: "loading" }
@@ -357,6 +358,9 @@ export function PlaylistsTab() {
                   </Hint>
                 </div>
               </div>
+              {/* An Xtream playlist's movies and shows (plan 028): the switch
+                * and the folder picker, for one whose provider has any. */}
+              <PlaylistLibrary playlist={p} />
               {advancedIsOpen(p) && (
                 <AdvancedFields
                   id={advancedId(p)}

@@ -30,11 +30,12 @@ vi.mock("../../data/xtream", () => ({
 }));
 // The fingerprint and the digest stay real; only the database is stood in for
 // (a node test has no indexedDB, so the real one answers null and writes nothing).
-const disk = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
+const disk = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), drop: vi.fn() }));
 vi.mock("./disk", async (orig) => ({
   ...(await orig<typeof import("./disk")>()),
   diskGet: disk.get,
   diskPut: disk.put,
+  diskDrop: disk.drop,
 }));
 
 import {
@@ -114,6 +115,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
   disk.get.mockResolvedValue(null);
   disk.put.mockResolvedValue(undefined);
+  disk.drop.mockResolvedValue(undefined);
   net.vodInfo.mockResolvedValue(VOD_INFO);
   net.seriesInfo.mockImplementation(async (_p: unknown, id: string) => (id === "3102" ? SERIES_INFO_4K : SERIES_INFO));
   panel();
@@ -681,5 +683,254 @@ describe("watchXtLibrary", () => {
     off();
     await vi.advanceTimersByTimeAsync(5000);
     expect(net.vods).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Discover (plan 028, D3 option b)
+// ---------------------------------------------------------------------------
+
+describe("Discover's feeds", () => {
+  const titles = (items: { title: string }[]) => items.map((i) => i.title);
+  const FILMS = [
+    movie(5001, "Oldest Film (2001)", "12", { added: "1700000001" }),
+    movie(5002, "Newest Film (2024)", "13", { added: "1700000009" }),
+    movie(5003, "Middle Film (2010)", "99", { added: "1700000005" }),
+  ];
+
+  it("is one Movies and one Shows catalog per library, named by the playlist's id", async () => {
+    expect(await vod.loadXtDiscover()).toEqual([
+      { type: "movie", id: "t" },
+      { type: "series", id: "t" },
+    ]);
+  });
+
+  it("has no catalog for a kind the library has none of, and none at all for live TV only", async () => {
+    panel(MOVIES, []);
+    expect(await vod.loadXtDiscover()).toEqual([{ type: "movie", id: "t" }]);
+    await boot();
+    panel([], SHOWS);
+    expect(await vod.loadXtDiscover()).toEqual([{ type: "series", id: "t" }]);
+    await boot();
+    panel([], []);
+    expect(await vod.loadXtDiscover()).toEqual([]);
+  });
+
+  it("is one pair for each library, in playlist order", async () => {
+    seed(playlist("t"), playlist("u", { server: "http://other.example.invalid:8080" }));
+    await boot();
+    expect(await vod.loadXtDiscover()).toEqual([
+      { type: "movie", id: "t" },
+      { type: "series", id: "t" },
+      { type: "movie", id: "u" },
+      { type: "series", id: "u" },
+    ]);
+  });
+
+  it("has nothing for a library that is switched off, or a playlist that is off, or one that is not Xtream", async () => {
+    store.setLibraryOff("t", true);
+    expect(await vod.loadXtDiscover()).toEqual([]);
+    seed(playlist("t", { enabled: false }), { kind: "m3u", id: "m", name: "m", enabled: true, url: "http://x.invalid/l.m3u" });
+    expect(await vod.loadXtDiscover()).toEqual([]);
+  });
+
+  it("waits for the lists unless told not to, and then does not hold anything back", async () => {
+    let land: (v: unknown[]) => void = () => {};
+    net.vods.mockReturnValue(new Promise<unknown[]>((r) => (land = r)));
+    // Not waiting: nothing is in memory yet, the read has started, and the ask is answered.
+    expect(await vod.loadXtDiscover(false)).toEqual([]);
+    expect(net.vods).toHaveBeenCalledTimes(1);
+    // Waiting: it is answered once the lists land.
+    let got: unknown;
+    const waiting = vod.loadXtDiscover().then((c) => (got = c));
+    await flush();
+    expect(got).toBeUndefined();
+    land(MOVIES);
+    await waiting;
+    expect(got).toEqual([
+      { type: "movie", id: "t" },
+      { type: "series", id: "t" },
+    ]);
+    expect(net.vods).toHaveBeenCalledTimes(1);
+  });
+
+  it("never rejects: a panel that fails the lists is a library of nothing", async () => {
+    net.vods.mockRejectedValue(new Error("down"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await vod.loadXtDiscover()).toEqual([]);
+  });
+
+  it("pages the whole library newest first, whatever is picked, and costs the panel nothing", async () => {
+    panel(FILMS, []);
+    store.setPicks("t", "movie", ["12"]);
+    await vod.loadXtDiscover();
+    const calls = net.vods.mock.calls.length;
+    expect(titles(vod.xtPage({ type: "movie", id: "t" }, 0))).toEqual(["Newest Film", "Middle Film", "Oldest Film"]);
+    expect(vod.xtPage({ type: "movie", id: "t" }, 3)).toEqual([]);
+    expect(vod.xtPage({ type: "series", id: "t" }, 0)).toEqual([]);
+    expect(vod.xtPage({ type: "movie", id: "nope" }, 0)).toEqual([]);
+    expect(net.vods.mock.calls.length).toBe(calls);
+    expect(vod.xtPage({ type: "movie", id: "t" }, 0).every((i) => i.from === "xt")).toBe(true);
+  });
+
+  it("pages nothing once the library is switched off", async () => {
+    panel(FILMS, []);
+    await vod.loadXtDiscover();
+    expect(vod.xtPage({ type: "movie", id: "t" }, 0)).toHaveLength(3);
+    store.setLibraryOff("t", true);
+    expect(vod.xtPage({ type: "movie", id: "t" }, 0)).toEqual([]);
+  });
+});
+
+describe("Discover's search", () => {
+  const titles = (items: { title: string }[]) => items.map((i) => i.title);
+  const FILMS = [
+    movie(5001, "Quiet Harbor (2020)", "13", { added: "1700000002" }),
+    movie(5002, "Loud Harbor (2021)", "12", { added: "1700000001" }),
+    movie(5003, "Amélie (2001)", "99"),
+    movie(5004, "Flagged Harbor (2022)", "12", { is_adult: 1 }),
+  ];
+  const SHOWS_FOR_SEARCH = [show(6001, "Quiet Harbour Nights (2021)", "13"), show(6002, "Other Show (2022)", "12")];
+
+  it("finds a title in a folder no one picked, and a show, each under its own kind", async () => {
+    panel(FILMS, SHOWS_FOR_SEARCH);
+    store.setPicks("t", "movie", ["12"]);
+    await vod.loadXtDiscover();
+    expect(titles(await vod.searchXt("movie", "quiet harbor"))).toEqual(["Quiet Harbor"]);
+    expect(titles(await vod.searchXt("series", "quiet"))).toEqual(["Quiet Harbour Nights"]);
+    expect(titles(await vod.searchXt("movie", "amelie"))).toEqual(["Amélie"]);
+    expect(await vod.searchXt("series", "amelie")).toEqual([]);
+  });
+
+  it("leaves out what the adult filter hides, and shows it when it is off", async () => {
+    panel(FILMS, SHOWS_FOR_SEARCH);
+    await vod.loadXtDiscover();
+    expect(titles(await vod.searchXt("movie", "harbor"))).toEqual(["Quiet Harbor", "Loud Harbor"]);
+    setting("showAdult", true);
+    expect(titles(await vod.searchXt("movie", "harbor"))).toContain("Flagged Harbor");
+  });
+
+  it("finds nothing from a library that is switched off, though its lists are still in memory", async () => {
+    panel(FILMS, SHOWS_FOR_SEARCH);
+    await vod.loadXtDiscover();
+    expect(await vod.searchXt("movie", "harbor")).not.toEqual([]);
+    store.setLibraryOff("t", true);
+    expect(await vod.searchXt("movie", "harbor")).toEqual([]);
+    expect(await vod.searchXt("series", "quiet")).toEqual([]);
+    store.setLibraryOff("t", false);
+    expect(titles(await vod.searchXt("series", "quiet"))).toEqual(["Quiet Harbour Nights"]);
+  });
+
+  it("searches every library that is on, and not one that is off", async () => {
+    seed(playlist("t"), playlist("u", { server: "http://other.example.invalid:8080" }));
+    await boot();
+    net.vods.mockImplementation(async (p: { id: string }) => (p.id === "t" ? [movie(5001, "Quiet Harbor (2020)", "13")] : [movie(7001, "Quiet Cove (2020)", "13")]));
+    await vod.loadXtDiscover();
+    expect((await vod.searchXt("movie", "quiet")).map((i) => i.id.split(":")[1]).sort()).toEqual(["t", "u"]);
+    store.setLibraryOff("u", true);
+    expect(titles(await vod.searchXt("movie", "quiet"))).toEqual(["Quiet Harbor"]);
+  });
+
+  it("finds nothing before a library is read", async () => {
+    expect(await vod.searchXt("movie", "harbor")).toEqual([]);
+  });
+});
+
+describe("xtDiscoverKey", () => {
+  it("is empty with no library in memory, and moves when one lands", async () => {
+    expect(vod.xtDiscoverKey()).toBe("");
+    await vod.loadXtVod();
+    expect(vod.xtDiscoverKey()).not.toBe("");
+  });
+
+  it("moves with a library switched off or on, the account and the kinds it has", async () => {
+    await vod.loadXtVod();
+    const keys = new Set([vod.xtDiscoverKey()]);
+    store.setLibraryOff("t", true);
+    keys.add(vod.xtDiscoverKey());
+    store.setLibraryOff("t", false);
+    expect(keys.has(vod.xtDiscoverKey())).toBe(true);
+    // Another account is another library, once it has been read.
+    seed(playlist("t", { password: "other" }));
+    expect(vod.xtDiscoverKey()).toBe("");
+    await vod.loadXtVod();
+    keys.add(vod.xtDiscoverKey());
+    expect(keys.size).toBe(3);
+    // And a library that loses its shows.
+    panel(MOVIES, []);
+    await boot();
+    seed(playlist("t"));
+    await vod.loadXtVod();
+    keys.add(vod.xtDiscoverKey());
+    expect(keys.size).toBe(4);
+  });
+
+  it("does not move with a pick, the row size or the lists being read again", async () => {
+    await vod.loadXtVod();
+    const a = vod.xtDiscoverKey();
+    store.togglePick("t", "movie", "12");
+    store.togglePick("t", "series", "12");
+    setting("rowCap", 25);
+    expect(vod.xtDiscoverKey()).toBe(a);
+    await boot();
+    await vod.loadXtVod();
+    expect(vod.xtDiscoverKey()).toBe(a);
+  });
+
+  it("holds the account only as a digest", async () => {
+    await vod.loadXtVod();
+    const k = vod.xtDiscoverKey();
+    expect(k).not.toContain(CREDS.username);
+    expect(k).not.toContain(CREDS.password);
+    expect(k).not.toContain("panel.example");
+  });
+});
+
+describe("a playlist taken out of Settings", () => {
+  it("takes its choices, its record of what it held, its lists on disk and in memory", async () => {
+    seed(playlist("t"), playlist("u", { server: "http://other.example.invalid:8080" }));
+    await boot();
+    await vod.loadXtVod();
+    store.setPicks("t", "movie", ["12"]);
+    store.setLibraryOff("u", true);
+    expect(store.loadHeld("t")).not.toBeNull();
+    expect(store.loadHeld("u")).not.toBeNull();
+
+    seed(playlist("u", { server: "http://other.example.invalid:8080" }));
+    vod.forgetRemoved();
+    expect(store.loadPicks("t", "movie")).toEqual([]);
+    expect(store.loadHeld("t")).toBeNull();
+    expect(disk.drop.mock.calls).toEqual([["t"]]);
+    // The one that stays keeps all of it.
+    expect(store.isLibraryOff("u")).toBe(true);
+    expect(store.loadHeld("u")).not.toBeNull();
+    expect(vod.xtLibraries()).toEqual([]); // u is off; t is gone
+    // And its lists are not in memory: with the playlist back, they are read again.
+    seed(playlist("t"), playlist("u", { server: "http://other.example.invalid:8080" }));
+    const reads = net.vods.mock.calls.length;
+    await vod.loadXtVod();
+    expect(net.vods.mock.calls.length).toBe(reads + 1);
+  });
+
+  it("is done by the watcher whenever the list of playlists is saved", async () => {
+    vi.useFakeTimers();
+    const off = vod.watchXtLibrary();
+    await vi.advanceTimersByTimeAsync(0);
+    store.setPicks("t", "movie", ["12"]);
+    seed();
+    bus.dispatchEvent(new Event("blammytv:playlists"));
+    expect(store.loadPicks("t", "movie")).toEqual([]);
+    expect(store.loadHeld("t")).toBeNull();
+    expect(disk.drop).toHaveBeenCalledWith("t");
+    off();
+  });
+
+  it("leaves every playlist that is still there alone, and writes nothing when nothing is gone", async () => {
+    await vod.loadXtVod();
+    store.setPicks("t", "movie", ["12"]);
+    const before = [...mem.entries()].sort();
+    vod.forgetRemoved();
+    expect([...mem.entries()].sort()).toEqual(before);
+    expect(disk.drop).not.toHaveBeenCalled();
   });
 });

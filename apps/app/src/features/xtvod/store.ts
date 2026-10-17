@@ -123,6 +123,27 @@ export function saveHeld(pid: string, held: Held): boolean {
   return true;
 }
 
+/**
+ * Take away what is kept for every playlist that is not in `keep`: its choices
+ * and its record of what it held. Returns the ids it took, for the caller to
+ * clear what else is kept for them (the lists on disk). Nothing is said: a
+ * playlist that is gone has no screen drawing its choices.
+ */
+export function dropXtFor(keep: Iterable<string>): string[] {
+  const live = new Set(keep);
+  const choices = read();
+  const held = readHeld();
+  const gone = [...new Set([...Object.keys(choices), ...Object.keys(held)])].filter((id) => !live.has(id));
+  if (gone.length === 0) return [];
+  for (const id of gone) {
+    delete choices[id];
+    delete held[id];
+  }
+  save(KEY, VERSION, choices);
+  save(HELD_KEY, VERSION, held);
+  return gone;
+}
+
 // ---------------------------------------------------------------------------
 // Which playlists have a library
 // ---------------------------------------------------------------------------

@@ -30,14 +30,15 @@ import { loadPlaylists, onPlaylistsChange, type XtreamPlaylist } from "../settin
 import { loadRowCap } from "../settings/rowCap";
 import { mapStreams } from "../stream/mapper";
 import type { StreamRow, StreamSource, VodData, VodItem } from "../stream/model";
-import { digest, diskClearAll, diskGet, diskPut, fingerprint } from "./disk";
+import { digest, diskClearAll, diskDrop, diskGet, diskPut, fingerprint } from "./disk";
 import { readKey, titleOf, type XtKind } from "./keys";
+import { feedOf, pageOf, searchTitles } from "./discover";
 import { buildLibrary, type XtLibrary, type XtLists, type XtTitle } from "./library";
 import { movieFromInfo, showFromInfos } from "./pages";
 import { readMovies, readShows } from "./read";
 import { readSeriesInfo, type XtSeriesInfo } from "./series";
 import { episodeStreams, movieStreams } from "./sources";
-import { eligiblePlaylists, loadPicks, saveHeld, XT_CHANGED } from "./store";
+import { dropXtFor, eligiblePlaylists, loadPicks, saveHeld, XT_CHANGED } from "./store";
 
 const msg = scrubbedMessage;
 
@@ -378,6 +379,65 @@ export function xtLibraries(): XtLibraryView[] {
   }));
 }
 
+// ---------------------------------------------------------------------------
+// Discover
+// ---------------------------------------------------------------------------
+
+/** A library's Movies or Shows feed as Discover names a catalog: its kind and its
+ * playlist's id. */
+export interface XtCat {
+  type: XtKind;
+  id: string;
+}
+
+/**
+ * The feeds Discover can browse: one Movies and one Shows catalog per library that
+ * has some (discover.ts). A library with no movies has no Movies catalog. Waits
+ * for the playlists' lists to be read unless `wait` is false, which is for when
+ * something else can fill Discover meanwhile: a first read of a big list takes
+ * seconds, and a panel that hangs takes two minutes (data/xtream.ts), and that
+ * must not hold back the addon's catalogs. The read still starts, and says so
+ * (`XT_LOADED`) when the libraries land. Never rejects: a playlist whose lists
+ * could not be read has no library, which is the same as having no movies, and
+ * `ensure` has said why in the log.
+ */
+export async function loadXtDiscover(wait = true): Promise<XtCat[]> {
+  const reads = Promise.allSettled(eligiblePlaylists().map(ensure));
+  if (wait) await reads;
+  return libraries().flatMap(({ p, lib }) =>
+    (["movie", "series"] as const).filter((type) => feedOf(lib, type).length > 0).map((type) => ({ type, id: p.id })),
+  );
+}
+
+/** One page of a catalog's feed, past `skip` titles. Read from the library in
+ * memory as it stands, so a library switched off since is an empty page. */
+export function xtPage(cat: XtCat, skip: number): VodItem[] {
+  const hit = libraries().find(({ p }) => p.id === cat.id);
+  return hit ? pageOf(feedOf(hit.lib, cat.type), skip) : [];
+}
+
+/** A search over every library that is on, for one kind (discover.ts). */
+export async function searchXt(type: XtKind, query: string): Promise<VodItem[]> {
+  return searchTitles(
+    libraries().map(({ lib }) => lib),
+    type,
+    query,
+  );
+}
+
+/** What names the feeds Discover would draw, for a snapshot of it to be matched
+ * against: each library that is on and read (its account as a digest, never the
+ * account) and which kinds it has. Empty with none. Unlike `xtVodKey` it does not
+ * move with a pick, the row size or the lists being read again: the feeds are
+ * the whole library. */
+export const xtDiscoverKey = (): string => {
+  const libs = libraries();
+  if (libs.length === 0) return "";
+  return JSON.stringify(
+    libs.map(({ p, lib }) => [p.id, digest(fingerprint(p)), feedOf(lib, "movie").length > 0, feedOf(lib, "series").length > 0]),
+  );
+};
+
 /**
  * Load the libraries at launch, so the record of what each held fills and
  * Stream is ready before it is visited, and again when what they depend on
@@ -393,13 +453,35 @@ export function watchXtLibrary(): () => void {
   };
   soon(0);
   const again = () => soon(SETTLE_MS);
-  const off = onPlaylistsChange(again);
+  const off = onPlaylistsChange(() => {
+    forgetRemoved();
+    again();
+  });
   window.addEventListener(XT_CHANGED, again);
   return () => {
     off();
     window.removeEventListener(XT_CHANGED, again);
     clearTimeout(timer);
   };
+}
+
+/**
+ * A playlist taken out of Settings takes its library with it: its choices and
+ * its record of what it held (store.ts), its lists on disk and the ones in
+ * memory. Run on every save of the playlist list, which is how a deleted
+ * playlist takes its guide fixes (settings/playlists.ts `savePlaylists`). It is
+ * not called from there: store.ts reads the playlists, and the two would import
+ * each other.
+ */
+export function forgetRemoved(): void {
+  const keep = new Set(loadPlaylists().map((p) => p.id));
+  for (const id of dropXtFor(keep)) void diskDrop(id);
+  for (const id of [...mem.keys()])
+    if (!keep.has(id)) {
+      mem.delete(id);
+      built.delete(id);
+      epoch++;
+    }
 }
 
 /**

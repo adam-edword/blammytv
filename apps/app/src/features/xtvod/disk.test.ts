@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { digest, diskGet, diskPut, fingerprint } from "./disk";
+import { digest, diskDrop, diskGet, diskPut, fingerprint } from "./disk";
 import type { XtLists } from "./library";
 
 const lists: XtLists = {
@@ -32,6 +32,10 @@ function fakeIndexedDB() {
           },
           put: (v: unknown, k: string) => {
             data.set(k, structuredClone(v));
+            later(() => tx.oncomplete?.());
+          },
+          delete: (k: string) => {
+            data.delete(k);
             later(() => tx.oncomplete?.());
           },
         }),
@@ -81,6 +85,7 @@ describe("with no IndexedDB (a node test, a private window that refuses one)", (
   it("reads nothing and writes nothing, without throwing", async () => {
     expect(await diskGet("t", "fp")).toBeNull();
     await expect(diskPut("t", "fp", 1, lists)).resolves.toBeUndefined();
+    await expect(diskDrop("t")).resolves.toBeUndefined();
   });
 });
 
@@ -119,6 +124,21 @@ describe("with IndexedDB", () => {
       idb.data.set("t", bad);
       expect(await diskGet("t", "fp1")).toBeNull();
     }
+  });
+
+  it("drops one playlist's record and leaves the others', so a removed playlist takes its account with it", async () => {
+    const idb = fakeIndexedDB();
+    vi.stubGlobal("indexedDB", idb);
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    await diskPut("t", "fp1", 1, lists);
+    await diskPut("u", "fp2", 2, lists);
+    await diskDrop("t");
+    expect([...idb.data.keys()]).toEqual(["u"]);
+    expect(await diskGet("t", "fp1")).toBeNull();
+    expect((await diskGet("u", "fp2"))?.at).toBe(2);
+    // A playlist with no record is nothing to drop.
+    await expect(diskDrop("never-read")).resolves.toBeUndefined();
+    expect([...idb.data.keys()]).toEqual(["u"]);
   });
 
   it("logs a digest and never the fingerprint", async () => {

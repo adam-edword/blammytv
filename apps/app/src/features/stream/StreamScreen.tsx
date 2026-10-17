@@ -2224,7 +2224,7 @@ function Home({
         className="stream__note"
         icon={<StreamIcon size={28} />}
         title="No Movies or Shows Yet"
-        sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream."
+        sub="Sign in to AIOStreams or Jellyfin, or add an Xtream playlist with movies and shows, in Settings → Sources."
       />
     );
   }
