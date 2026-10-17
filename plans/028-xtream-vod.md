@@ -56,6 +56,17 @@ Not in it, on purpose:
     Rows" after; with several playlists B and D group the folders under each
     playlist's name. One data layer (folders, their posters, the staged
     picks), three thin views over it.
+  - **Rows can be reordered**, the provider's own rows only (Adam agreed
+    2026-10-17; ordering them among AIOStreams' and Jellyfin's is a separate
+    piece of work, since an addon's catalog ids move with its setup). The
+    order is the order picked, then whatever is dragged: one order across
+    movies and shows, not movies first. C in Settings is a grid: "Your
+    Rows" (the picked folders, dragged to reorder, an x to unpick) above
+    "More Folders" (a click adds one to the end). D's drawer has the same
+    "Your Rows" list at its top. Both on dnd-kit's sortable (keyboard
+    reordering and screen reader announcements built in): the app has no
+    drag-to-reorder of its own yet, and a hand-made one is more than a few
+    lines.
 - **The switch and the picks are not stored on the playlist.** Any save of
   the playlist list makes Live reload its channels (`live/source.ts:492`,
   `LiveScreen.tsx:505`), and a folder pick must not cost a guide reload.
