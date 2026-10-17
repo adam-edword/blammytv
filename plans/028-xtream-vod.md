@@ -33,7 +33,12 @@ Not in it, on purpose:
 
 - **D1, on by default.** Every Xtream playlist whose provider has movies or
   shows puts them in Stream, with a switch per playlist to turn that off. A
-  playlist-only user gets a Stream tab for the first time.
+  playlist-only user's Stream tab, which today says "No Movies or Shows
+  Yet", has their provider's library in it.
+- **The switch and the picks are not stored on the playlist.** Any save of
+  the playlist list makes Live reload its channels (`live/source.ts:492`,
+  `LiveScreen.tsx:505`), and a folder pick must not cost a guide reload.
+  They live in their own store, keyed by playlist id.
 - **D2, folders are picked, every one off to start.** No provider folder is a
   row until it is picked. The empty Stream page IS the picker: the provider's
   folders right there, and picking one adds its row on the spot. Not a button
