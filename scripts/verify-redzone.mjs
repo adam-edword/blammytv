@@ -17,7 +17,9 @@
 // - on a full line a click asks which tile it replaces, as the picker does,
 //   and the tile picked is swapped for RedZone;
 // - and on Sports, the same rule puts "Watch RedZone" at the end of Today's
-//   Games' toolbar, and a click plays the channel in the Guide's player.
+//   Games' toolbar, and a click plays the channel in the Guide's player;
+// - the Guide's right-click menu sets a channel as RedZone ("Use for
+//   RedZone", on names that say NFL or RedZone), and Sports then plays it.
 //
 // Each "no entry" is held to a control that shows it could have been there: the
 // row has the NFL games it counts, and the picker finds the channel (or, for
@@ -411,6 +413,61 @@ async function sportsBar(page, games) {
     JSON.stringify({ games, bar }),
   );
   check("no page errors (Sports, no channel)", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+// ---- The Guide's menu: Use for RedZone ------------------------------------
+{
+  const { page, ctx, errors } = await open({ events: TWO, playlists: [panel("r", "redzone")], dest: "guide" });
+  const card = (id) => page.locator(`.guide__row[data-channel="${id}"] .guide__card`);
+  const menuOn = async (id) => {
+    await card(id).click({ button: "right" });
+    await page.getByRole("menu").waitFor({ timeout: 5000 });
+  };
+  const closeMenu = async () => {
+    await page.keyboard.press("Escape");
+    await page.getByRole("menu").waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+  };
+  const useItem = () => page.getByRole("menuitemcheckbox", { name: "Use for RedZone" });
+  await card("r:9100").waitFor({ timeout: 30_000 });
+
+  await menuOn("r:9102");
+  const filler = { use: await useItem().count(), add: await page.getByRole("menuitem", { name: "Add to Multi-View" }).count() };
+  await closeMenu();
+  check(
+    "the Guide's menu doesn't offer Use for RedZone on a channel that says neither NFL nor RedZone",
+    filler.use === 0 && filler.add === 1,
+    JSON.stringify(filler),
+  );
+
+  // The decoy, the one the name match passes over for "US: NFL Redzone".
+  await menuOn("r:9100");
+  const before = await useItem().getAttribute("aria-checked").catch(() => null);
+  await useItem().click();
+  await page.getByRole("menu").waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.redzoneChannel") ?? "null")?.data);
+  await menuOn("r:9100");
+  const after = await useItem().getAttribute("aria-checked").catch(() => null);
+  await closeMenu();
+  check(
+    "Use for RedZone on RedZone HD: unchecked, then checked and kept",
+    before === "false" && after === "true" && stored === "r:9100",
+    JSON.stringify({ before, after, stored }),
+  );
+
+  await goTo(page, "sports");
+  await sportsBar(page, 2);
+  // The Guide may have played a preview on the way: only the click counts.
+  await page.evaluate(() => (window.__played = []));
+  await page.getByRole("button", { name: "Watch RedZone" }).click();
+  await page.waitForFunction(() => window.__played.length > 0, null, { timeout: 10_000 }).catch(() => {});
+  const played = await page.evaluate(() => window.__played);
+  check(
+    "Sports' Watch RedZone then plays the channel you set, not the name match's",
+    played.length > 0 && played.every((u) => u.endsWith("/9100.ts")),
+    JSON.stringify(played),
+  );
+  check("no page errors (Guide menu)", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }
 

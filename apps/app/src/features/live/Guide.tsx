@@ -24,6 +24,7 @@ import {
 } from "../../ui/icons";
 import {
   ContextMenu,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuLabel,
@@ -31,6 +32,8 @@ import {
 } from "../../components/ui/context-menu";
 import { GuideFixDialog } from "./GuideFixDialog";
 import { requestAddToMultiview } from "./multiviewEntry";
+import { couldBeRedzone } from "../sports/redzone";
+import { loadRedzoneChannel, saveRedzoneChannel } from "../settings/redzoneChannel";
 import { formatClock } from "../../lib/time";
 import {
   loadClockFormat,
@@ -665,6 +668,9 @@ export const Guide = memo(function Guide({
     return null;
   };
   const menuFix = menuFor ? fixFor(menuFor) : null;
+  // State, not a read at render: a second right-click on the same channel
+  // sets the same menuFor, so nothing renders the menu again.
+  const [redzonePick, setRedzonePick] = useState(loadRedzoneChannel);
   const onGuideMenu = (e: ReactMouseEvent<HTMLElement>) => {
     // An ask the last menu never closed on must not open a dialog from this one.
     fixAsked.current = null;
@@ -941,6 +947,20 @@ export const Guide = memo(function Guide({
                 <GuideIcon size={16} />
                 Fix Guide…
               </ContextMenuItem>
+            )}
+            {/* Sports' Watch RedZone and Multi-View's Add RedZone play this
+              * one instead of the one the name match finds. */}
+            {(couldBeRedzone(menuFor.name) || redzonePick === menuFor.id) && (
+              <ContextMenuCheckboxItem
+                checked={redzonePick === menuFor.id}
+                onCheckedChange={(on) => {
+                  const id = on ? menuFor.id : null;
+                  saveRedzoneChannel(id);
+                  setRedzonePick(id);
+                }}
+              >
+                Use for RedZone
+              </ContextMenuCheckboxItem>
             )}
           </>
         )}

@@ -500,11 +500,12 @@ describe("applying a settings file", () => {
 // Keys that name this PC's playlists or channels travel with the playlists.
 // ============================================================================
 
-/** The five keys whose values are a playlist id or a channel id
+/** The six keys whose values are a playlist id or a channel id
  * (`${playlistId}:${streamId}`). A playlist id is random per PC, so on another
  * PC none of them match anything. `xtVod` (plan 028) joined the four on purpose:
- * an Xtream library's switch and folder picks are keyed by playlist id. */
-const LINKED = ["favorites", "recents", "guideFixes", "multiviewGrid", "xtVod"] as const;
+ * an Xtream library's switch and folder picks are keyed by playlist id, and
+ * `redzoneChannel` is a channel id. */
+const LINKED = ["favorites", "recents", "guideFixes", "multiviewGrid", "xtVod", "redzoneChannel"] as const;
 /** What the keys of `yours` that hold none of those (a title id, a league path,
  * a tile count) are filed as: they go in every file. */
 const PORTABLE = ["lists", "watching", "watchedEpisodes", "sports-follows", "multiviewLayouts", "multiviewSplits", "multiviewVolume", "multiviewScores"] as const;
@@ -516,6 +517,7 @@ const linkedOf = (pc: string): Record<(typeof LINKED)[number], unknown> => ({
   guideFixes: { [pc]: { [`${pc}:1`]: "guide.one" } },
   multiviewGrid: { picks: [{ channelId: `${pc}:1`, label: `${pc} one` }], sound: `${pc}:1` },
   xtVod: { [pc]: { off: true, picks: [{ kind: "series", id: "13" }, { kind: "movie", id: "12" }] } },
+  redzoneChannel: `${pc}:2`,
 });
 const putLinked = (pc: string) => {
   for (const [k, data] of Object.entries(linkedOf(pc))) put(k, data);
@@ -523,7 +525,7 @@ const putLinked = (pc: string) => {
 const rawOf = (keys: readonly string[]) => Object.fromEntries(keys.map((k) => [k, stored(k)]));
 
 describe("keys that name this PC's playlists or channels travel with the playlists", () => {
-  it("files the five of them apart from the rest of yours, and the rest stay in yours", () => {
+  it("files the six of them apart from the rest of yours, and the rest stay in yours", () => {
     for (const k of LINKED) expect(groupOf(k), k).toBe("withPlaylists");
     for (const k of PORTABLE) expect(groupOf(k), k).toBe("yours");
     expect([...KEY_GROUPS.yours].sort()).toEqual([...PORTABLE].sort());

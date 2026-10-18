@@ -297,9 +297,10 @@
   color: var(--plate-ink);
   font-weight: 800;
 }
+/* Sized by its width and height attributes, the plate's. At height: 100% a
+ * tall logo (the NFL's shield) grew the plate's grid row to 48px of 40 and
+ * the plate cut its top and bottom off. */
 .chlogo img {
-  width: 100%;
-  height: 100%;
   object-fit: contain;
   padding: 8%;
 }

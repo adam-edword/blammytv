@@ -31,6 +31,7 @@ import { MvScoresFilter } from "./MultiviewScoresFilter";
 import { fetchList, loadFollows } from "../sports/follows";
 import { isFixture, type Fixture } from "../sports/model";
 import { redzoneChannel, redzoneOn } from "../sports/redzone";
+import { loadRedzoneChannel } from "../settings/redzoneChannel";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
 import {
   addPick,
@@ -658,7 +659,7 @@ export function MultiviewTab() {
   // NFL RedZone: heads the Live Scores row's NFL games when it is on the air
   // and one of the enabled playlists' channels is it.
   const redzone = useMemo(
-    () => (live && redzoneOn(scoreGames) ? redzoneChannel(live.channels, enabledIds) : null),
+    () => (live && redzoneOn(scoreGames) ? redzoneChannel(live.channels, enabledIds, loadRedzoneChannel(), live.hidden) : null),
     [live, scoreGames, enabledIds],
   );
 

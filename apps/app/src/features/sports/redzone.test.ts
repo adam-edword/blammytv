@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractQuality } from "../live/quality";
 import type { Channel } from "../live/model";
-import { NFL, redzoneChannel, redzoneOn } from "./redzone";
+import { NFL, couldBeRedzone, redzoneChannel, redzoneOn } from "./redzone";
 import type { Fixture, GameState } from "./model";
 
 const game = (id: string, leagueKey: string, state: GameState): Fixture => ({
@@ -147,5 +147,39 @@ describe("redzoneChannel: playlists", () => {
   it("does not take a playlist id that only starts the same", () => {
     // "a" is enabled, "ab" is not: "ab:1" must not pass for "a:".
     expect(redzoneChannel([ch("ab:1", "NFL RedZone")], ["a"])).toBeNull();
+  });
+});
+
+describe("redzoneChannel: the one you set in the Guide", () => {
+  const list = [ch("a:1", "NFL RedZone 4K"), ch("a:2", "NFL REDZONE SUNDAY")];
+
+  it("wins over the name match", () => {
+    expect(redzoneChannel(list, ON, "a:2")?.id).toBe("a:2");
+  });
+
+  it("is used whatever its name", () => {
+    expect(redzoneChannel([...list, ch("a:3", "Sunday Ticket 1")], ON, "a:3")?.id).toBe("a:3");
+  });
+
+  it("is found in a hidden folder", () => {
+    expect(redzoneChannel(list, ON, "a:9", [ch("a:9", "NFL Backup 9")])?.id).toBe("a:9");
+  });
+
+  it("gives way to the name match when its playlist is off", () => {
+    expect(redzoneChannel([...list, ch("off:1", "NFL RedZone")], ON, "off:1")?.id).toBe("a:1");
+  });
+
+  it("gives way to the name match when it is gone from the catalog", () => {
+    expect(redzoneChannel(list, ON, "a:404")?.id).toBe("a:1");
+  });
+});
+
+describe("couldBeRedzone: which channels the Guide's menu offers it on", () => {
+  it.each(["NFL REDZONE SUNDAY", "US: NFL Redzone", "Red Zone", "NFL | 01 -", "NFL Network"])("offers it on %s", (name) => {
+    expect(couldBeRedzone(name)).toBe(true);
+  });
+
+  it.each(["CNN", "Red Sox Network", "Bored Zone", "ESPN"])("not on %s", (name) => {
+    expect(couldBeRedzone(name)).toBe(false);
   });
 });

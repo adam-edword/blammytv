@@ -35,6 +35,7 @@ import { allowedSizes } from "../live/multiview";
 import { publishLiveGames, requestMultiview, requestWatchInPlayer } from "../live/multiviewEntry";
 import { useLiveData } from "../live/useLiveData";
 import { loadPlaylists } from "../settings/playlists";
+import { loadRedzoneChannel } from "../settings/redzoneChannel";
 import { redzoneChannel, redzoneOn } from "./redzone";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
@@ -257,6 +258,8 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         ? redzoneChannel(
             liveData.channels,
             loadPlaylists().filter((p) => p.enabled).map((p) => p.id),
+            loadRedzoneChannel(),
+            liveData.hidden,
           )
         : null,
     [liveData, raw],
@@ -779,6 +782,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
           <Button
             variant="outline"
             type="button"
+            data-hint={redzone.name}
             onClick={() => requestWatchInPlayer(redzone.id)}
           >
             <PlayIcon size={17} />

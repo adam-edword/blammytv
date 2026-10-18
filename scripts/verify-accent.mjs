@@ -80,6 +80,18 @@ check("Blue gets LIGHT ink", blue.ink === "oklch(0.985 0 0)", blue.ink);
 await group.getByRole("button", { name: /Custom/ }).click();
 const pop = page.locator("[data-slot='popover-content']");
 await pop.waitFor({ timeout: 5_000 });
+// Radix holds a popper at translate(0, -200%), off the page, until it has
+// measured it. A hit-test in that window finds nothing under the centre: CI's
+// cold runner landed there once (v0.12.6). Placed first, then hit-tested.
+await page
+  .waitForFunction(
+    () =>
+      document.querySelector("[data-slot='popover-content']")?.closest("[data-radix-popper-content-wrapper]")?.style
+        .transform !== "translate(0, -200%)",
+    null,
+    { timeout: 5_000 },
+  )
+  .catch(() => {});
 const onTop = await page.evaluate(() => {
   const p = document.querySelector("[data-slot='popover-content']");
   const r = p.getBoundingClientRect();

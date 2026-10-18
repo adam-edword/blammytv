@@ -33,8 +33,20 @@ const SAYS_NFL = /\bnfl\b/i;
 /** Better first. extractQuality's own order: 4K beats HDR beats FHD beats HD. */
 const RANK: Record<Quality, number> = { "4K": 4, HDR: 3, FHD: 2, HD: 1 };
 
+/** Whether the Guide's menu offers to use this channel for RedZone: a name
+ * that says NFL or RedZone. Every other channel would carry an item that
+ * means nothing for it. */
+export function couldBeRedzone(name: string): boolean {
+  return SAYS_NFL.test(name) || RED_ZONE.test(name);
+}
+
 /**
  * The channel that is RedZone, or null when none of yours is.
+ *
+ * `chosen` is the one you set in the Guide's menu (settings/redzoneChannel.ts).
+ * It wins over the name match, from the hidden folders too, since you picked
+ * it, unless its line is off or it is gone from the catalog: then the match
+ * decides, as it would have.
  *
  * `channels` is the catalog's visible list, in playlist order: the adult
  * filter and the folders you hid are already out of it, and a hidden folder
@@ -49,7 +61,11 @@ const RANK: Record<Quality, number> = { "4K": 4, HDR: 3, FHD: 2, HD: 1 };
 export function redzoneChannel(
   channels: readonly Channel[],
   enabled: readonly string[],
+  chosen: string | null = null,
+  hidden: readonly Channel[] = [],
 ): Channel | null {
+  const mine = chosen ? (channels.find((c) => c.id === chosen) ?? hidden.find((c) => c.id === chosen)) : undefined;
+  if (mine && !offPlaylist(enabled, mine.id)) return mine;
   let best: Channel | null = null;
   let bestScore = -1;
   for (const c of channels) {

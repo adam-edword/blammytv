@@ -117,8 +117,9 @@ export const KEY_GROUPS = {
   // `guideFixes` is playlist id, then channel id, then the guide's id. The grid
   // holds the channel ids of its tiles and the one with the sound. `xtVod` is an
   // Xtream playlist's movies and shows (plan 028, xtvod/store.ts): by playlist
-  // id, whether its library is off and which folders are picked.
-  withPlaylists: ["favorites", "recents", "guideFixes", "multiviewGrid", "xtVod"],
+  // id, whether its library is off and which folders are picked. `redzoneChannel`
+  // is the channel id set in the Guide's menu for NFL RedZone.
+  withPlaylists: ["favorites", "recents", "guideFixes", "multiviewGrid", "xtVod", "redzoneChannel"],
   logins: ["playlists", "aiostreams", "heroSources"],
   never: [
     // The sign-ins' bookkeeping and queues. The tokens are in the OS vault.
