@@ -39,6 +39,8 @@ import { EYEBROW } from "../../ui/eyebrow";
 import { ChannelLogo } from "../../ui/ChannelLogo";
 import { Hint } from "../../ui/Hint";
 import { PlaylistLibrary } from "./PlaylistLibrary";
+import { showsLibrary } from "../xtvod/store";
+import { useXtRefresh } from "../xtvod/useXtRefresh";
 
 type Categories =
   | { status: "loading" }
@@ -57,6 +59,10 @@ export function PlaylistsTab() {
   const [kind, setKind] = useState<PlaylistKind>("xtream");
   const [form, setForm] = useState<PlaylistFormState>(EMPTY_FORM);
   const [playlists, setPlaylists] = useState<Playlist[]>(loadPlaylists);
+  // The movies and shows section follows what each playlist's lists held
+  // (xtvod/store.ts), which can land while the page is open.
+  useXtRefresh();
+  const libraryPlaylists = playlists.filter(showsLibrary);
   const [showAdult, setShowAdult] = useState<boolean>(loadShowAdult);
   // Each Xtream line's count, for its row's meter (plan 019, K5): the same
   // readings the Guide's sidebar draws.
@@ -358,9 +364,6 @@ export function PlaylistsTab() {
                   </Hint>
                 </div>
               </div>
-              {/* An Xtream playlist's movies and shows (plan 028): the switch
-                * and its rows, for one whose provider has any. */}
-              <PlaylistLibrary playlist={p} />
               {advancedIsOpen(p) && (
                 <AdvancedFields
                   id={advancedId(p)}
@@ -384,6 +387,18 @@ export function PlaylistsTab() {
         )}
         {enabledIds.size > 0 && <GuideRefresh stamps={guideStamps} />}
       </section>
+
+      {/* Each Xtream playlist's movies and shows (plan 028), a section of their
+        * own under the playlists and their guide's refresh: the switch and the
+        * rows, for a playlist whose provider has any. */}
+      {libraryPlaylists.length > 0 && (
+        <section className="settings-section" data-xtsection>
+          <h3 className={`settings-section__list-title ${EYEBROW}`}>Movies and Shows</h3>
+          {libraryPlaylists.map((p) => (
+            <PlaylistLibrary key={p.id} playlist={p} />
+          ))}
+        </section>
+      )}
 
       <section className="settings-section" data-setting="content">
         <h3 className="settings-section__list-title">Content</h3>

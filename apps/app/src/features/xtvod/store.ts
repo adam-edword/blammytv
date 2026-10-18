@@ -14,7 +14,7 @@
  */
 
 import { load, save } from "../../lib/storage";
-import { loadPlaylists, type XtreamPlaylist } from "../settings/playlists";
+import { loadPlaylists, type Playlist, type XtreamPlaylist } from "../settings/playlists";
 import type { XtKind } from "./keys";
 
 const KEY = "xtVod";
@@ -199,6 +199,17 @@ export function eligiblePlaylists(): XtreamPlaylist[] {
       typeof p.password === "string" &&
       !isLibraryOff(p.id),
   );
+}
+
+/** Whether a playlist has a panel in Settings' Movies and Shows section
+ * (settings/PlaylistLibrary.tsx): an Xtream one whose last good load held a
+ * movie or a show, or that is switched off (it has to be able to come back on).
+ * Not one that was read and holds nothing (live TV only), and not an M3U or a
+ * Stalker portal. */
+export function showsLibrary(p: Playlist): boolean {
+  if (p.kind !== "xtream") return false;
+  const held = loadHeld(p.id);
+  return isLibraryOff(p.id) || !!(held && held.movies + held.shows > 0);
 }
 
 /**

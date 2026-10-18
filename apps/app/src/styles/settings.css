@@ -914,11 +914,59 @@ input.rowcap__value--edit:focus-visible {
 }
 
 /* A playlist's movies and shows (plan 028): the switch, and its rows under it. */
+/* An Xtream playlist's movies and shows: a panel of their own, under the
+ * Movies and Shows heading, so they never read as part of the playlist's row
+ * above (plan 028). */
 .playlist-library {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px 12px 6px;
+  gap: 18px;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.playlist-library + .playlist-library {
+  margin-top: 12px;
+}
+.playlist-library__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.playlist-library__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-headline);
+  font-size: 16px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.playlist-library__label {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.xtedit__minehead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.xtedit__minehead .xtedit__title {
+  margin: 0;
+}
+.xtedit__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.xtpill .xtpill__grip {
+  flex: none;
+  margin-left: 4px;
+  color: var(--text-muted);
 }
 
 /* A playlist's rows (features/xtvod/RowsEditor.tsx): Your Rows as pills to drag

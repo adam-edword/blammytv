@@ -2692,7 +2692,9 @@ function Hero({
  * the browser's broken-image box with the name as its alt text. */
 function HeroTitle({ item }: { item: VodItem }) {
   const [failed, setFailed] = useState(false);
-  if (!item.logo || failed) return <h2 className="shero__title">{item.title}</h2>;
+  if (!item.logo || failed)
+    // Past a short name the type steps down (stream.css): about two lines.
+    return <h2 className={"shero__title" + (item.title.length > 18 ? " shero__title--long" : "")}>{item.title}</h2>;
   return (
     <img
       className="shero__logo art-in"

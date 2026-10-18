@@ -59,10 +59,10 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
   },
   {
     id: "playlist-library",
-    label: "Movies and Shows in Stream and Discover",
+    label: "Show in Stream and Discover",
     page: "sources",
     world: "live",
-    keywords: ["films", "series", "tv shows", "library", "vod", "on demand", "xtream", "provider", "playlist", "turn off", "switch", "hide"],
+    keywords: ["movies and shows", "movies", "shows", "films", "series", "tv shows", "library", "vod", "on demand", "xtream", "provider", "playlist", "turn off", "switch", "hide"],
   },
   {
     id: "playlist-library-folders",

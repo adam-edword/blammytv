@@ -307,6 +307,13 @@ await coll(p).waitFor({ timeout: 20_000 });
   check("  Drama has the show once (its 4K copy sits in the other folder)", drama.filter((n) => n === "Two Season Show").length === 1 && drama.includes("Plain Series"), JSON.stringify(drama));
   check("  a hero of the picked shows", (await p.locator(".shero__card").count()) > 0);
   check("  and after the rows, the one button, now Edit Rows", (await rowsBtn(p).innerText()) === "Edit Rows" && (await rowsBtn(p).count()) === 1);
+  // Centered under the rows (Adam), not at their left edge.
+  const centred = await p.evaluate(() => {
+    const b = [...document.querySelectorAll("button")].find((x) => x.textContent === "Edit Rows")?.getBoundingClientRect();
+    const rows = document.querySelector(".stream__rows")?.getBoundingClientRect();
+    return b && rows ? Math.abs(b.left + b.width / 2 - (rows.left + rows.width / 2)) : null;
+  });
+  check("  in the middle of the page under them", centred !== null && centred < 4, String(centred));
   const calls = listCalls(await panelLog());
   check("every pick cost no call at all: the lists were read once each", LISTS.every((a) => calls.filter((c) => c.action === a).length === 1), JSON.stringify(calls.map((c) => c.action)));
 }
@@ -754,8 +761,11 @@ const closeSettings = async (p) => {
 };
 /** One playlist's block of Settings → Sources, by its name. */
 const item = (p, name) => p.locator(".playlist-item", { has: p.locator(".playlist-row__name", { hasText: new RegExp(`^${name}$`) }) });
+/** One playlist's panel in the Movies and Shows section, by its name: its own
+ * section since Adam's v0.12.3 look, not part of the playlist's row. */
+const lib = (p, name) => p.locator(".playlist-library", { has: p.locator(".playlist-library__name", { hasText: new RegExp(`^${name}$`) }) });
 const LIBRARY = (name) => `${name} movies and shows in Stream and Discover`;
-const sw = (p, name) => item(p, name).getByRole("switch", { name: LIBRARY(name) });
+const sw = (p, name) => lib(p, name).getByRole("switch", { name: LIBRARY(name) });
 /** The records the app keeps on disk for the playlists' lists (blammytv-vod). */
 const diskKeys = (p) =>
   p.evaluate(
@@ -795,7 +805,8 @@ const heldBoth = (p) => async () => {
   await openSources(s);
   const vodItem = item(s, "Vod Panel");
   const liveItem = item(s, "Live Only");
-  const edit = vodItem.locator("[data-xtedit]");
+  const vodLib = lib(s, "Vod Panel");
+  const edit = vodLib.locator("[data-xtedit]");
   const yours = () => edit.locator(".xtpill:not(.xtpill--add) .xtpill__name").allInnerTexts();
   const more = () => edit.locator(".xtpill--add .xtpill__name").allInnerTexts();
   const addPill = (name, kind) => edit.getByRole("button", { name: `Add ${name}, ${kind}`, exact: true });
@@ -805,17 +816,30 @@ const heldBoth = (p) => async () => {
   const pillGrip = (name) => edit.getByRole("button", { name: `Reorder ${name}`, exact: true });
   check("(control) both playlists have been read, so a missing switch is not a late one", read && (await liveItem.count()) === 1 && (await vodItem.count()) === 1, JSON.stringify(await storeOf(s, "xtVodHeld")));
   check(
-    "a playlist whose provider has movies and shows has the switch, on, and its rows under its row",
-    (await vodItem.locator('[data-setting="playlist-library"]').count()) === 1 &&
+    "a playlist whose provider has movies and shows has the switch, on, and its rows, in its own panel",
+    (await vodLib.locator('[data-setting="playlist-library"]').count()) === 1 &&
       (await sw(s, "Vod Panel").getAttribute("aria-checked")) === "true" &&
-      (await vodItem.locator('[data-setting="playlist-library-folders"] [data-xtedit]').count()) === 1,
+      (await vodLib.locator('[data-setting="playlist-library-folders"] [data-xtedit]').count()) === 1,
   );
   check(
     "  and a playlist that is live TV only has neither",
-    (await liveItem.locator('[data-setting="playlist-library"]').count()) === 0 && (await liveItem.locator("[data-xtedit]").count()) === 0 && (await s.locator('[data-setting="playlist-library"]').count()) === 1,
+    (await lib(s, "Live Only").count()) === 0 && (await s.locator('[data-setting="playlist-library"]').count()) === 1,
   );
-  const text = await vodItem.locator(".playlist-library").innerText();
-  check("  the label says where they go, and Your Rows and More Folders are under it, with nothing picked yet", /Movies and Shows in Stream and Discover/.test(text) && /Your Rows/.test(text) && /No rows yet\. Pick a folder below\./.test(text) && /More Folders/.test(text), JSON.stringify(text.slice(0, 140)));
+  // Its own section, after the playlists and their guide's refresh, and not
+  // part of the playlist's row (Adam: the two read as one block).
+  const placed = await s.evaluate(() => {
+    const section = document.querySelector("[data-xtsection]");
+    const refresh = document.querySelector(".playlists-refresh");
+    return {
+      inRow: !!document.querySelector(".playlist-item .playlist-library"),
+      section: !!section,
+      after: !!section && !!refresh && !!(refresh.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING),
+      head: section?.querySelector("h3")?.textContent ?? null,
+    };
+  });
+  check("  in a Movies and Shows section of its own, after the guide's refresh, not in the playlist's row", placed.section && placed.after && !placed.inRow && placed.head === "Movies and Shows", JSON.stringify(placed));
+  const text = await vodLib.innerText();
+  check("  the label says where they go, and Your Rows and More Folders are under it, with nothing picked yet", /Show in Stream and Discover/.test(text) && /Your Rows/.test(text) && /No rows yet\. Pick a folder below\./.test(text) && /More Folders/.test(text), JSON.stringify(text.slice(0, 140)));
   const movies = await more();
   await kindTab(edit, "Shows").click();
   const shows = await more();
@@ -844,6 +868,12 @@ const heldBoth = (p) => async () => {
   await kindTab(edit, "Movies").click();
   await addPill("Comedy", "Movies").click();
   check("Your Rows after three clicks: Action, Drama, Comedy", JSON.stringify(await yours()) === JSON.stringify(["Action", "Drama", "Comedy"]), JSON.stringify(await yours()));
+  check(
+    "  each with a grip, and a line saying they drag, which More Folders has neither of",
+    (await edit.locator(".xtpill:not(.xtpill--add) .xtpill__grip").count()) === 3 &&
+      (await edit.locator(".xtpill--add .xtpill__grip").count()) === 0 &&
+      (await edit.getByText("Drag to change the order.", { exact: true }).count()) === 1,
+  );
   // Reorder by keyboard: Space lifts, ArrowRight moves, Space drops.
   await pillGrip("Action, Movies").focus();
   await s.keyboard.press("Space");
@@ -899,7 +929,7 @@ const heldBoth = (p) => async () => {
   await clearLog();
   await openSources(s);
   await sw(s, "Vod Panel").click();
-  check("the switch off: it stays, off, and its rows go", (await sw(s, "Vod Panel").getAttribute("aria-checked")) === "false" && (await vodItem.locator("[data-xtedit]").count()) === 0 && (await vodItem.locator('[data-setting="playlist-library"]').count()) === 1);
+  check("the switch off: it stays, off, and its rows go", (await sw(s, "Vod Panel").getAttribute("aria-checked")) === "false" && (await vodLib.locator("[data-xtedit]").count()) === 0 && (await vodLib.locator('[data-setting="playlist-library"]').count()) === 1);
   const off = await storeOf(s, "xtVod");
   check("  kept in the library's store, with the picks still in it", off?.vod1?.off === true && pickIds(off.vod1.picks).length === 3, JSON.stringify(off));
   await closeSettings(s);

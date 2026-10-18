@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { rectSortingStrategy } from "@dnd-kit/sortable";
 import { Button } from "../../components/ui/button";
-import { CloseIcon } from "../../ui/icons";
+import { CloseIcon, GripIcon } from "../../ui/icons";
 import { SortableList, SortableRow } from "../../ui/Sortable";
 import { PosterDot } from "./FolderArt";
 import { KIND_WORD, type XtKind } from "./keys";
@@ -42,9 +42,14 @@ export function XtRowsEditor({ playlistId }: { playlistId: string }) {
   return (
     <div className="xtedit" data-xtedit={lib.id}>
       <section aria-labelledby={mineId}>
-        <h4 id={mineId} className="xtedit__title">
-          Your Rows
-        </h4>
+        <div className="xtedit__minehead">
+          <h4 id={mineId} className="xtedit__title">
+            Your Rows
+          </h4>
+          {/* What the grips mean, once there is an order to change (Adam: a
+            * pill in Your Rows did not look like it could move). */}
+          {rows.length > 1 && <p className="xtedit__hint">Drag to change the order.</p>}
+        </div>
         {rows.length === 0 ? (
           <p className="xtedit__note">No rows yet. Pick a folder below.</p>
         ) : (
@@ -65,6 +70,7 @@ export function XtRowsEditor({ playlistId }: { playlistId: string }) {
                 {(grip) => (
                   <>
                     <button type="button" className="xtpill__body" {...grip} aria-label={`Reorder ${items[i].label}`}>
+                      <GripIcon size={14} className="xtpill__grip" />
                       <PosterDot posters={folder.posters} />
                       <span className="xtpill__name">{folder.name}</span>
                       <span className="xtpill__kind">{KIND_WORD[folder.kind]}</span>
