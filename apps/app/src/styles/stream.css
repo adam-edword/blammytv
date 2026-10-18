@@ -177,6 +177,9 @@
  * five-word name in five lines over the picture (Adam, plan 028). A long name
  * steps down a size, and the lines are balanced so none is a lone word. */
 .shero__title {
+  /* An h2's own margin (0.83em, some 60px at this size) was the gap between
+   * the name and the synopsis; the logo, an img, never had one. */
+  margin: 0;
   max-width: 620px;
   font-family: var(--font-headline);
   font-weight: 700;
