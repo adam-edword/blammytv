@@ -109,6 +109,11 @@ function panel(movies: unknown[] = MOVIES, shows: unknown[] = SHOWS) {
 const MOVIE_KEY = "xt:t:m:t617126";
 const SHOW_KEY = "xt:t:s:t4521";
 const flush = () => new Promise((r) => setTimeout(r, 0));
+/** The names of the folders the views offer for one list, first library. */
+const offered = (kind: "movie" | "series") => vod.xtLibraries()[0].folders.filter((f) => f.kind === kind).map((f) => f.name);
+/** Picks, as the store keeps them: movie folders and show folders by id. */
+const pickM = (...ids: string[]) => ids.map((id) => ({ kind: "movie" as const, id }));
+const pickS = (...ids: string[]) => ids.map((id) => ({ kind: "series" as const, id }));
 
 beforeEach(async () => {
   mem.clear();
@@ -152,28 +157,39 @@ describe("loadXtVod", () => {
     expect(net.vods.mock.calls[0][0]).toMatchObject({ id: "t", server: SERVER });
   });
 
-  it("makes a row of each picked folder, movies then shows, in the panel's folder order and not the order they were picked", async () => {
-    store.setPicks("t", "movie", ["13", "12"]);
-    store.setPicks("t", "series", ["13", "12"]);
+  it("makes a row of each picked folder in the order they were picked, movies and shows mixed", async () => {
+    store.setPicks("t", [...pickM("13"), ...pickS("12"), ...pickM("12"), ...pickS("13")]);
     const d = await vod.loadXtVod();
     expect(d.rows.map((r) => [r.id, r.title, r.itemIds])).toEqual([
-      ["xt:t:movie:12", "Action", [MOVIE_KEY]],
       ["xt:t:movie:13", "Comedy", ["xt:t:m:3003"]],
       ["xt:t:series:12", "Drama", [SHOW_KEY]],
+      ["xt:t:movie:12", "Action", [MOVIE_KEY]],
       ["xt:t:series:13", "Sitcoms", [SHOW_KEY]],
     ]);
     expect(d.rows.every((r) => r.layout === "poster")).toBe(true);
   });
 
+  it("moves a row when its pick is dragged, and draws the same rows from the same picks", async () => {
+    store.setPicks("t", [...pickM("12", "13"), ...pickS("12")]);
+    expect((await vod.loadXtVod()).rows.map((r) => r.title)).toEqual(["Action", "Comedy", "Drama"]);
+    store.setPicks("t", [...pickS("12"), ...pickM("13", "12")]);
+    expect((await vod.loadXtVod()).rows.map((r) => r.title)).toEqual(["Drama", "Comedy", "Action"]);
+  });
+
+  it("reads picks saved before the order was the person's: movies, then shows, each as saved", async () => {
+    mem.set("blammytv.xtVod", JSON.stringify({ v: 1, data: { t: { picks: { movie: ["13", "12"], series: ["13", "12"] } } } }));
+    const d = await vod.loadXtVod();
+    expect(d.rows.map((r) => r.id)).toEqual(["xt:t:movie:13", "xt:t:movie:12", "xt:t:series:13", "xt:t:series:12"]);
+  });
+
   it("holds a title once in a row, however many copies the panel lists in the folder", async () => {
-    store.setPicks("t", "movie", ["11", "12"]);
+    store.setPicks("t", pickM("11", "12"));
     const d = await vod.loadXtVod();
     expect(d.rows.map((r) => r.itemIds)).toEqual([[MOVIE_KEY], [MOVIE_KEY]]);
   });
 
   it("does not draw a picked folder the panel no longer has, or that has no title", async () => {
-    store.setPicks("t", "movie", ["99", "13"]);
-    store.setPicks("t", "series", ["99"]);
+    store.setPicks("t", [...pickM("99", "13"), ...pickS("99")]);
     panel([MOVIE_4K], SHOWS);
     const d = await vod.loadXtVod();
     expect(d.rows).toEqual([]);
@@ -183,7 +199,7 @@ describe("loadXtVod", () => {
     setting("rowCap", 10);
     const many = Array.from({ length: 14 }, (_, i) => movie(5000 + i, `Film ${i + 1} (2020)`, "13", { added: String(1700000000 + i) }));
     panel(many, []);
-    store.setPicks("t", "movie", ["13"]);
+    store.setPicks("t", pickM("13"));
     const d = await vod.loadXtVod();
     const ids = d.rows[0].itemIds;
     expect(ids).toHaveLength(10);
@@ -202,7 +218,7 @@ describe("loadXtVod", () => {
 
     it("is the newest picked shows that have a backdrop, nine at most", async () => {
       panel([], shows);
-      store.setPicks("t", "series", ["13"]);
+      store.setPicks("t", pickS("13"));
       const d = await vod.loadXtVod();
       expect(d.featured).toHaveLength(9);
       expect(d.featured.map((k) => d.items.get(k)!.title)).toEqual(
@@ -213,13 +229,13 @@ describe("loadXtVod", () => {
 
     it("is none when no show folder is picked, picked movies or not", async () => {
       panel(MOVIES, shows);
-      store.setPicks("t", "movie", ["12"]);
+      store.setPicks("t", pickM("12"));
       expect((await vod.loadXtVod()).featured).toEqual([]);
     });
 
     it("draws from the folders picked and no other, and each show once", async () => {
       panel([], shows);
-      store.setPicks("t", "series", ["12", "13"]);
+      store.setPicks("t", pickS("12", "13"));
       const d = await vod.loadXtVod();
       expect(d.featured[0]).toBe("xt:t:s:t806101");
       expect(new Set(d.featured).size).toBe(d.featured.length);
@@ -228,12 +244,12 @@ describe("loadXtVod", () => {
 
   describe("a row's title", () => {
     it("is the folder's name with one library, and the playlist's name after it with more", async () => {
-      store.setPicks("t", "movie", ["12"]);
+      store.setPicks("t", pickM("12"));
       expect((await vod.loadXtVod()).rows[0].title).toBe("Action");
       await boot();
       seed(playlist("t", { name: "Alpha" }), playlist("u", { name: "Beta", server: "http://other.example.invalid:8080" }));
-      store.setPicks("t", "movie", ["12"]);
-      store.setPicks("u", "movie", ["12"]);
+      store.setPicks("t", pickM("12"));
+      store.setPicks("u", pickM("12"));
       const d = await vod.loadXtVod();
       expect(d.rows.map((r) => [r.id, r.title])).toEqual([
         ["xt:t:movie:12", "Action · Alpha"],
@@ -246,11 +262,10 @@ describe("loadXtVod", () => {
         { id: "12", name: "Comedy", adult: false },
         { id: "13", name: "Sitcoms", adult: false },
       ]);
-      store.setPicks("t", "movie", ["13"]);
-      store.setPicks("t", "series", ["12"]);
+      store.setPicks("t", [...pickM("13"), ...pickS("12")]);
       expect((await vod.loadXtVod()).rows.map((r) => r.title)).toEqual(["Comedy · Movies", "Comedy · Shows"]);
       // Picked on one side only, the name is enough.
-      store.setPicks("t", "series", []);
+      store.setPicks("t", pickM("13"));
       expect((await vod.loadXtVod()).rows.map((r) => r.title)).toEqual(["Comedy"]);
     });
   });
@@ -266,18 +281,18 @@ describe("loadXtVod", () => {
     it("leaves out flagged titles and folders while hidden, and brings them back when shown, without asking the panel again", async () => {
       panel(adult);
       net.vodCats.mockResolvedValue(folders);
-      store.setPicks("t", "movie", ["12", "14"]);
+      store.setPicks("t", pickM("12", "14"));
       const hidden = await vod.loadXtVod();
       expect(hidden.rows.map((r) => r.title)).toEqual(["Action"]);
       expect(hidden.items.has("xt:t:m:t903006")).toBe(false);
       expect(hidden.items.has("xt:t:m:t903007")).toBe(false);
-      expect(vod.xtLibraries()[0].movieFolders.map((f) => f.name)).not.toContain("Premium Vault");
+      expect(offered("movie")).not.toContain("Premium Vault");
 
       setting("showAdult", true);
       const shown = await vod.loadXtVod();
       expect(shown.rows.map((r) => r.title)).toEqual(["Action", "Premium Vault"]);
       expect(shown.items.has("xt:t:m:t903006")).toBe(true);
-      expect(vod.xtLibraries()[0].movieFolders.map((f) => f.name)).toContain("Premium Vault");
+      expect(offered("movie")).toContain("Premium Vault");
       expect(net.vods).toHaveBeenCalledTimes(1);
     });
   });
@@ -286,7 +301,7 @@ describe("loadXtVod", () => {
     expect(vod.peekXtVod()).toBeNull();
     const d = await vod.loadXtVod();
     expect(vod.peekXtVod()).toBe(d);
-    store.setPicks("t", "movie", ["12"]);
+    store.setPicks("t", pickM("12"));
     expect(vod.peekXtVod()!.rows).toHaveLength(1);
   });
 });
@@ -297,13 +312,15 @@ describe("xtVodKey", () => {
     expect(vod.xtVodKey()).toBe("");
   });
 
-  it("moves when a pick moves, the row size, the adult filter, the account or a name", () => {
+  it("moves when a pick is made or dragged, the row size, the adult filter, the account or a name", () => {
     const keys = new Set<string>();
     const note = () => keys.add(vod.xtVodKey());
     note();
-    store.togglePick("t", "movie", "12");
+    store.setPicks("t", pickM("12"));
     note();
-    store.togglePick("t", "series", "12");
+    store.setPicks("t", [...pickM("12"), ...pickS("12")]);
+    note();
+    store.setPicks("t", [...pickS("12"), ...pickM("12")]);
     note();
     setting("rowCap", 25);
     note();
@@ -313,11 +330,11 @@ describe("xtVodKey", () => {
     note();
     seed(playlist("t", { name: "Renamed", password: "other" }));
     note();
-    expect(keys.size).toBe(7);
+    expect(keys.size).toBe(8);
   });
 
   it("holds the account only as a digest", () => {
-    store.togglePick("t", "movie", "12");
+    store.setPicks("t", pickM("12"));
     const k = vod.xtVodKey();
     expect(k).not.toContain(CREDS.username);
     expect(k).not.toContain("panel.example");
@@ -481,25 +498,78 @@ describe("the lists", () => {
   });
 });
 
-describe("the folders the picker offers", () => {
-  it("are each library's, in playlist order, movies and shows apart, those with a title in them", async () => {
+describe("the folders the views offer", () => {
+  const POSTER = "https://image.tmdb.org/t/p/w600_and_h900_bestv2/poster.jpg";
+
+  it("are each library's, in playlist order, movies then shows, each with a title in it, and the poster they stand for", async () => {
     net.vodCats.mockResolvedValue([...MOVIE_FOLDERS, { id: "20", name: "Empty One", adult: false }]);
     await vod.loadXtVod();
     expect(vod.xtLibraries()).toEqual([
       {
         id: "t",
         name: "Test",
-        movieFolders: [
-          { id: "11", name: "4K Movies" },
-          { id: "12", name: "Action" },
-          { id: "13", name: "Comedy" },
-        ],
-        showFolders: [
-          { id: "12", name: "Drama" },
-          { id: "13", name: "Sitcoms" },
+        folders: [
+          { kind: "movie", id: "11", name: "4K Movies", posters: [POSTER] },
+          { kind: "movie", id: "12", name: "Action", posters: [POSTER] },
+          { kind: "movie", id: "13", name: "Comedy", posters: [POSTER] },
+          { kind: "series", id: "12", name: "Drama", posters: [POSTER] },
+          { kind: "series", id: "13", name: "Sitcoms", posters: [POSTER] },
         ],
       },
     ]);
+  });
+
+  describe("posters", () => {
+    const poster = (n: number) => `https://img.example.invalid/${n}.jpg`;
+    const film = (id: number, added: number, icon: string | undefined, folder = "13") =>
+      movie(id, `Film ${id} (2020)`, folder, { added: String(added), stream_icon: icon });
+    const posters = (id: string) => vod.xtLibraries()[0].folders.find((f) => f.kind === "movie" && f.id === id)?.posters;
+
+    it("are the three newest titles' that have one, the newest first", async () => {
+      panel([film(1, 100, poster(1)), film(2, 500, poster(2)), film(3, 300, poster(3)), film(4, 400, poster(4)), film(5, 200, poster(5))], []);
+      await vod.loadXtVod();
+      expect(posters("13")).toEqual([poster(2), poster(4), poster(3)]);
+    });
+
+    it("pass over a title with no poster, taking the next newest", async () => {
+      panel([film(1, 100, poster(1)), film(2, 500, undefined), film(3, 300, poster(3)), film(4, 400, ""), film(5, 200, poster(5))], []);
+      await vod.loadXtVod();
+      expect(posters("13")).toEqual([poster(3), poster(5), poster(1)]);
+    });
+
+    it("are fewer when fewer have one, and none when none does", async () => {
+      panel([film(1, 100, poster(1)), film(2, 500, undefined), film(3, 300, undefined, "12")], []);
+      await vod.loadXtVod();
+      expect(posters("13")).toEqual([poster(1)]);
+      expect(posters("12")).toEqual([]);
+    });
+
+    it("keep the panel's order among titles added together", async () => {
+      panel([film(1, 100, poster(1)), film(2, 100, poster(2)), film(3, 100, poster(3)), film(4, 100, poster(4))], []);
+      await vod.loadXtVod();
+      expect(posters("13")).toEqual([poster(1), poster(2), poster(3)]);
+    });
+
+    it("are read from the folder's own titles: a copy filed in two folders is in both", async () => {
+      await vod.loadXtVod();
+      expect(posters("11")).toEqual([POSTER]);
+      expect(posters("12")).toEqual([POSTER]);
+    });
+  });
+
+  it("leave out an empty folder, and an adult one while adult content is hidden", async () => {
+    panel([...MOVIES, movie(3007, "Vault Feature (2021)", "14")]);
+    net.vodCats.mockResolvedValue([...MOVIE_FOLDERS, { id: "20", name: "Empty One", adult: false }, { id: "14", name: "Premium Vault", adult: true }]);
+    await vod.loadXtVod();
+    expect(offered("movie")).toEqual(["4K Movies", "Action", "Comedy"]);
+    setting("showAdult", true);
+    await vod.loadXtVod();
+    expect(offered("movie")).toEqual(["4K Movies", "Action", "Comedy", "Premium Vault"]);
+  });
+
+  it("are built once for a read of the lists, not at every ask", async () => {
+    await vod.loadXtVod();
+    expect(vod.xtLibraries()[0].folders).toBe(vod.xtLibraries()[0].folders);
   });
 });
 
@@ -664,7 +734,7 @@ describe("watchXtLibrary", () => {
     // because nothing changed in what is in memory.
     store.setLibraryOff("t", true);
     store.setLibraryOff("t", false);
-    store.togglePick("t", "movie", "12");
+    store.setPicks("t", pickM("12"));
     await vi.advanceTimersByTimeAsync(1000);
     expect(net.vods).toHaveBeenCalledTimes(1);
 
@@ -762,7 +832,7 @@ describe("Discover's feeds", () => {
 
   it("pages the whole library newest first, whatever is picked, and costs the panel nothing", async () => {
     panel(FILMS, []);
-    store.setPicks("t", "movie", ["12"]);
+    store.setPicks("t", pickM("12"));
     await vod.loadXtDiscover();
     const calls = net.vods.mock.calls.length;
     expect(titles(vod.xtPage({ type: "movie", id: "t" }, 0))).toEqual(["Newest Film", "Middle Film", "Oldest Film"]);
@@ -794,7 +864,7 @@ describe("Discover's search", () => {
 
   it("finds a title in a folder no one picked, and a show, each under its own kind", async () => {
     panel(FILMS, SHOWS_FOR_SEARCH);
-    store.setPicks("t", "movie", ["12"]);
+    store.setPicks("t", pickM("12"));
     await vod.loadXtDiscover();
     expect(titles(await vod.searchXt("movie", "quiet harbor"))).toEqual(["Quiet Harbor"]);
     expect(titles(await vod.searchXt("series", "quiet"))).toEqual(["Quiet Harbour Nights"]);
@@ -868,8 +938,7 @@ describe("xtDiscoverKey", () => {
   it("does not move with a pick, the row size or the lists being read again", async () => {
     await vod.loadXtVod();
     const a = vod.xtDiscoverKey();
-    store.togglePick("t", "movie", "12");
-    store.togglePick("t", "series", "12");
+    store.setPicks("t", [...pickM("12"), ...pickS("12")]);
     setting("rowCap", 25);
     expect(vod.xtDiscoverKey()).toBe(a);
     await boot();
@@ -891,14 +960,14 @@ describe("a playlist taken out of Settings", () => {
     seed(playlist("t"), playlist("u", { server: "http://other.example.invalid:8080" }));
     await boot();
     await vod.loadXtVod();
-    store.setPicks("t", "movie", ["12"]);
+    store.setPicks("t", pickM("12"));
     store.setLibraryOff("u", true);
     expect(store.loadHeld("t")).not.toBeNull();
     expect(store.loadHeld("u")).not.toBeNull();
 
     seed(playlist("u", { server: "http://other.example.invalid:8080" }));
     vod.forgetRemoved();
-    expect(store.loadPicks("t", "movie")).toEqual([]);
+    expect(store.loadPicks("t")).toEqual([]);
     expect(store.loadHeld("t")).toBeNull();
     expect(disk.drop.mock.calls).toEqual([["t"]]);
     // The one that stays keeps all of it.
@@ -916,10 +985,10 @@ describe("a playlist taken out of Settings", () => {
     vi.useFakeTimers();
     const off = vod.watchXtLibrary();
     await vi.advanceTimersByTimeAsync(0);
-    store.setPicks("t", "movie", ["12"]);
+    store.setPicks("t", pickM("12"));
     seed();
     bus.dispatchEvent(new Event("blammytv:playlists"));
-    expect(store.loadPicks("t", "movie")).toEqual([]);
+    expect(store.loadPicks("t")).toEqual([]);
     expect(store.loadHeld("t")).toBeNull();
     expect(disk.drop).toHaveBeenCalledWith("t");
     off();
@@ -927,7 +996,7 @@ describe("a playlist taken out of Settings", () => {
 
   it("leaves every playlist that is still there alone, and writes nothing when nothing is gone", async () => {
     await vod.loadXtVod();
-    store.setPicks("t", "movie", ["12"]);
+    store.setPicks("t", pickM("12"));
     const before = [...mem.entries()].sort();
     vod.forgetRemoved();
     expect([...mem.entries()].sort()).toEqual(before);

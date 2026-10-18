@@ -359,7 +359,7 @@ export function PlaylistsTab() {
                 </div>
               </div>
               {/* An Xtream playlist's movies and shows (plan 028): the switch
-                * and the folder picker, for one whose provider has any. */}
+                * and its rows, for one whose provider has any. */}
               <PlaylistLibrary playlist={p} />
               {advancedIsOpen(p) && (
                 <AdvancedFields

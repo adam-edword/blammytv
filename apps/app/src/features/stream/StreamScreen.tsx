@@ -77,7 +77,8 @@ import { loadJfVod, peekJfVod } from "../jellyfin/vod";
 import { JF_CHANGED, loadJfConn } from "../jellyfin/store";
 import { eligiblePlaylists, hasXtLibrary, XT_CHANGED, xtLibraryPending } from "../xtvod/store";
 import { loadXtVod, peekXtVod, XT_LOADED, xtLibraries, xtUserAgent } from "../xtvod/vod";
-import { XtPickerSlot } from "../xtvod/XtPicker";
+import { XtCollections } from "../xtvod/Collections";
+import { XtRowsDrawer } from "../xtvod/RowsDrawer";
 import { onPlaylistsChange } from "../settings/playlists";
 import { AIO_CONN_CHANGED } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
@@ -171,10 +172,11 @@ type XtLoad = JfLoad;
 
 const NO_ITEMS: ReadonlyMap<string, VodItem> = new Map();
 
-/** One block of the Stream home after Continue Watching: a row and the items it
- * names, or (`library`) the end of a playlist's rows, where its folder picker
- * or the button that opens it sits. */
-type Shown = { row: StreamRow; items: ReadonlyMap<string, VodItem> } | { library: string };
+/** One row of the Stream home after Continue Watching, and the items it names. */
+interface Shown {
+  row: StreamRow;
+  items: ReadonlyMap<string, VodItem>;
+}
 
 const initialJf = (): JfLoad => {
   if (!loadJfConn()) return { status: "off" };
@@ -2284,28 +2286,28 @@ function Home({
   // the entry survives for resume bookkeeping).
   const activeWatching = watching.filter((e) => !retiredFromContinue(e));
   // The rows to draw, each with the items it names: the addon's, then your
-  // Jellyfin's, then each playlist's with its folder picker after them. The
-  // sources never share a map, so a title in two is two cards, each opening its
-  // own source.
+  // Jellyfin's, then your playlists'. The sources never share a map, so a title
+  // in two is two cards, each opening its own source.
   const libs = xtData ? xtLibraries() : [];
   const shown: Shown[] = [
     ...(aio ? aio.rows.map((row) => ({ row, items: aio.items })) : []),
     ...(jfData ? jfData.rows.map((row) => ({ row, items: jfData.items })) : []),
-    ...(xtData
-      ? libs.flatMap((lib): Shown[] => [
-          ...xtData.rows.filter((r) => r.id.startsWith(`xt:${lib.id}:`)).map((row) => ({ row, items: xtData.items })),
-          { library: lib.id },
-        ])
-      : []),
+    ...(xtData ? xtData.rows.map((row) => ({ row, items: xtData.items })) : []),
   ];
+  // After the rows, the playlists' end of the page (plan 028). With no other
+  // source and no row picked, the folders ARE the page; otherwise one button
+  // opens the Rows drawer, whether or not a row is picked yet.
+  const xtRows = !!xtData && xtData.rows.length > 0;
+  const folderPage = libs.length > 0 && !aioOn && !jfOn && !xtRows;
   // A "ready" catalog can still be EMPTY (buildVod swallows per-catalog
   // failures into empty rows) — without this branch that rendered a
   // completely blank tab. Discover and Live both narrate the same state. A
-  // playlist's library is never empty in this sense: its picker is the page.
+  // playlist's library is never empty in this sense: its folders are the page.
   if (
     featured.length === 0 &&
     activeWatching.length === 0 &&
-    shown.every((b) => "row" in b && b.row.itemIds.length === 0)
+    libs.length === 0 &&
+    shown.every((b) => b.row.itemIds.length === 0)
   )
     return (
       <StateCard
@@ -2353,28 +2355,26 @@ function Home({
         {aio && <UpNextRows catalog={aio.items} metaFields={metaFields} onOpen={onOpen} />}
         {/* And your Jellyfin's own (plan 027, D5). */}
         {jfOn && <JfUpNextRow catalog={jfData?.items ?? NO_ITEMS} metaFields={metaFields} onOpen={onOpen} shared={aioOn} />}
-        {shown.map((b) =>
-          "library" in b ? (
-            <XtPickerSlot key={`pick:${b.library}`} playlistId={b.library} />
-          ) : (
-            <section key={b.row.id} className="media-row">
-              <h3 className="media-row__title">{b.row.title}</h3>
-              <RowScroller>
-                {b.row.itemIds.map((id) => {
-                  const item = b.items.get(id);
-                  return item ? (
-                    <Card
-                      key={id}
-                      item={item}
-                      metaFields={metaFields}
-                      onOpen={onOpen}
-                    />
-                  ) : null;
-                })}
-              </RowScroller>
-            </section>
-          ),
-        )}
+        {shown.map((b) => (
+          <section key={b.row.id} className="media-row">
+            <h3 className="media-row__title">{b.row.title}</h3>
+            <RowScroller>
+              {b.row.itemIds.map((id) => {
+                const item = b.items.get(id);
+                return item ? (
+                  <Card
+                    key={id}
+                    item={item}
+                    metaFields={metaFields}
+                    onOpen={onOpen}
+                  />
+                ) : null;
+              })}
+            </RowScroller>
+          </section>
+        ))}
+        {folderPage && <XtCollections />}
+        {libs.length > 0 && !folderPage && <XtRowsDrawer edit={xtRows} />}
       </div>
     </>
   );

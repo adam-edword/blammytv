@@ -913,9 +913,7 @@ input.rowcap__value--edit:focus-visible {
   gap: 8px;
 }
 
-/* A playlist's movies and shows (plan 028): the switch, and the folder picker
- * Stream shows under it. The picker's heading is a Stream row's title, 24px; here
- * it is a row title like the switch's above it. */
+/* A playlist's movies and shows (plan 028): the switch, and its rows under it. */
 .playlist-library {
   display: flex;
   flex-direction: column;
@@ -923,10 +921,125 @@ input.rowcap__value--edit:focus-visible {
   padding: 14px 12px 6px;
 }
 
-.playlist-library .xtpick .media-row__title {
+/* A playlist's rows (features/xtvod/RowsEditor.tsx): Your Rows as pills to drag
+ * into order, More Folders as pills to add. The posters are .xtdot, a round
+ * poster, and the pictures' other rules are in stream.css. */
+.xtedit {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.xtedit__title {
+  margin: 0 0 10px;
+  font-family: var(--font-headline);
   font-size: 15px;
   font-weight: 700;
+}
+.xtedit__morehead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.xtedit__morehead .xtedit__title {
   margin: 0;
+}
+.xtedit__note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.xtedit__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.xtedit__bar {
+  display: flex;
+  gap: 8px;
+}
+.xtdot {
+  display: block;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-track);
+  object-fit: cover;
+  object-position: top;
+}
+.xtdot.is-blank {
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+}
+.xtpill {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 6px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-pill);
+  background: var(--accent-surface);
+  color: var(--text);
+}
+.xtpill[data-dragging] {
+  box-shadow: var(--glass-lift);
+}
+.xtpill .xtpill__body {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  padding: 0 4px 0 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: grab;
+  touch-action: none;
+}
+.xtpill[data-dragging] .xtpill__body {
+  cursor: grabbing;
+}
+.xtpill__kind {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.xtpill .xtpill__x {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-muted);
+}
+.xtpill .xtpill__x:hover {
+  background: var(--tint-on);
+  color: var(--text);
+}
+/* A folder not in Your Rows yet: the same pill, quiet. */
+.xtpill.xtpill--add {
+  gap: 10px;
+  padding: 0 16px 0 6px;
+  border-color: var(--border);
+  background: var(--tint-hover);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background var(--dur-hover) ease;
+}
+.xtpill.xtpill--add:hover {
+  background: var(--tint-on);
 }
 
 /* A field that cannot be saved as it stands says so in the danger voice. */

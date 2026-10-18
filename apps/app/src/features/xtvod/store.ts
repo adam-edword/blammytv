@@ -1,6 +1,7 @@
 /**
  * What a person chose about a provider's movies and shows (plan 028): whether a
- * playlist's library is on, and which of its folders are rows in Stream.
+ * playlist's library is on, and which of its folders are rows in Stream, in what
+ * order.
  *
  * Not on the playlist object. Any save of the playlist list makes Live reload
  * its channels (live/source.ts watchPlaylists), and a folder pick must not
@@ -19,11 +20,19 @@ import type { XtKind } from "./keys";
 const KEY = "xtVod";
 const VERSION = 1;
 
+/** A folder picked as a row: which of the two lists it is in and its id there.
+ * A movie folder and a show folder can share an id, so the kind is part of it. */
+export interface XtPick {
+  kind: XtKind;
+  id: string;
+}
+
 /** One playlist's choices. Absent fields are the defaults: the library on, no
- * folder picked. */
+ * folder picked. `picks` is read as `unknown` because two shapes are on disk
+ * and in people's exported files (`picksFrom`). */
 interface Choice {
   off?: true;
-  picks?: Partial<Record<XtKind, string[]>>;
+  picks?: unknown;
 }
 
 type Choices = Record<string, Choice>;
@@ -43,16 +52,54 @@ function choiceOf(all: Choices, pid: string): Choice {
   return c !== null && typeof c === "object" && !Array.isArray(c) ? (c as Choice) : {};
 }
 
+/**
+ * The picks in a stored (or handed-over) value, once each, in order. Two shapes
+ * are read, and the first is the only one written:
+ *
+ * - A list of `{ kind, id }`: the person's own order, one across movies and
+ *   shows, which is what dragging a row changes.
+ * - `{ movie: string[], series: string[] }`, which v0.12.1 and v0.12.2 saved
+ *   (movies, then shows, and the rows were drawn in the panel's folder order
+ *   whatever the order here). Read as movies first, then shows, each in its
+ *   saved order, so nobody who picked folders loses them.
+ *
+ * It stays under the same version: `load` drops a value of any other version,
+ * and a settings file made by the older build is imported as it is, so both
+ * would have lost the picks. Anything else in it is skipped.
+ */
+function picksFrom(raw: unknown): XtPick[] {
+  const out: XtPick[] = [];
+  const add = (kind: unknown, id: unknown) => {
+    if ((kind === "movie" || kind === "series") && typeof id === "string" && !out.some((p) => p.kind === kind && p.id === id))
+      out.push({ kind, id });
+  };
+  if (Array.isArray(raw)) {
+    for (const p of raw) if (p !== null && typeof p === "object") add((p as Partial<XtPick>).kind, (p as Partial<XtPick>).id);
+  } else if (raw !== null && typeof raw === "object") {
+    for (const kind of ["movie", "series"] as const) {
+      const ids = (raw as Record<string, unknown>)[kind];
+      if (Array.isArray(ids)) for (const id of ids) add(kind, id);
+    }
+  }
+  return out;
+}
+
+/** A choice as it is written: the defaults left out, the picks a list. */
+function canon(c: Choice): Choice {
+  const picks = picksFrom(c.picks);
+  return { ...(c.off === true ? { off: true as const } : {}), ...(picks.length > 0 ? { picks } : {}) };
+}
+
 /** Put one playlist's choice back, or take its entry away when it is the
  * default, and say so. Nothing is written, and nothing said, when nothing
  * changed. */
 function write(pid: string, next: Choice): void {
   const all = read();
-  const before = JSON.stringify(choiceOf(all, pid));
-  const empty = !next.off && !(next.picks?.movie?.length || next.picks?.series?.length);
+  const now = canon(next);
+  const empty = Object.keys(now).length === 0;
+  if (JSON.stringify(canon(choiceOf(all, pid))) === JSON.stringify(now)) return;
   if (empty) delete all[pid];
-  else all[pid] = next;
-  if (before === JSON.stringify(empty ? {} : next)) return;
+  else all[pid] = now;
   save(KEY, VERSION, all);
   window.dispatchEvent(new Event(XT_CHANGED));
 }
@@ -69,22 +116,14 @@ export function setLibraryOff(pid: string, off: boolean): void {
   write(pid, c);
 }
 
-/** The folder ids picked in this playlist, for movies or for shows. A movie
- * folder and a show folder can share an id, so they are two lists. */
-export function loadPicks(pid: string, kind: XtKind): string[] {
-  const v: unknown = choiceOf(read(), pid).picks?.[kind];
-  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+/** The folders picked in this playlist, in the order the person made: the order
+ * of the rows in Stream. */
+export function loadPicks(pid: string): XtPick[] {
+  return picksFrom(choiceOf(read(), pid).picks);
 }
 
-export function setPicks(pid: string, kind: XtKind, ids: readonly string[]): void {
-  const c = choiceOf(read(), pid);
-  write(pid, { ...c, picks: { ...c.picks, [kind]: [...new Set(ids)] } });
-}
-
-/** Pick the folder, or unpick it when it is picked. */
-export function togglePick(pid: string, kind: XtKind, folderId: string): void {
-  const now = loadPicks(pid, kind);
-  setPicks(pid, kind, now.includes(folderId) ? now.filter((x) => x !== folderId) : [...now, folderId]);
+export function setPicks(pid: string, picks: readonly XtPick[]): void {
+  write(pid, { ...choiceOf(read(), pid), picks });
 }
 
 // ---------------------------------------------------------------------------

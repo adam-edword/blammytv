@@ -18,6 +18,7 @@ import {
   settingsFileName,
   type KeyGroup,
 } from "./settingsExport";
+import { loadPicks, loadHeld } from "../xtvod/store";
 
 // An in-memory localStorage: the unit tests run without a DOM. A key can be
 // told to refuse its write, as a full quota does.
@@ -514,7 +515,7 @@ const linkedOf = (pc: string): Record<(typeof LINKED)[number], unknown> => ({
   recents: [`${pc}:2`],
   guideFixes: { [pc]: { [`${pc}:1`]: "guide.one" } },
   multiviewGrid: { picks: [{ channelId: `${pc}:1`, label: `${pc} one` }], sound: `${pc}:1` },
-  xtVod: { [pc]: { off: true, picks: { movie: ["12"], series: ["13"] } } },
+  xtVod: { [pc]: { off: true, picks: [{ kind: "series", id: "13" }, { kind: "movie", id: "12" }] } },
 });
 const putLinked = (pc: string) => {
   for (const [k, data] of Object.entries(linkedOf(pc))) put(k, data);
@@ -613,6 +614,26 @@ describe("keys that name this PC's playlists or channels travel with the playlis
     expect(applySettingsFile(file(true))).toEqual({ ok: true, written: 2 });
     expect(JSON.parse(stored("xtVod")!)).toEqual({ v: 1, data: theirs });
     expect(stored("xtVodHeld")).toBe(before.xtVodHeld);
+  });
+
+  it("takes an Xtream library's picks whichever build made the file: the list in the person's order, or the two lists the older build saved", () => {
+    const newer = { pcA: { off: true, picks: [{ kind: "series", id: "13" }, { kind: "movie", id: "14" }, { kind: "movie", id: "12" }] } };
+    const older = { pcA: { off: true, picks: { movie: ["14", "12"], series: ["13"] } } };
+    // The older build's own export, as it wrote it (xtvod/store.ts before the order was the person's).
+    const wrote = (data: unknown) => fileText({ includesLogins: true }, { xtVod: env(data) });
+    for (const [file, want] of [
+      [wrote(newer), ["series:13", "movie:14", "movie:12"]],
+      [wrote(older), ["movie:14", "movie:12", "series:13"]],
+    ] as const) {
+      mem.clear();
+      expect(applySettingsFile(file)).toEqual({ ok: true, written: 1 });
+      expect(loadPicks("pcA").map((p) => `${p.kind}:${p.id}`)).toEqual(want);
+    }
+    // And a file that is neither shape imports as no picks rather than failing.
+    mem.clear();
+    expect(applySettingsFile(wrote({ pcA: { picks: "12" } }))).toEqual({ ok: true, written: 1 });
+    expect(loadPicks("pcA")).toEqual([]);
+    expect(loadHeld("pcA")).toBeNull();
   });
 
   it("puts every key back when the store refuses one of them", () => {

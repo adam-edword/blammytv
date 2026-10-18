@@ -25,6 +25,9 @@ import type { XtCopy } from "./read";
 
 export type XtKind = "movie" | "series";
 
+/** What the two lists are called wherever a person reads them. */
+export const KIND_WORD: Record<XtKind, string> = { movie: "Movies", series: "Shows" };
+
 /** `m` for a movie, `s` for a show, in a key. */
 const LETTER = { movie: "m", series: "s" } as const;
 

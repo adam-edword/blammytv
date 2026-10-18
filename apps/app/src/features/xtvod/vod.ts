@@ -31,9 +31,9 @@ import { loadRowCap } from "../settings/rowCap";
 import { mapStreams } from "../stream/mapper";
 import type { StreamRow, StreamSource, VodData, VodItem } from "../stream/model";
 import { digest, diskClearAll, diskDrop, diskGet, diskPut, fingerprint } from "./disk";
-import { readKey, titleOf, type XtKind } from "./keys";
+import { KIND_WORD, readKey, titleOf, type XtKind } from "./keys";
 import { feedOf, pageOf, searchTitles } from "./discover";
-import { buildLibrary, type XtLibrary, type XtLists, type XtTitle } from "./library";
+import { buildLibrary, type XtFolder, type XtLibrary, type XtLists, type XtTitle } from "./library";
 import { movieFromInfo, showFromInfos } from "./pages";
 import { readMovies, readShows } from "./read";
 import { readSeriesInfo, type XtSeriesInfo } from "./series";
@@ -250,7 +250,7 @@ export const xtVodKey = (): string => {
   const ps = eligiblePlaylists();
   if (ps.length === 0) return "";
   return JSON.stringify([
-    ps.map((p) => [p.id, p.name, digest(fingerprint(p)), loadPicks(p.id, "movie"), loadPicks(p.id, "series")]),
+    ps.map((p) => [p.id, p.name, digest(fingerprint(p)), loadPicks(p.id)]),
     loadRowCap(),
     loadShowAdult(),
   ]);
@@ -263,8 +263,6 @@ const EMPTY = (): VodData => ({ items: new Map(), rows: [], featured: [] });
  * forty, not whichever the panel happens to list first. */
 const newestFirst = (lib: XtLibrary, keys: readonly string[]): string[] =>
   [...keys].sort((a, b) => (lib.titles.get(b)?.added ?? 0) - (lib.titles.get(a)?.added ?? 0));
-
-const KIND_WORD: Record<XtKind, string> = { movie: "Movies", series: "Shows" };
 
 /**
  * A row's title: the folder's name. Two playlists can each have an "Action", so
@@ -279,8 +277,8 @@ function rowTitle(folder: string, kind: XtKind, clash: boolean, playlist: string
 let memo: { k: string; data: VodData } | null = null;
 
 /** What Stream draws from the libraries in memory: the picked folders as rows
- * (movies, then shows, each in the panel's folder order), the hero, and every
- * title for Continue Watching and My List to open. */
+ * (in the order the person put them, movies and shows mixed as they chose), the
+ * hero, and every title for Continue Watching and My List to open. */
 function derive(libs: Live[]): VodData {
   const k = `${xtVodKey()}|${epoch}`;
   if (memo && memo.k === k) return memo.data;
@@ -292,26 +290,25 @@ function derive(libs: Live[]): VodData {
   const showKeys: { key: string; added: number }[] = [];
   for (const { p, lib } of libs) {
     for (const [key, t] of lib.titles) items.set(key, t.item);
-    const sides = [
-      { kind: "movie", folders: lib.movieFolders },
-      { kind: "series", folders: lib.showFolders },
-    ] as const;
-    const picked = sides.map((s) => ({ ...s, on: new Set(loadPicks(p.id, s.kind)) }));
-    const names = picked.flatMap((s) => s.folders.filter((f) => s.on.has(f.id)).map((f) => f.name.trim().toLowerCase()));
-    for (const s of picked)
-      for (const f of s.folders) {
-        if (!s.on.has(f.id)) continue;
-        const keys = newestFirst(lib, f.keys);
-        if (keys.length === 0) continue;
-        const clash = names.filter((n) => n === f.name.trim().toLowerCase()).length > 1;
-        rows.push({
-          id: `xt:${p.id}:${s.kind}:${f.id}`,
-          title: rowTitle(f.name, s.kind, clash, several ? p.name : null),
-          layout: "poster",
-          itemIds: keys.slice(0, cap),
-        });
-        if (s.kind === "series") for (const key of keys) showKeys.push({ key, added: lib.titles.get(key)?.added ?? 0 });
-      }
+    // A pick whose folder the panel no longer has, or that has no title, draws
+    // no row. The rest are in the order they were picked or dragged.
+    const folders = { movie: lib.movieFolders, series: lib.showFolders };
+    const chosen = loadPicks(p.id).flatMap(({ kind, id }) => {
+      const f = folders[kind].find((x) => x.id === id);
+      return f && f.keys.length > 0 ? [{ kind, f }] : [];
+    });
+    const names = chosen.map(({ f }) => f.name.trim().toLowerCase());
+    for (const { kind, f } of chosen) {
+      const keys = newestFirst(lib, f.keys);
+      const clash = names.filter((n) => n === f.name.trim().toLowerCase()).length > 1;
+      rows.push({
+        id: `xt:${p.id}:${kind}:${f.id}`,
+        title: rowTitle(f.name, kind, clash, several ? p.name : null),
+        layout: "poster",
+        itemIds: keys.slice(0, cap),
+      });
+      if (kind === "series") for (const key of keys) showKeys.push({ key, added: lib.titles.get(key)?.added ?? 0 });
+    }
   }
 
   // The hero: the newest picked shows that have a backdrop, each once. None when
@@ -356,27 +353,63 @@ export async function loadXtVod(): Promise<VodData> {
   return bad ? { ...EMPTY(), error: msg(bad.reason) } : EMPTY();
 }
 
-/** A library as the folder picker draws it: the folders to offer, not the
- * picks (store.ts). */
+/** A folder as the views that pick them draw it: which list it is in, its name,
+ * and the posters of its newest titles to stand for it. */
+export interface XtFolderView {
+  kind: XtKind;
+  id: string;
+  name: string;
+  /** The posters of the folder's three newest titles that have one, the newest
+   * first. Fewer when fewer have one, none when none does. */
+  posters: string[];
+}
+
+/** A library as the views that pick folders draw it (Stream's empty page and
+ * Rows drawer, Settings): its folders, movies first and then shows, each list
+ * in the panel's order. The picks themselves are store.ts's. */
 export interface XtLibraryView {
   id: string;
   name: string;
-  movieFolders: { id: string; name: string }[];
-  showFolders: { id: string; name: string }[];
+  folders: XtFolderView[];
+}
+
+const POSTERS_PER_FOLDER = 3;
+
+/** The posters of a folder's newest titles that have one, the newest first.
+ * Titles added together keep the panel's order, as `newestFirst` does. */
+function newestPosters(lib: XtLibrary, keys: readonly string[]): string[] {
+  const top: { added: number; poster: string }[] = [];
+  for (const key of keys) {
+    const t = lib.titles.get(key);
+    const poster = t?.item.poster;
+    if (!t || !poster) continue;
+    const at = top.findIndex((x) => t.added > x.added);
+    const slot = at === -1 ? top.length : at;
+    if (slot < POSTERS_PER_FOLDER) top.splice(slot, 0, { added: t.added, poster });
+    top.length = Math.min(top.length, POSTERS_PER_FOLDER);
+  }
+  return top.map((x) => x.poster);
+}
+
+/** A library's folder views, built once per library (it is rebuilt when its
+ * lists are read again or the adult filter moves). Every render of Stream asks. */
+const viewed = new WeakMap<XtLibrary, XtFolderView[]>();
+
+function foldersOf(lib: XtLibrary): XtFolderView[] {
+  const hit = viewed.get(lib);
+  if (hit) return hit;
+  const view = (kind: XtKind, fs: readonly XtFolder[]): XtFolderView[] =>
+    fs.filter((f) => f.keys.length > 0).map((f) => ({ kind, id: f.id, name: f.name, posters: newestPosters(lib, f.keys) }));
+  const out = [...view("movie", lib.movieFolders), ...view("series", lib.showFolders)];
+  viewed.set(lib, out);
+  return out;
 }
 
 /** The libraries in memory with their folders, in playlist order. A folder with
  * no title in it is not offered: picking it would add no row. Adult folders
  * are not offered while adult content is hidden (library.ts leaves them out). */
 export function xtLibraries(): XtLibraryView[] {
-  const offered = (fs: readonly { id: string; name: string; keys: string[] }[]) =>
-    fs.filter((f) => f.keys.length > 0).map(({ id, name }) => ({ id, name }));
-  return libraries().map(({ p, lib }) => ({
-    id: p.id,
-    name: p.name,
-    movieFolders: offered(lib.movieFolders),
-    showFolders: offered(lib.showFolders),
-  }));
+  return libraries().map(({ p, lib }) => ({ id: p.id, name: p.name, folders: foldersOf(lib) }));
 }
 
 // ---------------------------------------------------------------------------

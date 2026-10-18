@@ -2,13 +2,14 @@ import { Toggle } from "../../ui/Toggle";
 import { isLibraryOff, loadHeld, setLibraryOff } from "../xtvod/store";
 import { useXtRefresh } from "../xtvod/useXtRefresh";
 import { xtLibraries } from "../xtvod/vod";
-import { XtPicker } from "../xtvod/XtPicker";
+import { XtRowsEditor } from "../xtvod/RowsEditor";
 import type { Playlist } from "./playlists";
 
 /**
  * An Xtream playlist's movies and shows, under its row in Sources (plan 028):
  * the switch that puts them in Stream and Discover (D1: on until turned off),
- * and the folder picker Stream shows, for a library that is on and loaded.
+ * and its rows (direction C: Your Rows to drag into order, More Folders to
+ * add), for a library that is on and loaded.
  *
  * Drawn for an Xtream playlist whose last good load held a movie or a show, and
  * for one that is switched off (it has to be able to come back on). Not for a
@@ -32,9 +33,7 @@ export function PlaylistLibrary({ playlist: p }: { playlist: Playlist }) {
       </div>
       {!off && xtLibraries().some((l) => l.id === p.id) && (
         <div data-setting="playlist-library-folders">
-          {/* The picker itself, always: Stream's slot folds it into a button once
-            * something is picked, and here it is the thing you came for. */}
-          <XtPicker playlistId={p.id} />
+          <XtRowsEditor playlistId={p.id} />
         </div>
       )}
     </div>

@@ -23,7 +23,6 @@ import {
   saveHeld,
   setLibraryOff,
   setPicks,
-  togglePick,
   XT_CHANGED,
 } from "./store";
 
@@ -38,6 +37,10 @@ const pl = (id: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 const seed = (...list: unknown[]) => mem.set("blammytv.playlists", JSON.stringify({ v: 1, data: list }));
+
+/** Picks, as the store keeps them. */
+const m = (...ids: string[]) => ids.map((id) => ({ kind: "movie" as const, id }));
+const sh = (...ids: string[]) => ids.map((id) => ({ kind: "series" as const, id }));
 
 let said = 0;
 bus.addEventListener(XT_CHANGED, () => said++);
@@ -64,58 +67,109 @@ describe("the switch", () => {
   });
 
   it("keeps the picks when it goes off and on", () => {
-    setPicks("a", "movie", ["12"]);
+    setPicks("a", m("12"));
     setLibraryOff("a", true);
-    expect(loadPicks("a", "movie")).toEqual(["12"]);
+    expect(loadPicks("a")).toEqual(m("12"));
     setLibraryOff("a", false);
-    expect(loadPicks("a", "movie")).toEqual(["12"]);
+    expect(loadPicks("a")).toEqual(m("12"));
   });
 });
 
 describe("the picks", () => {
-  it("start empty, and are two lists per playlist: a movie folder and a show folder share an id", () => {
-    expect(loadPicks("a", "movie")).toEqual([]);
-    togglePick("a", "movie", "12");
-    expect(loadPicks("a", "movie")).toEqual(["12"]);
-    expect(loadPicks("a", "series")).toEqual([]);
-    expect(loadPicks("b", "movie")).toEqual([]);
+  it("start empty, and are a playlist's own: a movie folder and a show folder share an id", () => {
+    expect(loadPicks("a")).toEqual([]);
+    setPicks("a", m("12"));
+    expect(loadPicks("a")).toEqual(m("12"));
+    expect(loadPicks("b")).toEqual([]);
+    setPicks("a", [...m("12"), ...sh("12")]);
+    expect(loadPicks("a")).toEqual([{ kind: "movie", id: "12" }, { kind: "series", id: "12" }]);
   });
 
-  it("toggle: a click picks, the next unpicks", () => {
-    togglePick("a", "series", "13");
-    togglePick("a", "series", "14");
-    expect(loadPicks("a", "series")).toEqual(["13", "14"]);
-    togglePick("a", "series", "13");
-    expect(loadPicks("a", "series")).toEqual(["14"]);
+  it("are one list in the order they were set, movies and shows mixed", () => {
+    setPicks("a", [...sh("13"), ...m("14"), ...sh("12"), ...m("11")]);
+    expect(loadPicks("a")).toEqual([...sh("13"), ...m("14"), ...sh("12"), ...m("11")]);
+    // A drag is the same list in another order.
+    setPicks("a", [...m("11"), ...sh("13"), ...sh("12"), ...m("14")]);
+    expect(loadPicks("a").map((p) => `${p.kind}:${p.id}`)).toEqual(["movie:11", "series:13", "series:12", "movie:14"]);
   });
 
-  it("hold a folder once", () => {
-    setPicks("a", "movie", ["1", "2", "1"]);
-    expect(loadPicks("a", "movie")).toEqual(["1", "2"]);
+  it("hold a folder once, the first time it is named", () => {
+    setPicks("a", [...m("1", "2", "1"), ...sh("1", "1")]);
+    expect(loadPicks("a")).toEqual([...m("1", "2"), ...sh("1")]);
   });
 
-  it("read as none from a save that is damaged or made by hand", () => {
-    for (const bad of ['{"v":1,"data":[]}', '{"v":1,"data":{"a":5}}', '{"v":1,"data":{"a":{"picks":{"movie":"12"}}}}', "not json"]) {
+  it("read as none from a save that is damaged or made by hand, and skip what is not a pick", () => {
+    for (const bad of ['{"v":1,"data":[]}', '{"v":1,"data":{"a":5}}', '{"v":1,"data":{"a":{"picks":"12"}}}', '{"v":1,"data":{"a":{"picks":{"movie":"12"}}}}', "not json"]) {
       mem.set("blammytv.xtVod", bad);
-      expect(loadPicks("a", "movie")).toEqual([]);
+      expect(loadPicks("a"), bad).toEqual([]);
       expect(isLibraryOff("a")).toBe(false);
     }
-    mem.set("blammytv.xtVod", '{"v":1,"data":{"a":{"picks":{"movie":["1",2,null,"3"]}}}}');
-    expect(loadPicks("a", "movie")).toEqual(["1", "3"]);
+    const junk = [1, null, "movie:1", { kind: "movie" }, { kind: "tv", id: "1" }, { kind: "movie", id: 5 }, { kind: "series", id: "3" }, { kind: "movie", id: "4" }];
+    mem.set("blammytv.xtVod", JSON.stringify({ v: 1, data: { a: { picks: junk } } }));
+    expect(loadPicks("a")).toEqual([...sh("3"), ...m("4")]);
+  });
+
+  describe("saved before the order was the person's (v0.12.1 and v0.12.2)", () => {
+    const old = (picks: unknown, extra: Record<string, unknown> = {}) =>
+      mem.set("blammytv.xtVod", JSON.stringify({ v: 1, data: { a: { picks, ...extra } } }));
+
+    it("are read as movies, then shows, each in its saved order", () => {
+      old({ series: ["13", "12"], movie: ["12", "11"] });
+      expect(loadPicks("a")).toEqual([...m("12", "11"), ...sh("13", "12")]);
+    });
+
+    it("are read when only one list is there, skipping what is not an id", () => {
+      old({ movie: ["12", 7, null, "12"] });
+      expect(loadPicks("a")).toEqual(m("12"));
+      old({ series: ["3"], movie: "nope" });
+      expect(loadPicks("a")).toEqual(sh("3"));
+    });
+
+    it("leave the saved text alone until something changes, and are then written as the list", () => {
+      old({ movie: ["12"], series: ["13"] });
+      const before = mem.get("blammytv.xtVod");
+      setPicks("a", loadPicks("a"));
+      setLibraryOff("a", false);
+      expect(mem.get("blammytv.xtVod")).toBe(before);
+      expect(said).toBe(0);
+      setPicks("a", [...sh("13"), ...m("12")]);
+      expect(JSON.parse(mem.get("blammytv.xtVod")!).data).toEqual({ a: { picks: [{ kind: "series", id: "13" }, { kind: "movie", id: "12" }] } });
+      expect(said).toBe(1);
+    });
+
+    it("are kept, in the new shape, when the switch is flipped", () => {
+      old({ movie: ["12"], series: ["13"] });
+      setLibraryOff("a", true);
+      expect(JSON.parse(mem.get("blammytv.xtVod")!).data).toEqual({ a: { off: true, picks: [{ kind: "movie", id: "12" }, { kind: "series", id: "13" }] } });
+    });
+
+    it("stay under the same version, so the older build's settings file and this build's read the same", () => {
+      old({ movie: ["12"] });
+      expect(JSON.parse(mem.get("blammytv.xtVod")!).v).toBe(1);
+      setPicks("a", m("12", "13"));
+      expect(JSON.parse(mem.get("blammytv.xtVod")!).v).toBe(1);
+    });
   });
 });
 
 describe("XT_CHANGED", () => {
   it("is said on every write, and not when nothing changed", () => {
-    togglePick("a", "movie", "12");
+    setPicks("a", m("12"));
     expect(said).toBe(1);
     setLibraryOff("a", true);
     expect(said).toBe(2);
     setLibraryOff("a", true);
-    setPicks("a", "movie", ["12"]);
+    setPicks("a", m("12"));
     expect(said).toBe(2);
-    togglePick("a", "movie", "12");
+    setPicks("a", []);
     expect(said).toBe(3);
+  });
+
+  it("is said when only the order changed", () => {
+    setPicks("a", m("1", "2"));
+    said = 0;
+    setPicks("a", m("2", "1"));
+    expect(said).toBe(1);
   });
 
   it("is not said for what the last load held, which is the app's bookkeeping", () => {
@@ -160,7 +214,7 @@ describe("eligiblePlaylists", () => {
 
   it("ignores the choices of a playlist that is gone", () => {
     seed(pl("a"));
-    setPicks("gone", "movie", ["1"]);
+    setPicks("gone", m("1"));
     setLibraryOff("gone", true);
     expect(eligiblePlaylists().map((p) => p.id)).toEqual(["a"]);
   });
@@ -223,17 +277,17 @@ describe("xtLibraryPending", () => {
 describe("a playlist that is gone", () => {
   it("takes its choices and its record of what it held, and returns who it took", () => {
     setLibraryOff("a", true);
-    setPicks("b", "movie", ["12"]);
-    setPicks("c", "series", ["3"]);
+    setPicks("b", m("12"));
+    setPicks("c", sh("3"));
     saveHeld("a", { movies: 1, shows: 2 });
     saveHeld("b", { movies: 3, shows: 0 });
     saveHeld("c", { movies: 0, shows: 4 });
     expect(dropXtFor(["b"]).sort()).toEqual(["a", "c"]);
     expect(isLibraryOff("a")).toBe(false);
     expect(loadHeld("a")).toBeNull();
-    expect(loadPicks("c", "series")).toEqual([]);
+    expect(loadPicks("c")).toEqual([]);
     expect(loadHeld("c")).toBeNull();
-    expect(loadPicks("b", "movie")).toEqual(["12"]);
+    expect(loadPicks("b")).toEqual(m("12"));
     expect(loadHeld("b")).toEqual({ movies: 3, shows: 0 });
   });
 
@@ -246,7 +300,7 @@ describe("a playlist that is gone", () => {
   });
 
   it("writes nothing and says nothing when every playlist is still there", () => {
-    setPicks("a", "movie", ["1"]);
+    setPicks("a", m("1"));
     saveHeld("a", { movies: 1, shows: 0 });
     const before = [...mem.entries()];
     said = 0;

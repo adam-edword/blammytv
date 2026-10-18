@@ -73,8 +73,9 @@ Not in it, on purpose:
   They live in their own store, keyed by playlist id.
 - **D2, folders are picked, every one off to start.** No provider folder is a
   row until it is picked. The empty Stream page IS the picker: the provider's
-  folders right there, and picking one adds its row on the spot. Not a button
-  that sends you to Settings. (Adam agreed to this after the Discord news.)
+  folders right there, not a button that sends you to Settings. (Adam agreed
+  to this after the Discord news.) Picks are staged and committed with the
+  page's button, as every picker is (below).
 - **D3, search across everything, and Discover.** Search covers the whole
   library whether or not a folder is picked. No genre rail for its movies:
   the movie list carries no genres.
