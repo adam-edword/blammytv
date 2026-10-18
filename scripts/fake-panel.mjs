@@ -308,6 +308,18 @@ const EXTRA_SECOND_GUIDE = [
   ["cov.fake", "Covered", "Extra Cov Hour"],
 ];
 
+// username "redzone": a line with NFL RedZone on it, what verify-redzone offers
+// on Sports and in Multi-view. A worse copy of it ("RedZone HD", no NFL in the
+// name) sits first, so the pick has something to prefer it over. Three plain
+// channels beside them fill the panel's three connections.
+const REDZONE = [
+  { num: 1, name: "RedZone HD", stream_type: "live", stream_id: 9100, stream_icon: null, epg_channel_id: null, category_id: "1" },
+  { num: 2, name: "US: NFL Redzone", stream_type: "live", stream_id: 9101, stream_icon: null, epg_channel_id: null, category_id: "1" },
+  { num: 3, name: "RZ Filler One", stream_type: "live", stream_id: 9102, stream_icon: null, epg_channel_id: null, category_id: "2" },
+  { num: 4, name: "RZ Filler Two", stream_type: "live", stream_id: 9103, stream_icon: null, epg_channel_id: null, category_id: "2" },
+  { num: 5, name: "RZ Filler Three", stream_type: "live", stream_id: 9104, stream_icon: null, epg_channel_id: null, category_id: "2" },
+];
+
 function fixXmltv(guide = FIX_GUIDE) {
   const now = Number(process.env.FAKE_NOW) || Date.now();
   const HOUR = 3600_000;
@@ -496,7 +508,7 @@ function vodAnswer(action, params) {
   return undefined;
 }
 
-const LINES = { dups: DUPS, pins: PINS, fix: FIX, fixev: FIXEV, extra: EXTRA };
+const LINES = { dups: DUPS, pins: PINS, fix: FIX, fixev: FIXEV, extra: EXTRA, redzone: REDZONE };
 
 // Every request the panel has answered, with the User-Agent it came with, so a
 // harness can say what was asked and as whom (verify-guide-extra). Read at

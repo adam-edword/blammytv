@@ -30,6 +30,7 @@ import { MvScoresRow } from "./MultiviewScores";
 import { MvScoresFilter } from "./MultiviewScoresFilter";
 import { fetchList, loadFollows } from "../sports/follows";
 import { isFixture, type Fixture } from "../sports/model";
+import { redzoneChannel, redzoneOn } from "../sports/redzone";
 import { defaultKind, kindsFor, type MvKind } from "./mvLayout";
 import {
   addPick,
@@ -52,6 +53,7 @@ import {
   type Pick,
 } from "./mvGrid";
 import { forMultiview, releaseHeader } from "./mvKeys";
+import type { Channel } from "./model";
 import { useConnections } from "./connections";
 import { loadPlaylists, onPlaylistsChange } from "../settings/playlists";
 import { channelStreamUrl, resolveStreamUrl, streamUserAgent } from "./stream";
@@ -653,6 +655,13 @@ export function MultiviewTab() {
   // And the games on it, by id: Fill skips a game on any of its feeds.
   const gamesInGrid = useMemo(() => new Set(picks.flatMap((p) => (p.gameId ? [p.gameId] : []))), [picks]);
 
+  // NFL RedZone: heads the Live Scores row's NFL games when it is on the air
+  // and one of the enabled playlists' channels is it.
+  const redzone = useMemo(
+    () => (live && redzoneOn(scoreGames) ? redzoneChannel(live.channels, enabledIds) : null),
+    [live, scoreGames, enabledIds],
+  );
+
   const choosingRef = useRef(false);
   choosingRef.current = choosing !== null;
 
@@ -702,30 +711,44 @@ export function MultiviewTab() {
     },
     [openPicker],
   );
+  /** A channel joining the grid the way the picker's Add does it: it joins,
+   * or, when its line is full or the grid is, waits for you to pick the tile
+   * it replaces (mvGrid.placeFor). False when it waits. */
+  const join = (pick: Pick): boolean => {
+    const place = placeFor(pick, picks, conns, changed.current.at);
+    if (place.kind === "replace") {
+      setChoosing({ pick, among: place.among });
+      return false;
+    }
+    if (place.kind === "add") setPicks((was) => addPick(was, pick));
+    return true;
+  };
   const choose = (pick: Pick) => {
     if (!picker) return;
     if (picker.kind === "replace") {
       setPicks((was) => replacePick(was, picker.id, pick));
       // Same place, same sound.
       if (soundId === picker.id) setSoundId(pick.channelId);
-    } else {
-      const place = placeFor(pick, picks, conns, changed.current.at);
-      if (place.kind === "replace") {
-        // Its line is full, or the grid is (a line that filled while the
-        // picker was open, a count that settled, a poll that came in): pick
-        // the tile it replaces, as a channel sent from the Guide does. It
-        // used to close the picker and add nothing (plan 018, L8).
-        setPicker(null);
-        setChoosing({ pick, among: place.among });
-        return;
-      }
-      if (place.kind === "add") setPicks((was) => addPick(was, pick));
+    } else if (!join(pick)) {
+      // Its line is full, or the grid is (a line that filled while the
+      // picker was open, a count that settled, a poll that came in): pick
+      // the tile it replaces, as a channel sent from the Guide does. It
+      // used to close the picker and add nothing (plan 018, L8).
+      setPicker(null);
+      return;
     }
     // What you put in a grid is what you watched: the picker's Recent
     // section, and the Guide's, should know it.
     recordRecent(loadRecents(), pick.channelId);
     landing.current = pick.channelId;
     setPicker(null);
+  };
+  /** RedZone from the Live Scores row: the same Add as the picker's. */
+  const addRedzone = (c: Channel) => {
+    if (choosingRef.current) return;
+    if (!join({ channelId: c.id, label: c.name })) return;
+    recordRecent(loadRecents(), c.id);
+    setLandOn(c.id);
   };
   // Fill with live games (M9): the picker has already chosen them, as many
   // as the grid has room for, the ones you follow first (mvGames.fillFrom).
@@ -1108,6 +1131,7 @@ export function MultiviewTab() {
           onGrid={(g) => picks.some((p) => p.gameId === g.id || g.channels.some((c) => c.id === p.channelId))}
           onOpen={openGame}
           onFilter={() => setFilterOpen(true)}
+          redzone={redzone && { on: inGrid.has(redzone.id), onAdd: () => addRedzone(redzone) }}
         />
       )}
       <MvScoresFilter
