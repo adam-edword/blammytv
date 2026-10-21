@@ -19,6 +19,7 @@ import { AccountsPage } from "./AccountsPage";
 import { AppPage } from "./AppPage";
 import { returnFocus } from "../../lib/returnFocus";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
+import { liftedRow } from "../../lib/liftedRow";
 import { settingById, type SettingsFind } from "./settingsIndex";
 
 /**
@@ -291,8 +292,10 @@ export function SettingsModal({
             // Until v0.11.30 the field kept that Escape too and Settings
             // stayed up, which Ctrl+K made easy to meet: "subtitle" lands
             // focus on the audio picker (Adam, 2026-10-11: close it).
+            // And a lifted row (a playlist's rows, ui/Sortable.tsx): Escape puts
+            // it back and Settings stays up, the same way as for an open list.
             onEscapeKeyDown={(e) => {
-              if (document.querySelector("[data-slot=combobox-content][data-open]")) {
+              if (liftedRow() || document.querySelector("[data-slot=combobox-content][data-open]")) {
                 e.preventDefault();
                 return;
               }

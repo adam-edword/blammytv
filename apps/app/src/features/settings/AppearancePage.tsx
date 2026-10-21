@@ -5,6 +5,7 @@ import { Segmented } from "../../ui/Segmented";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioConn } from "../aiojf/conn";
 import { loadJfConn } from "../jellyfin/store";
+import { hasXtLibrary } from "../xtvod/store";
 import { HeroSourcesSection } from "./HeroSourcesSection";
 import { loadShowHero, saveShowHero } from "./showHero";
 import {
@@ -114,14 +115,15 @@ export function AppearancePage({
 
   // What the catalog surfaces SHOW, moved off the AIOStreams tab: these
   // describe the app's appearance, not the connection that feeds it. Still
-  // gated on a source, an AIOStreams or a Jellyfin, because with neither there
-  // are no cards, no VOD overlay and no rows for them to govern. Read once per
+  // gated on a source, an AIOStreams, a Jellyfin or a playlist with movies or
+  // shows, because with none there are no cards, no VOD overlay and no rows for
+  // them to govern. Read once per
   // mount, and a page mounts each time you arrive, so signing in on Sources
   // reveals them on your way here. Carousel Catalogs is the one row that
   // needs the AIOStreams itself: it picks that addon's catalogs, and a
   // Jellyfin's hero is drawn from its libraries (jellyfin/vod.ts).
   const hasAio = useRef(!!loadAioConn()).current;
-  const hasStream = useRef(hasAio || !!loadJfConn()).current;
+  const hasStream = useRef(hasAio || !!loadJfConn() || hasXtLibrary()).current;
 
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
   const toggleMeta = (key: CardMetaField) => {

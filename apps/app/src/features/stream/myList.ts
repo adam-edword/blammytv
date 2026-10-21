@@ -11,11 +11,13 @@
  * silently disappeared. Leaving them here would let that come back.
  */
 
+import type { VodFrom } from "./model";
+
 export interface ListEntry {
   id: string;
-  /** Saved from the user's own Jellyfin (plan 027): the card opens it there.
-   * Absent for the addon. */
-  from?: "jf";
+  /** Saved from the user's own Jellyfin (plan 027) or an Xtream playlist (plan
+   * 028): the card opens it there. Absent for the addon. */
+  from?: VodFrom;
   title: string;
   kind: "movie" | "series";
   poster?: string;

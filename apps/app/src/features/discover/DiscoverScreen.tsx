@@ -53,6 +53,9 @@ import {
 } from "./recommend";
 import { JF_CHANGED } from "../jellyfin/store";
 import { AIO_CONN_CHANGED } from "../settings/aiostreams";
+import { onPlaylistsChange } from "../settings/playlists";
+import { XT_CHANGED } from "../xtvod/store";
+import { XT_LOADED, xtDiscoverKey } from "../xtvod/vod";
 import { readDiscoverSession, saveDiscoverSession } from "./session";
 
 /**
@@ -264,13 +267,28 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
   const [cfgTick, setCfgTick] = useState(0);
   // A sign-in to Jellyfin or to AIOStreams that lands, or ends (a 401), or a
   // manifest saved or cleared, while this tab is up (Settings opens over it).
+  // And an Xtream library: its switch, a playlist added, switched off or taken
+  // out, or its lists landing. Only when the feeds would be other than they are
+  // (`xtKey`): a pick, or the same lists read again, changes nothing here, and a
+  // reload would empty the grid.
   useEffect(() => {
     const again = () => setCfgTick((t) => t + 1);
+    const xtAgain = () => {
+      const now = cfgRef.current;
+      if (now.status === "ready" && now.cfg.xtKey === xtDiscoverKey()) return;
+      again();
+    };
     window.addEventListener(JF_CHANGED, again);
     window.addEventListener(AIO_CONN_CHANGED, again);
+    window.addEventListener(XT_CHANGED, xtAgain);
+    window.addEventListener(XT_LOADED, xtAgain);
+    const offPlaylists = onPlaylistsChange(xtAgain);
     return () => {
       window.removeEventListener(JF_CHANGED, again);
       window.removeEventListener(AIO_CONN_CHANGED, again);
+      window.removeEventListener(XT_CHANGED, xtAgain);
+      window.removeEventListener(XT_LOADED, xtAgain);
+      offPlaylists();
     };
   }, []);
   useEffect(() => {
@@ -517,7 +535,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           <StateCard
             icon={<DiscoverIcon size={28} />}
             title="Nothing to Discover Yet"
-            sub="Sign in to your AIOStreams or your Jellyfin in Settings → Sources → Stream."
+            sub="Sign in to AIOStreams or Jellyfin, or add an Xtream playlist with movies and shows, in Settings → Sources."
           />
         ) : (
           <StateCard

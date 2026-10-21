@@ -185,8 +185,12 @@ async function guideUp(page) {
   return waitFor(page, async () => (await titles(page, COVERED)).some((t) => t.startsWith("Provider Hour")));
 }
 const lineOf = (log) => log.filter((e) => e.user === "extra" || e.path === "/extra.xml" || e.path === "/extra-broken.xml");
-/** What was asked, once each: "<path>?<action>". */
-const kinds = (log) => [...new Set(lineOf(log).map((e) => `${e.path}${e.action ? `?${e.action}` : ""}`))].sort();
+/** Stream's calls for the playlist's movies and shows (plan 028), made at
+ * launch for every Xtream playlist and not the guide's business. */
+const VOD_ACTIONS = ["get_vod_categories", "get_series_categories", "get_vod_streams", "get_series"];
+/** What the guide asked, once each: "<path>?<action>". */
+const kinds = (log) =>
+  [...new Set(lineOf(log).filter((e) => !VOD_ACTIONS.includes(e.action)).map((e) => `${e.path}${e.action ? `?${e.action}` : ""}`))].sort();
 const agentsOf = (log) => [...new Set(lineOf(log).map((e) => e.ua))];
 
 const gear = (page) => page.getByRole("button", { name: "Settings", exact: true }).first();

@@ -35,6 +35,10 @@ const check = (n, ok, d = "") => {
 const XTREAM = { v: 1, data: [{ kind: "xtream", id: "t", name: "Test", enabled: true, server: "http://localhost:8081", username: "u", password: "p" }] };
 const AIO = { v: 1, data: "http://localhost:8084/manifest.json" };
 const SEEDED = { playlists: XTREAM, aiostreams: AIO, startupTab: { v: 1, data: "stream" } };
+// And a playlist whose provider has movies and shows (the fake panel's user
+// "vod", plan 028): its row carries the library's switch and folder picker, two
+// rows the registry lists and a live-only playlist does not draw.
+const WITH_LIBRARY = { ...SEEDED, playlists: { v: 1, data: [...XTREAM.data, { kind: "xtream", id: "v", name: "Vod", enabled: true, server: "http://localhost:8081", username: "vod", password: "p" }] } };
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const errors = [];
@@ -450,7 +454,7 @@ async function registryMatches(page, positions, label, absent = []) {
 }
 
 {
-  const { ctx, page } = await open({ store: SEEDED });
+  const { ctx, page } = await open({ store: WITH_LIBRARY });
   await gear(page).click();
   await settingsUp(page);
   await page.waitForTimeout(400);

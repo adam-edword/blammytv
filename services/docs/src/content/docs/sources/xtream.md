@@ -1,6 +1,6 @@
 ---
 title: Xtream Codes
-description: Connect an Xtream Codes panel for live TV, an EPG and connection limits.
+description: Connect an Xtream Codes panel for live TV, an EPG, connection limits, and its movies and shows.
 ---
 
 Xtream is the richest of the live TV source kinds. It carries a channel list,
@@ -37,6 +37,34 @@ password out of it and use those here.
   **Settings → Sources**, fetches a fresh one sooner.
 - **Connection limits** in the sidebar. See
   [Connection limits](/troubleshooting/connections/).
+- **Its movies and shows**, if your panel has them. See below.
+
+## Movies and shows
+
+If your provider's panel carries movies and shows, they can be rows in the
+[Stream](/using/stream/) tab. Nothing shows up until you pick the folders you
+want, so a panel with hundreds of folders doesn't flood the page.
+
+- **Pick your folders.** With no other movie source set up, the Stream tab
+  opens on **Choose Folders**: your provider's folders as cards. Pick the
+  ones you want, then **Show Rows**. If you already use AIOStreams or
+  Jellyfin, the **Add Rows from Your Playlist** button at the bottom of
+  Stream opens the same list, and **Done** puts your picks on the page.
+- **Change them later** in **Settings → Sources → Live TV**, under
+  **Movies and Shows**. **Your Rows** are the folders you show, in the order
+  they appear: drag one to move its row. **More Folders** has the rest.
+  **Save** puts your changes on the Stream page.
+- **Turn it off.** The **Show in Stream and Discover** switch beside the
+  playlist's name takes its movies and shows out of Stream and Discover.
+  Live TV isn't touched.
+- **Discover** gets each playlist's movies and its shows, newest first, and
+  its search looks through every folder, picked or not.
+- **A title opens like any other**, with each copy your panel has (4K, HD)
+  listed as a source, the best first. Shows list their seasons and episodes.
+  Everything plays straight from your provider.
+
+Only Xtream playlists get movies and shows. M3U and Stalker sources stay
+live TV only.
 
 ## Categories you don't want
 

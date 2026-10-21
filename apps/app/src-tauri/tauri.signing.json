@@ -1,0 +1,21 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "bundle": {
+    "windows": {
+      "signCommand": {
+        "cmd": "artifact-signing-cli",
+        "args": [
+          "-e",
+          "https://cus.codesigning.azure.net",
+          "-a",
+          "blammytv",
+          "-c",
+          "blammytv",
+          "-d",
+          "BlammyTV",
+          "%1"
+        ]
+      }
+    }
+  }
+}

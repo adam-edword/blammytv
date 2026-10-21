@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
-import { MultiviewIcon } from "../../ui/icons";
+import { MultiviewIcon, PlayIcon } from "../../ui/icons";
 import { RowScroller } from "../../ui/RowScroller";
 import {
   loadCompactResults,
@@ -32,7 +32,11 @@ import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
 import { useConnections } from "../live/connections";
 import { allowedSizes } from "../live/multiview";
-import { publishLiveGames, requestMultiview } from "../live/multiviewEntry";
+import { publishLiveGames, requestMultiview, requestWatchInPlayer } from "../live/multiviewEntry";
+import { useLiveData } from "../live/useLiveData";
+import { loadPlaylists } from "../settings/playlists";
+import { loadRedzoneChannel } from "../settings/redzoneChannel";
+import { redzoneChannel, redzoneOn } from "./redzone";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
 import { ALL_LEAGUES, league as byPath } from "./leagues";
@@ -244,6 +248,22 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // a 42-game board costs 4.7ms against a 20k-channel index and 3.7 SECONDS
   // without one, so it must not happen per render.
   const catalog = useCatalog();
+  // NFL RedZone, when it is on the air and one of your channels is it
+  // (redzone.ts). Today's games before the follow filter: someone following
+  // a team that is off this week still wants RedZone.
+  const liveData = useLiveData();
+  const redzone = useMemo(() => {
+    if (!liveData || !redzoneOn(raw[0]?.games ?? [])) return null;
+    const rz = redzoneChannel(
+      liveData.channels,
+      loadPlaylists().filter((p) => p.enabled).map((p) => p.id),
+      loadRedzoneChannel(),
+      liveData.hidden,
+    );
+    // The Guide's player only tunes what the Guide lists, so a pick in a
+    // folder you hid is Multi-View's to offer, not this button's.
+    return rz && liveData.channels.includes(rz) ? rz : null;
+  }, [liveData, raw]);
   /**
    * RANKED ONLY: a college game stays only if a poll has heard of it.
    *
@@ -755,6 +775,20 @@ export function SportsScreen({ home }: { home?: number } = {}) {
             Multi-View
           </Button>
         );
+        // Plays in the Guide's theater, the way a Multi-View tile's Watch in
+        // Player does: RedZone is a channel, not a game, so Sports' own
+        // theater has nothing to pair it with.
+        const rzBtn = redzone && (
+          <Button
+            variant="outline"
+            type="button"
+            data-hint={redzone.name}
+            onClick={() => requestWatchInPlayer(redzone.id)}
+          >
+            <PlayIcon size={17} />
+            Watch RedZone
+          </Button>
+        );
         // EARLIER DAYS, heading the board (Adam's, off a screenshot): the
         // whole thing is a list running forwards in time, and this is the
         // end you walk back from. A button rather than a scroll trigger,
@@ -793,10 +827,11 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         if (!today)
           return (
             <>
-              {(mvBtn || earlierBtn) && (
+              {(mvBtn || earlierBtn || rzBtn) && (
                 <div className="sports__bar">
                   {mvBtn}
                   {earlierBtn}
+                  {rzBtn}
                 </div>
               )}
               {note}
@@ -832,6 +867,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                     Hide Finished
                   </Button>
                 )}
+                {rzBtn}
               </div>
             </div>
             {note}

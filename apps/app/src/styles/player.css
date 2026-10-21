@@ -1477,8 +1477,35 @@
 .mvscores .compactcard .gamewash__mark {
   height: 285%;
 }
+/* NFL RedZone, ahead of the NFL's games: a pill the cards' height in the
+ * cards' colours, so it sits in the row as a game does. It is a channel, so
+ * it says what it does where a game shows a score. */
+.mvscores__rz {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(var(--card-ink), 0.07);
+  border-radius: 100px;
+  background: var(--card-bg);
+  color: rgb(var(--card-ink));
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 200ms ease;
+}
+.mvscores__rz:hover:not(:disabled) {
+  border-color: rgba(var(--card-ink), 0.18);
+}
+.mvscores__rz:disabled {
+  cursor: default;
+}
 /* On the grid already: ringed, the way a tile with the sound is. */
-.mvscores__game.is-on .compactcard {
+.mvscores__game.is-on .compactcard,
+.mvscores__game.is-on .mvscores__rz {
   border-color: transparent;
   box-shadow: inset 0 0 0 2px var(--text);
 }

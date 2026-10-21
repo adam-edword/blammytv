@@ -20,7 +20,11 @@ import type { SettingsTab } from "./settingsTab";
  * picked ("Add Xtream Playlist"). Those take the plain name here.
  *
  * `playlist-advanced` is drawn once for each playlist (their Advanced
- * disclosure, closed or open), so a find lands on the first.
+ * disclosure, closed or open), so a find lands on the first. The two rows for an
+ * Xtream playlist's movies and shows (`playlist-library`, and its rows
+ * under it) are drawn only for a playlist whose provider has some, or that is
+ * switched off, and the rows only while it is on: a find for one that is not
+ * drawn opens the page and lights nothing, as for any row that is not there.
  *
  * `world` is the Live TV / Stream pill the row sits under, on a page that has
  * one (Sources, Appearance). A row above the pill, or on a page with none,
@@ -52,6 +56,20 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     page: "sources",
     world: "live",
     keywords: ["extra guide", "guide url", "xmltv", "epg url", "user-agent", "user agent", "useragent", "agent", "headers", "blocked", "refused", "403", "provider"],
+  },
+  {
+    id: "playlist-library",
+    label: "Show in Stream and Discover",
+    page: "sources",
+    world: "live",
+    keywords: ["movies and shows", "movies", "shows", "films", "series", "tv shows", "library", "vod", "on demand", "xtream", "provider", "playlist", "turn off", "switch", "hide"],
+  },
+  {
+    id: "playlist-library-folders",
+    label: "Your Rows",
+    page: "sources",
+    world: "live",
+    keywords: ["more folders", "folders", "pick", "choose", "add", "remove", "order", "reorder", "drag", "movie folders", "show folders", "categories", "genres", "xtream", "provider", "playlist", "library"],
   },
   {
     id: "add-playlist",

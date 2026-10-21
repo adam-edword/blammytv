@@ -682,6 +682,22 @@ const dimmedText = () =>
       g.tiles.some((t) => !t.img && t.letter.length === 1),
     `plate ${plate}, card ${g.cardBg}, ${g.cards} cards, ${JSON.stringify(g.tiles.slice(0, 3))}`,
   );
+  // A tall logo, the NFL's shield, in place of a channel's own: at height 100%
+  // it grew the plate's grid row to 48px of 40 and the plate cut it (v0.12.7).
+  const tall = await page.evaluate(async () => {
+    const img = document.querySelector(".guide__card .chlogo img");
+    if (!img) return null;
+    img.src = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="200" height="250" fill="red"/></svg>')}`;
+    await img.decode().catch(() => {});
+    const p = img.parentElement.getBoundingClientRect();
+    const r = img.getBoundingClientRect();
+    return { plate: [p.width, p.height], img: [r.width, r.height], fit: getComputedStyle(img).objectFit };
+  });
+  check(
+    "a tall logo is drawn whole inside its plate, not cut at the top and bottom",
+    tall && tall.img[0] === tall.plate[0] && tall.img[1] === tall.plate[1] && tall.fit === "contain",
+    JSON.stringify(tall),
+  );
   check(
     "the Guide's line count is the meter: a dash a stream, filled for the ones in use",
     g.meter && g.meter.isMeter && g.meter.all === 3 && g.meter.on === 3 && g.meter.label === "3 of 3 streams in use",

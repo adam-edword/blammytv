@@ -25,6 +25,17 @@ vi.mock("../jellyfin/vod", () => ({
   resolveJfList: jf.resolveJfList,
 }));
 
+const xt = vi.hoisted(() => ({
+  key: "",
+  resolveXtItem: vi.fn(async () => ({ id: "xt:p:m:t1", from: "xt" })),
+  resolveXtList: vi.fn(async () => ({ sources: [], notices: ["from a playlist"] })),
+}));
+vi.mock("../xtvod/vod", () => ({
+  xtVodKey: () => xt.key,
+  resolveXtItem: xt.resolveXtItem,
+  resolveXtList: xt.resolveXtList,
+}));
+
 import { configKey, resolveVodItem, resolveVodList, resolveVodSources } from "./source";
 
 const manifest: AioConn = { kind: "manifest", url: "https://aio.example.com/m/manifest.json", key: "manifest:https://aio.example.com/m/manifest.json" };
@@ -34,6 +45,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   conn = signin;
   jf.key = "";
+  xt.key = "";
 });
 
 describe("an item from your Jellyfin", () => {
@@ -65,6 +77,43 @@ describe("an item from your Jellyfin", () => {
     jf.key = '["jf:https://jf.example.com|u1",40]';
     const withJf = configKey();
     expect(withJf).not.toBe(without);
+    jf.key = "";
+    expect(configKey()).toBe(without);
+  });
+});
+
+describe("an item from an Xtream playlist", () => {
+  it("is asked of its panel alone: its files, whatever the addon is signed in as", async () => {
+    for (const c of [signin, null]) {
+      conn = c;
+      const l = await resolveVodList("movie", "xt:p:m:t1", { from: "xt" });
+      expect(l.notices).toEqual(["from a playlist"]);
+      expect(await resolveVodSources("series", "xt:p:s:t1:1:2", { from: "xt" })).toEqual([]);
+    }
+    expect(aio.aioStreams).not.toHaveBeenCalled();
+    expect(jf.resolveJfList).not.toHaveBeenCalled();
+    expect(xt.resolveXtList).toHaveBeenCalledWith("series", "xt:p:s:t1:1:2");
+  });
+
+  it("has its detail from its panel, and neither the addon nor a Jellyfin is asked", async () => {
+    expect(await resolveVodItem("movie", "xt:p:m:t1", "xt")).toMatchObject({ id: "xt:p:m:t1", from: "xt" });
+    expect(aio.aioMeta).not.toHaveBeenCalled();
+    expect(jf.resolveJfItem).not.toHaveBeenCalled();
+  });
+
+  it("moves the screen's key when a library comes or goes, and leaves the other keys alone", () => {
+    const without = configKey();
+    jf.key = '["jf:https://jf.example.com|u1",40]';
+    const withJf = configKey();
+    jf.key = "";
+    xt.key = '[[["p","Test","1s37rfe",[],[]]],40,false]';
+    const withXt = configKey();
+    expect(withXt).not.toBe(without);
+    jf.key = '["jf:https://jf.example.com|u1",40]';
+    expect(configKey()).not.toBe(withXt);
+    // A Jellyfin alone is the key it was before a library existed.
+    xt.key = "";
+    expect(configKey()).toBe(withJf);
     jf.key = "";
     expect(configKey()).toBe(without);
   });

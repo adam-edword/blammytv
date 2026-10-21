@@ -19,12 +19,15 @@ import { hasTokenRun } from "../../lib/scrub";
  *   withPlaylists            only when the person ticks the box, with the
  *                            playlists. The keys whose values are a playlist id
  *                            or a channel id (`${playlistId}:${streamId}`):
- *                            favourites, recents, guide fixes and the saved
- *                            multi-view grid. A playlist id is random per PC, so
- *                            on another PC none of them match anything. The
+ *                            favourites, recents, guide fixes, the saved
+ *                            multi-view grid, and an Xtream library's switch and
+ *                            folder picks (plan 028). A playlist id is random per
+ *                            PC, so on another PC none of them match anything. The
  *                            Favourites and the grid come up empty, and the next
  *                            `savePlaylists` drops the guide fixes of a playlist
- *                            that is not there (live/guideFix.ts). An import
+ *                            that is not there (live/guideFix.ts), as the next
+ *                            save of the list drops its library's choices
+ *                            (xtvod/vod.ts `forgetRemoved`). An import
  *                            takes them under the same condition, so a file
  *                            without playlists leaves this PC's as they are.
  *   logins                   only when the person ticks the box. Everything
@@ -42,7 +45,8 @@ import { hasTokenRun } from "../../lib/scrub";
  * `clearLogins` stays the definition of a login. Only the playlists, the
  * manifest and the hero sources are stored keys of that kind; the other things
  * it clears are sign-ins (never, the Jellyfin one included), the catalog mirror (`vodCache`, a cache) and
- * the guide's copy on disk (IndexedDB, not here). The test reads `clearLogins`
+ * the guide's copy and the playlists' movie and show lists on disk (IndexedDB,
+ * not here; plan 028's `forgetXtLists`). The test reads `clearLogins`
  * too, so a call added to it makes it fail until this file has been looked at.
  *
  * Artwork is the one thing in an always-exported group that can hold a key. A
@@ -111,8 +115,11 @@ export const KEY_GROUPS = {
   ],
   // A channel id is `${playlistId}:${streamId}` (live/source.ts channelId).
   // `guideFixes` is playlist id, then channel id, then the guide's id. The grid
-  // holds the channel ids of its tiles and the one with the sound.
-  withPlaylists: ["favorites", "recents", "guideFixes", "multiviewGrid"],
+  // holds the channel ids of its tiles and the one with the sound. `xtVod` is an
+  // Xtream playlist's movies and shows (plan 028, xtvod/store.ts): by playlist
+  // id, whether its library is off and which folders are picked. `redzoneChannel`
+  // is the channel id set in the Guide's menu for NFL RedZone.
+  withPlaylists: ["favorites", "recents", "guideFixes", "multiviewGrid", "xtVod", "redzoneChannel"],
   logins: ["playlists", "aiostreams", "heroSources"],
   never: [
     // The sign-ins' bookkeeping and queues. The tokens are in the OS vault.
@@ -142,6 +149,10 @@ export const KEY_GROUPS = {
     "aniskipIndex",
     "kitsuMalIndex",
     "discoverArt",
+    // What each Xtream playlist's last good load held (plan 028, xtvod/store.ts):
+    // the app's own bookkeeping, filled by the next launch. The choices over the
+    // library, `xtVod`, travel with the playlists.
+    "xtVodHeld",
     // One-time flags. `myList` and `skipBehavior` are the keys `lists` and
     // `skipping` replaced: read once to migrate and left alone since, so the
     // new keys carry everything.
@@ -196,8 +207,9 @@ export interface SettingsFile {
   /** ISO time. */
   exported: string;
   /** Whether the box was ticked: the playlists, the manifest and the hero
-   * sources are in the file, with the favourites, recents, guide fixes and
-   * multi-view grid that name their channels, and an import may write them. */
+   * sources are in the file, with the favourites, recents, guide fixes,
+   * multi-view grid and Xtream library choices that name their channels or
+   * playlists, and an import may write them. */
   includesLogins: boolean;
   /** Key (without the prefix) to its stored envelope, as it is on disk. */
   keys: Record<string, Envelope<unknown>>;
@@ -472,10 +484,10 @@ export type Imported = { ok: true; written: number } | { ok: false; reason: stri
  * or yours is written, and one in logins or withPlaylists only when the file
  * says it includes logins; a key in never is not written whatever the file
  * says, and nor is one this build has no group for. A file made without the
- * box leaves this PC's favourites, recents, guide fixes and multi-view grid as
- * they are, an older build's file that still carries them included. Each is
- * written only if it is an envelope, `{ v: number, data }`, and as exactly
- * that. A key the file does not mention is left as it is.
+ * box leaves this PC's favourites, recents, guide fixes, multi-view grid and
+ * Xtream library choices as they are, an older build's file that still carries
+ * them included. Each is written only if it is an envelope, `{ v: number, data }`,
+ * and as exactly that. A key the file does not mention is left as it is.
  *
  * All or nothing as far as the store allows: the keys are checked first, then
  * written, and a write the store refuses puts back every key already written.

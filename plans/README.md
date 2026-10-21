@@ -1,6 +1,6 @@
 # Plans
 
-Every plan, with where it stands (refreshed 2026-09-28, v0.10.61). The
+Every plan, with where it stands (refreshed 2026-10-21, 1.0.0). The
 week of 2026-09-28's log is [week-2026-09-28.md](week-2026-09-28.md).
 Telly 2.0.5 read against ours, feature by feature, with what is worth
 borrowing: [telly-2.0.5.md](telly-2.0.5.md) (2026-10-09). The AIOStreams
@@ -33,18 +33,19 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [012](012-player-events.md) | Stop polling mpv: observe properties like Stremio does | HIGH | CLOSED (persistent instance shipped + verified v0.8.168-172; event loop CUT at 0.08% of a core; faster clock declined) |
 | [013](013-multiview.md) | Multiview: two to four sports at once | MEDIUM | ARCHITECTURE STANDS (web tiles through the native proxy since v0.9.101, verified on Adam's line); UI superseded by 017 |
 | [014](014-shadcn-and-glass.md) | shadcn/ui, and a layer of liquid glass | LOW | L0 to L2 DONE (M2, v0.10.29 to v0.10.37; every generated component has a consumer, held by verify-tailwind); the screens took plan 019's look instead of L3; the glass is plan 022 |
-| [015](015-trakt.md) | Trakt: sign in, scrobble what you watch, bring in what you watched elsewhere and where you left off, a two-way watchlist | HIGH | BUILT v0.10.27 to v0.10.36 (2026-09-27); waits on Adam's Trakt app keys for its first real run |
+| [015](015-trakt.md) | Trakt: sign in, scrobble what you watch, bring in what you watched elsewhere and where you left off, a two-way watchlist | HIGH | SHIPPED in 0.11.0 (2026-10-02) |
 | [016](016-audit-work.md) | Working the v0.9.79 audit: release path, what broke, the system, each screen once | HIGH | IN PROGRESS (Tracks 0, 1, 3, 6 and N done; 2 became 017; 4, 5 and 7 open, 4.8 and 4.9 are plan 022) |
 | [017](017-multiview-design.md) | Multi-view, designed: an immersive mode, 16:9 tiles with info and controls, a search-first picker | HIGH | COMPLETE (P1 to P6b, v0.9.105 to v0.9.121; shipped in 0.10.0) |
 | [018](018-multiview-hardening.md) | Multi-view, hardened: tiles that recover, the line's count, what the tab costs, the keyboard | HIGH | COMPLETE (H1 to H5, v0.9.125 to v0.9.131; shipped in 0.10.0) |
 | [019](019-multiview-language.md) | Multi-view's look, on every tab: its controls, tiles, states and picker as the whole app's primitives | MEDIUM | SHIPPED in 0.10.14 (built v0.10.1 to v0.10.11); three items left on purpose, reasons in the plan |
 | [020](020-player-language.md) | The player in the redesign's language: its controls in two capsules like the nav, Play the white circle, times as eyebrows, menus on the chip fill | LOW | BUILT v0.10.22 (2026-09-27), option B, with a tooltip on every player button |
-| [021](021-mal.md) | MyAnimeList: sign in, your finished anime episodes counted on MAL, your MAL counts ticking episodes here | MEDIUM | BUILT (v0.10.39 to v0.10.44, films included, 2026-09-27); waiting on Adam's MAL app for a real run |
-| [022](022-glass-and-light.md) | The glass in two tiers, and light mode back with its control | MEDIUM | CALLS TAKEN 2026-09-29 (glass B, grey page, Appearance control); not built yet |
-| [023](023-aiostreams-jellyfin.md) | AIOStreams' Jellyfin side: sync what you watch with AIOStreams' own watch state, skip intros and credits for every film and show, Next Up and Upcoming rows | MEDIUM | BUILT (2026-10-04): v0.11.13, 595c29a1 (native), v0.11.14; not yet run against a real AIOStreams |
-| [024](024-aiostreams-sign-in.md) | AIOStreams by sign-in: the instance's address and a code instead of a pasted manifest URL, with Stream's catalogs, details, sources and playback over the Jellyfin side | MEDIUM | BUILT (2026-10-04): v0.11.16 to v0.11.18, sign-in, Stream over it, the sign-in screens and onboarding; not yet run against a real AIOStreams |
-| [025](025-settings.md) | Settings, replanned: five pages filed by question (Sources, Playback, Appearance, Accounts, App), the palette finding any setting, and what to add from the Telly and AIOStreams comparisons | MEDIUM | BUILT (v0.11.26 to v0.11.40): five pages; Ctrl+K finds any setting; Playback's additions; Keyboard Shortcuts, What's new, About; the log and Copy Diagnostics; Export and Import; a playlist's extra guide and User-Agent. Every recommendation taken, Discord presence dropped |
-| [027](027-jellyfin.md) | Jellyfin, your own server: sign in to a real Jellyfin, its films and shows in Stream, its files played by mpv, watched marks and resume points kept in step | MEDIUM | BUILT, release held (2026-10-14): batches 0 to 6 on `claude/jellyfin-027-i009y2`, sign-in, libraries in Stream and Discover, playback with subtitles, sync and reporting; device checks listed in the plan, not yet run against a real Windows build |
+| [021](021-mal.md) | MyAnimeList: sign in, your finished anime episodes counted on MAL, your MAL counts ticking episodes here | MEDIUM | SHIPPED in 0.11.0 (2026-10-02) |
+| [022](022-glass-and-light.md) | The glass in two tiers, and light mode back with its control | MEDIUM | SHIPPED in 0.11.0 (2026-10-02): light mode back with its Appearance control, and menus, Ctrl+K and tooltips glass again |
+| [023](023-aiostreams-jellyfin.md) | AIOStreams' Jellyfin side: sync what you watch with AIOStreams' own watch state, skip intros and credits for every film and show, Next Up and Upcoming rows | MEDIUM | SHIPPED in 0.12.0 (2026-10-15); no run against a real AIOStreams recorded here |
+| [024](024-aiostreams-sign-in.md) | AIOStreams by sign-in: the instance's address and a code instead of a pasted manifest URL, with Stream's catalogs, details, sources and playback over the Jellyfin side | MEDIUM | SHIPPED in 0.12.0 (2026-10-15); no run against a real AIOStreams recorded here |
+| [025](025-settings.md) | Settings, replanned: five pages filed by question (Sources, Playback, Appearance, Accounts, App), the palette finding any setting, and what to add from the Telly and AIOStreams comparisons | MEDIUM | SHIPPED in 0.12.0 (2026-10-15) |
+| [027](027-jellyfin.md) | Jellyfin, your own server: sign in to a real Jellyfin, its films and shows in Stream, its files played by mpv, watched marks and resume points kept in step | MEDIUM | SHIPPED in 0.12.0 (2026-10-15); the device checks are in the plan |
+| [028](028-xtream-vod.md) | Your provider's movies and shows in Stream: an Xtream playlist's library as picked rows, its titles' pages and episodes, search, played straight from the provider | HIGH | SHIPPED in 1.0.0 (2026-10-21), built v0.12.1 to v0.12.4 |
 | [026](026-apple.md) | Apple: the Mac app as this app on libmpv (render API, not `--wid`), no whole-app Swift rewrite, and a native Swift live TV app for Apple TV, iPhone and iPad with movies and shows left to Strand | LOW | PARKED (2026-10-12, Adam: "We can park it for now"); nothing built |
 
 ## 001 to 007: execution order & dependencies

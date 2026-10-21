@@ -9,7 +9,13 @@
 // name:"Test", enabled:true, server:"http://localhost:8081",
 // username:"u", password:"p"}]}. Covers: categories, a hidden folder, a
 // dead logo host (lettermark fallback), a no-EPG channel (No-Information
-// lane), and filler programmes that must be dropped.
+// lane), and filler programmes that must be dropped. And, for the user "vod"
+// only (plan 028), movies and shows: folders (one flagged adult with an
+// innocent name, one caught by name), a movie held twice (a 4K copy and a plain
+// one, one TMDB id), movies with no TMDB id, a show in two seasons with a 4K
+// copy of its first, the info call for each, and /movie/ and /series/ play
+// routes. Every other user is answered as before: [] for any action it does
+// not know, so no other harness sees a Stream library appear.
 import http from "node:http";
 
 const PORT = 8081;
@@ -302,6 +308,18 @@ const EXTRA_SECOND_GUIDE = [
   ["cov.fake", "Covered", "Extra Cov Hour"],
 ];
 
+// username "redzone": a line with NFL RedZone on it, what verify-redzone offers
+// on Sports and in Multi-view. A worse copy of it ("RedZone HD", no NFL in the
+// name) sits first, so the pick has something to prefer it over. Three plain
+// channels beside them fill the panel's three connections.
+const REDZONE = [
+  { num: 1, name: "RedZone HD", stream_type: "live", stream_id: 9100, stream_icon: null, epg_channel_id: null, category_id: "1" },
+  { num: 2, name: "US: NFL Redzone", stream_type: "live", stream_id: 9101, stream_icon: null, epg_channel_id: null, category_id: "1" },
+  { num: 3, name: "RZ Filler One", stream_type: "live", stream_id: 9102, stream_icon: null, epg_channel_id: null, category_id: "2" },
+  { num: 4, name: "RZ Filler Two", stream_type: "live", stream_id: 9103, stream_icon: null, epg_channel_id: null, category_id: "2" },
+  { num: 5, name: "RZ Filler Three", stream_type: "live", stream_id: 9104, stream_icon: null, epg_channel_id: null, category_id: "2" },
+];
+
 function fixXmltv(guide = FIX_GUIDE) {
   const now = Number(process.env.FAKE_NOW) || Date.now();
   const HOUR = 3600_000;
@@ -321,12 +339,192 @@ function fixXmltv(guide = FIX_GUIDE) {
   );
 }
 
-const LINES = { dups: DUPS, pins: PINS, fix: FIX, fixev: FIXEV, extra: EXTRA };
+// username "vod": a provider's movies and shows (plan 028), shaped like the
+// answers Adam's real panel sent (plans/028-xtream-vod.md, "The data"): ids as
+// numbers where the panel sends numbers and strings where it sends strings,
+// `added` a string of unix seconds, `tmdb_id` a number. Folder ids are small
+// numbers and a movie folder and a show folder share two of them ("12", "13"),
+// as they can on a real panel: they are two lists, and the app keys them apart.
+const IMG = `http://localhost:${PORT}/logo.png`;
+const folder = (id, name, extra = {}) => ({ category_id: id, category_name: name, parent_id: 0, ...extra });
+
+const VOD_CATEGORIES = [
+  folder("11", "4K Movies"),
+  folder("12", "Action"),
+  folder("13", "Comedy"),
+  folder("14", "Premium Vault", { is_adult: "1" }), // flagged by the panel, innocent name
+  folder("15", "XXX Movies"), // caught by its name
+];
+const SERIES_CATEGORIES = [folder("12", "Drama"), folder("13", "Sitcoms")];
+
+const movie = (stream_id, name, category_id, extra = {}) => ({
+  num: stream_id - 3000,
+  name,
+  stream_type: "movie",
+  stream_id,
+  tmdb_id: stream_id + 900000,
+  stream_icon: IMG,
+  rating: "6.8",
+  rating_5based: 3.4,
+  added: String(1760000000 + stream_id),
+  is_adult: "0",
+  category_id,
+  container_extension: "mkv",
+  custom_sid: "",
+  direct_source: "",
+  ...extra,
+});
+
+const VOD_STREAMS = [
+  // One movie twice: a 4K copy in 4K Movies and a plain one in Action, one TMDB id.
+  movie(3001, "4K The Fantastic 4: First Steps (2025)", "11", { tmdb_id: 617126, rating: "7.2", rating_5based: 3.6 }),
+  movie(3002, "The Fantastic 4: First Steps (2025)", "12", { tmdb_id: 617126, rating: "7.2", rating_5based: 3.6, container_extension: "mp4" }),
+  // No TMDB id: the field absent on one (undefined drops out of the JSON), 0 on
+  // another. Each is keyed by its stream id.
+  movie(3003, "Home Movie Night (2019)", "13", { tmdb_id: undefined }),
+  movie(3004, "Kitchen Sink Story (2021)", "12", { tmdb_id: 0 }),
+  // A panel that spells it `tmdb`, and as a string.
+  movie(3005, "Other Panel Spelling (2020)", "13", { tmdb_id: undefined, tmdb: "98765" }),
+  // Adult three ways: the title flagged in an ordinary folder, and a title in each adult folder.
+  movie(3006, "Flagged In Plain Sight (2022)", "12", { is_adult: 1 }),
+  movie(3007, "Vault Feature (2021)", "14"),
+  movie(3008, "Name Caught Feature (2020)", "15"),
+  // Plain movies, so a row has something in it.
+  movie(3010, "The Long Road Home (2023)", "12"),
+  movie(3011, "Paper Moon Rising (2022)", "12"),
+  movie(3012, "Laugh Track (2021)", "13"),
+  movie(3013, "Second Wind (2019)", "13"),
+  movie(3014, "Midnight Express Lane (2024)", "12"),
+  movie(3015, "4K Skyline Run (2024)", "11"),
+  movie(3016, "Quiet Harbor (2020)", "13"),
+];
+
+const show = (series_id, name, category_id, extra = {}) => ({
+  num: series_id - 4000,
+  name,
+  series_id,
+  tmdb_id: series_id + 70000,
+  cover: IMG,
+  plot: `The plot of ${name}.`,
+  cast: "Ada Ames, Ben Bright, Cy Cole",
+  director: "Dee Drew",
+  genre: "Comedy, War & Politics",
+  releaseDate: "2023-03-04",
+  last_modified: String(1760000000 + series_id),
+  rating: "7.5",
+  rating_5based: 3.75,
+  backdrop_path: [IMG],
+  youtube_trailer: "",
+  episode_run_time: "30",
+  is_adult: "0",
+  category_id,
+  ...extra,
+});
+
+// A show in two seasons and a 4K copy of it with the first season only (one
+// TMDB id), so an episode's sources are gathered from two copies.
+const SERIES = [
+  show(4001, "Two Season Show (2023)", "12", { tmdb_id: 70001 }),
+  show(4002, "4K Two Season Show (2023)", "13", { tmdb_id: 70001 }),
+  show(4003, "Show Without Backdrop (2020)", "13", { backdrop_path: [] }),
+  show(4004, "Plain Series (2021)", "12"),
+];
+
+// Episodes by series id: { season: how many }. An episode's id is its series
+// id times 100 plus a running number, as a string, the way the panel sends it.
+const SERIES_EPISODES = { 4001: { 1: 3, 2: 2 }, 4002: { 1: 3 }, 4003: { 1: 2 }, 4004: { 1: 2 } };
+
+function seriesInfo(id) {
+  const s = SERIES.find((x) => String(x.series_id) === id);
+  if (!s) return []; // an unknown id: a panel answers with an empty array, never an error
+  const { tmdb_id: _t, ...info } = s; // the info repeats the list's fields, with no tmdb_id
+  const episodes = {};
+  let n = 0;
+  for (const [season, count] of Object.entries(SERIES_EPISODES[s.series_id])) {
+    episodes[season] = Array.from({ length: count }, (_, i) => ({
+      id: String(s.series_id * 100 + ++n),
+      episode_num: i + 1,
+      title: `${s.name.replace(/^4K /, "").replace(/ \(\d{4}\)$/, "")} S0${season}E0${i + 1}`,
+      container_extension: "mkv",
+      info: {
+        movie_image: IMG,
+        releaseDate: `2023-0${season}-0${i + 1}`,
+        plot: `Season ${season}, episode ${i + 1}.`,
+        rating: "7.1",
+        duration_secs: 1800,
+        duration: "00:30:00",
+      },
+      custom_sid: "",
+      added: s.last_modified,
+      season: Number(season),
+      direct_source: "",
+    }));
+  }
+  return { info, episodes };
+}
+
+function vodInfo(id) {
+  const m = VOD_STREAMS.find((x) => String(x.stream_id) === id);
+  if (!m) return []; // an unknown id: an empty array, as seriesInfo answers
+  const year = /\((\d{4})\)$/.exec(m.name)?.[1] ?? "2020";
+  return {
+    info: {
+      movie_image: m.stream_icon,
+      name: m.name,
+      tmdb_id: m.tmdb_id ?? m.tmdb ?? 0,
+      backdrop: IMG,
+      backdrop_path: [],
+      youtube_trailer: "",
+      genre: "Action, Adventure",
+      plot: `The plot of ${m.name}.`,
+      cast: "Ada Ames, Ben Bright, Cy Cole",
+      rating: m.rating,
+      director: "Dee Drew",
+      releasedate: `${year}-07-23`,
+      duration_secs: 6900,
+      duration: "01:55:00",
+    },
+    movie_data: {
+      stream_id: m.stream_id,
+      name: m.name,
+      added: m.added,
+      category_id: m.category_id,
+      container_extension: m.container_extension,
+      custom_sid: "",
+      direct_source: "",
+    },
+  };
+}
+
+// The user "vod"'s answer to a movie or show action, or undefined for an action
+// that is not one (the live ones, which it gets like everybody).
+function vodAnswer(action, params) {
+  if (action === "get_vod_categories") return VOD_CATEGORIES;
+  if (action === "get_series_categories") return SERIES_CATEGORIES;
+  if (action === "get_vod_streams") return VOD_STREAMS;
+  if (action === "get_series") return SERIES;
+  if (action === "get_vod_info") return vodInfo(params.get("vod_id"));
+  if (action === "get_series_info") return seriesInfo(params.get("series_id"));
+  return undefined;
+}
+
+const LINES = { dups: DUPS, pins: PINS, fix: FIX, fixev: FIXEV, extra: EXTRA, redzone: REDZONE };
 
 // Every request the panel has answered, with the User-Agent it came with, so a
 // harness can say what was asked and as whom (verify-guide-extra). Read at
 // /__log and emptied by /__log?clear=1; nothing else looks at it.
 const LOG = [];
+
+/** decodeURIComponent that leaves a malformed escape as it came, so a bad path
+ * is a 404 and not a crashed panel. */
+function unescapeSafe(s) {
+  if (s === undefined) return undefined;
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
 
 http
   .createServer((req, res) => {
@@ -338,10 +536,12 @@ http
       if (url.searchParams.get("clear")) LOG.length = 0;
       return res.end(body);
     }
+    // A play route carries the user in its path, not a query (/movie/<user>/...).
+    const playUser = unescapeSafe(/^\/(?:movie|series)\/([^/]+)\//.exec(url.pathname)?.[1]);
     LOG.push({
       path: url.pathname,
       action: url.searchParams.get("action"),
-      user: url.searchParams.get("username"),
+      user: url.searchParams.get("username") ?? playUser ?? null,
       ua: req.headers["user-agent"] ?? null,
     });
     if (LOG.length > 4000) LOG.shift();
@@ -366,6 +566,16 @@ http
             server_info: {},
           }),
         );
+      if (url.searchParams.get("username") === "vod") {
+        const answer = vodAnswer(action, url.searchParams);
+        if (answer !== undefined) return res.end(JSON.stringify(answer));
+      }
+      // The user "novod": a live-only panel that fails the movie and show
+      // calls outright instead of answering [] (verify-xtvod).
+      if (url.searchParams.get("username") === "novod" && vodAnswer(action, url.searchParams) !== undefined) {
+        res.statusCode = 500;
+        return res.end("no such action");
+      }
       if (action === "get_live_categories")
         return res.end(JSON.stringify(CATEGORIES));
       if (action === "get_live_streams")
@@ -394,6 +604,13 @@ http
     if (url.pathname === "/extra-broken.xml") {
       res.statusCode = 500;
       return res.end("the second guide is down");
+    }
+    // The play routes of the user "vod": any id, a tiny body, and the request is
+    // in the log (path, user and User-Agent) for a harness to read. Everyone
+    // else still gets the 404 below.
+    if (playUser === "vod") {
+      res.setHeader("Content-Type", "video/mp4");
+      return res.end("fake video");
     }
     if (url.pathname === "/logo.png") {
       res.setHeader("Content-Type", "image/png");

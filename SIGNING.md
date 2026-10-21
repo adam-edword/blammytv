@@ -112,29 +112,32 @@ If you are outside US/Canada and have no company, skip to *Fallbacks*.
    secret and give it the *Artifact Signing Certificate Profile Signer* role
    on the account. You will use `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`,
    `AZURE_TENANT_ID`.
-7. **Install the signer:** `cargo install artifact-signing-cli`
-   (it was `trusted-signing-cli` before the rename — old guides say that).
-8. **Wire it into the build.** In `apps/app/src-tauri/tauri.windows.conf.json`,
-   which already exists and already carries a `bundle` block:
+7. **Install the signer and what it needs.** Read from
+   `artifact-signing-cli` 0.12.0's source (2026-10-21), not its old guides:
+   it logs in with the **Azure CLI**, then signs with the **Windows SDK's
+   `signtool`**, which loads Microsoft's signing client (it downloads that
+   itself, into `~/.artifact-signing-cli`) on **.NET 8 or later**.
+
+   ```powershell
+   cargo install artifact-signing-cli          # was trusted-signing-cli
+   winget install -e --id Microsoft.AzureCLI
+   winget install -e --id Microsoft.DotNet.Runtime.8
+   ```
+
+   Plus the Windows SDK's signing tools for `signtool.exe`. `release.ps1`
+   finds the newest one under `Windows Kits\10\bin`, or takes `SIGNTOOL_PATH`.
+8. **The build config** is `apps/app/src-tauri/tauri.signing.json`, merged
+   in by `release.ps1` with `--config`, so a plain `pnpm tauri build` without
+   any of this still builds (unsigned). Account `blammytv`, certificate
+   profile `blammytv`, endpoint `https://cus.codesigning.azure.net` (Central
+   US, the account's Overview → Account URI; the wrong region's endpoint
+   answers the sign request with 403 Forbidden, after a login that works):
 
    ```json
-   {
-     "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-     "bundle": {
-       "resources": ["libmpv-2.dll"],
-       "windows": {
-         "signCommand": {
-           "cmd": "artifact-signing-cli",
-           "args": [
-             "-e", "https://eus.codesigning.azure.net",
-             "-a", "<your-account>",
-             "-c", "<your-cert-profile>",
-             "-d", "BlammyTV",
-             "%1"
-           ]
-         }
-       }
-     }
+   "signCommand": {
+     "cmd": "artifact-signing-cli",
+     "args": ["-e", "https://cus.codesigning.azure.net", "-a", "blammytv",
+              "-c", "blammytv", "-d", "BlammyTV", "%1"]
    }
    ```
 
@@ -145,19 +148,20 @@ If you are outside US/Canada and have no company, skip to *Fallbacks*.
    `cmd /c`, no PowerShell wrapper, no pipes — the *uninstaller's* copy of
    this command is embedded into the `.nsi` as a debug-formatted string and
    re-escaped, so anything clever behaves differently there than everywhere
-   else.
+   else. The tool timestamps by default (`http://timestamp.acs.microsoft.com`).
 
-9. **Set the credentials in the same shell as the build**, alongside the
-   existing `TAURI_SIGNING_*` updater vars (`scripts/release.ps1`):
+9. **Credentials.** `release.ps1` asks once for the app registration's
+   client and tenant ids and keeps them in `~/.tauri/azure-signing.json`
+   (not secret, but this account's, so outside the repo). It asks for the
+   **client secret** on every run, like the update key's password, sets
+   `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_CLIENT_SECRET` for the
+   build only, wipes the secret after, and logs the app registration back out
+   of the Azure CLI. The client secret expires (12 months was picked,
+   2026-10-21): make a new one in the app registration before it does.
 
-   ```powershell
-   $env:AZURE_CLIENT_ID     = "..."
-   $env:AZURE_CLIENT_SECRET = "..."
-   $env:AZURE_TENANT_ID     = "..."
-   ```
-
-10. **Build as normal.** `pnpm tauri build`. Nothing about the release flow
-    changes — see the ordering note below.
+10. **Build:** `.\scripts\release.ps1`. It checks every tool above before
+    asking for a password, and after the build it fails if the installer
+    isn't Authenticode-signed or isn't timestamped (the two checks below).
 
 ### Two things to verify on the first signed build
 
@@ -199,9 +203,12 @@ build** — that rewrites the bytes the `.sig` already covers, and every install
 rejects the update.
 
 One signCommand covers the app exe, the NSIS installer, the uninstaller,
-bundled resource DLLs and NSIS plugin DLLs — expect ~6+ signing calls per
-build, comfortably inside the 5,000/month quota. Note `libmpv-2.dll` gets
-signed too, which is fine.
+bundled resource DLLs and NSIS plugin DLLs: 10 signing calls on the first
+signed build (2026-10-21), comfortably inside the 5,000/month quota. Those
+were the app exe, `libmpv-2.dll`, `ffmpeg.exe`, five NSIS plugins, the
+uninstaller and the installer. `vulkan-1.dll` already carries its maker's
+signature and was left alone. Both checks above held, and `release.ps1`
+now runs them itself.
 
 You also still need the **Windows SDK's `signtool.exe` on PATH**: the bundler
 calls `signtool verify` to decide whether a resource is already signed, even

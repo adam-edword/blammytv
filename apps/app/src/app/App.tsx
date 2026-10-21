@@ -32,6 +32,8 @@ import {
 import { Palette, type GoTarget } from "../features/palette/Palette";
 import { loadAioConn } from "../features/aiojf/conn";
 import { loadJfConn } from "../features/jellyfin/store";
+import { hasXtLibrary } from "../features/xtvod/store";
+import { watchXtLibrary } from "../features/xtvod/vod";
 import { saveSettingsTab } from "../features/settings/settingsTab";
 import { watchPlayerPrefs } from "../features/settings/playerPrefsSync";
 import {
@@ -93,6 +95,9 @@ export function App() {
   // The catalog follows the playlists on every screen, not just the Guide:
   // Sports and Multi-view read it too (source.ts watchPlaylists).
   useEffect(() => watchPlaylists(), []);
+  // And a provider's movies and shows (plan 028): read at launch, so Stream is
+  // ready before it is visited and the record of what each holds is filled.
+  useEffect(() => watchXtLibrary(), []);
   const [section, setSection] = useState<Section>(() =>
     loadStartupTab() === "live" && hasEnabledPlaylist() ? "live" : "stream",
   );
@@ -550,7 +555,7 @@ export function App() {
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
         hasLive={hasLiveSource}
-        hasStream={!!loadAioConn() || !!loadJfConn()}
+        hasStream={!!loadAioConn() || !!loadJfConn() || hasXtLibrary()}
         // Found, not played full-screen: the Guide tunes it in its preview.
         onChannel={(id) => requestWatchInPlayer(id, false)}
         // Backing out of it returns to the grid it was found over, like a

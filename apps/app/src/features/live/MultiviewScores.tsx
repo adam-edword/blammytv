@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useRef } from "react";
 import { CompactCard } from "../sports/CompactCard";
 import type { Fixture } from "../sports/model";
-import { LeaguesIcon } from "../../ui/icons";
+import { NFL } from "../sports/redzone";
+import { LeaguesIcon, PlusIcon } from "../../ui/icons";
 import { Hint } from "../../ui/Hint";
 import { useDragScroll } from "../../lib/useDragScroll";
 
@@ -16,6 +17,10 @@ import { useDragScroll } from "../../lib/useDragScroll";
  * same step as taking it in the picker). A game none of them carries is
  * still a score, so it shows, and does nothing when clicked. A game already
  * on the grid is marked.
+ *
+ * NFL RedZone, when it is on the air and one of your channels is it, heads
+ * the NFL's games as an entry of its own. It is a channel, not a game, so it
+ * adds the channel; on the grid already it is marked the same way.
  */
 export function MvScoresRow({
   games,
@@ -24,6 +29,7 @@ export function MvScoresRow({
   onGrid,
   onOpen,
   onFilter,
+  redzone,
 }: {
   games: Fixture[];
   /** Whether an answer has come back: an empty row means a quiet day. */
@@ -34,6 +40,9 @@ export function MvScoresRow({
   onGrid: (g: Fixture) => boolean;
   onOpen: (g: Fixture) => void;
   onFilter: () => void;
+  /** RedZone, when it is on and a channel of yours carries it. `on` is
+   * whether that channel is on the grid already. */
+  redzone: { on: boolean; onAdd: () => void } | null;
 }) {
   const row = useRef<HTMLDivElement>(null);
   // A mouse wheel scrolls the row sideways: it is one line, and most wheels
@@ -84,6 +93,17 @@ export function MvScoresRow({
             return (
               <Fragment key={g.id}>
                 {first && <span className="mvscores__league">{g.league}</span>}
+                {first && redzone && g.leagueKey === NFL && (
+                  <div
+                    className={"mvscores__game" + (redzone.on ? " is-on" : "")}
+                    data-hint={redzone.on ? "In the Grid" : undefined}
+                  >
+                    <button type="button" className="mvscores__rz" disabled={redzone.on} onClick={redzone.onAdd}>
+                      <PlusIcon size={14} />
+                      Add RedZone
+                    </button>
+                  </div>
+                )}
                 {/* The reason a game does nothing, on the wrapper: the card
                   * has its own hint (the teams), and an idle card lets the
                   * pointer through to this one (player.css). */}

@@ -1,12 +1,13 @@
 ---
 title: Stream & VOD
-description: Browsing and playing movies and shows through AIOStreams or your own Jellyfin.
+description: Browsing and playing movies and shows through AIOStreams, your own Jellyfin, or your IPTV provider.
 ---
 
 The **Stream** tab is movies and shows, served by your own
 [AIOStreams](/sources/aiostreams/) instance, your own [Jellyfin](/sources/jellyfin/)
-server, or both. It has three views on the rail: **Home**, **Discover** and
-**Library**.
+server, your IPTV provider's [Xtream](/sources/xtream/#movies-and-shows)
+panel, or any mix of them. It has three views on the rail: **Home**,
+**Discover** and **Library**.
 
 ## Home
 
@@ -19,6 +20,9 @@ hero at the top.
   empty for the default mix.
 - Rows load independently, so one failing catalog goes missing rather than
   taking the page down with it.
+- Your provider's folders are rows too, the ones you pick, in the order you
+  set. See [Movies and shows](/sources/xtream/#movies-and-shows) for picking
+  them.
 
 ## Discover
 

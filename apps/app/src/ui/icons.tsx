@@ -691,6 +691,15 @@ export function WarnIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** Six dots, the handle a row is dragged by. */
+export function GripIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path strokeWidth={3} d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" />
+    </Svg>
+  );
+}
+
 /** Interface / Check: the active-accent tick. */
 export function CheckIcon({ size = 16, className }: IconProps) {
   return (

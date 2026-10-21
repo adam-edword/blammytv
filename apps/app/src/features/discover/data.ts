@@ -8,6 +8,8 @@ import { loadJfConn } from "../jellyfin/store";
 import { metaPreviewToVod } from "../stream/mapper";
 import type { VodFrom, VodItem } from "../stream/model";
 import { peekVod } from "../stream/source";
+import { eligiblePlaylists } from "../xtvod/store";
+import { loadXtDiscover, searchXt, xtDiscoverKey, xtPage } from "../xtvod/vod";
 
 /**
  * Discover's data seam: one primary browseable catalog per content type
@@ -19,8 +21,9 @@ import { peekVod } from "../stream/source";
 export interface DiscoverCatalog {
   type: "movie" | "series";
   id: string;
-  /** Set for a library of your own Jellyfin (plan 027): paged from the
-   * server, not the addon, and what it yields is marked the same way. */
+  /** Set for a library of your own Jellyfin (plan 027, paged from the server) or
+   * of an Xtream playlist (plan 028, paged from the library in memory): not the
+   * addon, and what it yields is marked the same way. */
   from?: VodFrom;
   /** The catalog declares a genre extra at all (options or not). */
   genreCapable: boolean;
@@ -40,6 +43,9 @@ export interface DiscoverConfig {
   /** Catalogs declaring a `search` extra (search-only ones included —
    * they're excluded from browse but are exactly what search wants). */
   searchCatalogs: DiscoverCatalog[];
+  /** The Xtream libraries these catalogs were made from (`xtDiscoverKey`), so a
+   * screen can tell whether they moved. Empty with none. */
+  xtKey: string;
 }
 
 /** Browseable = fetchable unfiltered: no required extra (search etc.) —
@@ -116,12 +122,14 @@ export function unionGenres(catalogs: DiscoverCatalog[]): string[] {
 }
 
 /** What names the sources Discover reads, for a snapshot of it to be matched
- * against: the addon's connection and the Jellyfin sign-in, no secret in
- * either. Empty when neither is set. */
+ * against: the addon's connection, the Jellyfin sign-in and the Xtream libraries
+ * that are on, no secret in any. The libraries come last and only when there are
+ * some, so a key without them is what it always was. Empty when none is set. */
 export function discoverKey(): string {
   const aio = loadAioConn()?.key ?? "";
   const jf = loadJfConn()?.key ?? "";
-  return aio || jf ? `${aio}|${jf}` : "";
+  const xt = xtDiscoverKey();
+  return aio || jf || xt ? `${aio}|${jf}${xt ? `|${xt}` : ""}` : "";
 }
 
 /** One card's identity in a list. The same title from the addon and from your
@@ -137,25 +145,31 @@ const attempt = <T,>(f: () => Promise<T>): Promise<Read<T>> =>
   );
 
 /**
- * Discover's catalogs: the addon's manifest and your Jellyfin's libraries,
- * whichever of them are signed in (plan 027, D1: side by side, never merged).
- * Both are read at once and each is best-effort while the other works, as
- * Stream's rows are; only when neither gives a catalog does this throw, with
- * the first thing that went wrong.
+ * Discover's catalogs: the addon's manifest, your Jellyfin's libraries and your
+ * Xtream playlists' movies and shows, whichever of them are signed in or on
+ * (plan 027, D1 and plan 028: side by side, never merged). All are read at once
+ * and each is best-effort while the others work, as Stream's rows are; only
+ * when none gives a catalog does this throw, with the first thing that went
+ * wrong. A playlist that gives none is not a thing that went wrong (most are
+ * live TV only), so with nothing else it is "no addon configured", the screen's
+ * Nothing to Discover Yet.
  */
 export async function loadDiscover(): Promise<DiscoverConfig> {
   const conn = loadAioConn();
   const jfConn = loadJfConn();
+  const xtOn = eligiblePlaylists().length > 0;
   // Whatever a search answered under another sign-in is not this one's.
   clearSearchCache();
-  if (!conn && !jfConn) {
+  if (!conn && !jfConn && !xtOn) {
     jfArt.clear();
     throw new Error("no addon configured");
   }
   if (!jfConn) jfArt.clear();
-  const [manifest, jf] = await Promise.all([
+  const [manifest, jf, xt] = await Promise.all([
     conn ? attempt(() => aioManifest(conn)) : null,
     jfConn ? attempt(loadJfDiscover) : null,
+    // Waited for only when nothing else can fill Discover meanwhile.
+    xtOn ? loadXtDiscover(!conn && !jfConn) : null,
   ]);
 
   const aioCats = manifest && "ok" in manifest ? pickCatalogs(manifest.ok.catalogs ?? []) : [];
@@ -171,10 +185,21 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
     genreCapable: true,
     genres: [],
   }));
-  const catalogs = [...aioCats, ...jfCats];
+  // A playlist's movie list carries no genres, so its feeds take none: they stay
+  // out of every genre grid and the genre art (`servesGenre`), and add nothing to
+  // the rail.
+  const xtCats: DiscoverCatalog[] = (xt ?? []).map((c) => ({
+    type: c.type,
+    id: c.id,
+    from: "xt",
+    genreCapable: false,
+    genres: [],
+  }));
+  const catalogs = [...aioCats, ...jfCats, ...xtCats];
   if (catalogs.length === 0) {
     const failed = [manifest, jf].find((r): r is { err: unknown } => !!r && "err" in r);
     if (failed) throw failed.err;
+    if (!conn && !jfConn) throw new Error("no addon configured");
     throw new Error(
       conn
         ? "the addon declares no browseable catalogs"
@@ -184,10 +209,14 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
   if (manifest && "err" in manifest) console.warn(`[discover] the addon could not be read: ${String(manifest.err)}`);
   if (jf && "err" in jf) console.warn(`[discover] your Jellyfin could not be read: ${String(jf.err)}`);
 
-  // Search asks each Jellyfin type it has a library for, across all of them.
+  // Search asks each Jellyfin type it has a library for, across all of them,
+  // and each Xtream type across every playlist's (in memory: no call).
   for (const type of ["movie", "series"] as const)
     if (jfCats.some((c) => c.type === type))
       searchCatalogs.push({ type, id: `jf.search.${type}`, from: "jf", genreCapable: false, genres: [] });
+  for (const type of ["movie", "series"] as const)
+    if (xtCats.some((c) => c.type === type))
+      searchCatalogs.push({ type, id: `xt.search.${type}`, from: "xt", genreCapable: false, genres: [] });
 
   // Diagnostic (ids/names only — never the manifest URL): which catalogs
   // exist and how each declares genres, for by-hand reports like "the
@@ -197,7 +226,7 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
       catalogs
         .map(
           (c) =>
-            `${c.from ? "jellyfin " : ""}${c.id}(${c.type}): ` +
+            `${c.from === "jf" ? "jellyfin " : c.from === "xt" ? "playlist " : ""}${c.id}(${c.type}): ` +
             (c.genreCapable
               ? c.genres.length
                 ? `${c.genres.length} genres`
@@ -211,7 +240,7 @@ export async function loadDiscover(): Promise<DiscoverConfig> {
     ...aioCats,
     { type: "movie", id: "", genreCapable: true, genres: jfRead?.genres ?? [] },
   ]);
-  return { conn: conn ?? null, catalogs, genres, searchCatalogs };
+  return { conn: conn ?? null, catalogs, genres, searchCatalogs, xtKey: xtDiscoverKey() };
 }
 
 /**
@@ -247,14 +276,16 @@ async function askCatalogs(
     cats.map((c) =>
       (c.from === "jf"
         ? searchJf(c.type, query)
-        : conn
-          ? aioCatalog(conn, c.type, c.id, `search=${encodeURIComponent(query)}`).then(
-              (r) =>
-                (r.metas ?? [])
-                  .filter((m) => m?.id && m?.name)
-                  .map(metaPreviewToVod),
-            )
-          : Promise.resolve([] as VodItem[])
+        : c.from === "xt"
+          ? searchXt(c.type, query)
+          : conn
+            ? aioCatalog(conn, c.type, c.id, `search=${encodeURIComponent(query)}`).then(
+                (r) =>
+                  (r.metas ?? [])
+                    .filter((m) => m?.id && m?.name)
+                    .map(metaPreviewToVod),
+              )
+            : Promise.resolve([] as VodItem[])
       ).catch(() => [] as VodItem[]),
     ),
   );
@@ -436,6 +467,8 @@ export async function fetchDiscoverPage(
   skip: number,
 ): Promise<VodItem[]> {
   if (cat.from === "jf") return fetchJfPage(cat, genre, skip);
+  // A playlist's feed is the library in memory, and takes no genre.
+  if (cat.from === "xt") return xtPage(cat, skip);
   if (!cfg.conn) return [];
   const res = await aioCatalog(
     cfg.conn,
@@ -449,9 +482,12 @@ export async function fetchDiscoverPage(
 }
 
 /** Cursor/done key for a catalog. Id ALONE collides: Cinemeta-style
- * manifests reuse one id ("top") for the movie AND series catalog. */
-export const catKey = (c: Pick<DiscoverCatalog, "type" | "id">): string =>
-  `${c.type}:${c.id}`;
+ * manifests reuse one id ("top") for the movie AND series catalog. An Xtream
+ * catalog's key says where it is from, so it can never be an addon catalog's
+ * (a playlist's id and a manifest's catalog id are both free text). The addon's
+ * and Jellyfin's are what they have always been. */
+export const catKey = (c: Pick<DiscoverCatalog, "type" | "id" | "from">): string =>
+  `${c.from === "xt" ? "xt:" : ""}${c.type}:${c.id}`;
 
 export interface GridSeed {
   /** Interleaved + deduped, ready to render. */
@@ -493,12 +529,22 @@ export function seedFromStream(
       if (filter !== "all" && type !== filter) continue;
       const catId = row.id.replace(fromJf ? /^jf:/ : /^aio:/, "");
       const cat = cfg.catalogs.find(
-        (c) => c.id === catId && c.type === type && (c.from === "jf") === fromJf,
+        (c) => c.id === catId && c.type === type && (fromJf ? c.from === "jf" : !c.from),
       );
       if (!cat) continue; // row's catalog no longer in the manifest
       cursors[catKey(cat)] = items.length;
       lists.push(items);
     }
+  }
+  // A playlist's feeds are in memory, so the grid has their first page from the
+  // start instead of after the first scroll. (Stream's rows for it are its
+  // picked folders, not this feed.)
+  for (const cat of cfg.catalogs) {
+    if (cat.from !== "xt" || (filter !== "all" && cat.type !== filter)) continue;
+    const items = xtPage(cat, 0);
+    if (items.length === 0) continue;
+    cursors[catKey(cat)] = items.length;
+    lists.push(items);
   }
   if (lists.length === 0) return null;
   const seen = new Set<string>();

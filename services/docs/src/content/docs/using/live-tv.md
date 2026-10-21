@@ -39,6 +39,18 @@ The guide often arrives a moment after the channels do. It's the largest
 download of the load, so the channel list paints first and the programmes fill
 in when they land.
 
+### Right-click a channel
+
+- **Add to Multi-View** puts the channel in your Multi-View grid. A full grid
+  asks which tile it replaces.
+- **Fix Guide…** (Xtream and M3U channels with a guide) points a channel at
+  the right programme guide when its listings are wrong or missing.
+- **Use for RedZone** (channels whose name says NFL or RedZone) makes this
+  the channel Sports' **Watch RedZone** and Multi-View's **Add RedZone**
+  play. Those buttons appear when two or more NFL games are on at once and
+  one of your channels is RedZone. Without a pick, the app looks for a
+  channel named RedZone itself.
+
 ## The player
 
 Playback opens in a **mini** window over the guide, and expands to **theater**
