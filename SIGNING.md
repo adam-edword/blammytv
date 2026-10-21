@@ -203,9 +203,12 @@ build** — that rewrites the bytes the `.sig` already covers, and every install
 rejects the update.
 
 One signCommand covers the app exe, the NSIS installer, the uninstaller,
-bundled resource DLLs and NSIS plugin DLLs — expect ~6+ signing calls per
-build, comfortably inside the 5,000/month quota. Note `libmpv-2.dll` gets
-signed too, which is fine.
+bundled resource DLLs and NSIS plugin DLLs: 10 signing calls on the first
+signed build (2026-10-21), comfortably inside the 5,000/month quota. Those
+were the app exe, `libmpv-2.dll`, `ffmpeg.exe`, five NSIS plugins, the
+uninstaller and the installer. `vulkan-1.dll` already carries its maker's
+signature and was left alone. Both checks above held, and `release.ps1`
+now runs them itself.
 
 You also still need the **Windows SDK's `signtool.exe` on PATH**: the bundler
 calls `signtool verify` to decide whether a resource is already signed, even

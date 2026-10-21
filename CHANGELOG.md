@@ -29,6 +29,12 @@ What's new in the BlammyTV desktop app, newest first.
   and Multi-View's live scores an Add RedZone. If it picks the wrong
   channel, right-click the right one in the Guide → Use for RedZone.
 
+### Signed
+
+- **The installer and the app are code-signed**, so Windows names the
+  publisher instead of Unknown Publisher. SmartScreen can still warn for a
+  while: it learns a new publisher as people install.
+
 ### Fixes
 
 - A tall channel logo, like the NFL's shield, shows whole in its box instead
