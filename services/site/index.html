@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>BlammyTV: All Your TV in One Place</title>
+<title>BlammyTV: Finally, an Elegant Media Hub</title>
 <meta name="description" content="Watch live TV, movies, shows and sports in one free app for Windows. Add your own playlists, AIOStreams or Jellyfin server.">
 <meta property="og:title" content="BlammyTV">
 <meta property="og:description" content="Watch live TV, movies, shows and sports in one free app for Windows.">
@@ -11,510 +11,491 @@
 <link rel="icon" type="image/png" href="assets/logo.png">
 <link rel="preload" href="assets/stack-sans-headline-700.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-@font-face { font-family: "Stack Sans Headline"; font-weight: 400; font-display: swap; src: url("assets/stack-sans-headline-400.woff2") format("woff2"); }
 @font-face { font-family: "Stack Sans Headline"; font-weight: 600; font-display: swap; src: url("assets/stack-sans-headline-600.woff2") format("woff2"); }
 @font-face { font-family: "Stack Sans Headline"; font-weight: 700; font-display: swap; src: url("assets/stack-sans-headline-700.woff2") format("woff2"); }
-@font-face { font-family: "Stack Sans Text"; font-weight: 400; font-display: swap; src: url("assets/stack-sans-text-400.woff2") format("woff2"); }
-@font-face { font-family: "Stack Sans Text"; font-weight: 600; font-display: swap; src: url("assets/stack-sans-text-600.woff2") format("woff2"); }
-@font-face { font-family: "Stack Sans Text"; font-weight: 700; font-display: swap; src: url("assets/stack-sans-text-700.woff2") format("woff2"); }
+/* Variable (100 to 900), so the 650 the buttons ask for is a real weight and not a snap to 600. */
+@font-face { font-family: Geist; font-weight: 100 900; font-display: swap; src: url("assets/geist-latin-wght-normal.woff2") format("woff2"); }
 
-:root {
-  color-scheme: dark;
-  --coral: #ff9b9b; --rose: #ff8bc9; --pink: #ff7bf6; --violet: #c388fb; --blue: #8696ff;
-  --teal: #85cbd4; --mint: #84ffa9; --lime: #c1f294; --butter: #ffe57f;
-  /* The brand conic's stops, verbatim from boot.css / onboarding.css. */
-  --stops: var(--coral) -4.8706%, var(--rose) 3.8928%, var(--pink) 12.656%, var(--violet) 21.574%,
-    var(--blue) 30.493%, var(--teal) 40.25%, var(--mint) 50.008%, var(--lime) 62.55%,
-    var(--butter) 75.091%, var(--coral) 95.129%, var(--rose) 103.89%, var(--pink) 112.66%;
-  --mark-conic: conic-gradient(from 320deg, var(--stops));
-  --lattice:
+:root { --head: "Stack Sans Headline", system-ui, sans-serif; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: #101010; color: #fafafa; font-family: Geist, "Segoe UI", system-ui, sans-serif; }
+/* Zero specificity, so any class that sets its own colour wins, hover included. */
+:where(a) { color: #fafafa; }
+:where(a:hover) { color: #fff; }
+button { font-family: inherit; }
+[hidden] { display: none !important; }
+h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34px, 4vw, 56px); line-height: 1.02; letter-spacing: -0.03em; }
+
+/* ---- Nav -------------------------------------------------------------- */
+.navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 10; display: flex; justify-content: center; padding: 16px 16px 0; pointer-events: none; }
+.nav {
+  pointer-events: auto; display: flex; align-items: center; gap: 2px; padding: 6px 6px 6px 16px; border-radius: 999px;
+  background: rgba(23, 23, 23, 0.72); border: 1px solid rgba(255, 255, 255, 0.10);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+.brand { display: flex; align-items: center; gap: 8px; margin-right: 12px; color: #fafafa; text-decoration: none; font-family: var(--head); font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+.brand img { display: block; }
+.navlink { height: 36px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 999px; color: #a1a1a1; text-decoration: none; font-size: 13px; font-weight: 600; }
+.navlink:hover { background: rgba(250, 250, 250, 0.09); color: #fafafa; }
+
+/* ---- Buttons ---------------------------------------------------------- */
+.btn-default, .btn-outline { height: 44px; display: inline-flex; align-items: center; border-radius: 999px; text-decoration: none; font-size: 14px; }
+.btn-default { padding: 0 20px 0 16px; gap: 8px; background: #fafafa; color: #0a0a0a; font-weight: 650; }
+.btn-default:hover { background: rgba(250, 250, 250, 0.9); }
+.btn-outline { padding: 0 20px; background: rgba(250, 250, 250, 0.10); color: #fafafa; font-weight: 600; }
+.btn-outline:hover { background: rgba(250, 250, 250, 0.16); }
+.nav-dl { height: 36px; margin-left: 6px; padding: 0 16px; font-size: 13px; }
+
+/* ---- Hero ------------------------------------------------------------- */
+.hero { padding: 154px clamp(16px, 4vw, 48px) 96px; display: flex; flex-direction: column; align-items: center; gap: 56px; overflow: hidden; background-color: #010101; position: relative; }
+/* The live site's shader, in CSS: a lattice of dots, and a glow at the pointer that lifts the dots under it. */
+.hero__lattice, .hero__glow, .hero__dots { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.hero__lattice {
+  background-image:
     radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 1.3px),
     radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
-  --head: "Stack Sans Headline", "Segoe UI", system-ui, sans-serif;
-  --body: "Stack Sans Text", "Segoe UI", system-ui, sans-serif;
-  --muted: rgba(255, 255, 255, 0.62);
-  --quiet: rgba(255, 255, 255, 0.55);
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --gl: max(16px, 4vw, env(safe-area-inset-left, 0px));
-  --gr: max(16px, 4vw, env(safe-area-inset-right, 0px));
-  /* One design px of the boot's 1920x1167 canvas, cover-fit (welcome.ts).
-     JS writes the exact value; this is the no-JS default. */
-  --px: max(100vw / 1920, 100vh / 1167);
-  --lpx: var(--px);
-  --s: 1;
+  background-size: 4px 4px, 8px 8px;
 }
-* { box-sizing: border-box; }
-html { background: #000; overflow-x: clip; -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: #000; color: #fff; font: 400 16px/1.5 var(--body); -webkit-font-smoothing: antialiased; overflow-x: clip; }
-/* No smooth scrolling: an in-page jump would fast-forward the whole scrub as a strobe. */
-a { color: inherit; }
-::selection { background: #fff; color: #000; -webkit-text-fill-color: #000; }
-:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-h1, h2, h3 { font-family: var(--head); font-weight: 700; letter-spacing: -0.02em; }
+.hero__glow, .hero__dots { opacity: var(--ga, 0); transition: opacity 300ms ease; }
+.hero__glow { background: radial-gradient(circle 84.85px at var(--gx, -999px) var(--gy, -999px), rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.03) 42%, rgba(255, 255, 255, 0) 66%); }
+.hero__dots {
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.07) 1px, transparent 1.3px);
+  background-size: 4px 4px;
+  -webkit-mask-image: radial-gradient(circle 84.85px at var(--gx, -999px) var(--gy, -999px), #000 0%, rgba(0, 0, 0, 0.333) 42%, rgba(0, 0, 0, 0) 66%);
+  mask-image: radial-gradient(circle 84.85px at var(--gx, -999px) var(--gy, -999px), #000 0%, rgba(0, 0, 0, 0.333) 42%, rgba(0, 0, 0, 0) 66%);
+}
+.hero__copy { position: relative; z-index: 2; max-width: 920px; display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; }
+.hero h1 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(44px, 6.4vw, 92px); line-height: 0.98; letter-spacing: -0.035em; text-wrap: balance; }
+.hero__sub { margin: 0; max-width: 40ch; font-size: clamp(17px, 1.5vw, 20px); line-height: 1.55; color: #a1a1a1; text-wrap: balance; }
+.hero__cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 8px; }
+.hero__fine { margin: 0; font-size: 13px; color: #8a8a8a; }
 
-/* ---- Shared bits ------------------------------------------------------ */
-/* The official logo (assets/logo.svg, the app's own): a real hole, so the halo and glow show through. */
-.mark { --m: 76px; flex: none; display: block; width: var(--m); height: var(--m); }
-.pill {
-  display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 24px;
-  border-radius: 999px; background: #fff; color: #000; text-decoration: none;
-  font: 700 16px/1 var(--head); letter-spacing: -0.01em;
-  transition: transform 180ms var(--ease-out);
-}
-.pill svg { width: 17px; height: 17px; }
-.pill:hover { transform: scale(1.04); }
-.pill:active { transform: scale(0.98); }
-.link { color: var(--quiet); text-decoration: underline; text-underline-offset: 3px; }
-.link:hover { color: #fff; }
-.dither { position: absolute; inset: 0; pointer-events: none; background-image: var(--lattice); background-size: 4px 4px, 8px 8px; }
-.grad { background: linear-gradient(110deg, var(--coral), var(--pink), var(--blue), var(--mint), var(--butter)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-/* Secondary text stays readable when the light passes behind it (Light Leak). */
-.sub, .hint, .cap p, .meta, .note, .free p, .qa summary, .qa p, .foot p { text-shadow: 0 0 14px #000, 0 0 3px #000; }
+.stage { width: 100%; max-width: 1120px; display: flex; flex-direction: column; align-items: center; gap: 28px; }
+.tabs-wrap { position: relative; z-index: 2; width: 100%; display: flex; justify-content: center; }
+.tabs { position: relative; z-index: 2; display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 4px; background: #171717; border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 12px; }
+.seg-tab { height: 36px; padding: 0 16px; border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: #a1a1a1; }
+.seg-tab:hover { color: #fafafa; }
+.seg-tab[aria-selected="true"] { background: #2a2a2a; color: #fafafa; }
 
-/* Lit type: grey text brightens toward white near the cursor glow.
-   The loop writes these per element, only while WebGL runs (html.live). */
-.lit { --base: #fff; --qx: -9999; --qy: -9999; --qr: 1; --qa: 0; }
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  html.live .lit {
-    background-image:
-      radial-gradient(circle calc(var(--qr) * 1px) at calc(var(--qx) * 1px) calc(var(--qy) * 1px),
-        rgb(255 255 255 / var(--qa)), rgb(255 255 255 / calc(var(--qa) * 0.5)) 42%, rgb(255 255 255 / 0)),
-      linear-gradient(var(--base), var(--base));
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent; color: transparent;
-    text-shadow: none; /* a shadow paints over clipped glyphs and dims them; the plate keeps it legible */
-  }
+.monitor { position: relative; width: 100%; }
+.monitor__body { position: relative; }
+/* A box exactly behind the monitor body, so the colour reads as light spilling from the screen. */
+@property --spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes halo-spin { to { --spin: 360deg; } }
+.halo {
+  position: absolute; inset: -32px; z-index: 0; border-radius: 40px; filter: blur(64px); opacity: 0.5;
+  background: conic-gradient(from var(--spin), #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff, #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b);
+  animation: halo-spin 14s linear infinite;
 }
+.bezel { position: relative; z-index: 2; padding: 10px 10px 0; border-radius: 20px; background: linear-gradient(#1c1c1f, #0e0e10); border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 50px 120px rgba(0, 0, 0, 0.65); }
+.display { position: relative; overflow: hidden; border-radius: 9px; background: #000; aspect-ratio: 1700 / 910; }
+.display img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.glare { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(118deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.015) 34%, rgba(255, 255, 255, 0) 52%); }
+.chin { height: 24px; display: flex; align-items: center; justify-content: center; }
+.chin span { width: 4px; height: 4px; border-radius: 50%; background: rgba(255, 255, 255, 0.28); }
+.stand__neck { position: relative; z-index: 2; width: 12%; aspect-ratio: 1.25; margin: 0 auto; background: linear-gradient(90deg, #111113, #2b2b2f 46%, #18181b); clip-path: polygon(16% 0, 84% 0, 100% 100%, 0 100%); }
+.stand__base { position: relative; z-index: 2; width: 32%; height: 14px; margin: 0 auto; border-radius: 6px 6px 14px 14px; background: linear-gradient(#2d2d31, #141416); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 22px 36px rgba(0, 0, 0, 0.7); }
 
-/* ---- The stage: the boot scene (boot.css actors, same geometry) -------- */
-.stage { position: relative; overflow: hidden; isolation: isolate; background: #000; }
-.halo { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-.frame { position: absolute; inset: 0; overflow: hidden; z-index: 1; will-change: transform; animation: fade 1600ms ease-out backwards; }
-.sheet {
-  position: absolute; left: 50%; top: 50%;
-  width: calc(2803.7 * var(--px)); height: calc(2538.1 * var(--px));
-  margin: calc(-1269.05 * var(--px)) 0 0 calc(-1401.85 * var(--px));
-  opacity: 0.5; transform: scaleY(1.15); will-change: transform;
-  overflow: hidden; /* the 141x-scaled paint otherwise makes this one enormous layer; the box still covers the screen at any angle */
-}
-.paint-fit { position: absolute; top: 50%; left: 50%; width: 1920px; height: 1080px; transform: translate(-50%, -50%) scale(calc(var(--s) * 2.4)); }
-.paint {
-  position: absolute; top: 0; left: 0; width: 281.43px; height: 281.43px; transform-origin: 0 0;
-  transform: matrix(141.62, 64.542, -114.74, 79.662, 964.59, 542.58) translate(-140.72px, -140.72px);
-  background: conic-gradient(from 90deg, var(--stops));
-}
-.screen {
-  position: absolute; z-index: 2; inset: calc(36.5 * var(--px)) calc(35 * var(--px));
-  border-radius: calc(100 * var(--px)); background: #000;
-  filter: blur(calc(108.4 * var(--px)));
-  will-change: transform;
-}
-.halo .dither { z-index: 3; }
-.glow {
-  position: absolute; z-index: 4; top: -60px; left: -60px; width: 120px; height: 120px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03) 42%, transparent 66%);
-  opacity: 0;
-}
-.tvglow { display: none; }
-.word { display: none; }
+/* ---- Works With ------------------------------------------------------- */
+.works { border-top: 1px solid rgba(255, 255, 255, 0.08); padding: 32px 0; background-color: #0a0a0a; }
+.works__in { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.works__label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8a8a; }
+/* Two copies of the list slide left by one copy's width, so the seam never shows. */
+.marquee { width: 100%; max-width: 1200px; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+.marquee__track { display: flex; width: max-content; animation: marquee 40s linear infinite; }
+.marquee:hover .marquee__track { animation-play-state: paused; }
+.marquee__list { display: flex; flex: none; gap: 48px; margin: 0; padding: 0 24px; list-style: none; white-space: nowrap; font-family: var(--head); font-weight: 600; font-size: 20px; color: #c4c4c4; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .marquee { -webkit-mask-image: none; mask-image: none; } .marquee__track { animation: none; width: auto; justify-content: center; } .marquee__list { flex-wrap: wrap; justify-content: center; gap: 14px 40px; white-space: normal; } .marquee__dup { display: none; } }
 
-/* The one WebGL canvas: fixed to the viewport, over the boot's black screen and
-   under every word. It lives in the stage so it can sit between the two; fixed
-   keeps it on screen for the sections after. */
-#leak {
-  position: fixed; left: 0; top: 0; z-index: 1; width: 100%; height: 100vh; height: 100lvh;
-  pointer-events: none; display: none; animation: fade 1200ms ease-out backwards;
-}
-html.gl #leak { display: block; }
-html.gl .halo .dither, html.gl .glow, html.gl .dl .halo-static, html.gl .dl > .dither { display: none; }
+/* ---- Features --------------------------------------------------------- */
+.feat { background: #101010; padding: 120px clamp(16px, 4vw, 48px); }
+.feat--light { background: #fafafa; color: #0a0a0a; }
+.feat__in { max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 56px 72px; }
+.feat--flip .feat__in { flex-direction: row-reverse; }
+.feat__copy { flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 20px; }
+.chip { height: 26px; padding: 0 11px; display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.14); font-size: 12px; font-weight: 600; color: #c4c4c4; }
+.feat--light .chip { border-color: rgba(0, 0, 0, 0.14); color: #404040; }
+.feat__copy p { margin: 0; max-width: 44ch; font-size: 18px; line-height: 1.6; color: #a1a1a1; }
+.feat--light .feat__copy p { color: #525252; }
+.feat__copy ul { margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 15px; color: #d4d4d4; }
+.feat--light .feat__copy ul { color: #262626; }
+.feat__copy li { display: flex; align-items: center; gap: 12px; }
+.feat__copy li svg { fill: none; stroke: #fafafa; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.feat--light .feat__copy li svg { stroke: #0a0a0a; }
+.shot { flex: 1.7 1 520px; min-width: 0; padding: 6px; border-radius: 14px; background: #171717; border: 1px solid rgba(255, 255, 255, 0.10); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55); }
+.feat--light .shot { box-shadow: 0 30px 80px rgba(0, 0, 0, 0.22); }
+.shot > img { display: block; width: 100%; height: auto; border-radius: 9px; }
+/* Stream's three screens stack and crossfade; the script moves the "on" class. */
+.shots { position: relative; overflow: hidden; border-radius: 9px; aspect-ratio: 1700 / 910; background: #000; }
+.shots img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 900ms ease; }
+.shots img.on { opacity: 1; }
 
-/* ---- Hero (frame zero) ------------------------------------------------ */
-.bar {
-  position: absolute; z-index: 7; top: 0; left: 0; right: 0;
-  display: flex; align-items: center; justify-content: flex-end;
-  padding: max(22px, env(safe-area-inset-top, 0px)) var(--gr) 0 var(--gl);
+/* ---- Your Colors card: its own Appearance control themes it, not the page. ---- */
+.card {
+  --bg: #171717; --border: rgba(255, 255, 255, 0.10); --shadow: rgba(0, 0, 0, 0.55); --muted: #a1a1a1; --strong: #fafafa;
+  --seg-track: #101010; --seg-border: rgba(255, 255, 255, 0.10); --seg-on: #2a2a2a; --seg-shadow: none;
+  --track: rgba(255, 255, 255, 0.14); --time: #8a8a8a; --panel-bg: #1f1f1f; --panel-shadow: rgba(0, 0, 0, 0.5);
+  --input-border: rgba(255, 255, 255, 0.15); --input-bg: rgba(255, 255, 255, 0.04); --drop-bg: rgba(250, 250, 250, 0.10);
+  flex: 1.7 1 520px; min-width: 0; padding: 40px clamp(20px, 4vw, 48px); border-radius: 14px;
+  background: var(--bg); border: 1px solid var(--border); box-shadow: 0 30px 80px var(--shadow);
+  transition: background-color 300ms ease, border-color 300ms ease;
+  display: flex; flex-direction: column; align-items: center; gap: 28px;
 }
-.brand { display: inline-flex; align-items: center; gap: 10px; font: 700 20px/1 var(--head); letter-spacing: -0.02em; text-decoration: none; border-radius: 8px; }
-.brand .mark { --m: 22px; }
-.bar .link { font: 600 15px/1 var(--head); }
-.hero {
-  position: relative; z-index: 6; min-height: 100vh; min-height: 100svh;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-  padding: 96px var(--gr) 110px var(--gl); text-align: center;
+.card[data-theme="light"] {
+  --bg: #ffffff; --border: #e5e5e5; --shadow: rgba(0, 0, 0, 0.18); --muted: #525252; --strong: #0a0a0a;
+  --seg-track: #ebebeb; --seg-border: transparent; --seg-on: #ffffff; --seg-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --track: rgba(0, 0, 0, 0.12); --time: #737373; --panel-bg: #ffffff; --panel-shadow: rgba(0, 0, 0, 0.14);
+  --input-border: #e5e5e5; --input-bg: #fafafa; --drop-bg: rgba(0, 0, 0, 0.06);
 }
-/* The hero opens on the lockup, at the onboarding splash's proportions (.lockup:
-   76px mark, 84px word, 18px gap at 1440), with the line under it as a subtitle. */
-.hero .lockup { margin: 0 0 2px; justify-content: center; }
-.tagline { margin: 0; font: 600 clamp(24px, 2.6vw, 36px)/1.12 var(--head); letter-spacing: -0.02em; text-wrap: balance; }
-.hero .sub { --base: rgba(255, 255, 255, 0.62); margin: 0; max-width: 42ch; font-size: clamp(16px, 1.35vw, 19px); line-height: 1.55; color: var(--muted); text-wrap: balance; }
-.hero .pill { margin-top: 12px; }
-.hint { display: inline-flex; align-items: center; gap: 8px; font: 600 14px/1.35 var(--head); color: var(--quiet); max-width: 100%; }
-.hint svg { flex: none; width: 14px; height: 14px; animation: bob 1.8s ease-in-out infinite; }
-html:not(.scrub) .hint { display: none; } /* nothing to scroll into without the scrub */
-.hero > * { animation: rise 640ms var(--ease-out) backwards; animation-delay: calc(350ms + var(--i, 0) * 90ms); }
-@keyframes rise { from { opacity: 0; transform: translateY(16px); filter: blur(8px); } }
-@keyframes fade { from { opacity: 0; } }
-@keyframes bob { 50% { transform: translateY(3px); } }
+.card__label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 22px; }
+.sw { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 500; }
+.sw[aria-pressed="true"] { color: var(--strong); }
+.sw__dot { width: 40px; height: 40px; border-radius: 50%; background: var(--c); transition: box-shadow 220ms ease, transform 220ms ease; }
+.sw[aria-pressed="true"] .sw__dot {
+  transform: scale(1.08);
+  box-shadow: 0 0 16px 2px color-mix(in srgb, var(--c) 80%, transparent), 0 0 40px 8px color-mix(in srgb, var(--c) 34.9%, transparent);
+}
+.sw--custom .sw__dot { background: conic-gradient(from 320deg, #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff, #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b); }
+.sw--custom[aria-pressed="true"] .sw__dot { background: var(--c); }
 
-/* ---- Features: one markup, two layouts -------------------------------- */
-.feats { position: relative; z-index: 5; }
-.feat-list { list-style: none; margin: 0; padding: 0; }
-.feat figure { margin: 0; }
-.feat img { display: block; }
-.cap { display: grid; gap: 8px 48px; }
-.cap h2 { margin: 0; font-size: clamp(26px, 2.9vw, 40px); line-height: 1.08; text-wrap: balance; }
-.cap p { margin: 0; max-width: 46ch; font-size: clamp(16px, 1.2vw, 17.5px); line-height: 1.55; color: var(--muted); text-wrap: pretty; }
-@media (min-width: 760px) { .cap { grid-template-columns: 1fr 1fr; align-items: start; } }
-/* Big screens: the type grows with the TV. */
-@media (min-width: 1500px) {
-  .hero .lockup { font-size: clamp(84px, 2.64vw + 44.4px, 112px); }
-  .tagline { font-size: clamp(36px, 1.13vw + 19.1px, 48px); }
-  .hero .sub { font-size: clamp(19px, 0.4vw + 12px, 22px); }
-  .hero .pill { height: clamp(48px, 0.75vw + 36.75px, 54px); padding: 0 clamp(24px, 0.5vw + 16.5px, 28px); font-size: clamp(16px, 0.25vw + 12.25px, 18px); }
-  .hint { font-size: clamp(14px, 0.19vw + 11.2px, 15.5px); }
-  .cap h2 { font-size: clamp(40px, 1.6vw + 17px, 52px); }
-  .cap p { font-size: clamp(17.5px, 0.5vw + 10px, 21px); }
+.picker { width: 244px; padding: 12px; border-radius: 14px; background: var(--panel-bg); border: 1px solid var(--border); box-shadow: 0 16px 40px var(--panel-shadow); display: flex; flex-direction: column; gap: 14px; }
+.sv {
+  position: relative; height: 160px; border-radius: 8px; cursor: crosshair; touch-action: none;
+  background: linear-gradient(to top, #000000, rgba(0, 0, 0, 0)), linear-gradient(to right, #ffffff, var(--hue-color, #ff0000));
 }
+.sv__thumb { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; box-sizing: border-box; border-radius: 50%; border: 2px solid #ffffff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.5); pointer-events: none; }
+.hue { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 12px; margin: 0; border-radius: 999px; background: linear-gradient(90deg, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%); cursor: pointer; }
+.hue::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: transparent; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.5); }
+.hue::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: transparent; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.5); }
+/* The card's own strong colour, so the ring shows on the Light card too. */
+.hue:focus-visible { outline: 2px solid var(--strong); outline-offset: 3px; }
+.picker__row { display: flex; align-items: center; gap: 8px; }
+.drop { flex: none; width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border-radius: 999px; border: 0; background: var(--drop-bg); color: var(--strong); cursor: pointer; }
+.hex { flex: 1; min-width: 0; height: 36px; padding: 0 12px; display: flex; align-items: center; gap: 2px; box-sizing: border-box; border-radius: 8px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--muted); font-size: 14px; }
+/* The input drops its own outline, so the field shows focus instead. */
+.hex:focus-within { border-color: var(--strong); }
+.hex input { flex: 1; min-width: 0; padding: 0; border: 0; outline: none; background: none; color: var(--strong); font-family: ui-monospace, "Cascadia Code", monospace; font-size: 14px; text-transform: uppercase; }
 
-/* Static story (reduced motion, or no JS): plain sections. */
-html:not(.scrub) .halo {
-  bottom: auto; height: 100vh; height: 100svh;
-  -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent);
-}
-html:not(.scrub) .feats { padding: 0 var(--gr) clamp(64px, 10vw, 120px) var(--gl); }
-html:not(.scrub) .feat-list { max-width: 1120px; margin: 0 auto; display: grid; gap: clamp(72px, 10vw, 140px); }
-html:not(.scrub) .feat figure {
-  padding: clamp(8px, 1.1vw, 16px); border-radius: clamp(18px, 2.6vw, 34px); background: var(--mark-conic);
-  box-shadow: -50px -36px 140px -30px rgba(255, 123, 246, 0.3), 50px 36px 140px -30px rgba(132, 255, 169, 0.24);
-}
-html:not(.scrub) .feat img { width: 100%; height: auto; border-radius: clamp(10px, 1.5vw, 18px); }
-html:not(.scrub) .feat img + img { display: none; }
-html:not(.scrub) .board { aspect-ratio: 1700 / 910; border-radius: clamp(10px, 1.5vw, 18px); }
-html:not(.scrub) .cap { margin-top: 28px; }
+.look { display: inline-flex; gap: 4px; padding: 4px; background: var(--seg-track); border: 1px solid var(--seg-border); border-radius: 12px; }
+.look button { height: 34px; padding: 0 16px; border: 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--muted); }
+.look button:hover { color: var(--strong); }
+.look button[aria-checked="true"] { background: var(--seg-on); color: var(--strong); box-shadow: var(--seg-shadow); }
+.scrub { width: 100%; max-width: 420px; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--time); }
+.scrub__bar { flex: 1; height: 4px; border-radius: 2px; background: var(--track); }
+.scrub__fill { width: 38%; height: 100%; border-radius: 2px; background: var(--accent, #3730ff); }
 
-/* Your Colors: a drawing (type and swatches), never dressed up as a screenshot. */
-.board {
-  --acc: #3730ff; position: relative; container-type: inline-size; overflow: hidden; background: #000;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.2cqw;
-}
-.board::before {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(60% 70% at 50% 42%, color-mix(in srgb, var(--acc) 30%, transparent), transparent 70%);
-}
-.board > * { position: relative; }
-.board-h { margin: 0; font: 600 max(10px, 1.6cqw)/1 var(--head); color: var(--quiet); }
-.sw { display: flex; gap: 2.4cqw; margin-bottom: 2.6cqw; }
-.sw span { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1.3cqw; font: 600 max(9px, 1.35cqw)/1 var(--head); color: var(--muted); }
-.sw span::before { content: ""; width: 6.6cqw; aspect-ratio: 1; border-radius: 50%; background: var(--c); }
-.sw b { font-weight: 600; }
-.sw-custom { --c: var(--mark-conic); }
-.sw-custom svg { position: absolute; top: 1.6cqw; left: 50%; width: 3.4cqw; height: 3.4cqw; margin-left: -1.7cqw; color: #000; }
-.sw i { position: absolute; top: -0.9cqw; left: 50%; width: 8.4cqw; aspect-ratio: 1; margin-left: -4.2cqw; border-radius: 50%; border: max(2px, 0.3cqw) solid #fff; opacity: 0; }
-.sw .sel i { opacity: 1; }
-.seg { display: flex; padding: 0.5cqw; border-radius: 999px; background: rgba(255, 255, 255, 0.09); }
-.seg span { padding: 1.1cqw 2.4cqw; border-radius: 999px; font: 600 max(10px, 1.5cqw)/1 var(--head); color: var(--muted); white-space: nowrap; }
-.seg .on { background: #fff; color: #000; }
-@container (max-width: 560px) { .sw b { display: none; } .sw { gap: 2cqw; } }
-
-/* Scrub layout: everything pinned in one sticky stage. */
-.ctl { display: none; }
-.scrub .boot { height: 1000vh; }
-.scrub .stage { position: sticky; top: 0; height: 100vh; height: 100lvh; }
-.scrub .hero { position: absolute; inset: 0; min-height: 0; }
-.scrub .word {
-  display: block; position: absolute; z-index: 5; top: 50%; left: calc(50% - 157.59 * var(--lpx));
-  margin: 0; transform: translateY(-50%); opacity: 0; white-space: nowrap; pointer-events: none;
-  font: 700 calc(84 * var(--lpx))/1 var(--head); letter-spacing: calc(-1.7 * var(--lpx));
-}
-.scrub .tvglow {
-  display: block; position: absolute; z-index: 0; opacity: 0;
-  left: var(--tox); top: var(--toy); width: var(--tow); height: var(--toh); border-radius: var(--ro);
-  box-shadow:
-    -50px -36px 150px -24px rgba(255, 123, 246, 0.42), 50px -36px 150px -24px rgba(134, 150, 255, 0.42),
-    50px 36px 150px -24px rgba(132, 255, 169, 0.34), -50px 36px 150px -24px rgba(255, 229, 127, 0.3);
-}
-.scrub .feats { position: absolute; inset: 0; pointer-events: none; }
-.scrub .feat { position: absolute; inset: 0; }
-.scrub .feat figure {
-  position: absolute; left: var(--scx); top: var(--scy); width: var(--scw); height: var(--sch);
-  border-radius: var(--ri); overflow: hidden; background: #000; opacity: 0;
-}
-.scrub .feat img, .scrub .board { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.scrub .feat img + img { opacity: 0; }
-.scrub .cap { position: absolute; left: var(--tox); top: var(--capy); width: var(--tow); opacity: 0; }
-.scrub .cap p { color: rgba(255, 255, 255, 0.74); } /* over the ambilight's grey wash */
-/* A chapter develops from black (Light Leak's screenshots): a dark mask the
-   light wipes away, plus the lattice, both fading out on their own. */
-.dev, .dev-dots { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.dev-dots { background-image: var(--lattice); background-size: 4px 4px, 8px 8px; }
-
-/* The scrubber: a player's control bar, scrubbed by your scroll. It sits inside
-   the black screen (clear of the bezel) and spans the TV's width. */
-.scrub .ctl {
-  position: absolute; z-index: 7; left: var(--tox); width: var(--tow);
-  bottom: max(36.5 * var(--px) + 16px, env(safe-area-inset-bottom, 0px));
-  bottom: calc(max(36.5 * var(--px) + 16px, env(safe-area-inset-bottom, 0px)) + 100lvh - 100svh);
-  display: flex; align-items: center; gap: 16px; height: 38px;
-}
-/* Skip Intro and Download share one slot, so the track never jumps. */
-.ctl-out { display: grid; justify-items: stretch; }
-.ctl-out > a { grid-area: 1 / 1; min-width: 120px; justify-content: center; } /* one outline for both */
-.skip--dl { opacity: 0; visibility: hidden; }
-/* Fixed width: the longest chapter name ("Your Colors") must not push the track. */
-.ctl-label { flex: none; width: 76px; min-width: 0; font: 600 13px/1 var(--head); color: var(--muted); opacity: 0; text-shadow: 0 0 10px #000; }
-.ctl-track { position: relative; flex: 1; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); opacity: 0; }
-.ctl-fill { position: absolute; inset: 0; border-radius: inherit; background: #fff; transform-origin: 0 50%; transform: scaleX(0); }
-.ctl-track b { position: absolute; top: -3px; width: 2px; height: 9px; margin-left: -1px; border-radius: 1px; background: rgba(255, 255, 255, 0.4); }
-/* The knob rides a runner as wide as the track, moved by translateX(%) of its own
-   width: it lands on the fill's end at any track width, with nothing to measure. */
-.ctl-knob { position: absolute; inset: 0; pointer-events: none; }
-.ctl-knob::before { content: ""; position: absolute; top: -4px; left: -5.5px; width: 11px; height: 11px; border-radius: 50%; background: #fff; }
-.skip {
-  display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 999px;
-  background: rgba(24, 24, 27, 0.78); border: 1px solid rgba(255, 255, 255, 0.16);
-  font: 600 14px/1 var(--head); text-decoration: none; white-space: nowrap;
-  transition: transform 180ms var(--ease-out), background 180ms ease;
-}
-.skip svg { width: 13px; height: 13px; }
-.skip:hover { transform: scale(1.04); background: rgba(40, 40, 44, 0.9); }
-.skip:active { transform: scale(0.98); }
-
-/* ---- Download / Free / FAQ / footer ---------------------------------- */
-/* Positioned, so they paint over the canvas (which lives in the stage). */
-.dl, .free, .faq, footer { position: relative; }
-.lockup { display: flex; align-items: center; gap: 0.214em; font: 700 clamp(44px, 8vw, 84px)/1 var(--head); letter-spacing: -0.02em; }
-.lockup .mark { --m: 0.905em; }
-.lockup h2, .lockup span { font: inherit; letter-spacing: inherit; margin: 0; }
-
-.dl { overflow: hidden; display: grid; place-items: center; min-height: 0; padding: clamp(96px, 12vh, 160px) var(--gr) clamp(96px, 12vh, 160px) var(--gl); text-align: center; }
-/* The idle halo again, standing still (the WebGL canvas draws its own when it runs).
-   Its ends fade, so the section never cuts the glow off flat. */
-.halo-static, .dl > .dither {
-  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
-  -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
-  mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
-}
-.halo-static::before {
-  content: ""; position: absolute; left: 50%; top: 50%; width: max(160vw, 260vh); aspect-ratio: 1;
-  transform: translate(-50%, -50%) rotate(200deg); background: conic-gradient(from 90deg, var(--stops)); opacity: 0.5;
-}
-.halo-static::after {
-  content: ""; position: absolute; inset: calc(36.5 * var(--px)) calc(35 * var(--px));
-  border-radius: calc(100 * var(--px)); background: #000; filter: blur(calc(108.4 * var(--px)));
-}
-.dl-in { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 18px; max-width: 640px; }
-.meta { margin: 0; font-size: 14px; color: var(--muted); letter-spacing: 0.01em; }
-.dl .pill { margin-top: 8px; }
-.note { margin: 6px 0 0; font-size: 14px; line-height: 1.55; color: rgba(255, 255, 255, 0.5); max-width: 46ch; }
-.note strong { color: rgba(255, 255, 255, 0.8); font-weight: 600; white-space: nowrap; }
-
-.free { text-align: center; padding: clamp(32px, 4vw, 64px) var(--gr) clamp(48px, 7vw, 90px) var(--gl); }
-.free h2 { margin: 0 auto; width: fit-content; font-size: clamp(36px, 5vw, 60px); line-height: 1.05; }
-.free p { margin: 16px auto 0; max-width: 44ch; font-size: clamp(16px, 1.3vw, 18px); color: var(--muted); }
-
-.faq { padding: clamp(40px, 6vw, 80px) var(--gr) clamp(80px, 10vw, 120px) var(--gl); }
-.faq h2 { margin: 0 auto 32px; width: fit-content; text-align: center; font-size: clamp(32px, 4.4vw, 48px); }
-.qa-list { max-width: 820px; margin: 0 auto; display: grid; gap: 12px; }
-.qa { border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; background: rgba(0, 0, 0, 0.55); }
-.qa summary {
-  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 20px 24px; border-radius: 20px; font: 600 clamp(17px, 1.6vw, 20px)/1.3 var(--head);
-}
+/* ---- FAQ -------------------------------------------------------------- */
+.faq { background: #fafafa; color: #0a0a0a; padding: 112px clamp(16px, 4vw, 48px); }
+.faq__in { max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 32px 72px; }
+.faq h2 { flex: 1 1 260px; }
+.faq__list { flex: 2.4 1 520px; min-width: 0; border-top: 1px solid #e5e5e5; }
+.qa { border-bottom: 1px solid #e5e5e5; }
+.qa summary { box-sizing: border-box; min-height: 60px; padding: 18px 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; list-style: none; cursor: pointer; text-align: left; color: #0a0a0a; font-size: 17px; font-weight: 600; }
 .qa summary::-webkit-details-marker { display: none; }
-.qa summary svg { flex: none; width: 20px; height: 20px; color: var(--quiet); transition: transform 220ms var(--ease-out); }
+.qa summary svg { flex: none; transition: transform 200ms ease; }
 .qa[open] summary svg { transform: rotate(180deg); }
-.qa p { margin: 0; padding: 0 24px 22px; max-width: 68ch; font-size: 16.5px; line-height: 1.6; color: var(--muted); }
+.qa p { margin: 0; padding: 0 0 20px; max-width: 62ch; font-size: 16px; line-height: 1.65; color: #525252; }
 
-footer { border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 40px var(--gr) max(48px, env(safe-area-inset-bottom, 0px)) var(--gl); }
-.foot { max-width: 1120px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 24px 48px; justify-content: space-between; align-items: flex-start; }
-.foot p { margin: 14px 0 0; max-width: 46ch; font-size: 14px; color: rgba(255, 255, 255, 0.5); }
-.foot nav { display: flex; flex-wrap: wrap; gap: 12px 20px; font-size: 15px; }
-.foot nav a { color: var(--quiet); text-decoration: none; border-radius: 4px; }
-.foot nav a:hover { color: #fff; }
+/* ---- Pricing, download, footer ---------------------------------------- */
+.pricing { padding: 140px clamp(16px, 4vw, 48px) 72px; display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center; }
+.pricing h2 { font-size: clamp(40px, 5.6vw, 80px); line-height: 1; letter-spacing: -0.035em; }
+.pricing p { margin: 0; font-size: 19px; color: #a1a1a1; }
+.grad { background: linear-gradient(90deg, #ff9b9b, #ff7bf6, #8696ff, #85cbd4, #84ffa9, #ffe57f); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
-/* Reduced motion: no entrance movement, just gentle fades. The idle blur stays:
-   it is static paint (boot.css's box-shadow stand-in read as a slab on phones). */
+.download { padding: 0 clamp(16px, 4vw, 48px) 120px; }
+.download__card { max-width: 1200px; margin: 0 auto; padding: 72px clamp(20px, 5vw, 64px); border-radius: 24px; background: #171717; border: 1px solid rgba(255, 255, 255, 0.10); display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center; }
+.download__title { display: flex; align-items: center; gap: 14px; }
+.download__title img, .footer .brand-foot img { display: block; }
+.download h2 { font-size: clamp(36px, 4.4vw, 56px); line-height: normal; }
+.download__meta { margin: 0; font-size: 15px; color: #a1a1a1; }
+.download .btn-default { margin-top: 8px; }
+.download__note { margin: 8px 0 0; max-width: 52ch; font-size: 13px; line-height: 1.6; color: #8a8a8a; }
+.download__note strong { color: #d4d4d4; }
+.download__all { font-size: 13px; font-weight: 600; color: #fafafa; }
+
+.footer { border-top: 1px solid rgba(255, 255, 255, 0.08); padding: 48px clamp(16px, 4vw, 48px) 56px; }
+.footer__in { max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 28px 48px; }
+.footer__about { flex: 1 1 320px; display: flex; flex-direction: column; gap: 12px; }
+.brand-foot { display: flex; align-items: center; gap: 10px; color: #fafafa; text-decoration: none; font-family: var(--head); font-weight: 700; font-size: 20px; }
+.footer__about p { margin: 0; max-width: 44ch; font-size: 13px; line-height: 1.6; color: #8a8a8a; }
+.footer nav { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 12px 28px; font-size: 14px; }
+.footer nav a { color: #a1a1a1; text-decoration: none; }
+
+/* ---- Phones ----------------------------------------------------------- */
+/* Same order as the rules they override: later wins at equal specificity. */
+/* The full nav is 539px plus the 16px gutters: below 600 it would crowd the edges. */
+@media (max-width: 599px) { .nav-opt, .nav-dl { display: none; } }
+@media (max-width: 560px) { .seg-tab { padding: 0 10px; font-size: 12px; } }
+
 @media (prefers-reduced-motion: reduce) {
-  .frame { animation: none; }
-  .hero > * { animation-name: fade; }
-  .hint svg { animation: none; }
-  .pill, .skip, .qa summary svg { transition: none; }
+  html { scroll-behavior: auto; }
+  .halo { animation: none; }
 }
 </style>
 </head>
-<body>
+<body id="top">
 
-<section class="boot" id="top" aria-label="BlammyTV">
+<div class="navbar">
+  <nav class="nav" aria-label="Main">
+    <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="22" height="22">BlammyTV</a>
+    <a class="navlink nav-opt" href="#features">Features</a>
+    <a class="navlink" href="#pricing">Pricing</a>
+    <a class="navlink" href="#faq">FAQ</a>
+    <a class="navlink nav-opt" href="https://github.com/adam-edword/blammytv">GitHub</a>
+    <a class="btn-default nav-dl" href="https://github.com/adam-edword/blammytv/releases/latest">Download</a>
+  </nav>
+</div>
+
+<header class="hero" id="hero">
+  <div class="hero__lattice" aria-hidden="true"></div>
+  <div class="hero__glow" aria-hidden="true"></div>
+  <div class="hero__dots" aria-hidden="true"></div>
+  <div class="hero__copy">
+    <h1>Finally, an Elegant Media Hub</h1>
+    <p class="hero__sub">Watch live TV, movies, shows and sports in one free app for Windows. Add your own playlists, AIOStreams or Jellyfin server.</p>
+    <div class="hero__cta">
+      <a class="btn-default" href="https://github.com/adam-edword/blammytv/releases/latest"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg>Download for Windows</a>
+      <a class="btn-outline" href="https://github.com/adam-edword/blammytv">View on GitHub</a>
+    </div>
+    <p class="hero__fine">Free · Updates Itself · Windows 10 and 11, 64-bit</p>
+  </div>
+
   <div class="stage">
-    <div class="halo" aria-hidden="true">
-      <div class="tvglow"></div>
-      <div class="frame"><div class="sheet"><div class="paint-fit"><div class="paint"></div></div></div></div>
-      <div class="screen"></div>
-      <div class="dither"></div>
-      <div class="glow"></div>
-    </div>
-    <canvas id="leak" aria-hidden="true"></canvas>
-    <p class="word" aria-hidden="true">BlammyTV</p>
-
-    <header class="bar">
-      <a class="link" href="#faq">FAQ</a>
-    </header>
-
-    <div class="hero">
-      <h1 class="lockup" style="--i:0" data-plate><img class="mark" src="assets/logo.svg" alt="" aria-hidden="true"><span>BlammyTV</span></h1>
-      <p class="tagline" style="--i:1" data-plate>All Your TV in One Place</p>
-      <p class="sub lit" style="--i:2" data-plate>Watch live TV, movies, shows and sports in one free app for Windows. Add your own playlists, AIOStreams or Jellyfin server.</p>
-      <a class="pill" style="--i:3" data-plate href="https://github.com/adam-edword/blammytv/releases/latest">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.4l7.4-1.02v6.94H3V5.4zm8.3-1.14L21 3v8.28h-9.7V4.26zM3 12.32h7.4v6.94L3 18.24v-5.92zm8.3 0H21V21l-9.7-1.32v-7.36z"/></svg>
-        Download for Windows
-      </a>
-      <span class="hint" style="--i:4" data-plate>Scroll to Turn On the TV
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-      </span>
+    <div class="tabs-wrap">
+      <div class="tabs" role="tablist" aria-label="Screens">
+        <button class="seg-tab" id="tab-live" type="button" role="tab" aria-selected="true" aria-controls="screen" tabindex="0" data-src="assets/Guide.webp" data-alt="BlammyTV's Live TV guide">Live TV</button>
+        <button class="seg-tab" id="tab-mv" type="button" role="tab" aria-selected="false" aria-controls="screen" tabindex="-1" data-src="assets/Multi_View.webp" data-alt="Four channels playing at once in Multi-View">Multi-View</button>
+        <button class="seg-tab" id="tab-sports" type="button" role="tab" aria-selected="false" aria-controls="screen" tabindex="-1" data-src="assets/Sports.webp" data-alt="Today's games on the Sports board">Sports</button>
+        <button class="seg-tab" id="tab-stream" type="button" role="tab" aria-selected="false" aria-controls="screen" tabindex="-1" data-src="assets/Stream_Home.webp" data-alt="Movies and shows on the Stream home page">Movies and Shows</button>
+      </div>
     </div>
 
-    <section class="feats" aria-label="What's Inside">
-      <ol class="feat-list">
-        <li class="feat" data-name="Live TV">
-          <figure>
-            <img src="assets/Guide.webp" width="1700" height="910" decoding="async" alt="The Live TV guide, with a channel playing above it">
-          </figure>
-          <div class="cap" data-plate>
-            <h2>Live TV with a Real Guide</h2>
-            <p>Every channel you add lands in one guide. See what's on now and next, scroll a whole day ahead, and star the channels you watch most.</p>
+    <div class="monitor">
+      <div class="monitor__body">
+        <div class="halo" aria-hidden="true"></div>
+        <div class="bezel">
+          <div class="display" id="screen" role="tabpanel" aria-labelledby="tab-live">
+            <img id="screen-img" src="assets/Guide.webp" alt="BlammyTV's Live TV guide">
+            <div class="glare" aria-hidden="true"></div>
           </div>
-        </li>
-        <li class="feat" data-name="Multi-View">
-          <figure>
-            <img src="assets/Multi_View.webp" width="1700" height="910" decoding="async" alt="Multi-View with one big channel and two smaller ones beside it">
-          </figure>
-          <div class="cap" data-plate>
-            <h2>Up to Four Channels at Once</h2>
-            <p>Right-click a channel in the Guide to add it. Watch them in a grid, or make one big and keep the rest beside it.</p>
-          </div>
-        </li>
-        <li class="feat" data-name="Sports">
-          <figure>
-            <img src="assets/Sports.webp" width="1700" height="910" decoding="async" alt="Sports, with today's games and a list of leagues down the side">
-          </figure>
-          <div class="cap" data-plate>
-            <h2>Find the Game</h2>
-            <p>See today's games for the leagues you follow, with the channels showing them.</p>
-          </div>
-        </li>
-        <li class="feat" data-name="Stream">
-          <figure>
-            <img src="assets/Stream_Home.webp" width="1700" height="910" decoding="async" alt="The Stream home page, with a hero slider above a row of anime">
-            <img src="assets/Stream_Title.webp" width="1700" height="910" decoding="async" alt="A movie's page, with its sources listed down the right side">
-          </figure>
-          <div class="cap" data-plate>
-            <h2>Movies and Shows</h2>
-            <p>Sign in to AIOStreams or your own Jellyfin server, and your movies and shows fill the home page. Continue Watching keeps your place.</p>
-          </div>
-        </li>
-        <li class="feat" data-name="Discover">
-          <figure>
-            <img src="assets/Stream_Discover.webp" width="1700" height="910" decoding="async" alt="Discover, with genre tiles above a grid of shows">
-          </figure>
-          <div class="cap" data-plate>
-            <h2>Find Something to Watch</h2>
-            <p>Browse your catalogs by genre, or see what's popular right now.</p>
-          </div>
-        </li>
-        <li class="feat" data-name="Player">
-          <figure>
-            <img src="assets/Stream_Player.webp" width="1697" height="901" decoding="async" alt="The player, with its scrubber and controls along the bottom">
-          </figure>
-          <div class="cap" data-plate>
-            <h2>A Real Player, Built In</h2>
-            <p>Everything plays in mpv, built right in. Surround sound works, and Skip Intro jumps past the opening.</p>
-          </div>
-        </li>
-        <li class="feat" data-name="Your Colors">
-          <figure>
-            <!-- Drawn, not a screenshot: the real accent presets (accent.ts) and Appearance choices (theme.ts). -->
-            <div class="board" role="img" aria-label="A drawing of the Accent presets: Red, Yellow, Green, Blue, Purple, Pink, Grey and Custom. Below them, the Appearance choices: Dark, Light and Match Windows.">
-              <p class="board-h">Accent</p>
-              <div class="sw">
-                <span style="--c:#c22727"><i></i><b>Red</b></span>
-                <span style="--c:#ffd500"><i></i><b>Yellow</b></span>
-                <span style="--c:#2cad57"><i></i><b>Green</b></span>
-                <span class="sel" style="--c:#3730ff"><i></i><b>Blue</b></span>
-                <span style="--c:#a200ff"><i></i><b>Purple</b></span>
-                <span style="--c:#ff2773"><i></i><b>Pink</b></span>
-                <span style="--c:#9aa0b1"><i></i><b>Grey</b></span>
-                <span class="sw-custom"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5l4 4M17 3.5a2.1 2.1 0 013 3l-2 2-3-3 2-2zM15 8.5L6.5 17 4 20l3-2.5L15.5 9"/></svg><i></i><b>Custom</b></span>
-              </div>
-              <p class="board-h">Appearance</p>
-              <div class="seg"><span class="on">Dark</span><span>Light</span><span>Match Windows</span></div>
-            </div>
-          </figure>
-          <div class="cap" data-plate>
-            <h2>Your Colors</h2>
-            <p>Pick an accent color, or grab any color with the eyedropper. Use it in dark or light mode, or follow Windows.</p>
-          </div>
-        </li>
-      </ol>
-    </section>
+          <div class="chin" aria-hidden="true"><span></span></div>
+        </div>
+      </div>
+      <div class="stand__neck" aria-hidden="true"></div>
+      <div class="stand__base" aria-hidden="true"></div>
+    </div>
+  </div>
+</header>
 
-    <div class="ctl">
-      <span class="ctl-label" aria-hidden="true">Intro</span>
-      <div class="ctl-track" aria-hidden="true"><i class="ctl-fill"></i><i class="ctl-knob"></i></div>
-      <span class="ctl-out">
-        <a class="skip" href="#download">Skip Intro
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4.5l10 7.5-10 7.5v-15zM16 4.5h3v15h-3z"/></svg>
-        </a>
-        <a class="skip skip--dl" href="#download">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.4l7.4-1.02v6.94H3V5.4zm8.3-1.14L21 3v8.28h-9.7V4.26zM3 12.32h7.4v6.94L3 18.24v-5.92zm8.3 0H21V21l-9.7-1.32v-7.36z"/></svg>
-          Download
-        </a>
-      </span>
+<section class="works" aria-label="Works With">
+  <div class="works__in">
+    <span class="works__label">Works With</span>
+    <div class="marquee">
+      <div class="marquee__track">
+        <ul class="marquee__list">
+          <li>Xtream</li>
+          <li>M3U</li>
+          <li>Stalker Portals</li>
+          <li>AIOStreams</li>
+          <li>Jellyfin</li>
+          <li>Trakt</li>
+          <li>MyAnimeList</li>
+        </ul>
+        <ul class="marquee__list marquee__dup" aria-hidden="true">
+          <li>Xtream</li>
+          <li>M3U</li>
+          <li>Stalker Portals</li>
+          <li>AIOStreams</li>
+          <li>Jellyfin</li>
+          <li>Trakt</li>
+          <li>MyAnimeList</li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="dl" id="download">
-  <div class="halo-static" aria-hidden="true"></div>
-  <div class="dither" aria-hidden="true"></div>
-  <div class="dl-in" data-plate>
-    <div class="lockup"><img class="mark" src="assets/logo.svg" alt="" aria-hidden="true"><h2>BlammyTV</h2></div>
-    <p class="meta">Free · Updates Itself · Windows 10 and 11, 64-bit</p>
-    <a class="pill" href="https://github.com/adam-edword/blammytv/releases/latest">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.4l7.4-1.02v6.94H3V5.4zm8.3-1.14L21 3v8.28h-9.7V4.26zM3 12.32h7.4v6.94L3 18.24v-5.92zm8.3 0H21V21l-9.7-1.32v-7.36z"/></svg>
-      Download for Windows
-    </a>
-    <p class="note">If Windows says it protected your PC, click <strong>More info</strong>, then <strong>Run anyway</strong>. The app isn't code-signed yet, so Windows doesn't recognize it.</p>
-    <a class="link" href="https://github.com/adam-edword/blammytv/releases">All Releases</a>
+<section class="feat feat--light" id="features">
+  <div class="feat__in">
+    <div class="feat__copy">
+      <span class="chip">Live TV</span>
+      <h2>Live TV with a Real Guide</h2>
+      <p>Every channel you add lands in one guide. See what's on now and next, scroll a whole day ahead, and star the channels you watch most.</p>
+      <ul>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Hide the folders you never open.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Point a channel at the right guide when it's wrong.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Add as many playlists as you like.</li>
+      </ul>
+    </div>
+    <div class="shot">
+      <img src="assets/Guide.webp" width="1700" height="910" decoding="async" alt="The Guide, with channels down the side and what's on across a timeline">
+    </div>
   </div>
 </section>
 
-<section class="free" id="free">
-  <h2 data-plate>Is It Free? <span class="grad">Yup.</span></h2>
-  <p data-plate>No price and no account.</p>
+<section class="feat feat--flip">
+  <div class="feat__in">
+    <div class="feat__copy">
+      <span class="chip">Multi-View</span>
+      <h2>Several Channels at Once</h2>
+      <p>Right-click a channel in the Guide to add it. Watch them in a grid, or make one big and keep the rest beside it.</p>
+      <ul>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>The sound follows the tile you pick.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Fill the grid with today's live games.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Live scores run along the bottom.</li>
+      </ul>
+    </div>
+    <div class="shot">
+      <img src="assets/Multi_View.webp" width="1700" height="910" decoding="async" alt="Multi-View with one large channel and three smaller ones beside it">
+    </div>
+  </div>
+</section>
+
+<section class="feat feat--light">
+  <div class="feat__in">
+    <div class="feat__copy">
+      <span class="chip">Sports</span>
+      <h2>Find the Game</h2>
+      <p>See today's games for the leagues you follow, with the channels showing them.</p>
+      <ul>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Follow leagues, teams and conferences.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Click a game to watch it on the channel showing it.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Hide finished games when you only want what's live.</li>
+      </ul>
+    </div>
+    <div class="shot">
+      <img src="assets/Sports.webp" width="1700" height="910" decoding="async" alt="The Sports board with today's games and the channels showing them">
+    </div>
+  </div>
+</section>
+
+<section class="feat feat--flip">
+  <div class="feat__in">
+    <div class="feat__copy">
+      <span class="chip">Stream</span>
+      <h2>Movies and Shows</h2>
+      <p>Bring in your Xtream provider's movies and shows, sign in to AIOStreams, or add your own Jellyfin server. It all lands on one home page, and Continue Watching keeps your place.</p>
+      <ul>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Browse your catalogs by genre, or see what's popular.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Keep what you've watched in sync with Trakt.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Track anime on MyAnimeList as you watch.</li>
+      </ul>
+    </div>
+    <div class="shot">
+      <div class="shots">
+        <img class="on" src="assets/Stream_Home.webp" decoding="async" alt="The Stream home page with rows of movies and shows">
+        <img src="assets/Stream_Title.webp" decoding="async" aria-hidden="true" alt="A show's page with its episodes and where to watch it">
+        <img src="assets/Stream_Discover.webp" decoding="async" aria-hidden="true" alt="Discover, browsing a catalog by genre">
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="feat feat--light">
+  <div class="feat__in">
+    <div class="feat__copy">
+      <span class="chip">Player</span>
+      <h2>Native Video Playback</h2>
+      <p>Everything plays in mpv, built right in. Surround sound works, and Skip Intro jumps past the opening.</p>
+      <ul>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Pick your audio and subtitle languages once.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Tracks you pick for a show stay picked.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Up Next plays the next episode for you.</li>
+      </ul>
+    </div>
+    <div class="shot">
+      <img src="assets/Stream_Player.webp" width="1697" height="901" decoding="async" alt="A movie playing full screen with the player's controls">
+    </div>
+  </div>
+</section>
+
+<section class="feat feat--flip">
+  <div class="feat__in">
+    <div class="feat__copy">
+      <span class="chip">Appearance</span>
+      <h2>Your Colors</h2>
+      <p>Pick an accent color, or grab any color with the eyedropper. Use it in dark or light mode, or follow Windows.</p>
+    </div>
+    <div class="card" id="colors" data-theme="dark">
+      <span class="card__label">Accent</span>
+      <div class="swatches">
+        <button class="sw" type="button" aria-pressed="false" data-name="Red" style="--c:#c22727"><span class="sw__dot"></span><span>Red</span></button>
+        <button class="sw" type="button" aria-pressed="false" data-name="Yellow" style="--c:#ffd500"><span class="sw__dot"></span><span>Yellow</span></button>
+        <button class="sw" type="button" aria-pressed="false" data-name="Green" style="--c:#2cad57"><span class="sw__dot"></span><span>Green</span></button>
+        <button class="sw" type="button" aria-pressed="true" data-name="Blue" style="--c:#3730ff"><span class="sw__dot"></span><span>Blue</span></button>
+        <button class="sw" type="button" aria-pressed="false" data-name="Purple" style="--c:#a200ff"><span class="sw__dot"></span><span>Purple</span></button>
+        <button class="sw" type="button" aria-pressed="false" data-name="Pink" style="--c:#ff2773"><span class="sw__dot"></span><span>Pink</span></button>
+        <button class="sw" type="button" aria-pressed="false" data-name="Grey" style="--c:#9aa0b1"><span class="sw__dot"></span><span>Grey</span></button>
+        <button class="sw sw--custom" type="button" aria-pressed="false" aria-expanded="false" aria-controls="picker" data-name="Custom" style="--c:#ff8a3d"><span class="sw__dot"></span><span>Custom</span></button>
+      </div>
+      <div class="picker" id="picker" hidden>
+        <div class="sv" role="slider" aria-label="Color" aria-valuetext="#ff8a3d" tabindex="0"><span class="sv__thumb"></span></div>
+        <input class="hue" type="range" min="0" max="360" step="1" value="25" aria-label="Hue">
+        <div class="picker__row">
+          <button class="drop" type="button" hidden aria-label="Pick a color from the screen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 22 1-1h3l9-9"></path><path d="M3 21v-3l9-9"></path><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"></path></svg></button>
+          <label class="hex">#<input type="text" value="FF8A3D" spellcheck="false" aria-label="Hex color"></label>
+        </div>
+      </div>
+      <span class="card__label">Appearance</span>
+      <div class="look" role="radiogroup" aria-label="Appearance">
+        <button type="button" role="radio" aria-checked="true" tabindex="0">Dark</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1">Light</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1">Match Windows</button>
+      </div>
+      <div class="scrub" aria-hidden="true">
+        <span>12:40</span>
+        <div class="scrub__bar"><div class="scrub__fill"></div></div>
+        <span>42:15</span>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section class="faq" id="faq">
-  <h2 data-plate>FAQ</h2>
-  <div class="qa-list" data-plate>
-    <details class="qa">
-      <summary>Does it come with channels?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
-      <p>Nope. BlammyTV is just a player. It doesn't come with any channels, shows or streams. You add your own IPTV subscription, playlists, AIOStreams or Jellyfin server.</p>
-    </details>
-    <details class="qa">
-      <summary>What can I add?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
-      <p>Xtream Codes logins, M3U playlists, Stalker portals, AIOStreams and your own Jellyfin server. Add as many as you like. Stalker portals haven't been tested much yet.</p>
-    </details>
-    <details class="qa">
-      <summary>Do I need an account?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
-      <p>Nope. There's nothing to sign up for. Your sources stay on your PC, and any sign-ins are saved in Windows Credential Manager.</p>
-    </details>
+  <div class="faq__in">
+    <h2>FAQ</h2>
+    <div class="faq__list">
+      <details class="qa" name="faq" open>
+        <summary>Does it come with channels?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></summary>
+        <p>Nope. BlammyTV is just a player. It doesn't come with any channels, shows or streams. You add your own IPTV subscription, playlists, AIOStreams or Jellyfin server.</p>
+      </details>
+      <details class="qa" name="faq">
+        <summary>What can I add?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></summary>
+        <p>Xtream Codes logins, M3U playlists, Stalker portals, AIOStreams and your own Jellyfin server. Add as many as you like. Stalker portals haven't been tested much yet.</p>
+      </details>
+      <details class="qa" name="faq">
+        <summary>Do I need an account?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></summary>
+        <p>Nope. There's nothing to sign up for. Your sources stay on your PC, and any sign-ins are saved in Windows Credential Manager.</p>
+      </details>
+    </div>
   </div>
 </section>
 
-<footer>
-  <div class="foot" data-plate>
-    <div>
-      <a class="brand" href="#top"><img class="mark" src="assets/logo.svg" alt="" aria-hidden="true">BlammyTV</a>
+<section class="pricing" id="pricing">
+  <h2>Pricing?&nbsp;<span class="grad">Free.</span></h2>
+  <p>That simple.</p>
+</section>
+
+<section class="download" id="download">
+  <div class="download__card">
+    <div class="download__title">
+      <img src="assets/logo.svg" alt="" width="52" height="52">
+      <h2>BlammyTV</h2>
+    </div>
+    <p class="download__meta">Free · Updates Itself · Windows 10 and 11, 64-bit</p>
+    <a class="btn-default" href="https://github.com/adam-edword/blammytv/releases/latest"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg>Download for Windows</a>
+    <p class="download__note">If Windows says it protected your PC, click <strong>More info</strong>, then <strong>Run anyway</strong>. The app isn't code-signed yet, so Windows doesn't recognize it.</p>
+    <a class="download__all" href="https://github.com/adam-edword/blammytv/releases">All Releases</a>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer__in">
+    <div class="footer__about">
+      <a class="brand-foot" href="#top"><img src="assets/logo.svg" alt="" width="26" height="26">BlammyTV</a>
       <p>BlammyTV is just a player. It doesn't come with any channels, shows or streams. © 2026 BlammyTV</p>
     </div>
     <nav aria-label="Footer">
@@ -530,570 +511,152 @@ footer { border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 40px var(--gr)
 <script>
 (() => {
   "use strict";
-  const root = document.documentElement;
-  const mq = matchMedia("(prefers-reduced-motion: reduce)");
-  // shortcut: a reduced-motion toggle mid-visit just reloads into the other layout.
-  mq.addEventListener && mq.addEventListener("change", () => location.reload());
-  if (mq.matches) return; // the static story (no leak, no scrub) is the default layout
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const $ = (s) => document.querySelector(s);
-  const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
-  const lerp = (a, b, t) => a + (b - a) * t;
-  // cubic-bezier(0.5, 0, 0.5, 1): x(t) = 1.5t - 1.5t^2 + t^3, y(t) = 3t^2 - 2t^3.
-  const ease = (u) => { let t = u; for (let i = 0; i < 6; i++) t -= (1.5 * t - 1.5 * t * t + t * t * t - u) / (1.5 - 3 * t + 3 * t * t); return t * t * (3 - 2 * t); };
-  // Figma's sampled spring from boot.css, over its 987.4ms window.
-  const spring = (u) => { if (u >= 1) return 1; const T = u * 0.9874; return 1 - Math.exp(-7.6657 * T) * (Math.cos(6.7605 * T) + 1.1339 * Math.sin(6.7605 * T)); };
-  const smooth = (u) => u * u * u * (10 - 15 * u + 6 * u * u);
-  const hermite = (u) => u - 6 * u ** 3 + 8 * u ** 4 - 3 * u ** 5;
-  console.assert(ease(0) === 0 && Math.abs(ease(1) - 1) < 1e-9 && Math.abs(ease(0.5) - 0.5) < 1e-6 && spring(0) === 0 && Math.abs(spring(0.999) - 1) < 2e-3, "boot easing");
-
-  /* ==== The boot scrub (from Boot) ====================================== */
-  const track = $(".boot"), stage = $(".stage"), frame = $(".frame"), sheet = $(".sheet"),
-    screen = $(".screen"), word = $(".word"), dither = $(".halo .dither"), glow = $(".glow"),
-    tvglow = $(".tvglow"), hero = $(".hero"), bar = $(".bar"), skip = $(".skip"), dlBtn = $(".skip--dl"),
-    ctl = $(".ctl"), label = $(".ctl-label"), ctrack = $(".ctl-track"), fill = $(".ctl-fill"), knob = $(".ctl-knob"),
-    canvas = $("#leak");
-  const lis = [...document.querySelectorAll(".feat")];
-  const feats = lis.map((li) => ({
-    fig: li.querySelector("figure"), imgs: [...li.querySelectorAll("img")], cap: li.querySelector(".cap"),
-    board: li.querySelector(".board"), sw: [...li.querySelectorAll(".sw > span[style]")], k: -1, op: 0, capOp: 0,
-  }));
-  const NAMES = ["Intro", ...lis.map((li) => li.dataset.name)];
-
-  // Scroll budget in stage heights. The boot is a piecewise map from scroll to
-  // BootScene's clock (ms): the unwind and unblur, the shrink to the tile, the
-  // spring, a short hold. The shrink gets real scroll so it never reads as a snap.
-  const KNOTS = [[0, 0], [0.7, 830], [1.5, 1567], [2.3, 2830], [2.6, 3200]];
-  const tbAt = (p) => {
-    for (let i = 1; i < KNOTS.length; i++) {
-      const [p1, t1] = KNOTS[i];
-      if (p <= p1) { const [p0, t0] = KNOTS[i - 1]; return t0 + ((t1 - t0) * (p - p0)) / (p1 - p0); }
-    }
-    return 3200;
-  };
-  const REV = 1, FEAT = 1, TAIL = 0.15;
-  const P_BOOT = KNOTS[KNOTS.length - 1][0], P_REV = P_BOOT + REV, P_END = P_REV + FEAT * feats.length, TOTAL = P_END + TAIL;
-  const RATIO = 1700 / 910;
-
-  root.classList.add("scrub");
-
-  // Write a style only when it changed (no thrash, and nothing per idle frame).
-  let memo = new WeakMap();
-  const set = (el, prop, v) => { let m = memo.get(el); if (!m) memo.set(el, (m = {})); if (m[prop] !== v) { m[prop] = v; el.style[prop] = v; } };
-
-  let W, H, s, L, Wsc, Hsc, top0, trackEnd, tv;
-  function layout() {
-    W = stage.clientWidth; H = stage.clientHeight;
-    s = Math.max(W / 1920, H / 1167);        // welcome.ts's cover factor
-    // The lockup lands at the app's own size (76px mark, 84px word) or bigger,
-    // and still fits a phone's width.
-    L = Math.min(Math.max(s, 1), (W - 40) / 540);
-    Wsc = W - 70 * s; Hsc = H - 73 * s;      // the screen's box (35/36.5 insets)
-    const narrow = W < 760;
-    const g = Math.max(16, W * 0.04);
-    const b = Math.round(clamp(W * 0.011, 8, 16));
-    // The bar sits 16px inside the screen's bottom edge; captions keep 32px above it.
-    const capH = narrow ? 210 : 104, ctlH = 36.5 * s + 16 + 38 + 32, topPad = narrow ? 64 : 48, gap = narrow ? 20 : 28;
-    let ws = Math.min(W - 2 * g, 1700 + 2 * b) - 2 * b;   // up to the screenshots' own width
-    ws = Math.max(160, Math.min(ws, (H - topPad - capH - ctlH - gap - 2 * b) * RATIO));
-    const hs = ws / RATIO, wo = ws + 2 * b, ho = hs + 2 * b;
-    const top = topPad + Math.max(0, (H - topPad - ctlH - (ho + gap + capH)) / 2);
-    const ro = clamp(wo * 0.028, 18, 34), ri = Math.max(8, ro - b);
-    tv = { ws, hs, wo, ho, ro, ri, dy: top + ho / 2 - H / 2, sx: (W - ws) / 2, sy: top + b };
-    const v = {
-      "--px": s + "px", "--lpx": L + "px", "--s": s,
-      "--scx": tv.sx + "px", "--scy": tv.sy + "px", "--scw": ws + "px", "--sch": hs + "px", "--ri": ri + "px",
-      "--tox": (W - wo) / 2 + "px", "--toy": top + "px", "--tow": wo + "px", "--toh": ho + "px", "--ro": ro + "px",
-      "--capy": top + ho + gap + "px",
+  /* ---- Tabs and radios: arrows, Home and End move focus and pick ---- */
+  function roving(list, attr, pick) {
+    const items = $$("button", list);
+    const set = (i, focus) => {
+      items.forEach((b, j) => { b.setAttribute(attr, j === i); b.tabIndex = j === i ? 0 : -1; });
+      if (focus) items[i].focus();
+      pick(items[i]);
     };
-    for (const k in v) stage.style.setProperty(k, v[k]);
-    track.style.height = (TOTAL + 1) * H + "px";
-    top0 = track.getBoundingClientRect().top + scrollY;
-    trackEnd = top0 + (TOTAL + 1) * H;
-    memo = new WeakMap();
-  }
-
-  // Chapter ticks on the scrubber.
-  [0, ...feats.map((_, i) => P_REV + i * FEAT)].forEach((p) => {
-    const t = document.createElement("b");
-    t.style.left = (100 * p) / TOTAL + "%";
-    ctrack.appendChild(t);
-  });
-
-  let angle = 0, pr = 0, chapter = -1;
-  let gx = 0, gy = 0, tx = 0, ty = 0, live = false;
-  const st = { th: 0, sy: 1.15, tb: 0, r: 0, hk: 0, lvl: 1, dots: 1 };
-  const xf = (x, y, sx, sy) => `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${sx.toFixed(5)}, ${sy.toFixed(5)})`;
-  const rad = (rx, ry) => `${rx.toFixed(2)}px / ${ry.toFixed(2)}px`;
-
-  function render(p, dt) {
-    // Virtual boot clock, ms of BootScene's 3200ms timeline.
-    const tb = tbAt(p);
-    const r = clamp((p - P_BOOT) / REV);
-    const f = (p - P_REV) / FEAT;
-
-    // Sheet: idle drift at the top, then BootScene's quintic unwind to rotation 0.
-    if (tb === 0) angle = (angle + 16 * dt) % 360;
-    const u = Math.min(1, tb / 830);
-    const target = 360 * Math.ceil((angle + 540) / 360);
-    const th = u >= 1 ? 0 : (angle + 16 * 0.83 * hermite(u) + (target - angle) * smooth(u)) % 360;
-    const sy = 1.15 - 0.15 * smooth(Math.min(1, tb / 1490));
-    set(sheet, "transform", `rotate(${th.toFixed(2)}deg) scaleY(${sy.toFixed(4)})`);
-    set(sheet, "opacity", (0.5 + 0.5 * ease(u)).toFixed(3));
-
-    // Frame and screen. Blur moves only while geometry is frozen (P1); filter:none
-    // the moment geometry moves (boot.css's blur rules). A crossfade of fixed-blur
-    // layers was tried instead: it read tighter and darker mid-unblur and cost
-    // more per frame (two blurred layers at once), so the animated blur stays.
-    let fT = "", fR = "", sT = "", sR = "", filt = "";
-    if (tb > 0 && tb < 830) {
-      sR = 44 * s + "px";
-      filt = `blur(${(108.4 * s * (1 - ease(u))).toFixed(2)}px)`;
-    } else if (tb >= 830 && r === 0) {
-      const q = Math.min(1, (tb - 830) / 2000);
-      const e1 = ease(clamp(q / 0.3686)), e2 = ease(clamp(q / 0.3678));
-      const x = -213.59 * L * (q <= 0.4342 ? 0 : spring((q - 0.4342) / (0.9279 - 0.4342)));
-      fT = xf(x, 0, lerp(1, (76 * L) / W, e1), lerp(1, (76 * L) / H, e1));
-      fR = rad(lerp(33 * s, 0.325 * W, e1), lerp(33 * s, 0.325 * H, e1));
-      sT = xf(x, 0, lerp(1, (43.07 * L) / Wsc, e2), lerp(1, (43.07 * L) / Hsc, e2));
-      sR = rad(lerp(44 * s, 0.275 * Wsc, e2), lerp(44 * s, 0.275 * Hsc, e2));
-      filt = "none";
-    } else if (r > 0) {
-      // The reverse: the lockup un-springs to centre while the tile and its
-      // hole grow back out, concentric, into a TV with a thin brand bezel. The
-      // mark waits for the wordmark to be gone so it never slides under it.
-      const m = ease(clamp((r - 0.1) / 0.5)), g = ease(clamp((r - 0.12) / 0.88));
-      const x = lerp(-213.59 * L, 0, m), y = lerp(0, tv.dy, g);
-      const fw = lerp(76 * L, tv.wo, g), fh = lerp(76 * L, tv.ho, g), fr = lerp(0.325 * 76 * L, tv.ro, g);
-      fT = xf(x, y, fw / W, fh / H);
-      fR = rad((fr * W) / fw, (fr * H) / fh);
-      // The ambilight sits at the TV's final rect and tracks the bezel, so its
-      // shadow never shows a gap while the bezel is still growing.
-      set(tvglow, "transform", xf(x, y - tv.dy, fw / tv.wo, fh / tv.ho));
-      set(tvglow, "borderRadius", rad((fr * tv.wo) / fw, (fr * tv.ho) / fh));
-      const sw = lerp(43.07 * L, tv.ws, g), sh = lerp(43.07 * L, tv.hs, g), sr = lerp(0.275 * 43.07 * L, tv.ri, g);
-      sT = xf(x, y, sw / Wsc, sh / Hsc);
-      sR = rad((sr * Wsc) / sw, (sr * Hsc) / sh);
-      filt = "none";
-    }
-    set(frame, "transform", fT); set(frame, "borderRadius", fR);
-    set(screen, "transform", sT); set(screen, "borderRadius", sR); set(screen, "filter", filt);
-
-    // Wordmark: boot.css's pure fade in (58.65% to 92.5% of the track), out early on the reverse.
-    const wIn = tb >= 830 ? ease(clamp(((tb - 830) / 2000 - 0.5865) / (0.925 - 0.5865))) : 0;
-    set(word, "opacity", (wIn * (1 - ease(clamp(r / 0.12)))).toFixed(3));
-
-    // The light: the screen turning on swallows it (gone by the time it's sharp),
-    // and it comes back with the lattice as the TV opens.
-    const back = clamp((r - 0.6) / 0.4);
-    const dots = Math.max(1 - clamp(tb / 600), back);
-    set(dither, "opacity", dots.toFixed(3));
-    set(tvglow, "opacity", ease(clamp((r - 0.55) / 0.45)).toFixed(3));
-
-    // Hero exits like onboarding's steps: up 14px and away.
-    const hk = clamp(tb / 300);
-    for (const el of [hero, bar]) {
-      set(el, "opacity", (1 - hk).toFixed(3));
-      set(el, "transform", hk ? `translateY(${(-14 * hk).toFixed(2)}px)` : "");
-      set(el, "visibility", hk >= 1 ? "hidden" : "");
-    }
-    if (!gl) {
-      if (live) { const k = Math.min(1, dt * 10); gx += (tx - gx) * k; gy += (ty - gy) * k; }
-      set(glow, "opacity", live ? (1 - hk).toFixed(3) : "0");
-      if (hk < 1) set(glow, "transform", `translate(${gx.toFixed(1)}px, ${gy.toFixed(1)}px)`);
-    }
-
-    // Scrubber.
-    const sc = clamp(tb / 300).toFixed(3);
-    set(label, "opacity", sc); set(ctrack, "opacity", sc);
-    set(fill, "transform", `scaleX(${(p / TOTAL).toFixed(4)})`);
-    set(knob, "transform", `translateX(${((100 * p) / TOTAL).toFixed(3)}%)`);
-    // The bar bows out over the tail instead of riding up the page with the stage.
-    const tail = 1 - clamp((p - P_END) / TAIL);
-    set(ctl, "opacity", tail.toFixed(3)); set(ctl, "visibility", tail > 0 ? "" : "hidden");
-    // Skip Intro turns into Download in the same slot once the TV opens, so the
-    // tour always has a way out and the track never moves. One goes, then the
-    // other comes: overlapping, the two labels read as one jumble.
-    const skO = clamp((r - 0.3) / 0.08), dlI = clamp((r - 0.42) / 0.08);
-    set(skip, "opacity", (1 - skO).toFixed(3)); set(skip, "visibility", skO >= 1 ? "hidden" : "");
-    set(dlBtn, "opacity", dlI.toFixed(3)); set(dlBtn, "visibility", dlI > 0 && tail > 0 ? "visible" : "hidden");
-    const ch = p < P_REV ? 0 : 1 + Math.min(feats.length - 1, Math.floor(f));
-    if (ch !== chapter) { chapter = ch; label.textContent = NAMES[ch]; }
-
-    // Features: the next screenshot fades in over the last one (no dip to
-    // black); captions swap with onboarding's rise.
-    feats.forEach((ft, i) => {
-      const inn = clamp((f - i) / 0.3);
-      ft.op = i < feats.length - 1 && f >= i + 1.3 ? 0 : inn;
-      set(ft.fig, "opacity", ft.op.toFixed(3));
-      set(ft.fig, "willChange", ft.op > 0 && ft.op < 1 ? "opacity" : "auto");   // a layer only mid-fade
-      const n = ft.imgs.length, local = clamp((f - i - 0.3) / 0.7);
-      for (let j = 1; j < n; j++) set(ft.imgs[j], "opacity", clamp((local - j / n + 0.08) / 0.16).toFixed(3));
-      if (ft.board) {
-        // Scrolling steps the selection from Red to Pink and rests there (Grey reads as nothing picked).
-        const k = Math.min(ft.sw.length - 2, Math.floor(local * (ft.sw.length - 1)));
-        if (k !== ft.k) {
-          ft.k = k;
-          ft.sw.forEach((el, j) => (el.firstElementChild.style.opacity = j === k ? "1" : "0"));
-          ft.board.style.setProperty("--acc", ft.sw[k].style.getPropertyValue("--c"));
-        }
-      }
-      const cin = i === 0 ? clamp(f / 0.3) : clamp((f - i - 0.1) / 0.2);
-      const cout = i < feats.length - 1 ? clamp((f - i - 1) / 0.1) : 0;
-      ft.capOp = cin * (1 - cout);
-      set(ft.cap, "opacity", ft.capOp.toFixed(3));
-      set(ft.cap, "transform", `translateY(${((1 - cin) * 16 - cout * 14).toFixed(1)}px)`);
+    items.forEach((b, i) => b.addEventListener("click", () => set(i)));
+    list.addEventListener("keydown", (e) => {
+      const i = items.indexOf(document.activeElement);
+      const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[e.key];
+      if (i < 0 || to === undefined) return;
+      e.preventDefault();
+      set((to + items.length) % items.length, true);
     });
-
-    Object.assign(st, { th, sy, tb, r, hk, dots, lvl: Math.max(1 - ease(clamp(tb / 600)), back) });
   }
 
-  /* ==== The lattice, the cursor glow, the halo after the stage ========== */
-  // The brand ramp: the conic's stops, in turns (the after-stage halo's colour).
-  const STOPS = [
-    [-0.048706, [255, 155, 155]], [0.038928, [255, 139, 201]], [0.12656, [255, 123, 246]],
-    [0.21574, [195, 136, 251]], [0.30493, [134, 150, 255]], [0.4025, [133, 203, 212]],
-    [0.50008, [132, 255, 169]], [0.6255, [193, 242, 148]], [0.75091, [255, 229, 127]],
-    [0.95129, [255, 155, 155]],
-  ];
-  const SHIFT = 0.048706;            // puts coral at 0 so the ramp runs 0..1
-  const f5 = (n) => n.toFixed(5);
-  const vec = (c) => "vec3(" + c.map((v) => f5(v / 255)).join(",") + ")";
-  const RAMP = "vec3 ramp(float u){float w=fract(u+" + f5(SHIFT) + ");vec3 c=" + vec(STOPS[0][1]) + ";" +
-    STOPS.slice(1).map((sp, i) => {
-      const a = STOPS[i][0] + SHIFT, b = sp[0] + SHIFT;
-      return "c=mix(c," + vec(sp[1]) + ",clamp((w-" + f5(a) + ")/" + f5(b - a) + ",0.,1.));";
-    }).join("") + "return c;}";
+  /* ---- Hero: the pointer's glow, and the monitor's tabs ---- */
+  const hero = $("#hero");
+  hero.addEventListener("pointermove", (e) => {
+    const r = hero.getBoundingClientRect();
+    hero.style.setProperty("--gx", e.clientX - r.left + "px");
+    hero.style.setProperty("--gy", e.clientY - r.top + "px");
+    hero.style.setProperty("--ga", "1");
+  });
+  hero.addEventListener("pointerleave", () => hero.style.setProperty("--ga", "0"));
 
-  // The halo takes the boot sheet's own colours: invert the paint's transforms
-  // (.paint matrix, .paint-fit scale, .sheet rotate and scaleY) so a viewport
-  // point maps into the conic's space. N, OFF: from the viewport centre (CSS px,
-  // y down) to the paint's centre.
-  const PM = [141.62, 64.542, -114.74, 79.662, 964.59, 542.58];
-  const PDET = PM[0] * PM[3] - PM[1] * PM[2];
-  const PI_ = [PM[3] / PDET, -PM[2] / PDET, -PM[1] / PDET, PM[0] / PDET];
-  const N = new Float32Array(4), OFF = new Float32Array([
-    PI_[0] * (960 - PM[4]) + PI_[1] * (540 - PM[5]), PI_[2] * (960 - PM[4]) + PI_[3] * (540 - PM[5]),
-  ]);
-  function conicMap(thDeg, sy) {
-    const t = (-thDeg * Math.PI) / 180, c = Math.cos(t), sn = Math.sin(t), k = s * 2.4;
-    const a00 = c / k, a01 = -sn / k, a10 = sn / (sy * k), a11 = c / (sy * k);
-    N[0] = PI_[0] * a00 + PI_[1] * a10; N[1] = PI_[0] * a01 + PI_[1] * a11;
-    N[2] = PI_[2] * a00 + PI_[3] * a10; N[3] = PI_[2] * a01 + PI_[3] * a11;
-  }
-  let dpr = 1.5;
-  function size() {
-    // At most 1.5x, and at most ~2.2 million pixels in the display pass.
-    dpr = Math.min(window.devicePixelRatio || 1, 1.5, Math.sqrt(2.2e6 / (W * H)));
-  }
-
-  // P: the cursor glow, as onboarding's .onb-cursor-glow (Onboarding.tsx): it
-  // jumps to the pointer on first sighting, then lerps after it at dt*9. Hidden
-  // until the pointer moves, fading out when it leaves; on touch it follows the
-  // finger while it's down.
-  const P = { x: 0, y: 0, tx: 0, ty: 0, px: 0, py: 0, a: 0, present: false };
-  function stepLights(dt) {
-    P.px = P.x; P.py = P.y;
-    if (P.present) { const k = Math.min(1, dt * 9); P.x += (P.tx - P.x) * k; P.y += (P.ty - P.y) * k; }
-    P.a += ((P.present ? 1 : 0) - P.a) * Math.min(1, dt * (P.present ? 4 : 3));
-  }
-
-  // WebGL: one pass over the boot's own DOM halo: the dither lattice, the white
-  // cursor glow, and the idle halo for the sections after the stage.
-  const VS = "attribute vec2 a;varying vec2 v;void main(){v=a*.5+.5;gl_Position=vec4(a,0.,1.);}";
-  const SHOW = `precision highp float;
-uniform vec2 uView; uniform float uDpr; uniform float uS;
-uniform vec4 uN; uniform vec2 uOff;
-uniform float uDots; uniform float uHaloTop;
-uniform vec3 uGlow;
-uniform vec4 uPlates[12]; uniform float uPlateN;
-${RAMP}
-float box(vec2 p, vec2 b, float r){vec2 q=abs(p)-b+r;return length(max(q,0.))+min(max(q.x,q.y),0.)-r;}
-void main(){
-  vec2 p=gl_FragCoord.xy/uDpr;
-  vec2 c=vec2(p.x-uView.x*.5,uView.y*.5-p.y);
-  vec2 d=vec2(dot(uN.xy,c),dot(uN.zw,c))+uOff;
-  vec3 col=ramp(atan(d.x,-d.y)/6.2831853-.25);
-  // the idle halo (after the stage only): the black screen inset from the edges, blurred ~108px
-  float halo=.5/(1.+exp(-1.702*box(c,uView*.5-vec2(35.,36.5)*uS,100.*uS)/(108.4*uS)));
-  halo*=smoothstep(uHaloTop,uHaloTop+220.,uView.y-p.y);
-  // the halo dims behind text so the type stays legible
-  float cover=0.;
-  for(int i=0;i<12;i++){
-    if(float(i)>=uPlateN) break;
-    vec4 b=uPlates[i];
-    cover=max(cover,1.-smoothstep(-48.,150.,box(p-(b.xy+b.zw)*.5,(b.zw-b.xy)*.5,48.)));
-  }
-  halo*=1.-.45*cover;
-  // onboarding's cursor glow: a 120px box, white 9% at the centre, 3% at 42% and
-  // gone at 66% of its corner radius (84.85px)
-  float gd=length(p-uGlow.xy)/84.85;
-  float g=uGlow.z*(gd<.42?mix(.09,.03,gd/.42):mix(.03,0.,clamp((gd-.42)/.24,0.,1.)));
-  float gn=g/.09;
-  vec3 o=col*halo+vec3(g);
-  // the dither lattice; under the glow its dots lift a little, white
-  float m4=clamp((.95+.3*gn-length(mod(p+1.,4.)-2.))*uDpr+.5,0.,1.);
-  float m8=clamp((.95-length(mod(p+1.,8.)-4.))*uDpr+.5,0.,1.);
-  o+=m4*(vec3(.05)*uDots+vec3(.07)*gn+col*halo*.5);
-  o+=m8*vec3(.022)*uDots;
-  // premultiplied: over black this is exactly o; over the halo it adds light
-  float a=clamp(max(o.r,max(o.g,o.b)),0.,1.);
-  gl_FragColor=vec4(min(o,vec3(a)),a);
-}`;
-
-  let gl = null, show, blank = false;
-  function compile(fs) {
-    const p = gl.createProgram();
-    for (const [type, src] of [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, fs]]) {
-      const sd = gl.createShader(type);
-      gl.shaderSource(sd, src); gl.compileShader(sd);
-      if (!gl.getShaderParameter(sd, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sd));
-      gl.attachShader(p, sd);
-    }
-    gl.bindAttribLocation(p, 0, "a");
-    gl.linkProgram(p);
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-    const u = {};
-    for (let i = 0, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); i < n; i++) {
-      const name = gl.getActiveUniform(p, i).name.replace(/\[0\]$/, "");
-      u[name] = gl.getUniformLocation(p, name);
-    }
-    return { p, u };
-  }
-  const plateBuf = new Float32Array(48);
-  let plateN = 0;
-  function resizeGL() {
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    blank = false;
-  }
-  function draw(haloTop) {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    // Nothing to show mid-boot: clear once and let the DOM boot run alone.
-    if (st.lvl < 0.002 && st.dots < 0.002 && haloTop >= H) {
-      if (!blank) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); blank = true; }
-      return;
-    }
-    blank = false;
-    gl.useProgram(show.p);
-    const u = show.u;
-    gl.uniform2f(u.uView, W, H);
-    gl.uniform1f(u.uDpr, canvas.width / W);
-    gl.uniform1f(u.uS, s);
-    gl.uniform4f(u.uN, N[0], N[1], N[2], N[3]);
-    gl.uniform2f(u.uOff, OFF[0], OFF[1]);
-    gl.uniform1f(u.uDots, st.dots);
-    gl.uniform1f(u.uHaloTop, haloTop);
-    gl.uniform3f(u.uGlow, P.x, H - P.y, P.a * st.lvl);   // gone while the boot plays, as the hero leaves
-    gl.uniform4fv(u.uPlates, plateBuf);
-    gl.uniform1f(u.uPlateN, plateN);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-  }
-  try {
-    gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, powerPreference: "low-power" });
-    if (gl) {
-      show = compile(SHOW);
-      const buf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(0);
-      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    }
-  } catch (err) {
-    console.warn("Power On: WebGL unavailable, CSS halo instead.", err);
-    gl = null;
-  }
-  canvas.addEventListener("webglcontextlost", (e) => {
-    e.preventDefault(); gl = null; root.classList.remove("gl", "live");
-    for (const ft of feats) if (ft.dev) { ft.dev.remove(); ft.devDots.remove(); ft.dev = null; } // plain screenshots, like the fallback
+  const screen = $("#screen"), screenImg = $("#screen-img");
+  roving($("[role=tablist]"), "aria-selected", (b) => {
+    screenImg.src = b.dataset.src;
+    screenImg.alt = b.dataset.alt;
+    screen.setAttribute("aria-labelledby", b.id);
   });
 
-  /* ---- The page: lit type, plates, developing chapters ----------------- */
-  // Pinned elements (in the sticky stage) keep viewport coords; the rest keep
-  // page coords. Measured on resize, never per frame.
-  const inStage = (el) => stage.contains(el);
-  const gateOf = (el) => {
-    if (hero.contains(el)) return () => st.hk < 0.7;
-    const ft = feats.find((t) => t.cap === el);
-    return ft ? () => ft.capOp > 0.3 : () => true;
+  /* ---- Stream: three screens crossfade, held still for reduced motion ---- */
+  const slides = $$(".shots img");
+  if (!reduceMotion) {
+    let n = 0;
+    setInterval(() => {
+      n = (n + 1) % slides.length;
+      slides.forEach((im, i) => { im.classList.toggle("on", i === n); im.setAttribute("aria-hidden", i !== n); });
+    }, 4000);
+  }
+
+  /* ---- Your Colors ---- */
+  const hsvToHex = (h, s, v) => {
+    const f = (n) => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+    const to = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
+    return "#" + to(f(5)) + to(f(3)) + to(f(1));
   };
-  const tracked = (sel) => Array.from(document.querySelectorAll(sel), (el) => ({ el, pin: inStage(el), gate: gateOf(el), x: 0, y: 0, w: 0, h: 0, on: false }));
-  const lits = tracked(".lit"), plates = tracked("[data-plate]");
-  for (const t of plates) t.text = /^(H1|H2|P)$/.test(t.el.tagName);
-  const range = document.createRange();
-  function measure() {
-    const sy = scrollY, so = stage.getBoundingClientRect().top;
-    for (const t of lits.concat(plates)) {
-      // A text plate hugs the words, not the box (a wide box around short lines
-      // read as a dark card). Lit type keeps the box: its light is placed in it.
-      let b = t.el.getBoundingClientRect();
-      if (t.text) { range.selectNodeContents(t.el); b = range.getBoundingClientRect(); }
-      t.x = b.left; t.w = b.width; t.h = b.height;
-      t.y = t.pin ? b.top - so : b.top + sy;
+  const hexToHsv = (hex) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+    let h = 0;
+    if (d) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+      if (h < 0) h += 360;
     }
+    return { h, s: max ? d / max : 0, v: max };
+  };
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+
+  const card = $("#colors"), swatches = $$(".sw", card), customBtn = $(".sw--custom", card);
+  const picker = $("#picker"), sv = $(".sv", card), thumb = $(".sv__thumb", card);
+  const hueIn = $(".hue", card), hexIn = $(".hex input", card), drop = $(".drop", card);
+  const lightMq = matchMedia("(prefers-color-scheme: light)");
+  let accent = "Blue", look = "Dark", pickerOpen = false, draft = null, hsv = hexToHsv("#ff8a3d");
+
+  function render() {
+    const hex = hsvToHex(hsv.h, hsv.s, hsv.v);
+    swatches.forEach((b) => b.setAttribute("aria-pressed", b.dataset.name === accent));
+    customBtn.style.setProperty("--c", hex);
+    customBtn.setAttribute("aria-expanded", pickerOpen);
+    picker.hidden = !pickerOpen;
+    card.style.setProperty("--accent", swatches.find((b) => b.dataset.name === accent).style.getPropertyValue("--c"));
+    sv.style.setProperty("--hue-color", "hsl(" + Math.round(hsv.h) + ", 100%, 50%)");
+    sv.setAttribute("aria-valuetext", hex);
+    thumb.style.left = hsv.s * 100 + "%";
+    thumb.style.top = (1 - hsv.v) * 100 + "%";
+    thumb.style.background = hex;
+    hueIn.value = Math.round(hsv.h);
+    const text = draft ?? hex.slice(1).toUpperCase();
+    if (hexIn.value !== text) hexIn.value = text;
   }
-  const viewTop = (t) => (t.pin ? t.y : t.y - scrollY);
-  function gatherPlates() {
-    plateN = 0;
-    for (const t of plates) {
-      if (plateN >= 12) break;
-      const top = viewTop(t);
-      if (top > H + 80 || top + t.h < -80 || !t.gate()) continue;
-      const pad = 18, o = plateN * 4;
-      plateBuf[o] = t.x - pad; plateBuf[o + 1] = H - (top + t.h + pad);
-      plateBuf[o + 2] = t.x + t.w + pad; plateBuf[o + 3] = H - (top - pad);
-      plateN++;
-    }
-  }
-  const GLOW_R = 84.85;   // the glow's reach (its 120px box's corner radius)
-  function litType() {
-    const pa = P.a * st.lvl, R = GLOW_R;
-    for (const t of lits) {
-      const top = viewTop(t);
-      if (top > H || top + t.h < 0) continue;
-      const near = t.gate() && pa > 0.01 && P.x > t.x - R && P.x < t.x + t.w + R && P.y > top - R && P.y < top + t.h + R;
-      if (!near && !t.on) continue;
-      t.on = near;
-      // Write only when the glow moved more than a pixel or changed strength.
-      const v = [P.x - t.x, P.y - top, near ? pa * 0.9 : 0], lv = t.last;
-      if (lv && Math.abs(v[0] - lv[0]) < 1 && Math.abs(v[1] - lv[1]) < 1 && Math.abs(v[2] - lv[2]) < 0.01) continue;
-      t.last = v;
-      const sty = t.el.style;
-      sty.setProperty("--qx", v[0].toFixed(1)); sty.setProperty("--qy", v[1].toFixed(1));
-      sty.setProperty("--qr", R.toFixed(0)); sty.setProperty("--qa", v[2].toFixed(3));
-    }
+  const setHsv = (next) => { hsv = next; accent = "Custom"; draft = null; render(); };
+  // The card follows its own Appearance control: Dark, Light, or Windows' setting.
+  const applyTheme = () => { card.dataset.theme = look === "Light" || (look === "Match Windows" && lightMq.matches) ? "light" : "dark"; };
+
+  swatches.forEach((b) => b.addEventListener("click", () => {
+    if (b === customBtn) pickerOpen = accent === "Custom" ? !pickerOpen : true;
+    else pickerOpen = false;
+    accent = b.dataset.name;
+    render();
+  }));
+
+  const svFrom = (e) => {
+    const r = sv.getBoundingClientRect();
+    setHsv({ h: hsv.h, s: clamp((e.clientX - r.left) / r.width), v: 1 - clamp((e.clientY - r.top) / r.height) });
+  };
+  sv.addEventListener("pointerdown", (e) => { if (sv.setPointerCapture) sv.setPointerCapture(e.pointerId); svFrom(e); });
+  sv.addEventListener("pointermove", (e) => { if (e.buttons & 1) svFrom(e); });
+  sv.addEventListener("keydown", (e) => {
+    const step = 0.02;
+    let { h, s, v } = hsv;
+    if (e.key === "ArrowLeft") s -= step;
+    else if (e.key === "ArrowRight") s += step;
+    else if (e.key === "ArrowUp") v += step;
+    else if (e.key === "ArrowDown") v -= step;
+    else return;
+    e.preventDefault();
+    setHsv({ h, s: clamp(s), v: clamp(v) });
+  });
+  hueIn.addEventListener("input", () => setHsv({ h: Number(hueIn.value), s: hsv.s, v: hsv.v }));
+
+  hexIn.addEventListener("input", () => {
+    // No maxlength on the field: a pasted "#ff8a3d" is seven characters.
+    draft = hexIn.value.replace(/[^0-9a-f]/gi, "").slice(0, 6);
+    const next = draft.length === 6 ? hexToHsv(draft) : null;
+    if (next) { hsv = next; accent = "Custom"; }
+    render();
+  });
+  hexIn.addEventListener("blur", () => { draft = null; render(); });
+
+  if ("EyeDropper" in window) {
+    drop.hidden = false;
+    drop.addEventListener("click", () => {
+      try {
+        new window.EyeDropper().open().then((r) => { const next = hexToHsv(r.sRGBHex); if (next) setHsv(next); }).catch(() => {});
+      } catch (err) {}
+    });
   }
 
-  // The first chapter comes up dark and develops: faster where light falls, and
-  // fully on its own within about a second, so a fast scroll never lands on a
-  // black TV. Later chapters crossfade straight (a dark mask between two
-  // screenshots read as a double exposure).
-  const DEV_W = 424, DEV_H = 225, DEV_MS = 950;
-  function addDev(ft) {
-    const c = document.createElement("canvas"), ctx = c.getContext("2d");
-    if (!ctx) return;
-    c.className = "dev"; c.width = DEV_W; c.height = DEV_H; c.setAttribute("aria-hidden", "true");
-    ctx.fillStyle = "rgba(0,0,0,0.93)"; ctx.fillRect(0, 0, DEV_W, DEV_H);   // a faint ghost says something is there
-    ctx.globalCompositeOperation = "destination-out";
-    const dots = document.createElement("i");
-    dots.className = "dev-dots"; dots.setAttribute("aria-hidden", "true");
-    ft.fig.append(c, dots);
-    Object.assign(ft, { dev: c, devDots: dots, ctx, t0: 0 });
-  }
-  function expose(ft, x0, y0, x1, y1, r, alpha) {
-    if (alpha < 0.01) return;
-    const lx = x1 - tv.sx, ly = y1 - tv.sy;
-    if (lx < -r || ly < -r || lx > tv.ws + r || ly > tv.hs + r) return;
-    const k = DEV_W / tv.ws, R = r * k;
-    const n = Math.min(12, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (r * 0.35)) || 1);
-    for (let i = 1; i <= n; i++) {
-      const x = (x0 + (x1 - x0) * i / n - tv.sx) * k, y = (y0 + (y1 - y0) * i / n - tv.sy) * k;
-      const g = ft.ctx.createRadialGradient(x, y, 0, x, y, R);
-      g.addColorStop(0, "rgba(0,0,0," + alpha + ")");
-      g.addColorStop(1, "rgba(0,0,0,0)");
-      ft.ctx.fillStyle = g;
-      ft.ctx.fillRect(x - R, y - R, R * 2, R * 2);
-    }
-  }
-  function develop(now, dt) {
-    const step = Math.min(1, dt * 60);
-    for (const ft of feats) {
-      if (!ft.dev || ft.op < 0.02) continue;
-      if (!ft.t0) ft.t0 = now;
-      const m = 1 - ease(clamp((now - ft.t0 - 80) / DEV_MS));
-      if (m <= 0) { ft.dev.remove(); ft.devDots.remove(); ft.dev = null; continue; }
-      set(ft.dev, "opacity", m.toFixed(3)); set(ft.devDots, "opacity", m.toFixed(3));
-      expose(ft, P.px, P.py, P.x, P.y, GLOW_R, Math.min(1, 0.35 * P.a * step));   // the glow clears it a little faster
-    }
-  }
-
-  /* ==== One loop ======================================================== */
-  let raf = 0, last = 0, postAngle = 0, lastInput = 0;
-  const IDLE_SLOW = 3000, IDLE_STOP = 60000;
-  function tick(now) {
-    raf = requestAnimationFrame(tick);
-    // Nobody here: 30fps after 3s (the sheet keeps drifting), stop after a minute
-    // and keep the last frame. Any input wakes it.
-    const idle = now - lastInput;
-    if (idle > IDLE_STOP) { stop(); return; }
-    if (idle > IDLE_SLOW && now - last < 1000 / 30 - 4) return;
-    const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
-    last = now;
-    const goal = clamp((scrollY - top0) / H, 0, TOTAL);
-    pr += (goal - pr) * Math.min(1, dt * 14); // eases stepped mouse wheels
-    if (Math.abs(goal - pr) < 1e-4 || Math.abs(goal - pr) > 1) pr = goal;   // a jump of a viewport or more snaps
-    render(pr, dt);
-    if (!root.classList.contains("live")) return;
-    stepLights(dt);
-    // The halo after the stage drifts slowly (the onboarding pace is for the hero).
-    postAngle = (postAngle + 6 * dt) % 360;
-    if (gl) {
-      conicMap(postAngle, 1.15);
-      gatherPlates();
-      draw(clamp(trackEnd - scrollY, 0, H));
-    }
-    litType();
-    develop(now, dt);
-  }
-
-  let visible = !document.hidden, onscreen = true;
-  const run = () => { if (!raf && visible && (gl || onscreen)) { last = performance.now(); raf = requestAnimationFrame(tick); } };
-  const stop = () => { cancelAnimationFrame(raf); raf = 0; };
-  const wake = () => { lastInput = performance.now(); run(); };
-  document.addEventListener("visibilitychange", () => { visible = !document.hidden; visible ? wake() : stop(); });
-  new IntersectionObserver(([e]) => { onscreen = e.isIntersecting; onscreen ? run() : !gl && stop(); }).observe(track);
-  for (const t of ["pointermove", "pointerdown", "touchstart", "touchmove", "wheel", "scroll", "keydown"]) addEventListener(t, wake, { passive: true });
-
-  // Pointer and finger.
-  function aim(x, y) {
-    if (!P.present) { P.x = P.px = x; P.y = P.py = y; }   // first sighting jumps there, as onboarding's does; no sweep in
-    P.tx = x; P.ty = y; P.present = true;
-  }
-  if (gl) {
-    addEventListener("pointermove", (e) => { if (e.pointerType !== "touch") aim(e.clientX, e.clientY); }, { passive: true });
-    addEventListener("pointerdown", (e) => { if (e.pointerType !== "touch") aim(e.clientX, e.clientY); }, { passive: true });
-    addEventListener("touchstart", (e) => { const t = e.touches[0]; if (t) aim(t.clientX, t.clientY); }, { passive: true });
-    addEventListener("touchmove", (e) => { const t = e.touches[0]; if (t) aim(t.clientX, t.clientY); }, { passive: true });
-    const away = () => { P.present = false; };
-    addEventListener("touchend", away, { passive: true });
-    addEventListener("touchcancel", away, { passive: true });
-    addEventListener("mouseout", (e) => { if (!e.relatedTarget) away(); });
-    addEventListener("blur", away);
-  } else {
-    const point = (e) => { tx = e.clientX; ty = e.clientY; if (!live) { live = true; gx = tx; gy = ty; } };
-    addEventListener("pointermove", point, { passive: true });
-    addEventListener("pointerdown", point, { passive: true });
-  }
-
-  function resize() {
-    const ow = W, oh = H;
-    layout(); size(); measure();
-    if (gl && (ow !== W || oh !== H)) resizeGL();
-    render(pr, 0);
-  }
-
-  layout(); size();
-  pr = clamp((scrollY - top0) / H, 0, TOTAL);
-  render(pr, 0);
-  if (gl) {
-    try {
-      conicMap(0, 1.15);
-      resizeGL();
-      addDev(feats[0]);
-      root.classList.add("gl", "live");
-    } catch (err) {
-      console.warn("Power On: WebGL failed, CSS halo instead.", err);
-      gl = null;
-    }
-  }
-  measure();
-  let rz = 0;
-  new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(resize, 150); }).observe(stage);
-  new ResizeObserver(measure).observe(document.body);
-  if (document.fonts) document.fonts.ready.then(measure);
-  addEventListener("load", measure);
-  setTimeout(measure, 1400);   // after the hero's entrance has settled
-  wake();
+  roving($(".look", card), "aria-checked", (b) => { look = b.textContent; applyTheme(); });
+  lightMq.addEventListener("change", applyTheme);
+  render();
 })();
 </script>
 </body>
