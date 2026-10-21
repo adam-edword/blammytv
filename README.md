@@ -1,86 +1,88 @@
 <p align="center">
-  <img src="https://i.imgur.com/92ugObX.png" alt="blammytv" />
+  <img src="https://i.imgur.com/92ugObX.png" alt="BlammyTV" />
 </p>
 
 <p align="center">
-  A self-contained desktop client for live TV &amp; on-demand: Xtream Codes for IPTV, AIOStreams (+ debrid) for movies &amp; shows.
+  <b>Finally, an elegant media hub.</b><br />
+  Watch live TV, movies, shows and sports in one free app for Windows.<br />
+  Add your own playlists, AIOStreams or Jellyfin server.
+</p>
+
+<p align="center">
+  <a href="https://github.com/adam-edword/blammytv/releases/latest"><b>Download</b></a> ·
+  <a href="https://eddtv.org/">Website</a> ·
+  <a href="https://docs.eddtv.org/">Docs</a>
 </p>
 
 ---
 
-## Download & install (Windows)
+BlammyTV is just a player. It doesn't come with any channels, shows or
+streams. You add your own.
 
-1. **Download** the latest installer from the [**Releases page**](https://github.com/adam-edword/blammytv/releases/latest): grab `BlammyTV_<version>_x64-setup.exe` under *Assets*.
-2. **Run it.** Windows SmartScreen will say *"Windows protected your PC"* because the build isn't code-signed, click **More info → Run anyway**.
-3. **On first launch,** sign in to your **AIOStreams**: type its address and approve the code it shows. A manifest URL still works instead.
-4. **For live TV (optional):** add your Xtream playlist under **Settings → Sources** (server URL + username + password). It's kept separate from your AIOStreams setup.
+## Download
 
-From there the app **checks for updates** when it starts. A new version installs when you press **Install**, in the header or in **Settings → App → Updates**. Each person uses their own AIOStreams URL; nothing is shared.
+1. Get `BlammyTV_<version>_x64-setup.exe` from the
+   [latest release](https://github.com/adam-edword/blammytv/releases/latest).
+   Windows 10 and 11, 64-bit.
+2. Run it. The app is code-signed, but Windows still warns about a new app
+   until enough people have installed it. If it says it protected your PC,
+   click **More info**, then **Run anyway**.
+3. Add a source: an Xtream login, an M3U playlist, a Stalker portal,
+   AIOStreams or your own Jellyfin server.
+   [How to add each one](https://docs.eddtv.org/sources/).
 
-## What it is
+It updates itself. When a new version is out, press **Install** in the header
+or in **Settings → App → Updates**.
 
-BlammyTV is a free Windows player for live TV and on-demand. Live channels come from Xtream Codes panels; movies and shows resolve on demand through AIOStreams + debrid. There's a full EPG guide, a "now playing" hero, and a native libmpv player that does 4K60.
+## What it does
 
-It's **self-contained**: there's no server to run. The app builds its own catalog on-device from your AIOStreams manifest URL and your Xtream playlists, fetching directly from the Rust side so it isn't blocked by browser CORS. Sideload-only (store review isn't worth the hassle). The goal is **boomer-proof**: anyone can open it and watch.
+- **Live TV with a real guide.** Every channel you add lands in one guide.
+  See what's on now and next, scroll a whole day ahead, star the channels you
+  watch most, and hide the folders you never open.
+- **Multi-View.** Several channels at once, in a grid or with one big. The
+  sound follows the tile you pick, and live scores run along the bottom.
+- **Sports.** Today's games for the leagues, teams and conferences you follow,
+  with the channels showing them. Click a game to watch it. NFL RedZone is one
+  click when two or more games are on.
+- **Movies and shows.** Your Xtream provider's library, AIOStreams and
+  Jellyfin on one home page, with Continue Watching. Keep what you've watched
+  in sync with Trakt, and track anime on MyAnimeList.
+- **Native video playback.** Everything plays in mpv, built in. Surround
+  sound, Skip Intro, Up Next, and audio and subtitle languages you pick once.
+- **Your colors.** Any accent color, in dark or light mode, or follow Windows.
 
-## What you get
+## Your data
 
-- **Live TV**: an EPG time-grid with a live "now" indicator, category rails, quality badges (4K / HDR / FHD parsed from channel names), and a "now playing" hero that previews whatever programme card you hover.
-- **Movies & shows**: a browsable VOD layout backed by AIOStreams; title detail, artwork, and ranked playable sources resolve on demand. Titles with missing metadata fall back to Stremio's free **Cinemeta**.
-- **Native player**: a native libmpv player on Windows for 4K60, with mini / theater / fullscreen / pop-out modes.
-- **Self-updating**: it checks GitHub Releases when it starts, and a new version installs when you press Install.
-- **Profile and theme**: a cosmetic profile (name + avatar), recolorable accent, light/dark theme, and a squircle UI, all stored on-device.
+There's no account and nothing to sign up for. Your sources stay on your PC,
+sign-ins are saved in Windows Credential Manager, and the app talks straight
+to your providers. [Where your data goes](https://docs.eddtv.org/how-it-works/)
+lists every service it contacts.
 
-## How it works
+## Building from source
 
-**Self-contained, on-device.** There's no backend. On first launch you paste your **AIOStreams manifest URL**; the app fetches that manifest through a small Rust HTTP command (so CORS doesn't apply) and builds a local catalog of movies, shows, and the featured carousel. Add **Xtream playlists** in Settings and it builds the live-TV guide the same way: querying each panel's `player_api` JSON + XMLTV EPG directly. It all assembles into the in-memory **config blob** the UI renders.
-
-Everything you configure lives in **localStorage** on the device:
-
-- **AIOStreams**: your manifest URL (it embeds your debrid/provider config, so treat it as a secret).
-- **Playlists**: your Xtream sources (server URL + username + password), kept entirely separate from AIOStreams.
-- **Appearance**: accent color, light mode, carousel sources, and "hide channels with no info".
-- **Profile**: a cosmetic name + avatar.
-
-> **Security:** your AIOStreams URL, debrid keys, and Xtream credentials never leave the device. They're only used to fetch directly from the providers. Keep your AIOStreams URL private; it's effectively a password.
-
-## Project structure
-
-pnpm monorepo with a single app (for now).
-
-| Package | What it does |
-| --- | --- |
-| `apps/app` | The React client (Vite + TS), organized by feature: `src/app` (shell + header), `src/features/{live,stream,discover,settings}`, `src/ui` (shared primitives), `src/lib` (utilities), `src/styles` (design tokens + base). Wrapped in a Tauri shell (`apps/app/src-tauri`, Rust) for the Windows build, with the native libmpv player and the self-updater. |
-
-## Getting started
-
-**Prerequisites:** Node 22+ and pnpm 10+ (plus the Rust toolchain and the WebView2 runtime for the desktop build).
+A pnpm monorepo. The app is React and TypeScript in a Tauri shell
+(`apps/app`), with the native side in Rust (`apps/app/src-tauri`) and mpv
+loaded from `libmpv-2.dll`.
 
 ```bash
 pnpm install
-
-pnpm dev          # web client only (apps/app) at http://localhost:1420: demo data, fast hot-reload
-pnpm typecheck    # typecheck every package
-pnpm lint         # eslint (flat config)
-pnpm test         # vitest across packages
-pnpm build        # build all packages
+pnpm dev          # the interface in a browser, at http://localhost:1420
+pnpm typecheck
+pnpm lint
+pnpm test
 ```
 
-`pnpm dev` runs the frontend in a browser, great for UI work, but live TV and real AIOStreams need the native layer. For the real thing, from `apps/app`:
+The full desktop app (`pnpm tauri dev`, from `apps/app`) needs Windows, Rust
+with the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), and
+three files the build bundles, fetched once:
 
-```bash
-pnpm tauri dev    # the full desktop app: native player + on-device AIOStreams/Xtream
-pnpm tauri build  # produce the signed Windows installer + self-update artifacts
+```powershell
+node scripts/fetch-libmpv.mjs   # needs 7-Zip
+node scripts/fetch-ffmpeg.mjs
+node scripts/fetch-vulkan.mjs
 ```
 
-Cutting and publishing a release (signing keys, `latest.json`, GitHub Releases) is documented in [`RELEASING.md`](./RELEASING.md). CI runs typecheck + lint + test on every PR to `main` (`.github/workflows/ci.yml`).
-
-## Design notes
-
-The Live tab is an EPG frame: a "now playing" hero with a live mini-player, a source/folder sidebar, and a time-grid guide with a live "now" indicator. Styling is plain CSS (no Tailwind), driven by design tokens extracted from the Figma file into `apps/app/src/styles/tokens.css`, a black theme built on `#0f0f0f` surfaces and the `#c22727` red family. The "Stack Sans" typeface is self-hosted (bundled via Fontsource in `apps/app/src/fonts.ts`), with a system-font fallback in the `--font-headline` / `--font-text` variables.
-
-The desktop player is native **mpv** (loaded at runtime from `libmpv-2.dll`). It renders into a child window for 4K60, parked at the **bottom** of the window's z-order, underneath the transparent React webview, which paints everything else and cuts a clip-path hole where the video shows through (the arrangement Desktop Telly uses). One window, controls-on-video, no readback, and the settings panel opens *over* a still-playing stream. See `apps/app/src-tauri/src/inv.rs`.
-
-## Contributing
-
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for conventions.
+[Building](https://docs.eddtv.org/contributing/building/) and
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) have the rest. Releases, signing and the
+update manifest are in [`RELEASING.md`](./RELEASING.md) and
+[`SIGNING.md`](./SIGNING.md).

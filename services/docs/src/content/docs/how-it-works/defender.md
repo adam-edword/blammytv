@@ -30,21 +30,19 @@ Two things about how we shipped invited that guess:
 - **The program was called `app.exe`**, a generic name sitting in a folder
   where unwanted software commonly hides. As of v0.8.167 it's `BlammyTV.exe`,
   which removes a lot of the signal.
-- **The installer isn't code-signed.** An unsigned binary from an unknown
+- **The installer wasn't code-signed.** An unsigned binary from an unknown
   publisher starts with no reputation, and reputation is a large input to that
   model.
 
-## Why it is not signed
+## Signed since 1.0
 
-Since June 2023, CA/Browser Forum rules require
-code-signing keys to live in FIPS-140 certified hardware, either a physical
-token or a cloud HSM. That turned code signing from "buy a certificate once"
-into an ongoing subscription with identity validation attached. For a free app
-with no revenue that's a real cost, and we're still weighing it.
+From 1.0, the installer and the app are code-signed through Microsoft's
+Artifact Signing, so Windows shows who published them instead of "Unknown
+publisher".
 
-Signing also wouldn't fix this immediately. SmartScreen reputation accrues
-per-certificate over time and download volume, so a brand-new certificate
-still shows warnings for a while. It's the right long-term fix and a slow one.
+Signing doesn't end the warnings on day one. SmartScreen reputation builds
+with time and downloads, so a new app still gets "Windows protected your PC"
+for a while. Click **More info**, then **Run anyway**.
 
 ## Verify the download yourself
 
