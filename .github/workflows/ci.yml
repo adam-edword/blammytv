@@ -52,7 +52,10 @@ jobs:
   # (CLAUDE.md, "Running the headless harnesses").
   verify:
     name: pnpm verify (${{ matrix.shard }}/2)
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: that became 26.04 by 2026-10-21, and the pinned
+    # Playwright 1.56.1 won't install Chromium there ("does not support
+    # chromium on ubuntu26.04-x64"), so the board never started.
+    runs-on: ubuntu-24.04
     # The board outgrew 35 (v0.11.28: cut off at 34m39s on verify-version,
     # every harness green to there; v0.11.27 took 32), then nearly outgrew 50
     # (v0.11.36: 45m55s for 73). So it runs as two jobs at once, each with
