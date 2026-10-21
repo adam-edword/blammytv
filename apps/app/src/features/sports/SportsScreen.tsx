@@ -252,18 +252,18 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // (redzone.ts). Today's games before the follow filter: someone following
   // a team that is off this week still wants RedZone.
   const liveData = useLiveData();
-  const redzone = useMemo(
-    () =>
-      liveData && redzoneOn(raw[0]?.games ?? [])
-        ? redzoneChannel(
-            liveData.channels,
-            loadPlaylists().filter((p) => p.enabled).map((p) => p.id),
-            loadRedzoneChannel(),
-            liveData.hidden,
-          )
-        : null,
-    [liveData, raw],
-  );
+  const redzone = useMemo(() => {
+    if (!liveData || !redzoneOn(raw[0]?.games ?? [])) return null;
+    const rz = redzoneChannel(
+      liveData.channels,
+      loadPlaylists().filter((p) => p.enabled).map((p) => p.id),
+      loadRedzoneChannel(),
+      liveData.hidden,
+    );
+    // The Guide's player only tunes what the Guide lists, so a pick in a
+    // folder you hid is Multi-View's to offer, not this button's.
+    return rz && liveData.channels.includes(rz) ? rz : null;
+  }, [liveData, raw]);
   /**
    * RANKED ONLY: a college game stays only if a poll has heard of it.
    *

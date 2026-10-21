@@ -8,23 +8,31 @@ Rewritten 2026-09-24 against the tree rather than against the old version of
 this file, which still said "v0.1.109" at the top while the app was on
 v0.9.78. "Where we are" refreshed 2026-10-21.
 
-## Where we are (v0.12.7, 2026-10-21)
+## Where we are (1.0.0, 2026-10-21)
 
-- **Released: 0.12.0**, "Sign in to AIOStreams, a day of guide, and
-  Settings rebuilt", on 2026-10-15, through the installer. 0.11.0 (Trakt,
-  MyAnimeList, the player, light mode and the glass) went out 2026-10-02.
-- **`main` carries 0.12.0** and the site as it was on 2026-10-16.
-- **`claude/nice-heisenberg-67k4uk` is v0.12.7, not released**: your
-  provider's movies and shows in Stream (plan 028), Watch RedZone in Sports
-  and Multi-View with a channel you can set from the Guide, and tall channel
-  logos shown whole. The changelog has them as 1.0.0.
+- **1.0.0 is the release commit** (2026-10-21), an installer release and
+  the first one code-signed: your provider's movies and shows in Stream
+  (plan 028), Watch RedZone in Sports and Multi-View with a channel you can
+  set from the Guide, and tall channel logos shown whole. Before it, 0.12.0
+  went out 2026-10-15 and 0.11.0 on 2026-10-02.
+- **`main` moves to 1.0.0 as the release goes out** (RELEASING.md, step 3).
 - **The site was redesigned and is live** (the `website` branch,
   2026-10-21): a page that scrolls like a page, the app on a monitor, and
   every feature with its screenshot.
-- **Next is 1.0.** What's left: code signing (decision 3 below, now
-  decided), Adam's run of plan 028 on his own provider, RedZone's automatic
-  pick against his provider's channel names, the full board and a
-  fresh-eyes review, then the release.
+- **The release review's four small findings wait for after 1.0**
+  (2026-10-21), none of them blocking:
+  - a big Xtream catalog (30,000 movies) holds the main thread for about
+    half a second at launch: the read and the library build run there, with
+    no `breathe()` and no worker (`xtvod/disk.ts`, `vod.ts`; timed in Node,
+    not in WebView2);
+  - a settings import that replaces the playlists leaves the old accounts'
+    movie lists, password included, in IndexedDB until the next playlist
+    save or Clear All Login Info (`forgetRemoved` never runs at launch);
+  - Discover's search re-keys every title on every query
+    (`xtvod/discover.ts`);
+  - Sports' Watch RedZone reads the enabled playlists once per catalog or
+    score change, so it can point at a line just switched off until the
+    next one (`MultiviewTab` follows `onPlaylistsChange`; Sports doesn't).
 - **Version numbers 0.9.47 to 0.9.51 exist twice** in history, once on each
   side of the 2026-09-13 merge. Anything that quotes one of those five
   numbers needs the commit hash to mean anything.
@@ -34,8 +42,8 @@ v0.9.78. "Where we are" refreshed 2026-10-21.
 | | State |
 |---|---|
 | **Code signing** | Azure Artifact Signing, Basic ($9.99/month), account `blammytv` in Central US (Adam, 2026-10-21). Identity validated, certificate profile and the build's sign-in made, all 2026-10-21; `release.ps1` signs with `tauri.signing.json` (SIGNING.md, steps 7 to 10). Done: the first signed test build (0.12.0, 2026-10-21) came out signed and timestamped. 1.0 is the first release to ship signed. |
-| **Plan 028** | Built and documented. Waits on Adam's checklist on his own provider, in the plan's last section. |
-| **RedZone** | Built (v0.12.6, v0.12.7). The automatic pick chose the wrong channel on Adam's provider; a pick by hand (the Guide's right-click, Use for RedZone) is in v0.12.7. Fixing the automatic one waits on a search of his channels for "redzone". |
+| **Plan 028** | Ships in 1.0.0. |
+| **RedZone** | Ships in 1.0.0, with the pick by hand (the Guide's right-click, Use for RedZone). The automatic pick chose the wrong channel on Adam's provider; fixing it waits on a search of his channels for "redzone". |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
 | **Themes** | Parked. They return after 1.0 with new looks (decision 1), and since v0.10.60 every colour a pack would change is a token. |
 | **Apple** | Parked 2026-10-12, [plan 026](plans/026-apple.md): a Mac build of this app on libmpv, and a live-first native Swift app for Apple TV, iPhone and iPad. Nothing built. |

@@ -1,6 +1,6 @@
 # Plans
 
-Every plan, with where it stands (refreshed 2026-10-21, v0.12.7). The
+Every plan, with where it stands (refreshed 2026-10-21, 1.0.0). The
 week of 2026-09-28's log is [week-2026-09-28.md](week-2026-09-28.md).
 Telly 2.0.5 read against ours, feature by feature, with what is worth
 borrowing: [telly-2.0.5.md](telly-2.0.5.md) (2026-10-09). The AIOStreams
@@ -45,7 +45,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [024](024-aiostreams-sign-in.md) | AIOStreams by sign-in: the instance's address and a code instead of a pasted manifest URL, with Stream's catalogs, details, sources and playback over the Jellyfin side | MEDIUM | SHIPPED in 0.12.0 (2026-10-15); no run against a real AIOStreams recorded here |
 | [025](025-settings.md) | Settings, replanned: five pages filed by question (Sources, Playback, Appearance, Accounts, App), the palette finding any setting, and what to add from the Telly and AIOStreams comparisons | MEDIUM | SHIPPED in 0.12.0 (2026-10-15) |
 | [027](027-jellyfin.md) | Jellyfin, your own server: sign in to a real Jellyfin, its films and shows in Stream, its files played by mpv, watched marks and resume points kept in step | MEDIUM | SHIPPED in 0.12.0 (2026-10-15); the device checks are in the plan |
-| [028](028-xtream-vod.md) | Your provider's movies and shows in Stream: an Xtream playlist's library as picked rows, its titles' pages and episodes, search, played straight from the provider | HIGH | BUILT v0.12.1 to v0.12.4 (2026-10-17 to 2026-10-21), with docs and changelog; ships in 1.0 after Adam's run on his own provider (the plan's last section) |
+| [028](028-xtream-vod.md) | Your provider's movies and shows in Stream: an Xtream playlist's library as picked rows, its titles' pages and episodes, search, played straight from the provider | HIGH | SHIPPED in 1.0.0 (2026-10-21), built v0.12.1 to v0.12.4 |
 | [026](026-apple.md) | Apple: the Mac app as this app on libmpv (render API, not `--wid`), no whole-app Swift rewrite, and a native Swift live TV app for Apple TV, iPhone and iPad with movies and shows left to Strand | LOW | PARKED (2026-10-12, Adam: "We can park it for now"); nothing built |
 
 ## 001 to 007: execution order & dependencies

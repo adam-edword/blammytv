@@ -19,7 +19,10 @@
 // - and on Sports, the same rule puts "Watch RedZone" at the end of Today's
 //   Games' toolbar, and a click plays the channel in the Guide's player;
 // - the Guide's right-click menu sets a channel as RedZone ("Use for
-//   RedZone", on names that say NFL or RedZone), and Sports then plays it.
+//   RedZone", on names that say NFL or RedZone), and Sports then plays it;
+// - a channel you set, in a folder you then hid: Multi-View still offers it
+//   (a tile plays a hidden channel), Sports doesn't (the Guide's player
+//   can't tune it, and the click used to land on the first channel, stopped).
 //
 // Each "no entry" is held to a control that shows it could have been there: the
 // row has the NFL games it counts, and the picker finds the channel (or, for
@@ -121,8 +124,9 @@ const filler = (n, label) => ({ channelId: `r:910${n}`, label });
 const FULL_GRID = [filler(2, "RZ Filler One"), filler(3, "RZ Filler Two"), filler(4, "RZ Filler Three")];
 
 /** A Multi-view page: ESPN answers `events` for the NFL, `playlists` are
- * what is saved, `grid` is the grid it opens on. */
-async function open({ events, playlists, grid = [], dest = "multiview" }) {
+ * what is saved, `grid` is the grid it opens on, `pick` the channel set as
+ * RedZone. */
+async function open({ events, playlists, grid = [], dest = "multiview", pick = null }) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
   await ctx.route(/strem\.io/, (r) => r.abort());
   await ctx.route(/a\.espncdn\.com/, (r) => r.fulfill({ status: 200, contentType: "image/png", body: PIXEL }));
@@ -138,7 +142,7 @@ async function open({ events, playlists, grid = [], dest = "multiview" }) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(
-    ({ port, playlists, grid }) => {
+    ({ port, playlists, grid, pick }) => {
       MediaSource.isTypeSupported = () => true;
       window.__proxied = [];
       window.__played = [];
@@ -176,12 +180,13 @@ async function open({ events, playlists, grid = [], dest = "multiview" }) {
       );
       localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "stream" }));
       localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: playlists }));
+      if (pick) localStorage.setItem("blammytv.redzoneChannel", JSON.stringify({ v: 1, data: pick }));
       if (grid.length && !sessionStorage.getItem("rz-seeded")) {
         sessionStorage.setItem("rz-seeded", "1");
         localStorage.setItem("blammytv.multiviewGrid", JSON.stringify({ v: 1, data: { picks: grid, sound: grid[0].channelId } }));
       }
     },
-    { port: PORT, playlists, grid },
+    { port: PORT, playlists, grid, pick },
   );
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   await goTo(page, dest);
@@ -468,6 +473,28 @@ async function sportsBar(page, games) {
     JSON.stringify(played),
   );
   check("no page errors (Guide menu)", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+// ---- a channel you set, in a folder you hid ------------------------------
+{
+  const { page, ctx, errors } = await open({
+    events: TWO,
+    playlists: [{ ...panel("r", "redzone"), hiddenCategories: ["1"] }],
+    pick: "r:9101",
+  });
+  // Multi-View first: its entry is the control that the catalog is in and
+  // the pick resolves, so Sports' missing button below isn't a slow load.
+  await showRow(page, 2);
+  const row = await rowOf(page);
+  await goTo(page, "sports");
+  const { games, bar } = await sportsBar(page, 2);
+  check(
+    "a channel you set, in a folder you hid: Multi-View offers it, Sports has no Watch RedZone",
+    rzCount(row) === 1 && games === 2 && !bar.includes("Watch RedZone"),
+    JSON.stringify({ row: row.filter((c) => "rz" in c), games, bar }),
+  );
+  check("no page errors (hidden folder)", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }
 
