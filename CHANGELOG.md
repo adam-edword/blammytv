@@ -2,7 +2,9 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
-## 1.0.0: Your provider's movies and shows, and NFL RedZone (unreleased)
+## 1.0.0: Your provider's movies and shows, and NFL RedZone (2026-10-21)
+
+This one runs the installer, like 0.12.0.
 
 ### Your provider's movies and shows
 

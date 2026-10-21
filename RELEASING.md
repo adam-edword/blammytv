@@ -205,10 +205,11 @@ to an `!ml` detection in the first place.
 
 ## Per release
 
-**Lazy path:** `.\scripts\release.ps1` does steps 2 of the below in one go:
-prompts for the key password (never echoed), builds signed NSIS, wipes the
-env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
-1 (version bump) and 3+ (publish) still apply.
+**Step 2 is `.\scripts\release.ps1`.** It prompts for the key password and
+the Azure client secret (never echoed), builds NSIS code-signed (SIGNING.md)
+with the update `.sig`, fails unless the installer is Authenticode-signed and
+timestamped, wipes the secrets, and puts the `.sig` on the clipboard. Steps 0
+(libmpv refresh), 1 (version bump) and 3+ (publish) still apply.
 
 
 0. **Fetch the pinned libmpv, ffmpeg and Vulkan loader** (the installer
@@ -273,12 +274,12 @@ env vars, and puts the `.sig` on the clipboard. Steps 0 (libmpv refresh),
    node scripts\verify-version.mjs --release
    ```
 
-2. **Build signed** (from `apps/app`):
+2. **Build signed**, from the repo root:
    ```powershell
-   $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content $HOME\.tauri\blammytv.key -Raw
-   $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<password>"
-   pnpm tauri build
+   .\scripts\release.ps1
    ```
+   A bare `pnpm tauri build` still builds, with the update `.sig` if the key
+   is in the environment, but its installer isn't code-signed (since 1.0).
    Outputs (under `apps/app/src-tauri/target/release/bundle/`):
    - `nsis/BlammyTV_<version>_x64-setup.exe`
    - `nsis/BlammyTV_<version>_x64-setup.exe.sig`  ← the signature
