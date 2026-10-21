@@ -113,7 +113,10 @@ rather than fetched from Google.
 
 ## Deploy (Coolify)
 
-Deployed from the **`docs`** branch as a Dockerfile resource.
+Deployed from the **`docs`** branch as a Dockerfile resource. **A push
+doesn't deploy it**: after pushing `docs`, hit **Redeploy** on the resource
+in Coolify (2026-10-21, the first Next.js build sat until a manual one).
+`/version.txt` shows the build time of what's live.
 
 | Setting             | Value           |
 | ------------------- | --------------- |

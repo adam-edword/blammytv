@@ -342,8 +342,11 @@ timestamped, wipes the secrets, and puts the `.sig` on the clipboard. Steps 0
    (`services/docs/README.md`, `services/site/README.md`), and neither moves
    when `main` does. Bring each up to date with `main`: a fast-forward when
    it is one (`git push origin main:docs`), otherwise merge `main` into it and
-   push. Neither should ever hold a commit `main` doesn't have. Then open
-   docs.eddtv.org and check a page that is new in this release is there.
+   push. Neither should ever hold a commit `main` doesn't have. **The docs
+   don't deploy on push** (2026-10-21: the push sat until a manual
+   Redeploy): in Coolify, the docs resource → **Redeploy**. Then open
+   docs.eddtv.org and check a page that is new in this release is there,
+   or that `/version.txt` shows the new build time.
 
 ## Frontend-only release (the hot channel, plan 008)
 
