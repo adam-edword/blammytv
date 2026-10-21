@@ -1,4 +1,4 @@
-# BlammyTV docs. Astro/Starlight built to static HTML, served by nginx.
+# BlammyTV docs. Next.js + Fumadocs, exported to static HTML, served by nginx.
 #
 # Build context is this folder (services/docs). In Coolify: build pack
 # Dockerfile, Base Directory `services/docs`, Dockerfile Location `Dockerfile`.
@@ -14,25 +14,28 @@
 # comment names the cost: semver-compatible releases can change what lands in
 # the image without a code change, with a note to "revisit with a committed
 # package-lock.json + `npm ci` if reproducibility becomes a real requirement".
-# Astro pulls ~360 packages against keybox's three, so that threshold is
+# Next pulls ~330 packages against keybox's three, so that threshold is
 # crossed here: package-lock.json is committed and this uses `npm ci`. Two
 # builds of the same commit produce the same site.
 
 # --- build stage ------------------------------------------------------
-# bookworm-slim (glibc), not alpine (musl). sharp, Astro's image service,
-# resolves prebuilt binaries on glibc/x64 and would otherwise need a compiler
-# toolchain in the image to build from source.
+# bookworm-slim (glibc), not alpine (musl). Next's compiler is a native binary
+# published per platform, and glibc/x64 is the well-trodden one. Alpine would
+# resolve a different package.
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
 
+# No phoning home from a build server.
+ENV NEXT_TELEMETRY_DISABLED=1
+
 # Dependencies first, in their own layer, so editing a page does not reinstall
-# 360 packages.
+# 330 packages.
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY astro.config.mjs tsconfig.json ./
-COPY src ./src
-COPY public ./public
+# Everything else. .dockerignore keeps node_modules, .next, out and .source
+# out of it.
+COPY . .
 
 # A build stamp at /version.txt, so "did the deploy actually happen?" is one
 # curl instead of guesswork. It exists because that question came up the first
@@ -47,10 +50,13 @@ COPY public ./public
 #
 # Git is deliberately not consulted: the build context is services/docs alone,
 # so there is no repository in here to ask.
+#
+# `next build` writes the whole site to out/ (next.config.mjs sets
+# output: "export"). That folder is the only thing the runtime stage takes.
 ARG SOURCE_COMMIT=unknown
 RUN npm run build \
  && printf 'commit  %s\nbuilt   %s\n' \
-      "$SOURCE_COMMIT" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > dist/version.txt
+      "$SOURCE_COMMIT" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > out/version.txt
 
 # --- runtime stage ----------------------------------------------------
 FROM nginx:stable-alpine AS runtime
@@ -60,7 +66,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Only the built site. No node_modules, no source, no config files. Nothing
 # in the web root that was not meant to be served.
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/out /usr/share/nginx/html
 
 EXPOSE 80
 # nginx:alpine's default CMD already runs nginx in the foreground.

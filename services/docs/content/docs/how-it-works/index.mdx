@@ -1,0 +1,126 @@
+---
+title: Where your data goes
+description: Every host BlammyTV contacts, what each one gets, and what stays on your machine.
+---
+
+Your provider credentials stay on your machine, and every request for your
+content goes straight from your machine to the provider you configured.
+
+## Your content
+
+```
+your machine                              the internet
+─────────────                             ────────────
+BlammyTV  ──── channel list, EPG ───────▶  your Xtream panel / M3U / portal
+          ──── catalogue, streams ──────▶  your AIOStreams instance
+          ──── libraries, video ────────▶  your Jellyfin server
+          ──── video ────────────────────▶ whatever host those two hand back
+```
+
+Nothing sits in between. There's no BlammyTV server, so if your panel is down
+the app is down with it and nothing could have cached it for you.
+
+## Everything else it contacts
+
+| Host | When | What it gets |
+|---|---|---|
+| `github.com` | Update checks | Nothing about you. It's a public file request. |
+| `site.api.espn.com` | You open **Sports** | Which leagues you follow, as schedule requests |
+| `a.espncdn.com` | You open **Sports** | Requests for the team logos on your board. ESPN's schedule names the image; your machine fetches it. |
+| `v3-cinemeta.strem.io` | Browsing **Stream** | The IMDb id of titles whose artwork or synopsis your catalog didn't carry |
+| `api.aniskip.com` | Starting an anime episode | Which episode you're starting, to fetch Skip Intro timings |
+| `raw.githubusercontent.com` | First anime episode | A public id-mapping dataset. Nothing about you. |
+| `api.themoviedb.org` | Asking **Discover** for ideas (REC) | The words you typed, and a lookup for the title it suggests back. Never your library or what you watch. |
+| `auth.trakt.tv`, `api.trakt.tv` | **Only if you connect Trakt** | Your sign-in, then what you play and how far in, and your watch history, paused positions and watchlist, both ways |
+| `myanimelist.net`, `api.myanimelist.net` | **Only if you connect MyAnimeList** | Your sign-in, then the episode count of an anime when you finish an episode, and your list's counts back |
+| Your AIOStreams instance | Browsing **Stream**, once you've set it up | Signed in: your sign-in, then requests for your catalogs, a title's details and, when you open a title, the search for its sources. It also gets what you play and how far in, and a played mark when you finish something, and it sends back what you watched in its other apps, where you left off, and what's next. With a manifest URL instead: that URL, for the same requests, and no reports of what you play. |
+| Your Jellyfin server | Browsing **Stream** or **Discover**, once you've signed in | Your sign-in, then requests for your libraries, a title's details and files, and the video itself. It also gets what you play and how far in, and sends back where you left off, what you've watched and what's next. When a title has subtitle files, mpv asks for them as it plays. Over plain `http` to another machine, all of it is unencrypted; Settings says so. |
+
+If you sign in to AIOStreams, it looks up skip markers for what you play. That
+lookup is the instance's own setting, not BlammyTV's: it sends the title,
+season and episode to IntroDB, AniSkip and PMDB, and BlammyTV only reads the
+answer.
+
+## Nothing of ours
+
+None of those hosts is BlammyTV's, and there's no server of ours for the app
+to report to.
+
+## What BlammyTV does not do
+
+- It doesn't host, index or supply any content.
+- **It has no account of its own.** There is nothing to sign up for. Trakt
+  and MyAnimeList are optional, and they're your accounts with them. Signing in
+  to AIOStreams or Jellyfin is optional too, and those are your own servers.
+- **It sends your credentials nowhere.** Playlist passwords, portal MAC
+  addresses and your AIOStreams manifest URL, if you use one, never leave your
+  machine. They're scrubbed out of error messages too, so a diagnostic can't
+  carry one by accident.
+- **It has no analytics.** The only things that report what you watch are
+  Trakt, MyAnimeList, your AIOStreams instance and your Jellyfin server, if you
+  connect them, because that's their job.
+
+Viewing activity does reach two third parties as a side effect of features:
+Cinemeta learns the id of a title whose artwork was missing, and AniSkip
+learns which anime episode you started. Both are requests for data about the
+thing, not reports about you, and neither carries an identifier. If that
+matters to you, they only fire on the Stream tab and on anime respectively.
+TMDB sees the words you type into Discover's REC, and nothing else.
+
+## What is stored, and where
+
+Settings and credentials live in the app's local WebView2 profile under your
+Windows user account, alongside the rest of BlammyTV's per-user data in
+`%LOCALAPPDATA%`. Uninstalling removes the app. Clearing that folder removes
+the settings.
+
+The app also keeps a log there, in `%LOCALAPPDATA%\com.blammytv.app\logs`:
+what it did and what went wrong, about a megabyte, with one older file kept.
+Web addresses in it are cut to the site's name, and passwords, tokens and MAC
+addresses are kept out. Nothing sends it anywhere. Settings → App → Copy
+Diagnostics puts its last lines on your clipboard, for you to paste where you
+ask for help.
+
+Settings → App → Export Settings writes your settings to a file you choose:
+looks, playback, your lists and Continue Watching. Playlists and your
+AIOStreams manifest go in only if you tick **Include Playlists and
+AIOStreams**, which puts your passwords in the file. Your favorites, recents,
+guide fixes and Multi-View grid go in with them, because they point at your
+playlists' channels. Trakt, MyAnimeList, AIOStreams and Jellyfin sign-ins never
+go in. Without the box, a poster address that carries a service's key is left
+out too. Import Settings reads one back, and a file without playlists leaves
+your favorites, recents, guide fixes and Multi-View grid as they are.
+
+<Callout title="Credentials are stored in the clear" variant="warning">
+
+Playlist passwords, portal MAC addresses and, if you use one, your AIOStreams
+manifest URL are saved as plain text, not encrypted. Anything running as your
+Windows user can read them. Most desktop IPTV clients store them the same way.
+If your machine is shared, your provider credentials are shared.
+
+Trakt, MyAnimeList, your AIOStreams sign-in and your Jellyfin sign-in are the
+exception: they're kept in Windows Credential Manager, not in the app's
+profile. Signed in, none of AIOStreams' credentials are stored in the clear.
+The manifest URL is, and only when you use it instead. Your Jellyfin password
+is sent once, to sign in, and isn't kept. The profile does hold your servers'
+addresses and your user names, and neither opens anything on its own.
+
+</Callout>
+
+## Playback
+
+Video is decoded and rendered locally by [mpv](https://mpv.io/), loaded at
+runtime from `libmpv-2.dll` next to the executable. Hardware decoding is on by
+default and falls back to software when the GPU can't handle a codec. Streams
+are pulled by mpv directly from the URL your provider returned.
+
+Multi-View is the exception. Its tiles play inside the app's own window, so
+each stream goes through a small proxy the app runs on your machine, on
+loopback, where nothing else can reach it. A stream in HEVC, which that
+window can't decode, is converted there by a copy of ffmpeg that ships with
+the app. Nothing is re-hosted, and none of it leaves your computer.
+
+## Related
+
+- [Why Windows flagged it](/how-it-works/defender/), and what signing changed
+- [Updates](/how-it-works/updates/), how a package is verified before it applies

@@ -11,7 +11,8 @@
 <p align="center">
   <a href="https://github.com/adam-edword/blammytv/releases/latest"><b>Download</b></a> ·
   <a href="https://eddtv.org/">Website</a> ·
-  <a href="https://docs.eddtv.org/">Docs</a>
+  <a href="https://docs.eddtv.org/">Docs</a> ·
+  <a href="https://docs.eddtv.org/roadmap/">Roadmap</a>
 </p>
 
 ---
