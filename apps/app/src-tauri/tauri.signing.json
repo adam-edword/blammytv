@@ -6,7 +6,7 @@
         "cmd": "artifact-signing-cli",
         "args": [
           "-e",
-          "https://eus.codesigning.azure.net",
+          "https://cus.codesigning.azure.net",
           "-a",
           "blammytv",
           "-c",

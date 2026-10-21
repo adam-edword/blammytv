@@ -33,7 +33,7 @@ v0.9.78. "Where we are" refreshed 2026-10-21.
 
 | | State |
 |---|---|
-| **Code signing** | Azure Artifact Signing, Basic ($9.99/month), account `blammytv` in East US (Adam, 2026-10-21). His individual identity validation was presented 2026-10-21 and is waiting on Microsoft. Then a certificate profile, the build's sign-in, the `signCommand` in `tauri.windows.conf.json` (SIGNING.md, steps 5 to 10), and a test build checked for a signature and a timestamp. |
+| **Code signing** | Azure Artifact Signing, Basic ($9.99/month), account `blammytv` in Central US (Adam, 2026-10-21). Identity validated, certificate profile and the build's sign-in made, all 2026-10-21; `release.ps1` signs with `tauri.signing.json` (SIGNING.md, steps 7 to 10). Waits on a test build checked for a signature and a timestamp. |
 | **Plan 028** | Built and documented. Waits on Adam's checklist on his own provider, in the plan's last section. |
 | **RedZone** | Built (v0.12.6, v0.12.7). The automatic pick chose the wrong channel on Adam's provider; a pick by hand (the Guide's right-click, Use for RedZone) is in v0.12.7. Fixing the automatic one waits on a search of his channels for "redzone". |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |

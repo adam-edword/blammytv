@@ -129,12 +129,14 @@ If you are outside US/Canada and have no company, skip to *Fallbacks*.
 8. **The build config** is `apps/app/src-tauri/tauri.signing.json`, merged
    in by `release.ps1` with `--config`, so a plain `pnpm tauri build` without
    any of this still builds (unsigned). Account `blammytv`, certificate
-   profile `blammytv`, endpoint `https://eus.codesigning.azure.net` (East US):
+   profile `blammytv`, endpoint `https://cus.codesigning.azure.net` (Central
+   US, the account's Overview → Account URI; the wrong region's endpoint
+   answers the sign request with 403 Forbidden, after a login that works):
 
    ```json
    "signCommand": {
      "cmd": "artifact-signing-cli",
-     "args": ["-e", "https://eus.codesigning.azure.net", "-a", "blammytv",
+     "args": ["-e", "https://cus.codesigning.azure.net", "-a", "blammytv",
               "-c", "blammytv", "-d", "BlammyTV", "%1"]
    }
    ```
