@@ -2,6 +2,40 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.0: Your provider's movies and shows, and NFL RedZone (unreleased)
+
+### Your provider's movies and shows
+
+- **An Xtream playlist's movies and shows can be rows in Stream.** Nothing
+  shows until you pick the folders you want. With no other movie source,
+  Stream opens on Choose Folders; with AIOStreams or Jellyfin too, it's the
+  Add Rows from Your Playlist button at the bottom of Stream.
+- **Settings → Sources → Live TV → Movies and Shows** changes them later:
+  drag Your Rows into the order you want, add from More Folders, then Save.
+  The Show in Stream and Discover switch turns a playlist's movies and shows
+  off without touching its live TV.
+- **Discover** gets each playlist's movies and shows, newest first, and its
+  search looks through every folder, picked or not.
+- **A title lists each copy your panel has**, 4K and HD, best first, and a
+  show its seasons and episodes. They play straight from your provider, and
+  Continue Watching keeps your place.
+- The lists are kept on this PC for up to 12 hours so Stream opens fast, and
+  Clear All Login Info removes them.
+
+### Sports and Multi-View
+
+- **Watch RedZone.** When two or more NFL games are on at once and one of
+  your channels is RedZone, Sports' Today's Games has a Watch RedZone button
+  and Multi-View's live scores an Add RedZone. If it picks the wrong
+  channel, right-click the right one in the Guide → Use for RedZone.
+
+### Fixes
+
+- A tall channel logo, like the NFL's shield, shows whole in its box instead
+  of losing its top and bottom.
+- A title written out on the Stream hero, where there's no logo art, is
+  sized to fit and sits right above its synopsis.
+
 ## 0.12.0: Sign in to AIOStreams, a day of guide, and Settings rebuilt (2026-10-15)
 
 This one runs the installer, like 0.11.12.

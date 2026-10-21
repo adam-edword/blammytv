@@ -6,27 +6,25 @@ and it goes stale on purpose: read it for reasons, not for status.
 
 Rewritten 2026-09-24 against the tree rather than against the old version of
 this file, which still said "v0.1.109" at the top while the app was on
-v0.9.78. "Where we are" refreshed 2026-09-28.
+v0.9.78. "Where we are" refreshed 2026-10-21.
 
-## Where we are (v0.10.63, 2026-09-28)
+## Where we are (v0.12.7, 2026-10-21)
 
-- **Released: 0.10.14**, "Multi-view's look everywhere, and live scores",
-  on 2026-09-26, on the hot channel. Three releases went out that day:
-  0.10.0 (Multi-view, through the installer), then 0.10.3 and 0.10.14.
-- **`main` is at v0.10.14**, tagged.
-- **`claude/nice-heisenberg-67k4uk` is 49 versions ahead, v0.10.15 to
-  v0.10.63, and not released.** Adam, 2026-09-27: "i dont wanna ship" yet.
-  Six of those versions are native (v0.10.19, v0.10.27 Trakt, v0.10.38
-  plan 016's Track N, v0.10.39 MAL, v0.10.46, v0.10.47), so **the next
-  release goes through the installer**, not the hot channel. It carries
-  the player in the redesign's language (plan 020), M2's primitives,
-  Trakt and MAL (M4), and the week of 2026-09-28: a whole-codebase audit's
-  fixes (v0.10.47 to v0.10.59), every colour on a token (v0.10.60), the
-  dead code gone (v0.10.61) and three measured performance fixes (v0.10.62
-  and v0.10.63).
-- **The week of 2026-09-28** is done, logged in `plans/week-2026-09-28.md`.
-  Read its summary and "Yours when you're back" first.
-- **No open GitHub issues.** The backlog is this file and `plans/`.
+- **Released: 0.12.0**, "Sign in to AIOStreams, a day of guide, and
+  Settings rebuilt", on 2026-10-15, through the installer. 0.11.0 (Trakt,
+  MyAnimeList, the player, light mode and the glass) went out 2026-10-02.
+- **`main` carries 0.12.0** and the site as it was on 2026-10-16.
+- **`claude/nice-heisenberg-67k4uk` is v0.12.7, not released**: your
+  provider's movies and shows in Stream (plan 028), Watch RedZone in Sports
+  and Multi-View with a channel you can set from the Guide, and tall channel
+  logos shown whole. The changelog has them as 1.0.0.
+- **The site was redesigned and is live** (the `website` branch,
+  2026-10-21): a page that scrolls like a page, the app on a monitor, and
+  every feature with its screenshot.
+- **Next is 1.0.** What's left: code signing (decision 3 below, now
+  decided), Adam's run of plan 028 on his own provider, RedZone's automatic
+  pick against his provider's channel names, the full board and a
+  fresh-eyes review, then the release.
 - **Version numbers 0.9.47 to 0.9.51 exist twice** in history, once on each
   side of the 2026-09-13 merge. Anything that quotes one of those five
   numbers needs the commit hash to mean anything.
@@ -35,18 +33,12 @@ v0.9.78. "Where we are" refreshed 2026-09-28.
 
 | | State |
 |---|---|
-| **Redesign** | Plans 019 and 020 carried multi-view's look to every screen and to the player; M2 is done. M3's leftovers (the glass tiers, reduced transparency, the light pass) are [plan 022](plans/022-glass-and-light.md): three calls rendered as options on 2026-09-28, waiting on Adam. Light mode is forced off at boot until then. |
-| **Trakt** (M4) | Built, v0.10.27 to v0.10.36, `plans/015-trakt.md`: sign-in, scrobbling, sync and the Trakt Watchlist. Waiting on Adam to register the Trakt app and put its keys in `.env.local` for a first real run. |
-| **MAL** (M4) | Built, v0.10.39 to v0.10.44, `plans/021-mal.md`: sign-in in the browser, finished anime episodes and films counted on MAL, MAL's counts ticking episodes here. Waiting on Adam to register the MAL app and put its client id in `.env.local`. Ships in the same installer release as Trakt. |
+| **Code signing** | Azure Artifact Signing, Basic ($9.99/month), account `blammytv` in East US (Adam, 2026-10-21). His individual identity validation was presented 2026-10-21 and is waiting on Microsoft. Then a certificate profile, the build's sign-in, the `signCommand` in `tauri.windows.conf.json` (SIGNING.md, steps 5 to 10), and a test build checked for a signature and a timestamp. |
+| **Plan 028** | Built and documented. Waits on Adam's checklist on his own provider, in the plan's last section. |
+| **RedZone** | Built (v0.12.6, v0.12.7). The automatic pick chose the wrong channel on Adam's provider; a pick by hand (the Guide's right-click, Use for RedZone) is in v0.12.7. Fixing the automatic one waits on a search of his channels for "redzone". |
 | **Sports pairing** | The evidence tooling is in since v0.9.122. Waiting on Adam's `copy(await btvPairing())` from a real session. |
 | **Themes** | Parked. They return after 1.0 with new looks (decision 1), and since v0.10.60 every colour a pack would change is a token. |
 | **Apple** | Parked 2026-10-12, [plan 026](plans/026-apple.md): a Mac build of this app on libmpv, and a live-first native Swift app for Apple TV, iPhone and iPad. Nothing built. |
-
-The Guide going black on a folder ("Maximum update depth", Adam,
-2026-09-27) was found and fixed in v0.10.50: a channel listed under two
-categories gave two Guide rows one key, and the row window piled up
-orphans until scroll anchoring looped React. Whether Adam's catalog
-repeats ids is one console line, in the week log.
 
 ## Decisions, taken by Adam on 2026-09-24
 
@@ -108,7 +100,7 @@ chose.
    two-way conflicts). It stays a gate, so it is M4 below, and it gets its
    own plan before any code: the conflict rules are the hard part and
    should be decided on paper.
-3. **Code signing: OPEN.** Adam asked whether there is a one-time fee.
+3. **Code signing: OPEN, then decided 2026-10-21: Azure Artifact Signing** (Adam: "lets do code signing and release 1.0"; see What is in flight). Adam asked whether there is a one-time fee.
    There is not, from SIGNING.md, checked against primary sources on
    2026-08-07: code-signing certificates have always been annual, keys
    have had to live on hardware since June 2023, and since February 2026
