@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://i.imgur.com/92ugObX.png" alt="blammytv" />
+  <img width="2486" height="878" alt="image" src="https://github.com/user-attachments/assets/05a1e521-e280-4fe5-ba67-8b4c5d16b0ca" />
 </p>
 
 <p align="center">
