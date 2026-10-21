@@ -1,8 +1,8 @@
 packages:
   - apps/*
   - services/*
-  # Not a workspace member: services/docs is an Astro site with its own
-  # package-lock.json, deployed on its own from the `docs` branch. Its ~360
+  # Not a workspace member: services/docs is a Next.js site with its own
+  # package-lock.json, deployed on its own from the `docs` branch. Its ~330
   # packages have nothing to do with the app, and folding them into the root
   # lockfile would tax every install and every CI run for no benefit. Its
   # Docker build context is that folder alone, so it could not use the root

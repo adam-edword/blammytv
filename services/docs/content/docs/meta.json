@@ -1,0 +1,12 @@
+{
+  "root": true,
+  "pages": [
+    "index",
+    "start",
+    "sources",
+    "using",
+    "how-it-works",
+    "troubleshooting",
+    "contributing"
+  ]
+}
