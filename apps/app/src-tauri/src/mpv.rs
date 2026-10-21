@@ -61,9 +61,51 @@ unsafe impl Sync for Lib {}
 
 static LIB: OnceLock<Lib> = OnceLock::new();
 
+/// The loaded libmpv itself, for the macOS render API (inv_mac.rs), whose
+/// symbols are not in `Lib`.
+#[cfg(target_os = "macos")]
+static LIBRARY: OnceLock<&'static Library> = OnceLock::new();
+
+#[cfg(target_os = "macos")]
+pub fn libmpv() -> Option<&'static Library> {
+    LIBRARY.get().copied()
+}
+
+/// Locate libmpv on macOS: `BLAMMYTV_LIBMPV` if set, then the copy inside the
+/// .app, then Homebrew's two prefixes (Apple Silicon, then Intel), then the
+/// loader's own search. A dev run (`pnpm tauri dev`) lands on Homebrew's.
+#[cfg(target_os = "macos")]
+fn load_libmpv() -> Result<Library, String> {
+    let mut tried: Vec<String> = Vec::new();
+    let mut paths: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(p) = std::env::var_os("BLAMMYTV_LIBMPV").filter(|p| !p.is_empty()) {
+        paths.push(p.into());
+    }
+    // Inside the .app: Contents/Resources/libmpv, put there by
+    // scripts/bundle-libmpv-macos.sh.
+    if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.to_path_buf())) {
+        paths.push(dir.join("../Resources/libmpv/libmpv.dylib"));
+    }
+    for dir in ["/opt/homebrew/lib", "/usr/local/lib"] {
+        paths.push(std::path::Path::new(dir).join("libmpv.dylib"));
+    }
+    paths.push("libmpv.dylib".into());
+    for p in &paths {
+        match unsafe { Library::new(p) } {
+            Ok(lib) => return Ok(lib),
+            Err(e) => tried.push(format!("{}: {e}", p.display())),
+        }
+    }
+    Err(format!(
+        "load libmpv.dylib: install it with `brew install mpv` (tried: {})",
+        tried.join("; ")
+    ))
+}
+
 /// Locate libmpv-2.dll: next to the exe, a bundled `resources/` dir, then the
 /// OS search path (covers dev — on PATH or beside the dev exe — and the
 /// packaged installer, wherever the bundler drops the resource).
+#[cfg(not(target_os = "macos"))]
 fn load_libmpv() -> Result<Library, String> {
     let mut tried: Vec<String> = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
@@ -165,6 +207,8 @@ fn lib() -> Result<&'static Lib, String> {
     keep_vulkan_loader();
     unsafe {
         let library: &'static Library = Box::leak(Box::new(load_libmpv()?));
+        #[cfg(target_os = "macos")]
+        let _ = LIBRARY.set(library);
         let sym = |name: &[u8]| -> Result<*const c_void, String> {
             library
                 .get::<*const c_void>(name)
@@ -844,7 +888,12 @@ fn ensure_player(wid: isize) -> Result<(), String> {
             let (ck, cv) = (CString::new(k).unwrap(), CString::new(v).unwrap());
             (l.set_option_string)(h, ck.as_ptr(), cv.as_ptr());
         };
+        // macOS draws through the render API into inv_mac's view (attached
+        // below), so there is no window id to hand mpv.
+        #[cfg(not(target_os = "macos"))]
         set("wid", &wid.to_string());
+        #[cfg(target_os = "macos")]
+        set("vo", "libmpv");
         set("hwdec", "auto-safe");
         // Audio Channels and Subtitle Size, as Settings has them (set_prefs).
         // Unchanged, these are mpv's own defaults.
@@ -929,10 +978,21 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         // is a hole straight through to the desktop — which is exactly what a
         // channel switch flashed. mpv's own idle window is black, so letting
         // it keep the VO is both the fix and the idiomatic answer.
+        // On a Mac there is no render context yet (attach, below), and mpv logs
+        // a FATAL "No render context set" if its core thread wins that race.
+        #[cfg(not(target_os = "macos"))]
         set("force-window", "yes");
         if (l.initialize)(h) < 0 {
             (l.terminate_destroy)(h);
             return Err("mpv_initialize failed".into());
+        }
+        #[cfg(target_os = "macos")]
+        {
+            if let Err(e) = crate::inv_mac::attach(h) {
+                (l.terminate_destroy)(h);
+                return Err(e);
+            }
+            set("force-window", "yes");
         }
         *g = Some(Player(h));
         PLAYER_WID.store(wid, Ordering::Relaxed);
@@ -1030,6 +1090,12 @@ fn reset_per_file(start: Option<f64>, live: Option<bool>) {
             .filter(|s| *s > 0.0 && s.is_finite())
             .map_or_else(|| "none".to_string(), |s| s.to_string()),
     );
+}
+
+/// macOS: create the player ahead of the first play (inv_mac::warm_up).
+#[cfg(target_os = "macos")]
+pub fn warm_up() -> Result<(), String> {
+    ensure_player(1)
 }
 
 /// Start `url` in the in-app player, creating the player on first use.

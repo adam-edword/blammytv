@@ -57,11 +57,11 @@ pub trait Vault: Send + Sync {
 }
 
 /// For the tests, and for any build that is not Windows.
-#[cfg(any(test, not(windows)))]
+#[cfg(any(test, not(any(windows, target_os = "macos"))))]
 #[derive(Default)]
 pub struct MemoryVault(std::sync::Mutex<Option<Tokens>>);
 
-#[cfg(any(test, not(windows)))]
+#[cfg(any(test, not(any(windows, target_os = "macos"))))]
 impl Vault for MemoryVault {
     fn load(&self) -> Option<Tokens> {
         self.0.lock().unwrap().clone()
@@ -475,13 +475,13 @@ impl Trakt {
 
 /// The tokens in Windows Credential Manager, as one generic credential
 /// holding the JSON above (credman.rs). Per user, on this machine only.
-#[cfg(windows)]
-pub struct WindowsVault {
+#[cfg(any(windows, target_os = "macos"))]
+pub struct SystemVault {
     pub target: String,
 }
 
-#[cfg(windows)]
-impl Vault for WindowsVault {
+#[cfg(any(windows, target_os = "macos"))]
+impl Vault for SystemVault {
     fn load(&self) -> Option<Tokens> {
         serde_json::from_slice(&crate::credman::read(&self.target)?).ok()
     }
@@ -1028,10 +1028,10 @@ mod tests {
         })
     }
 
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     #[test]
-    fn the_windows_vault_keeps_and_forgets_a_session() {
-        let v = WindowsVault {
+    fn the_system_vault_keeps_and_forgets_a_session() {
+        let v = SystemVault {
             target: format!("BlammyTV/trakt-test-{}", std::process::id()),
         };
         v.clear();

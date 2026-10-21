@@ -100,8 +100,10 @@ const stubFor = (entry, { hold = true } = {}) => `
           : go().then(rewrite);
       }
       if (cmd === "mpv_status") {
+        // window.__presenting: a test that needs the first frame to land.
+        const up = !!window.__presenting;
         return Promise.resolve(JSON.stringify({
-          pos: 0, dur: 0, presenting: false, ended: false,
+          pos: up ? 5 : 0, dur: up ? 5400 : 0, presenting: up, ended: false,
           buffering: false, seekable: true,
           audio: [], subs: [], chapters: [],
         }));
@@ -124,7 +126,14 @@ const stub = stubFor(ENTRY);
 const browser = await chromium.launch({
   executablePath: "/opt/pw-browsers/chromium",
 });
-const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+// Pinned: the page turns Mac behaviour on from the user agent, and headless
+// Chromium on a Mac would otherwise send "Macintosh" here.
+const WINDOWS_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+const MAC_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, userAgent: WINDOWS_UA });
+const macCtx = await browser.newContext({ viewport: { width: 1440, height: 900 }, userAgent: MAC_UA });
 
 /**
  * Land on Stream and click the Continue Watching card.
@@ -133,8 +142,8 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
  * about to leave (the same trap verify-cw-sources documents). Wait for it to
  * stop moving first.
  */
-async function openCard(source = stub, { clock = false } = {}) {
-  const page = await ctx.newPage();
+async function openCard(source = stub, { clock = false, via = ctx } = {}) {
+  const page = await via.newPage();
   // A page clock lets the dead-card checks jump the watchdog's 40 seconds.
   if (clock) await page.clock.install();
   await page.addInitScript(source);
@@ -197,6 +206,82 @@ const opened = (page) =>
     () => window.__tauriCalls.find((c) => c[0] === "inv_open")?.[1]?.live,
   );
   check("  and opens it as VOD, keeping its subtitles", live === false, JSON.stringify({ live }));
+  await page.close();
+}
+
+// ---- The nav over a playing title, by user agent (the Mac port) ---------
+// On Windows the clip-path hole removes the nav over the picture. WebKit
+// paints a backdrop-filter element through it, so a Mac hides the header
+// itself while the stage is up (base.css, data-os="mac"). The Windows UA case
+// is what proves the Mac one is the flag's doing and not the page's.
+{
+  const probe = async (via) => {
+    const page = await openCard(stub, { via });
+    await page.waitForSelector(".vod-stage:not(.vod-stage--popped)", { timeout: 20_000 }).catch(() => {});
+    const out = await page.evaluate(() => ({
+      playing: !!document.querySelector(".vod-stage:not(.vod-stage--popped)"),
+      os: document.documentElement.dataset.os ?? null,
+      header: document.querySelector(".header")
+        ? getComputedStyle(document.querySelector(".header")).visibility
+        : "missing",
+    }));
+    await page.close();
+    return out;
+  };
+  const win = await probe(ctx);
+  check(
+    "a playing title leaves the nav showing, with a Windows user agent",
+    win.playing && win.os === null && win.header === "visible",
+    JSON.stringify(win),
+  );
+  const mac = await probe(macCtx);
+  check(
+    "and hides it with a Mac one",
+    mac.playing && mac.os === "mac" && mac.header === "hidden",
+    JSON.stringify(mac),
+  );
+}
+
+// ---- A second play starts as loading, not with the control bar (v0.12) ---
+// useDirectOverlay's state outlives a stream. The next stream's overlay reads
+// getLoading() in a state initializer, before the hook's effect re-arms it, and
+// after a play that had presented that read false: the whole control bar was
+// mounted for a frame before the tune card. Counted as DOM additions, since the
+// bar is gone again by the time anything else looks.
+{
+  const page = await openCard(stub);
+  await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "inv_open"), null, { timeout: 20_000 });
+  await page.evaluate(() => { window.__presenting = true; });
+  await page.waitForSelector(".theater-bar", { timeout: 15_000 });
+  check("the first play reaches its first frame, and the control bar is up", true);
+  await page.keyboard.press("t");
+  await page.waitForSelector(".vod-stage", { state: "detached", timeout: 10_000 }).catch(() => {});
+  await page.evaluate(() => {
+    window.__presenting = false;
+    window.__barAdded = 0;
+    new MutationObserver((recs) => {
+      for (const r of recs)
+        for (const n of r.addedNodes)
+          if (n.nodeType === 1 && (n.matches(".theater-bar") || n.querySelector(".theater-bar"))) window.__barAdded++;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await page.locator(".continue-card").first().click({ timeout: 10_000 });
+  await page.waitForFunction(
+    () => window.__tauriCalls.filter((c) => c[0] === "inv_open").length >= 2,
+    null,
+    { timeout: 20_000 },
+  ).catch(() => {});
+  await page.waitForTimeout(1500);
+  const second = await page.evaluate(() => ({
+    barAdded: window.__barAdded,
+    loadingScreen: !!document.querySelector(".vodload"),
+    plays: window.__tauriCalls.filter((c) => c[0] === "inv_open").length,
+  }));
+  check(
+    "the second play shows its loading screen and never mounts the control bar",
+    second.plays >= 2 && second.loadingScreen && second.barAdded === 0,
+    JSON.stringify(second),
+  );
   await page.close();
 }
 
