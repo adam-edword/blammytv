@@ -11,10 +11,11 @@ There's no account to create and no server to sign in to. The app does nothing
 until you give it a source, which is the next page.
 
 :::note[Windows may warn you]
-BlammyTV isn't code-signed, so SmartScreen shows an "unrecognised app" prompt
-and Defender occasionally deletes the download outright. It's a false
-positive. [There's a whole page on it](/how-it-works/defender/)
-explaining why, and what to do.
+BlammyTV is code-signed since 1.0, so the prompt names its publisher, but
+SmartScreen still says "Windows protected your PC" about a new app until
+enough people have installed it. Click **More info**, then **Run anyway**.
+Before 1.0, Defender occasionally deleted the download outright, a false
+positive. [There's a whole page on it](/how-it-works/defender/).
 :::
 
 ## Updating

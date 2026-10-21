@@ -120,5 +120,5 @@ the app. Nothing is re-hosted, and none of it leaves your computer.
 
 ## Related
 
-- [Why Windows flagged it](/how-it-works/defender/), the unsigned-binary story
+- [Why Windows flagged it](/how-it-works/defender/), and what signing changed
 - [Updates](/how-it-works/updates/), how a package is verified before it applies
