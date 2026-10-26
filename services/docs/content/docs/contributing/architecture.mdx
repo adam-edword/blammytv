@@ -6,7 +6,7 @@ description: How BlammyTV is put together, for anyone reading the source.
 This page is a shallow orientation for contributors. The deep design notes
 live in the repository.
 
-## The stack
+## The Stack
 
 - **Tauri v2** for the desktop shell. The native side is Rust, and the only
   browser target is WebView2, so there's no other engine to support.
@@ -14,7 +14,7 @@ live in the repository.
 - **libmpv** for playback, loaded at runtime from `libmpv-2.dll` rather than
   linked at build time.
 
-## Repository layout
+## Repository Layout
 
 ```
 apps/app/          the desktop application
@@ -26,7 +26,7 @@ plans/             design notes, one file per piece of work
 scripts/           release and verification tooling
 ```
 
-## The player
+## The Player
 
 mpv renders into its own child window rather than into a canvas the web layer
 owns, so the two can't be stacked in document order. BlammyTV uses what the
@@ -44,7 +44,7 @@ initialisation, and can't be re-targeted afterwards. So the app keeps a single
 long-lived mpv instance and resets per-file state between loads, instead of
 creating a new player per stream.
 
-## Native commands
+## Native Commands
 
 The front end can't call arbitrary code. It can only invoke commands the Rust
 side has explicitly registered, and those are the entire native surface.
@@ -52,7 +52,7 @@ side has explicitly registered, and those are the entire native surface.
 Sync commands run on the UI thread inside WebView2's callback, so anything
 slow in one of them shows up directly as interface stutter.
 
-## Where the real detail lives
+## Where the Real Detail Lives
 
 `plans/` in the repository holds a file per piece of work, written at the time
 with the measurements that justified each decision.

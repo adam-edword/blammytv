@@ -210,13 +210,13 @@ export function CommandMenu({
           onClick={() => setOpen(true)}
           {...props}
         >
-          <span className="hidden xl:inline-flex">Search documentation...</span>
+          <span className="hidden xl:inline-flex">Search Documentation...</span>
           <span className="inline-flex xl:hidden">Search...</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="rounded-xl border-none bg-clip-padding p-2 pb-11 shadow-2xl ring-4 ring-neutral-200/80 dark:bg-neutral-900 dark:ring-neutral-800">
         <DialogHeader className="sr-only">
-          <DialogTitle>Search documentation...</DialogTitle>
+          <DialogTitle>Search Documentation...</DialogTitle>
           <DialogDescription>Search for a page to open...</DialogDescription>
         </DialogHeader>
         <Command
@@ -225,7 +225,7 @@ export function CommandMenu({
         >
           <div className="relative">
             <CommandInput
-              placeholder="Search documentation..."
+              placeholder="Search Documentation..."
               onValueChange={handleSearchChange}
             />
             {query.isLoading && (

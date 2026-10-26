@@ -11,7 +11,7 @@ the other, or both.
 BlammyTV doesn't host an AIOStreams instance and doesn't supply one. You bring
 your own.
 
-## Signing in
+## Signing In
 
 You need one thing: your instance's address, like `aiostreams.example.com`.
 It's the address your configure page lives at. A pasted manifest URL or
@@ -37,7 +37,7 @@ BlammyTV notices and shows you signed out, and you connect again.
 It needs AIOStreams 2.35 or later with its Jellyfin side on, which it is by
 default.
 
-### What signing in costs
+### What Signing In Costs
 
 - **25 sources per title.** The instance can raise that to 50. Your config can
   only lower it.
@@ -46,7 +46,7 @@ default.
 
 If any of that gets in your way, the manifest still works. See below.
 
-## Where you left off
+## Where You Left Off
 
 Once you're in, any app signed in to your AIOStreams as you picks up where you
 left off: the AIOStreams app, Jellyfin apps like Infuse, and BlammyTV. An app
@@ -65,7 +65,7 @@ doesn't. It isn't a watch history: for that, connect Trakt or MyAnimeList in
 **Settings → Sources → Stream** shows when it last synced, and
 **Sync Now** runs one on the spot.
 
-<Callout title="Leave Trakt trackers out of your AIOStreams setup" variant="warning">
+<Callout title="Leave Trakt Trackers Out of Your AIOStreams Setup" variant="warning">
 
 If you connect Trakt in BlammyTV, it already reports what you play. A Trakt
 tracker in your AIOStreams config would count every play twice.
@@ -76,7 +76,7 @@ The skip markers come from IntroDB, AniSkip and PMDB, looked up by AIOStreams
 with the title, season and episode. That's your instance's setting. See
 [where your data goes](/how-it-works/).
 
-## Use a manifest URL instead
+## Use a Manifest URL Instead
 
 Some instances can't sign in. ElfHosted ships with the Jellyfin side off, and
 a sign-in needs it. For those, there's still the manifest URL.
@@ -91,7 +91,7 @@ https://your-instance.example.com/<config>/manifest.json
 
 The first launch has the same fallback, on its AIOStreams step.
 
-<Callout title="The manifest URL is a credential" variant="warning">
+<Callout title="The Manifest URL Is a Credential" variant="warning">
 
 Your addon configuration is embedded in that URL. Anyone who has it has your
 setup, including whatever debrid credentials it carries. BlammyTV never logs
@@ -132,7 +132,7 @@ An external `curl` test once reported everything healthy while the app got a
 at all. When a manifest step fails, the test also reports who rejected it: the
 status, the serving host's headers, and how the response body starts.
 
-## Two common failures
+## Two Common Failures
 
 **Cloudflare bot protection.** If the test reports a challenge, the host in
 front of your instance is demanding an interactive browser check. Nothing on
@@ -146,7 +146,7 @@ most likely expired or been regenerated. Re-copy the manifest URL from the
 configure page and submit it again. If it still fails, the problem is on the
 server hosting your manifest.
 
-## What you get
+## What You Get
 
 - **Catalog rows** on the Stream home tab, one per browsable catalog your
   config exposes.

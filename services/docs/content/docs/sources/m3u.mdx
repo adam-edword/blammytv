@@ -1,5 +1,5 @@
 ---
-title: M3U playlists
+title: M3U Playlists
 description: Add a plain M3U playlist by URL.
 ---
 
@@ -7,7 +7,7 @@ The simplest live TV source: a playlist file served over HTTP. If your
 provider handed you a single long link ending in `get.php?…` or `.m3u`, this
 is the kind you want.
 
-## What you need
+## What You Need
 
 One field, the **Playlist URL**. Add it under **Settings → Sources → Live TV →
 M3U**.
@@ -17,14 +17,14 @@ sign-in step, because an M3U has no API to sign in to. Whatever credentials
 your provider needs are already baked into the URL, which is why that URL
 should be treated as a password.
 
-## What you get
+## What You Get
 
 - **Channels**, in playlist order.
 - **Categories**, taken from each entry's group, in the order they first
   appear in the file.
 - **Logos and channel names**, where the playlist supplies them.
 
-## What you don't get
+## What You Don't Get
 
 - **No connection count.** An M3U is a static file. No endpoint reports how
   many streams you have open, so the sidebar shows no badge rather than a
@@ -33,7 +33,7 @@ should be treated as a password.
   ids, but the file itself isn't a guide. Channels with no programme data show
   "No Information" lanes. That's the playlist, not the app.
 
-## If it fails
+## If It Fails
 
 - **The download failed.** The URL is wrong, expired, or the host is refusing
   you. Providers regenerate these links often, so re-copy it from wherever you

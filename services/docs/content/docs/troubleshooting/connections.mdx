@@ -1,5 +1,5 @@
 ---
-title: Connection limits
+title: Connection Limits
 description: The n/m badge in the sidebar, and what to do when you run out of connections.
 ---
 
@@ -7,7 +7,7 @@ Most Xtream providers cap how many streams you can pull at once. BlammyTV
 shows that cap in the Live TV sidebar as a badge. `2/5` means two active
 connections against a limit of five.
 
-## Where the number comes from
+## Where the Number Comes From
 
 It's the provider's own figure, not an estimate. The Xtream panel API reports
 `active_cons` and `max_connections` on the same endpoint the app uses to
@@ -20,7 +20,7 @@ Two things follow from that:
 - **Xtream only.** Stalker portals rarely expose a limit and M3U has no API at
   all, so those show no badge rather than a number that would be a guess.
 
-## Why it can lag
+## Why It Can Lag
 
 The badge is polled, not pushed. The panel gets asked roughly once a minute,
 and again a few seconds after you change channels. Panels are also slow to
@@ -29,7 +29,7 @@ immediately on your side, but the provider's count can take a while to catch
 up. If you stop watching and the badge still reads `1/3`, wait for the next
 refresh before concluding anything is stuck.
 
-## Running out
+## Running Out
 
 At the limit, the provider refuses new streams and playback fails to start.
 Usually that means another device, another app, or a session that wasn't

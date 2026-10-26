@@ -1,12 +1,12 @@
 ---
-title: Why Windows flagged it
+title: Why Windows Flagged It
 description: Windows Defender sometimes deletes BlammyTV. What that means, how to get it back, and how to check the download yourself.
 ---
 
 Some people have had BlammyTV disappear off their PC mid-use, with no warning.
 That's Windows Defender removing it, and the detection is a false positive.
 
-## Get it back first
+## Get It Back First
 
 1. Open **Windows Security**, then **Protection history**.
 2. Find the BlammyTV entry.
@@ -18,7 +18,7 @@ If the entry has already expired out of the history, reinstall from the
 Nothing is lost. Your playlists and settings are stored separately from the
 program files and survive a reinstall.
 
-## What the detection said
+## What the Detection Said
 
 The verdict people saw was `Trojan:Win32/Bearfoos.A!ml`. The **`!ml` suffix**
 marks a machine-learning verdict, not a signature match. Defender didn't
@@ -34,7 +34,7 @@ Two things about how we shipped invited that guess:
   publisher starts with no reputation, and reputation is a large input to that
   model.
 
-## Signed since 1.0
+## Signed Since 1.0
 
 From 1.0, the installer and the app are code-signed through Microsoft's
 Artifact Signing, so Windows shows who published them instead of "Unknown
@@ -44,7 +44,7 @@ Signing doesn't end the warnings on day one. SmartScreen reputation builds
 with time and downloads, so a new app still gets "Windows protected your PC"
 for a while. Click **More info**, then **Run anyway**.
 
-## Verify the download yourself
+## Verify the Download Yourself
 
 Every release ships a detached signature, and update packages are checked
 automatically by the app before they're applied. See
@@ -56,7 +56,7 @@ repository](https://github.com/adam-edword/blammytv), including the installer
 configuration and every network call the app can make. [Where your data
 goes](/how-it-works/) describes that surface in plain language.
 
-## Reporting the false positive
+## Reporting the False Positive
 
 If you want to help, Microsoft accepts false-positive submissions at
 [the Defender submission
