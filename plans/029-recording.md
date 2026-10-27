@@ -177,7 +177,38 @@ No rebuild. In the app's console on a live channel:
 - A conflict (more recordings than the line allows) is said when you schedule
   it, not when it fails.
 
+## Phase 4: finished recordings, smaller (Adam, 2026-10-27: "i like both")
+
+A recording is a copy of the provider's stream, so its size is the bitrate
+times its length: about 1.3 GB an hour at 720p, 2.7 at 1080p, 9 for a 4K
+HEVC channel (typical IPTV rates; a channel's own varies).
+
+- **Always: repackage into `.mkv` when a recording ends.** Lossless (`-c
+  copy`), a few percent smaller, and it seeks better in other players.
+  Recording keeps writing `.ts` while it runs, because a `.ts` survives a
+  crash or a power cut. The `.mkv` replaces the `.ts` only once it decodes
+  end to end and its length matches; if not (a stream mkv can't hold), the
+  `.ts` stays and the reason is logged. The index follows the new path;
+  play, show and delete accept `.mkv` as theirs too (today `.ts` only).
+- **Settings → Playback → Recordings: Original Quality or Smaller Files.**
+  Original is the default and is what happens today. Smaller Files
+  re-encodes a finished recording to HEVC, audio copied: with the GPU's
+  encoder when there is one (NVENC, Quick Sync or AMF, found the way
+  `mvconvert` finds its own), else x265 at a fast preset at low priority.
+  About 40 to 50% smaller at nearly the same look. Never during a
+  recording, so it can't fall behind a live stream.
+- **Safe by construction:** one at a time, queued; the original is replaced
+  only once the smaller file decodes end to end and its length matches.
+  The row says Shrinking with its progress, then the size it saved. An
+  interrupted one keeps the original and starts again at the next launch.
+  Install and Restart wait while one runs, like a recording.
+- Checks: host-crate tests with the real ffmpeg for the remux (a joined
+  recording, one with a subtitle stream, one mkv refuses), the
+  replace-only-when-verified rule (a mutation that replaces first must
+  fail), the queue, and the interrupted-shrink sweep; harness checks for
+  the setting and the row's states. Real GPU encoding is Adam's.
+
 ## Open, for later
 
-- Series rules ("record every new episode"), recording without the app open
-  (a Windows service), and converting `.ts` to something smaller.
+- Series rules ("record every new episode") and recording without the app
+  open (a Windows service).
