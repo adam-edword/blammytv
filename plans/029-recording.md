@@ -69,6 +69,13 @@ No rebuild. In the app's console on a live channel:
    cache folder is resolved by `mp_find_user_file("cache")`, and where that
    lands for libmpv on Windows is unverified (search `%APPDATA%\mpv` and
    `%LOCALAPPDATA%` for a growing file).
+   **Result (Adam, 2026-10-27): no.** `demuxer-cache-state` showed no
+   `file-cache-bytes`, either set mid-channel or set before a channel
+   switch: the buffer stayed in memory (130 s back at about 3.8 Mbit/s; 66 s
+   at 1.6 Mbit/s). So libmpv on Windows does not find a default cache folder,
+   and Phase 1 sets `demuxer-cache-dir` itself, under the app's data folder.
+   (`mpv_set`'s allowlist refuses anything named `dir`, so this can't be
+   tried from the console: it needs the native build.)
 2. Pause a channel for 20 minutes. Note whether the sidebar's n/m drops when
    mpv stops reading, and whether Play resumes or the stream has died. This
    decides whether a long pause needs a reconnect-and-stitch or just works.
