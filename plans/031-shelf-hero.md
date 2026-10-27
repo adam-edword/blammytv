@@ -28,7 +28,7 @@ swapped).
   at its edges. The box now reaches 110px past the card's sides and 56px
   above and below (today 210 and 90), fading over 90px and 56px. The blur
   is 32px with saturate 1.9 and brightness 1.55 (today 70px and 1.4), and
-  everything inside the box shines at full strength (today the centre at
+  everything inside the box shines at 75% (today the centre at
   .7 and neighbours at .3).
 - **The logo only fades.** It never moves or changes size: it is sized from
   the full card, not the growing one, and fades in once the card has grown.
