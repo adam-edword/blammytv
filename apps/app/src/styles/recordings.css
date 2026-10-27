@@ -1,0 +1,169 @@
+/* Recording (plan 029): the player's Record button, the Guide's dot, and the
+ * list of recordings in Live TV's Recordings mode and in Library. */
+
+/* The red dot: a recording is running. The status colour is the fixed red
+ * (--danger), not the accent, which the person picks. */
+.rec-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 7px var(--danger);
+  animation: rec-pulse 1.6s ease-in-out infinite;
+}
+@keyframes rec-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec-dot {
+    animation: none;
+  }
+}
+
+/* Record in the theater's controls. Idle it is an icon like its neighbours;
+ * recording it widens to hold the dot and the time. */
+.rec-btn__time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 13px;
+}
+.rec-btn__wait {
+  animation: rec-pulse 1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec-btn__wait {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+/* Why it could not start, over the button as the track menus are. It rides
+ * the menu's glass; only its words are set here. */
+.rec-btn__why {
+  margin: 0;
+  padding: 10px 14px;
+  width: max-content;
+  font: 500 13px / 1.35 var(--font-text);
+  color: var(--on-image);
+}
+
+/* A channel with a recording running, in the Guide: a dot on the corner of
+ * its card, ringed in the card's own colour so it reads over a logo. */
+.guide__rec {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--surface);
+  pointer-events: none;
+}
+
+/* The recordings list takes the Guide's place, and goes with it when the
+ * theater fills the main column. */
+.rec-page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 16px;
+  padding-right: 12px;
+}
+.live--theater .rec-page {
+  display: none;
+}
+
+.library__recordings {
+  margin-top: 28px;
+}
+
+.rec-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rec-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.rec-row--playing {
+  border-color: var(--accent);
+}
+.rec-row__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rec-row__title {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-row__sub,
+.rec-row__meta,
+.rec-row__why,
+.rec-row__err {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.rec-row__meta {
+  font-variant-numeric: tabular-nums;
+}
+.rec-row__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.rec-row__status--recording,
+.rec-row__status--failed,
+.rec-row__err {
+  color: var(--danger-text);
+}
+.rec-row__actions {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* The Live TV mode rail has four modes now, and the chosen one is as wide as
+ * the longest word (Recordings), which the 252px sidebar had no room for at
+ * the kit's padding: the chosen word ran past its pill. A few pixels back
+ * from each option's padding and the gaps. */
+.live-sidebar__top .seg {
+  gap: 1px;
+}
+.live-sidebar__top .seg__opt {
+  padding: 0 7px;
+  min-width: 30px;
+}
+.live-sidebar__top .seg__opt.is-on {
+  gap: 5px;
+  padding: 0 8px;
+}

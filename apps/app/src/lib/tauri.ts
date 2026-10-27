@@ -190,6 +190,81 @@ export function tauriInvStop(): Promise<void> {
   return invoke("inv_stop");
 }
 
+/* ---- Recording (rec.rs, plan 029). The record is the index's: the page
+ * names an id and never a path, and native's reasons are plain lowercase
+ * fragments with no link in them. Times are Unix ms. ---- */
+
+export type RecStatus = "recording" | "done" | "partial" | "failed";
+
+export interface RecRecord {
+  id: string;
+  channel: string;
+  programme: string | null;
+  playlistId: string;
+  startedAt: number;
+  endedAt: number | null;
+  path: string;
+  bytes: number;
+  status: RecStatus;
+  /** Why it is Partial or Failed; null otherwise. */
+  reason: string | null;
+}
+
+/** Start recording a live channel. Answers the recording's id once bytes are
+ * coming (up to 20s), and rejects with why not. */
+export function tauriRecStart(a: {
+  url: string;
+  userAgent?: string;
+  channel: string;
+  programme?: string;
+  playlistId: string;
+  folder?: string;
+}): Promise<string> {
+  return invoke("rec_start", {
+    url: a.url,
+    channel: a.channel,
+    programme: a.programme ?? null,
+    playlistId: a.playlistId,
+    folder: a.folder || null,
+    ...agentArg(a.userAgent),
+  });
+}
+export function tauriRecStop(id: string): Promise<RecRecord> {
+  return invoke("rec_stop", { id });
+}
+/** Every recording, newest first. */
+export function tauriRecList(): Promise<RecRecord[]> {
+  return invoke("rec_list");
+}
+/** Not while it records (native refuses). */
+export function tauriRecDelete(id: string): Promise<void> {
+  return invoke("rec_delete", { id });
+}
+export function tauriRecShow(id: string): Promise<void> {
+  return invoke("rec_show", { id });
+}
+/** Play a recording in the in-app player, at `inv_open`'s rect: a file, so
+ * it seeks like a film. The same player as `tauriInvOpen`, the same teardown
+ * (`tauriInvStop`). */
+export function tauriRecPlay(id: string, rect: CompRect): Promise<void> {
+  return invoke("rec_play", { id, x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+}
+/** Where new recordings go when Settings has not picked a folder. */
+export function tauriRecDefaultFolder(): Promise<string> {
+  return invoke("rec_default_folder");
+}
+/** The folder dialog, starting at `current`. The chosen full path, or null
+ * when it was dismissed. */
+export function tauriRecPickFolder(current?: string): Promise<string | null> {
+  return invoke("rec_pick_folder", { current: current || null });
+}
+/** A recording's status or size changed (each status change, and every 5s of
+ * growth). The payload is the whole record. Resolves once it is listening,
+ * with the way to stop. */
+export function onRecUpdate(cb: (r: RecRecord) => void): Promise<() => void> {
+  return listen<RecRecord>("rec-update", (e) => cb(e.payload));
+}
+
 /** Raw mpv property snapshot, for the tune diagnostic. Every value is a
  * string ("<none>" when mpv has no answer, which is itself the signal for
  * several of the questions this exists to settle). Called only on rare

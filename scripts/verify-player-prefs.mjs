@@ -159,13 +159,13 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
   await openPlayback(page);
   const rows = await titles(page);
   check(
-    "Playback: Stream's rows, then the Player group: Speaker Setup, Subtitle Size, Pop-Out Window",
+    "Playback: Stream's rows, then the Player group: Speaker Setup, Subtitle Size, Pop-Out Window, then Recordings Folder",
     JSON.stringify(rows) ===
-      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop-Out Window"]),
+      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop-Out Window", "Recordings Folder"]),
     JSON.stringify(rows),
   );
   const groups = await page.locator(".settings__body .settings__group").allInnerTexts();
-  check("  under two eyebrows, Stream and Player, with no Live TV / Stream pill", JSON.stringify(groups.map((g) => g.toLowerCase())) === JSON.stringify(["stream", "player"]) && (await page.locator(".settings__body .customize-rail").count()) === 0, JSON.stringify(groups));
+  check("  under three eyebrows, Stream, Player and Recordings (plan 029), with no Live TV / Stream pill", JSON.stringify(groups.map((g) => g.toLowerCase())) === JSON.stringify(["stream", "player", "recordings"]) && (await page.locator(".settings__body .customize-rail").count()) === 0, JSON.stringify(groups));
   const names = await page.evaluate(() => {
     const g = (n) => [...document.querySelectorAll(`.settings__body [role=group][aria-label='${n}'] button`)].map((b) => b.textContent).join();
     return { audio: g("Speaker setup"), sub: g("Subtitle size"), size: g("Pop-out size"), corner: g("Pop-out corner") };
@@ -237,7 +237,7 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
   const ids = await page.evaluate(() => [...document.querySelectorAll(".settings__body [data-setting]")].map((e) => e.dataset.setting));
   check(
     "with no AIOStreams the Player group is still there, and Stream's rows are not",
-    JSON.stringify(rows) === JSON.stringify(["Speaker Setup", "Subtitle Size", "Pop-Out Window"]) && JSON.stringify(ids) === JSON.stringify(["audio-channels", "subtitle-size", "popout"]),
+    JSON.stringify(rows) === JSON.stringify(["Speaker Setup", "Subtitle Size", "Pop-Out Window", "Recordings Folder"]) && JSON.stringify(ids) === JSON.stringify(["audio-channels", "subtitle-size", "popout", "recordings-folder"]),
     JSON.stringify({ rows, ids }),
   );
   check("  under the sign-in note for the rest", /Sign in to AIOStreams or Jellyfin to see these settings/.test(note), note.slice(0, 120));

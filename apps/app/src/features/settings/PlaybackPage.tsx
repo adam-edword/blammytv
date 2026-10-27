@@ -1,4 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
+import { isTauri, tauriRecDefaultFolder, tauriRecPickFolder } from "../../lib/tauri";
 import { EYEBROW } from "../../ui/eyebrow";
 import { Segmented } from "../../ui/Segmented";
 import { Combobox, type ComboboxOption } from "../../ui/Combobox";
@@ -54,6 +56,8 @@ import {
   type PopoutSize,
   type SubtitleSize,
 } from "./playerPrefs";
+import { plainError } from "../recordings/format";
+import { loadRecordingsFolder, saveRecordingsFolder } from "./recordingsFolder";
 import { SignInNote } from "./SignInNote";
 
 /**
@@ -114,6 +118,27 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
   const [subSize, setSubSize] = useState<SubtitleSize>(loadSubtitleSize);
   const [popSize, setPopSize] = useState<PopoutSize>(loadPopoutSize);
   const [popCorner, setPopCorner] = useState<PopoutCorner>(loadPopoutCorner);
+
+  // Recordings Folder: the one picked, else the default native names. Only
+  // the app records, so only the app draws it.
+  const [recFolder, setRecFolder] = useState<string>(loadRecordingsFolder);
+  const [recDefault, setRecDefault] = useState<string>("");
+  const [recFolderErr, setRecFolderErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isTauri()) return;
+    tauriRecDefaultFolder().then(setRecDefault, () => {});
+  }, []);
+  const changeRecFolder = () => {
+    setRecFolderErr(null);
+    tauriRecPickFolder(recFolder || recDefault).then(
+      (path) => {
+        if (!path) return;
+        setRecFolder(path);
+        saveRecordingsFolder(path);
+      },
+      (e) => setRecFolderErr(`Couldn’t open the folder picker: ${plainError(e).replace(/\.+$/, "")}.`),
+    );
+  };
 
   const pickSkip = (type: SkipType, mode: SkipMode) => {
     const next = { ...skipping, [type]: mode };
@@ -363,6 +388,30 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
           </div>
         </div>
       </section>
+
+      {isTauri() && (
+        <>
+          <h3 className={`settings__group ${EYEBROW}`}>Recordings</h3>
+          <section className="settings-section">
+            <div className="customize-stack" data-setting="recordings-folder">
+              <div>
+                <h4 className="customize-row__title">Recordings Folder</h4>
+                <p className="settings__section-note settings__section-note--dim break-all">
+                  {recFolder || recDefault}
+                </p>
+                {recFolderErr && (
+                  <p className="settings__section-note" role="alert">
+                    {recFolderErr}
+                  </p>
+                )}
+              </div>
+              <Button variant="outline" type="button" className="self-start" onClick={changeRecFolder}>
+                Change…
+              </Button>
+            </div>
+          </section>
+        </>
+      )}
     </>
   );
 }

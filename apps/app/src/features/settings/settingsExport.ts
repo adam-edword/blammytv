@@ -169,6 +169,8 @@ export const KEY_GROUPS = {
     "sportsTheaterRailShut",
     "sportsTheaterSideWidth",
     "guideCardW",
+    // Where recordings go (plan 029): a folder on this PC.
+    "recordingsFolder",
     // Diagnostic records kept for support, not settings.
     "sportsPairingLog",
     "fullscreenChecks",

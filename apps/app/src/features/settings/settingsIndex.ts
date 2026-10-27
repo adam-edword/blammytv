@@ -161,6 +161,12 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["pop-out", "popout", "pop out", "pip", "picture in picture", "window", "corner", "floating", "position", "size"],
   },
   {
+    id: "recordings-folder",
+    label: "Recordings Folder",
+    page: "playback",
+    keywords: ["record", "recording", "recordings", "dvr", "folder", "directory", "path", "save", "where", "videos", "location"],
+  },
+  {
     id: "accent",
     label: "Accent Color",
     page: "appearance",

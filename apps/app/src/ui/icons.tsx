@@ -122,6 +122,16 @@ export function RecentsIcon({ size = 19, className }: IconProps) {
   );
 }
 
+/** Record: a ring with a dot in it, the mark a recorder wears. */
+export function RecordIcon({ size = 19, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
 /** Interface / Close (X) */
 export function CloseIcon({ size = 24, className }: IconProps) {
   return (

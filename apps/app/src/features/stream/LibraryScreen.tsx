@@ -44,6 +44,9 @@ import { BackButton } from "../../ui/BackButton";
 import { LibraryIcon, PlusIcon } from "../../ui/icons";
 import { StateCard } from "../../ui/StateCard";
 import { TRAKT_SYNCED } from "../trakt/store";
+import { RecordingList } from "../recordings/RecordingList";
+import { requestPlayRecording } from "../recordings/playRequest";
+import { useRecordings } from "../recordings/store";
 
 /**
  * Library (plan 009): Discover's shape, with Continue Watching where the
@@ -112,6 +115,8 @@ function toCover(file: File): Promise<string> {
 export function LibraryScreen({ home }: { home?: number } = {}) {
   const [lists, setLists] = useState<UserList[]>(loadLists);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
+  // Recordings (plan 029): a section of their own, only once there is one.
+  const hasRecordings = useRecordings().length > 0;
   // A Trakt sync can change the Trakt Watchlist and Continue Watching
   // (plan 015).
   useEffect(() => {
@@ -489,6 +494,14 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
           )}
         </div>
       </section>
+
+      {/* Played in Live TV, in Recordings mode: one player for recordings. */}
+      {hasRecordings && (
+        <section className="library__recordings">
+          <h3 className="media-row__title">Recordings</h3>
+          <RecordingList onPlay={requestPlayRecording} />
+        </section>
+      )}
     </div>
   );
 }

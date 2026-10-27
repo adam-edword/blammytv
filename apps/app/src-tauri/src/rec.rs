@@ -309,7 +309,10 @@ fn take_name(folder: &Path, name: &str) -> Result<PathBuf, String> {
         match OpenOptions::new().write(true).create_new(true).open(&path) {
             Ok(_) => return Ok(path),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(e) => return Err(format!("could not create the file: {}", e.kind())),
+            Err(e) => {
+                log::warn!("[rec] could not create the file: {}", e.kind());
+                return Err("the recordings folder can't be written to".into());
+            }
         }
     }
     Err("too many recordings with that name".into())
@@ -689,7 +692,8 @@ impl Source {
             Ok(c) => c,
             Err(e) => {
                 mvproxy::close(&local);
-                return Err(format!("ffmpeg did not start: {}", e.kind()));
+                log::warn!("[rec] the reader ffmpeg did not start: {}", e.kind());
+                return Err("the recorder couldn't start".into());
             }
         };
         let (Some(stdin), Some(out), Some(stderr)) =
@@ -951,7 +955,10 @@ impl Rec {
             return Err("the recordings folder must be a full path".into());
         }
         std::fs::create_dir_all(folder)
-            .map_err(|e| format!("could not make the folder: {}", e.kind()))?;
+            .map_err(|e| {
+                log::warn!("[rec] could not make the folder: {}", e.kind());
+                "the recordings folder couldn't be made".to_string()
+            })?;
         if (self.cfg.free)(folder).is_some_and(|free| free < self.cfg.min_start) {
             return Err(format!(
                 "not enough free disk space (recording needs {} GB)",
@@ -1060,7 +1067,8 @@ impl Rec {
             Ok(c) => c,
             Err(e) => {
                 let _ = std::fs::remove_file(&path);
-                return Err(format!("ffmpeg did not start: {}", e.kind()));
+                log::warn!("[rec] ffmpeg did not start: {}", e.kind());
+                return Err("the recorder couldn't start".into());
             }
         };
         let (Some(stdin), Some(stderr)) = (child.stdin.take(), child.stderr.take()) else {
@@ -1358,7 +1366,10 @@ impl Rec {
                 Ok(()) => {}
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
                 // Windows refuses while the player has it open.
-                Err(e) => return Err(format!("could not delete the file: {}", e.kind())),
+                Err(e) => {
+                    log::warn!("[rec] could not delete the file: {}", e.kind());
+                    return Err("the file is in use or read-only".into());
+                }
             }
         }
         lock(&self.records).retain(|r| r.id != id);

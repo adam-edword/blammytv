@@ -115,6 +115,7 @@
 @import "./discover.css" layer(app);
 @import "./boot.css" layer(app);
 @import "./onboarding.css" layer(app);
+@import "./recordings.css" layer(app);
 
 /**
  * POINTER CURSOR ON BUTTONS, straight out of shadcn's own Button doc.

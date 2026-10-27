@@ -458,7 +458,8 @@ async function registryMatches(page, positions, label, absent = []) {
   await gear(page).click();
   await settingsUp(page);
   await page.waitForTimeout(400);
-  const { reg } = await registryMatches(page, POSITIONS.filter((p) => !["accounts", "app"].includes(p.key)), "browser", ["jellyfin"]);
+  // Recordings Folder, like Jellyfin's sign-in, is drawn only by the app; verify-recordings checks it there.
+  const { reg } = await registryMatches(page, POSITIONS.filter((p) => !["accounts", "app"].includes(p.key)), "browser", ["jellyfin", "recordings-folder"]);
   // The registry itself: a label for every row, ids that are unique.
   check("the registry's ids are unique and every row has a label", new Set(reg.map((r) => r.id)).size === reg.length && reg.every((r) => r.label.trim()), `${reg.length} rows`);
   await ctx.close();

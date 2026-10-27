@@ -40,6 +40,7 @@ import {
   onClockFormatChange,
 } from "../settings/clockFormat";
 import { ChannelLogo } from "../../ui/ChannelLogo";
+import { playlistOf, recKey, useRunningKeys } from "../recordings/store";
 import { QualityBadge } from "../../ui/QualityBadge";
 import {
   GUIDE_HOURS,
@@ -239,6 +240,10 @@ export const Guide = memo(function Guide({
   /** A line for the screen's toast. */
   onNotice?: (message: string) => void;
 }) {
+  // Channels with a recording running (plan 029): a dot on the card. The set
+  // is the same object until one starts or ends, so size updates do not
+  // re-render the guide.
+  const recording = useRunningKeys();
   // The now-line creeps and the window jumps at half-hour boundaries.
   const [now, setNow] = useState(() => new Date());
   const [clockFmt, setClockFmt] = useState(loadClockFormat);
@@ -778,6 +783,7 @@ export const Guide = memo(function Guide({
         {lanes.map(({ channel, blocks, rowKey }) => {
           const selected = channel.id === selectedId;
           const favorite = favorites.includes(channel.id);
+          const recorded = recording.has(recKey(playlistOf(channel.id), channel.name));
           /* Previews attach to the card and the cells themselves — NOT
            * the row. A row-level enter previewed the channel's airing
            * programme, so sweeping vertically across the lane flashed
@@ -806,12 +812,13 @@ export const Guide = memo(function Guide({
                   data-hint={channel.name}
                   aria-current={selected ? "true" : undefined}
                   aria-label={
-                    channel.quality
+                    (channel.quality
                       ? `${channel.name}, ${channel.quality}`
-                      : channel.name
+                      : channel.name) + (recorded ? ", recording" : "")
                   }
                   onClick={() => onSelect(channel.id)}
                 >
+                  {recorded && <span className="guide__rec" aria-hidden />}
                   <ChannelLogo name={channel.name} logo={channel.logo} size={40} lazy className="guide__logo" />
                   <span className="guide__card-meta">
                     <span className="guide__card-name">{channel.name}</span>

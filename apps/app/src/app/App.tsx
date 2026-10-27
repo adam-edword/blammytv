@@ -16,6 +16,7 @@ import { shouldPlayWelcome } from "./welcome";
 import { Onboarding } from "./Onboarding";
 import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
+import { onPlayRecordingRequest } from "../features/recordings/playRequest";
 import { SportsScreen } from "../features/sports/SportsScreen";
 import { MultiviewTab } from "../features/live/MultiviewTab";
 import { watchPlaylists } from "../features/live/source";
@@ -282,6 +283,16 @@ export function App() {
   useEffect(
     () =>
       onWatchRequest(() => {
+        setSection("live");
+        setLiveTab("guide");
+      }),
+    [],
+  );
+  // Library's Play on a recording → the Guide, which plays it in Recordings
+  // mode (LiveScreen drains the mailbox itself).
+  useEffect(
+    () =>
+      onPlayRecordingRequest(() => {
         setSection("live");
         setLiveTab("guide");
       }),

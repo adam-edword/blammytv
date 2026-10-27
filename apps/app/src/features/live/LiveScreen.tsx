@@ -20,6 +20,7 @@ import {
   PanelIcon,
   RainbowStarIcon,
   RecentsIcon,
+  RecordIcon,
   StarIcon,
   TvIcon,
   WarnIcon,
@@ -36,12 +37,20 @@ import {
   tauriMpvFrostRect,
   tauriMpvGoLive,
   tauriPopoutOpen,
+  type TheaterMeta,
 } from "../../lib/tauri";
 import { setFullscreenChecked } from "../../lib/fullscreen";
+import { RecordButton, type RecordTarget } from "../recordings/RecordButton";
+import { RecordingList } from "../recordings/RecordingList";
+import { formatSize } from "../recordings/format";
+import { onPlayRecordingRequest, takePlayRecordingRequest } from "../recordings/playRequest";
+import { playlistOf, useRecording } from "../recordings/store";
+import { formatWhen } from "../../lib/time";
+import { loadClockFormat } from "../settings/clockFormat";
 import { createPortal } from "react-dom";
 import { frostRegion } from "./hole";
 import { setOverlayApiOverride } from "./overlayApi";
-import { TheaterOverlay } from "./TheaterOverlay";
+import { IN_CAPSULE, TheaterOverlay } from "./TheaterOverlay";
 import { useDirectOverlay } from "./useDirectOverlay";
 
 /** Native player present (the inverted layer is THE architecture; in a
@@ -76,7 +85,7 @@ import {
 } from "./source";
 import { buildMeta, resolveStreamUrl, streamUserAgent } from "./stream";
 
-type Mode = "playlist" | "favorites" | "recents";
+type Mode = "playlist" | "favorites" | "recents" | "recordings";
 
 const MODES: SegOption<Mode>[] = [
   { key: "playlist", label: "Playlist", icon: () => <TvIcon /> },
@@ -87,6 +96,7 @@ const MODES: SegOption<Mode>[] = [
     icon: (active) => (active ? <RainbowStarIcon /> : <StarIcon />),
   },
   { key: "recents", label: "Recents", icon: () => <RecentsIcon /> },
+  { key: "recordings", label: "Recordings", icon: () => <RecordIcon /> },
 ];
 
 type LoadState =
@@ -438,6 +448,12 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // (auto-play); the chrome's ✕ (onClose) stops it. Left off on launch
   // so a restored selection doesn't stream until the user actually tunes in.
   const [playing, setPlaying] = useState(false);
+  // A recording the player has open (plan 029), instead of a channel: the
+  // two are never open together. Its file plays as a film, in the same
+  // player and the same chrome.
+  const [recId, setRecId] = useState<string | null>(null);
+  const recIdRef = useRef(recId);
+  recIdRef.current = recId;
   // Player size: mini (default) → theater (large windowed) → fullscreen.
   // The chrome drives these via its DirectOverlayHandlers callbacks; the box
   // geometry is CSS (classes below), the rAF follows.
@@ -551,6 +567,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   const selectChannel = useCallback((id: string) => {
     setChannelId(id);
     setPlaying(true); // auto-play on select
+    setRecId(null);
     setRecents((list) => recordRecent(list, id));
   }, []);
   // A multi-view tile's Watch in player (plan 017): its channel, tuned, in
@@ -567,6 +584,22 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     take();
     return onWatchRequest(take);
   }, [selectChannel]);
+  // A recording to play: the list's Play, and Library's, which sends the
+  // Guide here in Recordings mode (recordings/playRequest).
+  const playRecording = useCallback((id: string) => {
+    setPlaying(false);
+    setRecId(id);
+  }, []);
+  useEffect(() => {
+    const take = () => {
+      const id = takePlayRecordingRequest();
+      if (!id) return;
+      setMode("recordings");
+      playRecording(id);
+    };
+    take();
+    return onPlayRecordingRequest(take);
+  }, [playRecording]);
   // Leave fullscreen fully — player state + the OS window together.
   const leaveFullscreen = useCallback(() => {
     setFullscreen(false);
@@ -758,14 +791,60 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     );
   }, [playUrl, ready, heroChannel, favorites, metaNow]);
 
+  // The recording the player has open, drawn as the hero and the chrome draw
+  // a film: its programme (or the channel) as the title, its span as the
+  // times, none of it live.
+  const playingRec = useRecording(recId);
+  const recHero = useMemo(() => {
+    if (!playingRec) return null;
+    const channel: Channel = ready?.channels.find(
+      (c) => playlistOf(c.id) === playingRec.playlistId && c.name === playingRec.channel,
+    ) ?? {
+      id: playingRec.id,
+      name: playingRec.channel,
+      quality: null,
+      folderId: "",
+      archiveDays: 0,
+    };
+    const programme: Programme = {
+      title: playingRec.programme ?? playingRec.channel,
+      synopsis: `Recorded ${formatWhen(new Date(playingRec.startedAt), new Date(), loadClockFormat())}. ${formatSize(playingRec.bytes)}.`,
+      start: new Date(playingRec.startedAt),
+      end: new Date(playingRec.endedAt ?? playingRec.startedAt),
+    };
+    return { channel, programme };
+  }, [playingRec, ready]);
+  const recMeta = useMemo<TheaterMeta | null>(
+    () =>
+      recHero && playingRec
+        ? {
+            channelName: playingRec.channel,
+            logo: recHero.channel.logo,
+            title: playingRec.programme ?? playingRec.channel,
+            live: false,
+          }
+        : null,
+    [recHero, playingRec],
+  );
+  // What Record asks native to record: the channel's link NOW (a Stalker one
+  // is fetched fresh, as Go Live does) and its playlist's User-Agent.
+  const resolveRecordTarget = useCallback(async (): Promise<RecordTarget> => {
+    const ch = heroChannelRef.current;
+    if (!ch) return null;
+    const url = await resolveStreamUrl(ch);
+    return url ? { url, userAgent: streamUserAgent(ch.id) } : null;
+  }, []);
+
   // Inline chrome for the inverted player: a direct OverlayApi (mpv commands
   // + a status poll) injected into TheaterOverlay, which renders into a
   // fixed host div OUTSIDE .app-shell — the clip-path hole would cut any
   // chrome painted inside the shell. InvertedPlayer keeps the host glued
   // to the slot rect alongside the hole itself.
-  const directApi = useDirectOverlay(INV && !!playUrl, playUrl, playMeta, {
+  const feedKey = playUrl ?? (recId ? `rec:${recId}` : null);
+  const directApi = useDirectOverlay(INV && !!feedKey, feedKey, playMeta ?? recMeta, {
     onClose: () => {
       setPlaying(false);
+      setRecId(null);
       setTheater(false);
       leaveFullscreen();
     },
@@ -779,7 +858,17 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       void setFullscreenChecked(true).catch(() => {});
     },
     onExitFullscreen: leaveFullscreen,
+    // A recording played to its end: the player closes. (Only a file reaches
+    // this; a live channel never completes.)
+    onEnded: () => {
+      if (!recIdRef.current) return;
+      setRecId(null);
+      setTheater(false);
+      leaveFullscreen();
+    },
     onPopout: () => {
+      // A recording has no link to pop out; the button is not drawn for it.
+      if (recIdRef.current) return;
       const url = playUrlRef.current;
       // Heal the shell's clip hole BEFORE Rust tears the video child down:
       // popout_open closes the in-app player main-thread-side, and losing
@@ -849,7 +938,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // the header's `/` search shortcut did nothing (v0.9.93). After a stop it
   // also kept InvertedPlayer's last inline box, an empty layer over the
   // guide.
-  const hasFeed = !!playUrl;
+  const hasFeed = !!feedKey;
   useEffect(() => {
     const host = chromeHostRef.current;
     if (!host || !hasFeed) return;
@@ -1073,9 +1162,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         {ready && shownChannel && (
           <>
             <Hero
-              channel={shownChannel}
-              programmes={shownProgrammes}
-              programme={preview?.programme ?? undefined}
+              channel={recHero?.channel ?? shownChannel}
+              programmes={recHero ? NO_PROGRAMMES : shownProgrammes}
+              programme={recHero?.programme ?? preview?.programme ?? undefined}
               // Theater only: clicking the black space around the picture
               // drops back to mini (clicks ON the picture hit the inline
               // chrome, which owns play/pause). Fullscreen has no space to
@@ -1098,20 +1187,61 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             )}
             {/* Inverted path: the player chrome lives in the main webview,
              * portaled outside the shell so the clip hole can't cut it. */}
+            {recId && (
+              <InvertedPlayer
+                url={`rec:${recId}`}
+                recording={recId}
+                squared={theater || fullscreen}
+                ready={videoReady}
+              />
+            )}
             {INV &&
-              playUrl &&
+              feedKey &&
               chromeHostRef.current &&
               createPortal(
                 <TheaterOverlay
+                  // A recording and a channel are different chrome (a film's
+                  // scrubber, a channel's live rail): a fresh one each way.
+                  key={recId ? "recording" : "channel"}
                   frame={
                     fullscreen ? "fullscreen" : theater ? "theater" : "mini"
                   }
-                  playbackKey={playUrl}
-                  vod={false}
+                  playbackKey={feedKey}
+                  vod={!!recId}
+                  file={!!recId}
+                  recordSlot={
+                    !recId && heroChannel ? (
+                      <RecordButton
+                        playlistId={playlistOf(heroChannel.id)}
+                        channel={heroChannel.name}
+                        programme={playMeta?.title}
+                        resolve={resolveRecordTarget}
+                        className={IN_CAPSULE}
+                      />
+                    ) : undefined
+                  }
                 />,
                 chromeHostRef.current,
               )}
-            {visible.length === 0 ? (
+            {mode === "recordings" ? (
+              <div className="rec-page">
+                <RecordingList
+                  playingId={recId}
+                  onPlay={playRecording}
+                  onBeforeDelete={(id) => {
+                    if (id === recIdRef.current) setRecId(null);
+                  }}
+                  empty={
+                    <StateCard
+                      className="guide-empty"
+                      icon={<RecordIcon size={28} />}
+                      title="No Recordings Yet"
+                      sub="Press Record while you watch a channel and it shows up here."
+                    />
+                  }
+                />
+              </div>
+            ) : visible.length === 0 ? (
               <StateCard
                 className="guide-empty"
                 icon={
