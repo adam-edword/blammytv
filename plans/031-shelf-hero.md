@@ -22,12 +22,14 @@ swapped).
 - **No buttons.** Clicking the focused card, or Enter on it, opens the
   title page (today's More Info). Clicking a poster slides it into focus.
   Watch Now leaves the front page.
-- **Keep the glow, on every card, at full strength** (Adam, after the
-  prototype). The shelf again, blurred and brightened, sliding 1:1 behind
-  it across the full width, so each card lights its own rim: blur 32px,
-  saturate 1.9, brightness 1.55 (today 70px and 1.4, and only around the
-  centre card at .7 with neighbours at .3). It reaches 56px above and
-  below the cards and fades out there.
+- **Keep the glow, tighter, brighter, and all lit** (Adam, after the
+  prototype). Today's shape stays: the shelf again, blurred, sliding in
+  lockstep behind a box that stays put around the focused card and fades
+  at its edges. The box now reaches 110px past the card's sides and 56px
+  above and below (today 210 and 90), fading over 90px and 56px. The blur
+  is 32px with saturate 1.9 and brightness 1.55 (today 70px and 1.4), and
+  everything inside the box shines at full strength (today the centre at
+  .7 and neighbours at .3).
 - **The logo only fades.** It never moves or changes size: it is sized from
   the full card, not the growing one, and fades in once the card has grown.
 - **No logo on the posters.** A poster already carries its title.
