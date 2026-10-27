@@ -15,6 +15,7 @@ mod mpvvulkan;
 mod mvaudio;
 mod mvconvert;
 mod mvproxy;
+mod rec;
 mod settingsfile;
 mod trakt;
 
@@ -158,6 +159,24 @@ fn inv_open(
     // Native says what mpv may open, not only the frontend (audit X1).
     mpvurl::http_only(&url)?;
     let agent = mpvagent::clean(user_agent)?;
+    open_in_player(window, url, x, y, w, h, start, live, agent)
+}
+
+/// Load `url` in the in-app player, at the rect the page gave. Past the
+/// checks: `inv_open` makes them for a stream, and `rec_play` is for a file
+/// out of the recordings index. Nothing else calls this.
+#[allow(clippy::too_many_arguments)]
+fn open_in_player(
+    window: tauri::WebviewWindow,
+    url: String,
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    start: Option<f64>,
+    live: Option<bool>,
+    agent: Option<String>,
+) -> Result<(), String> {
     #[cfg(windows)]
     {
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
@@ -1060,6 +1079,189 @@ async fn mv_convert_warm() {
     let _ = mvconvert::caps().await;
 }
 
+// ---- Recording (plan 029; see rec.rs). The page names an id, never a path:
+// the file is the index's, and a folder it picks is only where new ones go. ----
+
+/// Where recordings go: the folder the page gave (Settings → Playback), a full
+/// path, or `Videos\BlammyTV`.
+fn recordings_folder(
+    app: &tauri::AppHandle,
+    folder: Option<String>,
+) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    match folder.as_deref().map(str::trim).filter(|f| !f.is_empty()) {
+        Some(f) => Ok(f.into()),
+        None => app
+            .path()
+            .video_dir()
+            .map(|v| v.join("BlammyTV"))
+            .map_err(|_| "there is no Videos folder".to_string()),
+    }
+}
+
+/// Where recordings go when nothing is set (`Videos\BlammyTV`), for the
+/// Settings field to show. Not made: the first recording does that.
+#[tauri::command]
+fn rec_default_folder(app: tauri::AppHandle) -> Result<String, String> {
+    recordings_folder(&app, None).map(|p| p.to_string_lossy().into_owned())
+}
+
+/// Settings → Playback → Recordings Folder: the folder dialog. The page never
+/// names a path of its own to record into; the one it passes to `rec_start` is
+/// one this handed back. Opens on `current` if that is a folder that exists,
+/// else the default. Answers the chosen full path, or null when the dialog was
+/// closed. Async, with the wait on a blocking thread, as `settings_export`.
+#[tauri::command]
+async fn rec_pick_folder(
+    app: tauri::AppHandle,
+    current: Option<String>,
+) -> Result<Option<String>, String> {
+    let default = recordings_folder(&app, None)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        use tauri_plugin_dialog::DialogExt;
+        let mut dialog = app
+            .dialog()
+            .file()
+            .set_title("Choose a Folder for Recordings");
+        if let Some(start) = rec::picker_start(current.as_deref(), &default) {
+            dialog = dialog.set_directory(start);
+        }
+        if let Some(win) = app.get_webview_window("main") {
+            dialog = dialog.set_parent(&win);
+        }
+        let Some(picked) = dialog.blocking_pick_folder() else {
+            return Ok(None);
+        };
+        let path = picked.into_path().map_err(|e| e.to_string())?;
+        Ok(Some(path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Record a live channel to a file, in Rust, whatever the player does. Answers
+/// the recording's id once bytes are coming, and rejects with why not (the host
+/// and a reason, never the link). `rec-update` events then carry the record as
+/// its status and size change.
+#[tauri::command]
+async fn rec_start(
+    app: tauri::AppHandle,
+    url: String,
+    user_agent: Option<String>,
+    channel: String,
+    programme: Option<String>,
+    playlist_id: String,
+    folder: Option<String>,
+) -> Result<String, String> {
+    let user_agent = mpvagent::clean(user_agent)?;
+    let folder = recordings_folder(&app, folder)?;
+    rec::get()?
+        .start(rec::Spec {
+            url,
+            user_agent,
+            channel,
+            programme,
+            playlist_id,
+            folder,
+        })
+        .await
+}
+
+/// Record the player's own buffer from where it is playing (plan 029, D3): for
+/// a line with one connection, where a second would be refused. mpv's
+/// `dump-cache` (mpv.rs), apart from `mpv_set`, which still refuses it. It
+/// ends by itself when the player loads, reloads or stops, as Partial.
+#[tauri::command]
+async fn rec_buffer_start(
+    app: tauri::AppHandle,
+    channel: String,
+    programme: Option<String>,
+    playlist_id: Option<String>,
+    folder: Option<String>,
+) -> Result<String, String> {
+    let folder = recordings_folder(&app, folder)?;
+    rec::get()?
+        .buffer_start(
+            rec::BufferSpec {
+                channel,
+                programme,
+                playlist_id: playlist_id.unwrap_or_default(),
+                folder,
+            },
+            |file| mpv::dump_cache_start(&file.to_string_lossy()),
+            Box::new(mpv::dump_cache_stop),
+        )
+        .await
+}
+
+/// Stop a recording and wait for its file to be finished. Answers the record.
+#[tauri::command]
+async fn rec_stop(id: String) -> Result<rec::Record, String> {
+    rec::get()?.stop(&id).await
+}
+
+/// Every recording, newest first.
+#[tauri::command]
+fn rec_list() -> Result<Vec<rec::Record>, String> {
+    Ok(rec::get()?.list())
+}
+
+/// Delete a recording's file and its entry. Not while it records.
+#[tauri::command]
+async fn rec_delete(id: String) -> Result<(), String> {
+    let rec = rec::get()?.clone();
+    tauri::async_runtime::spawn_blocking(move || rec.delete(&id))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Show a recording's file in Explorer, selected.
+#[tauri::command]
+fn rec_show(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let file = rec::get()?.playable(&id)?;
+    // Not the error itself: it names the path.
+    app.opener()
+        .reveal_item_in_dir(file)
+        .map_err(|_| "could not open the folder".to_string())
+}
+
+/// Give a running recording a fresh link, for its next reconnect: a Stalker
+/// link expires, and the page can ask for another.
+#[tauri::command]
+fn rec_set_url(id: String, url: String) -> Result<(), String> {
+    rec::get()?.set_url(&id, &url)
+}
+
+/// Play a recording in the in-app player, at the rect the page gives
+/// (`inv_open`'s). The file comes from the index and must exist: this is the
+/// one place a path, not an http URL, reaches mpv, and `inv_open` and
+/// `popout_open` still refuse everything but http (mpvurl).
+#[tauri::command]
+fn rec_play(
+    window: tauri::WebviewWindow,
+    id: String,
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    start: Option<f64>,
+) -> Result<(), String> {
+    let file = rec::get()?.playable(&id)?;
+    open_in_player(
+        window,
+        file.to_string_lossy().into_owned(),
+        x,
+        y,
+        w,
+        h,
+        start,
+        Some(false),
+        None,
+    )
+}
+
 /// Forget a URL `mv_proxy_open` returned, when its tile unmounts.
 #[tauri::command]
 fn mv_proxy_close(local: String) {
@@ -1858,6 +2060,22 @@ pub fn run() {
                 Err(e) => eprintln!("[log] could not start the log: {e}"),
             }
 
+            // The recordings index, in the app's data folder (rec.rs). A recording
+            // the last run died in is settled here. With no data folder there is
+            // no recording, and each rec_ command says so.
+            match app.path().app_data_dir() {
+                Ok(dir) => rec::init(
+                    dir.join("recordings.json"),
+                    std::sync::Arc::new(|record| {
+                        use tauri::Emitter;
+                        if let Some(app) = APP.get() {
+                            let _ = app.emit("rec-update", record);
+                        }
+                    }),
+                ),
+                Err(e) => log::warn!("[rec] no data folder, recording is off: {e}"),
+            }
+
             // Window bring-up. The window-state plugin has, by now, restored a
             // saved size/position from a previous launch. On the very first
             // launch there's nothing to restore, so open maximized. A private
@@ -1921,6 +2139,16 @@ pub fn run() {
             mv_proxy_open_hls,
             mv_proxy_close,
             mv_convert_warm,
+            rec_default_folder,
+            rec_pick_folder,
+            rec_start,
+            rec_buffer_start,
+            rec_stop,
+            rec_list,
+            rec_delete,
+            rec_show,
+            rec_set_url,
+            rec_play,
             mv_audio_open,
             mv_audio_close,
             mv_audio_stats,

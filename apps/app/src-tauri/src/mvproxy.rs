@@ -651,23 +651,47 @@ async fn handle(req: Request<Incoming>, port: u16) -> Result<Response<Body>, Inf
     Ok(out)
 }
 
-/// A 502 for a fetch that failed: WHERE (a redirect can move the stream to
-/// another server) and WHY. v0.9.101 said only "could not connect", on a
-/// provider whose own host was answering at the same moment.
-fn failed(url: &str, f: &Failed) -> Response<Body> {
+/// WHERE a fetch gave up (a redirect can move the stream to another server)
+/// and WHY, with no path or query in it. v0.9.101 said only "could not
+/// connect", on a provider whose own host was answering at the same moment.
+fn why(url: &str, f: &Failed) -> String {
     let route = route_of(url, &f.at);
     let cause = f
         .cause
         .as_ref()
         .map(|e| root_cause(e, url, &f.at))
         .unwrap_or_default();
-    let why = if cause.is_empty() {
+    if cause.is_empty() {
         format!("{} ({route})", f.kind)
     } else {
         format!("{} ({route}): {cause}", f.kind)
-    };
-    log::warn!("[mvproxy] {why}");
-    bad_gateway(&why)
+    }
+}
+
+/// A 502 for a fetch that failed, saying `why`.
+fn failed(url: &str, f: &Failed) -> Response<Body> {
+    let text = why(url, f);
+    log::warn!("[mvproxy] {text}");
+    bad_gateway(&text)
+}
+
+/// A recording's GET (rec.rs): `fetch`, so the same client, redirects,
+/// timeouts and User-Agent as a tile's, and Windows' own TLS. Ok only for a
+/// 2xx, with the response still unread. The error says where and why in
+/// `why`'s words, so it can go to the page: the host, never the path or query.
+pub(crate) async fn open_stream(
+    url: &str,
+    agent: Option<&HeaderValue>,
+) -> Result<reqwest::Response, String> {
+    let res = fetch(url, None, agent).await.map_err(|f| why(url, &f))?;
+    if !res.status().is_success() {
+        return Err(format!(
+            "{}: HTTP {}",
+            route_of(url, res.url()),
+            res.status().as_u16()
+        ));
+    }
+    Ok(res)
 }
 
 /// The most a playlist may be. A live one is a few KB; a long VOD one with

@@ -95,4 +95,9 @@ windows = { version = "0.61", features = [
     # mvaudio_out.rs: which device mpv's audio is on, beside multi-view's.
     "Win32_Media_Audio",
     "Win32_System_Com",
+    # rec.rs: the PC kept awake while a recording runs, the drive's free space,
+    # and the clock a recording's file name is stamped with.
+    "Win32_System_Power",
+    "Win32_Storage_FileSystem",
+    "Win32_System_SystemInformation",
 ] }

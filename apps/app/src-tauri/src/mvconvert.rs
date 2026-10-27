@@ -433,7 +433,7 @@ pub fn args(caps: &Caps) -> Vec<String> {
 
 /// Where ffmpeg is: `BLAMMYTV_FFMPEG`, then beside the app, then the
 /// bundle's `resources/`, the same places libmpv is looked for (mpv.rs).
-fn locate() -> Result<PathBuf, String> {
+pub(crate) fn locate() -> Result<PathBuf, String> {
     if let Some(p) = std::env::var_os("BLAMMYTV_FFMPEG") {
         return Ok(p.into());
     }
@@ -464,7 +464,7 @@ fn locate() -> Result<PathBuf, String> {
     Err(format!("{name} is missing beside the app"))
 }
 
-fn command(ffmpeg: &PathBuf) -> tokio::process::Command {
+pub(crate) fn command(ffmpeg: &PathBuf) -> tokio::process::Command {
     let mut cmd = tokio::process::Command::new(ffmpeg);
     cmd.kill_on_drop(true);
     // No console window flashing up for each tile.
@@ -784,11 +784,11 @@ impl Drop for Running {
 /// Problems ffmpeg printed, the last few kept for a failure's reason.
 /// Printed as they come, up to a limit: a bad stream can warn on every
 /// packet.
-const LOG_LINES: usize = 20;
+pub(crate) const LOG_LINES: usize = 20;
 
 /// What a line of ffmpeg's `level+info` log is worth.
 #[derive(Debug, PartialEq, Eq)]
-enum Said {
+pub(crate) enum Said {
     /// A stream's description, in or out: codec, pixel format, and the
     /// colour tags a picture that looks wrong is diagnosed from.
     Stream(String),
@@ -799,7 +799,7 @@ enum Said {
 }
 
 /// Lines come as "[info] ..." or "[hevc @ 0x..] [warning] ...".
-fn said(line: &str) -> Said {
+pub(crate) fn said(line: &str) -> Said {
     for (tag, problem) in [
         ("[info] ", false),
         ("[warning] ", true),

@@ -21,6 +21,7 @@ type FnCreate = unsafe extern "C" fn() -> Handle;
 type FnSetOptionString = unsafe extern "C" fn(Handle, *const c_char, *const c_char) -> c_int;
 type FnInitialize = unsafe extern "C" fn(Handle) -> c_int;
 type FnCommand = unsafe extern "C" fn(Handle, *const *const c_char) -> c_int;
+type FnCommandAsync = unsafe extern "C" fn(Handle, u64, *const *const c_char) -> c_int;
 type FnSetPropertyString = unsafe extern "C" fn(Handle, *const c_char, *const c_char) -> c_int;
 type FnGetPropertyString = unsafe extern "C" fn(Handle, *const c_char) -> *mut c_char;
 type FnFree = unsafe extern "C" fn(*mut c_void);
@@ -48,6 +49,9 @@ struct Lib {
     set_option_string: FnSetOptionString,
     initialize: FnInitialize,
     command: FnCommand,
+    /// Only the buffer recording needs it (`dump_cache_start`), so a libmpv
+    /// without it still plays.
+    command_async: Option<FnCommandAsync>,
     set_property_string: FnSetPropertyString,
     get_property_string: FnGetPropertyString,
     free: FnFree,
@@ -178,6 +182,10 @@ fn lib() -> Result<&'static Lib, String> {
             ),
             initialize: std::mem::transmute::<_, FnInitialize>(sym(b"mpv_initialize\0")?),
             command: std::mem::transmute::<_, FnCommand>(sym(b"mpv_command\0")?),
+            command_async: library
+                .get::<FnCommandAsync>(b"mpv_command_async\0")
+                .ok()
+                .map(|s| *s),
             set_property_string: std::mem::transmute::<_, FnSetPropertyString>(
                 sym(b"mpv_set_property_string\0")?,
             ),
@@ -1054,6 +1062,8 @@ pub fn play_wid(
     // independent mutexes and stop_popout drops POPOUT's before the quit.
     stop_popout();
     let t_ready = t0.elapsed();
+    // A recording of the old file's buffer ends with it (rec.rs).
+    crate::rec::player_changed();
     // This load supersedes whatever subtitles were still waiting to be added
     // to the file before it.
     let gen = SUB_GEN.fetch_add(1, Ordering::SeqCst) + 1;
@@ -1219,6 +1229,8 @@ pub fn seek_abs(pos: f64) {
 /// stays put. Reversible: drop this and the goLive bridge/handler to restore
 /// the old (non-functional) forward-seek behavior.
 pub fn reload_live() {
+    // The reload drops the buffer a recording of it was reading (rec.rs).
+    crate::rec::player_changed();
     // UNPAUSE FIRST. This is the tune watchdog's silent recovery as well as
     // the user's go-live button, and mpv reports core-idle="yes" while
     // paused — so reloading a paused player can never reach `presenting`,
@@ -1271,6 +1283,8 @@ pub fn reload_live() {
 /// `stop` command for `shutdown()` and take the teardown cost back on
 /// switches only. Nothing else in the app needs to know.
 pub fn unload() {
+    // Stopping the file ends a recording of its buffer (rec.rs).
+    crate::rec::player_changed();
     let g = PLAYER.lock().unwrap();
     SUB_GEN.fetch_add(1, Ordering::SeqCst);
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
@@ -1284,6 +1298,65 @@ pub fn unload() {
         // and a stamp left over from the file before would read that idle as
         // one that followed a load.
         note_unloaded();
+    }
+}
+
+/// The id `dump_cache_start`'s command is given. Its answer comes as an event
+/// on this handle, and nothing reads this player's events, so it is never
+/// seen; the number is only there for the call.
+const DUMP_ID: u64 = 0x5245_4300;
+
+/// Record the in-app player's cache into `path`, from where it is playing now
+/// and on for as long as the file plays: mpv's `dump-cache <time-pos> no <file>`
+/// (input.rst: "If <end> is `no`, then continuous dumping is enabled. Then,
+/// after dumping the existing parts of the cache, anything read from network is
+/// appended to the cache as well"). The output format is the file's extension
+/// (`.ts`), and mpv warns that it "will only work if the output format is the
+/// same as the input format" (options.rst, `--stream-record`, whose writer this
+/// shares): a transport stream into `.ts` is that case.
+///
+/// THE ASYNC API, because the command "will not finish until playback is
+/// stopped, an error happens, another dump-cache command is run" (input.rst),
+/// and `mpv_command` would wait that long holding the PLAYER lock, which every
+/// poll of the player takes. `mpv_command_async` "never blocks the caller".
+/// The price is that mpv's answer is an event, so a dump mpv refuses is not
+/// heard of here: the file just stays empty, which rec.rs calls Failed.
+///
+/// Its own verb. `mpv_set` still refuses anything named record or dump.
+pub fn dump_cache_start(path: &str) -> Result<(), String> {
+    // Read first: get_property takes the PLAYER lock, taken again below.
+    let pos = read_prop("time-pos")
+        .and_then(|p| p.parse::<f64>().ok())
+        .filter(|p| p.is_finite() && *p >= 0.0)
+        .ok_or("nothing is playing yet")?;
+    let words = ["dump-cache", &pos.to_string(), "no", path]
+        .into_iter()
+        .map(CString::new)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "the file's name has a null byte")?;
+    let g = PLAYER.lock().unwrap();
+    let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) else {
+        return Err("no player".into());
+    };
+    let Some(command_async) = l.command_async else {
+        return Err("this libmpv cannot record the buffer".into());
+    };
+    let mut args: Vec<*const c_char> = words.iter().map(|w| w.as_ptr()).collect();
+    args.push(std::ptr::null());
+    if unsafe { command_async(p.0, DUMP_ID, args.as_ptr()) } < 0 {
+        return Err("the player would not record".into());
+    }
+    Ok(())
+}
+
+/// End an ongoing dump: `dump-cache` with an empty filename (input.rst: "If
+/// `<filename>` is an empty string, an ongoing `dump-cache` is stopped"). The
+/// two times are not looked at then. Does nothing with no player.
+pub fn dump_cache_stop() {
+    let words = ["dump-cache", "0", "0", ""].map(|w| CString::new(w).expect("no null byte"));
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe { run_command(l, p.0, &words) };
     }
 }
 

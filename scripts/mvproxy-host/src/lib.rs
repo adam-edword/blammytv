@@ -33,3 +33,5 @@ pub mod logtail;
 pub mod settingsfile;
 #[path = "../../../apps/app/src-tauri/src/jf.rs"]
 pub mod jf;
+#[path = "../../../apps/app/src-tauri/src/rec.rs"]
+pub mod rec;
