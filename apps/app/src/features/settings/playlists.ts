@@ -144,24 +144,14 @@ export function isFormComplete(
 }
 
 /** The address shown under a playlist's name in the list. */
-/** An M3U link as the row shows it: the host, and dots for the rest. Its path
- * and query often hold the account's user name and password, and a row on
- * screen is a row on a stream or a screenshot. */
-export function maskedLink(url: string): string {
-  try {
-    const u = new URL(url);
-    return u.pathname === "/" && !u.search && !u.hash ? u.origin : `${u.origin}/•••••`;
-  } catch {
-    return "•••••";
-  }
-}
-
 export function playlistSource(p: Playlist): string {
   switch (p.kind) {
     case "xtream":
       return p.server;
     case "m3u":
-      return maskedLink(p.url);
+      // Starred out whole (Adam, 1.0.3): its path or query is usually the
+      // account's user name and password, and a host can name a person too.
+      return "•••••";
     case "stalker":
       return p.portal;
   }

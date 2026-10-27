@@ -2,10 +2,10 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
-## 1.0.3: Playlist links starred out (unreleased)
+## 1.0.4: Playlist links starred out (unreleased)
 
-- **Settings → Sources shows an M3U link as its host and dots**, so its
-  user name and password stay off your screen.
+- **Settings → Sources stars out an M3U playlist's link**, so its user name
+  and password stay off your screen.
 
 ## 1.0.2: Safer playlist reads (unreleased)
 
