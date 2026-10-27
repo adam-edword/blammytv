@@ -9,8 +9,13 @@
 //   neither. "Don't Show Again" skips the dialog next time, and Settings →
 //   Playback → Recordings Folder brings it back. A buffer recording that
 //   native ends by itself (Go Live, a channel change) puts the button back
-//   to Record. A line of three, or one that reports no limit, goes straight
-//   to rec_start with no dialog.
+//   to Record.
+// - D5. Every other line gets a heads-up first, in the same dialog: a line
+//   of three names its limit, one that reports none names the provider's.
+//   Start Recording calls rec_start, Cancel calls nothing, and its own
+//   Don't Show Again skips it next time. The two Don't Show Agains are
+//   separate flags (D3 on a line of one still asks after the heads-up is
+//   off, and the other way round), and Settings brings both back.
 // - Counts. A recording starting or ending re-asks the panel (the sidebar
 //   pill catches up), counted from the panel calls themselves.
 // - Multi-View. A running stream recording is the app's own connection: one
@@ -43,14 +48,14 @@ const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromi
 /** A page with the stub in, on the Guide, ready to play a channel.
  * `max` is the line's limit ("none" for a panel that does not report one),
  * `extra` the streams another device holds, `pending` a staged frontend. */
-async function open({ max = 3, extra = 0, pending = "", query = "", tab = "live" } = {}) {
+async function open({ max = 3, extra = 0, pending = "", query = "", tab = "live", seed = {} } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(
-    ({ max, extra, pending, tab }) => {
+    ({ max, extra, pending, tab, seed }) => {
       window.__calls = [];
       window.__native = { recs: [], n: 0 };
       window.__panel = { max, extra };
@@ -142,6 +147,8 @@ async function open({ max = 3, extra = 0, pending = "", query = "", tab = "live"
         },
       };
       window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+      // What an earlier page left in storage (the "Don't Show Again" flags).
+      for (const [k, v] of Object.entries(seed)) if (localStorage.getItem(k) === null) localStorage.setItem(k, v);
       localStorage.setItem("btv:onboarded", "1");
       sessionStorage.setItem("btv:welcome-played", "1");
       localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
@@ -156,7 +163,7 @@ async function open({ max = 3, extra = 0, pending = "", query = "", tab = "live"
       );
       localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: tab }));
     },
-    { max, extra, pending, tab },
+    { max, extra, pending, tab, seed },
   );
   await page.goto(APP + query, { waitUntil: "domcontentloaded" });
   return { ctx, page, errors };
@@ -199,8 +206,23 @@ async function closePlayer(page) {
 }
 const dialog = (page) => page.getByRole("dialog");
 const warnStored = (page) => page.evaluate(() => localStorage.getItem("blammytv.recordingWarning"));
+const noticeStored = (page) => page.evaluate(() => localStorage.getItem("blammytv.recordingNotice"));
+/** The recording flags as the page itself stored them, to seed a later page. */
+const flags = (page) =>
+  page.evaluate(() => Object.fromEntries(Object.entries(localStorage).filter(([k]) => /^blammytv\.recording(Warning|Notice)$/.test(k))));
+const OFF = JSON.stringify({ v: 1, data: false });
+const ON = JSON.stringify({ v: 1, data: true });
+/** For the sections that are about something else than the heads-up: it is off, as after its Don't Show Again. */
+const NO_HEADS_UP = { "blammytv.recordingNotice": OFF };
+const BUFFER_TITLE = /Record What You’re Watching/;
+const NOTICE_TITLE = /Recording Uses a Connection/;
+const RUNNING = () => document.querySelector(".theater-controls .rec-btn button")?.getAttribute("aria-label") === "Stop Recording";
+const IDLE = () => document.querySelector(".theater-controls .rec-btn button")?.getAttribute("aria-label") === "Record";
 /** The line's reading is in: the sidebar's pill is drawn from it. */
 const readingIn = (page) => page.locator(".live-conns").first().waitFor({ timeout: 15_000 });
+
+/** The flags after D3’s Don’t Show Again was ticked and nothing else. */
+const saved = { d3Off: {} };
 
 // ===================================================== D3: a line of one
 {
@@ -268,7 +290,9 @@ const readingIn = (page) => page.locator(".live-conns").first().waitFor({ timeou
   await dialog(page).getByRole("button", { name: "Start Recording" }).click();
   await page.waitForFunction(() => document.querySelector(".theater-controls .rec-btn button")?.getAttribute("aria-label") === "Stop Recording");
   check("ticking Don’t Show Again and going ahead still records", (await kinds()).buffer === 3);
-  check("  and keeps the choice, stored like the other settings", (await warnStored(page)) === JSON.stringify({ v: 1, data: false }), String(await warnStored(page)));
+  check("  and keeps the choice, stored like the other settings", (await warnStored(page)) === OFF, String(await warnStored(page)));
+  check("  and leaves the heads-up’s own choice alone", (await noticeStored(page)) === null);
+  saved.d3Off = await flags(page);
   await wake(page);
   await recButton(page).click();
   await page.waitForFunction(() => document.querySelector(".theater-controls .rec-btn button")?.getAttribute("aria-label") === "Record");
@@ -284,10 +308,10 @@ const readingIn = (page) => page.locator(".live-conns").first().waitFor({ timeou
   await page.getByRole("tablist", { name: "Settings", exact: true }).getByRole("tab", { name: "Playback", exact: true }).click();
   const row = page.locator("[data-setting='recordings-folder']");
   await row.waitFor({ timeout: 5000 });
-  const back = row.getByRole("button", { name: "Show Recording Warning Again" });
-  check("with the warning off, Settings → Playback → Recordings Folder offers to show it again", (await back.count()) === 1);
+  const back = row.getByRole("button", { name: "Show Recording Warnings Again" });
+  check("with the warning off, Settings → Playback → Recordings Folder offers to show the warnings again", (await back.count()) === 1);
   await back.click();
-  check("  pressing it turns it on, and it goes", (await back.count()) === 0 && (await warnStored(page)) === JSON.stringify({ v: 1, data: true }));
+  check("  pressing it turns it on, and it goes", (await back.count()) === 0 && (await warnStored(page)) === ON);
   await page.keyboard.press("Escape");
   await page.locator(".settings").waitFor({ state: "detached", timeout: 5000 });
   await toTheater(page);
@@ -300,11 +324,138 @@ const readingIn = (page) => page.locator(".live-conns").first().waitFor({ timeou
   await ctx.close();
 }
 
-// ========================================= the rest go straight to a stream
-for (const [name, opts] of [
-  ["a line of three", { max: 3 }],
-  ["a line of two", { max: 2 }],
-  ["a panel that reports no limit", { max: "none" }],
+// ============================================ D5: a heads-up on every other line
+{
+  const { ctx, page, errors } = await open({ max: 3 });
+  await toTheater(page);
+  await readingIn(page);
+  const starts = async () => ({ stream: (await calls(page, "rec_start")).length, buffer: (await calls(page, "rec_buffer_start")).length });
+
+  await wake(page);
+  await recButton(page).click();
+  await dialog(page).waitFor({ timeout: 5000 });
+  const words = await dialog(page).innerText();
+  check("on a line of three, Record says it uses a connection, with a dialog", NOTICE_TITLE.test(words) && !BUFFER_TITLE.test(words), words.replace(/\n/g, " | "));
+  check(
+    "  that names the line’s number",
+    /This recording uses one of the 3 streams your line allows, for as long as it runs\./.test(words),
+  );
+  check("  with Start Recording, Cancel and an unticked Don’t Show Again", (await dialog(page).getByRole("button", { name: "Start Recording" }).count()) === 1 && (await dialog(page).getByRole("button", { name: "Cancel" }).count()) === 1 && !(await dialog(page).getByLabel("Don’t Show Again").isChecked()));
+  const s0 = await starts();
+  check("  and nothing has been started yet", s0.stream === 0 && s0.buffer === 0, JSON.stringify(s0));
+
+  await dialog(page).getByRole("button", { name: "Cancel" }).click();
+  await dialog(page).waitFor({ state: "detached", timeout: 5000 });
+  const s1 = await starts();
+  check("on the heads-up, Cancel calls neither rec_start nor rec_buffer_start", s1.stream === 0 && s1.buffer === 0, JSON.stringify(s1));
+  check("  and the button is still Record, with both choices untouched", (await label(page)) === "Record" && (await warnStored(page)) === null && (await noticeStored(page)) === null);
+
+  await wake(page);
+  await recButton(page).click();
+  // Twice, quickly: the dialog takes clicks while it fades, and one press is one recording.
+  await dialog(page).getByRole("button", { name: "Start Recording" }).dblclick();
+  await page.waitForFunction(RUNNING);
+  const s2 = await starts();
+  check("Start Recording (double-clicked) opens one stream of its own, and reads no buffer", s2.stream === 1 && s2.buffer === 0, JSON.stringify(s2));
+  const r = (await calls(page, "rec_start"))[0] ?? {};
+  check("  for the channel and the playlist", r.channel === "Fake ESPN 4K" && r.playlistId === "t" && typeof r.url === "string", JSON.stringify(r));
+  await dialog(page).waitFor({ state: "detached", timeout: 5000 });
+  check("  and the dialog is gone, with the choices untouched", (await dialog(page).count()) === 0 && (await noticeStored(page)) === null && (await warnStored(page)) === null);
+  await wake(page);
+  await recButton(page).click();
+  await page.waitForFunction(IDLE);
+
+  // Don't Show Again.
+  await wake(page);
+  await recButton(page).click();
+  await dialog(page).getByLabel("Don’t Show Again").check();
+  await dialog(page).getByRole("button", { name: "Start Recording" }).click();
+  await page.waitForFunction(RUNNING);
+  check("ticking Don’t Show Again and going ahead still records", (await starts()).stream === 2);
+  check("  and stores the heads-up’s choice, not D3’s", (await noticeStored(page)) === OFF && (await warnStored(page)) === null, `${await noticeStored(page)} / ${await warnStored(page)}`);
+  await wake(page);
+  await recButton(page).click();
+  await page.waitForFunction(IDLE);
+  await wake(page);
+  await recButton(page).click();
+  await page.waitForFunction(() => window.__calls.filter((c) => c[0] === "rec_start").length === 3);
+  check("the next press skips the heads-up and opens the stream", (await dialog(page).count()) === 0 && (await starts()).buffer === 0);
+  const noticeOff = await flags(page);
+  check("the flags the page left: the heads-up off, D3’s still on", noticeOff["blammytv.recordingNotice"] === OFF && !("blammytv.recordingWarning" in noticeOff), JSON.stringify(noticeOff));
+  await wake(page);
+  await recButton(page).click();
+  await page.waitForFunction(IDLE);
+
+  // Settings brings it back.
+  await closePlayer(page);
+  await page.locator('.header__right [aria-label="Settings"]').click();
+  await page.getByRole("tablist", { name: "Settings", exact: true }).getByRole("tab", { name: "Playback", exact: true }).click();
+  const row = page.locator("[data-setting='recordings-folder']");
+  await row.waitFor({ timeout: 5000 });
+  const back = row.getByRole("button", { name: "Show Recording Warnings Again" });
+  check("with only the heads-up off, Settings → Playback → Recordings Folder still offers the warnings again", (await back.count()) === 1);
+  await back.click();
+  check("  pressing it turns the heads-up on, and it goes", (await back.count()) === 0 && (await noticeStored(page)) === ON);
+  await page.keyboard.press("Escape");
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 5000 });
+  await toTheater(page);
+  await wake(page);
+  await recButton(page).click();
+  await dialog(page).waitFor({ timeout: 5000 });
+  check("  and the next Record says it again", (await dialog(page).count()) === 1 && NOTICE_TITLE.test(await dialog(page).innerText()));
+  await dialog(page).getByRole("button", { name: "Cancel" }).click();
+  check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+
+  // The flags are separate: each one’s Don't Show Again leaves the other’s dialog alone.
+  {
+    const o = await open({ max: 1, seed: noticeOff });
+    await toTheater(o.page);
+    await readingIn(o.page);
+    await wake(o.page);
+    await recButton(o.page).click();
+    await dialog(o.page).waitFor({ timeout: 5000 }).catch(() => {});
+    const w = (await dialog(o.page).count()) ? await dialog(o.page).innerText() : "";
+    check("with the heads-up off, a line of one still asks D3’s question", BUFFER_TITLE.test(w) && !NOTICE_TITLE.test(w), w.replace(/\n/g, " | "));
+    await dialog(o.page).getByRole("button", { name: "Start Recording" }).click();
+    await o.page.waitForFunction(RUNNING);
+    await dialog(o.page).waitFor({ state: "detached", timeout: 5000 });
+    await sleep(300);
+    check("  and going ahead reads the buffer, with no second dialog after it", (await calls(o.page, "rec_buffer_start")).length === 1 && (await calls(o.page, "rec_start")).length === 0 && (await dialog(o.page).count()) === 0);
+    check("  no page errors", o.errors.length === 0, o.errors.slice(0, 2).join(" | "));
+    await o.ctx.close();
+  }
+  {
+    const o = await open({ max: 3, seed: saved.d3Off });
+    await toTheater(o.page);
+    await readingIn(o.page);
+    await wake(o.page);
+    await recButton(o.page).click();
+    await dialog(o.page).waitFor({ timeout: 5000 }).catch(() => {});
+    const w = (await dialog(o.page).count()) ? await dialog(o.page).innerText() : "";
+    check("with D3’s warning off, a line of three still gets the heads-up", NOTICE_TITLE.test(w), w.replace(/\n/g, " | "));
+    check("  no page errors", o.errors.length === 0, o.errors.slice(0, 2).join(" | "));
+    await o.ctx.close();
+  }
+  // Both off: one press in Settings brings both back.
+  {
+    const o = await open({ max: 3, seed: { ...saved.d3Off, ...noticeOff } });
+    await o.page.locator('.header__right [aria-label="Settings"]').click();
+    await o.page.getByRole("tablist", { name: "Settings", exact: true }).getByRole("tab", { name: "Playback", exact: true }).click();
+    const rowB = o.page.locator("[data-setting='recordings-folder']");
+    await rowB.waitFor({ timeout: 5000 });
+    const btn = rowB.getByRole("button", { name: "Show Recording Warnings Again" });
+    check("with both off, Settings offers the warnings again", (await btn.count()) === 1 && (await warnStored(o.page)) === OFF && (await noticeStored(o.page)) === OFF);
+    await btn.click();
+    check("  and one press turns both back on", (await btn.count()) === 0 && (await warnStored(o.page)) === ON && (await noticeStored(o.page)) === ON, `${await warnStored(o.page)} / ${await noticeStored(o.page)}`);
+    check("  no page errors", o.errors.length === 0, o.errors.slice(0, 2).join(" | "));
+    await o.ctx.close();
+  }
+}
+
+for (const [name, opts, line] of [
+  ["a line of two", { max: 2 }, /This recording uses one of the 2 streams your line allows, for as long as it runs\./],
+  ["a panel that reports no limit", { max: "none" }, /This recording uses one of your provider’s streams for as long as it runs\./],
 ]) {
   const { ctx, page, errors } = await open(opts);
   await toTheater(page);
@@ -317,19 +468,20 @@ for (const [name, opts] of [
   } else await readingIn(page);
   await wake(page);
   await recButton(page).click();
-  await page.waitForFunction(() => document.querySelector(".theater-controls .rec-btn button")?.getAttribute("aria-label") === "Stop Recording");
-  check(
-    `${name}: Record opens a stream of its own, with no dialog and no buffer recording`,
-    (await calls(page, "rec_start")).length === 1 && (await calls(page, "rec_buffer_start")).length === 0 && (await dialog(page).count()) === 0,
-  );
-  check(`  and the Don’t Show Again choice is untouched`, (await warnStored(page)) === null);
+  await dialog(page).waitFor({ timeout: 5000 });
+  const words = await dialog(page).innerText();
+  check(`${name}: Record says it uses a connection`, NOTICE_TITLE.test(words) && line.test(words), words.replace(/\n/g, " | "));
+  check("  and has started nothing yet", (await calls(page, "rec_start")).length === 0 && (await calls(page, "rec_buffer_start")).length === 0);
+  await dialog(page).getByRole("button", { name: "Start Recording" }).click();
+  await page.waitForFunction(RUNNING);
+  check("  then Start Recording opens a stream of its own, with no buffer recording", (await calls(page, "rec_start")).length === 1 && (await calls(page, "rec_buffer_start")).length === 0);
   check("  no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }
 
 // ====================== the counts follow a recording, and Install waits for it
 {
-  const { ctx, page, errors } = await open({ max: 3, pending: "9.9.9", query: "?update=9.9.9" });
+  const { ctx, page, errors } = await open({ max: 3, pending: "9.9.9", query: "?update=9.9.9", seed: NO_HEADS_UP });
   await toTheater(page);
   await readingIn(page);
   // The tune's own look at the panel (4s after it) comes first; the recording
@@ -406,7 +558,7 @@ for (const [name, opts] of [
  * count has had time to settle (the second look is 20s after the tab opens),
  * and what the meter and the picker say. */
 async function multiviewWith({ extra }) {
-  const { ctx, page, errors } = await open({ max: 3, extra });
+  const { ctx, page, errors } = await open({ max: 3, extra, seed: NO_HEADS_UP });
   await toTheater(page);
   await readingIn(page);
   await wake(page);

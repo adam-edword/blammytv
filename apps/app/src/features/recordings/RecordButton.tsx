@@ -11,9 +11,14 @@ import {
 import { Hint } from "../../ui/Hint";
 import { RecordIcon } from "../../ui/icons";
 import { loadRecordingsFolder } from "../settings/recordingsFolder";
-import { loadRecordingWarning, saveRecordingWarning } from "../settings/recordingWarning";
+import {
+  loadRecordingNotice,
+  loadRecordingWarning,
+  saveRecordingNotice,
+  saveRecordingWarning,
+} from "../settings/recordingWarning";
 import { formatDuration, plainError, startFailure } from "./format";
-import { recordWay } from "./recordWay";
+import { noticeText, recordWay } from "./recordWay";
 import {
   findRunning,
   recKey,
@@ -42,6 +47,8 @@ const WHY_MS = 12_000;
  * stream, so Record reads the player's own buffer instead (D3, recordWay),
  * after a dialog that says what that means. It ends when the player's
  * channel does, and the button follows native's word on that like any other.
+ * Every other line gets a heads-up that the recording uses one of its
+ * streams (D5), in the same dialog, with a Don't Show Again of its own.
  *
  * The reason it could not start sits next to the button until the next press.
  */
@@ -92,9 +99,11 @@ export function RecordButton({
 
   const mineBusy = busy?.key === mine ? busy.what : null;
 
-  // The buffer dialog, and its "Don't Show Again" box. It belongs to the
-  // channel it was opened on.
+  // The dialog (D3's buffer reminder or D5's heads-up, `kind` says which and
+  // stays put while it fades out), and its "Don't Show Again" box. It belongs
+  // to the channel it was opened on.
   const [ask, setAsk] = useState(false);
+  const [kind, setKind] = useState<"buffer" | "notice">("buffer");
   const [dontAsk, setDontAsk] = useState(false);
   useEffect(() => setAsk(false), [mine]);
 
@@ -116,8 +125,9 @@ export function RecordButton({
     }
     // `true`: this button is only drawn by the player, for the channel it shows.
     // recordWay's other branch is for a caller that records some other channel.
-    const way = recordWay(line, true, loadRecordingWarning());
-    if (way === "ask") {
+    const way = recordWay(line, true, loadRecordingWarning(), loadRecordingNotice());
+    if (way === "ask" || way === "notice") {
+      setKind(way === "ask" ? "buffer" : "notice");
       setDontAsk(false);
       setAsk(true);
       return;
@@ -155,9 +165,12 @@ export function RecordButton({
   };
 
   const go = () => {
+    // The dialog takes clicks while it fades out: a double click must not
+    // start two recordings.
+    if (!ask) return;
     setAsk(false);
-    if (dontAsk) saveRecordingWarning(false);
-    void begin("buffer");
+    if (dontAsk) (kind === "buffer" ? saveRecordingWarning : saveRecordingNotice)(false);
+    void begin(kind === "buffer" ? "buffer" : "stream");
   };
 
   const label = running
@@ -205,10 +218,13 @@ export function RecordButton({
       <Dialog open={ask} onOpenChange={setAsk}>
         <DialogContent showCloseButton={false} className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Record What You’re Watching</DialogTitle>
+            <DialogTitle>
+              {kind === "buffer" ? "Record What You’re Watching" : "Recording Uses a Connection"}
+            </DialogTitle>
             <DialogDescription>
-              Your line allows one stream, so this records from the picture you’re watching. It stops
-              if you change channels, go live, or the stream reconnects.
+              {kind === "buffer"
+                ? "Your line allows one stream, so this records from the picture you’re watching. It stops if you change channels, go live, or the stream reconnects."
+                : noticeText(line)}
             </DialogDescription>
           </DialogHeader>
           <label className="settings-check">

@@ -131,6 +131,8 @@ await page.addInitScript(() => {
     }),
   );
   localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "live" }));
+  // Record's heads-up (D5) is verify-recconns' subject: here it is off, as after its Don't Show Again.
+  localStorage.setItem("blammytv.recordingNotice", JSON.stringify({ v: 1, data: false }));
 });
 
 const calls = (cmd) => page.evaluate((c) => window.__calls.filter((x) => x[0] === c).map((x) => x[1]), cmd);

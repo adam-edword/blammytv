@@ -58,7 +58,7 @@ import {
 } from "./playerPrefs";
 import { plainError } from "../recordings/format";
 import { loadRecordingsFolder, saveRecordingsFolder } from "./recordingsFolder";
-import { loadRecordingWarning, saveRecordingWarning } from "./recordingWarning";
+import { recordingWarningsOn, showRecordingWarningsAgain } from "./recordingWarning";
 import { SignInNote } from "./SignInNote";
 
 /**
@@ -132,7 +132,7 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
   // The reminder before Record reads the player's own buffer (a line of one
   // stream). "Don't Show Again" turns it off; the way back is here, drawn only
   // while it is off.
-  const [recWarning, setRecWarning] = useState<boolean>(loadRecordingWarning);
+  const [recWarning, setRecWarning] = useState<boolean>(recordingWarningsOn);
   const changeRecFolder = () => {
     setRecFolderErr(null);
     tauriRecPickFolder(recFolder || recDefault).then(
@@ -420,10 +420,10 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
                     type="button"
                     onClick={() => {
                       setRecWarning(true);
-                      saveRecordingWarning(true);
+                      showRecordingWarningsAgain();
                     }}
                   >
-                    Show Recording Warning Again
+                    Show Recording Warnings Again
                   </Button>
                 )}
               </div>

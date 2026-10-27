@@ -2,6 +2,24 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.6: Record live TV (unreleased)
+
+This one needs the new build.
+
+- **Record what you're watching.** Press Record in the player. It keeps
+  recording when you change channel, go live or close the player, until
+  you press Stop Recording. A dot in the Guide marks the channel.
+- **Recordings** is a fourth list in the Live TV sidebar, and a section in
+  Library: play one, show it in its folder, or delete it.
+- **Pick where they go** in Settings → Playback → Recordings Folder.
+  `Videos\BlammyTV` until you do.
+- **Record says it uses a connection**, and names how many your line
+  allows. On a line of one, recording the channel you're watching records
+  from the picture itself, and says what that means first. Don't Show
+  Again on either; Settings → Playback brings them back.
+- **A recording counts against your line** in Multi-View, and the app
+  won't install an update while one runs.
+
 ## 1.0.5: A new Stream hero (unreleased)
 
 - **Stream opens on a shelf.** One title in focus at 16:9 with its logo,
