@@ -22,7 +22,11 @@ swapped).
 - **No buttons.** Clicking the focused card, or Enter on it, opens the
   title page (today's More Info). Clicking a poster slides it into focus.
   Watch Now leaves the front page.
-- **Keep the glow** behind the header, lit by the focused card's art.
+- **Keep the glow**, lit by the focused card's art, and make it tighter and
+  brighter than today's (Adam, after the prototype): it reaches 110px past
+  the card's sides and 56px above and below (today 210 and 90), blurs
+  32px with saturate 1.9 and brightness 1.55 (today 70px and 1.4), and the
+  focused copy shows at full strength (today .7), its neighbours at .25.
 - **The logo only fades.** It never moves or changes size: it is sized from
   the full card, not the growing one, and fades in once the card has grown.
 - **No logo on the posters.** A poster already carries its title.
