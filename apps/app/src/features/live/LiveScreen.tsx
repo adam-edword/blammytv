@@ -1216,6 +1216,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                         channel={heroChannel.name}
                         programme={playMeta?.title}
                         resolve={resolveRecordTarget}
+                        line={conns.get(playlistOf(heroChannel.id)) ?? null}
                         className={IN_CAPSULE}
                       />
                     ) : undefined

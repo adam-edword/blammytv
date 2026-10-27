@@ -6,6 +6,7 @@ let listAnswer: RecRecord[] = [];
 let emit: (r: RecRecord) => void = () => {};
 const tauriRecList = vi.fn(() => Promise.resolve(listAnswer));
 const tauriRecStart = vi.fn((_a: unknown) => Promise.resolve("r2"));
+const tauriRecBufferStart = vi.fn((_a: unknown) => Promise.resolve("buf"));
 const tauriRecStop = vi.fn((id: string) => Promise.resolve(rec({ id, status: "done", endedAt: 9 })));
 const tauriRecDelete = vi.fn((_id: string) => Promise.resolve());
 vi.mock("../../lib/tauri", () => ({
@@ -16,6 +17,7 @@ vi.mock("../../lib/tauri", () => ({
   },
   tauriRecList: () => tauriRecList(),
   tauriRecStart: (a: unknown) => tauriRecStart(a),
+  tauriRecBufferStart: (a: unknown) => tauriRecBufferStart(a),
   tauriRecStop: (id: string) => tauriRecStop(id),
   tauriRecDelete: (id: string) => tauriRecDelete(id),
 }));
@@ -30,6 +32,7 @@ const rec = (o: Partial<RecRecord> & { id: string }): RecRecord => ({
   bytes: 0,
   status: "recording",
   reason: null,
+  buffer: false,
   ...o,
 });
 
@@ -49,6 +52,7 @@ beforeEach(() => {
   listAnswer = [];
   tauriRecList.mockClear();
   tauriRecStart.mockClear();
+  tauriRecBufferStart.mockClear();
   tauriRecStop.mockClear();
   tauriRecDelete.mockClear();
 });
@@ -217,5 +221,66 @@ describe("the store", () => {
       s.mod.startRecording({ url: "http://x/1", channel: "BBC One", playlistId: "p1" }),
     ).rejects.toBe("host.example answered 403");
     s.close();
+  });
+});
+
+describe("the connections recordings hold (plan 029)", () => {
+  it("counts the running ones per playlist, and not the finished", async () => {
+    const { mod } = await fresh();
+    const s = mod.streamRecs(
+      [
+        rec({ id: "a", playlistId: "p1" }),
+        rec({ id: "b", playlistId: "p1" }),
+        rec({ id: "c", playlistId: "p2" }),
+        rec({ id: "d", playlistId: "p1", status: "done" }),
+        rec({ id: "e", playlistId: "p1", status: "partial" }),
+      ],
+    );
+    expect([...s.lines]).toEqual([["p1", 2], ["p2", 1]]);
+    expect(s.ids).toBe("a,b,c");
+  });
+
+  it("does not count a recording of the player's buffer: it opens no connection", async () => {
+    const { mod } = await fresh();
+    const s = mod.streamRecs([rec({ id: "a" }), rec({ id: "buf", buffer: true })]);
+    expect([...s.lines]).toEqual([["p1", 1]]);
+    expect(s.ids).toBe("a");
+  });
+
+  it("changes its ids on a start or an end, and not on growth", async () => {
+    const { mod } = await fresh();
+    const before = mod.streamsNow();
+    emit(rec({ id: "a" }));
+    const started = mod.streamsNow();
+    expect(started.ids).toBe("a");
+    expect(started).not.toBe(before);
+    emit(rec({ id: "a", bytes: 5_000_000 }));
+    expect(mod.streamsNow()).toBe(started);
+    emit(rec({ id: "a", status: "done", endedAt: 9 }));
+    expect(mod.streamsNow().ids).toBe("");
+  });
+
+  it("starts a buffer recording through its own call, and never counts it, even before the call answers", async () => {
+    const { mod } = await fresh();
+    tauriRecBufferStart.mockImplementationOnce(() => {
+      emit(rec({ id: "buf", buffer: true }));
+      // The event came first: the page has already seen it, and it holds no connection.
+      expect(mod.streamsNow().ids).toBe("");
+      return Promise.resolve("buf");
+    });
+    const id = await mod.startBufferRecording({ channel: "BBC One", playlistId: "p1" });
+    expect(id).toBe("buf");
+    expect(tauriRecStart).not.toHaveBeenCalled();
+    expect(mod.streamsNow().ids).toBe("");
+    expect(mod.runningNow()).toBe(true);
+  });
+
+  it("says whether anything records, buffer or stream", async () => {
+    const { mod } = await fresh();
+    expect(mod.runningNow()).toBe(false);
+    emit(rec({ id: "a" }));
+    expect(mod.runningNow()).toBe(true);
+    emit(rec({ id: "a", status: "partial", endedAt: 9 }));
+    expect(mod.runningNow()).toBe(false);
   });
 });

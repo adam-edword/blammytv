@@ -56,6 +56,7 @@ import {
 import { forMultiview, releaseHeader } from "./mvKeys";
 import type { Channel } from "./model";
 import { useConnections } from "./connections";
+import { playlistOf, useStreamRecs } from "../recordings/store";
 import { loadPlaylists, onPlaylistsChange } from "../settings/playlists";
 import { channelStreamUrl, resolveStreamUrl, streamUserAgent } from "./stream";
 import { useLiveData } from "./useLiveData";
@@ -367,6 +368,9 @@ export function MultiviewTab() {
    * few seconds while any is (plan 018, H1). */
   const [waitingRoom, setWaitingRoom] = useState(0);
   const conns = useConnections(key || null, waitingRoom > 0);
+  // The recordings the app runs: each is a connection of its own, on its
+  // playlist's line (plan 029).
+  const recs = useStreamRecs();
   // Settings opens over this tab, so the playlists can change while it is up.
   const [enabledIds, setEnabledIds] = useState(enabledPlaylistIds);
   useEffect(() => onPlaylistsChange(() => setEnabledIds(enabledPlaylistIds())), []);
@@ -379,10 +383,20 @@ export function MultiviewTab() {
   // When the grid's channels last changed. Set as the render sees the new
   // key, not in an effect after it, so no render believes a reading taken
   // before the change against the new grid.
-  const changed = useRef({ key, at: Date.now() });
-  if (changed.current.key !== key) changed.current = { key, at: Date.now() };
+  // A recording starting or ending changes the panel's count the same way a
+  // tile does, so it restarts the clock too: a recording that just ended is
+  // still counted by the panel for a while, and is not "elsewhere". Only those
+  // on the lines this grid is on, though: another line's count is not its own.
+  const lineRecs = [...new Set([...picks.map((p) => playlistOf(p.channelId)), ...(enabledIds.length === 1 ? enabledIds : [])])]
+    .sort()
+    .map((id) => `${id}=${recs.lines.get(id) ?? 0}`)
+    .join("|");
+  const changeKey = `${key}\n${lineRecs}`;
+  const changed = useRef({ key: changeKey, at: Date.now() });
+  if (changed.current.key !== changeKey) changed.current = { key: changeKey, at: Date.now() };
   const settled = settledOn(line, changed.current.at);
-  const room = roomOn(line, picks.length, settled);
+  // `line` is non-null only with one source enabled, and then it is that one's.
+  const room = roomOn(line, picks.length, settled, line ? (recs.lines.get(enabledIds[0]) ?? 0) : 0);
   const roomRef = useRef(room);
   roomRef.current = room;
 
@@ -716,7 +730,7 @@ export function MultiviewTab() {
    * or, when its line is full or the grid is, waits for you to pick the tile
    * it replaces (mvGrid.placeFor). False when it waits. */
   const join = (pick: Pick): boolean => {
-    const place = placeFor(pick, picks, conns, changed.current.at);
+    const place = placeFor(pick, picks, conns, changed.current.at, recs.lines);
     if (place.kind === "replace") {
       setChoosing({ pick, among: place.among });
       return false;
@@ -766,7 +780,7 @@ export function MultiviewTab() {
           league: g.leagueKey,
           start: g.start.getTime(),
         };
-        return placeFor(pick, acc, conns, changedAt).kind === "add" ? addPick(acc, pick) : acc;
+        return placeFor(pick, acc, conns, changedAt, recs.lines).kind === "add" ? addPick(acc, pick) : acc;
       }, was),
     );
     let recents = loadRecents();
@@ -781,7 +795,7 @@ export function MultiviewTab() {
     setIncoming(null);
     // A line of one shows why multi-view can't run on it, not a grid.
     if (line !== null && line.max <= 1) return;
-    const place = placeFor(incoming, picks, conns, changed.current.at);
+    const place = placeFor(incoming, picks, conns, changed.current.at, recs.lines);
     if (place.kind === "replace") {
       setChoosing({ pick: incoming, among: place.among });
       return;
@@ -791,7 +805,7 @@ export function MultiviewTab() {
       recordRecent(loadRecents(), incoming.channelId);
     }
     setSoundId(incoming.channelId);
-  }, [incoming, lineKnown, line, picks, conns]);
+  }, [incoming, lineKnown, line, picks, conns, recs]);
   /** The tile you picked for it: replaced in place, and it takes the sound
    * (so in Focus it moves to the big spot, M2). Only one of the tiles it
    * may replace. */
@@ -1117,7 +1131,7 @@ export function MultiviewTab() {
         gamesInGrid={gamesInGrid}
         room={room}
         several={enabledIds.length > 1}
-        willReplace={(id) => placeFor({ channelId: id, label: "" }, picks, conns, changed.current.at).kind === "replace"}
+        willReplace={(id) => placeFor({ channelId: id, label: "" }, picks, conns, changed.current.at, recs.lines).kind === "replace"}
         onChoose={choose}
         onFill={fill}
         onCloseAutoFocus={pickerClosed}

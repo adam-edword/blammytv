@@ -98,6 +98,8 @@ export const KEY_GROUPS = {
     "subtitleSize",
     "popoutSize",
     "popoutCorner",
+    // The reminder before Record reads the player's buffer (plan 029, D3).
+    "recordingWarning",
     // Settings → Sources → Content: what the app shows, not a login.
     "showAdult",
   ],

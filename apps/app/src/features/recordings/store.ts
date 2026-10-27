@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import {
   isTauri,
   onRecUpdate,
+  tauriRecBufferStart,
   tauriRecDelete,
   tauriRecList,
   tauriRecStart,
@@ -65,6 +66,25 @@ export function findRunning(
 export const runningKeys = (list: readonly Recording[]): Set<string> =>
   new Set(list.filter((r) => r.status === "recording").map((r) => recKey(r.playlistId, r.channel)));
 
+/**
+ * The connections the app's own recordings hold (plan 029). A stream recording
+ * is a connection of its own on its playlist's line; one that reads the
+ * player's buffer (D3) opens none. `ids` is what changed means: the sorted ids
+ * of the running ones, so a start or an end is a new value and a 5s size
+ * update is not. `lines` is how many hold each playlist's line.
+ */
+export interface StreamRecs {
+  ids: string;
+  lines: ReadonlyMap<string, number>;
+}
+
+export function streamRecs(list: readonly Recording[]): StreamRecs {
+  const mine = list.filter((r) => r.status === "recording" && !r.buffer);
+  const lines = new Map<string, number>();
+  for (const r of mine) lines.set(r.playlistId, (lines.get(r.playlistId) ?? 0) + 1);
+  return { ids: mine.map((r) => r.id).sort().join(","), lines };
+}
+
 const sameKeys = (a: ReadonlySet<string>, b: ReadonlySet<string>): boolean =>
   a.size === b.size && [...a].every((k) => b.has(k));
 
@@ -72,6 +92,8 @@ const sameKeys = (a: ReadonlySet<string>, b: ReadonlySet<string>): boolean =>
 
 let list: readonly Recording[] = [];
 let keys: ReadonlySet<string> = new Set();
+let streams: StreamRecs = streamRecs([]);
+let running = false;
 let started = false;
 /** Ids an event has spoken for. A `rec_list` answer that lands after one is
  * older than it, and must not put the old row back. */
@@ -83,6 +105,9 @@ function set(next: readonly Recording[]): void {
   // The Guide listens to the keys alone: a 5s size update must not re-render it.
   const k = runningKeys(next);
   if (!sameKeys(k, keys)) keys = k;
+  const s = streamRecs(next);
+  if (s.ids !== streams.ids) streams = s;
+  running = next.some((r) => r.status === "recording");
   subs.forEach((f) => f());
 }
 
@@ -118,6 +143,8 @@ export const watch = (cb: () => void): (() => void) => {
 };
 export const listNow = (): readonly Recording[] => list;
 export const keysNow = (): ReadonlySet<string> => keys;
+export const streamsNow = (): StreamRecs => streams;
+export const runningNow = (): boolean => running;
 
 /** Every recording, newest first. Re-renders on each update. */
 export const useRecordings = (): readonly Recording[] => useSyncExternalStore(watch, listNow);
@@ -130,17 +157,37 @@ export const useRecording = (id: string | null): Recording | undefined =>
  * recording starts or ends. */
 export const useRunningKeys = (): ReadonlySet<string> => useSyncExternalStore(watch, keysNow);
 
-/** Record. Answers the id; rejects with native's reason. */
-export async function startRecording(a: Parameters<typeof tauriRecStart>[0]): Promise<string> {
-  start();
-  const id = await tauriRecStart(a);
-  // The event normally came first. If it has not, one look, so the button
-  // never sits on a recording it cannot find.
+/** The running recordings that hold a connection, for the grid's room and the
+ * counts. Re-renders only when one starts or ends. */
+export const useStreamRecs = (): StreamRecs => useSyncExternalStore(watch, streamsNow);
+
+/** Whether any recording runs, buffer ones too: Install and Restart wait for it. */
+export const useRecordingRunning = (): boolean => useSyncExternalStore(watch, runningNow);
+
+/** The event normally came first. If it has not, one look, so the button
+ * never sits on a recording it cannot find. */
+async function seen(id: string): Promise<void> {
   if (!list.some((r) => r.id === id))
     await tauriRecList().then(
       (all) => set(merge(list, fromList(all))),
       () => {},
     );
+}
+
+/** Record. Answers the id; rejects with native's reason. */
+export async function startRecording(a: Parameters<typeof tauriRecStart>[0]): Promise<string> {
+  start();
+  const id = await tauriRecStart(a);
+  await seen(id);
+  return id;
+}
+
+/** Record the player's own buffer (D3). Answers the id; rejects with native's
+ * reason. It holds no connection of its own, which the record says (`buffer`). */
+export async function startBufferRecording(a: Parameters<typeof tauriRecBufferStart>[0]): Promise<string> {
+  start();
+  const id = await tauriRecBufferStart(a);
+  await seen(id);
   return id;
 }
 

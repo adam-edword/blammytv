@@ -113,7 +113,9 @@ pub enum Status {
 
 /// One recording, as the index keeps it and the page reads it. Times are Unix
 /// milliseconds. `reason` says why it is Partial or Failed, and is null
-/// otherwise.
+/// otherwise. `buffer` is a recording of the player's own buffer, which opens
+/// no connection of its own: the page counts a line's connections by it. An
+/// index from before it existed has none, and reads as false.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Record {
@@ -130,6 +132,8 @@ pub struct Record {
     pub status: Status,
     #[serde(default)]
     pub reason: Option<String>,
+    #[serde(default)]
+    pub buffer: bool,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -974,6 +978,7 @@ impl Rec {
         programme: Option<String>,
         playlist_id: String,
         path: &Path,
+        buffer: bool,
     ) -> Record {
         Record {
             id: new_id(),
@@ -986,6 +991,7 @@ impl Rec {
             bytes: 0,
             status: Status::Recording,
             reason: None,
+            buffer,
         }
     }
 
@@ -1078,7 +1084,7 @@ impl Rec {
         let problems = Problems::default();
         let log = tokio::spawn(follow(stderr, vec![file], problems.clone()));
 
-        let record = self.new_record(spec.channel, spec.programme, spec.playlist_id, &path);
+        let record = self.new_record(spec.channel, spec.programme, spec.playlist_id, &path, false);
         let (stop_tx, stop_rx) = watch::channel(None);
         let (done_tx, done_rx) = watch::channel(false);
         let stop_tx: StopTx = Arc::new(stop_tx);
@@ -1271,7 +1277,7 @@ impl Rec {
             let _ = std::fs::remove_file(&path);
             return Err(e);
         }
-        let record = self.new_record(spec.channel, spec.programme, spec.playlist_id, &path);
+        let record = self.new_record(spec.channel, spec.programme, spec.playlist_id, &path, true);
         let (stop_tx, mut stop) = watch::channel(None);
         let (done_tx, done_rx) = watch::channel(false);
         let stop_tx: StopTx = Arc::new(stop_tx);
@@ -1995,6 +2001,7 @@ mod tests {
             bytes: 0,
             status,
             reason: None,
+            buffer: false,
         }
     }
 
@@ -2158,7 +2165,25 @@ mod tests {
         assert_eq!(json["status"], "partial");
         assert_eq!(json["reason"], "disk full");
         assert!(json["programme"].is_null() && json["endedAt"].is_null());
-        assert_eq!(json.as_object().unwrap().len(), 10);
+        assert_eq!(json["buffer"], false);
+        assert_eq!(json.as_object().unwrap().len(), 11);
+        r.buffer = true;
+        assert_eq!(serde_json::to_value(&r).unwrap()["buffer"], true);
+    }
+
+    #[test]
+    fn an_index_from_before_the_buffer_flag_reads_as_not_a_buffer_recording() {
+        let dir = temp("old-index");
+        let index = dir.join("recordings.json");
+        std::fs::write(
+            &index,
+            r#"{"version":1,"records":[{"id":"a","channel":"News","playlistId":"p1","startedAt":1000,"path":"C:\\v\\a.ts","bytes":5,"status":"done"}]}"#,
+        )
+        .unwrap();
+        let (records, _) = load(&index);
+        assert_eq!(records.len(), 1);
+        assert!(!records[0].buffer);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -2842,6 +2867,8 @@ mod tests {
             )
             .unwrap();
         assert_eq!(b.status(&id), Status::Recording);
+        // The page counts connections by this flag.
+        assert!(b.rec.get(&id).unwrap().buffer);
         b.rec.player_changed();
         let over = b.wait_over(&id, 10);
         assert_eq!(
@@ -2863,6 +2890,7 @@ mod tests {
         });
         let b = Bench::new("stream-change", |_| {});
         let id = b.start(&format!("{}/a.ts", fake.base));
+        assert!(!b.rec.get(&id).unwrap().buffer);
         b.rec.player_changed();
         std::thread::sleep(Duration::from_millis(400));
         assert_eq!(b.status(&id), Status::Recording);

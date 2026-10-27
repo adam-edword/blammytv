@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
-import { isPlaying } from "../../lib/playingNow";
+import { finishFirst, isPlaying } from "../../lib/playingNow";
 import { isTauri, tauriHasSettingsFiles, tauriSettingsExport, tauriSettingsImport } from "../../lib/tauri";
 import { Hint } from "../../ui/Hint";
 import { ConfirmButton } from "./ConfirmButton";
@@ -174,7 +174,7 @@ function ImportRow({ files }: { files: Files }) {
     // The window reloads once the settings are in, and a reload ends a stream.
     // Install and Restart now wait the same way (UpdatesSection).
     if (isPlaying()) {
-      setProblem("Finish watching first. Importing restarts the window.");
+      setProblem(`${finishFirst()} Importing restarts the window.`);
       return;
     }
     busy.current = true;

@@ -46,7 +46,8 @@ export interface Room {
   /** Streams open on the line that are not this grid's: another device,
    * the popout. Zero until the panel's count has settled. */
   elsewhere: number;
-  /** This grid's streams. */
+  /** This grid's streams, and the app's own recordings on the line: both are
+   * the app's, and neither is "elsewhere". */
   used: number;
   /** How many more can be added. */
   left: number;
@@ -64,16 +65,25 @@ export interface Room {
  *
  * No limit reported (Stalker, M3U): anything up to four is offered, and a
  * refusal shows on the tile instead.
+ *
+ * `recording` is how many stream recordings the app runs on this line
+ * (plan 029): each is one more connection that is ours, so it counts in
+ * `used` and out of `elsewhere`, and takes a slot from the tiles without
+ * taking one from the four (the cap is on tiles). Like a tile, the panel
+ * is slow to count one and slower to drop it, so the settle is the grid's
+ * to judge: MultiviewTab restarts its clock when a recording starts or ends.
  */
 export function roomOn(
   line: { max: number; active: number } | null,
-  used: number,
+  tiles: number,
   settled: boolean,
+  recording = 0,
 ): Room {
   const max = line?.max ?? null;
+  const used = tiles + recording;
   const elsewhere = line && settled ? Math.max(0, line.active - used) : 0;
-  const ceiling = Math.min(MAX_TILES, max === null ? MAX_TILES : max - elsewhere);
-  return { max, elsewhere, used, left: Math.max(0, ceiling - used) };
+  const lineLeft = max === null ? Infinity : max - elsewhere - used;
+  return { max, elsewhere, used, left: Math.max(0, Math.min(MAX_TILES - tiles, lineLeft)) };
 }
 
 /**
@@ -98,7 +108,10 @@ export function meterLine(room: Room): string {
 /** Why Add is off, for its tooltip. Null while there is room. */
 export function fullReason(room: Room): string | null {
   if (room.left > 0) return null;
-  if (room.max === null || room.used >= MAX_TILES) return "Four is the most multi-view shows.";
+  // The four-tile cap is the reason only while the line still has room: `used`
+  // includes the app's own recordings, which fill a line without filling the grid.
+  if (room.max === null || room.max - room.elsewhere - room.used > 0)
+    return "Four is the most multi-view shows.";
   if (room.elsewhere > 0)
     return `Your line allows ${room.max}, and ${room.elsewhere} ${room.elsewhere === 1 ? "is" : "are"} in use elsewhere.`;
   return `Your line allows ${room.max}.`;
@@ -140,6 +153,8 @@ export function removePick(list: Pick[], id: string): Pick[] {
   return list.filter((p) => p.channelId !== id);
 }
 
+const NO_RECORDINGS: ReadonlyMap<string, number> = new Map();
+
 /** What a channel joining the grid does to it (`placeFor`). */
 export type Placement =
   | { kind: "here" }
@@ -180,6 +195,8 @@ export function placeFor(
   picks: readonly Pick[],
   conns: ReadonlyMap<string, { max: number; active: number; at: number }>,
   changedAt: number,
+  /** Stream recordings the app runs, by playlist id: ours, like the tiles. */
+  recording: ReadonlyMap<string, number> = NO_RECORDINGS,
 ): Placement {
   if (picks.some((p) => p.channelId === pick.channelId)) return { kind: "here" };
   if (picks.length === 0) return { kind: "add" };
@@ -189,8 +206,9 @@ export function placeFor(
   const onLine = key === null ? [] : picks.filter((p) => lineKey(conns, p.channelId) === key);
   let full = false;
   if (line) {
-    const elsewhere = settledOn(line, changedAt) ? Math.max(0, line.active - onLine.length) : 0;
-    full = line.max - elsewhere - onLine.length <= 0;
+    const mine = onLine.length + (key === null ? 0 : (recording.get(key) ?? 0));
+    const elsewhere = settledOn(line, changedAt) ? Math.max(0, line.active - mine) : 0;
+    full = line.max - elsewhere - mine <= 0;
   }
   if (full && onLine.length > 0) return { kind: "replace", among: ids(onLine) };
   return picks.length < MAX_TILES ? { kind: "add" } : { kind: "replace", among: ids(picks) };

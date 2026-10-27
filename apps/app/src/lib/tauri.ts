@@ -208,6 +208,8 @@ export interface RecRecord {
   status: RecStatus;
   /** Why it is Partial or Failed; null otherwise. */
   reason: string | null;
+  /** A recording of the player's own buffer: it opens no connection. */
+  buffer: boolean;
 }
 
 /** Start recording a live channel. Answers the recording's id once bytes are
@@ -227,6 +229,22 @@ export function tauriRecStart(a: {
     playlistId: a.playlistId,
     folder: a.folder || null,
     ...agentArg(a.userAgent),
+  });
+}
+/** Record the in-app player's own buffer from where it is playing (D3, for a
+ * line with one connection). Answers the recording's id. Ends by itself,
+ * Partial, when the player loads, reloads or stops. */
+export function tauriRecBufferStart(a: {
+  channel: string;
+  programme?: string;
+  playlistId: string;
+  folder?: string;
+}): Promise<string> {
+  return invoke("rec_buffer_start", {
+    channel: a.channel,
+    programme: a.programme ?? null,
+    playlistId: a.playlistId,
+    folder: a.folder || null,
   });
 }
 export function tauriRecStop(id: string): Promise<RecRecord> {

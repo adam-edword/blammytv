@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Hint } from "../ui/Hint";
 import {
@@ -6,7 +6,8 @@ import {
   tauriCheckUpdate,
   tauriInstallUpdate,
 } from "../lib/tauri";
-import { isPlaying } from "../lib/playingNow";
+import { finishFirst, isPlaying } from "../lib/playingNow";
+import { useRecordingRunning } from "../features/recordings/store";
 
 /**
  * The update banner: a small glass chip that slides in beside the header
@@ -29,6 +30,12 @@ type Phase =
 
 export function UpdateChip() {
   const [phase, setPhase] = useState<Phase>({ at: "hidden" });
+  // A recording starting or ending changes what holds the install.
+  useRecordingRunning();
+  // And the player closing does, which nothing here hears: the hint is read
+  // again as the pointer arrives, so it never says "Finish watching" after
+  // the player has gone.
+  const [, look] = useReducer((n: number) => n + 1, 0);
 
   useEffect(() => {
     const forced = new URLSearchParams(window.location.search).get("update");
@@ -60,11 +67,12 @@ export function UpdateChip() {
   return (
     // Installing restarts the app, so not in the middle of something
     // (plan 016 F20): the press is refused and the hint says why.
-    <Hint label={isPlaying() ? "Finish watching first. Then install." : "Download and Restart into the New Version"}>
+    <Hint label={isPlaying() ? `${finishFirst()} Then install.` : "Download and Restart into the New Version"}>
     <Button variant="outline" size="sm"
       type="button"
       className={"update-chip" + (busy ? " update-chip--busy" : "")}
       disabled={busy}
+      onPointerEnter={look}
       // On success the app restarts into the new build, so there is no
       // "done" state to render; a failure re-arms the click as a retry.
       onClick={() => {

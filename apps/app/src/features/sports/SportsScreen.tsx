@@ -32,6 +32,7 @@ import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
 import { useConnections } from "../live/connections";
 import { allowedSizes } from "../live/multiview";
+import { useStreamRecs } from "../recordings/store";
 import { publishLiveGames, requestMultiview, requestWatchInPlayer } from "../live/multiviewEntry";
 import { useLiveData } from "../live/useLiveData";
 import { loadPlaylists, onPlaylistsChange } from "../settings/playlists";
@@ -214,6 +215,9 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    */
   const conns = useConnections(null);
   const cap = conns.size === 1 ? [...conns.values()][0] : null;
+  // And less what the app records on it: each recording is a connection of its own.
+  const recs = useStreamRecs();
+  const recording = conns.size === 1 ? (recs.lines.get([...conns.keys()][0]) ?? 0) : 0;
   const {
     days: raw,
     extra: rawExtra,
@@ -766,7 +770,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         // Today's Games' heading carries the board's tools on its own line,
         // and the board's note comes under it. Without a Today row, the
         // tools still head the board on their own.
-        const mvBtn = allowedSizes(cap).length > 0 && (
+        const mvBtn = allowedSizes(cap, recording).length > 0 && (
           <Button
             variant="outline"
             type="button"

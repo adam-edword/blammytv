@@ -1,10 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import { Hint } from "../../ui/Hint";
 import { RecordIcon } from "../../ui/icons";
 import { loadRecordingsFolder } from "../settings/recordingsFolder";
+import { loadRecordingWarning, saveRecordingWarning } from "../settings/recordingWarning";
 import { formatDuration, plainError, startFailure } from "./format";
-import { findRunning, recKey, startRecording, stopRecording, useRecordings } from "./store";
+import { recordWay } from "./recordWay";
+import {
+  findRunning,
+  recKey,
+  startBufferRecording,
+  startRecording,
+  stopRecording,
+  useRecordings,
+} from "./store";
 
 /** What the player knows when Record is pressed: the stream to ask for NOW
  * (a Stalker link is fetched fresh, its token is short-lived) and the
@@ -21,6 +38,11 @@ const WHY_MS = 12_000;
  * the player comes back to it (matched by playlist and name, as the record
  * keeps them).
  *
+ * On a line that allows one connection there is none to spare for a second
+ * stream, so Record reads the player's own buffer instead (D3, recordWay),
+ * after a dialog that says what that means. It ends when the player's
+ * channel does, and the button follows native's word on that like any other.
+ *
  * The reason it could not start sits next to the button until the next press.
  */
 export function RecordButton({
@@ -28,6 +50,7 @@ export function RecordButton({
   channel,
   programme,
   resolve,
+  line,
   className,
 }: {
   playlistId: string;
@@ -35,6 +58,10 @@ export function RecordButton({
   /** The programme on now, when the guide has one. */
   programme?: string;
   resolve: () => Promise<RecordTarget>;
+  /** This channel's line, as the panel last reported it: its limit decides
+   * whether Record can open a connection of its own. Null when the playlist
+   * reports none (Stalker, M3U) or has not answered yet. */
+  line?: { max: number } | null;
   /** The capsule's paint (TheaterOverlay's IN_CAPSULE). */
   className?: string;
 }) {
@@ -65,6 +92,12 @@ export function RecordButton({
 
   const mineBusy = busy?.key === mine ? busy.what : null;
 
+  // The buffer dialog, and its "Don't Show Again" box. It belongs to the
+  // channel it was opened on.
+  const [ask, setAsk] = useState(false);
+  const [dontAsk, setDontAsk] = useState(false);
+  useEffect(() => setAsk(false), [mine]);
+
   const press = async () => {
     if (mineBusy) return;
     window.clearTimeout(whyTimer.current);
@@ -81,24 +114,50 @@ export function RecordButton({
       }
       return;
     }
+    // `true`: this button is only drawn by the player, for the channel it shows.
+    // recordWay's other branch is for a caller that records some other channel.
+    const way = recordWay(line, true, loadRecordingWarning());
+    if (way === "ask") {
+      setDontAsk(false);
+      setAsk(true);
+      return;
+    }
+    await begin(way);
+  };
+
+  /** Start it, and show why not if it cannot. Native refuses a second buffer
+   * recording itself, so a double press needs no guard beyond `busy`. */
+  const begin = async (way: "stream" | "buffer") => {
+    const key = mine;
     setBusy({ key, what: "start" });
     try {
-      const target = await resolve();
-      if (!target) throw "there is no link for this channel";
-      await startRecording({
-        url: target.url,
-        userAgent: target.userAgent,
-        channel,
-        programme,
-        playlistId,
-        folder: loadRecordingsFolder(),
-      });
+      const folder = loadRecordingsFolder();
+      if (way === "buffer") {
+        await startBufferRecording({ channel, programme, playlistId, folder });
+      } else {
+        const target = await resolve();
+        if (!target) throw "there is no link for this channel";
+        await startRecording({
+          url: target.url,
+          userAgent: target.userAgent,
+          channel,
+          programme,
+          playlistId,
+          folder,
+        });
+      }
     } catch (e) {
       say(key, startFailure(plainError(e)));
     } finally {
       // Only this channel's: a press on another while this one waited is its own.
       setBusy((b) => (b?.key === key ? null : b));
     }
+  };
+
+  const go = () => {
+    setAsk(false);
+    if (dontAsk) saveRecordingWarning(false);
+    void begin("buffer");
   };
 
   const label = running
@@ -143,6 +202,29 @@ export function RecordButton({
           {text}
         </p>
       )}
+      <Dialog open={ask} onOpenChange={setAsk}>
+        <DialogContent showCloseButton={false} className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Record What You’re Watching</DialogTitle>
+            <DialogDescription>
+              Your line allows one stream, so this records from the picture you’re watching. It stops
+              if you change channels, go live, or the stream reconnects.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="settings-check">
+            <input type="checkbox" checked={dontAsk} onChange={(e) => setDontAsk(e.target.checked)} />
+            <span>Don’t Show Again</span>
+          </label>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAsk(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={go} autoFocus>
+              Start Recording
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
