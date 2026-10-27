@@ -83,5 +83,7 @@ setup. Not in it: Multi-View, Stream, Sports' theater, Trakt and MyAnimeList.
 One day on a Fire TV Stick 4K (2023, Fire OS 8) with a debug build: the
 WebView's version (Fire OS 8 tablets ship 124; TV unknown), Guide scroll fps,
 memory after a full XMLTV load on a big playlist, and HEVC playback plus how
-many videos it decodes at once. Needs the hardware; nothing here measured a
+many videos it decodes at once. Also Stream's shelf hero (plan 031): its glow
+blurs a moving layer (32px) and its cards animate their width, so take a
+frame trace of a slide there before it ships on TV. Needs the hardware; nothing here measured a
 real TV.
