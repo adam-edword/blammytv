@@ -5,6 +5,7 @@ import {
   hiddenFolderLabel,
   isCategoryHidden,
   isHttpUrl,
+  maskedLink,
   playlistSource,
   removePlaylist,
   replacePlaylist,
@@ -102,6 +103,17 @@ describe("helpers", () => {
     expect(playlistSource(addPlaylist([], draft(), "a")[0])).toBe(
       "https://host.example",
     );
+  });
+
+  it("shows an M3U link as its host, with the rest starred out", () => {
+    expect(maskedLink("http://tv.example.com:8080/get.php?username=u&password=p&type=m3u")).toBe(
+      "http://tv.example.com:8080/•••••",
+    );
+    expect(maskedLink("http://tv.example.com/u/p/m3u_plus")).toBe("http://tv.example.com/•••••");
+    expect(maskedLink("https://tv.example.com/")).toBe("https://tv.example.com");
+    expect(maskedLink("not a url")).toBe("•••••");
+    const m3u = addPlaylist([], { ...draft(), kind: "m3u", url: "http://h.example/get.php?password=secret" }, "m")[0];
+    expect(playlistSource(m3u)).not.toContain("secret");
   });
 
   it("accepts only http(s) URLs", () => {

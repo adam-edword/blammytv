@@ -1,6 +1,6 @@
 # Plan 030: BlammyTV on Android TV and Fire TV
 
-**Status: DIRECTION DECIDED, one question open** (2026-10-27). The public
+**Status: DECIDED** (2026-10-27). The public
 roadmap's "Later" item. Research: a read-only survey of the June branch, the
 stack options, competitors and distribution (full report kept outside the
 repo; the claims that decide anything are below with their sources).
@@ -16,7 +16,10 @@ Rejected for that reason: a native Kotlin app (Compose for TV), about 3x the
 work and every feature built twice; React Native for TV, about 2.5x and a
 second UI (but see the open question).
 
-## Open: Vega OS
+## Vega OS: not in the first release (Adam, 2026-10-27)
+
+Decided: Fire OS plus Google TV / Android TV is the first TV release. The
+newest Vega sticks are left out; reaching them would need a second UI.
 
 Amazon says all future Fire TV sticks run **Vega OS**, which runs no Android
 apps and allows no sideloading: already the Fire TV Stick 4K Select, HD (2026)
@@ -26,8 +29,7 @@ from the research container.) Vega runs React Native apps.
 
 So the same-app route reaches Google TV / Android TV boxes and Fire OS
 devices, not the newest Fire sticks. Reaching Vega means React Native for TV,
-a second UI codebase. **Adam's call:** is Fire OS + Google TV enough for the
-first TV release?
+a second UI codebase.
 
 ## What exists: the June branch
 
