@@ -1526,6 +1526,15 @@ mod tests {
 
     // --- the fake provider ---
 
+    /// Ends the connection itself when dropped, whoever else holds a handle.
+    struct HangUpOnDrop(std::net::TcpStream);
+
+    impl Drop for HangUpOnDrop {
+        fn drop(&mut self) {
+            let _ = self.0.shutdown(std::net::Shutdown::Both);
+        }
+    }
+
     struct Req {
         path: String,
     }
@@ -1592,7 +1601,14 @@ mod tests {
                     let path = line.split_whitespace().nth(1).unwrap_or("").to_string();
                     lock(&hits).push(path.clone());
                     lock(&agents).push(agent);
-                    match handler(&Req { path }) {
+                    // Every reply ends in shutdown, not only a drop: on Windows
+                    // an accepted socket is inheritable (std sets no-inherit on
+                    // the ones it creates, not on accept's), so an ffmpeg a test
+                    // spawns meanwhile can hold the connection open after the
+                    // drop, and the recorder never hears the hang-up.
+                    let reply = handler(&Req { path });
+                    let _hang_up = HangUpOnDrop(conn.try_clone().unwrap());
+                    match reply {
                         Reply::HangUp => {}
                         Reply::Status(code) => {
                             let _ = write!(
