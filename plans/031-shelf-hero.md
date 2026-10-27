@@ -39,11 +39,16 @@ swapped).
 
 ## The design (from the prototype; numbers are the mockup's)
 
-Geometry, as shares of the window width:
+Geometry (Adam, after the prototype: the focused card is 1.8x a Continue
+Watching card, as his mockup had it, 860 against 470):
 
-- Focused card 43vw wide, 16:9 (so 24.2vw tall). Posters 16.25vw wide at
-  the same height (2:3). Gap 1.6vw. The focused card sits 4.4vw from the
-  left edge, and the previous card peeks in to its left.
+- Focused card 1.8x the Continue Watching card's width (960 x 540 at
+  today's 533 x 300; it follows whatever sizes that card, the UI scale
+  included), capped at 72vw. Posters 2:3 at the same height (360 wide).
+  Gap 30px. The focused card sits 4.4vw from the left edge, and the
+  previous card peeks in to its left.
+- The cost, accepted: at 1600 x 900 Continue Watching's cards start at the
+  bottom edge; at 1920 x 1080 most of their height shows.
 - Under the card, at the card's left edge and no wider than it (max
   760px): the meta line, then the synopsis (max 720px).
   Meta uses the app's separator: "2008 · 100 min · Movie · ★ 7.6/10".
