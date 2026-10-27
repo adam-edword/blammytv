@@ -45,8 +45,11 @@ Watching card, as his mockup had it, 860 against 470):
 - Focused card 1.8x the Continue Watching card's width (960 x 540 at
   today's 533 x 300; it follows whatever sizes that card, the UI scale
   included), capped at 72vw. Posters 2:3 at the same height (360 wide).
-  Gap 30px. The focused card sits 4.4vw from the left edge, and the
-  previous card peeks in to its left.
+  Gap 30px. The previous card peeks in to the left of the focused one.
+- One left edge for Stream (Adam): the focused card sits at a gutter of
+  max(28px, 3.3vw), and every Stream row (titles and cards) moves from
+  today's 28px to the same gutter, so Continue Watching lines up with the
+  focused card. Stream only; Library and Discover keep 28px.
 - The cost, accepted: at 1600 x 900 Continue Watching's cards start at the
   bottom edge; at 1920 x 1080 most of their height shows.
 - Under the card, at the card's left edge and no wider than it (max
