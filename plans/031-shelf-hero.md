@@ -26,6 +26,9 @@ swapped).
 - **The logo only fades.** It never moves or changes size: it is sized from
   the full card, not the growing one, and fades in once the card has grown.
 - **No logo on the posters.** A poster already carries its title.
+- **Click and drag** (Adam, the same day). The shelf follows the pointer;
+  on release it settles on the nearest poster, and a flick moves at least
+  one. A drag is never a click. Touch keeps vertical page scroll.
 
 ## The design (from the prototype; numbers are the mockup's)
 
