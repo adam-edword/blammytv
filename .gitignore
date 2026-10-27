@@ -67,3 +67,6 @@ apps/app/frontend-*.tar.gz.sig
 
 # Background agents' git worktrees (Claude Code)
 .claude/worktrees/
+
+# Personal Claude Code overrides, never committed
+.claude/settings.local.json
