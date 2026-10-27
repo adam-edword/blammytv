@@ -20,6 +20,8 @@ second UI (but see the open question).
 
 Decided: Fire OS plus Google TV / Android TV is the first TV release. The
 newest Vega sticks are left out; reaching them would need a second UI.
+Skipped, not shelved for a date: revisit only if people ask for it in the
+Discord, or Amazon moves existing Fire OS devices to Vega.
 
 Amazon says all future Fire TV sticks run **Vega OS**, which runs no Android
 apps and allows no sideloading: already the Fire TV Stick 4K Select, HD (2026)
