@@ -47,6 +47,7 @@ Run with `improve-animations execute <plan>` or hand to any agent.
 | [027](027-jellyfin.md) | Jellyfin, your own server: sign in to a real Jellyfin, its films and shows in Stream, its files played by mpv, watched marks and resume points kept in step | MEDIUM | SHIPPED in 0.12.0 (2026-10-15); the device checks are in the plan |
 | [028](028-xtream-vod.md) | Your provider's movies and shows in Stream: an Xtream playlist's library as picked rows, its titles' pages and episodes, search, played straight from the provider | HIGH | SHIPPED in 1.0.0 (2026-10-21), built v0.12.1 to v0.12.4 |
 | [029](029-recording.md) | Record live TV (a button while watching, and programmes from the Guide), and pause and rewind live TV for hours | HIGH | DECIDED (2026-10-26): Phase 0, data from Adam's PC, next |
+| [030](030-android-tv.md) | BlammyTV on Android TV and Fire TV: the same app on Tauri Android, Media3 behind a plugin, Live TV first, sideloaded | MEDIUM | DIRECTION DECIDED (2026-10-27): open on Vega OS sticks; Phase 0 needs a real device |
 | [026](026-apple.md) | Apple: the Mac app as this app on libmpv (render API, not `--wid`), no whole-app Swift rewrite, and a native Swift live TV app for Apple TV, iPhone and iPad with movies and shows left to Strand | LOW | PARKED (2026-10-12, Adam: "We can park it for now"); nothing built |
 
 ## 001 to 007: execution order & dependencies
