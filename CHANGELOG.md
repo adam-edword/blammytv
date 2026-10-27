@@ -2,6 +2,15 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.1: Fixes from the 1.0 review (unreleased)
+
+- **Watch RedZone goes away as soon as you switch its playlist off** in
+  Settings, instead of a moment later.
+- **The movie and show lists kept on this PC no longer hold your
+  password**, and a playlist you removed, or replaced with a settings
+  import, has its lists cleared at the next launch.
+- **Discover's search is faster** with a big provider library.
+
 ## 1.0.0: Your provider's movies and shows, and NFL RedZone (2026-10-21)
 
 This one runs the installer, like 0.12.0.

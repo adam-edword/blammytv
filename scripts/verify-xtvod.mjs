@@ -48,6 +48,10 @@
 //   switch and its rows under it, a live-only playlist has neither; the switch
 //   off empties Stream (and costs no download to turn back on); removing the
 //   playlist drops its choices, its record of what it held and its lists on disk.
+// - What no playlist owns is cleared at launch: a record on disk for a playlist
+//   that is not saved (a settings import replaced the list) is gone after a
+//   reload, the saved playlists' records stay, and they hold a hash of the
+//   account and not the account.
 // - Discover (batch 5): with only a library, the grid is the provider's titles,
 //   newest first, with no genre rail; the Movies and Series chips filter it;
 //   a search finds a film in a folder nobody picked and a show; a result opens
@@ -967,6 +971,65 @@ const heldBoth = (p) => async () => {
   check("  and its choices and its record of what it held, and not the other's", !choices || !("vod1" in choices), JSON.stringify(choices));
   check("  the other's record of what it held is still there", !!held?.live1 && !held.vod1, JSON.stringify(held));
   await r.context().close();
+}
+
+// ============================================ what no playlist owns, at launch
+{
+  /** The record under `id` as it is on disk, or null (the database or the record is not there). */
+  const diskRecord = (p, id) =>
+    p.evaluate(
+      (k) =>
+        new Promise((resolve) => {
+          const rq = indexedDB.open("blammytv-vod", 1);
+          rq.onerror = () => resolve(null);
+          rq.onsuccess = () => {
+            const db = rq.result;
+            const g = db.transaction("lists").objectStore("lists").get(k);
+            g.onsuccess = () => {
+              db.close();
+              resolve(g.result ?? null);
+            };
+            g.onerror = () => {
+              db.close();
+              resolve(null);
+            };
+          };
+        }),
+      id,
+    );
+  /** What a settings import leaves: a record under an id no saved playlist has,
+   * in the shape 1.0.0 wrote (the account itself in `fp`). */
+  const plant = (p, id) =>
+    p.evaluate(
+      (k) =>
+        new Promise((resolve) => {
+          const rq = indexedDB.open("blammytv-vod", 1);
+          rq.onerror = () => resolve(false);
+          rq.onsuccess = () => {
+            const db = rq.result;
+            const tx = db.transaction("lists", "readwrite");
+            const empty = { movies: [], shows: [], movieFolders: [], showFolders: [] };
+            tx.objectStore("lists").put({ fp: JSON.stringify(["http://old.invalid", "olduser", "oldpass"]), at: 1, lists: empty }, k);
+            tx.oncomplete = () => {
+              db.close();
+              resolve(true);
+            };
+            tx.onerror = () => resolve(false);
+          };
+        }),
+      id,
+    );
+  const g = await openPage({ playlists: [playlist("vod", { name: "Vod Panel" }), LIVE_ONLY()], seeds: { xtVod: { vod1: { off: false, picks: { movie: ["12"] } } } } });
+  await g.locator(".media-row__title", { hasText: /^Action$/ }).waitFor({ timeout: 20_000 });
+  const both = await waitFor(g, async () => ((await diskKeys(g)) ?? []).join() === "live1,vod1", 10_000);
+  const planted = await plant(g, "ghost");
+  check("(control) both playlists' lists are on disk, and a record no playlist owns is planted beside them", both && planted && ((await diskKeys(g)) ?? []).join() === "ghost,live1,vod1", JSON.stringify(await diskKeys(g)));
+  await g.reload({ waitUntil: "domcontentloaded" });
+  const cleared = await waitFor(g, async () => ((await diskKeys(g)) ?? []).join() === "live1,vod1", 10_000);
+  check("a reload clears the record no playlist owns, and leaves the saved playlists' records", cleared, JSON.stringify(await diskKeys(g)));
+  const rec = await diskRecord(g, "vod1");
+  check("  and what the saved ones keep of the account is a hash, not the account", typeof rec?.fp === "string" && /^[0-9a-f]{64}$/.test(rec.fp), JSON.stringify(rec?.fp ?? null));
+  await g.context().close();
 }
 
 // ============================================ Discover

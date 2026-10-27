@@ -30,12 +30,13 @@ vi.mock("../../data/xtream", () => ({
 }));
 // The fingerprint and the digest stay real; only the database is stood in for
 // (a node test has no indexedDB, so the real one answers null and writes nothing).
-const disk = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), drop: vi.fn() }));
+const disk = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), drop: vi.fn(), prune: vi.fn() }));
 vi.mock("./disk", async (orig) => ({
   ...(await orig<typeof import("./disk")>()),
   diskGet: disk.get,
   diskPut: disk.put,
   diskDrop: disk.drop,
+  diskPrune: disk.prune,
 }));
 
 import {
@@ -121,6 +122,7 @@ beforeEach(async () => {
   disk.get.mockResolvedValue(null);
   disk.put.mockResolvedValue(undefined);
   disk.drop.mockResolvedValue(undefined);
+  disk.prune.mockResolvedValue(undefined);
   net.vodInfo.mockResolvedValue(VOD_INFO);
   net.seriesInfo.mockImplementation(async (_p: unknown, id: string) => (id === "3102" ? SERIES_INFO_4K : SERIES_INFO));
   panel();
@@ -747,6 +749,29 @@ describe("watchXtLibrary", () => {
     off();
   });
 
+  it("clears what the saved playlists don't own at launch: their lists on disk, and their picks", async () => {
+    seed(playlist("t"), playlist("u", { server: "http://other.example.invalid:8080" }));
+    // What a settings import leaves behind: the old playlists' choices, and a
+    // list on disk that nothing here ever picked from.
+    store.setPicks("gone", pickM("12"));
+    vi.useFakeTimers();
+    const off = vod.watchXtLibrary();
+    expect(disk.prune).toHaveBeenCalledTimes(1);
+    expect(disk.prune).toHaveBeenCalledWith(new Set(["t", "u"]));
+    expect(store.loadPicks("gone")).toEqual([]);
+    off();
+  });
+
+  it("keeps every pick at launch when the playlists read back empty (an unreadable key reads as [])", async () => {
+    store.setPicks("t", pickM("12"));
+    mem.set("blammytv.playlists", "{unreadable");
+    vi.useFakeTimers();
+    const off = vod.watchXtLibrary();
+    expect(disk.prune).not.toHaveBeenCalled();
+    expect(store.loadPicks("t")).toEqual(pickM("12"));
+    off();
+  });
+
   it("does nothing once stopped", async () => {
     vi.useFakeTimers();
     const off = vod.watchXtLibrary();
@@ -979,6 +1004,13 @@ describe("a playlist taken out of Settings", () => {
     const reads = net.vods.mock.calls.length;
     await vod.loadXtVod();
     expect(net.vods.mock.calls.length).toBe(reads + 1);
+  });
+
+  it("takes the lists on disk of one that has no pick and no record of what it held, which nothing named to drop", async () => {
+    seed(playlist("u", { server: "http://other.example.invalid:8080" }));
+    vod.forgetRemoved();
+    expect(disk.drop).not.toHaveBeenCalled();
+    expect(disk.prune).toHaveBeenCalledWith(new Set(["u"]));
   });
 
   it("is done by the watcher whenever the list of playlists is saved", async () => {
