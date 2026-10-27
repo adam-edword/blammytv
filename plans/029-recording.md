@@ -59,6 +59,44 @@ Pause and rewind half exist already, and recording not at all.
   sidebar beside Playlist, Favorites and Recents, and a Recordings section in
   Library.
 
+## What Telly 2.0.5 does (static read, 2026-10-27)
+
+Read from its installer with the REA skill: the UI bundle recovered from the
+exe's embedded assets, the exe's strings and its import table. Nothing run.
+Described in our words; no code taken.
+
+- **Recorder:** ffmpeg reads the provider URL directly, `-c copy` to `.ts`,
+  with `-fflags +genpts+discardcorrupt+igndts`, a large probe, its own
+  User-Agent and headers, and ffmpeg's reconnect flags including
+  `reconnect_on_network_error` and `reconnect_on_http_error 4xx,5xx`. No
+  duration flag: the app ends it, by killing ffmpeg (`TerminateProcess`).
+- **Scheduling:** Guide recordings use the programme's exact times, no
+  padding. Rules come in two kinds, a series link (a title on one channel)
+  and weekly (days and a time slot), each with start-early and end-late
+  minutes. A rule skips an airing that overlaps one already scheduled on the
+  channel. The app must be open; a window that passed while it was closed is
+  Missed. A scheduled row is claimed with a conditional update so it can't
+  start twice, and the stream URL is resolved fresh when it fires.
+- **Rows:** status scheduled, recording, completed, failed, missed; a stored
+  failure reason; the channel's name and logo kept on the row, with no link
+  to the channel list (which changes). A startup sweep keeps an interrupted
+  recording that has data and marks one without data Failed, with a plain
+  reason.
+- **Gaps:** no default folder (recording fails until one is set, and from the
+  Guide that error only reaches a log), recordings don't count against the
+  connection limit, no conflict check, no keep-awake, no disk check, the
+  list polls every 5 s, and the file keeps the broadcast's own timestamps.
+- **Rewind:** RAM only, `demuxer-seekable-cache=yes`, a 5 to 60 minute window
+  (default 10) sized at 75 MB a minute. Go Live is a seek, not a reload.
+
+**Taken into this plan:** the fresh URL when a recording fires, the
+conditional claim, the startup sweep and its reasons, the failure reason and
+the channel's name and logo on the row, dedup by channel and time, Go Live as
+a seek, and ffmpeg's `-fflags +genpts+discardcorrupt` on our recorder's
+input. Series and weekly rules, with their padding, are the model for
+"Open, for later". **Not taken:** stopping by kill (closing stdin finishes
+the file), polling (events), a RAM-only buffer, and the gaps above.
+
 ## Phase 0: data from Adam's PC, before any build
 
 No rebuild. In the app's console on a live channel:
