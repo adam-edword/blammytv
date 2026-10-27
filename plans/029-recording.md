@@ -55,6 +55,13 @@ Pause and rewind half exist already, and recording not at all.
   own buffer (mpv `dump-cache <now> no <file>`) instead of refusing. A popup
   says what that means every time, until "Don't Show Again": it stops if you
   change channels, go live, or the stream reconnects.
+- **D5, a heads-up on every line** (Adam, 2026-10-27, after batch C1):
+  pressing Record tells you it uses a connection, whatever the line
+  allows, with Don't Show Again. A line that reports a limit names it ("one
+  of the 3 streams your line allows"); one that doesn't says it uses one of
+  your provider's streams. D3's buffer popup is separate and keeps its own
+  Don't Show Again; Settings → Playback's Show Recording Warning Again
+  brings both back.
 - **D4, recordings show in both places:** a Recordings mode in the Live TV
   sidebar beside Playlist, Favorites and Recents, and a Recordings section in
   Library.
