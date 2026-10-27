@@ -5,6 +5,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
+  type PointerEvent,
 } from "react";
 import {
   CheckIcon,
@@ -2094,7 +2096,6 @@ export function StreamScreen({ home }: { home?: number } = {}) {
           xt={xt}
           onRetry={() => setVodTick((t) => t + 1)}
           onOpen={cardOpen}
-          onWatchNow={watchNow}
           watching={watching}
           onClearWatching={(id) => setWatching(clearWatching(id))}
           onOpenWatching={(e) => {
@@ -2183,7 +2184,6 @@ function Home({
   jf,
   xt,
   onOpen,
-  onWatchNow,
   watching,
   onClearWatching,
   onOpenWatching,
@@ -2194,7 +2194,6 @@ function Home({
   jf: JfLoad;
   xt: XtLoad;
   onOpen: (i: VodItem) => void;
-  onWatchNow: (i: VodItem) => void;
   watching: WatchEntry[];
   onClearWatching: (id: string) => void;
   onOpenWatching: (e: WatchEntry) => void;
@@ -2330,7 +2329,7 @@ function Home({
       {/* Entirely, and with no gap: the rows are the next element, so
         * turning it off just lets them start at the top. */}
       {showHero && featured.length > 0 && (
-        <Hero items={featured} onOpen={onOpen} onWatchNow={onWatchNow} />
+        <Hero items={featured} onOpen={onOpen} />
       )}
       <div className="stream__rows">
         {activeWatching.length > 0 && (
@@ -2380,36 +2379,39 @@ function Home({
   );
 }
 
-/** The Figma hero (133-721): a ~90vh sliding carousel that never rewinds.
- * The index is VIRTUAL (unbounded, forward-only on auto-advance); slides
- * are a moving window of absolute-positioned cards, each showing
- * items[slot mod n] — so wrapping from the 9th back to the 1st is just one
- * more slide to the right, forever. Hovering the section pauses the
- * auto-advance; the active card wears the Figma glow; neighbors stay at
- * full strength and click-slide. */
-const HERO_GAP = 30;
-function heroMargin(w: number): number {
-  // Side inset ≈ 15% of the window, clamped sane — the card is ~15%
-  // thinner than full-bleed and the neighbors fill the reveal.
-  return Math.min(320, Math.max(200, w * 0.15));
+/** The shelf hero (plan 031): one 16:9 card in focus, the rest 2:3 posters at
+ * its height, and the focused title's details under the card. The sizes are
+ * all CSS (stream.css: the focused card is 1.8x a Continue Watching card);
+ * the component hands it the slot (`--v`, `--s0`) and nothing else. The
+ * index is VIRTUAL (unbounded, forward-only on
+ * auto-advance); the cards are a moving window of slots, each showing
+ * items[slot mod n], so wrapping from the 9th back to the 1st is just one
+ * more slide to the right, forever. Hovering the section, or focus inside
+ * it, pauses the auto-advance. Clicking the focused card (or Enter on it)
+ * opens the title; clicking a poster slides it in; ← → move while focus is
+ * in the hero; a drag moves the shelf and settles on a poster. */
+function mod(n: number, m: number): number {
+  return ((n % m) + m) % m;
 }
-function Hero({
-  items,
-  onOpen,
-  onWatchNow,
-}: {
-  items: VodItem[];
-  onOpen: (i: VodItem) => void;
-  onWatchNow: (i: VodItem) => void;
-}) {
-  const [v, setV] = useState(0); // virtual index — never wraps
+/** The shelf's reach on each side of the focused card, in slots. Behind: the
+ * previous card peeks in at the left, one more waits off screen. Ahead:
+ * three posters show (the third partly), and the fourth mounts before it
+ * ever enters the frame, so a slide never pays an image decode mid-animation
+ * (every mounted card loads its poster AND its 16:9 art). */
+const HERO_BEHIND = 2;
+const HERO_AHEAD = 4;
+function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => void }) {
+  const [v, setV] = useState(0); // virtual index, never wraps
   const [width, setWidth] = useState(0);
   const [hovered, setHovered] = useState(false);
   /** Keyboard focus is inside the carousel. Autoplay used to pause for the
-   * mouse alone, so a focused Watch now slid 1,000px off screen 8s later,
-   * taking the focus ring with it. */
+   * mouse alone, so a focused button slid off screen 8s later, taking the
+   * focus ring with it. */
   const [focused, setFocused] = useState(false);
-  const hostRef = useRef<HTMLDivElement | null>(null);
+  /** The slot whose meta and synopsis are on the page. It trails `v` by the
+   * fade-out, so the old words leave before the new ones arrive. */
+  const [said, setSaid] = useState(0);
+  const hostRef = useRef<HTMLElement | null>(null);
   const count = items.length;
   // Layout effect: measured BEFORE first paint, so no width-0 frame exists.
   useLayoutEffect(() => {
@@ -2423,7 +2425,7 @@ function Hero({
   }, []);
   // A picture under the header (plan 022). Scrolled, the hero passes under
   // the header, whose scrim is the page's colour: in light, a white haze
-  // over the art with dark ink on it. While the active card overlaps the
+  // over the art with dark ink on it. While the focused card overlaps the
   // header, the root says so and the header takes the picture's ink
   // (tokens.css, .on-picture), which is what dark already draws.
   useEffect(() => {
@@ -2455,10 +2457,10 @@ function Hero({
       delete root.dataset.headerOver;
     };
   }, []);
-  // Track transitions stay OFF until a frame has painted at the measured
-  // geometry — otherwise entering the tab animates the 650ms slide from
+  // Transitions stay OFF (stream.css, `--k`) until a frame has painted at the
+  // measured geometry, otherwise entering the tab animates the slide from
   // the width-0 layout ("the slider moves in a bit"). Same guard snaps
-  // (not glides) the tracks on window resizes.
+  // (not glides) the shelf on window resizes.
   const [animReady, setAnimReady] = useState(false);
   const lastW = useRef(width);
   if (lastW.current !== width) {
@@ -2472,34 +2474,109 @@ function Hero({
     );
     return () => cancelAnimationFrame(id);
   }, [animReady, width]);
+  /** A drag is under way (a ref: it must not re-render the hero per move). */
+  const dragging = useRef(false);
   useEffect(() => {
-    // Paused under the pointer, with focus inside, and never at all under
-    // reduced motion: content that moves on its own has to be stoppable,
-    // and a preference against motion is the clearest "stop" there is.
+    // Paused under the pointer, with focus inside, mid-drag, and never at
+    // all under reduced motion: content that moves on its own has to be
+    // stoppable, and a preference against motion is the clearest "stop".
     if (hovered || focused || REDUCED_MOTION || count < 2) return;
-    const id = window.setInterval(() => setV((x) => x + 1), 8000);
+    const id = window.setInterval(() => {
+      if (!dragging.current) setV((x) => x + 1);
+    }, 8000);
     return () => window.clearInterval(id);
   }, [hovered, focused, count]);
+  useEffect(() => {
+    if (said === v) return;
+    const id = window.setTimeout(() => setSaid(v), 240);
+    return () => window.clearTimeout(id);
+  }, [v, said]);
+  // An arrow key moves the focus ring with the focused card: the one that
+  // had it is a poster now, and Enter on a poster would slide back.
+  const refocus = useRef(false);
+  useEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    hostRef.current?.querySelector<HTMLElement>(".shero__card--active")?.focus({ preventScroll: true });
+  }, [v]);
 
-  const m = heroMargin(width);
-  const cardW = Math.max(0, width - 2 * m);
-  const step = cardW + HERO_GAP;
-  // The hero's Apple TV lean rides an inner wrapper (see .shero__tilt) —
-  // the slide div's transform is carousel geometry and stays untouched.
-  const reducedMotion = REDUCED_MOTION;
+  // Drag (Adam): the shelf follows the pointer 1:1, and on release settles on
+  // the nearest poster; a flick of under a step still moves one. After a few
+  // px it is a drag and never a click. lib/useDragScroll maps the pointer to
+  // scrollLeft, which does not fit a shelf that snaps to steps, so its
+  // safeguards (a lost up event, the latch on the trailing click) are
+  // repeated here.
+  const drag = useRef<{ x: number; lastX: number; lastT: number; vx: number; on: boolean } | null>(null);
+  const justDragged = useRef(false);
+  const stepRef = useRef<HTMLSpanElement | null>(null);
+  const stopDrag = useCallback(() => {
+    drag.current = null;
+    dragging.current = false;
+    const host = hostRef.current;
+    if (!host) return;
+    delete host.dataset.drag;
+    host.style.removeProperty("--drag");
+  }, []);
+  useEffect(() => {
+    window.addEventListener("blur", stopDrag);
+    return () => window.removeEventListener("blur", stopDrag);
+  }, [stopDrag]);
+  const onPointerDown = (e: PointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || count < 2) return;
+    justDragged.current = false;
+    drag.current = { x: e.clientX, lastX: e.clientX, lastT: e.timeStamp, vx: 0, on: false };
+  };
+  const onPointerMove = (e: PointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    const host = hostRef.current;
+    if (!d || !host) return;
+    // Fires on plain hover too; no button down means the gesture is over,
+    // whatever events did or did not arrive.
+    if (e.buttons === 0) return stopDrag();
+    const dx = e.clientX - d.x;
+    if (!d.on && Math.abs(dx) < 6) return; // click slop
+    if (!d.on) {
+      d.on = true;
+      dragging.current = true;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      host.dataset.drag = "";
+    }
+    d.vx = (e.clientX - d.lastX) / Math.max(1, e.timeStamp - d.lastT);
+    d.lastX = e.clientX;
+    d.lastT = e.timeStamp;
+    host.style.setProperty("--drag", `${dx}px`);
+  };
+  const onPointerUp = (e: PointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    stopDrag();
+    if (!d?.on) return;
+    justDragged.current = true;
+    // Self-heal: if the trailing click never arrives, don't leave the latch
+    // armed to eat a later real one.
+    window.setTimeout(() => {
+      justDragged.current = false;
+    }, 250);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    // A step is one poster and a gap, read off the page (a probe as wide as
+    // the CSS says), not worked out here.
+    const step = stepRef.current?.getBoundingClientRect().width ?? 0;
+    let n = step > 0 ? Math.round(-(e.clientX - d.x) / step) : 0;
+    if (n === 0 && Math.abs(d.vx) > 0.35) n = d.vx < 0 ? 1 : -1;
+    if (n) setV((x) => x + n);
+  };
 
-  // Window of live slots around the current one: both neighbors visible,
-  // one extra each side so a slide-in mounts before it enters the frame.
-  // One extra slot AHEAD of the window: the next-next card mounts and
-  // decodes ~8s before it ever enters the frame, so a slide never pays
-  // an image decode mid-animation.
-  const slots = [v - 2, v - 1, v, v + 1, v + 2, v + 3];
+  const first = count < 2 ? v : v - HERO_BEHIND;
+  const slots = count < 2 ? [v] : Array.from({ length: HERO_BEHIND + 1 + HERO_AHEAD }, (_, i) => first + i);
+  const out = said !== v && !REDUCED_MOTION;
+  const note = items[mod(REDUCED_MOTION ? v : said, count)];
+  const style: CSSProperties & Record<`--${string}`, string | number> = { "--v": v, "--s0": first };
   return (
-    <div
-      className="shero"
+    <section
+      className={"shero" + (animReady ? " shero--ready" : "")}
       ref={hostRef}
-      role="region"
+      aria-roledescription="carousel"
       aria-label="Featured"
+      style={style}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
@@ -2507,199 +2584,200 @@ function Hero({
         if (!e.currentTarget.contains(e.relatedTarget as Node | null))
           setFocused(false);
       }}
+      onKeyDown={(e) => {
+        if (count < 2 || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+        e.preventDefault();
+        refocus.current = true;
+        setV((x) => x + (e.key === "ArrowRight" ? 1 : -1));
+      }}
     >
-      {/* Adam's shadow slider: the same carousel again, blurred, masked
-        * to the stationary (android-style) box behind the center slot.
-        * The box never moves — the blurred art sliding through it IS the
-        * ambient light reacting to the cards, in exact lockstep (same
-        * geometry, same transition). The inner track's offset subtracts
-        * the box's own left so both tracks align in screen space. */}
-      <div
-        className="shero__glowbox"
-        aria-hidden
-        style={{ left: m - 210, width: cardW + 420 }}
-      >
-        <div
-          className="shero__glowtrack"
-          style={{
-            transform: `translateX(${210 - v * step}px)`,
-            transition: animReady ? undefined : "none",
-          }}
-        >
+      {/* The glow (Adam: keep it): the same shelf again, blurred and
+        * brightened, sliding in lockstep behind the real one across the full
+        * width, so every card lights its own rim. Same geometry, same
+        * transition, so the light never trails the picture. Dark only. */}
+      <span className="shero__step" ref={stepRef} aria-hidden />
+      <div className="shero__glowbox" aria-hidden>
+        <div className="shero__glowtrack">
           {slots.map((slot) => {
-            const item = items[((slot % count) + count) % count];
-            const art = item?.backdrop ?? item?.poster;
-            return art ? (
-              <img
-                key={`${slot}:${art}`}
-                className={slot === v ? "shero__glow--lit" : undefined}
-                src={art}
-                alt=""
-                decoding="async"
-                onLoad={artLoaded}
-                style={{ left: slot * step, width: cardW }}
-              />
-            ) : null;
+            const item = items[mod(slot, count)];
+            if (!item) return null;
+            return (
+              <div
+                key={slot}
+                className={
+                  "shero__glowcard" +
+                  (slot === v ? " shero__glowcard--active" : "") +
+                  (!item.backdrop && item.poster ? " shero__nobd" : "")
+                }
+              >
+                <HeroLayers item={item} backdrop={item.backdrop ?? null} poster={item.poster ?? null} />
+              </div>
+            );
           })}
         </div>
       </div>
       <div
-        className="shero__track"
-        // react-parallax-tilt caches each card's rect on mouseenter, and
-        // a slide moves cards WITHOUT re-firing enter (the pointer never
-        // "leaves" per the hover state) — so every slid card tilts
-        // against a rect that's stale by one step, pinning the math at
-        // its clamp (reads as a dead hover; only the never-slid first
-        // card worked). The lib re-measures on window resize, so poke
-        // that when the track's own slide settles. Guard target +
-        // property: transitionend bubbles up from the tilt wrappers.
-        onTransitionEnd={(e) => {
-          if (e.target === e.currentTarget && e.propertyName === "transform") {
-            window.dispatchEvent(new Event("resize"));
-          }
-        }}
-        style={{
-          transform: `translateX(${m - v * step}px)`,
-          transition: animReady ? undefined : "none",
+        className="shero__viewport"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={stopDrag}
+        onLostPointerCapture={stopDrag}
+        // The click after a drag lands on whatever the pointer was released
+        // over, the focused card included; it must not open the title.
+        onClickCapture={(e) => {
+          if (!justDragged.current) return;
+          justDragged.current = false;
+          e.preventDefault();
+          e.stopPropagation();
         }}
       >
-        {slots.map((slot) => {
-          const item = items[((slot % count) + count) % count];
-          if (!item) return null;
-          const active = slot === v;
-          return (
-            <div
-              key={slot}
-              role="button"
-              tabIndex={active ? 0 : -1}
-              onKeyDown={(e) => {
-                if (active && (e.key === "Enter" || e.key === " ")) onOpen(item);
-              }}
-              className={"shero__card" + (active ? " shero__card--active" : "")}
-              style={{ left: slot * step, width: cardW }}
-              // Whole-card click: neighbors slide into place; the ACTIVE
-              // card opens the title's source-selection screen (the
-              // buttons stopPropagation, so Watch Now stays instant-play).
-              onClick={() => (active ? onOpen(item) : setV(slot))}
-            >
-              {/* Tilt wraps art+scrim+text but NOT the card div (its
-                * left/width + translateZ(0) are the carousel's geometry)
-                * and not the .shero__glowbox layer behind the track —
-                * ambient light shouldn't rotate with the object. Active
-                * card only: a peeking
-                * neighbor pivots around an offscreen center and reads
-                * broken. At this size 0.5° is plenty (Adam — 2° read as
-                * a barn door); scale is a hair (1.005) — just enough to
-                * keep the leaning card covering the glow behind its own
-                * edge; glare is faint (text lives here). */}
-              <Tilt
-                className="shero__tilt"
-                tiltEnable={active && !reducedMotion}
-                tiltMaxAngleX={0.5}
-                tiltMaxAngleY={0.5}
-                // Tilting shrinks the projection on the receding side a
-                // couple px, unveiling the bright glow behind the card's
-                // own edge (read as a rim). The hair of scale keeps the
-                // card covering its footprint at full lean.
-                scale={reducedMotion ? 1 : 1.005}
-                perspective={2500}
-                transitionSpeed={1000}
-                // Faint — text and buttons live on this card, so the
-                // sheen must never read as glare over UI. MUST be
-                // constant: the lib creates the glare element only if
-                // enabled AT MOUNT, and slides mount non-active (the
-                // pre-decode window) — so gating on `active` here means
-                // no glare ever exists. CSS hides it on non-active
-                // cards instead (.shero__card rule).
-                glareEnable={!reducedMotion}
-                glareMaxOpacity={0.12}
-                glarePosition="all"
-                glareBorderRadius="var(--radius-card)"
-              >
-              {(item.backdrop ?? item.poster) && (
-                <img
-                  key={item.backdrop ?? item.poster}
-                  className="shero__art art-in"
-                  src={item.backdrop ?? item.poster}
-                  alt=""
-                  decoding="async"
-                  onLoad={artLoaded}
-                />
-              )}
-              <div className="shero__scrim" aria-hidden />
-              <div className="shero__text on-picture">
-                <HeroTitle key={item.logo ?? item.id} item={item} />
-                {item.synopsis && (
-                  <p className="shero__synopsis">{item.synopsis}</p>
-                )}
-                <p className="shero__meta">
-                  {[
-                    item.year,
-                    item.runtimeMin ? `${item.runtimeMin} min` : null,
-                    item.kind === "series" ? "Series" : "Movie",
-                  ]
-                    .filter(Boolean)
-                    // " · ", the app's one separator (016 4.5): three
-                    // spaces under `white-space: pre` read as a layout gap
-                    // rather than as a list.
-                    .join(" · ")}
-                  {item.rating ? (
-                    <span className="shero__rating">
-                      {" · "}★ {item.rating.toFixed(1)}/10
-                    </span>
-                  ) : null}
-                </p>
-                <div className="shero__actions">
-                  {/* Out of the tab order on the peeking slides. They were
-                    * all tab stops, so 8 of the hero's 12 led to buttons
-                    * off the edge of the screen. `inert` would also stop
-                    * a click on a neighbour sliding it in, so it's this. */}
-                  <Button
-                    variant="default"
-                    type="button"
-                    tabIndex={active ? undefined : -1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onWatchNow(item);
-                    }}
-                  >
-                    Watch Now
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    type="button"
-                    tabIndex={active ? undefined : -1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpen(item);
-                    }}
-                  >
-                    More Info
-                  </Button>
-                </div>
-              </div>
-              </Tilt>
-            </div>
-          );
-        })}
+        <div className="shero__track">
+          {slots.map((slot) => {
+            const item = items[mod(slot, count)];
+            if (!item) return null;
+            const active = slot === v;
+            return (
+              <HeroCard
+                key={`${slot}:${item.id}`}
+                item={item}
+                active={active}
+                // The focused card opens the title; a poster slides in.
+                onClick={() => (active ? onOpen(item) : setV(slot))}
+              />
+            );
+          })}
+        </div>
       </div>
-    </div>
+      <div className={"shero__info" + (out ? " shero__info--out" : "")}>
+        <p className="shero__meta">
+          {[
+            note.year,
+            note.runtimeMin ? `${note.runtimeMin} min` : null,
+            note.kind === "series" ? "Series" : "Movie",
+          ]
+            .filter(Boolean)
+            // " · ", the app's one separator (016 4.5): three
+            // spaces under `white-space: pre` read as a layout gap
+            // rather than as a list.
+            .join(" · ")}
+          {note.rating ? (
+            <span className="shero__rating">
+              {" · "}★ {note.rating.toFixed(1)}/10
+            </span>
+          ) : null}
+        </p>
+        {note.synopsis && <p className="shero__synopsis">{note.synopsis}</p>}
+      </div>
+    </section>
   );
 }
 
-/** The hero card's title: the clearlogo, fading in once decoded, or the
- * name in type when there is no logo or it fails to load. It used to be
- * the browser's broken-image box with the name as its alt text. */
+/** One card of the shelf: a button whose name is the title. Only the focused
+ * one is a tab stop; the posters are reached by click, drag or the arrows.
+ * A picture that fails to load counts as missing (HeroLayers draws the
+ * fallbacks). */
+function HeroCard({ item, active, onClick }: { item: VodItem; active: boolean; onClick: () => void }) {
+  const [backdropBad, setBackdropBad] = useState(false);
+  const [posterBad, setPosterBad] = useState(false);
+  const backdrop = !backdropBad && item.backdrop ? item.backdrop : null;
+  const poster = !posterBad && item.poster ? item.poster : null;
+  return (
+    <button
+      type="button"
+      aria-label={item.title}
+      tabIndex={active ? 0 : -1}
+      className={"shero__card" + (active ? " shero__card--active" : "") + (!backdrop && poster ? " shero__nobd" : "")}
+      onClick={onClick}
+    >
+      <HeroLayers
+        item={item}
+        backdrop={backdrop}
+        poster={poster}
+        onBackdropError={() => setBackdropBad(true)}
+        onPosterError={() => setPosterBad(true)}
+      />
+      <span className="shero__scrim" aria-hidden />
+      <HeroTitle key={item.logo ?? item.id} item={item} />
+    </button>
+  );
+}
+
+/** A card's two pictures, each at its own size however wide the card is:
+ * the 16:9 art as wide as the focused card, the poster as wide as a poster,
+ * both anchored at the left, and the card's width reveals or covers them
+ * (stream.css has the fading). Missing art (plan 031):
+ *  - no 16:9 art: the poster, blurred and darkened, stands in for it, and
+ *    the sharp poster sits at the card's right;
+ *  - no poster: the 16:9 art, cropped to the poster's box;
+ *  - neither: the card's colour and the title's first letter, as a row's
+ *    card does. */
+function HeroLayers({
+  item,
+  backdrop,
+  poster,
+  onBackdropError,
+  onPosterError,
+}: {
+  item: VodItem;
+  backdrop: string | null;
+  poster: string | null;
+  onBackdropError?: () => void;
+  onPosterError?: () => void;
+}) {
+  const wide = backdrop ?? poster;
+  const tall = poster ?? backdrop;
+  return (
+    <>
+      <div className={"shero__layer shero__layer--b" + (wide ? "" : " shero__layer--bare")}>
+        {wide && (
+          <img
+            key={wide}
+            className={"shero__art art-in" + (backdrop ? "" : " shero__art--blur")}
+            src={wide}
+            alt=""
+            decoding="async"
+            draggable={false}
+            onLoad={artLoaded}
+            onError={backdrop ? onBackdropError : onPosterError}
+          />
+        )}
+      </div>
+      <div className="shero__layer shero__layer--p">
+        {tall ? (
+          <img
+            key={tall}
+            className="shero__poster art-in"
+            src={tall}
+            alt=""
+            decoding="async"
+            draggable={false}
+            onLoad={artLoaded}
+            onError={poster ? onPosterError : onBackdropError}
+          />
+        ) : (
+          <span className="shero__mono">{item.title.slice(0, 1)}</span>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** The hero card's title: the clearlogo, or the name in type when there is
+ * no logo or it fails to load. It used to be the browser's broken-image box
+ * with the name as its alt text. Either way it only fades in, at its final
+ * size and place, once the card has grown (stream.css, `.shero__mark`). */
 function HeroTitle({ item }: { item: VodItem }) {
   const [failed, setFailed] = useState(false);
   if (!item.logo || failed)
     // Past a short name the type steps down (stream.css): about two lines.
-    return <h2 className={"shero__title" + (item.title.length > 18 ? " shero__title--long" : "")}>{item.title}</h2>;
+    return <span className={"shero__mark shero__title" + (item.title.length > 18 ? " shero__title--long" : "")}>{item.title}</span>;
   return (
     <img
-      className="shero__logo art-in"
+      className="shero__mark shero__logo"
       src={item.logo}
       alt={item.title}
+      draggable={false}
       onLoad={artLoaded}
       onError={() => setFailed(true)}
     />

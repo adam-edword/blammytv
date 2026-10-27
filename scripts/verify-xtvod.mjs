@@ -444,6 +444,10 @@ await coll(p).waitFor({ timeout: 20_000 });
   await p.locator(".vod-source").first().waitFor({ timeout: 15_000 });
   const sources = await p.locator(".vod-source").allInnerTexts();
   check("the film opens with two sources, 2160p first and then HD", sources.length === 2 && /2160p/.test(sources[0]) && /HD/.test(sources[1]) && !/2160p/.test(sources[1]), JSON.stringify(sources));
+  // The sources come off the cache the moment the page opens; the panel's own
+  // page (get_vod_info) answers a beat later, and a quick page, as this one now
+  // is with the hero cut down, read it before it was there.
+  await p.waitForFunction(() => /The plot of 4K/.test(document.querySelector(".vod-detail")?.textContent ?? ""), null, { timeout: 5000 }).catch(() => {});
   const detail = await p.locator(".vod-detail").first().innerText();
   check("  with the page the panel gave it (synopsis and year)", /The plot of 4K The Fantastic 4/.test(detail) && /2025/.test(detail), detail.slice(0, 160));
   const log = await panelLog();

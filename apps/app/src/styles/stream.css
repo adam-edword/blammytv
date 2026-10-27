@@ -2,13 +2,20 @@
  * detail page with the addon's pre-ranked source rail, episode grid. */
 
 .stream {
+  /* Stream's one left edge (Adam): the hero's focused card, its details and
+   * every row line up here. The rows use it for their bleed too (the
+   * viewport and scroller below), so a row still scrolls to the window's
+   * edge, not to this line. Other screens' rows have no --gut and keep 28px. */
+  --gut: max(28px, 3.3vw);
+  /* A Continue Watching card's height, which the hero is sized from. */
+  --cw-h: 300px;
   /* Full window width regardless of content — as a flex child of
    * .app-main it otherwise sizes to max-content and a sparse detail
    * page collapses into a left-hand strip. */
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: calc(var(--header-h, 76px) + 8px) 28px 40px;
+  padding: calc(var(--header-h, 76px) + 8px) var(--gut) 40px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -20,77 +27,113 @@
   margin: auto;
 }
 
-/* ---- featured hero (Figma 133-721): 80vh sliding track, 60px-radius
- * cards, neighbors peeking with a 30px gap. Escapes .stream's padding so
- * the peeks bleed to the window edges. Geometry (card width / offset) is
- * measured + set inline by the component; the track only animates
- * transform. ---- */
+/* ---- featured hero (plan 031): the shelf. One 16:9 card in focus, the rest
+ * 2:3 posters at its height, the focused title's details under the card.
+ * The focused card is 1.8x a Continue Watching card (960 x 540 at its 300px),
+ * capped at 72vw so a narrow window still shows a poster beside it; the
+ * posters are 2:3 at its height; the gap is 30px; the focused card sits at
+ * the page's left edge, the previous one peeking in beside it. Escapes
+ * .stream's padding so the peeks bleed to the window edges. ---- */
 .shero {
+  --w: min(calc(var(--cw-h, 300px) * 3.2), 72vw);
+  --h: calc(var(--w) * 9 / 16);
+  --pw: calc(var(--h) * 2 / 3);
+  --gap: 30px;
+  --in: var(--gut, 28px);
+  --step: calc(var(--pw) + var(--gap));
+  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+  /* --k is the motion switch: every duration below is a share of it, so 0
+   * is no transition anywhere. Off until a frame has painted at the measured
+   * geometry and across a window resize (.shero--ready, set by the component)
+   * and under reduced motion. */
+  --k: 0;
+  --dur: calc(var(--k) * 620ms);
   position: relative;
-  height: 80vh;
-  margin: 0 -28px;
-  /* Clip the sliding track horizontally ONLY — `hidden` would force the
-   * y-axis too and guillotine the active card's glow into a rectangle.
-   * `clip` leaves overflow-y genuinely visible. */
+  margin: 0 calc(var(--gut, 28px) * -1);
+  padding: 18px 0 30px;
+  /* Clip the sliding track horizontally ONLY: `hidden` would force the
+   * y-axis too and guillotine the glow into a rectangle. `clip` leaves
+   * overflow-y genuinely visible. */
   overflow-x: clip;
   overflow-y: visible;
   flex-shrink: 0;
 }
-.shero__track {
+/* A poster and a gap wide, for the component to read a drag's step from. */
+.shero__step {
   position: absolute;
-  inset: 0;
-  z-index: 1; /* above the glow box */
-  transition: transform 650ms cubic-bezier(0.45, 0.05, 0.2, 1);
-  will-change: transform;
+  top: 0;
+  left: 0;
+  width: var(--step);
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
-/* The shadow slider's stationary window (left/width inline from measured
- * geometry): clips a second, blurred copy of the track. The imgs' own
- * 70px blur softens their edges well inside the clip, so the box edge
- * never reads hard. */
+.shero--ready {
+  --k: 1;
+}
+.shero__viewport {
+  position: relative;
+  z-index: 1; /* above the glow */
+  cursor: grab;
+  /* A sideways drag is the shelf's; a vertical one still scrolls the page. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.shero[data-drag] .shero__viewport,
+.shero[data-drag] .shero__card {
+  cursor: grabbing;
+}
+/* The track is a window of slots, the first of which is --s0. Its margin
+ * stands in for the slots before the window, so a slot that leaves it does
+ * not move the rest; the transform puts the focused card (slot --v, the
+ * posters before it a step each) at the inset. --drag is the pointer's
+ * travel mid-drag, set by the component. */
+.shero__track,
+.shero__glowtrack {
+  display: flex;
+  gap: var(--gap);
+  height: var(--h);
+  margin-left: calc(var(--s0) * var(--step));
+  will-change: transform;
+  transition: transform var(--dur) var(--ease);
+}
+.shero__track {
+  transform: translateX(calc(var(--in) - var(--v) * var(--step) + var(--drag, 0px)));
+}
+.shero[data-drag] .shero__track,
+.shero[data-drag] .shero__glowtrack {
+  transition: none;
+}
+/* The glow (Adam: keep it; 110px past the card each side, 56px above and
+ * below): the same shelf again, blurred and brightened, sliding in lockstep
+ * behind a window that stays put around the focused card and fades at its
+ * edges. Inside it every card's copy shines at the same strength, focused or not. The window's
+ * left is --in minus 110px, so the blurred track sits 110px in from the real
+ * one's offset. The blur softens the copies' edges well inside the clip. */
 .shero__glowbox {
   position: absolute;
-  top: -90px;
-  bottom: -90px;
   z-index: 0;
-  overflow: hidden;
-  border-radius: 90px;
   pointer-events: none;
-  opacity: 0.8; /* Adam's final trim on the whole light layer */
-  /* Feathered window: the box reaches ~90px past the card on the sides
-   * and ~52px vertically, and the feather eats only the outer half of
-   * that — so a real halo band survives at strength. (The first feather
-   * pass swallowed the whole halo: 70px falloff on a 24px overscan.)
-   * Don't chase halo-shape artifacts here — the "bright rim on hover"
-   * was the tilted card's projection exposing the glow behind its own
-   * edge; the Tilt scale bump covers it (see Hero). */
+  overflow: hidden;
+  border-radius: 60px;
+  top: calc(18px - 56px);
+  height: calc(var(--h) + 112px);
+  left: calc(var(--in) - 110px);
+  width: calc(var(--w) + 220px);
   -webkit-mask-image:
-    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
-    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+    linear-gradient(to right, transparent, #000 90px, #000 calc(100% - 90px), transparent),
+    linear-gradient(to bottom, transparent, #000 56px, #000 calc(100% - 56px), transparent);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
-    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+    linear-gradient(to right, transparent, #000 90px, #000 calc(100% - 90px), transparent),
+    linear-gradient(to bottom, transparent, #000 56px, #000 calc(100% - 56px), transparent);
   mask-composite: intersect;
 }
 .shero__glowtrack {
-  position: absolute;
-  inset: 0;
-  transition: transform 650ms cubic-bezier(0.45, 0.05, 0.2, 1);
-  will-change: transform;
-}
-.shero__glowbox img {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  object-fit: cover;
-  border-radius: var(--radius-card);
-  filter: blur(70px) saturate(1.4);
-  /* Neighbor light rests dim; the incoming slide's light fades up fast
-   * and undelayed, while the OUTGOING one holds until the slide's final
-   * stretch (350ms delay on the way down) — light leads the arrival and
-   * trails the departure. */
-  opacity: 0.3;
-  transition: opacity 300ms ease 350ms;
+  margin-top: 56px;
+  filter: blur(32px) saturate(1.9) brightness(1.55);
+  transform: translateX(calc(110px - var(--v) * var(--step) + var(--drag, 0px)));
 }
 /* Dark only (plan 022). Light on a light page isn't light: the art's colour
  * blurred over white read as a smudge round the card, and a third of it
@@ -98,120 +141,208 @@
 :root[data-theme="light"] .shero__glowbox {
   display: none;
 }
-.shero__glowbox img.shero__glow--lit {
-  opacity: 0.7;
-  transition: opacity 300ms ease;
-}
-/* Not yet decoded (lib/artIn.ts): no light. Once it is, the rules above
- * fade it up to theirs, a card's art and its light arriving together. */
-.shero__glowbox img:not([data-loaded]) {
-  opacity: 0;
-}
-/* Slides are absolutely placed on the track at slot * step (inline left) —
- * the infinite window repositions freely. Vertical inset gives the active
- * card's glow room to breathe inside the clipped section. */
-.shero__card {
-  position: absolute;
-  top: 22px;
-  bottom: 22px;
+/* A card, and the glow's copy of one. Each picture keeps its own size while
+ * the card around it resizes (the layers below); the card's width reveals
+ * or covers them. Zooming either to the moving box slid a poster's printed
+ * title off its bottom. */
+.shero__card,
+.shero__glowcard {
+  position: relative;
+  flex: none;
+  width: var(--pw);
+  height: 100%;
   border-radius: var(--radius-card);
-  /* No overflow:hidden here — it would clip the Tilt lean/scale (the
-   * .shero__tilt wrapper grows past the box on hover). The rounding
-   * lives on the art/scrim layers instead; the ambient glow is the
-   * separate .shero__glowbox layer behind the track. */
+  overflow: hidden;
   background: var(--surface);
   cursor: pointer;
+  transition: width var(--dur) var(--ease);
   /* Own compositor layer: the rounded content rides the track's
    * transform without re-rasterizing every frame. */
   transform: translateZ(0);
 }
-.shero__card--active { cursor: pointer; }
-/* The Apple TV lean's transform surface: fills the slide, so the art/
- * scrim/text inside keep their exact geometry. react-parallax-tilt owns
- * this element's transform — the slide div above stays carousel-only. */
-.shero__tilt {
+.shero__glowcard {
+  background: none;
+  opacity: 0.75; /* focused and neighbours alike (Adam) */
+}
+.shero__card--active,
+.shero__glowcard--active {
+  width: var(--w);
+}
+.shero__card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+/* The hairline round a picture. */
+.shero__card::after {
+  content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-image) 10%, transparent);
 }
-/* Glare exists on every slide (the lib only creates it when enabled at
- * MOUNT, and slides mount non-active — so the prop can't gate by card).
- * Visibility gates here instead: only the center card gets the sheen. */
-.shero__card:not(.shero__card--active) .shero__tilt .glare-wrapper {
-  display: none;
-}
-.shero__art {
+/* The 16:9 art is as wide as the focused card, the poster as wide as a
+ * poster, both at the left. The poster lies over the art and does the
+ * fading, both ways. Growing, the art under it shows at once; shrinking, it
+ * stays until the card is poster-sized again (the opacity step waits out the
+ * duration), so no gap opens beside a shrinking poster. */
+.shero__layer {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+}
+.shero__layer img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: var(--radius-card); /* the card itself no longer clips (glow) */
+  -webkit-user-drag: none;
+}
+.shero__layer--b {
+  width: var(--w);
+  opacity: 0;
+  transition: opacity 0s linear var(--dur);
+}
+.shero__layer--p {
+  z-index: 1;
+  width: var(--pw);
+  transition: opacity var(--dur) var(--ease);
+}
+:is(.shero__card--active, .shero__glowcard--active) .shero__layer--b {
+  opacity: 1;
+  transition: none;
+}
+:is(.shero__card--active, .shero__glowcard--active) .shero__layer--p {
+  opacity: 0;
+}
+/* No 16:9 art: the poster stands in for it, blurred and darkened, and the
+ * sharp poster stays at the card's right instead of fading away. */
+.shero__art--blur {
+  filter: blur(28px) brightness(0.5) saturate(1.2);
+  transform: scale(1.3);
+}
+.shero__nobd .shero__layer--p {
+  left: auto;
+  right: 0;
+}
+.shero__nobd:is(.shero__card--active, .shero__glowcard--active) .shero__layer--p {
+  opacity: 1;
+}
+/* Neither: a row card's letter on its colour, and the focused card's ground
+ * a fixed dark, since the title and logo on it wear the picture's ink. */
+.shero__layer--bare {
+  background: oklch(0.205 0 0);
+}
+.shero__mono {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 42px;
+  color: var(--text-muted);
 }
 .shero__scrim {
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-card);
-  background:
-    linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 45%),
-    linear-gradient(to right, rgba(0, 0, 0, 0.5), transparent 55%);
+  z-index: 2;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+  background: linear-gradient(to top, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0) 45%);
 }
-.shero__text {
+.shero__card--active .shero__scrim {
+  opacity: 1;
+}
+/* The title: a clearlogo when the addon provides one, its name in type when
+ * not. It only fades, once the card has grown past 55% of the way, and it is
+ * sized and placed from the FULL card (--w, --h), never the growing one, so
+ * it never moves or changes size. */
+.shero__mark {
   position: absolute;
-  left: 56px;
-  bottom: 52px;
-  max-width: 52ch;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  color: var(--on-image);
+  z-index: 2;
+  left: calc(var(--w) * 0.043);
+  bottom: calc(var(--h) * 0.08);
+  margin: 0;
+  opacity: 0;
+  transition: opacity calc(var(--k) * 280ms) ease;
 }
-/* Clearlogo title art when the addon provides it; text is the fallback. */
+.shero__card--active .shero__mark {
+  opacity: 1;
+  transition-delay: calc(var(--dur) * 0.55);
+}
+.shero__card--active img.shero__mark:not([data-loaded]) {
+  opacity: 0;
+}
 .shero__logo {
-  max-width: 420px;
-  max-height: 160px;
+  width: calc(var(--w) * 0.46);
+  height: calc(var(--h) * 0.34);
   object-fit: contain;
   object-position: left bottom;
+  filter: drop-shadow(0 2px 18px rgb(0 0 0 / 0.45));
 }
 /* The name in type, standing where a logo would (a provider's titles never
- * have one). Sized to take about a logo's room, not the art's: 92px set a
- * five-word name in five lines over the picture (Adam, plan 028). A long name
- * steps down a size, and the lines are balanced so none is a lone word. */
+ * have one). Sized to take about a logo's room: 92px set a five-word name
+ * in five lines over the picture (Adam, plan 028). A long name steps down a
+ * size, and the lines are balanced so none is a lone word. */
 .shero__title {
-  /* An h2's own margin (0.83em, some 60px at this size) was the gap between
-   * the name and the synopsis; the logo, an img, never had one. */
-  margin: 0;
-  max-width: 620px;
+  display: block;
+  max-width: calc(var(--w) * 0.6);
   font-family: var(--font-headline);
   font-weight: 700;
-  font-size: clamp(40px, 4.4vw, 72px);
+  font-size: calc(var(--w) * 0.07);
   letter-spacing: -0.02em;
   line-height: 1;
   text-wrap: balance;
-  /* Was #f5eecf, a warm cream that was BlammyTV's and nobody else's. Over
-   * art a fixed light is right (the scrim below it is the only guaranteed
-   * ground), but it is shadcn's foreground now, not a brand tint. */
+  /* Over art a fixed light is right (the scrim below it is the only
+   * guaranteed ground), but it is shadcn's foreground now, not a brand
+   * tint. */
   color: oklch(0.985 0 0);
 }
 .shero__title--long {
-  font-size: clamp(30px, 3vw, 52px);
+  font-size: calc(var(--w) * 0.052);
+}
+/* Under the card, on the PAGE: the page's text tokens, not the picture's
+ * ink, or they vanish in the light theme. */
+.shero__info {
+  position: relative;
+  z-index: 1;
+  margin-left: var(--in);
+  width: min(var(--w), 760px);
+  padding-top: 18px;
+  /* Meta and three lines of synopsis, so the rows below hold still as the
+   * titles change. */
+  min-height: 120px;
+}
+.shero__info > * {
+  transition: opacity calc(var(--k) * 220ms) ease;
+}
+.shero__info--out > * {
+  opacity: 0;
+}
+.shero__meta {
+  margin: 0;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.shero__rating {
+  color: var(--rating);
 }
 .shero__synopsis {
+  margin: 10px 0 0;
+  max-width: 720px;
   font-size: 15px;
   line-height: 1.5;
-  color: color-mix(in srgb, var(--on-image) 85%, transparent);
-  max-width: 48ch;
+  color: color-mix(in srgb, var(--text) 85%, transparent);
   display: -webkit-box;
-  -webkit-line-clamp: 10;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.shero__meta {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  color: color-mix(in srgb, var(--on-image) 60%, transparent);
-}
-.shero__rating { color: var(--rating); }
-.shero__actions { display: flex; gap: 10px; margin-top: 6px; }
 
 /* ---- rows ---- */
 .stream__rows {
@@ -630,7 +761,7 @@
 /* The viewport owns the page-padding bleed + anchors scrims/arrows. */
 .media-row__viewport {
   position: relative;
-  margin: 0 -28px;
+  margin: 0 calc(var(--gut, 28px) * -1);
 }
 .media-row__scroller {
   display: flex;
@@ -639,7 +770,7 @@
   /* Top headroom for the tilt/scale hover — a 1.04× poster grows ~9px
    * upward and overflow-x:auto forces overflow-y to clip (spec quirk).
    * The title's margin shrinks to keep the visual rhythm unchanged. */
-  padding: 18px 28px 10px;
+  padding: 18px var(--gut, 28px) 10px;
 }
 /* Mid-drag: the row scrolls under the cursor — suppress hover lifts and
  * accidental selection so the gesture reads as grabbing the shelf. */
@@ -767,8 +898,8 @@
 /* 300px tall, as the art was; exactly 16:9 now instead of whatever the
  * backdrop's own aspect was, so every card in the row is one width. */
 .continue-card .tile__pic {
-  height: 300px;
-  width: calc(300px * 16 / 9);
+  height: var(--cw-h, 300px);
+  width: calc(var(--cw-h, 300px) * 16 / 9);
 }
 /* In a grid (the Library's history) the column sets the width: at the
  * row's 300px height every card was 533px across in a 300px column, over
@@ -1864,14 +1995,12 @@
   }
 }
 
-/* Reduced motion (motion plan 006): the hero's near-fullscreen slide
- * snaps instead (the glow's opacity crossfade stays — it keeps the
- * change comprehensible); hover LIFTS drop, press dips stay (:active
- * is feedback), brightness/shadow hovers untouched. */
+/* Reduced motion (motion plan 006): the hero's shelf snaps instead, and so
+ * does everything on it (--k, on the hero itself); hover LIFTS drop, press
+ * dips stay (:active is feedback), brightness/shadow hovers untouched. */
 @media (prefers-reduced-motion: reduce) {
-  .shero__track,
-  .shero__glowtrack {
-    transition: none;
+  .shero--ready {
+    --k: 0;
   }
   .continue-card:hover:not(:active),
   .vod-more__card:hover:not(:active) {

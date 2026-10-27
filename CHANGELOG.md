@@ -2,6 +2,18 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.5: A new Stream hero (unreleased)
+
+- **Stream opens on a shelf.** One title in focus at 16:9 with its logo,
+  the next few as posters beside it, and its details underneath. A poster
+  grows into its picture as it slides into focus. Click one, drag the
+  shelf, or use the arrow keys; clicking the title in focus opens it.
+- **It's smaller than the old hero**, so Continue Watching shows on the
+  first screen on most windows, and the rows line up with the title in
+  focus.
+- **The glow behind it is tighter and brighter**, and lights every card
+  near the one in focus.
+
 ## 1.0.4: Playlist links starred out (unreleased)
 
 - **Settings → Sources stars out an M3U playlist's link**, so its user name

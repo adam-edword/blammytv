@@ -1864,7 +1864,7 @@ const dimmedText = () =>
   // C. Stream: the hero's meta takes the middle dot.
   await goTo(page, "home");
   await page.waitForTimeout(1500);
-  const meta = await page.evaluate(() => document.querySelector(".shero__card:not([inert]) .shero__meta, .shero__meta")?.textContent ?? "");
+  const meta = await page.evaluate(() => document.querySelector(".shero__meta")?.textContent ?? "");
   check("Stream: the hero's meta is joined with \" · \"", / · /.test(meta) && !/ {2,}/.test(meta), JSON.stringify(meta));
 
   // F. Sports: the board's tools on one row beside Today's Games.

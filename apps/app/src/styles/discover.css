@@ -83,7 +83,7 @@
   letter-spacing: 0.2px;
 }
 /* Over wallpaper art (scrimmed), fixed light text is sanctioned — same
- * as .shero__text / .vod-detail__body. */
+ * as .shero__title / .vod-detail__body. */
 .genre-card:has(.genre-card__art) .genre-card__name {
   color: var(--on-image);
 }
