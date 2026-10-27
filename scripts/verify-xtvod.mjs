@@ -1032,6 +1032,83 @@ const heldBoth = (p) => async () => {
   await g.context().close();
 }
 
+// ============================================ a lapsed account's answer
+// A panel whose account lapsed answers EVERY call with {"user_info":{"auth":0}}
+// and a 200. That is not a list, so it is a failed read: the copy on disk and
+// the rows stay, whatever its age. It used to read as a library of nothing,
+// replace the copy (on disk too, stamped now) and empty Stream for 12 hours.
+{
+  /** The record on disk for the playlist: when it was read and what it holds. */
+  const record = (p) =>
+    p.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const rq = indexedDB.open("blammytv-vod", 1);
+          rq.onerror = () => resolve(null);
+          rq.onsuccess = () => {
+            const db = rq.result;
+            if (!db.objectStoreNames.contains("lists")) return resolve(null), db.close();
+            const g = db.transaction("lists").objectStore("lists").get("vod1");
+            g.onsuccess = () => {
+              db.close();
+              resolve(g.result ? { at: g.result.at, movies: g.result.lists.movies.length, shows: g.result.lists.shows.length } : null);
+            };
+            g.onerror = () => (db.close(), resolve(null));
+          };
+        }),
+    );
+  /** Make the record 13 hours old, past the 12 the lists are used as they are. */
+  const age = (p) =>
+    p.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const rq = indexedDB.open("blammytv-vod", 1);
+          rq.onerror = () => resolve(false);
+          rq.onsuccess = () => {
+            const db = rq.result;
+            const tx = db.transaction("lists", "readwrite");
+            const g = tx.objectStore("lists").get("vod1");
+            g.onsuccess = () => tx.objectStore("lists").put({ ...g.result, at: Date.now() - 13 * 3600_000 }, "vod1");
+            tx.oncomplete = () => (db.close(), resolve(true));
+            tx.onerror = () => resolve(false);
+          };
+        }),
+    );
+  await fetch(`${PANEL}/__lapse?on=0`);
+  const q = await openPage({ playlists: [playlist("vodlapse")], seeds: { xtVod: { vod1: { picks: [ACTION] } } } });
+  try {
+    await q.locator(".media-row__title", { hasText: /^Action$/ }).waitFor({ timeout: 20_000 });
+    const wrote = await waitFor(q, async () => (await record(q))?.movies > 0, 10_000);
+    const before = await record(q);
+    const aged = await age(q);
+    check("(control) the account's lists are on disk, and the copy is made 13 hours old", wrote && aged && before.movies > 0 && before.shows > 0, JSON.stringify(before));
+    const old = await record(q);
+
+    // The account lapses. A relaunch shows the old copy at once and reads again behind it.
+    await fetch(`${PANEL}/__lapse?on=1`);
+    await clearLog();
+    await q.reload({ waitUntil: "domcontentloaded" });
+    await q.locator(".media-row__title", { hasText: /^Action$/ }).waitFor({ timeout: 20_000 });
+    const asked = await waitFor(q, async () => listCalls(await panelLog(), "vodlapse").length > 0, 15_000);
+    check("(control) the launch read the lists again, and the panel answered them with the sign-in object", asked && listCalls(await panelLog(), "vodlapse").length >= 4, JSON.stringify(listCalls(await panelLog(), "vodlapse").map((c) => c.action)));
+    await q.waitForTimeout(2000); // what the failed read would have done to the page
+    check("the rows are still there", (await rowTitles(q)).includes("Action") && (await rowCards(q, "Action")).length > 0, JSON.stringify(await rowTitles(q)));
+    const kept = await record(q);
+    check("  and so is the copy on disk, as it was: not replaced with nothing, not stamped now", kept?.movies === old.movies && kept?.shows === old.shows && kept?.at === old.at, JSON.stringify({ old, kept }));
+    const held = await storeOf(q, "xtVodHeld");
+    check("  and the record of what the playlist held did not drop to nothing", held?.vod1?.movies > 0, JSON.stringify(held));
+
+    // The account is back: the next launch reads it, and the copy is the new read.
+    await fetch(`${PANEL}/__lapse?on=0`);
+    await q.reload({ waitUntil: "domcontentloaded" });
+    const renewed = await waitFor(q, async () => (await record(q))?.at > old.at, 15_000);
+    check("once the panel answers again, the next launch reads it and replaces the copy", renewed && (await rowTitles(q)).includes("Action"), JSON.stringify(await record(q)));
+  } finally {
+    await fetch(`${PANEL}/__lapse?on=0`);
+    await q.context().close();
+  }
+}
+
 // ============================================ Discover
 {
   const GRID = ["Quiet Harbor", "Plain Series", "Skyline Run", "Show Without Backdrop", "Midnight Express Lane", "Two Season Show"];

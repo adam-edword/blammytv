@@ -110,18 +110,36 @@ describe("the movie and show calls", () => {
     expect(await x.fetchSeriesCategories(X)).toHaveLength(3);
   });
 
-  it("return the lists as the panel sent them, and none for anything that is not a list", async () => {
+  it("return the lists as the panel sent them", async () => {
     const x = await import("./xtream");
     const raw = [{ stream_id: "5", name: "x" }, null, "junk"];
     httpGetJson.mockResolvedValue(raw);
     expect(await x.fetchVodStreams(X)).toEqual(raw);
     expect(await x.fetchSeries(X)).toEqual(raw);
-    for (const bad of [{ error: "x" }, "no", null, 5]) {
+    httpGetJson.mockResolvedValue([]);
+    expect(await x.fetchVodStreams(X)).toEqual([]);
+    expect(await x.fetchVodCategories(X)).toEqual([]);
+  });
+
+  it("read anything else that is not a list as none, as a live-only panel may answer", async () => {
+    const x = await import("./xtream");
+    const calls = [x.fetchVodStreams, x.fetchSeries, x.fetchVodCategories, x.fetchSeriesCategories];
+    for (const bad of [{ error: "x" }, "no", null, 5, "<html>Blocked</html>", { user_info: { auth: 1 } }]) {
       httpGetJson.mockResolvedValue(bad);
-      expect(await x.fetchVodStreams(X)).toEqual([]);
-      expect(await x.fetchSeries(X)).toEqual([]);
-      expect(await x.fetchVodCategories(X)).toEqual([]);
+      for (const call of calls) expect(await call(X)).toEqual([]);
     }
+  });
+
+  it("say what a lapsed account's panel says, when it answers every call with its sign-in object", async () => {
+    const x = await import("./xtream");
+    const calls = [x.fetchVodStreams, x.fetchSeries, x.fetchVodCategories, x.fetchSeriesCategories, x.fetchLiveStreams];
+    httpGetJson.mockResolvedValue({ user_info: { auth: 0 } });
+    for (const call of calls) await expect(call(X)).rejects.toThrow("the panel rejected the credentials");
+    httpGetJson.mockResolvedValue({ user_info: { auth: 0, status: "Expired" } });
+    await expect(x.fetchVodStreams(X)).rejects.toThrow("Expired");
+    // Live's channels refuse any non-list; a signed-in object is not a refusal.
+    httpGetJson.mockResolvedValue({ user_info: { auth: 1 } });
+    await expect(x.fetchLiveStreams(X)).rejects.toThrow("the panel didn’t return a list");
   });
 
   it("return an info as the panel sent it, an empty array included", async () => {
@@ -146,5 +164,11 @@ describe("the movie and show calls", () => {
     expect(await x.fetchLiveCategories(X)).toEqual([{ id: "1", name: "News", adult: false }]);
     expect(query(0).get("action")).toBe("get_live_categories");
     expect(httpGetJson.mock.calls[0][2]).toBeUndefined();
+    // Live's folders are lenient about a non-list; its channels are not.
+    httpGetJson.mockResolvedValue({ error: "x" });
+    expect(await x.fetchLiveCategories(X)).toEqual([]);
+    await expect(x.fetchLiveStreams(X)).rejects.toThrow("the panel didn’t return a list");
+    httpGetJson.mockResolvedValue([{ stream_id: 1 }, { name: "no id" }]);
+    expect(await x.fetchLiveStreams(X)).toEqual([{ stream_id: 1 }]);
   });
 });

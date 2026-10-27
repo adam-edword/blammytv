@@ -42,9 +42,11 @@ vi.mock("../settings/playlists", () => ({
   },
 }));
 vi.mock("../settings/adultFilter", () => ({ loadShowAdult: () => false }));
+const diskPrune = vi.fn();
 vi.mock("./diskCache", () => ({
   diskGet: async () => null,
   diskPut: async () => {},
+  diskPrune: (keep: unknown) => diskPrune(keep),
 }));
 
 /** What Settings does after a save: every listener hears it. */
@@ -173,5 +175,28 @@ describe("a playlist change loads the catalog on any screen (LV3)", () => {
     emit();
     await vi.advanceTimersByTimeAsync(m.PLAYLIST_SETTLE_MS + 50);
     expect(loadsSince()).toBe(0);
+  });
+
+  it("prunes the guide's copy on disk to the saved playlists at launch and on every save, off ones included", async () => {
+    const { m } = await addB();
+    playlists = [xtream("A"), { ...xtream("B"), enabled: false }];
+    const stop = m.watchPlaylists();
+    expect(diskPrune).toHaveBeenCalledTimes(1);
+    expect(diskPrune).toHaveBeenLastCalledWith(new Set(["A", "B"])); // B is only switched off
+    playlists = [xtream("A")];
+    emit(); // B deleted
+    expect(diskPrune).toHaveBeenCalledTimes(2);
+    expect(diskPrune).toHaveBeenLastCalledWith(new Set(["A"]));
+    playlists = [];
+    emit(); // the last one deleted: nothing left to keep
+    expect(diskPrune).toHaveBeenLastCalledWith(new Set());
+    stop();
+  });
+
+  it("does not prune at launch when the playlists read back empty (an unreadable key reads as [])", async () => {
+    const { m } = await addB();
+    playlists = [];
+    m.watchPlaylists()();
+    expect(diskPrune).not.toHaveBeenCalled();
   });
 });

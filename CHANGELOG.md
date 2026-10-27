@@ -2,6 +2,16 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.2: Safer playlist reads (unreleased)
+
+- **An M3U link that opens a web page says so.** It used to show no
+  channels and no reason. A playlist that loaded before keeps its channels.
+- **An Xtream account that lapses keeps its movies and shows in Stream**,
+  instead of emptying your rows until the next read 12 hours later. Stream
+  tries again every few minutes.
+- **The guide kept on this PC is removed with the playlist it came from.**
+  Switching a playlist off keeps it.
+
 ## 1.0.1: Fixes from the 1.0 review (unreleased)
 
 - **Watch RedZone goes away as soon as you switch its playlist off** in

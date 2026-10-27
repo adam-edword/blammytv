@@ -124,7 +124,10 @@ function adopt(p: XtreamPlaylist, m: Mem): void {
  * errors on one of them (rather than answering `[]`) has no library until it
  * does not. shortcut: split the movie half from the show half if a panel
  * turns up that serves one and fails the other. */
-async function fetchLists(p: XtreamPlaylist): Promise<{ lists: XtLists; fetchMs: number; coerceMs: number }> {
+async function fetchLists(
+  p: XtreamPlaylist,
+  fp: string,
+): Promise<{ lists: XtLists; fetchMs: number; coerceMs: number }> {
   const t0 = performance.now();
   const [movies, shows, movieFolders, showFolders] = await Promise.all([
     fetchVodStreams(p),
@@ -134,6 +137,13 @@ async function fetchLists(p: XtreamPlaylist): Promise<{ lists: XtLists; fetchMs:
   ]);
   const t1 = performance.now();
   const lists = { movies: readMovies(movies), shows: readShows(shows), movieFolders, showFolders };
+  // A read with nothing in it, where the copy it would replace had titles, is
+  // a panel that is not answering properly (a lapsed account, a panel limit),
+  // not a library that emptied itself. A FIRST empty read has no copy to
+  // replace: that is a live TV only panel, and is taken as it is.
+  const had = atFp(p.id, fp)?.lists;
+  if (had && had.movies.length + had.shows.length > 0 && lists.movies.length === 0 && lists.shows.length === 0)
+    throw new Error("the panel answered with no movies or shows");
   return { lists, fetchMs: Math.round(t1 - t0), coerceMs: Math.round(performance.now() - t1) };
 }
 
@@ -141,7 +151,7 @@ function refresh(p: XtreamPlaylist, fp: string): Promise<Mem> {
   const run = refreshing.get(p.id);
   if (run && run.fp === fp) return run.promise;
   const t0 = Date.now();
-  const promise = fetchLists(p).then(
+  const promise = fetchLists(p, fp).then(
     ({ lists, fetchMs, coerceMs }) => {
       const m: Mem = { fp, at: Date.now(), lists };
       failedAt.delete(p.id);

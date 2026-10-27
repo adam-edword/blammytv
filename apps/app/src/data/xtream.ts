@@ -115,22 +115,42 @@ function xmltvUrl(p: XtreamPlaylist): string {
   return `${base}/xmltv.php?${qs}`;
 }
 
+/** What a panel that refuses an account says: its own message or status, else
+ * this. */
+const refusal = (info: XtreamAuth["user_info"]): string =>
+  info?.message ?? info?.status ?? "the panel rejected the credentials";
+
 /** Verify the account; throws if the panel rejects the credentials. */
 export async function authenticate(p: XtreamPlaylist): Promise<void> {
   const auth = await httpGetJson<XtreamAuth>(playerApiUrl(p), asked(p));
-  if (auth?.user_info?.auth !== 1) {
-    throw new Error(
-      auth?.user_info?.message ??
-        auth?.user_info?.status ??
-        "the panel rejected the credentials",
-    );
-  }
+  if (auth?.user_info?.auth !== 1) throw new Error(refusal(auth?.user_info));
 }
 
-/** A category list, any kind: live, movies or shows answer in one shape. */
+/**
+ * The error for a list call the panel answered with something that is not a
+ * list. A panel whose account lapsed answers EVERY call with its sign-in
+ * object (`{"user_info":{"auth":0}}`) and a 200, which reads as an empty list
+ * unless it is refused: callers keep what they had on an error and not on an
+ * empty answer.
+ */
+function notAList(raw: unknown): Error {
+  throwIfRefused(raw);
+  return new Error("the panel didn’t return a list");
+}
+
+/** Throw the panel's refusal when `raw` is a sign-in object saying no. */
+function throwIfRefused(raw: unknown): void {
+  const info = (raw as XtreamAuth | null)?.user_info;
+  if (info && info.auth !== 1) throw new Error(refusal(info));
+}
+
+/** A category list, any kind: live, movies or shows answer in one shape. A
+ * non-list is no folders, except that the movies' and shows' are `strict`
+ * about a refusal: a lapsed account must not read as a library with none. */
 async function fetchCategories(
   p: XtreamPlaylist,
   url: string,
+  strict = false,
 ): Promise<XtreamCategory[]> {
   const raw = await httpGetJson<
     Array<{
@@ -139,7 +159,10 @@ async function fetchCategories(
       is_adult?: number | string | null;
     }>
   >(url, asked(p));
-  if (!Array.isArray(raw)) return [];
+  if (!Array.isArray(raw)) {
+    if (strict) throwIfRefused(raw);
+    return [];
+  }
   return raw
     .filter((c) => c.category_id != null)
     .map((c) => ({
@@ -159,7 +182,8 @@ export async function fetchLiveStreams(
   p: XtreamPlaylist,
 ): Promise<XtreamStream[]> {
   const raw = await httpGetJson<XtreamStream[]>(liveStreamsUrl(p), asked(p));
-  return Array.isArray(raw) ? raw.filter((s) => s.stream_id != null) : [];
+  if (!Array.isArray(raw)) throw notAList(raw);
+  return raw.filter((s) => s.stream_id != null);
 }
 
 // A provider's movies and shows (plan 028). These answer raw: the numbers come
@@ -172,14 +196,20 @@ export async function fetchLiveStreams(
  * guide the same way (see fetchXmltv). */
 const LIST_TIMEOUT_SECS = 120;
 
-/** Raw entries of a list call: the array, or none when the panel answers
- * anything else (an error object, a bare string). */
-const entries = (raw: unknown): unknown[] => (Array.isArray(raw) ? raw : []);
+/** Raw entries of a list call: the array. A lapsed account's sign-in object is
+ * an error, not an empty library; anything else that is not a list (an error
+ * object, a bare string) is none, as a live-only panel may answer. An empty
+ * read where there were titles is refused later (vod.ts `fetchLists`). */
+const entries = (raw: unknown): unknown[] => {
+  if (Array.isArray(raw)) return raw;
+  throwIfRefused(raw);
+  return [];
+};
 
 export async function fetchVodCategories(
   p: XtreamPlaylist,
 ): Promise<XtreamCategory[]> {
-  return fetchCategories(p, playerApiUrl(p, { action: "get_vod_categories" }));
+  return fetchCategories(p, playerApiUrl(p, { action: "get_vod_categories" }), true);
 }
 
 export async function fetchSeriesCategories(
@@ -188,6 +218,7 @@ export async function fetchSeriesCategories(
   return fetchCategories(
     p,
     playerApiUrl(p, { action: "get_series_categories" }),
+    true,
   );
 }
 

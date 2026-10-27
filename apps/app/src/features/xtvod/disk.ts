@@ -42,10 +42,11 @@ export function digest(s: string): string {
   return (h >>> 0).toString(36);
 }
 
-/** The fingerprint as a record keeps it: SHA-256, in hex. Null where the page
+/** The fingerprint as a record keeps it: SHA-256, in hex. (The guide's copy
+ * seals its cache key with this too, live/diskCache.ts.) Null where the page
  * has no SubtleCrypto (an insecure origin), and then nothing is read or written
  * rather than writing the fingerprint itself. */
-async function seal(fp: string): Promise<string | null> {
+export async function seal(fp: string): Promise<string | null> {
   try {
     const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fp));
     return Array.from(new Uint8Array(h), (b) => b.toString(16).padStart(2, "0")).join("");

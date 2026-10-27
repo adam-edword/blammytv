@@ -151,4 +151,50 @@ describe("loadLive M3U path", () => {
       "http://host/live/sd.ts",
     ]);
   });
+  describe("a link that answers with something that is not a playlist", () => {
+    const answers = (body: string) =>
+      httpGetText.mockImplementation((url: string) =>
+        url.endsWith(".m3u") ? Promise.resolve(body) : Promise.reject(new Error("no epg")),
+      );
+
+    it("is the playlist's error, whether it is a web page or a JSON object", async () => {
+      for (const body of [
+        "<!DOCTYPE html><html><body>Sign in to continue</body></html>",
+        "  \n<html></html>",
+        '{"user_info":{"auth":0}}',
+        "",
+      ]) {
+        vi.resetModules();
+        answers(body);
+        const { loadLive } = await import("./source");
+        const data = await loadLive(new Date());
+        expect(data.groups[0].error).toBe("the link didn’t return a playlist");
+        expect(data.channels).toEqual([]);
+      }
+    });
+
+    it("is not an error for a real playlist that holds no channel yet, with or without a BOM", async () => {
+      for (const body of ["#EXTM3U", "\uFEFF#EXTM3U\n", "\n#EXTM3U url-tvg=\"http://host/g.xml\"\n"]) {
+        vi.resetModules();
+        answers(body);
+        const { loadLive } = await import("./source");
+        const data = await loadLive(new Date());
+        expect(data.groups[0].error).toBeUndefined();
+        expect(data.channels).toEqual([]);
+      }
+    });
+
+    it("keeps the channels the playlist held, and says why it failed", async () => {
+      const { loadLive } = await import("./source");
+      const first = await loadLive(new Date());
+      expect(first.channels.map((c) => c.name)).toEqual(["BBC One", "ITV"]);
+      answers("<html>Your trial has ended</html>");
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const again = await loadLive(new Date(), undefined, true);
+      expect(again.channels.map((c) => c.name)).toEqual(["BBC One", "ITV"]);
+      expect(again.groups[0].folders.map((f) => f.name)).toEqual(["UK"]);
+      expect(again.groups[0].error).toBe("the link didn’t return a playlist");
+      warn.mockRestore();
+    });
+  });
 });

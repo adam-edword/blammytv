@@ -11,6 +11,9 @@
 // adult filter, a dead logo host (lettermark fallback), a channel with no
 // attributes at all (Ungrouped + URL-hash id), and an EPG feed advertised
 // via the header's url-tvg (and /playlist-gz.m3u, whose guide is a .xml.gz).
+// And three paths for a link that is not a playlist: /page.m3u (a web page),
+// /empty.m3u (a playlist with no channel) and /flaky.m3u (the playlist, then a
+// web page after /__flaky?html=1).
 import http from "node:http";
 import { gzipSync } from "node:zlib";
 
@@ -90,10 +93,34 @@ const PNG = Buffer.from(
   "base64",
 );
 
+// What a share link, a block page or a lapsed account's notice serves in place
+// of a playlist: a web page, with a 200 (verify-m3u).
+const BLOCK_PAGE = "<!DOCTYPE html><html><head><title>Sign in</title></head><body>Your trial has ended.</body></html>";
+// /flaky.m3u is the playlist until /__flaky?html=1, then the block page, and the
+// playlist again after /__flaky?html=0. Its own path, so no other harness sees it.
+let FLAKY_HTML = false;
+
 http
   .createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     res.setHeader("Access-Control-Allow-Origin", "*");
+    if (url.pathname === "/__flaky") {
+      FLAKY_HTML = url.searchParams.get("html") === "1";
+      return res.end("ok");
+    }
+    if (url.pathname === "/flaky.m3u") {
+      res.setHeader("Content-Type", FLAKY_HTML ? "text/html" : "application/x-mpegurl");
+      return res.end(FLAKY_HTML ? BLOCK_PAGE : PLAYLIST);
+    }
+    if (url.pathname === "/page.m3u") {
+      res.setHeader("Content-Type", "text/html");
+      return res.end(BLOCK_PAGE);
+    }
+    // A real playlist with no channel in it yet: not an error.
+    if (url.pathname === "/empty.m3u") {
+      res.setHeader("Content-Type", "application/x-mpegurl");
+      return res.end("#EXTM3U\n");
+    }
     if (url.pathname === "/playlist.m3u") {
       res.setHeader("Content-Type", "application/x-mpegurl");
       return res.end(PLAYLIST);

@@ -23,11 +23,11 @@ import { loadShowAdult } from "../settings/adultFilter";
 import { httpGetBytes, httpGetText } from "../../lib/http";
 import { agentHeaders, cleanUserAgent } from "../../lib/userAgent";
 import { isAdultCategory, isAdultStream, nameLooksAdult } from "./adult";
-import { diskGet, diskPut } from "./diskCache";
+import { diskGet, diskPrune, diskPut } from "./diskCache";
 import { normalizeProgrammes } from "./epg";
 import { extraGuideUrl, fillGaps, gapIndex, hasProgrammes, listBothGuides } from "./extraGuide";
 import { applyGuideFixes, fixKey, loadGuideFixes } from "./guideFix";
-import { parseM3U } from "./m3u";
+import { looksLikeM3U, parseM3U } from "./m3u";
 import type { Channel, GuideChannel, LiveData, LiveGroup, Programme } from "./model";
 import { extractQuality } from "./quality";
 import type { XmltvStats } from "./xmltv";
@@ -106,7 +106,8 @@ function announceRefresh() {
 function scheduleDiskPut(key: string, at: number, data: LiveData) {
   setTimeout(() => {
     if (!isCurrent(key)) return;
-    void diskPut({ key, at, data, normalized: true });
+    // isCurrent held, so the enabled sources are the ones the key was made from.
+    void diskPut({ key, ids: enabledSources().map((p) => p.id), at, data, normalized: true });
   }, 1500);
 }
 
@@ -473,6 +474,12 @@ export async function refreshLiveNow(): Promise<void> {
  * moment, which its single-flight turns into one load. */
 export const PLAYLIST_SETTLE_MS = 800;
 
+/** Drop the guide's copy on disk when it was built from a playlist that is no
+ * longer saved. One that is only switched off is still saved. */
+function forgetRemoved(): void {
+  void diskPrune(new Set(loadPlaylists().map((p) => p.id)));
+}
+
 /**
  * Reload the catalog when the playlists change, whatever screen is up.
  *
@@ -488,8 +495,15 @@ export const PLAYLIST_SETTLE_MS = 800;
  * load that produced nothing announces nothing: there is nothing to re-read.
  */
 export function watchPlaylists(): () => void {
+  // The guide's copy on disk holds the account of every playlist it was built
+  // from (diskCache.ts), so a playlist taken out of Settings takes it with it:
+  // on every save, and at launch for a list replaced while the app was closed
+  // or by a settings import. Not at launch when none read back: storage.ts
+  // answers [] for a key it can't read, and that must not wipe the copy.
+  if (loadPlaylists().length > 0) forgetRemoved();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const off = onPlaylistsChange(() => {
+    forgetRemoved();
     clearTimeout(timer);
     timer = setTimeout(() => void refreshLiveNow(), PLAYLIST_SETTLE_MS);
   });
@@ -1090,6 +1104,10 @@ async function buildM3uSource(
     await breathe();
     onStage?.(`Reading ${p.name}…`);
     const entries = parseM3U(text);
+    // A page or an error object with a 200 has no entries and is no playlist:
+    // an error, so keepIfFailed keeps what the playlist held. An empty
+    // playlist (`#EXTM3U` and nothing) is not one.
+    if (entries.length === 0 && !looksLikeM3U(text)) throw new Error("the link didn’t return a playlist");
     console.info(
       `[live] ${p.name}: ${entries.length} M3U entries in ${Math.round(performance.now() - t)}ms`,
     );

@@ -1,3 +1,4 @@
+import { seal } from "../xtvod/disk";
 import type { LiveData } from "./model";
 
 /**
@@ -8,8 +9,15 @@ import type { LiveData } from "./model";
  *
  * One record, overwritten on every save; the caller's cache key (playlist
  * config fingerprint) rides along, so a config change reads as a miss and
- * nothing stale survives a playlist edit. Every path degrades to null/no-op
- * (node tests have no indexedDB; private-mode browsers may reject opens).
+ * nothing stale survives a playlist edit. The key holds an Xtream server, user
+ * name and password, so the record keeps a SHA-256 of it (xtvod/disk.ts `seal`)
+ * and never the key: a read for another key is a miss, as before. 1.0.1 and
+ * earlier kept the key itself; such a record matches nothing, and `diskPrune`
+ * drops it. The catalog itself is not secret-free: an M3U channel keeps its
+ * stream URL, which can carry a user name and password, so `diskPrune` taking
+ * a deleted playlist's record is what clears those. Every path degrades to
+ * null/no-op (node tests have no indexedDB;
+ * private-mode browsers may reject opens).
  */
 
 const DB = "blammytv";
@@ -18,7 +26,12 @@ const RECORD = "live";
 const DB_VERSION = 1;
 
 export interface DiskCached {
+  /** The caller's key. On disk it is `seal(key)`; what is handed back is the
+   * key it was asked for. */
   key: string;
+  /** The ids of the playlists the catalog was built from, for `diskPrune`. Not
+   * secret. Absent on a record from before the prune. */
+  ids?: string[];
   at: number;
   data: LiveData;
   /** Its programmes were normalized before the write (v0.10.62 on), so a
@@ -56,6 +69,8 @@ function digest(s: string): string {
 }
 
 export async function diskGet(key: string): Promise<DiskCached | null> {
+  const want = await seal(key);
+  if (!want) return null;
   const db = await openDb();
   if (!db) {
     console.info("[live-cache] no IndexedDB available — disk cache disabled");
@@ -67,7 +82,7 @@ export async function diskGet(key: string): Promise<DiskCached | null> {
       const rq = tx.objectStore(STORE).get(RECORD);
       rq.onsuccess = () => {
         const v = rq.result as DiskCached | undefined;
-        const hit = !!v && v.key === key;
+        const hit = !!v && v.key === want;
         console.info(
           !v
             ? `[live-cache] MISS: nothing stored yet (want key ${digest(key)})`
@@ -77,7 +92,7 @@ export async function diskGet(key: string): Promise<DiskCached | null> {
               : `[live-cache] MISS: stored key ${digest(v.key)} != wanted ${digest(key)} ` +
                 `— the playlist fingerprint changed, so every launch re-downloads`,
         );
-        resolve(hit ? v : null);
+        resolve(hit ? { ...v, key } : null);
         db.close();
       };
       rq.onerror = () => {
@@ -92,13 +107,18 @@ export async function diskGet(key: string): Promise<DiskCached | null> {
 }
 
 export async function diskPut(record: DiskCached): Promise<void> {
+  const sealed = await seal(record.key);
+  if (!sealed) {
+    console.warn("[live-cache] write SKIPPED, no SubtleCrypto here, so the guide will re-download on every launch");
+    return;
+  }
   const db = await openDb();
   if (!db) return;
   return new Promise((resolve) => {
     const t0 = Date.now();
     try {
       const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).put(record, RECORD);
+      tx.objectStore(STORE).put({ ...record, key: sealed }, RECORD);
       tx.oncomplete = () => {
         console.info(
           `[live-cache] wrote ${record.data.channels.length} channels + ` +
@@ -135,6 +155,38 @@ export async function diskPut(record: DiskCached): Promise<void> {
       console.warn("[live-cache] write threw:", e);
       db.close();
       resolve();
+    }
+  });
+}
+
+/** Drop the stored catalog if it was built from a playlist that is not in
+ * `keep`, or from an unknown set (a record from before it carried its ids,
+ * which also holds the key itself). A playlist taken out of Settings would
+ * otherwise leave its credentials here until Clear All Login Info: with no
+ * source left enabled nothing loads, so nothing replaces the record. A
+ * playlist merely switched off is still in `keep`. One transaction, so a write
+ * cannot land between the read and the delete. Best effort. */
+export async function diskPrune(keep: ReadonlySet<string>): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  return new Promise((resolve) => {
+    const done = () => {
+      db.close();
+      resolve();
+    };
+    try {
+      const tx = db.transaction(STORE, "readwrite");
+      const store = tx.objectStore(STORE);
+      const rq = store.get(RECORD);
+      rq.onsuccess = () => {
+        const v = rq.result as DiskCached | undefined;
+        if (v && !(Array.isArray(v.ids) && v.ids.every((id) => keep.has(id)))) store.delete(RECORD);
+      };
+      tx.oncomplete = done;
+      tx.onerror = done;
+      tx.onabort = done;
+    } catch {
+      done();
     }
   });
 }

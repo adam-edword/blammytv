@@ -91,6 +91,7 @@ const diskPut = vi.fn();
 vi.mock("./diskCache", () => ({
   diskGet: async (key: string) => (disk ? { ...disk, key } : null),
   diskPut: (r: unknown) => diskPut(r),
+  diskPrune: async () => {},
 }));
 
 const MIN = 60_000;

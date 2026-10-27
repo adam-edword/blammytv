@@ -105,6 +105,18 @@ export function parseM3U(text: string): M3uEntry[] {
 }
 
 /**
+ * Is this body a playlist at all, entries or not? One opens with `#EXTM3U` or
+ * an `#EXTINF`, after a BOM and blank space. A web page (a share link, a block
+ * or challenge page, a lapsed account's notice) or a JSON error answered with
+ * a 200 opens with neither. A real playlist that holds no channel yet is still
+ * a playlist: nothing to show, but nothing wrong.
+ */
+export function looksLikeM3U(text: string): boolean {
+  // \s covers the BOM (U+FEFF) as well.
+  return /^\s*#EXT(?:M3U|INF)/i.test(text);
+}
+
+/**
  * Parse the body of an `#EXTINF` line (everything after `#EXTINF:`), e.g.
  * `-1 tvg-id="x" group-title="UK",BBC One`. The display name is everything
  * after the LAST unquoted comma; the attribute soup is what precedes it.

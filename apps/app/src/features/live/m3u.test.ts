@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseM3U } from "./m3u";
+import { looksLikeM3U, parseM3U } from "./m3u";
 
 describe("parseM3U", () => {
   it("parses a normal multi-channel playlist with all attributes", () => {
@@ -203,6 +203,36 @@ http://host.example/nameless.ts`,
       "#EXTM3U\n#EXTGRP:News\n# just a comment",
     ]) {
       expect(parseM3U(text), JSON.stringify(text)).toEqual([]);
+    }
+  });
+});
+
+describe("looksLikeM3U", () => {
+  it("is true for a playlist, with or without entries, after a BOM or blank lines", () => {
+    for (const text of [
+      "#EXTM3U",
+      "#extm3u\n",
+      "﻿#EXTM3U\n#EXTINF:-1,A\nhttp://a/1",
+      "\n  \r\n#EXTM3U url-tvg=\"http://g/x.xml\"",
+      "#EXTINF:-1,No Header\nhttp://a/1",
+    ]) {
+      expect(looksLikeM3U(text), JSON.stringify(text)).toBe(true);
+    }
+  });
+
+  it("is false for a web page, a JSON object or nothing, which parse to no entries too", () => {
+    for (const text of [
+      "",
+      "   \n",
+      "<!DOCTYPE html><html><body>Sign in</body></html>",
+      "<html></html>",
+      '{"user_info":{"auth":0}}',
+      "[]",
+      "Not Found",
+      "http://orphan.example/u.ts",
+    ]) {
+      expect(looksLikeM3U(text), JSON.stringify(text)).toBe(false);
+      expect(parseM3U(text)).toEqual([]);
     }
   });
 });
