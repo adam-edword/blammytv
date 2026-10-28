@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.11: The shelf loads further ahead (unreleased)
+
+- **A fast drag along Stream's shelf** no longer reaches posters that are
+  still loading: the shelf now has three screens of posters ready.
+
 ## 1.0.10: A gentler lean on the shelf's big card (unreleased)
 
 - **The focused card on Stream's shelf leans gently** and no longer

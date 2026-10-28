@@ -372,6 +372,23 @@ for (const [width, height] of [[1920, 1080], [1280, 800]]) {
     await rest(p);
     const before = await labels(p);
     const from = before.indexOf(await active(p));
+    // Before it starts, every poster it will bring into view is mounted and
+    // loaded. Not a race: on a fast runner the drag outran a poster first
+    // asked for when it began (four CI runs, 1.0.7 to 1.0.10).
+    const ready = await p.evaluate(() => {
+      const cards = [...document.querySelectorAll(".shero__card")];
+      const a = cards.findIndex((c) => c.classList.contains("shero__card--active"));
+      const lead = document.querySelector(".shero__lead").getBoundingClientRect().width;
+      const step = document.querySelector(".shero__step").getBoundingClientRect().width;
+      const fit = Math.ceil((innerWidth - lead) / step);
+      const need = cards.slice(a, a + 5 + fit + 2);
+      return { fit, need: need.length, want: 5 + fit + 2, loaded: need.filter((c) => c.querySelector(".shero__poster")?.hasAttribute("data-loaded")).length };
+    });
+    check(
+      "at rest, every poster a five-step drag will reveal is already mounted and loaded",
+      ready.need === ready.want && ready.loaded === ready.want,
+      JSON.stringify(ready),
+    );
     await watch(p);
     await p.mouse.move(1910, 300);
     await p.mouse.down();

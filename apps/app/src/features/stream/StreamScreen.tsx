@@ -2609,8 +2609,11 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
     return () => window.clearTimeout(id);
   }, [v, pull, reach]);
   const first = count < 2 ? v : lo - HERO_BEHIND;
-  // A drag runs ahead of its own preloading, so it mounts a screen further.
-  const ahead = (pull ? 3 : 2) * fit + 1;
+  // Three screens ahead at rest, so a fast drag never reaches a poster that
+  // only started loading when it began (CI's runner dragged five posters
+  // along in under a second and caught one mid-load). A drag mounts one
+  // screen further still.
+  const ahead = (pull ? 4 : 3) * fit + 1;
   const slots = count < 2 ? [v] : Array.from({ length: hi + ahead - first + 1 }, (_, i) => first + i);
   // The 16:9 art loads for the cards in view and one past them, since any of
   // them can be clicked and grow (a poster loads wherever it is mounted).
