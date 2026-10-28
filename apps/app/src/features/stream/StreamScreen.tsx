@@ -2734,8 +2734,9 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
  * A picture that fails to load counts as missing (HeroLayers draws the
  * fallbacks).
  *
- * The picture leans and catches the sheen the row cards do, Card's props to
- * the letter. The button stays OUTSIDE the Tilt, as Card's and
+ * The picture leans and catches the sheen the row cards do, a poster with
+ * Card's own props and the wide focused card more gently. The button stays
+ * OUTSIDE the Tilt, as Card's and
  * ContinueCard's do: it keeps the focus ring and the click, and the details
  * under the shelf don't lean. The logo is inside, so it leans with the
  * picture. The library works the lean out from a rect it cached on
@@ -2771,9 +2772,14 @@ function HeroCard({ item, active, art, still, onClick }: { item: VodItem; active
         ref={tilt}
         className="shero__tilt"
         tiltEnable={!REDUCED_MOTION && still}
-        tiltMaxAngleX={5}
-        tiltMaxAngleY={5}
-        scale={REDUCED_MOTION ? 1 : 1.03}
+        // The focused card is about 2.7x a poster's width, so the same 5
+        // degrees at the library's 1000px perspective swung its near edge
+        // ~34px past itself, over its neighbours 16px away (Adam). Weaker
+        // and seen from further off, it overhangs ~10px.
+        tiltMaxAngleX={active ? 3 : 5}
+        tiltMaxAngleY={active ? 3 : 5}
+        perspective={active ? 2500 : 1000}
+        scale={REDUCED_MOTION ? 1 : active ? 1.01 : 1.03}
         transitionSpeed={650}
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.12}

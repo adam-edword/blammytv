@@ -641,13 +641,33 @@ const settled = (p) =>
   await p.mouse.move(fx, fy, { steps: 4 });
   await frame(p);
   const f = await leanAt(p, fx, fy);
-  const wantY = -(((fx - on.l) / on.w) * 200 - 100) * 0.05;
-  const wantX = (((fy - on.t) / on.h) * 200 - 100) * 0.05;
+  // The focused card leans 3 degrees at most and lifts 1.01 (it is wide;
+  // a poster's 5 and 1.03 put it over its neighbours, Adam).
+  const wantY = -(((fx - on.l) / on.w) * 200 - 100) * 0.03;
+  const wantX = (((fy - on.t) / on.h) * 200 - 100) * 0.03;
   check(
-    "hovering the focused card off-centre leans it toward the pointer and scales it up",
-    !!f && near(f.ry, wantY, 0.15) && near(f.rx, wantX, 0.15) && Math.abs(f.ry) > 2 && Math.abs(f.rx) > 2 && near(f.s, 1.03, 0.001),
+    "hovering the focused card off-centre leans it toward the pointer, gently, and lifts it a little",
+    !!f && near(f.ry, wantY, 0.1) && near(f.rx, wantX, 0.1) && Math.abs(f.ry) > 1.2 && Math.abs(f.rx) > 1.2 && near(f.s, 1.01, 0.001),
     JSON.stringify({ f, wantX, wantY }),
   );
+  // Leaning as far as it can, at each side's edge, the picture stays clear of
+  // the cards beside it (their buttons don't lean; the gap is 16px).
+  const clear = [];
+  for (const [fxk, side] of [[0.02, "left"], [0.98, "right"]]) {
+    for (const fyk of [0.05, 0.95]) {
+      await p.mouse.move(on.l + on.w * fxk, on.t + on.h * fyk, { steps: 4 });
+      await p.waitForTimeout(750); // the library's 650ms ease
+      clear.push(
+        await p.evaluate((side) => {
+          const card = document.querySelector(".shero__card--active");
+          const pic = card.querySelector(".shero__tilt").getBoundingClientRect();
+          const nb = (side === "left" ? card.previousElementSibling : card.nextElementSibling).getBoundingClientRect();
+          return Math.round((side === "left" ? pic.left - nb.right : nb.left - pic.right) * 10) / 10;
+        }, side),
+      );
+    }
+  }
+  check("leaning to its edges, the focused card stays at least 4px clear of the cards beside it", clear.every((g) => g >= 4), JSON.stringify(clear));
   const post = (await rects(p, ".shero__card")).find((c) => c.l > on.r && c.r < 1440);
   const px = post.l + post.w * 0.25;
   const py = post.t + post.h * 0.8;
@@ -714,8 +734,9 @@ const settled = (p) =>
         return !at || [...at].some(([c, l]) => c.isConnected && Math.abs(c.getBoundingClientRect().left - l) > 0.5);
       });
       const card = await p.evaluate(([x, y]) => {
-        const b = document.elementFromPoint(x, y)?.closest(".shero__card")?.getBoundingClientRect();
-        return b && { l: b.left, t: b.top, w: b.width, h: b.height };
+        const c = document.elementFromPoint(x, y)?.closest(".shero__card");
+        const b = c?.getBoundingClientRect();
+        return b && { l: b.left, t: b.top, w: b.width, h: b.height, on: c.classList.contains("shero__card--active") };
       }, [px, py]);
       if (!card) return { how, card: null };
       const y = card.t + card.h * 0.5;
@@ -725,7 +746,8 @@ const settled = (p) =>
       await p.mouse.move(card.l + card.w * 0.25, y, { steps: 3 });
       await frame(p);
       const left = await leanAt(p, card.l + card.w * 0.25, y);
-      return { how, w: Math.round(card.w), right: right?.ry, left: left?.ry, late };
+      // Half the max at the quarters: 5 on a poster, 3 on the focused card.
+      return { how, w: Math.round(card.w), half: card.on ? 1.5 : 2.5, right: right?.ry, left: left?.ry, late };
     } finally {
       await ctx.close();
     }
@@ -741,7 +763,7 @@ const settled = (p) =>
   }
   check(
     "after a move, once it has settled, the lean follows the pointer on the card now under it: opposite sides, half the max at the quarters",
-    out.every((o) => o.card !== null && !o.late && near(o.right, -2.5, 0.35) && near(o.left, 2.5, 0.35)),
+    out.every((o) => o.card !== null && !o.late && near(o.right, -o.half, 0.35) && near(o.left, o.half, 0.35)),
     JSON.stringify(out),
   );
 }
@@ -768,7 +790,7 @@ const settled = (p) =>
   samples.push(await flatState(p));
   check(
     "mid-slide every card's lean is gone and its glare hidden, having been leaning just before",
-    !!before && Math.abs(before.ry) > 1.5 && Math.abs(before.rx) > 1.5 && glareBefore > 0.01 &&
+    !!before && Math.abs(before.ry) > 0.8 && Math.abs(before.rx) > 0.8 && glareBefore > 0.01 &&
       samples.every((s) => s.moving && s.n > 4 && s.bent === 0 && s.lit === 0),
     JSON.stringify({ before, glareBefore, samples }),
   );
@@ -796,7 +818,7 @@ const settled = (p) =>
   await p.mouse.up();
   check(
     "and while the shelf is dragged",
-    !!before && Math.abs(before.ry) > 1.5 && held.drag && held.n > 4 && held.bent === 0 && held.lit === 0,
+    !!before && Math.abs(before.ry) > 0.8 && held.drag && held.n > 4 && held.bent === 0 && held.lit === 0,
     JSON.stringify({ before, held }),
   );
   await ctx.close();

@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.10: A gentler lean on the shelf's big card (unreleased)
+
+- **The focused card on Stream's shelf leans gently** and no longer
+  swings over the cards beside it. Posters keep the rows' lean.
+
 ## 1.0.9: The shelf's pictures fade in (unreleased)
 
 - **A growing card's wide picture fades in** instead of snapping on, and
