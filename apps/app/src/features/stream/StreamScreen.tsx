@@ -2634,6 +2634,8 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
   // again when it stops (HeroCard).
   const moving = pull !== 0 || reach.lo !== v || reach.hi !== v;
   const note = items[mod(REDUCED_MOTION ? v : said, count)];
+  /** The focused title, now: the ambient colour follows `v` and not `said`. */
+  const focusItem = items[mod(v, count)];
   const style: CSSProperties & Record<`--${string}`, string | number> = { "--v": v, "--s0": first };
   return (
     <section
@@ -2656,6 +2658,7 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
         setV((x) => x + (e.key === "ArrowRight" ? 1 : -1));
       }}
     >
+      <HeroAmbient src={focusItem.backdrop ?? focusItem.poster ?? null} fallback={focusItem.poster ?? null} />
       {/* The glow (Adam: keep it): the same shelf again, blurred and
         * brightened, sliding in lockstep behind the real one across the full
         * width, so every card lights its own rim. Same geometry, same
@@ -2738,6 +2741,86 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
         {note.synopsis && <p className="shero__synopsis">{note.synopsis}</p>}
       </div>
     </section>
+  );
+}
+
+/** The ambient canvases' size: a quarter of the box (1440 x 1300) and the
+ * 120px of margin round it, which the blur and the fade are painted at. */
+const AMBIENT_W = 420;
+const AMBIENT_H = 385;
+/** The art, cropped to cover, blurred (90px at full size), more saturated, and
+ * faded down the page (opaque at the top, 0.6 at 45%, clear at the bottom of
+ * the 1300px box). Painted once per pick: see stream.css, `.shero__ambient`. */
+function paintAmbient(c: HTMLCanvasElement, src: string | null, fallback: string | null = null) {
+  const g = c.getContext("2d");
+  if (!g) return;
+  g.clearRect(0, 0, AMBIENT_W, AMBIENT_H);
+  if (!src) return;
+  const img = new Image();
+  img.onload = () => {
+    if (c.dataset.src !== src) return; // a newer pick took this layer
+    // Drawn larger than the canvas, or the blur fades out at its edges.
+    const k = Math.max((AMBIENT_W + 60) / img.naturalWidth, (AMBIENT_H + 60) / img.naturalHeight);
+    const w = img.naturalWidth * k;
+    const h = img.naturalHeight * k;
+    g.clearRect(0, 0, AMBIENT_W, AMBIENT_H);
+    g.filter = "blur(22px) saturate(1.5)";
+    g.drawImage(img, (AMBIENT_W - w) / 2, (AMBIENT_H - h) / 2, w, h);
+    g.filter = "none";
+    const fade = g.createLinearGradient(0, 30, 0, AMBIENT_H - 30);
+    fade.addColorStop(0, "#000");
+    fade.addColorStop(0.45, "rgb(0 0 0 / 0.6)");
+    fade.addColorStop(1, "transparent");
+    g.globalCompositeOperation = "destination-in";
+    g.fillStyle = fade;
+    g.fillRect(0, 0, AMBIENT_W, AMBIENT_H);
+    g.globalCompositeOperation = "source-over";
+  };
+  // A backdrop that fails falls back to the poster, as the shelf's card does
+  // (from review: the wash went blank).
+  img.onerror = () => {
+    if (c.dataset.src === src && fallback && fallback !== src) {
+      c.dataset.src = fallback;
+      paintAmbient(c, fallback);
+    }
+  };
+  img.src = src;
+}
+
+/** The focused title's art, blurred to colour behind the top of the page
+ * (stream.css, `.shero__ambient`). It lives in the shelf, which already knows
+ * the focused title, so the page needs nothing passed up. Two layers: the one
+ * not showing takes the new picture and fades in over the other. */
+function HeroAmbient({ src, fallback }: { src: string | null; fallback: string | null }) {
+  const [slot, setSlot] = useState<{ urls: (string | null)[]; on: number }>({ urls: [src, null], on: 0 });
+  if (slot.urls[slot.on] !== src) {
+    const on = 1 - slot.on;
+    setSlot({ urls: slot.urls.map((u, i) => (i === on ? src : u)), on });
+  }
+  const layers = useRef<(HTMLCanvasElement | null)[]>([null, null]);
+  useEffect(() => {
+    slot.urls.forEach((u, i) => {
+      const c = layers.current[i];
+      if (c && (c.dataset.src ?? "") !== (u ?? "")) {
+        c.dataset.src = u ?? "";
+        paintAmbient(c, u, fallback);
+      }
+    });
+  }, [slot]);
+  return (
+    <div className="shero__ambient" aria-hidden>
+      {slot.urls.map((_, i) => (
+        <canvas
+          key={i}
+          ref={(el) => {
+            layers.current[i] = el;
+          }}
+          className={i === slot.on ? "on" : undefined}
+          width={AMBIENT_W}
+          height={AMBIENT_H}
+        />
+      ))}
+    </div>
   );
 }
 

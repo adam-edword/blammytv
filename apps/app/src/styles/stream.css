@@ -150,6 +150,44 @@
 :root[data-theme="light"] .shero__glowbox {
   display: none;
 }
+/* The ambient colour (Adam: "the ambient is cool"): the focused title's 16:9
+ * art, blurred to colour behind the top of the PAGE, fading out down it so it
+ * is gone by the second row. From the scroll box's top (the section sits
+ * below the header's room), the window's width, and under everything: it is
+ * the section's first child at z 0, so the glow, the shelf and the rows (all
+ * later in the tree) paint over it. Two layers, the newer fading in over the
+ * older (the component), at --k, so none under reduced motion. Dark only, as
+ * the glow is: a wash on white needs its own pass.
+ * The blur and the fade are painted into the canvases ONCE (HeroAmbient), not
+ * done as a CSS filter and mask: those are redone by the compositor on every
+ * frame the shelf slides across them, which dropped the slide to a few frames
+ * on a software rasteriser (verify-shero's frame floors). */
+.shero__ambient {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: calc((var(--header-h, 76px) + 8px) * -1);
+  height: 1300px;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* 120px past the box on every side, so the blur's soft edge is out of sight. */
+.shero__ambient canvas {
+  position: absolute;
+  left: -120px;
+  top: -120px;
+  width: calc(100% + 240px);
+  height: calc(100% + 240px);
+  opacity: 0;
+  transition: opacity calc(var(--k) * 900ms) ease;
+}
+.shero__ambient canvas.on {
+  opacity: 0.42;
+}
+:root[data-theme="light"] .shero__ambient {
+  display: none;
+}
 /* A card, and the glow's copy of one. Each picture keeps its own size while
  * the card around it resizes (the layers below); the card's width reveals
  * or covers them. Zooming either to the moving box slid a poster's printed
@@ -591,6 +629,10 @@
   display: flex;
   flex-direction: column;
   gap: 26px;
+  /* Positioned, no z-index: it paints after the shelf's ambient colour
+   * (.shero__ambient, z 0, earlier in the tree), so the rows' own words sit
+   * over it, not under. No new stacking context. */
+  position: relative;
 }
 /* shadcn's largest heading in a dashboard is `text-2xl font-semibold`, and
  * a row title is a section heading, not a page. 41px was competing with the
@@ -1125,6 +1167,39 @@
   max-width: 300px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+/* Stream's own rows (Home, `.stream__rows`) are smaller: posters 240 wide, and
+ * the meta line (rating, year, length) shows on hover or keyboard focus. It
+ * keeps its space, so nothing under it moves. Discover and the Library keep
+ * 300 and a meta that always shows; Continue Watching's tiles are a different
+ * card (.continue-card). A line that says which episode is next
+ * (data-said, Next Up) is not a detail and stays. Three classes, so a
+ * Continue Watching name (two) is never caught. */
+.stream__rows .stream-card .stream-card__poster,
+.stream__rows .stream-card .stream-card__mono {
+  width: 240px;
+}
+.stream__rows .stream-card .stream-card__name,
+.stream__rows .stream-card .stream-card__meta {
+  max-width: 240px;
+}
+.stream__rows .stream-card > .stream-card__meta:not([data-said]) {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.stream__rows .stream-card:is(:hover, :focus-visible) > .stream-card__meta:not([data-said]) {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stream__rows .stream-card > .stream-card__meta:not([data-said]) {
+    transition: none;
+  }
+}
+/* A touch screen never hovers, and a tap is not :focus-visible: show it. */
+@media (hover: none) {
+  .stream__rows .stream-card > .stream-card__meta:not([data-said]) {
+    opacity: 1;
+  }
 }
 
 /* Continue Watching: the tile (ui.css, plan 019 K7) + the press-and-hold

@@ -140,7 +140,8 @@ const near = (a, b, tol = 1) => Math.abs(a - b) <= tol;
     const vp = s.parentElement.getBoundingClientRect();
     const cardsAt = () => [...s.querySelectorAll(".stream-card")].map((c) => c.getBoundingClientRect());
     const first = cardsAt()[0];
-    s.scrollLeft = 300;
+    // Half the first card past the window's edge, whatever a poster's width.
+    s.scrollLeft = first.left + first.width / 2;
     const slid = cardsAt().some((c) => c.left < 0 && c.right > 0);
     s.scrollLeft = s.scrollWidth;
     const last = cardsAt().at(-1);

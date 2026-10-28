@@ -2,6 +2,16 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.15: Stream's rows, tidier (unreleased)
+
+- **Smaller posters on Stream's rows**, so more fit across. Library and
+  Discover are unchanged.
+- **A poster's rating, year and length show when you point at it** (or
+  Tab to it); the title always shows. Next Up's episode line stays.
+- **The page takes the shelf's colour**: the focused title's picture,
+  blurred to colour, behind the top of Stream, and it changes with the
+  shelf. Dark theme only for now.
+
 ## 1.0.14: Recordings saved as .mkv, and smaller if you like (unreleased)
 
 - **A finished recording is repackaged into an .mkv**, losslessly. It seeks
