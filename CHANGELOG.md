@@ -2,6 +2,18 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.14: Recordings saved as .mkv, and smaller if you like (unreleased)
+
+- **A finished recording is repackaged into an .mkv**, losslessly. It seeks
+  better in other players and is a little smaller. The .ts it was recorded
+  to is replaced only once the .mkv plays through to the end at the same
+  length; if it doesn't, the .ts stays.
+- **Smaller Files** (the setting arrives with the next version): a finished
+  recording can be re-encoded to HEVC, about half the size, on your GPU when
+  you have one. Interlaced channels are deinterlaced on the way.
+- Work goes one recording at a time, never while one is recording, and picks
+  up where it left off after a restart.
+
 ## 1.0.13: Watch Now with the keyboard (unreleased)
 
 - **Enter on the Large carousel's Watch Now** just plays, instead of also

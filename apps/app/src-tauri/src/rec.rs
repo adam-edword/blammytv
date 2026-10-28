@@ -41,6 +41,19 @@
 //! temp file and renamed over the old one. One still marked Recording when the
 //! app starts is a recording the app died in, and becomes Partial.
 //!
+//! AFTER IT ENDS (Phase 4). A recording keeps writing `.ts` while it runs,
+//! because MPEG-TS survives a crash or a power cut. Once it is Done or Partial
+//! with bytes, it is repackaged into `.mkv` (`-c copy`, video, audio and
+//! subtitles; the data streams a `.ts` carries are left out), and, if the page
+//! has turned on Smaller Files, re-encoded to HEVC after that. One job at a
+//! time, in the order they came, on a thread of their own (`Jobs`). Both write
+//! to a temp file beside the original and VERIFY it before anything is
+//! replaced: it must decode to the end, and be as long as the original within
+//! `LENGTH_SLACK`. Only then is it renamed into place, the index pointed at it,
+//! and the old file deleted. A file that fails keeps the original and says why
+//! (`Record::job_reason`). No ffprobe ships with the app, so lengths come from
+//! ffmpeg's own header line and from the `-progress` it prints while decoding.
+//!
 //! KEEPING WINDOWS AWAKE. `SetThreadExecutionState` belongs to the thread that
 //! calls it, and ends with that thread, so the call is made by a thread of its
 //! own that lives as long as the app (`Awake`), told by a channel.
@@ -55,9 +68,10 @@
 use std::collections::{HashMap, VecDeque};
 use std::fs::OpenOptions;
 use std::future::Future;
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc, Mutex, MutexGuard, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -99,6 +113,25 @@ pub const CHANNEL_CHANGED: &str = "stopped when the channel changed";
 pub const NOTHING: &str = "nothing was recorded";
 const RECORDER_STOPPED: &str = "the recorder stopped";
 
+/// How far a repackaged or smaller file's length may be from the original's:
+/// the larger of this and `LENGTH_PART` of the length. Streams in a `.ts`
+/// start a fraction of a second apart, and ffmpeg's two ways of reading a
+/// length (the header, the decode) differ by about that. A file that lost
+/// content is off by far more.
+const LENGTH_SLACK: f64 = 2.0;
+const LENGTH_PART: f64 = 0.001;
+
+/// What a job answers when a delete ended it. Never shown.
+const CANCELLED: &str = "cancelled";
+
+/// Why a repackaging stopped before it began: a file is already where the
+/// `.mkv` would go, and it is not ours to replace.
+const NAME_TAKEN: &str = "an .mkv with that name is already there";
+
+/// Why a shrink could not put its file in place. Windows refuses to replace
+/// a file the player has open. Launch tries such a shrink again.
+const IN_USE: &str = "couldn't replace the file, it may be playing";
+
 // ---------------------------------------------------------------------------
 // What the page sees.
 
@@ -116,6 +149,13 @@ pub enum Status {
 /// otherwise. `buffer` is a recording of the player's own buffer, which opens
 /// no connection of its own: the page counts a line's connections by it. An
 /// index from before it existed has none, and reads as false.
+///
+/// After it ends (plan 029, Phase 4): `job` is the work it is waiting for or
+/// having done, null when there is none, and the page treats any job as the app
+/// being busy. `progress` is 0 to 1 while that job RUNS and null while it
+/// waits. `job_reason` is why the last job failed and the original was kept,
+/// null otherwise. `saved` is the bytes a shrink took off the file. An index
+/// from before these existed has none, and reads as no job and 0.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Record {
@@ -134,6 +174,23 @@ pub struct Record {
     pub reason: Option<String>,
     #[serde(default)]
     pub buffer: bool,
+    #[serde(default)]
+    pub job: Option<Job>,
+    #[serde(default)]
+    pub progress: Option<f64>,
+    #[serde(default)]
+    pub job_reason: Option<String>,
+    #[serde(default)]
+    pub saved: u64,
+}
+
+/// The work a finished recording is waiting for or having done. `Remux` is the
+/// repackaging into `.mkv`, `Shrink` the re-encode to HEVC.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Job {
+    Remux,
+    Shrink,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -163,6 +220,9 @@ pub struct BufferSpec {
 }
 
 pub type Free = Arc<dyn Fn(&Path) -> Option<u64> + Send + Sync>;
+
+/// Called with a file's path.
+pub type OnFile = Arc<dyn Fn(&Path) + Send + Sync>;
 
 /// The numbers a recorder runs on, so a test can run it in seconds.
 #[derive(Clone)]
@@ -197,6 +257,14 @@ pub struct Config {
     pub free: Free,
     /// Told whenever a record changes: status at once, size every `tick`.
     pub emit: Arc<dyn Fn(&Record) + Send + Sync>,
+    /// Whether a recording that ends is repackaged, and the last run's
+    /// unfinished work taken up when the index opens. `init` turns it on; the
+    /// tests of the recorder itself, which read a recording's own `.ts`, leave
+    /// it off.
+    pub repack: bool,
+    /// Called with a repackaged file once ffmpeg has written it and before it
+    /// is checked. A test damages the file here.
+    pub after_write: Option<OnFile>,
 }
 
 impl Config {
@@ -215,6 +283,8 @@ impl Config {
             min_run: MIN_TO_RUN,
             free: Arc::new(free_bytes),
             emit,
+            repack: false,
+            after_write: None,
         }
     }
 }
@@ -310,6 +380,10 @@ fn take_name(folder: &Path, name: &str) -> Result<PathBuf, String> {
             format!("{stem} ({n}).ts")
         };
         let path = folder.join(file);
+        // The `.mkv` this one becomes has that name too.
+        if path.with_extension("mkv").exists() {
+            continue;
+        }
         match OpenOptions::new().write(true).create_new(true).open(&path) {
             Ok(_) => return Ok(path),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
@@ -369,10 +443,15 @@ fn size_of(path: &Path) -> Option<u64> {
 }
 
 /// Only a file this module could have made is read back, played or deleted
-/// from an index entry: a `.ts`.
+/// from an index entry: the `.ts` it records into, or the `.mkv` that replaces
+/// it.
 fn ours(path: &Path) -> bool {
+    is_ext(path, "ts") || is_ext(path, "mkv")
+}
+
+fn is_ext(path: &Path, ext: &str) -> bool {
     path.extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("ts"))
+        .is_some_and(|e| e.eq_ignore_ascii_case(ext))
 }
 
 /// A recording that wrote nothing failed, whatever ended it.
@@ -854,6 +933,43 @@ pub struct Rec {
     /// so two starts cannot both pass.
     buffer_gate: Mutex<()>,
     awake: Awake,
+    /// The repackaging and shrinking queue (Phase 4).
+    jobs: Mutex<Jobs>,
+    /// Whether the page wants recordings re-encoded smaller. None until it
+    /// has said: a shrink left over from the last run waits for it.
+    smaller: Mutex<Option<bool>>,
+    /// The HEVC encoder this machine has, asked for once.
+    encoder: OnceLock<&'static str>,
+    /// Recordings between asking to start and being registered (`Starting`).
+    starting: AtomicUsize,
+}
+
+/// Held by `start` and `buffer_start` from before a file is reserved until the
+/// recording is registered (or failed), so a shrink does not begin in the
+/// seconds a recording spends connecting. Lets the queue go when it drops.
+struct Starting(Arc<Rec>);
+
+impl Starting {
+    fn new(rec: &Arc<Rec>) -> Starting {
+        rec.starting.fetch_add(1, Ordering::SeqCst);
+        Starting(rec.clone())
+    }
+}
+
+impl Drop for Starting {
+    fn drop(&mut self) {
+        self.0.starting.fetch_sub(1, Ordering::SeqCst);
+        self.0.kick();
+    }
+}
+
+/// The queue, and the one job running.
+#[derive(Default)]
+struct Jobs {
+    queue: VecDeque<(String, Job)>,
+    current: Option<(String, Arc<Cancel>)>,
+    /// A thread is working through the queue.
+    worker: bool,
 }
 
 /// How a stream recording's pump ended.
@@ -892,10 +1008,18 @@ impl Rec {
             writable,
             buffer_gate: Mutex::new(()),
             awake: Awake::new(),
+            jobs: Mutex::new(Jobs::default()),
+            smaller: Mutex::new(None),
+            encoder: OnceLock::new(),
+            starting: AtomicUsize::new(0),
         });
+        if rec.cfg.repack {
+            fixed |= rec.take_up_work();
+        }
         if fixed {
             rec.save();
         }
+        rec.kick();
         rec
     }
 
@@ -911,9 +1035,10 @@ impl Rec {
     }
 
     /// Write the index: to a temp file beside it, then renamed over it.
-    fn save(&self) {
+    /// Whether it was written.
+    fn save(&self) -> bool {
         if !self.writable {
-            return;
+            return false;
         }
         let _one_at_a_time = lock(&self.write);
         let json = {
@@ -926,8 +1051,12 @@ impl Rec {
         let wrote = json
             .map_err(std::io::Error::other)
             .and_then(|json| write_atomic(&self.index, &json));
-        if let Err(e) = wrote {
-            log::warn!("[rec] could not save the index: {}", e.kind());
+        match wrote {
+            Ok(()) => true,
+            Err(e) => {
+                log::warn!("[rec] could not save the index: {}", e.kind());
+                false
+            }
         }
     }
 
@@ -992,6 +1121,10 @@ impl Rec {
             status: Status::Recording,
             reason: None,
             buffer,
+            job: None,
+            progress: None,
+            job_reason: None,
+            saved: 0,
         }
     }
 
@@ -1008,7 +1141,7 @@ impl Rec {
     /// A recording is over: its record says how, and everything waiting on it
     /// is let go.
     fn finish(
-        &self,
+        self: &Arc<Self>,
         id: &str,
         status: Status,
         reason: Option<String>,
@@ -1021,7 +1154,7 @@ impl Rec {
         // starts the next buffer recording at once must not be told one is
         // still running.
         let mut live = lock(&self.live);
-        self.change(id, true, |r| {
+        let ended = self.change(id, true, |r| {
             r.bytes = bytes.unwrap_or(r.bytes);
             r.status = or_failed(r.bytes, status);
             r.reason = if r.status == Status::Failed && reason.is_none() {
@@ -1030,17 +1163,28 @@ impl Rec {
                 reason
             };
             r.ended_at = Some(now_ms());
+            // The same change that ends it names its next job, so the page
+            // never sees it finished and idle for a moment in between.
+            if self.cfg.repack && needs_remux(r) {
+                r.job = Some(Job::Remux);
+            }
             true
         });
         live.remove(id);
         drop(live);
         self.awake.release();
         let _ = done.send(true);
+        if ended.is_some_and(|r| r.job == Some(Job::Remux)) {
+            self.queue(id, Job::Remux);
+        }
+        // A shrink that waited for the recordings to end may go now.
+        self.kick();
     }
 
     /// Record a stream. Returns once bytes are flowing, or with why not, and
     /// leaves nothing behind when it fails.
     pub async fn start(self: &Arc<Self>, spec: Spec) -> Result<String, String> {
+        let _starting = Starting::new(self);
         mpvurl::http_only(&spec.url)?;
         let ffmpeg = match &self.cfg.ffmpeg {
             Some(p) => p.clone(),
@@ -1202,7 +1346,7 @@ impl Rec {
     /// The writer's input is closed: let ffmpeg finish the file (killed after
     /// `stop_wait`), then say how the recording ended.
     async fn close_writer(
-        &self,
+        self: &Arc<Self>,
         fin: Finished<'_>,
         ended: Ended,
         mut child: Child,
@@ -1266,6 +1410,7 @@ impl Rec {
         begin: impl FnOnce(&Path) -> Result<(), String>,
         end: Box<dyn Fn() + Send + Sync>,
     ) -> Result<String, String> {
+        let _starting = Starting::new(self);
         // The player has one dump: a second would replace the first, which
         // would stay Recording with nothing coming.
         let _gate = lock(&self.buffer_gate);
@@ -1366,6 +1511,9 @@ impl Rec {
         if rec.status == Status::Recording || lock(&self.live).contains_key(id) {
             return Err("stop the recording first".into());
         }
+        self.end_job(id)?;
+        // A job that finished first may have moved the file: read it again.
+        let rec = self.get(id).unwrap_or(rec);
         let path = PathBuf::from(&rec.path);
         if ours(&path) {
             match std::fs::remove_file(&path) {
@@ -1375,6 +1523,18 @@ impl Rec {
                 Err(e) => {
                     log::warn!("[rec] could not delete the file: {}", e.kind());
                     return Err("the file is in use or read-only".into());
+                }
+            }
+            // The .ts a repackaging could not delete when it swapped this .mkv
+            // in goes too, unless another entry names it. Not the other way
+            // round: the .mkv beside a .ts entry may be somebody's own.
+            if is_ext(&path, "mkv") {
+                let ts = path.with_extension("ts");
+                let named = lock(&self.records)
+                    .iter()
+                    .any(|r| r.id != id && Path::new(&r.path) == ts);
+                if !named {
+                    let _ = std::fs::remove_file(&ts);
                 }
             }
         }
@@ -1390,6 +1550,726 @@ struct Finished<'a> {
     path: &'a Path,
     done: &'a watch::Sender<bool>,
     problems: &'a Problems,
+}
+
+// ---------------------------------------------------------------------------
+// After it ends: repackaged, then smaller.
+
+/// How often a running job tells the page how far it is. ffmpeg prints more
+/// often than anyone can read.
+const PROGRESS_EVERY: Duration = Duration::from_millis(500);
+
+/// How long a job's ffmpeg may be asked to stop before a delete gives up.
+const END_WAIT: Duration = Duration::from_secs(15);
+
+/// A finished recording still in its `.ts`, with something in it.
+fn needs_remux(r: &Record) -> bool {
+    matches!(r.status, Status::Done | Status::Partial)
+        && r.bytes > 0
+        && is_ext(Path::new(&r.path), "ts")
+}
+
+/// The ffmpeg a job runs, and the way to end it.
+#[derive(Default)]
+struct Cancel {
+    asked: AtomicBool,
+    child: Mutex<Option<std::process::Child>>,
+}
+
+impl Cancel {
+    fn ask(&self) {
+        self.asked.store(true, Ordering::SeqCst);
+        if let Some(c) = lock(&self.child).as_mut() {
+            let _ = c.kill();
+        }
+    }
+
+    fn asked(&self) -> bool {
+        self.asked.load(Ordering::SeqCst)
+    }
+}
+
+/// What a job leaves: the file now, how big, what a shrink took off, and the
+/// file it replaced (deleted once the index has the new one).
+struct Made {
+    path: PathBuf,
+    bytes: u64,
+    saved: u64,
+    old: Option<PathBuf>,
+}
+
+/// An ffmpeg for a job: windowless, and at below-normal priority on Windows so
+/// a shrink never competes with the player for the CPU.
+fn ff(ffmpeg: &Path) -> std::process::Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
+    let mut cmd = std::process::Command::new(ffmpeg);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS
+        cmd.creation_flags(0x0800_0000 | 0x0000_4000);
+    }
+    cmd
+}
+
+fn path_str(p: &Path) -> String {
+    p.to_string_lossy().into_owned()
+}
+
+/// A clock, `01:02:03.45`, in seconds.
+fn clock_secs(clock: &str) -> Option<f64> {
+    clock.split(':').try_fold(0.0, |acc, part| {
+        part.parse::<f64>().map(|p| acc * 60.0 + p).ok()
+    })
+}
+
+/// A file's length from the line ffmpeg prints about it, `Duration: ...`. No
+/// ffprobe ships with the app. For a `.ts` it is the span of its timestamps.
+fn length_of(ffmpeg: &Path, file: &Path) -> Option<f64> {
+    let out = ff(ffmpeg)
+        .args(["-hide_banner", "-i"])
+        .arg(file)
+        .stdin(Stdio::null())
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&out.stderr);
+    let at = text.find("Duration: ")? + "Duration: ".len();
+    let clock: String = text[at..]
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || matches!(c, ':' | '.'))
+        .collect();
+    clock_secs(&clock)
+}
+
+/// How a run of ffmpeg ended.
+struct Ran {
+    /// It exited with success.
+    ok: bool,
+    /// How far it got, in seconds of the file, from its `-progress`.
+    secs: f64,
+    /// Lines it printed at `-v error`, and the last of them.
+    errors: usize,
+    last: Option<String>,
+}
+
+/// Run ffmpeg to the end, telling `on_time` how far it is. Err only when it
+/// did not start or was ended by `cancel`. `hide` is cut out of what it says
+/// (a path has the user's name in it). Blocking: a job's thread runs it.
+fn run(
+    ffmpeg: &Path,
+    cancel: &Cancel,
+    args: &[String],
+    hide: &[String],
+    mut on_time: impl FnMut(f64),
+) -> Result<Ran, String> {
+    let mut child = ff(ffmpeg)
+        .args([
+            "-hide_banner",
+            "-nostats",
+            "-v",
+            "error",
+            "-progress",
+            "pipe:1",
+        ])
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            log::warn!("[rec] ffmpeg did not start: {}", e.kind());
+            "ffmpeg didn't start".to_string()
+        })?;
+    let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+        let _ = child.kill();
+        return Err("ffmpeg's pipes did not open".into());
+    };
+    *lock(&cancel.child) = Some(child);
+    // Asked for before the child was there to be ended.
+    if cancel.asked() {
+        cancel.ask();
+    }
+    let hide = hide.to_vec();
+    let said = std::thread::spawn(move || {
+        let (mut errors, mut last) = (0, None);
+        for raw in std::io::BufReader::new(stderr)
+            .split(b'\n')
+            .map_while(Result::ok)
+        {
+            let line = String::from_utf8_lossy(&raw);
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            errors += 1;
+            // Past ffmpeg's `[muxer @ 0x...]` tag, and without the path.
+            let said = match line.strip_prefix('[').and_then(|l| l.split_once("] ")) {
+                Some((_, rest)) => rest,
+                None => line,
+            };
+            let said = hide
+                .iter()
+                .filter(|h| !h.is_empty())
+                .fold(said.to_string(), |t, h| t.replace(h.as_str(), "[file]"));
+            last = Some(said.chars().take(120).collect::<String>());
+        }
+        (errors, last)
+    });
+    let mut secs = 0.0;
+    for raw in std::io::BufReader::new(stdout)
+        .split(b'\n')
+        .map_while(Result::ok)
+    {
+        let line = String::from_utf8_lossy(&raw);
+        // `out_time_ms` is microseconds too (an old ffmpeg quirk).
+        let us = line
+            .strip_prefix("out_time_us=")
+            .or_else(|| line.strip_prefix("out_time_ms="))
+            .and_then(|v| v.trim().parse::<f64>().ok());
+        if let Some(us) = us.filter(|us| *us >= 0.0) {
+            secs = us / 1e6;
+            on_time(secs);
+        }
+    }
+    // Taken out first: waiting with the lock held would make `ask` wait too.
+    let child = lock(&cancel.child).take();
+    let status = child.map(|mut c| c.wait());
+    let (errors, last) = said.join().unwrap_or((0, None));
+    if cancel.asked() {
+        return Err(CANCELLED.into());
+    }
+    Ok(Ran {
+        ok: matches!(status, Some(Ok(s)) if s.success()),
+        secs,
+        errors,
+        last,
+    })
+}
+
+/// A HEVC encoder's settings: constant quality, not a bit rate, so a still
+/// picture costs little and a busy one what it needs. The GPU ones are tuned
+/// to land near libx265 at CRF 26.
+fn hevc_args(encoder: &str) -> &'static [&'static str] {
+    match encoder {
+        "hevc_nvenc" => &["-preset", "p5", "-rc", "vbr", "-cq", "28", "-b:v", "0"],
+        "hevc_qsv" => &["-preset", "medium", "-global_quality", "28"],
+        "hevc_amf" => &[
+            "-quality", "quality", "-rc", "cqp", "-qp_i", "28", "-qp_p", "30",
+        ],
+        _ => &[
+            "-preset",
+            "fast",
+            "-crf",
+            "26",
+            "-x265-params",
+            "log-level=error",
+        ],
+    }
+}
+
+/// The shrink's deinterlacer, in front of every encoder. `deint=interlaced`
+/// touches only frames flagged interlaced, so a progressive source passes
+/// through unchanged; one frame out per frame in (`send_frame`), so the length
+/// and the frame rate stay. A 1080i channel encoded without it keeps its combing
+/// for good. Software, and the frames are software frames, so the GPU encoders
+/// take them as they take any other. Options confirmed with `-h filter=bwdif`.
+const DEINTERLACE: &str = "bwdif=mode=send_frame:parity=auto:deint=interlaced";
+
+/// The GPU encoders to try, in order; libx265 is the CPU's and always there.
+const HEVC_ENCODERS: [&str; 3] = ["hevc_nvenc", "hevc_qsv", "hevc_amf"];
+
+/// The first of HEVC_ENCODERS that encodes a generated picture here with its
+/// own settings (the way mvconvert asks for its H.264 one), else libx265.
+fn pick_encoder(ffmpeg: &Path) -> &'static str {
+    HEVC_ENCODERS
+        .into_iter()
+        .find(|e| encoder_works(ffmpeg, e))
+        .unwrap_or("libx265")
+}
+
+fn encoder_works(ffmpeg: &Path, encoder: &str) -> bool {
+    let spawned = ff(ffmpeg)
+        .args(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i"])
+        .args(["color=black:s=256x256:r=30:d=0.2", "-vf"])
+        .arg(format!("{DEINTERLACE},format=nv12"))
+        .args(["-c:v", encoder])
+        .args(hevc_args(encoder))
+        .args(["-f", "null", "-"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+    let Ok(mut child) = spawned else { return false };
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return status.success(),
+            Ok(None) if started.elapsed() < Duration::from_secs(10) => {
+                std::thread::sleep(Duration::from_millis(50))
+            }
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return false;
+            }
+        }
+    }
+}
+
+impl Rec {
+    fn ffmpeg_path(&self) -> Result<PathBuf, String> {
+        match &self.cfg.ffmpeg {
+            Some(p) => Ok(p.clone()),
+            None => mvconvert::locate(),
+        }
+    }
+
+    /// The page's Smaller Files setting. Off drops the shrinks that have not
+    /// started; one that has finishes. On lets a shrink left over from the
+    /// last run go.
+    pub fn set_smaller(self: &Arc<Self>, on: bool) {
+        *lock(&self.smaller) = Some(on);
+        if !on {
+            // The queue and the rows in one pass under the queue's lock, so a
+            // remux finishing as this flips cannot leave one without the other
+            // (`run_job` queues a shrink under the same lock). A row that is
+            // running has a progress; the rest are waiting.
+            let cleared: Vec<Record> = {
+                let mut j = lock(&self.jobs);
+                j.queue.retain(|(_, job)| *job != Job::Shrink);
+                let mut rows = lock(&self.records);
+                rows.iter_mut()
+                    .filter(|r| r.job == Some(Job::Shrink) && r.progress.is_none())
+                    .map(|r| {
+                        r.job = None;
+                        r.clone()
+                    })
+                    .collect()
+            };
+            if !cleared.is_empty() {
+                self.save();
+                for r in &cleared {
+                    (self.cfg.emit)(r);
+                }
+            }
+        }
+        self.kick();
+    }
+
+    /// When the index opens: the temp files a run that died left are removed
+    /// (the originals were never touched), and the jobs it did not finish are
+    /// queued again, oldest first. A repackaging that already failed is not
+    /// tried at every launch. Answers whether a record changed.
+    fn take_up_work(&self) -> bool {
+        let mut fixed = false;
+        let mut again = Vec::new();
+        let mut records = lock(&self.records);
+        let kept: Vec<PathBuf> = records.iter().map(|r| PathBuf::from(&r.path)).collect();
+        for r in records.iter_mut() {
+            let path = PathBuf::from(&r.path);
+            for ext in ["remux.tmp", "shrink.tmp"] {
+                let _ = std::fs::remove_file(path.with_extension(ext));
+            }
+            // A repackaging that swapped the file in but could not delete the
+            // .ts (Windows refuses while the player has it open): the entry
+            // points at the .mkv, so the .ts beside it is nobody's. Left alone
+            // if it is another entry's, or if it is refused again.
+            if is_ext(&path, "mkv") && path.is_file() {
+                let ts = path.with_extension("ts");
+                if ts.is_file() && !kept.contains(&ts) {
+                    let _ = std::fs::remove_file(&ts);
+                }
+            }
+            let finished = matches!(r.status, Status::Done | Status::Partial);
+            let want = if needs_remux(r) && r.job_reason.is_none() && path.is_file() {
+                Some(Job::Remux)
+            } else if finished
+                && (r.job == Some(Job::Shrink) || r.job_reason.as_deref() == Some(IN_USE))
+                && is_ext(&path, "mkv")
+                && path.is_file()
+            {
+                Some(Job::Shrink)
+            } else {
+                None
+            };
+            if r.job != want || r.progress.is_some() {
+                r.job = want;
+                r.progress = None;
+                fixed = true;
+            }
+            if let Some(job) = want {
+                again.push((r.started_at, r.id.clone(), job));
+            }
+        }
+        drop(records);
+        again.sort_by_key(|a| a.0);
+        lock(&self.jobs)
+            .queue
+            .extend(again.into_iter().map(|(_, id, job)| (id, job)));
+        fixed
+    }
+
+    fn queue(&self, id: &str, job: Job) {
+        lock(&self.jobs).queue.push_back((id.to_string(), job));
+    }
+
+    /// A remux can always go. A shrink goes when the page has asked for them
+    /// and no recording runs or is starting (`Starting`), so it cannot fall
+    /// behind a live stream.
+    fn runnable(&self, job: Job) -> bool {
+        job == Job::Remux
+            || (*lock(&self.smaller) == Some(true)
+                && self.starting.load(Ordering::SeqCst) == 0
+                && lock(&self.live).is_empty())
+    }
+
+    /// Start the thread that works through the queue, if there is work it may
+    /// do and none is running.
+    fn kick(self: &Arc<Self>) {
+        let mut j = lock(&self.jobs);
+        if j.worker || !j.queue.iter().any(|(_, job)| self.runnable(*job)) {
+            return;
+        }
+        j.worker = true;
+        drop(j);
+        let this = self.clone();
+        let spawned = std::thread::Builder::new()
+            .name("rec-jobs".into())
+            .spawn(move || this.work());
+        if spawned.is_err() {
+            lock(&self.jobs).worker = false;
+        }
+    }
+
+    /// One job at a time, the first in the queue that may run (a shrink
+    /// waiting for a recording to end does not hold up the remuxes behind it).
+    fn work(self: Arc<Self>) {
+        struct Panicked<'a>(&'a Rec);
+        impl Drop for Panicked<'_> {
+            fn drop(&mut self) {
+                if std::thread::panicking() {
+                    let mut j = lock(&self.0.jobs);
+                    j.worker = false;
+                    j.current = None;
+                }
+            }
+        }
+        let _guard = Panicked(&self);
+        loop {
+            let (id, job, cancel) = {
+                let mut j = lock(&self.jobs);
+                let Some(at) = j.queue.iter().position(|(_, job)| self.runnable(*job)) else {
+                    j.worker = false;
+                    return;
+                };
+                let (id, job) = j.queue.remove(at).expect("it was just found");
+                let cancel = Arc::new(Cancel::default());
+                j.current = Some((id.clone(), cancel.clone()));
+                // Running from here, as far as `set_smaller` can tell: it reads
+                // the rows under this lock.
+                self.change(&id, false, |r| {
+                    r.job = Some(job);
+                    r.progress = Some(0.0);
+                    true
+                });
+                (id, job, cancel)
+            };
+            self.run_job(&id, job, &cancel);
+            lock(&self.jobs).current = None;
+        }
+    }
+
+    fn run_job(self: &Arc<Self>, id: &str, job: Job, cancel: &Cancel) {
+        let Some(rec) = self.get(id) else { return };
+        let mut last = Instant::now();
+        let mut report = |frac: f64| {
+            if last.elapsed() >= PROGRESS_EVERY {
+                last = Instant::now();
+                self.change(id, false, |r| {
+                    r.progress = Some(frac.clamp(0.0, 1.0));
+                    true
+                });
+            }
+        };
+        let made = self.ffmpeg_path().and_then(|ffmpeg| match job {
+            Job::Remux => self.remux(&ffmpeg, &rec, cancel, &mut report),
+            Job::Shrink => self.shrink(&ffmpeg, &rec, cancel, &mut report),
+        });
+        match made {
+            Ok(made) => {
+                // Under the queue's lock, so Smaller Files turned off in the
+                // middle cannot leave a row naming a shrink that is in no queue,
+                // or the reverse (`set_smaller`).
+                let saved = {
+                    let mut j = lock(&self.jobs);
+                    let next = (job == Job::Remux && *lock(&self.smaller) == Some(true))
+                        .then_some(Job::Shrink);
+                    self.change(id, false, |r| {
+                        r.path = path_str(&made.path);
+                        r.bytes = made.bytes;
+                        r.saved += made.saved;
+                        r.progress = None;
+                        r.job_reason = None;
+                        r.job = next;
+                        true
+                    });
+                    let saved = self.save();
+                    if let Some(next) = next {
+                        j.queue.push_back((id.to_string(), next));
+                    }
+                    saved
+                };
+                // The old file goes only once the index has the new one. If it
+                // could not be written, both stay and the next launch tidies
+                // (the sweep in `take_up_work`). Windows refuses while the
+                // player has the old one open, and it stays the same way.
+                match made.old {
+                    Some(old) if saved => {
+                        if let Err(e) = std::fs::remove_file(&old) {
+                            log::warn!("[rec] {id}: could not delete the original: {}", e.kind());
+                        }
+                    }
+                    Some(_) => {
+                        log::warn!("[rec] {id}: the index was not saved, the original stays")
+                    }
+                    None => {}
+                }
+                log::info!("[rec] {id}: {job:?} done, {} bytes saved", made.saved);
+            }
+            // A delete ended it. It takes the record, but if that has not
+            // happened (it gave up waiting), the row must not stay busy.
+            Err(why) if why == CANCELLED => {
+                self.change(id, true, |r| {
+                    r.job = None;
+                    r.progress = None;
+                    true
+                });
+            }
+            Err(why) => {
+                log::warn!("[rec] {id}: {job:?} failed, the original is kept: {why}");
+                self.change(id, true, |r| {
+                    r.job = None;
+                    r.progress = None;
+                    r.job_reason = Some(why);
+                    true
+                });
+            }
+        }
+    }
+
+    /// `.ts` to `.mkv`, `-c copy`. The `.ts` is deleted by the caller, after
+    /// the index has the new path.
+    fn remux(
+        &self,
+        ffmpeg: &Path,
+        rec: &Record,
+        cancel: &Cancel,
+        report: &mut dyn FnMut(f64),
+    ) -> Result<Made, String> {
+        let src = PathBuf::from(&rec.path);
+        if !is_ext(&src, "ts") || !src.is_file() {
+            return Err("the file is gone".into());
+        }
+        let (tmp, dst) = (src.with_extension("remux.tmp"), src.with_extension("mkv"));
+        // An .mkv beside the .ts is somebody's (an old recording next to a file
+        // made by hand): not overwritten, and not worth the work to find out.
+        if dst.exists() {
+            return Err(NAME_TAKEN.into());
+        }
+        let _ = std::fs::remove_file(&tmp);
+        // Written, checked, and only then put in its place.
+        let bytes = self
+            .write_temp(ffmpeg, &src, &tmp, &[], 0.2, cancel, report)
+            .and_then(|want| self.verify(ffmpeg, &src, &tmp, want, 0.2, cancel, report))
+            .and_then(|()| self.place(&tmp, &dst, false, cancel));
+        if bytes.is_err() {
+            let _ = std::fs::remove_file(&tmp);
+        }
+        Ok(Made {
+            path: dst,
+            bytes: bytes?,
+            saved: 0,
+            old: Some(src),
+        })
+    }
+
+    /// An `.mkv` to a smaller one: the picture as HEVC, the rest copied. It
+    /// has to be smaller, or it is not worth the replacing.
+    fn shrink(
+        &self,
+        ffmpeg: &Path,
+        rec: &Record,
+        cancel: &Cancel,
+        report: &mut dyn FnMut(f64),
+    ) -> Result<Made, String> {
+        let src = PathBuf::from(&rec.path);
+        if !is_ext(&src, "mkv") || !src.is_file() {
+            return Err("the file is gone".into());
+        }
+        let encoder = *self.encoder.get_or_init(|| pick_encoder(ffmpeg));
+        let before = size_of(&src).unwrap_or(0);
+        let tmp = src.with_extension("shrink.tmp");
+        let _ = std::fs::remove_file(&tmp);
+        let mut video = ["-vf", DEINTERLACE, "-c:v", encoder]
+            .map(String::from)
+            .to_vec();
+        video.extend(hevc_args(encoder).iter().map(|a| a.to_string()));
+        let after = self
+            .write_temp(ffmpeg, &src, &tmp, &video, 0.85, cancel, report)
+            .and_then(|want| self.verify(ffmpeg, &src, &tmp, want, 0.85, cancel, report))
+            .and_then(|()| {
+                let after = size_of(&tmp).unwrap_or(0);
+                if after >= before {
+                    return Err("it didn't get any smaller".to_string());
+                }
+                self.place(&tmp, &src, true, cancel)
+            });
+        if after.is_err() {
+            let _ = std::fs::remove_file(&tmp);
+        }
+        let after = after?;
+        Ok(Made {
+            path: src,
+            bytes: after,
+            saved: before.saturating_sub(after),
+            old: None,
+        })
+    }
+
+    /// Write `tmp` from `src` (`video` after `-c copy` says how the picture is
+    /// encoded; nothing copies it), taking `share` of the progress. Answers
+    /// the length `src` has, which `verify` holds `tmp` to. `tmp` is NOT yet fit
+    /// to replace anything.
+    #[allow(clippy::too_many_arguments)]
+    fn write_temp(
+        &self,
+        ffmpeg: &Path,
+        src: &Path,
+        tmp: &Path,
+        video: &[String],
+        share: f64,
+        cancel: &Cancel,
+        report: &mut dyn FnMut(f64),
+    ) -> Result<f64, String> {
+        let want = length_of(ffmpeg, src)
+            .filter(|s| *s > 0.0)
+            .ok_or("the length of the file can't be read")?;
+        let size = size_of(src).unwrap_or(0);
+        if src
+            .parent()
+            .is_some_and(|dir| (self.cfg.free)(dir).is_some_and(|f| f < size + self.cfg.min_run))
+        {
+            return Err("not enough free disk space".into());
+        }
+        let (from, to) = (path_str(src), path_str(tmp));
+        let hide = [from.clone(), to.clone()];
+        let mut args = vec!["-i".to_string(), from];
+        // Video, audio and subtitles; the data streams a .ts carries (SCTE-35,
+        // ID3) are left out, as a recording leaves them out.
+        for map in ["0:v?", "0:a?", "0:s?"] {
+            args.extend(["-map".to_string(), map.to_string()]);
+        }
+        args.extend(["-c".to_string(), "copy".to_string()]);
+        args.extend(video.iter().cloned());
+        args.extend(["-f", "matroska", "-y"].map(String::from));
+        args.push(to);
+        let ran = run(ffmpeg, cancel, &args, &hide, |secs| {
+            report(share * secs / want)
+        })?;
+        if !ran.ok {
+            return Err(format!(
+                "ffmpeg couldn't write it: {}",
+                ran.last.unwrap_or_else(|| "it stopped".into())
+            ));
+        }
+        if let Some(damage) = &self.cfg.after_write {
+            damage(tmp);
+        }
+        Ok(want)
+    }
+
+    /// The new file decodes to the end, and is as long as the original within
+    /// `LENGTH_SLACK`. Errors in the decode are the original's own if the
+    /// original has as many.
+    #[allow(clippy::too_many_arguments)]
+    fn verify(
+        &self,
+        ffmpeg: &Path,
+        src: &Path,
+        out: &Path,
+        want: f64,
+        from: f64,
+        cancel: &Cancel,
+        report: &mut dyn FnMut(f64),
+    ) -> Result<(), String> {
+        let decode = |file: &Path, on_time: &mut dyn FnMut(f64)| {
+            let f = path_str(file);
+            let args = ["-i", &f, "-f", "null", "-"].map(String::from);
+            run(ffmpeg, cancel, &args, std::slice::from_ref(&f), on_time)
+        };
+        let ran = decode(out, &mut |secs| report(from + (1.0 - from) * secs / want))?;
+        if !ran.ok {
+            return Err(format!(
+                "the new file doesn't play through: {}",
+                ran.last.unwrap_or_else(|| "ffmpeg stopped".into())
+            ));
+        }
+        let slack = LENGTH_SLACK.max(want * LENGTH_PART);
+        if (ran.secs - want).abs() > slack {
+            return Err(format!(
+                "the new file is {:.0}s long and the original {want:.0}s",
+                ran.secs
+            ));
+        }
+        if ran.errors > 0 && ran.errors > decode(src, &mut |_| {})?.errors {
+            return Err("the new file has errors the original doesn't".into());
+        }
+        Ok(())
+    }
+
+    /// The verified temp file becomes the file, unless a delete said no. With
+    /// `replace` false, a file already at `to` is left alone (checked again
+    /// here, after the work, in case one turned up meanwhile).
+    fn place(&self, tmp: &Path, to: &Path, replace: bool, cancel: &Cancel) -> Result<u64, String> {
+        if cancel.asked() {
+            return Err(CANCELLED.into());
+        }
+        if !replace && to.exists() {
+            return Err(NAME_TAKEN.into());
+        }
+        std::fs::rename(tmp, to).map_err(|e| {
+            log::warn!("[rec] could not move the new file into place: {}", e.kind());
+            IN_USE.to_string()
+        })?;
+        Ok(size_of(to).unwrap_or(0))
+    }
+
+    /// Before a recording is deleted: leave the queue, and if its job is
+    /// running, end it and wait until it has let go of the files.
+    fn end_job(&self, id: &str) -> Result<(), String> {
+        let running = {
+            let mut j = lock(&self.jobs);
+            j.queue.retain(|(queued, _)| queued != id);
+            j.current
+                .as_ref()
+                .filter(|(current, _)| current == id)
+                .map(|(_, cancel)| cancel.clone())
+        };
+        let Some(cancel) = running else { return Ok(()) };
+        cancel.ask();
+        let started = Instant::now();
+        while lock(&self.jobs)
+            .current
+            .as_ref()
+            .is_some_and(|(current, _)| current == id)
+        {
+            if started.elapsed() > END_WAIT {
+                return Err("the file is still being repackaged".into());
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1452,7 +2332,11 @@ static REC: OnceLock<Arc<Rec>> = OnceLock::new();
 
 /// Open the index and keep the recorder for the run. Once; the first wins.
 pub fn init(index: PathBuf, emit: Arc<dyn Fn(&Record) + Send + Sync>) {
-    let _ = REC.set(Rec::open(index, Config::app(emit)));
+    let cfg = Config {
+        repack: true,
+        ..Config::app(emit)
+    };
+    let _ = REC.set(Rec::open(index, cfg));
 }
 
 pub fn get() -> Result<&'static Arc<Rec>, String> {
@@ -2002,6 +2886,10 @@ mod tests {
             status,
             reason: None,
             buffer: false,
+            job: None,
+            progress: None,
+            job_reason: None,
+            saved: 0,
         }
     }
 
@@ -2166,7 +3054,7 @@ mod tests {
         assert_eq!(json["reason"], "disk full");
         assert!(json["programme"].is_null() && json["endedAt"].is_null());
         assert_eq!(json["buffer"], false);
-        assert_eq!(json.as_object().unwrap().len(), 11);
+        assert_eq!(json.as_object().unwrap().len(), 15);
         r.buffer = true;
         assert_eq!(serde_json::to_value(&r).unwrap()["buffer"], true);
     }
@@ -3024,5 +3912,1115 @@ mod tests {
         assert_eq!(why, "nothing is playing yet");
         assert!(b.rec.list().is_empty());
         assert_eq!(std::fs::read_dir(&b.out).unwrap().count(), 0);
+    }
+
+    // --- Phase 4: repackaged into .mkv, then smaller ---
+
+    /// MPEG-2's CRC-32, which PAT and PMT sections end with and ffmpeg checks.
+    fn crc32(data: &[u8]) -> u32 {
+        let mut crc = 0xFFFF_FFFFu32;
+        for &b in data {
+            crc ^= u32::from(b) << 24;
+            for _ in 0..8 {
+                crc = if crc & 0x8000_0000 != 0 {
+                    (crc << 1) ^ 0x04C1_1DB7
+                } else {
+                    crc << 1
+                };
+            }
+        }
+        crc
+    }
+
+    fn section(table_id: u8, body: &[u8]) -> Vec<u8> {
+        let mut s = vec![table_id];
+        s.extend((0xB000u16 | (body.len() as u16 + 4)).to_be_bytes());
+        s.extend(body);
+        let crc = crc32(&s);
+        s.extend(crc.to_be_bytes());
+        s
+    }
+
+    /// `payload` cut into 188-byte packets on `pid`, the last one padded with
+    /// an adaptation field.
+    fn ts_packets(pid: u16, payload: &[u8], cc: &mut u8) -> Vec<u8> {
+        let mut out = Vec::new();
+        for (i, chunk) in payload.chunks(184).enumerate() {
+            let pad = 184 - chunk.len();
+            let control = if pad > 0 { 0x30 } else { 0x10 };
+            let start = if i == 0 { 0x40 } else { 0 };
+            out.extend([0x47, start | (pid >> 8) as u8, pid as u8, control | *cc]);
+            *cc = (*cc + 1) & 0x0F;
+            match pad {
+                0 => {}
+                1 => out.push(0),
+                _ => {
+                    out.extend([(pad - 1) as u8, 0]);
+                    out.extend(std::iter::repeat(0xFF).take(pad - 2));
+                }
+            }
+            out.extend(chunk);
+        }
+        out
+    }
+
+    fn pes(pts: u64, data: &[u8]) -> Vec<u8> {
+        let mut body = vec![0x80, 0x80, 5];
+        body.extend([
+            0x21 | ((pts >> 29) & 0x0E) as u8,
+            ((pts >> 22) & 0xFF) as u8,
+            0x01 | ((pts >> 14) & 0xFE) as u8,
+            ((pts >> 7) & 0xFF) as u8,
+            0x01 | ((pts << 1) & 0xFE) as u8,
+        ]);
+        body.extend(data);
+        let mut p = vec![0, 0, 1, 0xBD];
+        p.extend((body.len() as u16).to_be_bytes());
+        p.extend(body);
+        p
+    }
+
+    /// A transport stream with ONE subtitle stream and nothing else: two PES
+    /// packets, at 2s and 6s. A DVB subtitle stream is an empty page (valid,
+    /// and decodes to nothing); a teletext one is a stream mkv has no codec id
+    /// for, whose payload ffmpeg never has to read to copy. ffmpeg has no way
+    /// to make either from text, so they are built here.
+    fn subtitle_ts(teletext: bool) -> Vec<u8> {
+        const SUB: u16 = 0x200;
+        const PMT: u16 = 0x1000;
+        let mut pat_sec = vec![0, 1, 0xC1, 0, 0];
+        pat_sec.extend([0, 1]);
+        pat_sec.extend((0xE000u16 | PMT).to_be_bytes());
+        let pat = section(0x00, &pat_sec);
+        let descriptor: Vec<u8> = if teletext {
+            [&[0x56, 5][..], b"eng", &[0x09, 0x00]].concat()
+        } else {
+            [&[0x59, 8][..], b"eng", &[0x10, 0, 1, 0, 1]].concat()
+        };
+        let mut pmt_sec = vec![0, 1, 0xC1, 0, 0];
+        pmt_sec.extend((0xE000u16 | SUB).to_be_bytes());
+        pmt_sec.extend(0xF000u16.to_be_bytes());
+        pmt_sec.push(0x06);
+        pmt_sec.extend((0xE000u16 | SUB).to_be_bytes());
+        pmt_sec.extend((0xF000u16 | descriptor.len() as u16).to_be_bytes());
+        pmt_sec.extend(&descriptor);
+        let pmt = section(0x02, &pmt_sec);
+        let page = |kind: u8, data: &[u8]| {
+            let mut s = vec![0x0F, kind, 0, 1];
+            s.extend((data.len() as u16).to_be_bytes());
+            s.extend(data);
+            s
+        };
+        let payload: Vec<u8> = if teletext {
+            [&[0x10, 0x02, 44][..], &[0u8; 44]].concat()
+        } else {
+            // data_identifier, stream id, a page composition (mode change, no
+            // regions), the end of the display set, and the end marker.
+            [
+                &[0x20, 0x00][..],
+                &page(0x10, &[5, 2 << 2]),
+                &page(0x80, &[]),
+                &[0xFF],
+            ]
+            .concat()
+        };
+        let mut out = Vec::new();
+        for (pid, sec) in [(0u16, &pat), (PMT, &pmt)] {
+            let mut cc = 0;
+            out.extend(ts_packets(pid, &[&[0u8][..], &sec[..]].concat(), &mut cc));
+        }
+        let mut cc = 0;
+        for secs in [2u64, 6] {
+            out.extend(ts_packets(SUB, &pes(secs * 90_000, &payload), &mut cc));
+        }
+        out
+    }
+
+    /// The 12 seconds of `src()` with a subtitle stream muxed in.
+    fn with_subs(teletext: bool) -> &'static Vec<u8> {
+        static DVB: OnceLock<Vec<u8>> = OnceLock::new();
+        static TTX: OnceLock<Vec<u8>> = OnceLock::new();
+        (if teletext { &TTX } else { &DVB }).get_or_init(|| {
+            let dir = temp("subs");
+            std::fs::write(dir.join("base.ts"), src()).unwrap();
+            std::fs::write(dir.join("subs.ts"), subtitle_ts(teletext)).unwrap();
+            let out = std::process::Command::new(ffmpeg())
+                .args(["-hide_banner", "-loglevel", "error", "-y"])
+                .arg("-i")
+                .arg(dir.join("base.ts"))
+                .arg("-i")
+                .arg(dir.join("subs.ts"))
+                .args(["-map", "0", "-map", "1", "-c", "copy", "-f", "mpegts"])
+                .arg(dir.join("both.ts"))
+                .output()
+                .expect("ffmpeg ran");
+            assert!(
+                out.status.success(),
+                "{}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            let bytes = std::fs::read(dir.join("both.ts")).unwrap();
+            let _ = std::fs::remove_dir_all(&dir);
+            bytes
+        })
+    }
+
+    /// What ffmpeg says about a file before it is asked to do anything: its
+    /// streams.
+    fn header(file: &Path) -> String {
+        let out = std::process::Command::new(ffmpeg())
+            .args(["-hide_banner", "-i"])
+            .arg(file)
+            .output()
+            .expect("ffmpeg ran");
+        String::from_utf8_lossy(&out.stderr).into_owned()
+    }
+
+    fn mkv_of(ts: &Path, mkv: &Path) {
+        let out = std::process::Command::new(ffmpeg())
+            .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
+            .arg(ts)
+            .args(["-map", "0", "-c", "copy", "-f", "matroska"])
+            .arg(mkv)
+            .output()
+            .expect("ffmpeg ran");
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    /// The names in a folder, sorted.
+    fn listing(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .map(|d| {
+                d.filter_map(Result::ok)
+                    .map(|e| e.file_name().to_string_lossy().into_owned())
+                    .collect()
+            })
+            .unwrap_or_default();
+        names.sort();
+        names
+    }
+
+    fn repacking(tag: &str) -> Bench {
+        Bench::new(tag, |c| c.repack = true)
+    }
+
+    /// Record what `reply` serves, until the file stops growing, and stop it.
+    fn ended(b: &Bench, reply: Reply) -> Record {
+        let (fake, _) = plan(vec![reply]);
+        let id = b.start(&format!("{}/live.ts", fake.base));
+        b.wait_still(&id);
+        b.stop(&id)
+    }
+
+    /// Wait for a recording's job to be over, or for the whole chain of them.
+    fn wait_idle(b: &Bench, id: &str) -> Record {
+        until("the job to finish", 90, || {
+            b.rec.get(id).is_some_and(|r| r.job.is_none())
+        });
+        b.rec.get(id).unwrap()
+    }
+
+    /// A finished recording the index already has, with its job queued but not
+    /// started (`set_smaller` or `kick` starts the worker).
+    fn add_finished(b: &Bench, id: &str, started_at: u64, ext: &str) -> PathBuf {
+        std::fs::create_dir_all(&b.out).unwrap();
+        let ts = b.out.join(format!("{id}.ts"));
+        std::fs::write(&ts, src()).unwrap();
+        let path = if ext == "mkv" {
+            let mkv = b.out.join(format!("{id}.mkv"));
+            mkv_of(&ts, &mkv);
+            std::fs::remove_file(&ts).unwrap();
+            mkv
+        } else {
+            ts
+        };
+        let job = if ext == "mkv" {
+            Job::Shrink
+        } else {
+            Job::Remux
+        };
+        let mut r = record(id, Status::Done, &path);
+        r.started_at = started_at;
+        r.bytes = size_of(&path).unwrap();
+        r.job = Some(job);
+        lock(&b.rec.records).push(r);
+        b.rec.queue(id, job);
+        path
+    }
+
+    #[test]
+    fn a_recording_that_ends_is_repackaged_into_mkv_and_the_ts_goes() {
+        let b = repacking("remux");
+        let done = ended(&b, stream(0.0, 12.0));
+        // Busy from the moment it ends: the change that says Done names the job.
+        assert_eq!((done.status, done.job), (Status::Done, Some(Job::Remux)));
+        let ts = PathBuf::from(&done.path);
+        let r = wait_idle(&b, &done.id);
+        let mkv = PathBuf::from(&r.path);
+        assert!(r.path.ends_with(".mkv"), "{r:?}");
+        assert_eq!(
+            (r.job_reason.as_deref(), r.progress, r.saved),
+            (None, None, 0)
+        );
+        assert_eq!(r.status, Status::Done);
+        near(&check(&mkv), SRC_SECS);
+        assert_eq!(r.bytes, size_of(&mkv).unwrap());
+        // Only the .mkv is left: no .ts, no temp file.
+        assert!(!ts.exists());
+        assert_eq!(
+            listing(&b.out),
+            [mkv.file_name().unwrap().to_string_lossy()]
+        );
+        assert_eq!(b.rec.playable(&r.id), Ok(mkv));
+        // The page was told: running with a progress, then done with the path.
+        let seen = lock(&b.events).clone();
+        assert!(seen
+            .iter()
+            .any(|e| e.id == r.id && e.job == Some(Job::Remux) && e.progress.is_some()));
+        assert_eq!(seen.last().map(|e| e.path.clone()), Some(r.path.clone()));
+    }
+
+    #[test]
+    fn a_recording_joined_after_a_dropped_connection_is_repackaged_with_its_timeline() {
+        // As the join test: 3s, a break in a packet, 3s more two seconds on.
+        let (fake, asked) = plan(vec![
+            breaks(0.0, 3.0, 77),
+            Reply::Stream {
+                bytes: src()[at(5.0) + 33..at(8.0)].to_vec(),
+                pace: Duration::ZERO,
+                break_it: false,
+            },
+        ]);
+        let b = repacking("remux-join");
+        let id = b.start(&format!("{}/live.ts", fake.base));
+        until("the second connection to be read", 20, || {
+            asked.load(Ordering::SeqCst) >= 3
+        });
+        b.wait_still(&id);
+        b.stop(&id);
+        let r = wait_idle(&b, &id);
+        assert!(r.path.ends_with(".mkv"), "{r:?}");
+        near(&check(Path::new(&r.path)), 6.0);
+        assert_eq!(listing(&b.out).len(), 1);
+    }
+
+    #[test]
+    fn a_subtitle_stream_comes_along_into_the_mkv() {
+        let b = repacking("remux-subs");
+        let done = ended(
+            &b,
+            Reply::Stream {
+                bytes: with_subs(false).clone(),
+                pace: Duration::ZERO,
+                break_it: false,
+            },
+        );
+        let r = wait_idle(&b, &done.id);
+        assert!(r.path.ends_with(".mkv"), "{r:?}");
+        let h = header(Path::new(&r.path));
+        for want in ["Video: mpeg2video", "Audio: mp2", "Subtitle: dvb_subtitle"] {
+            assert!(h.contains(want), "no {want} in:\n{h}");
+        }
+        near(&check(Path::new(&r.path)), SRC_SECS);
+    }
+
+    #[test]
+    fn a_stream_mkv_will_not_hold_keeps_the_ts_and_says_why() {
+        let b = repacking("remux-refused");
+        let done = ended(
+            &b,
+            Reply::Stream {
+                bytes: with_subs(true).clone(),
+                pace: Duration::ZERO,
+                break_it: false,
+            },
+        );
+        let ts = PathBuf::from(&done.path);
+        let r = wait_idle(&b, &done.id);
+        // Still the .ts, whole, in the index and on disk; nothing else beside it.
+        assert_eq!(r.path, done.path);
+        assert_eq!((r.status, r.job, r.progress), (Status::Done, None, None));
+        assert_eq!(r.bytes, done.bytes);
+        assert_eq!(size_of(&ts), Some(done.bytes));
+        assert_eq!(listing(&b.out), [ts.file_name().unwrap().to_string_lossy()]);
+        let why = r.job_reason.expect("it says why");
+        assert!(why.starts_with("ffmpeg couldn't write it"), "{why}");
+        // The path has the user's name in it.
+        assert!(
+            !why.contains(&b.out.to_string_lossy().into_owned()),
+            "{why}"
+        );
+        assert_eq!(b.rec.playable(&r.id), Ok(ts));
+    }
+
+    #[test]
+    fn a_file_that_does_not_check_out_never_replaces_the_ts() {
+        // Half the new file is gone by the time it is checked. Whatever the
+        // check says about it, the .mkv must not have been put in place first.
+        let b = Bench::new("remux-bad", |c| {
+            c.repack = true;
+            c.after_write = Some(Arc::new(|tmp| {
+                let f = OpenOptions::new().write(true).open(tmp).unwrap();
+                f.set_len(f.metadata().unwrap().len() / 2).unwrap();
+            }));
+        });
+        let done = ended(&b, stream(0.0, 12.0));
+        let ts = PathBuf::from(&done.path);
+        let r = wait_idle(&b, &done.id);
+        assert_eq!(r.path, done.path);
+        assert_eq!(size_of(&ts), Some(done.bytes));
+        let why = r.job_reason.expect("it says why");
+        assert!(why.starts_with("the new file"), "{why}");
+        assert_eq!(listing(&b.out), [ts.file_name().unwrap().to_string_lossy()]);
+    }
+
+    #[test]
+    fn jobs_run_one_at_a_time_in_order_and_a_remux_comes_before_its_shrink() {
+        let b = repacking("queue");
+        for (id, at) in [("a", 1_000), ("b", 2_000), ("c", 3_000)] {
+            add_finished(&b, id, at, "ts");
+        }
+        // Turning Smaller Files on starts the worker with all three queued.
+        b.rec.set_smaller(true);
+        for id in ["a", "b", "c"] {
+            wait_idle(&b, id);
+        }
+        let seen = lock(&b.events).clone();
+        // What started, in order: an event that is a job's first, at 0.
+        let mut started: Vec<(String, Job)> = Vec::new();
+        let mut running: Option<String> = None;
+        for e in &seen {
+            if e.progress.is_some() {
+                assert!(
+                    running.as_ref().is_none_or(|r| *r == e.id),
+                    "{running:?} and {} at once",
+                    e.id
+                );
+                running = Some(e.id.clone());
+                let this = (e.id.clone(), e.job.unwrap());
+                if started.last() != Some(&this) {
+                    started.push(this);
+                }
+            } else if running.as_deref() == Some(e.id.as_str()) {
+                running = None;
+            }
+        }
+        let want: Vec<(String, Job)> = [
+            ("a", Job::Remux),
+            ("b", Job::Remux),
+            ("c", Job::Remux),
+            ("a", Job::Shrink),
+            ("b", Job::Shrink),
+            ("c", Job::Shrink),
+        ]
+        .map(|(id, j)| (id.to_string(), j))
+        .to_vec();
+        assert_eq!(started, want);
+        for id in ["a", "b", "c"] {
+            let r = b.rec.get(id).unwrap();
+            assert!(r.path.ends_with(".mkv") && r.saved > 0, "{r:?}");
+            assert!(header(Path::new(&r.path)).contains("Video: hevc"));
+        }
+    }
+
+    #[test]
+    fn smaller_files_re_encodes_after_the_remux_and_records_what_it_saved() {
+        let b = repacking("shrink");
+        b.rec.set_smaller(true);
+        let done = ended(&b, stream(0.0, 12.0));
+        let r = wait_idle(&b, &done.id);
+        let mkv = PathBuf::from(&r.path);
+        assert!(r.path.ends_with(".mkv"), "{r:?}");
+        assert_eq!(r.job_reason, None);
+        // HEVC for the picture, the audio as it was, the same length.
+        let h = header(&mkv);
+        assert!(h.contains("Video: hevc"), "{h}");
+        assert!(h.contains("Audio: mp2"), "{h}");
+        near(&check(&mkv), SRC_SECS);
+        assert!(
+            r.bytes < done.bytes,
+            "{} is not under {}",
+            r.bytes,
+            done.bytes
+        );
+        assert_eq!(r.bytes, size_of(&mkv).unwrap());
+        // It saved what the remux made less what the shrink did.
+        assert!(r.saved > 0 && r.saved < done.bytes, "{r:?}");
+        assert_eq!(listing(&b.out).len(), 1);
+        // And it did go through the .mkv first.
+        let seen = lock(&b.events).clone();
+        assert!(seen
+            .iter()
+            .any(|e| e.job == Some(Job::Shrink) && e.path.ends_with(".mkv")));
+    }
+
+    #[test]
+    fn a_shrink_waits_for_a_recording_to_end() {
+        let b = repacking("shrink-waits");
+        // A recording that stays live for a few seconds.
+        let (fake, _) = plan(vec![Reply::Stream {
+            bytes: src()[..at(12.0)].to_vec(),
+            pace: Duration::from_millis(120),
+            break_it: false,
+        }]);
+        let live = b.start(&format!("{}/live.ts", fake.base));
+        let path = add_finished(&b, "m", 1_000, "mkv");
+        let before = size_of(&path).unwrap();
+        b.rec.set_smaller(true);
+        std::thread::sleep(Duration::from_millis(800));
+        let m = b.rec.get("m").unwrap();
+        assert_eq!(
+            (m.job, m.progress, m.bytes),
+            (Some(Job::Shrink), None, before)
+        );
+        assert_eq!(size_of(&path), Some(before));
+        // It goes once the recording is over.
+        b.stop(&live);
+        let m = wait_idle(&b, "m");
+        assert!(m.bytes < before && m.saved > 0, "{m:?}");
+        wait_idle(&b, &live);
+    }
+
+    #[test]
+    fn work_the_last_run_left_is_picked_up_and_its_temp_files_go() {
+        let _lane = lock(&LANE);
+        let dir = temp("sweep");
+        let index = dir.join("recordings.json");
+        let junk = |name: &str| {
+            let p = dir.join(name);
+            std::fs::write(&p, b"half a file").unwrap();
+            p
+        };
+        let ts = |name: &str| {
+            let p = dir.join(name);
+            std::fs::write(&p, src()).unwrap();
+            p
+        };
+        let done = |id: &str, path: &Path| {
+            let mut r = record(id, Status::Done, path);
+            r.bytes = size_of(path).unwrap_or(0);
+            r
+        };
+        // a: a remux that never finished.
+        let a = done("a", &ts("a.ts"));
+        let a_tmp = junk("a.remux.tmp");
+        // b: a shrink that was running, on a .mkv that is whole.
+        let b_mkv = dir.join("b.mkv");
+        mkv_of(&ts("b.ts"), &b_mkv);
+        std::fs::remove_file(dir.join("b.ts")).unwrap();
+        let mut b = done("b", &b_mkv);
+        b.job = Some(Job::Shrink);
+        b.progress = Some(0.5);
+        let b_tmp = junk("b.shrink.tmp");
+        let b_before = std::fs::read(&b_mkv).unwrap();
+        // e: a remux that already failed, and is not tried again at every launch.
+        let mut e = done("e", &ts("e.ts"));
+        e.job_reason = Some("ffmpeg couldn't write it".into());
+        let e_tmp = junk("e.remux.tmp");
+        // f: says it is working on a file that is gone.
+        let mut f = done("f", &dir.join("f.ts"));
+        f.bytes = 5;
+        f.job = Some(Job::Remux);
+        f.progress = Some(0.4);
+        // g: a failed recording is nobody's to repackage.
+        let g = record("g", Status::Failed, &ts("g.ts"));
+        write_index(&index, vec![a, b, e, f, g]);
+
+        let mut cfg = cfg_quiet();
+        cfg.repack = true;
+        let r = Rec::open(index.clone(), cfg);
+
+        // Temp files gone, the originals as they were.
+        assert!(!a_tmp.exists() && !b_tmp.exists() && !e_tmp.exists());
+        assert_eq!(std::fs::read(&b_mkv).unwrap(), b_before);
+        // b waits for the page to say Smaller Files is still on.
+        let b = r.get("b").unwrap();
+        assert_eq!((b.job, b.progress), (Some(Job::Shrink), None));
+        // e and g stay as they are. f has no work.
+        let e = r.get("e").unwrap();
+        assert_eq!(
+            (e.job, e.job_reason.as_deref()),
+            (None, Some("ffmpeg couldn't write it"))
+        );
+        assert!(dir.join("e.ts").exists() && dir.join("g.ts").exists());
+        let f = r.get("f").unwrap();
+        assert_eq!((f.job, f.progress), (None, None));
+        assert_eq!(r.get("g").unwrap().job, None);
+        // a is repackaged by itself.
+        until("a to be repackaged", 90, || {
+            r.get("a").is_some_and(|a| a.job.is_none())
+        });
+        let a = r.get("a").unwrap();
+        assert!(
+            a.path.ends_with("a.mkv") && !dir.join("a.ts").exists(),
+            "{a:?}"
+        );
+        near(&check(Path::new(&a.path)), SRC_SECS);
+        assert!(!dir.join("a.remux.tmp").exists());
+        // The page says it, and b goes again from the start.
+        r.set_smaller(true);
+        until("b to be shrunk", 90, || {
+            r.get("b").is_some_and(|b| b.job.is_none())
+        });
+        let b = r.get("b").unwrap();
+        assert!(b.saved > 0 && b.bytes < b_before.len() as u64, "{b:?}");
+        // What it did is in the index, for the next launch.
+        // (Written just after the page is told, so wait for it.)
+        until("the index to say so", 10, || {
+            let (saved, _) = load(&index);
+            saved.iter().any(|x| x.id == "b" && x.job.is_none())
+        });
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn turning_smaller_files_off_drops_the_shrinks_that_have_not_started() {
+        let b = repacking("shrink-off");
+        add_finished(&b, "m", 1_000, "mkv");
+        add_finished(&b, "t", 2_000, "ts");
+        b.rec.set_smaller(false);
+        // The shrink is dropped and its row says so; the remux is not.
+        assert_eq!(b.rec.get("m").unwrap().job, None);
+        wait_idle(&b, "t");
+        let t = b.rec.get("t").unwrap();
+        assert!(t.path.ends_with(".mkv") && t.saved == 0, "{t:?}");
+        assert!(header(Path::new(&t.path)).contains("Video: mpeg2video"));
+    }
+
+    #[test]
+    fn deleting_a_recording_ends_its_job_and_leaves_nothing() {
+        let hold = Arc::new(AtomicBool::new(true));
+        let held = hold.clone();
+        let b = Bench::new("delete-job", move |c| {
+            c.repack = true;
+            // The job stops here, after the file is written and before it is checked.
+            c.after_write = Some(Arc::new(move |_| {
+                while held.load(Ordering::SeqCst) {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }));
+        });
+        let done = ended(&b, stream(0.0, 12.0));
+        until("the job to run", 30, || {
+            b.rec.get(&done.id).unwrap().progress.is_some()
+        });
+        let (rec, id) = (b.rec.clone(), done.id.clone());
+        let deleting = std::thread::spawn(move || rec.delete(&id));
+        std::thread::sleep(Duration::from_millis(300));
+        hold.store(false, Ordering::SeqCst);
+        assert_eq!(deleting.join().unwrap(), Ok(()));
+        assert!(b.rec.get(&done.id).is_none());
+        assert_eq!(listing(&b.out), Vec::<String>::new());
+    }
+
+    #[test]
+    fn an_mkv_is_played_and_deleted_like_a_ts_and_nothing_else_is() {
+        let dir = temp("mkv-ours");
+        let (mkv, txt) = (dir.join("a.mkv"), dir.join("a.txt"));
+        std::fs::write(&mkv, b"x").unwrap();
+        std::fs::write(&txt, b"x").unwrap();
+        let index = dir.join("recordings.json");
+        write_index(
+            &index,
+            vec![
+                record("mkv", Status::Done, &mkv),
+                record("txt", Status::Done, &txt),
+            ],
+        );
+        let r = Rec::open(index, cfg_quiet());
+        assert_eq!(r.playable("mkv"), Ok(mkv.clone()));
+        assert_eq!(r.playable("txt"), Err("the file is gone".into()));
+        r.delete("txt").unwrap();
+        assert!(txt.exists());
+        r.delete("mkv").unwrap();
+        assert!(!mkv.exists() && r.get("mkv").is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_new_recording_does_not_take_the_name_of_an_mkv() {
+        let dir = temp("mkv-names");
+        std::fs::write(dir.join("News 2026-10-27 1905.mkv"), b"first").unwrap();
+        let next = take_name(&dir, "News 2026-10-27 1905.ts").unwrap();
+        assert!(next.ends_with("News 2026-10-27 1905 (2).ts"), "{next:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_index_from_before_phase_4_loads_and_the_new_fields_reach_the_page() {
+        let dir = temp("old-index-4");
+        let index = dir.join("recordings.json");
+        std::fs::write(
+            &index,
+            r#"{"version":1,"records":[{"id":"a","channel":"News","playlistId":"p1","startedAt":1000,"path":"C:\\v\\a.ts","bytes":5,"status":"done","buffer":false}]}"#,
+        )
+        .unwrap();
+        let (records, ok) = load(&index);
+        assert!(ok && records.len() == 1);
+        let r = &records[0];
+        assert_eq!(
+            (r.job, r.progress, r.job_reason.as_deref(), r.saved),
+            (None, None, None, 0)
+        );
+        let mut r = r.clone();
+        r.job = Some(Job::Shrink);
+        r.progress = Some(0.25);
+        r.job_reason = Some("it didn't get any smaller".into());
+        r.saved = 7;
+        let json = serde_json::to_value(&r).unwrap();
+        assert_eq!(json["job"], "shrink");
+        assert_eq!(json["progress"], 0.25);
+        assert_eq!(json["jobReason"], "it didn't get any smaller");
+        assert_eq!(json["saved"], 7);
+        r.job = Some(Job::Remux);
+        assert_eq!(serde_json::to_value(&r).unwrap()["job"], "remux");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // --- the shrink deinterlaces; the sweep of an orphaned .ts ---
+
+    const W: usize = 320;
+    const H: usize = 240;
+
+    /// Six seconds of a white bar crossing a black picture, 8 pixels a field
+    /// (every row of it moves), as an MPEG-2 `.mkv`. Interlaced is 50 fields a second woven into 25 frames, top
+    /// field first and FLAGGED so (`interlaced_frames` proves it); progressive
+    /// is 25 whole frames.
+    fn motion_mkv(file: &Path, interlaced: bool) {
+        let (rate, vf, flags) = if interlaced {
+            (
+                "50",
+                "tinterlace=mode=interleave_top,fieldorder=tff,format=yuv420p",
+                "+ildct+ilme",
+            )
+        } else {
+            ("25", "format=yuv420p", "0")
+        };
+        // A whole picture also gets fine horizontal lines, which a filter that
+        // rebuilt its rows from their neighbours would smear.
+        let grid = if interlaced {
+            ""
+        } else {
+            ",drawgrid=width=0:height=4:thickness=1:color=gray"
+        };
+        let out = std::process::Command::new(ffmpeg())
+            .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi"])
+            .arg("-i")
+            .arg(format!(
+                "color=c=black:s={W}x{H}:r={rate}[bg];color=c=white:s=24x{H}:r={rate}[bar];\
+                 [bg][bar]overlay=x=mod(n*8\\,296):y=0{grid}"
+            ))
+            .args(["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000"])
+            .args(["-t", "6", "-vf", vf, "-flags", flags])
+            .args(["-c:v", "mpeg2video", "-b:v", "3000k", "-g", "25"])
+            .args(["-c:a", "mp2", "-b:a", "96k", "-f", "matroska"])
+            .arg(file)
+            .output()
+            .expect("ffmpeg ran");
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    /// (frames flagged interlaced, frames flagged progressive), from ffmpeg's
+    /// `showinfo`.
+    fn interlaced_frames(file: &Path) -> (usize, usize) {
+        let out = std::process::Command::new(ffmpeg())
+            .args(["-hide_banner", "-v", "info", "-i"])
+            .arg(file)
+            .args(["-vf", "showinfo", "-f", "null", "-"])
+            .output()
+            .expect("ffmpeg ran");
+        let log = String::from_utf8_lossy(&out.stderr);
+        let count = |flag: &str| log.matches(flag).count();
+        (count(" i:T") + count(" i:B"), count(" i:P"))
+    }
+
+    /// Every decoded frame as grey.
+    fn grey_frames(file: &Path) -> Vec<Vec<u8>> {
+        let out = std::process::Command::new(ffmpeg())
+            .args(["-hide_banner", "-v", "error", "-i"])
+            .arg(file)
+            .args(["-vf", "format=gray", "-f", "rawvideo", "-"])
+            .output()
+            .expect("ffmpeg ran");
+        assert!(out.status.success());
+        out.stdout.chunks_exact(W * H).map(<[u8]>::to_vec).collect()
+    }
+
+    /// How combed the frames are: the mean difference between a row and the
+    /// one beside it, which belongs to the other field. The bar's edge is
+    /// vertical, so a whole picture has none and a woven one has a tooth in
+    /// every row.
+    fn combing(frames: &[Vec<u8>]) -> f64 {
+        let mut near = 0u64;
+        for f in frames {
+            for y in 0..H - 1 {
+                for x in 0..W {
+                    near += i32::from(f[y * W + x]).abs_diff(i32::from(f[(y + 1) * W + x])) as u64;
+                }
+            }
+        }
+        near as f64 / (frames.len().max(1) * W * H) as f64
+    }
+
+    /// The mean difference between two runs of frames, pixel by pixel.
+    fn mean_diff(a: &[Vec<u8>], b: &[Vec<u8>]) -> f64 {
+        let total: u64 = a
+            .iter()
+            .zip(b)
+            .flat_map(|(x, y)| x.iter().zip(y))
+            .map(|(p, q)| u64::from(p.abs_diff(*q)))
+            .sum();
+        total as f64 / (a.len().max(1) * W * H) as f64
+    }
+
+    /// Register a finished `.mkv` already on disk with a shrink queued.
+    fn add_mkv(b: &Bench, id: &str, mkv: &Path) {
+        let mut r = record(id, Status::Done, mkv);
+        r.bytes = size_of(mkv).unwrap();
+        r.job = Some(Job::Shrink);
+        lock(&b.rec.records).push(r);
+        b.rec.queue(id, Job::Shrink);
+    }
+
+    /// Shrink `fixture`, answering what came out.
+    fn shrunk(tag: &str, interlaced: bool) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+        let b = repacking(tag);
+        std::fs::create_dir_all(&b.out).unwrap();
+        let mkv = b.out.join("m.mkv");
+        motion_mkv(&mkv, interlaced);
+        let before = grey_frames(&mkv);
+        add_mkv(&b, "m", &mkv);
+        b.rec.set_smaller(true);
+        let r = wait_idle(&b, "m");
+        assert_eq!(r.job_reason, None, "{r:?}");
+        assert!(r.saved > 0, "{r:?}");
+        assert!(header(&mkv).contains("Video: hevc"));
+        near(&check(&mkv), 6.0);
+        (before, grey_frames(&mkv))
+    }
+
+    #[test]
+    fn the_fixtures_are_what_they_say_they_are() {
+        let dir = temp("fixtures");
+        let (il, pr) = (dir.join("il.mkv"), dir.join("pr.mkv"));
+        motion_mkv(&il, true);
+        motion_mkv(&pr, false);
+        // Every frame of one is flagged interlaced, none of the other.
+        assert_eq!(interlaced_frames(&il), (150, 0));
+        assert_eq!(interlaced_frames(&pr), (0, 150));
+        // And the woven one really is combed.
+        // (A whole picture has none of the bar's; its fine lines are its own.)
+        let c_il = combing(&grey_frames(&il));
+        assert!(c_il > 10.0, "woven combing is only {c_il}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_shrink_deinterlaces_what_is_flagged_interlaced() {
+        let (before, after) = shrunk("shrink-il", true);
+        // One frame out for each in, so the length stands.
+        assert_eq!(after.len(), before.len());
+        // The combing the weave put in is gone, not encoded.
+        let (was, is) = (combing(&before), combing(&after));
+        assert!(is < was / 2.0, "combing {was} before, {is} after");
+    }
+
+    #[test]
+    fn a_shrink_leaves_a_progressive_source_alone() {
+        let (before, after) = shrunk("shrink-pr", false);
+        // The same number of frames and the same length (`shrunk` checks it).
+        // Not the same pixels, it is re-encoded: the filter's part is that it
+        // drops and adds nothing.
+        assert_eq!(after.len(), before.len());
+        // And the picture is the same one, frame for frame, to what an encode
+        // costs it. A filter that took the frames for woven ones and
+        // interpolated them would move the bar.
+        let drift = mean_diff(&before, &after);
+        assert!(drift < 1.0, "the frames drifted by {drift} a pixel");
+    }
+
+    #[test]
+    fn a_ts_left_beside_the_mkv_that_replaced_it_is_deleted_at_launch() {
+        let dir = temp("orphan");
+        let index = dir.join("recordings.json");
+        let file = |name: &str| {
+            let p = dir.join(name);
+            std::fs::write(&p, b"x").unwrap();
+            p
+        };
+        let done = |id: &str, path: &Path| {
+            let mut r = record(id, Status::Done, path);
+            r.bytes = 1;
+            r
+        };
+        // a: swapped to a.mkv, and the delete of a.ts was refused.
+        let (a_mkv, a_ts) = (file("a.mkv"), file("a.ts"));
+        // b: a .ts with nothing beside it. c: a .ts whose entry is on the .ts,
+        // with an .mkv file next to it that no entry points at.
+        let b_ts = file("b.ts");
+        let (c_mkv, c_ts) = (file("c.mkv"), file("c.ts"));
+        // d: the .mkv entry is there but its file is not: the .ts is all there is.
+        let d_ts = file("d.ts");
+        // e: two entries, one on e.ts and one on e.mkv. Both are somebody's.
+        let (e_mkv, e_ts) = (file("e.mkv"), file("e.ts"));
+        write_index(
+            &index,
+            vec![
+                done("a", &a_mkv),
+                done("b", &b_ts),
+                done("c-ts", &c_ts),
+                done("d", &dir.join("d.mkv")),
+                done("e-mkv", &e_mkv),
+                done("e-ts", &e_ts),
+            ],
+        );
+        let mut cfg = cfg_quiet();
+        cfg.repack = true;
+        // Nothing can run: no ffmpeg that works, so the jobs this opens fail
+        // without touching a file.
+        cfg.ffmpeg = Some(dir.join("no-ffmpeg"));
+        let r = Rec::open(index, cfg);
+        assert!(a_mkv.exists() && !a_ts.exists(), "a.ts should be gone");
+        assert!(b_ts.exists(), "a .ts with no .mkv entry is never touched");
+        // c.mkv is on disk but no entry points at it.
+        assert!(c_mkv.exists() && c_ts.exists());
+        assert!(d_ts.exists());
+        assert!(e_mkv.exists() && e_ts.exists(), "another entry's .ts stays");
+        assert!(r.get("a").is_some());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // --- review fixes: what a job may not touch, and what it leaves behind ---
+
+    /// Wait until the job thread has gone idle: everything a job does after it
+    /// tells the page (deleting the old file) is done.
+    fn wait_worker(b: &Bench) {
+        until("the job thread to go idle", 30, || {
+            !lock(&b.rec.jobs).worker
+        });
+    }
+
+    #[test]
+    fn a_remux_never_overwrites_an_mkv_it_did_not_make() {
+        let b = repacking("remux-taken");
+        let ts = add_finished(&b, "n", 1_000, "ts");
+        let mine = b.out.join("n.mkv");
+        std::fs::write(&mine, b"made by hand").unwrap();
+        let original = std::fs::read(&ts).unwrap();
+        b.rec.kick();
+        let r = wait_idle(&b, "n");
+        wait_worker(&b);
+        assert_eq!(r.job_reason.as_deref(), Some(NAME_TAKEN), "{r:?}");
+        assert_eq!(std::fs::read(&mine).unwrap(), b"made by hand");
+        assert_eq!(std::fs::read(&ts).unwrap(), original);
+        assert_eq!(r.path, ts.to_string_lossy());
+        assert_eq!(listing(&b.out), ["n.mkv", "n.ts"]);
+    }
+
+    #[test]
+    fn the_old_file_stays_when_the_index_cannot_record_the_new_one() {
+        let b = repacking("save-fails");
+        let ts = add_finished(&b, "a", 1_000, "ts");
+        let original = std::fs::read(&ts).unwrap();
+        // A directory where the index goes: the save cannot move its temp file
+        // over it.
+        std::fs::create_dir_all(b.root.join("recordings.json")).unwrap();
+        b.rec.kick();
+        let r = wait_idle(&b, "a");
+        wait_worker(&b);
+        // The page is told, and both files are there for the next launch.
+        assert!(r.path.ends_with(".mkv"), "{r:?}");
+        assert_eq!(std::fs::read(&ts).unwrap(), original);
+        near(&check(Path::new(&r.path)), SRC_SECS);
+    }
+
+    #[test]
+    fn deleting_an_mkv_takes_the_ts_it_replaced_but_not_one_that_is_anothers() {
+        let dir = temp("delete-sibling");
+        let file = |name: &str| {
+            let p = dir.join(name);
+            std::fs::write(&p, b"x").unwrap();
+            p
+        };
+        let (x_mkv, x_ts) = (file("x.mkv"), file("x.ts"));
+        let (y_mkv, y_ts) = (file("y.mkv"), file("y.ts"));
+        let (z_mkv, z_ts) = (file("z.mkv"), file("z.ts"));
+        let index = dir.join("recordings.json");
+        write_index(
+            &index,
+            vec![
+                record("x", Status::Done, &x_mkv),
+                record("y", Status::Done, &y_mkv),
+                record("y-ts", Status::Done, &y_ts),
+                record("z", Status::Done, &z_ts),
+            ],
+        );
+        let r = Rec::open(index, cfg_quiet());
+        r.delete("x").unwrap();
+        assert!(!x_mkv.exists() && !x_ts.exists());
+        r.delete("y").unwrap();
+        assert!(
+            !y_mkv.exists() && y_ts.exists(),
+            "another entry's .ts stays"
+        );
+        // A .ts entry's neighbour .mkv may be somebody's own: never taken.
+        r.delete("z").unwrap();
+        assert!(!z_ts.exists() && z_mkv.exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_job_that_is_cancelled_leaves_no_busy_row_behind() {
+        let hold = Arc::new(AtomicBool::new(true));
+        let held = hold.clone();
+        let b = Bench::new("cancelled", move |c| {
+            c.repack = true;
+            c.after_write = Some(Arc::new(move |_| {
+                while held.load(Ordering::SeqCst) {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }));
+        });
+        let done = ended(&b, stream(0.0, 12.0));
+        until("the job to run", 30, || {
+            b.rec.get(&done.id).unwrap().progress.is_some()
+        });
+        // Ended, but the record stays (a delete that gave up waiting).
+        let cancel = lock(&b.rec.jobs).current.as_ref().unwrap().1.clone();
+        cancel.ask();
+        hold.store(false, Ordering::SeqCst);
+        until("the row to be let go", 20, || {
+            b.rec.get(&done.id).unwrap().job.is_none()
+        });
+        let r = b.rec.get(&done.id).unwrap();
+        assert_eq!((r.progress, r.job_reason), (None, None));
+        assert_eq!(r.path, done.path);
+        assert!(Path::new(&done.path).exists());
+        assert_eq!(listing(&b.out).len(), 1);
+    }
+
+    #[test]
+    fn a_shrink_the_player_keeps_from_replacing_the_file_says_so() {
+        // The file is swapped for a folder as the new one is checked, which
+        // is a rename that cannot happen.
+        let b = Bench::new("in-use", |c| {
+            c.repack = true;
+            c.after_write = Some(Arc::new(|tmp| {
+                let mkv = tmp.with_file_name("m.mkv");
+                std::fs::remove_file(&mkv).unwrap();
+                std::fs::create_dir(&mkv).unwrap();
+            }));
+        });
+        add_finished(&b, "m", 1_000, "mkv");
+        b.rec.set_smaller(true);
+        let r = wait_idle(&b, "m");
+        wait_worker(&b);
+        assert_eq!(r.job_reason.as_deref(), Some(IN_USE), "{r:?}");
+        assert_eq!((r.saved, r.progress), (0, None));
+        // No temp file left.
+        assert_eq!(listing(&b.out), ["m.mkv"]);
+    }
+
+    #[test]
+    fn a_shrink_that_found_the_file_in_use_is_tried_again_at_launch() {
+        let _lane = lock(&LANE);
+        let dir = temp("in-use-again");
+        let index = dir.join("recordings.json");
+        let mkv = |name: &str| {
+            let p = dir.join(name);
+            std::fs::write(&p, b"x").unwrap();
+            p
+        };
+        let failed = |id: &str, path: &Path, why: &str| {
+            let mut r = record(id, Status::Done, path);
+            r.bytes = 1;
+            r.job_reason = Some(why.into());
+            r
+        };
+        write_index(
+            &index,
+            vec![
+                failed("busy", &mkv("busy.mkv"), IN_USE),
+                failed("other", &mkv("other.mkv"), "it didn't get any smaller"),
+            ],
+        );
+        let mut cfg = cfg_quiet();
+        cfg.repack = true;
+        cfg.ffmpeg = Some(dir.join("no-ffmpeg"));
+        let r = Rec::open(index, cfg);
+        assert_eq!(r.get("busy").unwrap().job, Some(Job::Shrink));
+        assert_eq!(r.get("other").unwrap().job, None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn turning_smaller_files_off_clears_a_waiting_row_that_is_in_no_queue() {
+        let b = repacking("shrink-off-rows");
+        let waiting = |id: &str, progress: Option<f64>| {
+            let mut r = record(id, Status::Done, &b.out.join(format!("{id}.mkv")));
+            r.job = Some(Job::Shrink);
+            r.progress = progress;
+            lock(&b.rec.records).push(r);
+        };
+        // One a remux queued as the toggle flipped, one running, one queued.
+        waiting("flipped", None);
+        waiting("running", Some(0.3));
+        add_finished(&b, "queued", 3_000, "mkv");
+        b.rec.set_smaller(false);
+        assert_eq!(b.rec.get("flipped").unwrap().job, None);
+        assert_eq!(b.rec.get("queued").unwrap().job, None);
+        assert_eq!(b.rec.get("running").unwrap().job, Some(Job::Shrink));
+        assert!(lock(&b.rec.jobs).queue.is_empty());
+        // The page heard about both, and the index says it.
+        let seen = lock(&b.events).clone();
+        for id in ["flipped", "queued"] {
+            assert!(seen.iter().any(|e| e.id == id && e.job.is_none()), "{id}");
+        }
+        let (saved, _) = load(&b.root.join("recordings.json"));
+        assert!(saved
+            .iter()
+            .filter(|r| r.id == "flipped" || r.id == "queued")
+            .all(|r| r.job.is_none()));
+    }
+
+    #[test]
+    fn a_shrink_waits_for_a_recording_that_is_still_connecting() {
+        let b = repacking("shrink-connecting");
+        // The provider takes a second to answer.
+        let fake = serve(|_| {
+            std::thread::sleep(Duration::from_millis(1200));
+            stream(0.0, 12.0)
+        });
+        let path = add_finished(&b, "m", 1_000, "mkv");
+        let before = size_of(&path).unwrap();
+        let url = format!("{}/live.ts", fake.base);
+        let id = std::thread::scope(|s| {
+            let starting = s.spawn(|| b.start(&url));
+            until("the recording to be asked for", 10, || {
+                lock(&fake.hits).len() == 1
+            });
+            b.rec.set_smaller(true);
+            std::thread::sleep(Duration::from_millis(500));
+            let m = b.rec.get("m").unwrap();
+            assert_eq!(
+                (m.job, m.progress, m.bytes),
+                (Some(Job::Shrink), None, before)
+            );
+            let id = starting.join().unwrap();
+            b.wait_still(&id);
+            b.stop(&id);
+            id
+        });
+        wait_idle(&b, "m");
+        wait_idle(&b, &id);
+        assert!(b.rec.get("m").unwrap().saved > 0);
     }
 }

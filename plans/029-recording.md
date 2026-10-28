@@ -208,6 +208,47 @@ HEVC channel (typical IPTV rates; a channel's own varies).
   fail), the queue, and the interrupted-shrink sweep; harness checks for
   the setting and the row's states. Real GPU encoding is Adam's.
 
+**Built, native half (rec.rs).** What the code does that the list above
+leaves open:
+
+- **The check is ffmpeg's own.** No ffprobe ships (`fetch-ffmpeg.mjs` takes
+  `ffmpeg.exe` only). The original's length is the `Duration:` line of
+  `ffmpeg -i`; the new file's is the `-progress` time of a full decode to
+  `-f null`. They must agree within 2 s or 0.1% of the length, whichever is
+  more (streams in a `.ts` start a fraction of a second apart). Lines the
+  decode prints at `-v error` fail it only if the original's decode prints
+  fewer, so a stream that was damaged on arrival can still be repackaged.
+- **Streams mkv refuses fail the repackaging** (a teletext stream, say): the
+  `.ts` stays and `jobReason` says why. Dropping a stream to make it fit would
+  lose something nobody chose to lose. Data streams are never mapped.
+- **The page reads a job off the Record** (`job`, `progress`, `jobReason`,
+  `saved`). Any `job` is the app being busy; `progress` is null while it
+  waits. The setting reaches native through `rec_set_smaller(on)`, which the
+  page calls at launch and on each change: a shrink left from the last run
+  waits until it has.
+- **Old `.ts` recordings are repackaged at the first launch with this**, one
+  at a time. They are not shrunk; Smaller Files applies to recordings that end
+  after it is on.
+- **A running shrink is not stopped when a recording starts.** One is never
+  started while a recording runs, but one under way keeps its below-normal
+  priority and finishes: stopping it would throw hours away.
+- **The shrink deinterlaces, the remux never does.** `bwdif=mode=send_frame:
+  parity=auto:deint=interlaced` sits before every encoder, GPU ones included
+  (it is a software filter, and the encoder probe runs with it). Only frames
+  flagged interlaced are touched and one frame comes out per frame in, so a
+  progressive source keeps its frames and length.
+- **An orphaned `.ts` goes at launch.** If the swap worked but Windows refused
+  to delete the `.ts`, the next launch deletes it quietly, when an entry
+  points at the `.mkv` beside it and no entry points at the `.ts`.
+- **A repackaging never overwrites an `.mkv` it did not make.** If one is
+  already beside the `.ts`, the job fails with a reason and the `.ts` stays.
+  The old file is deleted only after the index has been saved with the new one.
+- **A shrink the player kept from replacing the file** fails with a reason
+  (not a job left pending, which would hold Install and Restart for ever) and
+  is queued again at the next launch.
+- **Delete ends a job.** A queued one leaves the queue; a running one's ffmpeg
+  is killed, its temp file removed, and then the recording goes.
+
 ## Open, for later
 
 - Series rules ("record every new episode") and recording without the app

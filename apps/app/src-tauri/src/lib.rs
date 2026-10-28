@@ -1227,6 +1227,16 @@ fn rec_show(app: tauri::AppHandle, id: String) -> Result<(), String> {
         .map_err(|_| "could not open the folder".to_string())
 }
 
+/// Settings → Playback → Recordings → Smaller Files: whether a finished
+/// recording is re-encoded to HEVC after it is repackaged (plan 029, Phase 4).
+/// The page says it at launch and on each change. Until it has said, a shrink
+/// left from the last run waits. Off drops the shrinks that have not started.
+#[tauri::command]
+fn rec_set_smaller(on: bool) -> Result<(), String> {
+    rec::get()?.set_smaller(on);
+    Ok(())
+}
+
 /// Give a running recording a fresh link, for its next reconnect: a Stalker
 /// link expires, and the page can ask for another.
 #[tauri::command]
@@ -2148,6 +2158,7 @@ pub fn run() {
             rec_delete,
             rec_show,
             rec_set_url,
+            rec_set_smaller,
             rec_play,
             mv_audio_open,
             mv_audio_close,
