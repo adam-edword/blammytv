@@ -70,6 +70,8 @@ const openStream = async (ctx, { mouse = [700, 320], loaded = true } = {}) => {
   return p;
 };
 const active = (p) => p.locator(".shero__card--active").getAttribute("aria-label");
+/** The poster right of the focused card. */
+const target0 = (p) => p.locator(".shero__card--active + .shero__card");
 const labels = (p) => p.locator(".shero__card").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
 const rects = (p, sel) =>
   p.evaluate((sel) => [...document.querySelectorAll(sel)].map((e) => {
@@ -169,22 +171,30 @@ const near = (a, b, tol = 1) => Math.abs(a - b) <= tol;
   const before = await active(p);
   const trackMs = await p.locator(".shero__track").evaluate((e) => getComputedStyle(e).transitionDuration);
   // The card to the right of the focused one, sampled every frame as it grows.
+  // The pointer rests on it first, as it does before any real click. The
+  // first hover lifts a card onto its own layer (the tilt), which a software
+  // rasteriser pays for in the frames right after; counting those as the
+  // grow's starved the early frames.
+  await target0(p).hover();
+  await p.waitForTimeout(800);
   await p.evaluate(() => {
     const c = document.querySelector(".shero__card--active").nextElementSibling;
     window.__s = [];
     const t0 = performance.now();
     const tick = () => {
       const r = c.getBoundingClientRect();
-      const logo = c.querySelector(".shero__mark").getBoundingClientRect();
+      const mark = c.querySelector(".shero__mark");
+      // Layout boxes, not the screen's: the card under the pointer leans and
+      // lifts 1.03 (the tilt), which is meant; these are about the sizes.
       window.__s.push({
         t: performance.now() - t0,
         cw: r.width,
-        lw: logo.width,
-        lh: logo.height,
-        lx: logo.left - r.left,
-        lo: Number(getComputedStyle(c.querySelector(".shero__mark")).opacity),
-        pw: c.querySelector(".shero__layer--p").getBoundingClientRect().width,
-        bw: c.querySelector(".shero__layer--b").getBoundingClientRect().width,
+        lw: mark.offsetWidth,
+        lh: mark.offsetHeight,
+        lx: mark.offsetLeft,
+        lo: Number(getComputedStyle(mark).opacity),
+        pw: c.querySelector(".shero__layer--p").offsetWidth,
+        bw: c.querySelector(".shero__layer--b").offsetWidth,
       });
       if (performance.now() - t0 < 1100) requestAnimationFrame(tick);
     };
@@ -442,6 +452,8 @@ for (const [width, height] of [[1920, 1080], [1280, 800]]) {
   const p = await openStream(ctx);
   const read = () => p.locator(".shero__info").evaluate((e) => e.innerText);
   const before = await read();
+  await target0(p).hover(); // as above: the pointer is on the card before the click
+  await p.waitForTimeout(800);
   // Every frame's opacity: it must dip (the words leave) and come back.
   await p.evaluate(() => {
     const el = document.querySelector(".shero__info").firstElementChild;
@@ -560,6 +572,231 @@ for (const [width, height] of [[1920, 1080], [1280, 800]]) {
   await ctx.close();
 }
 
+// ------------------------------------------------------------------ the tilt
+// The cards lean to the pointer as the row cards do (react-parallax-tilt, on
+// the picture inside each button). The library writes rotateX/rotateY/scale3d
+// to the wrapper's inline style, which is what is read here. rotateY is the
+// horizontal lean: -5 * (how far right of centre, -1..1) at 5 degrees max.
+const HERO_SETTLE = 900; // HERO_SETTLE_MS in StreamScreen.tsx
+const TILT_RE = /rotateX\((\S+)deg\) rotateY\((\S+)deg\) scale3d\((\S+?),/;
+/** The inline lean of the Tilt wrapper under a point, and the rect of the card
+ * (the button, which never transforms) it belongs to. */
+const leanAt = (p, x, y) =>
+  p.evaluate(
+    ([x, y, src]) => {
+      const el = document.elementFromPoint(x, y);
+      const tilt = el?.closest(".shero__tilt");
+      const card = el?.closest(".shero__card");
+      const m = new RegExp(src).exec(tilt?.style.transform ?? "");
+      if (!m || !card) return null;
+      const r = card.getBoundingClientRect();
+      return { rx: +m[1], ry: +m[2], s: +m[3], l: r.left, t: r.top, w: r.width, h: r.height };
+    },
+    [x, y, TILT_RE.source],
+  );
+const frame = (p) => p.waitForTimeout(160); // the library writes on the next frame
+/** Every Tilt wrapper's lean and every glare, as the page draws them now. The
+ * 200ms ease to flat is finished first: a slow frame (software raster, the
+ * glow's blur) can hold a transition's start back by half a second, and what is
+ * under test is where it ends. "Flat" is no rotation and no scale; the
+ * library's own perspective() is not a lean. */
+const flatState = (p) =>
+  p.evaluate(() => {
+    for (const a of document.getAnimations())
+      if (a.effect?.target?.closest?.(".shero__tilt")) a.finish();
+    const flat = (t) => {
+      const cs = getComputedStyle(t).transform;
+      if (cs === "none") return true;
+      const m = new DOMMatrix(cs);
+      const eps = 1e-4;
+      return [m.m11, m.m22, m.m33].every((x) => Math.abs(x - 1) < eps) &&
+        [m.m12, m.m13, m.m21, m.m23, m.m31, m.m32, m.m41, m.m42, m.m43].every((x) => Math.abs(x) < eps);
+    };
+    const tilts = [...document.querySelectorAll(".shero__tilt")];
+    const glares = [...document.querySelectorAll(".shero__tilt .glare-wrapper")];
+    return {
+      moving: !!document.querySelector(".shero--moving"),
+      drag: document.querySelector(".shero").hasAttribute("data-drag"),
+      n: tilts.length,
+      bent: tilts.filter((t) => !flat(t)).length,
+      lit: glares.filter((g) => Number(getComputedStyle(g).opacity) !== 0).length,
+    };
+  });
+const settled = (p) =>
+  p.waitForFunction(() => !document.querySelector(".shero--moving"), null, { timeout: 5000 }).then(() => p.waitForTimeout(150));
+{
+  const ctx = await context();
+  const p = await openStream(ctx, { mouse: null });
+  await rest(p);
+  const on = (await rects(p, ".shero__card--active"))[0];
+  // Off-centre on the focused card: right of centre, near the top.
+  const fx = on.l + on.w * 0.8;
+  const fy = on.t + on.h * 0.2;
+  await p.mouse.move(fx - 30, fy + 20);
+  await p.mouse.move(fx, fy, { steps: 4 });
+  await frame(p);
+  const f = await leanAt(p, fx, fy);
+  const wantY = -(((fx - on.l) / on.w) * 200 - 100) * 0.05;
+  const wantX = (((fy - on.t) / on.h) * 200 - 100) * 0.05;
+  check(
+    "hovering the focused card off-centre leans it toward the pointer and scales it up",
+    !!f && near(f.ry, wantY, 0.15) && near(f.rx, wantX, 0.15) && Math.abs(f.ry) > 2 && Math.abs(f.rx) > 2 && near(f.s, 1.03, 0.001),
+    JSON.stringify({ f, wantX, wantY }),
+  );
+  const post = (await rects(p, ".shero__card")).find((c) => c.l > on.r && c.r < 1440);
+  const px = post.l + post.w * 0.25;
+  const py = post.t + post.h * 0.8;
+  await p.mouse.move(px, py, { steps: 6 });
+  await frame(p);
+  const q = await leanAt(p, px, py);
+  const wantQ = -(((px - post.l) / post.w) * 200 - 100) * 0.05;
+  check(
+    "a poster leans too, the same way, and the one the pointer left is flat again",
+    !!q && near(q.ry, wantQ, 0.15) && q.ry > 1 && q.rx > 1 && near(q.s, 1.03, 0.001) &&
+      (await p.evaluate(() => {
+        const t = document.querySelector(".shero__card--active .shero__tilt").style.transform;
+        return /rotateX\(0deg\) rotateY\(0deg\) scale3d\(1,/.test(t);
+      })),
+    JSON.stringify({ q, wantQ }),
+  );
+  check(
+    "only the real cards have a Tilt: the glow's copies have none, and the logo is inside it",
+    (await p.locator(".shero__glowbox .shero__tilt, .shero__glowbox .glare-wrapper").count()) === 0 &&
+      (await p.evaluate(() => { const cs = [...document.querySelectorAll(".shero__card")]; return cs.length > 4 && cs.every((c) => c.querySelector(".shero__tilt .glare-wrapper")); })) &&
+      (await p.evaluate(() => { const ms = [...document.querySelectorAll(".shero__card .shero__mark")]; return ms.length > 4 && ms.every((m) => m.closest(".shero__tilt")); })),
+  );
+  await ctx.close();
+}
+{
+  // After a move the lean must follow the pointer on the card that is under it
+  // NOW. The library works the lean out from a rect it took on mouseenter, and
+  // the cards moved and resized since: HeroCard measures again when the shelf
+  // has settled. Two ways to move it, the pointer left where it was.
+  // The settle is a timer (900ms after the move); on a runner whose frames take
+  // 70ms the slide can start so late that it is still running when it fires,
+  // and nothing measured then can be right. The page notes where the cards were
+  // at that moment; a scenario whose cards were still moving is run again.
+  const scenario = async (how) => {
+    const ctx = await context();
+    try {
+      const p = await openStream(ctx, { mouse: null });
+      await rest(p);
+      const on = (await rects(p, ".shero__card--active"))[0];
+      let px, py;
+      await p.evaluate(() => {
+        const host = document.querySelector(".shero");
+        window.__at = null;
+        new MutationObserver(() => {
+          if (!host.classList.contains("shero--moving") && !window.__at)
+            window.__at = new Map([...document.querySelectorAll(".shero__card")].map((c) => [c, c.getBoundingClientRect().left]));
+        }).observe(host, { attributes: true, attributeFilter: ["class"] });
+      });
+      if (how === "click") {
+        const next = (await rects(p, ".shero__card")).find((c) => c.l > on.r);
+        [px, py] = [next.l + next.w / 2, next.t + next.h / 2];
+        await p.mouse.move(px, py, { steps: 4 });
+        await p.mouse.click(px, py);
+      } else {
+        [px, py] = [on.l + on.w / 2, on.t + on.h / 2];
+        await p.mouse.move(px, py, { steps: 4 });
+        await p.locator(".shero__card--active").focus();
+        await p.keyboard.press("ArrowRight");
+      }
+      await p.waitForTimeout(HERO_SETTLE + 400);
+      await settled(p);
+      const late = await p.evaluate(() => {
+        const at = window.__at;
+        return !at || [...at].some(([c, l]) => c.isConnected && Math.abs(c.getBoundingClientRect().left - l) > 0.5);
+      });
+      const card = await p.evaluate(([x, y]) => {
+        const b = document.elementFromPoint(x, y)?.closest(".shero__card")?.getBoundingClientRect();
+        return b && { l: b.left, t: b.top, w: b.width, h: b.height };
+      }, [px, py]);
+      if (!card) return { how, card: null };
+      const y = card.t + card.h * 0.5;
+      await p.mouse.move(card.l + card.w * 0.75, y, { steps: 3 });
+      await frame(p);
+      const right = await leanAt(p, card.l + card.w * 0.75, y);
+      await p.mouse.move(card.l + card.w * 0.25, y, { steps: 3 });
+      await frame(p);
+      const left = await leanAt(p, card.l + card.w * 0.25, y);
+      return { how, w: Math.round(card.w), right: right?.ry, left: left?.ry, late };
+    } finally {
+      await ctx.close();
+    }
+  };
+  const out = [];
+  for (const how of ["click", "key"]) {
+    let o;
+    for (let tries = 1; tries <= 3; tries++) {
+      o = { ...(await scenario(how)), tries };
+      if (!o.late) break;
+    }
+    out.push(o);
+  }
+  check(
+    "after a move, once it has settled, the lean follows the pointer on the card now under it: opposite sides, half the max at the quarters",
+    out.every((o) => o.card !== null && !o.late && near(o.right, -2.5, 0.35) && near(o.left, 2.5, 0.35)),
+    JSON.stringify(out),
+  );
+}
+{
+  // Mid-slide every card is flat, and its glare gone, even one that was leaning
+  // under the pointer the moment the slide began (so this cannot pass on a
+  // shelf that never tilted).
+  const ctx = await context();
+  const p = await openStream(ctx, { mouse: null });
+  await rest(p);
+  const on = (await rects(p, ".shero__card--active"))[0];
+  const [px, py] = [on.l + on.w * 0.7, on.t + on.h * 0.3];
+  await p.mouse.move(px - 20, py + 20);
+  await p.mouse.move(px, py, { steps: 4 });
+  await frame(p);
+  const before = await leanAt(p, px, py);
+  // (A dev build mounts a Tilt twice and appends two glares; one is a leftover.)
+  const glareBefore = await p.evaluate(([x, y]) => Math.max(...[...document.elementFromPoint(x, y).closest(".shero__tilt").querySelectorAll(".glare")].map((g) => Number(g.style.opacity))), [px, py]);
+  await p.locator(".shero__card--active").focus();
+  await p.keyboard.press("ArrowRight");
+  await p.waitForFunction(() => document.querySelector(".shero--moving"), null, { timeout: 2000 });
+  const samples = [await flatState(p)];
+  await p.waitForTimeout(150);
+  samples.push(await flatState(p));
+  check(
+    "mid-slide every card's lean is gone and its glare hidden, having been leaning just before",
+    !!before && Math.abs(before.ry) > 1.5 && Math.abs(before.rx) > 1.5 && glareBefore > 0.01 &&
+      samples.every((s) => s.moving && s.n > 4 && s.bent === 0 && s.lit === 0),
+    JSON.stringify({ before, glareBefore, samples }),
+  );
+  await ctx.close();
+}
+{
+  // The same while the shelf is dragged, before a step is crossed (React's
+  // "moving" starts at half a step; the drag attribute is there from 6px).
+  const ctx = await context();
+  const p = await openStream(ctx, { mouse: null });
+  await rest(p);
+  const on = (await rects(p, ".shero__card--active"))[0];
+  const [px, py] = [on.l + on.w * 0.7, on.t + on.h * 0.3];
+  await p.mouse.move(px - 20, py + 20);
+  await p.mouse.move(px, py, { steps: 4 });
+  await frame(p);
+  const before = await leanAt(p, px, py);
+  await p.mouse.down();
+  for (let i = 1; i <= 4; i++) {
+    await p.mouse.move(px + i * 10, py);
+    await p.waitForTimeout(100);
+  }
+  await p.waitForTimeout(300);
+  const held = await flatState(p);
+  await p.mouse.up();
+  check(
+    "and while the shelf is dragged",
+    !!before && Math.abs(before.ry) > 1.5 && held.drag && held.n > 4 && held.bent === 0 && held.lit === 0,
+    JSON.stringify({ before, held }),
+  );
+  await ctx.close();
+}
+
 // ----------------------------------------------------------------- autoplay
 {
   // Idle it moves on (so the holds below mean something), under the pointer it
@@ -616,6 +853,29 @@ for (const [width, height] of [[1920, 1080], [1280, 800]]) {
     "under reduced motion nothing in the hero has a transition, and a slide lands at once",
     off.every(([, ok]) => ok) && soon === late && was !== next && (await active(p)) === next,
     JSON.stringify({ off: off.filter(([, ok]) => !ok).map(([s]) => s), soon, late, was, next, now: await active(p) }),
+  );
+  await ctx.close();
+}
+
+// ---------------------------------------------------- reduced motion: no tilt
+{
+  const ctx = await context({ reduced: true });
+  const p = await openStream(ctx, { mouse: null });
+  const on = (await rects(p, ".shero__card--active"))[0];
+  const [px, py] = [on.l + on.w * 0.8, on.t + on.h * 0.2];
+  await p.mouse.move(px - 30, py + 20);
+  await p.mouse.move(px, py, { steps: 4 });
+  await frame(p);
+  const f = await leanAt(p, px, py);
+  const post = (await rects(p, ".shero__card")).find((c) => c.l > on.r && c.r < 1440);
+  await p.mouse.move(post.l + post.w * 0.25, post.t + post.h * 0.8, { steps: 4 });
+  await frame(p);
+  const q = await leanAt(p, post.l + post.w * 0.25, post.t + post.h * 0.8);
+  check(
+    "under reduced motion hovering a card leaves it flat, unscaled and with no glare",
+    !!f && !!q && [f.rx, f.ry, q.rx, q.ry].every((x) => x === 0) && f.s === 1 && q.s === 1 &&
+      (await p.locator(".shero__card .glare-wrapper").count()) === 0,
+    JSON.stringify({ f, q }),
   );
   await ctx.close();
 }

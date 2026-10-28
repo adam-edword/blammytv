@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.8: The shelf's cards tilt (unreleased)
+
+- **Every card on Stream's shelf leans under the pointer**, posters and
+  the focused card alike, with the same gentle lean, lift and sheen as the
+  rows. Only the card leans, not its glow, and nothing leans while the
+  shelf slides or you drag it.
+
 ## 1.0.7: A smoother Stream shelf (unreleased)
 
 - **Jumping several titles along works.** Clicking a poster further down,

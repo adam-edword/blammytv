@@ -2617,11 +2617,15 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
   // Around both ends of a move: a drag can land past the cards in view.
   const wantArt = (slot: number) => slot >= Math.min(v, aim) - HERO_BEHIND && slot <= Math.max(v, aim) + fit + 1;
   const out = said !== v && !REDUCED_MOTION;
+  // The shelf is on the move, or has not settled from one (reach is back to
+  // {v, v} HERO_SETTLE_MS after it): the cards are flat then and measure
+  // again when it stops (HeroCard).
+  const moving = pull !== 0 || reach.lo !== v || reach.hi !== v;
   const note = items[mod(REDUCED_MOTION ? v : said, count)];
   const style: CSSProperties & Record<`--${string}`, string | number> = { "--v": v, "--s0": first };
   return (
     <section
-      className={"shero" + (animReady ? " shero--ready" : "")}
+      className={"shero" + (animReady ? " shero--ready" : "") + (moving ? " shero--moving" : "")}
       ref={hostRef}
       aria-roledescription="carousel"
       aria-label="Featured"
@@ -2693,6 +2697,7 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
                 item={item}
                 active={active}
                 art={wantArt(slot)}
+                still={!moving}
                 // The focused card opens the title; a poster slides in.
                 onClick={() => (active ? onOpen(item) : setV(slot))}
               />
@@ -2727,12 +2732,33 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
 /** One card of the shelf: a button whose name is the title. Only the focused
  * one is a tab stop; the posters are reached by click, drag or the arrows.
  * A picture that fails to load counts as missing (HeroLayers draws the
- * fallbacks). */
-function HeroCard({ item, active, art, onClick }: { item: VodItem; active: boolean; art: boolean; onClick: () => void }) {
+ * fallbacks).
+ *
+ * The picture leans and catches the sheen the row cards do, Card's props to
+ * the letter. The button stays OUTSIDE the Tilt, as Card's and
+ * ContinueCard's do: it keeps the focus ring and the click, and the details
+ * under the shelf don't lean. The logo is inside, so it leans with the
+ * picture. The library works the lean out from a rect it cached on
+ * mouseenter, and a sliding card's rect is wrong the moment it moves, so a
+ * moving shelf holds every card flat (stream.css, `.shero--moving`), no lean
+ * is worked out meanwhile (`still`), and when it stops each card measures
+ * again. Disabling the tilt doesn't flatten it: the library keeps its angles. */
+function HeroCard({ item, active, art, still, onClick }: { item: VodItem; active: boolean; art: boolean; still: boolean; onClick: () => void }) {
   const [backdropBad, setBackdropBad] = useState(false);
   const [posterBad, setPosterBad] = useState(false);
   const backdrop = !backdropBad && item.backdrop ? item.backdrop : null;
   const poster = !posterBad && item.poster ? item.poster : null;
+  const tilt = useRef<Tilt>(null);
+  const wasStill = useRef(still);
+  // Layout effect: it measures at the first frame of the settle, before the
+  // card's own transform transition (the library's, 650ms) has moved off flat.
+  useLayoutEffect(() => {
+    if (still && !wasStill.current) {
+      tilt.current?.setSize();
+      tilt.current?.mainLoop(new CustomEvent("autoreset"));
+    }
+    wasStill.current = still;
+  }, [still]);
   return (
     <button
       type="button"
@@ -2741,16 +2767,30 @@ function HeroCard({ item, active, art, onClick }: { item: VodItem; active: boole
       className={"shero__card" + (active ? " shero__card--active" : "") + (!backdrop && poster ? " shero__nobd" : "")}
       onClick={onClick}
     >
-      <HeroLayers
-        item={item}
-        backdrop={backdrop}
-        poster={poster}
-        art={art}
-        onBackdropError={() => setBackdropBad(true)}
-        onPosterError={() => setPosterBad(true)}
-      />
-      <span className="shero__scrim" aria-hidden />
-      <HeroTitle key={item.logo ?? item.id} item={item} />
+      <Tilt
+        ref={tilt}
+        className="shero__tilt"
+        tiltEnable={!REDUCED_MOTION && still}
+        tiltMaxAngleX={5}
+        tiltMaxAngleY={5}
+        scale={REDUCED_MOTION ? 1 : 1.03}
+        transitionSpeed={650}
+        glareEnable={!REDUCED_MOTION}
+        glareMaxOpacity={0.12}
+        glarePosition="all"
+        glareBorderRadius="var(--radius-card)"
+      >
+        <HeroLayers
+          item={item}
+          backdrop={backdrop}
+          poster={poster}
+          art={art}
+          onBackdropError={() => setBackdropBad(true)}
+          onPosterError={() => setPosterBad(true)}
+        />
+        <span className="shero__scrim" aria-hidden />
+        <HeroTitle key={item.logo ?? item.id} item={item} />
+      </Tilt>
     </button>
   );
 }

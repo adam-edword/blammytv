@@ -160,17 +160,52 @@
   width: var(--pw);
   height: 100%;
   border-radius: var(--radius-card);
-  overflow: hidden;
-  background: var(--surface);
   cursor: pointer;
   transition: width var(--dur) var(--ease);
-  /* Own compositor layer: the rounded content rides the track's
-   * transform without re-rasterizing every frame. */
-  transform: translateZ(0);
 }
+/* Own compositor layer: the rounded content rides the track's transform
+ * without re-rasterizing every frame. A real card's picture gets one from
+ * the tilt's own transform (.shero__tilt); a second on the card doubled the
+ * layers, and a software rasteriser dropped frames mid-drag for it. */
 .shero__glowcard {
-  background: none;
+  transform: translateZ(0);
+  overflow: hidden;
   opacity: 0.75; /* focused and neighbours alike (Adam) */
+}
+/* The picture of a real card (HeroCard's Tilt): react-parallax-tilt owns its
+ * transform (lean, scale, glare). The clip and the ground live here and not
+ * on the card, so the 1.03 scale and the lean are not cut off by the card,
+ * and no flat box shows behind a lifted corner. No hover shadow, unlike the
+ * row cards: the glow is this shelf's depth cue. */
+.shero__tilt {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: var(--surface);
+}
+/* The glare is a child the library appends; the layers are positioned, so it
+ * needs a z-index of its own to show over them. Its mask (the library's clip
+ * for Safari) cost a software rasteriser a render pass per card at rest, and
+ * the wrapper's own overflow and radius already clip it in Chromium. */
+.shero__tilt .glare-wrapper {
+  z-index: 3;
+  -webkit-mask-image: none !important;
+}
+/* Flat while the shelf moves (and while it is dragged): the lean comes from a
+ * rect cached before the card moved or resized, so it would lean toward a
+ * place the card is no longer. The library's own transition is 650ms, so a
+ * card under the pointer eases flat here in a short one instead of snapping.
+ * HeroCard measures again when the shelf stops. */
+.shero--moving .shero__tilt,
+.shero[data-drag] .shero__tilt {
+  transform: none !important;
+  transition: transform calc(var(--k) * 200ms) ease-out !important;
+}
+.shero--moving .shero__tilt .glare-wrapper,
+.shero[data-drag] .shero__tilt .glare-wrapper {
+  opacity: 0;
+  transition: opacity calc(var(--k) * 200ms) ease-out;
 }
 .shero__card--active,
 .shero__glowcard--active {
@@ -180,8 +215,8 @@
   outline: 2px solid var(--focus-ring);
   outline-offset: 3px;
 }
-/* The hairline round a picture. */
-.shero__card::after {
+/* The hairline round a picture, on the Tilt so it leans with it. */
+.shero__tilt::after {
   content: "";
   position: absolute;
   inset: 0;
