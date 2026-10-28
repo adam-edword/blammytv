@@ -94,6 +94,7 @@ let list: readonly Recording[] = [];
 let keys: ReadonlySet<string> = new Set();
 let streams: StreamRecs = streamRecs([]);
 let running = false;
+let working = false;
 let started = false;
 /** Ids an event has spoken for. A `rec_list` answer that lands after one is
  * older than it, and must not put the old row back. */
@@ -108,6 +109,7 @@ function set(next: readonly Recording[]): void {
   const s = streamRecs(next);
   if (s.ids !== streams.ids) streams = s;
   running = next.some((r) => r.status === "recording");
+  working = next.some((r) => r.job != null);
   subs.forEach((f) => f());
 }
 
@@ -145,6 +147,12 @@ export const listNow = (): readonly Recording[] => list;
 export const keysNow = (): ReadonlySet<string> => keys;
 export const streamsNow = (): StreamRecs => streams;
 export const runningNow = (): boolean => running;
+/** Whether any finished recording has a job, waiting or running (plan 029,
+ * Phase 4): native is repackaging or shrinking, and a restart would end it. */
+export const workingNow = (): boolean => working;
+/** Which of the two holds Install and Restart, as bits, so a change from one
+ * to the other is a new value and the words that say why are drawn again. */
+const busyNow = (): number => (running ? 1 : 0) | (working ? 2 : 0);
 
 /** Every recording, newest first. Re-renders on each update. */
 export const useRecordings = (): readonly Recording[] => useSyncExternalStore(watch, listNow);
@@ -161,8 +169,9 @@ export const useRunningKeys = (): ReadonlySet<string> => useSyncExternalStore(wa
  * counts. Re-renders only when one starts or ends. */
 export const useStreamRecs = (): StreamRecs => useSyncExternalStore(watch, streamsNow);
 
-/** Whether any recording runs, buffer ones too: Install and Restart wait for it. */
-export const useRecordingRunning = (): boolean => useSyncExternalStore(watch, runningNow);
+/** Whether any recording runs (buffer ones too) or has a job: Install and
+ * Restart wait for either. Draws again when either starts or ends. */
+export const useRecordingBusy = (): number => useSyncExternalStore(watch, busyNow);
 
 /** The event normally came first. If it has not, one look, so the button
  * never sits on a recording it cannot find. */

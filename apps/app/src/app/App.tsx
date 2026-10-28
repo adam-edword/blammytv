@@ -37,6 +37,7 @@ import { hasXtLibrary } from "../features/xtvod/store";
 import { watchXtLibrary } from "../features/xtvod/vod";
 import { saveSettingsTab } from "../features/settings/settingsTab";
 import { watchPlayerPrefs } from "../features/settings/playerPrefsSync";
+import { watchRecordingQuality } from "../features/settings/recordingQuality";
 import {
   loadPlaylists,
   onPlaylistsChange,
@@ -120,6 +121,12 @@ export function App() {
   useEffect(() => {
     if (!isTauri()) return;
     return watchPlayerPrefs();
+  }, []);
+  // Recording Quality: native waits for this first call before it runs a
+  // shrink left from the last run, so it goes early (recordingQuality.ts).
+  useEffect(() => {
+    if (!isTauri()) return;
+    return watchRecordingQuality();
   }, []);
   // Stage a newer frontend in the background, always and silently (plan
   // 008 phase 3). Nothing about the running app changes: staging only

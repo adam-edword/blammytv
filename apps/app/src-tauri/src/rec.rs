@@ -2002,7 +2002,11 @@ impl Rec {
                 // or the reverse (`set_smaller`).
                 let saved = {
                     let mut j = lock(&self.jobs);
-                    let next = (job == Job::Remux && *lock(&self.smaller) == Some(true))
+                    // Unless Smaller Files is known to be off: a remux can finish
+                    // before the page has said (a short one left from the last
+                    // run), and its shrink waits for the page (`runnable`), which
+                    // clears it if the answer is off (`set_smaller`).
+                    let next = (job == Job::Remux && *lock(&self.smaller) != Some(false))
                         .then_some(Job::Shrink);
                     self.change(id, false, |r| {
                         r.path = path_str(&made.path);
@@ -4104,7 +4108,15 @@ mod tests {
         names
     }
 
+    /// The app's page says Smaller Files at launch (off by default): the
+    /// benches start as if it had said off. `unsaid` is the moment before.
     fn repacking(tag: &str) -> Bench {
+        let b = unsaid(tag);
+        *lock(&b.rec.smaller) = Some(false);
+        b
+    }
+
+    fn unsaid(tag: &str) -> Bench {
         Bench::new(tag, |c| c.repack = true)
     }
 
@@ -4359,6 +4371,37 @@ mod tests {
     }
 
     #[test]
+    fn a_remux_that_ends_before_the_page_says_still_gets_its_shrink() {
+        let b = unsaid("shrink-before-page");
+        // The page hasn't said yet: the remux runs, and its shrink waits.
+        let done = ended(&b, stream(0.0, 12.0));
+        until("the remux, with its shrink waiting", 60, || {
+            b.rec
+                .get(&done.id)
+                .is_some_and(|r| r.job == Some(Job::Shrink) && r.progress.is_none() && r.path.ends_with(".mkv"))
+        });
+        std::thread::sleep(Duration::from_millis(400));
+        assert_eq!(b.rec.get(&done.id).unwrap().progress, None, "a shrink ran before the page said");
+        // On: it shrinks.
+        b.rec.set_smaller(true);
+        let r = wait_idle(&b, &done.id);
+        assert!(header(&PathBuf::from(&r.path)).contains("Video: hevc"), "{r:?}");
+    }
+
+    #[test]
+    fn a_remux_that_ends_before_the_page_says_off_is_left_as_it_is() {
+        let b = unsaid("shrink-before-page-off");
+        let done = ended(&b, stream(0.0, 12.0));
+        until("the remux, with its shrink waiting", 60, || {
+            b.rec.get(&done.id).is_some_and(|r| r.job == Some(Job::Shrink) && r.path.ends_with(".mkv"))
+        });
+        b.rec.set_smaller(false);
+        let r = b.rec.get(&done.id).unwrap();
+        assert_eq!(r.job, None);
+        assert!(!header(&PathBuf::from(&r.path)).contains("Video: hevc"), "{r:?}");
+    }
+
+    #[test]
     fn a_shrink_waits_for_a_recording_to_end() {
         let b = repacking("shrink-waits");
         // A recording that stays live for a few seconds.
@@ -4450,9 +4493,10 @@ mod tests {
         let f = r.get("f").unwrap();
         assert_eq!((f.job, f.progress), (None, None));
         assert_eq!(r.get("g").unwrap().job, None);
-        // a is repackaged by itself.
+        // a is repackaged by itself, and its shrink waits for the page too.
         until("a to be repackaged", 90, || {
-            r.get("a").is_some_and(|a| a.job.is_none())
+            r.get("a")
+                .is_some_and(|a| a.path.ends_with("a.mkv") && a.job == Some(Job::Shrink) && a.progress.is_none())
         });
         let a = r.get("a").unwrap();
         assert!(

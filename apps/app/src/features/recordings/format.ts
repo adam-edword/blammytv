@@ -1,4 +1,5 @@
 import { scrubbedMessage } from "../../lib/errors";
+import type { RecRecord } from "../../lib/tauri";
 /** How a recording reads in a row: how long, how big, why it stopped. */
 
 /** "0:07", "12:34", "1:02:03". Whole seconds, rounded down; never negative. */
@@ -28,6 +29,24 @@ export function formatSize(bytes: number): string {
 export function reasonLine(reason: string): string {
   const r = reason.trim().replace(/\.+$/, "");
   return r ? `${r[0].toUpperCase()}${r.slice(1)}.` : "";
+}
+
+/**
+ * What a finished recording says about its work (plan 029, Phase 4), or "" when
+ * there is none to say. The status slot of its row: a job waiting for its turn
+ * ("Waiting to Shrink"), under way with how far ("Shrinking 70%"), and once
+ * done, what the repackaging and shrinking took off the file ("Saved 1.2 GB").
+ * "Finishing" is the repackaging, which the person didn't ask for and needn't
+ * know the name of.
+ */
+export function jobLine(r: Pick<RecRecord, "job" | "progress" | "saved">): string {
+  if (r.job) {
+    const shrink = r.job === "shrink";
+    if (r.progress == null) return shrink ? "Waiting to Shrink" : "Waiting to Finish";
+    const pct = Math.round(Math.min(1, Math.max(0, r.progress)) * 100);
+    return `${shrink ? "Shrinking" : "Finishing"} ${pct}%`;
+  }
+  return r.saved ? `Saved ${formatSize(r.saved)}` : "";
 }
 
 /** What Record says when it could not start: the fragment native gave, as the

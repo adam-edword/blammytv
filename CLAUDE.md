@@ -75,7 +75,7 @@ curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 395 tests (plan 029 Phase 4, native): 52 for the proxy (35 mvproxy, 17 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 22 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 62 for a Jellyfin server's own client (jf.rs), 6 for the header a Jellyfin stream asks mpv to send (mpvheader.rs), 16 for mpvprefs, 21 for mpvopen, 9 for mpvvulkan, 8 for about, 16 for logtail, 14 for settingsfile, 10 for mpvagent, 8 for mpvsubs, 69 for rec. On CI the Windows job runs the same tests with the
+Baseline 397 tests (plan 029 Phase 4): 52 for the proxy (35 mvproxy, 17 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 22 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 62 for a Jellyfin server's own client (jf.rs), 6 for the header a Jellyfin stream asks mpv to send (mpvheader.rs), 16 for mpvprefs, 21 for mpvopen, 9 for mpvvulkan, 8 for about, 16 for logtail, 14 for settingsfile, 10 for mpvagent, 8 for mpvsubs, 71 for rec. On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 

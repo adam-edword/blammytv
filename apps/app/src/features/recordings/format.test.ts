@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatSize, plainError, reasonLine, startFailure } from "./format";
+import { formatDuration, formatSize, jobLine, plainError, reasonLine, startFailure } from "./format";
 
 describe("formatDuration", () => {
   it("is m:ss under an hour and h:mm:ss from one", () => {
@@ -60,5 +60,37 @@ describe("plainError", () => {
   it("is the words in a string or an Error, not 'Error: …'", () => {
     expect(plainError("stream lost")).toBe("stream lost");
     expect(plainError(new Error("no link"))).toBe("no link");
+  });
+});
+
+describe("jobLine", () => {
+  it("says nothing for a recording with no job and nothing saved", () => {
+    expect(jobLine({})).toBe("");
+    expect(jobLine({ job: null, progress: null, saved: 0 })).toBe("");
+  });
+
+  it("says a job is waiting while it has no progress", () => {
+    expect(jobLine({ job: "remux", progress: null })).toBe("Waiting to Finish");
+    expect(jobLine({ job: "shrink", progress: null })).toBe("Waiting to Shrink");
+    expect(jobLine({ job: "shrink" })).toBe("Waiting to Shrink");
+  });
+
+  it("gives the percent once it runs, including at 0", () => {
+    expect(jobLine({ job: "remux", progress: 0 })).toBe("Finishing 0%");
+    expect(jobLine({ job: "remux", progress: 0.4 })).toBe("Finishing 40%");
+    expect(jobLine({ job: "shrink", progress: 0.704 })).toBe("Shrinking 70%");
+  });
+
+  it("keeps the percent between 0 and 100", () => {
+    expect(jobLine({ job: "shrink", progress: 1.7 })).toBe("Shrinking 100%");
+    expect(jobLine({ job: "shrink", progress: -0.2 })).toBe("Shrinking 0%");
+  });
+
+  it("says what was saved once no job is left", () => {
+    expect(jobLine({ job: null, progress: null, saved: 1.2 * 1024 ** 3 })).toBe("Saved 1.2 GB");
+  });
+
+  it("is the job while there is one, whatever has been saved so far", () => {
+    expect(jobLine({ job: "shrink", progress: null, saved: 5 * 1024 ** 2 })).toBe("Waiting to Shrink");
   });
 });

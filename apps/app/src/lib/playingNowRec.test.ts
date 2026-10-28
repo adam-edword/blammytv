@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The recordings store, as one flag: whether a recording runs.
 let recording = false;
-vi.mock("../features/recordings/store", () => ({ runningNow: () => recording }));
+let working = false;
+vi.mock("../features/recordings/store", () => ({ runningNow: () => recording, workingNow: () => working }));
 vi.mock("./tauri", () => ({ isLivePopout: () => false }));
 
 import { finishFirst, isPlaying } from "./playingNow";
@@ -18,6 +19,7 @@ function dom(...present: string[]) {
 describe("a recording holds Install and Restart (plan 029)", () => {
   beforeEach(() => {
     recording = false;
+    working = false;
     dom();
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -40,6 +42,24 @@ describe("a recording holds Install and Restart (plan 029)", () => {
     expect(finishFirst()).toBe("Stop recording first.");
     dom("#inv-chrome");
     expect(finishFirst()).toBe("Finish watching and stop recording first.");
+  });
+
+  it("is playing while a finished one is being repackaged or shrunk, and says to wait", () => {
+    working = true;
+    expect(isPlaying()).toBe(true);
+    expect(finishFirst()).toBe("Wait for recordings to finish first.");
+    dom("#inv-chrome");
+    expect(finishFirst()).toBe("Finish watching and wait for recordings to finish first.");
+    recording = true;
+    expect(finishFirst()).toBe("Finish watching, stop recording and wait for recordings to finish first.");
+  });
+
+  it("lets go when the job ends", () => {
+    working = true;
+    expect(isPlaying()).toBe(true);
+    working = false;
+    expect(isPlaying()).toBe(false);
+    expect(finishFirst()).toBeNull();
   });
 
   it("lets go when the recording ends", () => {

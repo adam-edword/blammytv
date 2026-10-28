@@ -103,6 +103,8 @@ export const KEY_GROUPS = {
     // and a connection of its own (D5).
     "recordingWarning",
     "recordingNotice",
+    // Original Quality or Smaller Files (plan 029, Phase 4).
+    "recordingQuality",
     // Settings → Sources → Content: what the app shows, not a login.
     "showAdult",
   ],

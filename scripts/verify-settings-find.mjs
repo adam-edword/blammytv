@@ -458,8 +458,8 @@ async function registryMatches(page, positions, label, absent = []) {
   await gear(page).click();
   await settingsUp(page);
   await page.waitForTimeout(400);
-  // Recordings Folder, like Jellyfin's sign-in, is drawn only by the app; verify-recordings checks it there.
-  const { reg } = await registryMatches(page, POSITIONS.filter((p) => !["accounts", "app"].includes(p.key)), "browser", ["jellyfin", "recordings-folder"]);
+  // Recordings Folder and Recording Quality, like Jellyfin's sign-in, are drawn only by the app; verify-recordings and the native block below check them there.
+  const { reg } = await registryMatches(page, POSITIONS.filter((p) => !["accounts", "app"].includes(p.key)), "browser", ["jellyfin", "recordings-folder", "recording-quality"]);
   // The registry itself: a label for every row, ids that are unique.
   check("the registry's ids are unique and every row has a label", new Set(reg.map((r) => r.id)).size === reg.length && reg.every((r) => r.label.trim()), `${reg.length} rows`);
   await ctx.close();
@@ -481,6 +481,17 @@ async function registryMatches(page, positions, label, absent = []) {
   const tr = await landed(page, "trakt");
   check('"trakt" opens Accounts', (await current(page)) === "Accounts" && tk?.rows[0]?.label === "Trakt" && tk.rows[0].sub === "Settings · Accounts", `${await current(page)} / ${JSON.stringify(tk?.rows[0])}`);
   check("  with the row lit and focus on its Connect", !!tr && tr.lit && tr.inRow && tr.focusLabel === "Connect", JSON.stringify(tr));
+  await closeSettings(page);
+
+  // ------------------------------------------------ "smaller files": Playback, Recording Quality
+  await ask(page, "smaller files");
+  const rq = await settingsSection(page);
+  await page.keyboard.press("Enter");
+  await settingsUp(page);
+  await settle(page);
+  const rql = await landed(page, "recording-quality");
+  check('"smaller files" lists Recording Quality, "Settings · Playback", and opens Playback', rq?.rows[0]?.label === "Recording Quality" && rq.rows[0].sub === "Settings · Playback" && (await current(page)) === "Playback", `${await current(page)} / ${JSON.stringify(rq?.rows[0])}`);
+  check("  with the row lit and focus on its first choice, Original Quality", !!rql && rql.lit && rql.inView && rql.inRow && /Original Quality/.test(rql.focusLabel ?? ""), JSON.stringify(rql));
   await closeSettings(page);
 
   // ------------------------------------------------ "clear": App, not armed, and Escape

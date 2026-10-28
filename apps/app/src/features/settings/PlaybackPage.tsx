@@ -57,6 +57,12 @@ import {
   type SubtitleSize,
 } from "./playerPrefs";
 import { plainError } from "../recordings/format";
+import {
+  RECORDING_QUALITY_TABS,
+  loadRecordingQuality,
+  saveRecordingQuality,
+  type RecordingQuality,
+} from "./recordingQuality";
 import { loadRecordingsFolder, saveRecordingsFolder } from "./recordingsFolder";
 import { recordingWarningsOn, showRecordingWarningsAgain } from "./recordingWarning";
 import { SignInNote } from "./SignInNote";
@@ -124,6 +130,7 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
   // the app records, so only the app draws it.
   const [recFolder, setRecFolder] = useState<string>(loadRecordingsFolder);
   const [recDefault, setRecDefault] = useState<string>("");
+  const [recQuality, setRecQuality] = useState<RecordingQuality>(loadRecordingQuality);
   const [recFolderErr, setRecFolderErr] = useState<string | null>(null);
   useEffect(() => {
     if (!isTauri()) return;
@@ -427,6 +434,25 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
                   </Button>
                 )}
               </div>
+            </div>
+
+            <div className="customize-stack" data-setting="recording-quality">
+              <div>
+                <h4 className="customize-row__title">Recording Quality</h4>
+                <p className="settings__section-note settings__section-note--dim">
+                  Smaller Files compresses each recording after it finishes.
+                </p>
+              </div>
+              <Segmented
+                className="self-start"
+                label="Recording quality"
+                options={RECORDING_QUALITY_TABS}
+                value={recQuality}
+                onChange={(k: RecordingQuality) => {
+                  setRecQuality(k);
+                  saveRecordingQuality(k);
+                }}
+              />
             </div>
           </section>
         </>

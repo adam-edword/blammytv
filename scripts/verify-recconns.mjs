@@ -21,7 +21,9 @@
 // - Multi-View. A running stream recording is the app's own connection: one
 //   fewer tile, and never "Elsewhere". Another device's stream still is.
 // - Install and Restart wait while a recording runs, and say so; they go
-//   ahead once it ends.
+//   ahead once it ends. The same while a finished one has a job (native is
+//   repackaging or shrinking its file, Phase 4), running or still waiting its
+//   turn, and they are let go when the job ends.
 //
 // HOW. verify-recordings' stub (isTauri() is true, the real player path
 // runs) with rec_buffer_start added, and the panel's player_api answered here:
@@ -543,8 +545,37 @@ for (const [name, opts, line] of [
   await restart.click();
   await page.waitForFunction(() => window.__calls.some((c) => c[0] === "frontend_apply"), null, { timeout: 5000 });
   check("when the recording ends, Restart Now goes ahead", (await calls(page, "frontend_apply")).length === 1);
+
+  // The file it made is still being worked on (plan 029, Phase 4): native is shrinking it, and a
+  // restart would throw that away. Held the same way, and let go when the job ends.
+  const jobOf = (o) => ({ id: "j1", channel: "Fake News", programme: null, playlistId: "t", startedAt: 1000, endedAt: 2000, path: "C:\\Videos\\j1.mkv", bytes: 4096, status: "done", reason: null, buffer: false, job: null, progress: null, jobReason: null, saved: 0, ...o });
+  // A hint that never shows is a failed check, not a crash.
+  const tipOrNone = (el) => tip(el).catch(() => null);
+  const isHeld = () => page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent === "Restart Now")?.getAttribute("aria-disabled"));
+  await put(page, jobOf({ job: "shrink", progress: 0.3 }));
+  await page.waitForFunction(() => [...document.querySelectorAll("button")].find((b) => b.textContent === "Restart Now")?.getAttribute("aria-disabled") === "true", null, { timeout: 5000 }).catch(() => {});
+  check("a shrink under way holds Restart Now, and says to wait", (await tipOrNone(restart)) === "Wait for recordings to finish first. It applies on its own next launch.");
+  await restart.click({ force: true });
+  await sleep(300);
+  check("  and pressing it restarts nothing", (await calls(page, "frontend_apply")).length === 1);
+  await put(page, jobOf({ job: null, saved: 1024 }));
+  await page.waitForFunction(() => [...document.querySelectorAll("button")].find((b) => b.textContent === "Restart Now")?.getAttribute("aria-disabled") === "false", null, { timeout: 5000 }).catch(() => {});
+  check("when the job ends, Restart Now is let go with no reload", (await isHeld()) === "false");
+  await put(page, jobOf({ job: "shrink", progress: null, saved: 0 }));
+  await page.waitForFunction(() => [...document.querySelectorAll("button")].find((b) => b.textContent === "Restart Now")?.getAttribute("aria-disabled") === "true", null, { timeout: 5000 }).catch(() => {});
+  check("a job still waiting its turn holds it too", (await isHeld()) === "true");
+  await put(page, jobOf({ job: null }));
+  await page.waitForFunction(() => [...document.querySelectorAll("button")].find((b) => b.textContent === "Restart Now")?.getAttribute("aria-disabled") === "false", null, { timeout: 5000 }).catch(() => {});
+
   await page.keyboard.press("Escape");
   await page.locator(".settings").waitFor({ state: "detached", timeout: 5000 });
+  await put(page, jobOf({ job: "remux", progress: null }));
+  check("the update chip says to wait while a repackaging is queued", (await tipOrNone(chip)) === "Wait for recordings to finish first. Then install.");
+  await chip.click();
+  await sleep(300);
+  check("  and pressing it installs nothing", (await calls(page, "install_update")).length === 0);
+  await put(page, jobOf({ job: null }));
+  await sleep(300);
   check("  and the chip’s words are the usual ones again", (await tip(chip)) === "Download and Restart into the New Version", await tip(chip));
   await chip.click();
   await page.waitForFunction(() => window.__calls.some((c) => c[0] === "install_update"), null, { timeout: 5000 });

@@ -7,7 +7,7 @@ import {
   tauriInstallUpdate,
 } from "../lib/tauri";
 import { finishFirst, isPlaying } from "../lib/playingNow";
-import { useRecordingRunning } from "../features/recordings/store";
+import { useRecordingBusy } from "../features/recordings/store";
 
 /**
  * The update banner: a small glass chip that slides in beside the header
@@ -31,7 +31,7 @@ type Phase =
 export function UpdateChip() {
   const [phase, setPhase] = useState<Phase>({ at: "hidden" });
   // A recording starting or ending changes what holds the install.
-  useRecordingRunning();
+  useRecordingBusy();
   // And the player closing does, which nothing here hears: the hint is read
   // again as the pointer arrives, so it never says "Finish watching" after
   // the player has gone.

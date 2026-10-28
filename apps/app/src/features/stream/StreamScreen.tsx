@@ -2806,7 +2806,9 @@ function HeroAmbient({ src, fallback }: { src: string | null; fallback: string |
         paintAmbient(c, u, fallback);
       }
     });
-  }, [slot]);
+    // fallback changes with src (the same title), and a layer already showing
+    // its picture is not repainted (the dataset check), so this costs nothing.
+  }, [slot, fallback]);
   return (
     <div className="shero__ambient" aria-hidden>
       {slot.urls.map((_, i) => (

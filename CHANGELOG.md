@@ -2,6 +2,15 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.17: Smaller Files, and recordings that say what they're doing (unreleased)
+
+- **Settings → Playback → Recording Quality**: Original Quality, or
+  Smaller Files, which compresses each recording after it finishes.
+- **A recording's row says what's happening to it**: Waiting to Finish,
+  Finishing 40%, Waiting to Shrink, Shrinking 70%, then how much it saved.
+- **Install and Restart wait** while a recording is being finished or
+  shrunk, as they wait for one that's recording.
+
 ## 1.0.16: Continue Watching says which episode (unreleased)
 
 - **A series on Continue Watching shows its episode**, "S1 · E4 · 42m

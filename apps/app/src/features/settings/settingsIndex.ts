@@ -167,6 +167,12 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["record", "recording", "recordings", "dvr", "folder", "directory", "path", "save", "where", "videos", "location"],
   },
   {
+    id: "recording-quality",
+    label: "Recording Quality",
+    page: "playback",
+    keywords: ["record", "recording", "recordings", "dvr", "smaller", "smaller files", "original", "size", "space", "disk", "compress", "shrink", "hevc", "h265", "x265", "reencode", "encode", "gpu"],
+  },
+  {
     id: "accent",
     label: "Accent Color",
     page: "appearance",

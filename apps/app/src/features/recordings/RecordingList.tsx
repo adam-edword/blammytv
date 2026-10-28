@@ -3,7 +3,7 @@ import { Button } from "../../components/ui/button";
 import { tauriRecShow } from "../../lib/tauri";
 import { formatWhen } from "../../lib/time";
 import { loadClockFormat } from "../settings/clockFormat";
-import { formatDuration, formatSize, plainError, reasonLine } from "./format";
+import { formatDuration, formatSize, jobLine, plainError, reasonLine } from "./format";
 import { deleteRecording, stopRecording, useRecordings, type Recording } from "./store";
 
 const STATUS: Record<Recording["status"], string> = {
@@ -95,12 +95,17 @@ export function RecordingList({
         const ms = (r.endedAt ?? now) - r.startedAt;
         const when = formatWhen(new Date(r.startedAt), new Date(now), clock);
         const reason = r.reason ? reasonLine(r.reason) : "";
+        // A reason is for a job that ended; one being tried again doesn't show it.
+        const jobWhy = r.jobReason && !r.job ? reasonLine(r.jobReason) : "";
+        // A job under way takes the status slot; what it saved follows the size.
+        const work = jobLine(r);
         return (
           <li
             key={r.id}
             className={"rec-row" + (r.id === playingId ? " rec-row--playing" : "")}
             data-id={r.id}
             data-status={r.status}
+            data-job={r.job ?? undefined}
             aria-current={r.id === playingId ? "true" : undefined}
           >
             <div className="rec-row__main">
@@ -112,14 +117,16 @@ export function RecordingList({
               <p className="rec-row__meta">
                 <span className={"rec-row__status rec-row__status--" + r.status}>
                   {running && <span className="rec-dot" aria-hidden />}
-                  {STATUS[r.status]}
+                  {r.job ? work : STATUS[r.status]}
                 </span>
                 {" · "}
                 {formatDuration(ms)}
                 {" · "}
                 {formatSize(r.bytes)}
+                {!r.job && work && ` · ${work}`}
               </p>
               {reason && <p className="rec-row__why">{reason}</p>}
+              {jobWhy && <p className="rec-row__why">{jobWhy}</p>}
               {errs[r.id] && (
                 <p className="rec-row__err" role="alert">
                   {errs[r.id]}

@@ -7,6 +7,10 @@
 // its reason, `rec-update` events moving a row without a reload, Play handing
 // native a real rect, Delete asking first, Library's section landing in Live TV
 // Recordings, and Settings → Playback → Recordings Folder reaching `rec_start`.
+// Phase 4: a finished recording's job (`job`, `progress`, `jobReason`, `saved`)
+// as the row says it: waiting, under way with a percent, what it saved, why one
+// was kept as it was; never the file's type; both lists; progress without a
+// second rec_list.
 //
 // HOW. verify-live-idle's stub (isTauri() is true, the real player path runs),
 // plus the rec_* commands over a small in-page model of native's index, and
@@ -339,6 +343,58 @@ await page.locator('.rec-row[data-id="r2"] button', { hasText: "Stop Recording" 
 await page.waitForFunction(() => /Done/.test(document.querySelector('.rec-row[data-id="r2"]')?.innerText ?? ""));
 check("Stop Recording in the list ends it (rec_stop by id) and the row reads Done", JSON.stringify(await calls("rec_stop")) === JSON.stringify([{ id: "r2" }]));
 
+
+// ------------------------------------------------ a finished recording's job (Phase 4)
+// Native repackages every recording into .mkv, and with Smaller Files shrinks it
+// after. The row says where that stands; the file's type is not the person's concern.
+const jobRec = (o) => base({ channel: "Fake News Channel", endedAt: o.startedAt + 600_000, bytes: 100 * 1024 ** 2, path: "C:\\Videos\\j.mkv", jobReason: null, saved: 0, ...o });
+await put(jobRec({ id: "jw", startedAt: now - 20 * hour, job: "remux", progress: null }));
+await put(jobRec({ id: "jr", startedAt: now - 21 * hour, job: "remux", progress: 0.4 }));
+await put(jobRec({ id: "sw", startedAt: now - 22 * hour, job: "shrink", progress: null }));
+await put(jobRec({ id: "sr", startedAt: now - 23 * hour, job: "shrink", progress: 0.7 }));
+await put(jobRec({ id: "sv", startedAt: now - 24 * hour, job: null, progress: null, saved: 1.2 * 1024 ** 3, bytes: 900 * 1024 ** 2 }));
+await put(jobRec({ id: "kp", startedAt: now - 25 * hour, job: null, progress: null, jobReason: "it didn't get any smaller" }));
+await put(jobRec({ id: "ps", startedAt: now - 26 * hour, status: "partial", reason: "stream lost", job: null, progress: null, jobReason: "not enough free disk space" }));
+const jobRows = async () =>
+  Object.fromEntries(await page.locator(".rec-row").evaluateAll((els) => els.map((e) => [e.dataset.id, e.innerText.replace(/\n+/g, " | ")])));
+let jr = await jobRows();
+const listCallsBefore = (await calls("rec_list")).length;
+check("a repackaging that waits its turn says Waiting to Finish", /Waiting to Finish/.test(jr.jw) && !/Finishing|Shrinking/.test(jr.jw), jr.jw);
+check("a repackaging under way says Finishing with its percent", /Finishing 40%/.test(jr.jr) && !/Waiting/.test(jr.jr), jr.jr);
+check("a shrink that waits its turn says Waiting to Shrink", /Waiting to Shrink/.test(jr.sw), jr.sw);
+check("a shrink under way says Shrinking with its percent", /Shrinking 70%/.test(jr.sr) && !/Waiting/.test(jr.sr), jr.sr);
+check("a job takes the status slot, so the row never says Done over it", ["jw", "jr", "sw", "sr"].every((id) => !/Done/.test(jr[id])), JSON.stringify([jr.jw, jr.sr]));
+check("  and keeps its length and size beside it", / 10:00 /.test(jr.sr) && /100 MB/.test(jr.sr), jr.sr);
+check("one with the shrink behind it says Done and what it saved", /Done/.test(jr.sv) && /Saved 1\.2 GB/.test(jr.sv) && /900 MB/.test(jr.sv) && !/Waiting|Shrinking|Finishing/.test(jr.sv), jr.sv);
+check("why a job was given up is the row's note, as a sentence", /It didn't get any smaller\./.test(jr.kp) && /Done/.test(jr.kp), jr.kp);
+check("  next to the recording's own reason when it has one", /Partial/.test(jr.ps) && /Stream lost\./.test(jr.ps) && /Not enough free disk space\./.test(jr.ps), jr.ps);
+check("a row with no job and nothing saved says none of this", ["p1", "f1", "locked"].every((id) => jr[id] !== undefined && !/Waiting|Finishing|Shrinking|Saved/.test(jr[id])), JSON.stringify([jr.p1, jr.f1]));
+check("no row names the file's type", Object.values(jr).every((t) => !/\.(mkv|ts)\b/i.test(t)), Object.values(jr).find((t) => /\.(mkv|ts)\b/i.test(t)));
+const jobBtns = await page.locator('.rec-row[data-id="sr"] button').allInnerTexts();
+check("a row with a job still offers Play, Show in Folder and Delete", jobBtns.join() === "Play,Show in Folder,Delete", jobBtns.join());
+
+// Progress arrives as events: the row moves, and native is not asked for the list again.
+await put(jobRec({ id: "sr", startedAt: now - 23 * hour, job: "shrink", progress: 0.9 }));
+await page.waitForFunction(() => /Shrinking 90%/.test(document.querySelector('.rec-row[data-id="sr"]')?.innerText ?? ""));
+await put(jobRec({ id: "jw", startedAt: now - 20 * hour, job: "remux", progress: 0 }));
+await page.waitForFunction(() => /Finishing 0%/.test(document.querySelector('.rec-row[data-id="jw"]')?.innerText ?? ""));
+const moved = await page.locator('.rec-row[data-id="sr"]').innerText();
+check("a rec-update moves a job's percent in place, and a waiting one starts at 0%", /Shrinking 90%/.test(moved) && !/70%/.test(moved) && /Finishing 0%/.test(await page.locator('.rec-row[data-id="jw"]').innerText()), moved.replace(/\n+/g, " | "));
+check("  without a second rec_list", (await calls("rec_list")).length === listCallsBefore, String((await calls("rec_list")).length - listCallsBefore));
+// Remux done with Smaller Files on: it goes straight to waiting for the shrink, then runs, then done.
+await put(jobRec({ id: "jw", startedAt: now - 20 * hour, job: "shrink", progress: null, saved: 40 * 1024 ** 2 }));
+await page.waitForFunction(() => /Waiting to Shrink/.test(document.querySelector('.rec-row[data-id="jw"]')?.innerText ?? ""), null, { timeout: 3000 }).catch(() => {});
+const handed = await page.locator('.rec-row[data-id="jw"]').innerText();
+check("a repackaging that hands on to a shrink reads Waiting to Shrink, not what it saved so far", /Waiting to Shrink/.test(handed) && !/Saved/.test(handed), handed.replace(/\n+/g, " | "));
+await put(jobRec({ id: "jw", startedAt: now - 20 * hour, job: null, progress: null, saved: 700 * 1024 ** 2, bytes: 60 * 1024 ** 2 }));
+await page.waitForFunction(() => /Saved 700 MB/.test(document.querySelector('.rec-row[data-id="jw"]')?.innerText ?? ""));
+const done = await page.locator('.rec-row[data-id="jw"]').innerText();
+check("  and when the shrink ends the row says Done and Saved 700 MB, with the new size", /Done · 10:00 · 60 MB/.test(done) && !/Shrinking|Waiting/.test(done), done.replace(/\n+/g, " | "));
+// A job that failed: no longer busy, and the reason arrives with the event.
+await put(jobRec({ id: "sr", startedAt: now - 23 * hour, job: null, progress: null, jobReason: "the new file has errors the original doesn't" }));
+await page.waitForFunction(() => /The new file has errors the original doesn't\./.test(document.querySelector('.rec-row[data-id="sr"]')?.innerText ?? ""));
+check("a shrink given up says why and stops saying Shrinking", !/Shrinking|Waiting/.test(await page.locator('.rec-row[data-id="sr"]').innerText()));
+
 // ------------------------------------------------------------------- Play
 const opensBefore = (await calls("inv_open")).length;
 await page.locator('.rec-row[data-id="p1"] button', { hasText: "Play" }).click();
@@ -411,6 +467,13 @@ const libIds = await page.locator(".library__recordings .rec-row").evaluateAll((
 const live = await page.evaluate(() => window.__native.recs.map((r) => r.id));
 check("Library has a Recordings section with the same items", /Recordings/.test(await page.locator(".library__recordings h3").innerText()) && [...libIds].sort().join() === [...live].sort().join(), `${libIds} vs ${live}`);
 check("  a finished one offers Play, Show in Folder and Delete", (await page.locator('.library__recordings .rec-row[data-id="p1"] button').allInnerTexts()).join() === "Play,Show in Folder,Delete");
+await put(jobRec({ id: "sw", startedAt: now - 22 * hour, job: "shrink", progress: null }));
+await put(jobRec({ id: "sr", startedAt: now - 23 * hour, job: "shrink", progress: 0.55 }));
+await put(jobRec({ id: "jr", startedAt: now - 21 * hour, job: "remux", progress: 0.4 }));
+await page.waitForFunction(() => /Shrinking 55%/.test(document.querySelector('.library__recordings .rec-row[data-id="sr"]')?.innerText ?? ""));
+const libJobs = Object.fromEntries(await page.locator(".library__recordings .rec-row").evaluateAll((els) => els.map((e) => [e.dataset.id, e.innerText.replace(/\n+/g, " | ")])));
+check("Library's section says the same: Waiting to Shrink, Shrinking 55%, Finishing 40%, and what was saved", /Waiting to Shrink/.test(libJobs.sw) && /Shrinking 55%/.test(libJobs.sr) && /Finishing 40%/.test(libJobs.jr) && /Saved 700 MB/.test(libJobs.jw), JSON.stringify([libJobs.sw, libJobs.sr, libJobs.jr, libJobs.jw]));
+check("  and none of its rows names the file's type", Object.values(libJobs).every((t) => !/\.(mkv|ts)\b/i.test(t)));
 const playsBefore = (await calls("rec_play")).length;
 await page.locator('.library__recordings .rec-row[data-id="p1"] button', { hasText: "Play" }).click();
 await page.locator(".live-sidebar").waitFor({ timeout: 10_000 });

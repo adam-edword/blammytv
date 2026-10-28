@@ -10,7 +10,7 @@ import {
   tauriInstallUpdate,
 } from "../../lib/tauri";
 import { finishFirst, isPlaying } from "../../lib/playingNow";
-import { useRecordingRunning } from "../recordings/store";
+import { useRecordingBusy } from "../recordings/store";
 import { EYEBROW } from "../../ui/eyebrow";
 import { Hint } from "../../ui/Hint";
 import { noteLines } from "./updateNotes";
@@ -33,7 +33,7 @@ type Phase =
 export function UpdatesSection() {
   const [phase, setPhase] = useState<Phase>({ at: "idle" });
   // A recording starting or ending changes what holds an install (plan 029).
-  useRecordingRunning();
+  useRecordingBusy();
   // Hot channel (plan 008): a staged frontend waiting to be served. It
   // applies on the next launch whether or not anyone touches this row —
   // that alone is the bulk of the win — so the button is an accelerator,

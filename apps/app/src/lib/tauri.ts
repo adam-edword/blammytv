@@ -210,7 +210,20 @@ export interface RecRecord {
   reason: string | null;
   /** A recording of the player's own buffer: it opens no connection. */
   buffer: boolean;
+  /* After it ends (Phase 4): the work it waits for or has under way. A native
+   * build from before v1.0.14 sends none of these, so all four may be absent. */
+  /** "remux" is the repackaging into .mkv, "shrink" the re-encode. Any job
+   * means the app is busy: Install and Restart wait. */
+  job?: RecJob | null;
+  /** 0 to 1 while the job runs; null while it waits its turn. */
+  progress?: number | null;
+  /** Why the last job failed and the original was kept; null otherwise. */
+  jobReason?: string | null;
+  /** Bytes the repackaging and shrinking took off the file so far. */
+  saved?: number;
 }
+
+export type RecJob = "remux" | "shrink";
 
 /** Start recording a live channel. Answers the recording's id once bytes are
  * coming (up to 20s), and rejects with why not. */
@@ -266,6 +279,13 @@ export function tauriRecShow(id: string): Promise<void> {
  * (`tauriInvStop`). */
 export function tauriRecPlay(id: string, rect: CompRect): Promise<void> {
   return invoke("rec_play", { id, x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+}
+/** Settings → Playback → Recording Quality: whether a finished recording is
+ * re-encoded smaller. Said at launch and on every change, false included.
+ * Native holds a shrink left from the last run until the first call. Rejects
+ * on a build from before v1.0.14, which the caller takes quietly. */
+export function tauriRecSetSmaller(on: boolean): Promise<void> {
+  return invoke("rec_set_smaller", { on });
 }
 /** Where new recordings go when Settings has not picked a folder. */
 export function tauriRecDefaultFolder(): Promise<string> {

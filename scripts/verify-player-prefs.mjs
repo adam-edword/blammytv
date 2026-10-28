@@ -14,6 +14,11 @@
 //     values, then again with both on each change. A native build that has no
 //     such command (the stub rejects it) leaves no page error and Settings
 //     still works; a plain browser never asks;
+//   - Recording Quality (plan 029, Phase 4), the Recordings group's second row:
+//     Original Quality (default) or Smaller Files, stored as `recordingQuality`;
+//     native is told with `rec_set_smaller` at launch (false included) and on
+//     every change, once for the same value twice; an unknown stored value is
+//     Original Quality; a native that has no such command is quiet;
 //   - the pop-out: `popout_open` carries the size and corner as they stand;
 //   - the delay, in the player: x, x, z call `mpv_sub_delay` with +0.1, +0.1,
 //     -0.1 and the picture says what the stub returned, not what was asked;
@@ -57,7 +62,8 @@ const errors = [];
  * v0.11.29 does (the command is not found); `delay0` is the delay mpv
  * already has when the film opens, which is what lets a check tell the
  * picture showing the stub's answer from the picture adding up its own.
- * `subs` is what mpv_status says the file carries.
+ * `smaller` false rejects rec_set_smaller, as a build from before v1.0.14
+ * does. `subs` is what mpv_status says the file carries.
  */
 async function open({ store = {}, tauri = true, native = {}, subs = SUBS_ON, path = "", viewport = { width: 1440, height: 900 }, watching = null } = {}) {
   const ctx = await browser.newContext({ viewport });
@@ -87,6 +93,7 @@ async function open({ store = {}, tauri = true, native = {}, subs = SUBS_ON, pat
           invoke: (cmd, args) => {
             window.__tauriCalls.push([cmd, args]);
             if (cmd === "http_get") return fetch(args.url).then((r) => r.text());
+            if (cmd === "rec_set_smaller") return native.smaller === false ? Promise.reject(`command ${cmd} not found`) : Promise.resolve(undefined);
             if (cmd === "mpv_prefs") return native.prefs === false ? Promise.reject(`command ${cmd} not found`) : Promise.resolve(undefined);
             if (cmd === "mpv_sub_delay") {
               if (native.delay === false) return Promise.reject(`command ${cmd} not found`);
@@ -159,9 +166,9 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
   await openPlayback(page);
   const rows = await titles(page);
   check(
-    "Playback: Stream's rows, then the Player group: Speaker Setup, Subtitle Size, Pop-Out Window, then Recordings Folder",
+    "Playback: Stream's rows, then the Player group: Speaker Setup, Subtitle Size, Pop-Out Window, then Recordings Folder and Recording Quality",
     JSON.stringify(rows) ===
-      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop-Out Window", "Recordings Folder"]),
+      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop-Out Window", "Recordings Folder", "Recording Quality"]),
     JSON.stringify(rows),
   );
   const groups = await page.locator(".settings__body .settings__group").allInnerTexts();
@@ -237,7 +244,7 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
   const ids = await page.evaluate(() => [...document.querySelectorAll(".settings__body [data-setting]")].map((e) => e.dataset.setting));
   check(
     "with no AIOStreams the Player group is still there, and Stream's rows are not",
-    JSON.stringify(rows) === JSON.stringify(["Speaker Setup", "Subtitle Size", "Pop-Out Window", "Recordings Folder"]) && JSON.stringify(ids) === JSON.stringify(["audio-channels", "subtitle-size", "popout", "recordings-folder"]),
+    JSON.stringify(rows) === JSON.stringify(["Speaker Setup", "Subtitle Size", "Pop-Out Window", "Recordings Folder", "Recording Quality"]) && JSON.stringify(ids) === JSON.stringify(["audio-channels", "subtitle-size", "popout", "recordings-folder", "recording-quality"]),
     JSON.stringify({ rows, ids }),
   );
   check("  under the sign-in note for the rest", /Sign in to AIOStreams or Jellyfin to see these settings/.test(note), note.slice(0, 120));
@@ -609,6 +616,73 @@ for (const [label, subs] of [["no subtitle track at all", []], ["a track that is
   await page.keyboard.press("x");
   await page.waitForTimeout(200);
   check("live: with the track off, z and x do nothing", (await page.evaluate(() => window.__log.filter((l) => Array.isArray(l)).length)) === n);
+  await ctx.close();
+}
+
+// Recording Quality (plan 029, Phase 4): Settings → Playback → Recordings.
+{
+  const { ctx, page } = await open();
+  await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "rec_set_smaller"), null, { timeout: 5000 }).catch(() => {});
+  const atLaunch = await calls(page, "rec_set_smaller");
+  check("at launch native is told Original Quality: rec_set_smaller with on false, once, before Settings is opened", atLaunch.length === 1 && atLaunch[0].on === false, JSON.stringify(atLaunch));
+  await openPlayback(page);
+  const row = page.locator("[data-setting='recording-quality']");
+  const rowText = (await row.innerText()).replace(/\n+/g, " | ");
+  check("Settings → Playback → Recordings has Recording Quality, with a note on what Smaller Files does", /^Recording Quality \| Smaller Files compresses each recording after it finishes\./.test(rowText), rowText);
+  const choices = await page.evaluate(() => [...document.querySelectorAll("[data-setting='recording-quality'] [role=group] button")].map((b) => b.textContent).join());
+  check("  with two choices, Original Quality and Smaller Files", choices === "Original Quality,Smaller Files", choices);
+  check("  Original Quality is on by default, and nothing is stored until one is chosen", (await pressed(page, "Recording quality")).join() === "Original Quality" && (await page.evaluate(() => localStorage.getItem("blammytv.recordingQuality"))) === null);
+
+  await seg(page, "Recording quality").getByRole("button", { name: "Smaller Files", exact: true }).click();
+  await page.waitForFunction(() => window.__tauriCalls.filter((c) => c[0] === "rec_set_smaller").length >= 2, null, { timeout: 5000 }).catch(() => {});
+  check("Smaller Files shows pressed and is stored, versioned", (await pressed(page, "Recording quality")).join() === "Smaller Files" && JSON.stringify(await stored(page, "recordingQuality")) === JSON.stringify({ v: 1, data: "smaller" }));
+  check("  and native is told true", JSON.stringify((await calls(page, "rec_set_smaller")).map((c) => c.on)) === "[false,true]", JSON.stringify(await calls(page, "rec_set_smaller")));
+  await seg(page, "Recording quality").getByRole("button", { name: "Smaller Files", exact: true }).click();
+  await page.waitForTimeout(200);
+  check("  pressing it again says nothing more", (await calls(page, "rec_set_smaller")).length === 2);
+  await seg(page, "Recording quality").getByRole("button", { name: "Original Quality", exact: true }).click();
+  await page.waitForFunction(() => window.__tauriCalls.filter((c) => c[0] === "rec_set_smaller").length >= 3, null, { timeout: 5000 }).catch(() => {});
+  check("going back to Original Quality tells native false, so it can drop the shrinks that have not started", JSON.stringify((await calls(page, "rec_set_smaller")).map((c) => c.on)) === "[false,true,false]", JSON.stringify(await calls(page, "rec_set_smaller")));
+  check("  and it is stored as original", JSON.stringify(await stored(page, "recordingQuality")) === JSON.stringify({ v: 1, data: "original" }));
+  await ctx.close();
+}
+
+// Smaller Files stored: native hears it at launch, with no Settings open.
+{
+  const { ctx, page } = await open({ store: { recordingQuality: "smaller" } });
+  await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "rec_set_smaller"), null, { timeout: 5000 }).catch(() => {});
+  const sent = await calls(page, "rec_set_smaller");
+  check("a launch with Smaller Files stored tells native true, once", sent.length === 1 && sent[0].on === true, JSON.stringify(sent));
+  await openPlayback(page);
+  check("  and Settings shows it pressed", (await pressed(page, "Recording quality")).join() === "Smaller Files");
+  await ctx.close();
+}
+
+// A value this build does not offer is Original Quality, and native is told so.
+{
+  const { ctx, page } = await open({ store: { recordingQuality: "tiny" } });
+  await openPlayback(page);
+  await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "rec_set_smaller"), null, { timeout: 5000 }).catch(() => {});
+  const sent = await calls(page, "rec_set_smaller");
+  check("an unknown stored quality reads as Original Quality, and native is told false", (await pressed(page, "Recording quality")).join() === "Original Quality" && sent.length === 1 && sent[0].on === false, JSON.stringify(sent));
+  await ctx.close();
+}
+
+// A native from before v1.0.14 has no such command: nothing shows, the setting still saves.
+{
+  const { ctx, page } = await open({ native: { smaller: false } });
+  await openPlayback(page);
+  await seg(page, "Recording quality").getByRole("button", { name: "Smaller Files", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("with a native that has no rec_set_smaller the setting still saves, and no rejection goes unhandled", JSON.stringify(await stored(page, "recordingQuality")) === JSON.stringify({ v: 1, data: "smaller" }) && (await unhandled(page)).length === 0, JSON.stringify(await unhandled(page)));
+  await ctx.close();
+}
+
+// A plain browser has no recorder: no row, and native is never asked.
+{
+  const { ctx, page } = await open({ tauri: false });
+  await openPlayback(page);
+  check("in a plain browser there is no Recording Quality row", (await page.locator("[data-setting='recording-quality']").count()) === 0);
   await ctx.close();
 }
 

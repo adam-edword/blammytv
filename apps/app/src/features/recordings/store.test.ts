@@ -284,3 +284,32 @@ describe("the connections recordings hold (plan 029)", () => {
     expect(mod.runningNow()).toBe(false);
   });
 });
+
+describe("a recording's job (plan 029, Phase 4)", () => {
+  it("is working while any record has a job, waiting or running, and not before or after", async () => {
+    const { mod } = await fresh();
+    expect(mod.workingNow()).toBe(false);
+    emit(rec({ id: "a", status: "done", endedAt: 9, job: "remux", progress: null }));
+    expect(mod.workingNow()).toBe(true);
+    emit(rec({ id: "a", status: "done", endedAt: 9, job: "remux", progress: 0.5 }));
+    expect(mod.workingNow()).toBe(true);
+    emit(rec({ id: "a", status: "done", endedAt: 9, job: null, progress: null, saved: 10 }));
+    expect(mod.workingNow()).toBe(false);
+  });
+
+  it("is not a running recording: the two are told apart", async () => {
+    const { mod } = await fresh();
+    emit(rec({ id: "a", status: "done", endedAt: 9, job: "shrink" }));
+    expect(mod.runningNow()).toBe(false);
+    expect(mod.workingNow()).toBe(true);
+  });
+
+  it("puts a progress update in the row without asking native again", async () => {
+    const { mod } = await fresh();
+    emit(rec({ id: "a", status: "done", endedAt: 9, job: "shrink", progress: 0 }));
+    const asked = tauriRecList.mock.calls.length;
+    emit(rec({ id: "a", status: "done", endedAt: 9, job: "shrink", progress: 0.7 }));
+    expect(mod.listNow()[0].progress).toBe(0.7);
+    expect(tauriRecList.mock.calls.length).toBe(asked);
+  });
+});
