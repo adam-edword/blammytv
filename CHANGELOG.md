@@ -2,6 +2,12 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.9: The shelf's pictures fade in (unreleased)
+
+- **A growing card's wide picture fades in** instead of snapping on, and
+  the poster over it fades out just behind it.
+- **The shelf's cards sit closer together**, 16px apart like the rows.
+
 ## 1.0.8: The shelf's cards tilt (unreleased)
 
 - **Every card on Stream's shelf leans under the pointer**, posters and

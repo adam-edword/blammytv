@@ -45,7 +45,8 @@ Watching card, as his mockup had it, 860 against 470):
 - Focused card 1.8x the Continue Watching card's width (960 x 540 at
   today's 533 x 300; it follows whatever sizes that card, the UI scale
   included), capped at 72vw. Posters 2:3 at the same height (360 wide).
-  Gap 30px. The previous card peeks in to the left of the focused one.
+  Gap 16px, the rows' own (Adam, 1.0.9; it was 30). The previous card
+  peeks in to the left of the focused one.
 - One left edge for Stream (Adam): the focused card sits at a gutter of
   max(28px, 3.3vw), and every Stream row (titles and cards) moves from
   today's 28px to the same gutter, so Continue Watching lines up with the
@@ -66,8 +67,9 @@ Motion (620ms, cubic-bezier(.22, .8, .24, 1)):
   The card's width reveals or covers them. Scaling either to the moving box
   zoomed the poster and slid its printed title off the bottom (Adam caught
   it in the prototype).
-- The poster lies over the 16:9 art and does the fading both ways. On the
-  way in, the art under it shows at once. On the way out it stays until the
+- The poster lies over the 16:9 art. On the way in the art fades in over
+  the first 45% and the poster out from 10% to 50% (Adam, 1.0.9: the art
+  snapped in). On the way out it stays until the
   card is poster-sized again, so no gap opens beside a shrinking poster.
 - The logo fades in after 55% of the grow, at its final size and place:
   bottom-left, inside a box 46% × 34% of the FULL card, contained. A soft

@@ -31,14 +31,15 @@
  * 2:3 posters at its height, the focused title's details under the card.
  * The focused card is 1.8x a Continue Watching card (960 x 540 at its 300px),
  * capped at 72vw so a narrow window still shows a poster beside it; the
- * posters are 2:3 at its height; the gap is 30px; the focused card sits at
+ * posters are 2:3 at its height; the gap is 16px, the rows' own (Adam); the
+ * focused card sits at
  * the page's left edge, the previous one peeking in beside it. Escapes
  * .stream's padding so the peeks bleed to the window edges. ---- */
 .shero {
   --w: min(calc(var(--cw-h, 300px) * 3.2), 72vw);
   --h: calc(var(--w) * 9 / 16);
   --pw: calc(var(--h) * 2 / 3);
-  --gap: 30px;
+  --gap: 16px;
   --in: var(--gut, 28px);
   --step: calc(var(--pw) + var(--gap));
   /* The move eases in and settles (the old hero's curve, Adam: it left at
@@ -225,12 +226,12 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-image) 10%, transparent);
 }
 /* The 16:9 art is as wide as the focused card, the poster as wide as a
- * poster, both at the left. The poster lies over the art and does the
- * fading, both ways, in the share of the slide where the two pictures would
- * otherwise sit side by side with a hard edge. Growing, it is gone in the
- * first 35% (the art under it shows at once). Shrinking, the art stays
- * until the card is poster-sized again (the opacity step waits out the
- * duration), so no gap opens beside a shrinking poster, and the poster
+ * poster, both at the left. Growing, the art fades in over the first 45%
+ * (Adam: it snapped in) and the poster over it fades out from 10% to 50%,
+ * so the art leads and the card never dips to its ground, and the two
+ * pictures never sit side by side at full strength. Shrinking, the art
+ * stays until the card is poster-sized again (the opacity step waits out
+ * the duration), so no gap opens beside a shrinking poster, and the poster
  * comes back over the last 35% only. */
 .shero__layer {
   position: absolute;
@@ -258,11 +259,11 @@
 }
 :is(.shero__card--active, .shero__glowcard--active) .shero__layer--b {
   opacity: 1;
-  transition: none;
+  transition: opacity calc(var(--dur) * 0.45) var(--ease-fade);
 }
 :is(.shero__card--active, .shero__glowcard--active) .shero__layer--p {
   opacity: 0;
-  transition: opacity calc(var(--dur) * 0.35) var(--ease-fade);
+  transition: opacity calc(var(--dur) * 0.4) var(--ease-fade) calc(var(--dur) * 0.1);
 }
 /* No 16:9 art: the poster stands in for it, blurred and darkened, and the
  * sharp poster stays at the card's right instead of fading away. */

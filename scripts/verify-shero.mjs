@@ -106,8 +106,8 @@ const near = (a, b, tol = 1) => Math.abs(a - b) <= tol;
   );
   const prev = cards.filter((c) => c.l < on.l);
   check(
-    "a poster peeks in before the focused card, and the next ones follow a 30px gap apart",
-    prev.length >= 1 && prev.at(-1).r > 0 && near(cards.find((c) => c.l > on.l).l - on.r, 30, 0.5),
+    "a poster peeks in before the focused card, and the next ones follow a 16px gap apart",
+    prev.length >= 1 && prev.at(-1).r > 0 && near(cards.find((c) => c.l > on.l).l - on.r, 16, 0.5),
     JSON.stringify({ peek: prev.at(-1)?.r, gap: cards.find((c) => c.l > on.l).l - on.r }),
   );
   await ctx.close();
@@ -427,11 +427,16 @@ for (const [width, height] of [[1920, 1080], [1280, 800]]) {
   });
   const o = at.out;
   for (const [who, inn, old] of [["card", "inn", "old"], ["glow copy", "gInn", "gOld"]]) {
+    // 0, 40, 100, 186, 217, 300, 500, 600ms of the 620ms grow.
     const grow = [0, 40, 100, 186, 217, 300, 500, 600].map((t) => o[t][inn]);
     check(
-      `growing, the ${who}'s poster starts opaque, fades, and is gone by 30% of the grow, the 16:9 art under it showing throughout`,
-      grow[0].p === 1 && grow[1].p > 0.1 && grow[1].p < 0.9 && grow[3].p < 0.1 && grow.slice(3).every((x) => x.p < 0.1) && grow.every((x) => x.b === 1),
-      JSON.stringify(grow.map((x) => +x.p.toFixed(2))),
+      `growing, the ${who}'s 16:9 art fades in over the first 45% and leads the poster, which fades out from 10% to 50%`,
+      grow[0].b === 0 && grow[0].p === 1 && // nothing has moved at the start
+        grow[1].b > 0.1 && grow[1].b < 0.9 && grow[1].p === 1 && // the art fading in, the poster still waiting
+        grow.slice(2, 5).every((x) => x.b > 1 - x.p) && // the art further in than the poster is out: no dip to the ground
+        grow.every((x, i) => i === 0 || x.b >= grow[i - 1].b) &&
+        grow.slice(5).every((x) => x.b === 1 && x.p < 0.01),
+      JSON.stringify(grow.map((x) => [+x.b.toFixed(2), +x.p.toFixed(2)])),
     );
     const hold = [0, 40, 100, 186, 217, 300].map((t) => o[t][old]);
     const back = [403, 450, 500, 550].map((t) => o[t][old].p);
@@ -505,7 +510,7 @@ for (const [width, height] of [[1920, 1080], [1280, 800]]) {
 {
   const ctx = await context();
   const p = await openStream(ctx, { mouse: null });
-  const step = (await rects(p, ".shero__card")).find((c) => c.w < 400).w + 30;
+  const step = (await rects(p, ".shero__card")).find((c) => c.w < 400).w + 16;
   const startAt = async () => {
     const ls = await labels(p);
     const a = ls.indexOf(await active(p));
