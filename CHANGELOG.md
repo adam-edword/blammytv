@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.13: Watch Now with the keyboard (unreleased)
+
+- **Enter on the Large carousel's Watch Now** just plays, instead of also
+  opening the title's page.
+
 ## 1.0.12: Pick the carousel's style (unreleased)
 
 - **Settings → Appearance → Stream → Carousel Style**: Shelf (the new

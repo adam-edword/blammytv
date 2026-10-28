@@ -343,10 +343,14 @@ const stored = (p) => p.evaluate(() => JSON.parse(localStorage.getItem("blammytv
   await p.waitForTimeout(500);
 
   // The card itself opens the title too, as a click on the focused card always did.
+  // On a film: on a series "does not play it" would pass for nothing.
+  for (let i = 0; i < 8 && !/Movie/.test(await activeTitle(p)); i++) await next(p);
   const t2 = await activeTitle(p);
   await p.mouse.click(700, 300);
   await p.waitForSelector(".vod-detail", { timeout: 15_000 });
-  check("a click on the focused card opens its page, and does not play it", (await p.locator(".vod-detail").first().innerText()).includes(t2) && asked.length === 0, JSON.stringify({ t2, asked }));
+  // A film's page asks for its sources itself (its Sources list), so "does not
+  // play" is the player's loading screen never showing, not a quiet network.
+  check("a click on the focused card opens its page, and does not play it", /Movie/.test(t2) && (await p.locator(".vod-detail").first().innerText()).includes(t2) && (await p.locator(".vodload").count()) === 0, JSON.stringify({ t2, loading: await p.locator(".vodload").count() }));
   await p.locator(".vod-back").click();
   await p.waitForSelector(".lhero__card--active", { timeout: 15_000 });
   await p.waitForTimeout(500);

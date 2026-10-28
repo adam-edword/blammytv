@@ -3094,7 +3094,9 @@ function LargeHero({
               role="button"
               tabIndex={active ? 0 : -1}
               onKeyDown={(e) => {
-                if (active && (e.key === "Enter" || e.key === " ")) onOpen(item);
+                // The card's own key only: Enter on Watch Now bubbled up here
+                // and opened the page as well as playing (from review).
+                if (active && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) onOpen(item);
               }}
               className={"lhero__card" + (active ? " lhero__card--active" : "")}
               style={{ left: slot * step, width: cardW }}
