@@ -2,6 +2,10 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.19: The episode without the pipe (unreleased)
+
+- **Continue Watching reads "Dr. STONE S3 E8"**, the episode in grey.
+
 ## 1.0.18: Ratings with a star; the episode beside the title (unreleased)
 
 - **Ratings on cards have a star**, "★ 8.1", so they can't be read as

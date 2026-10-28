@@ -117,7 +117,7 @@ check(
 );
 check(
   "a series card names its episode beside the title, and the line under it is the time left",
-  (await card.locator(".stream-card__name").innerText({ timeout: 2000 }).catch(() => "")).trim() === `${ENTRY.title} | S1 E4` &&
+  (await card.locator(".stream-card__name").innerText({ timeout: 2000 }).catch(() => "")).trim() === `${ENTRY.title} S1 E4` &&
     /^\d+m Left$/.test((await card.locator(".stream-card__meta").innerText({ timeout: 2000 }).catch(() => "")).trim()),
 );
 check(

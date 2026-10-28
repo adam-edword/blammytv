@@ -42,7 +42,8 @@ export function ContinueCard({
     entry.posSec && entry.durSec && entry.posSec < entry.durSec * 0.9
       ? Math.max(1, Math.round((entry.durSec - entry.posSec) / 60))
       : null;
-  // Which episode, for a series, beside the title: "Dr. STONE | S3 E8" (Adam).
+  // Which episode, for a series, beside the title in grey: "Dr. STONE S3 E8"
+  // (Adam; the grey does the separating, so no pipe).
   // An entry from before season/episode were kept has only the label.
   const epOf = entry.label?.match(/^S(\d+) · E(\d+)/);
   const ep =
@@ -210,7 +211,7 @@ export function ContinueCard({
       >
         <span className="stream-card__name">
           {entry.title}
-          {ep && <span className="continue-card__ep"> | {ep}</span>}
+          {ep && <span className="continue-card__ep"> {ep}</span>}
         </span>
         {metaLine && <span className="stream-card__meta">{metaLine}</span>}
       </button>
