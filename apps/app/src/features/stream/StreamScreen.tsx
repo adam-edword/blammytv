@@ -2393,16 +2393,27 @@ function Home({
 function mod(n: number, m: number): number {
   return ((n % m) + m) % m;
 }
-/** The shelf's reach on each side of the focused card, in slots. Behind: the
- * previous card peeks in at the left, one more waits off screen. Ahead:
- * three posters show (the third partly), and the fourth mounts before it
- * ever enters the frame, so a slide never pays an image decode mid-animation
- * (every mounted card loads its poster AND its 16:9 art). */
+/** The shelf's reach behind the focused card, in slots: the previous card
+ * peeks in at the left, one more waits off screen. Ahead the reach comes from
+ * the window's width (`fit` in Hero): twice what shows, so a click on the
+ * farthest poster has everything its slide brings into view already mounted
+ * and loaded. */
 const HERO_BEHIND = 2;
-const HERO_AHEAD = 4;
+/** A drag moves at most this many cards, so a pull far past the shelf can't
+ * keep mounting cards (or land on one never mounted). */
+const HERO_MAX_DRAG = 12;
+const clampDrag = (n: number) => Math.max(-HERO_MAX_DRAG, Math.min(HERO_MAX_DRAG, n));
+/** How long a moved shelf keeps every card it passed over mounted: the 620ms
+ * slide (stream.css, `--dur`) and a frame, with slack for the eased-in tail
+ * (the last pixels of the shrink land late on a slow frame). Dropping a card
+ * sooner takes it off screen mid-slide. */
+const HERO_SETTLE_MS = 900;
 function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => void }) {
   const [v, setV] = useState(0); // virtual index, never wraps
   const [width, setWidth] = useState(0);
+  /** Posters after the focused card it takes to reach the window's right edge
+   * (3 at 1920px wide, 1 at 1280). */
+  const [fit, setFit] = useState(2);
   const [hovered, setHovered] = useState(false);
   /** Keyboard focus is inside the carousel. Autoplay used to pause for the
    * mouse alone, so a focused button slid off screen 8s later, taking the
@@ -2412,15 +2423,27 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
    * fade-out, so the old words leave before the new ones arrive. */
   const [said, setSaid] = useState(0);
   const hostRef = useRef<HTMLElement | null>(null);
+  /** Probes as wide as the CSS says: a poster and a gap, and the focused card
+   * and a gap. The sizes are read off the page, not worked out here. */
+  const stepRef = useRef<HTMLSpanElement | null>(null);
+  const leadRef = useRef<HTMLSpanElement | null>(null);
   const count = items.length;
   // Layout effect: measured BEFORE first paint, so no width-0 frame exists.
   useLayoutEffect(() => {
     const el = hostRef.current;
-    if (!el) return;
-    const measure = () => setWidth(el.clientWidth);
+    const step = stepRef.current;
+    const lead = leadRef.current;
+    if (!el || !step || !lead) return;
+    const measure = () => {
+      setWidth(el.clientWidth);
+      const s = step.getBoundingClientRect().width;
+      if (s > 0) setFit(Math.max(0, Math.ceil((el.clientWidth - lead.getBoundingClientRect().width) / s)));
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    ro.observe(step);
+    ro.observe(lead);
     return () => ro.disconnect();
   }, []);
   // A picture under the header (plan 022). Scrolled, the hero passes under
@@ -2508,10 +2531,13 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
   // repeated here.
   const drag = useRef<{ x: number; lastX: number; lastT: number; vx: number; on: boolean } | null>(null);
   const justDragged = useRef(false);
-  const stepRef = useRef<HTMLSpanElement | null>(null);
+  /** Whole steps the pointer has dragged the shelf, so the cards ahead of it
+   * mount before it gets there. */
+  const [pull, setPull] = useState(0);
   const stopDrag = useCallback(() => {
     drag.current = null;
     dragging.current = false;
+    setPull(0);
     const host = hostRef.current;
     if (!host) return;
     delete host.dataset.drag;
@@ -2545,6 +2571,8 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
     d.lastX = e.clientX;
     d.lastT = e.timeStamp;
     host.style.setProperty("--drag", `${dx}px`);
+    const step = stepRef.current?.getBoundingClientRect().width ?? 0;
+    if (step > 0) setPull(clampDrag(Math.round(-dx / step)));
   };
   const onPointerUp = (e: PointerEvent<HTMLElement>) => {
     const d = drag.current;
@@ -2560,13 +2588,34 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
     // A step is one poster and a gap, read off the page (a probe as wide as
     // the CSS says), not worked out here.
     const step = stepRef.current?.getBoundingClientRect().width ?? 0;
-    let n = step > 0 ? Math.round(-(e.clientX - d.x) / step) : 0;
+    let n = step > 0 ? clampDrag(Math.round(-(e.clientX - d.x) / step)) : 0;
     if (n === 0 && Math.abs(d.vx) > 0.35) n = d.vx < 0 ? 1 : -1;
     if (n) setV((x) => x + n);
   };
 
-  const first = count < 2 ? v : v - HERO_BEHIND;
-  const slots = count < 2 ? [v] : Array.from({ length: HERO_BEHIND + 1 + HERO_AHEAD }, (_, i) => first + i);
+  // The cards mounted. A move mounts the union of the window before and after
+  // it and keeps it until the slide has finished: rebasing the track mid-slide
+  // would drop the card that is shrinking (a focused card is wider than the
+  // slots the margin stands in for, so the rest jump) and mount cards in view.
+  // Widened here, in render, so no frame draws the narrower window.
+  const [reach, setReach] = useState({ lo: 0, hi: 0 });
+  const aim = v + pull;
+  const lo = Math.min(reach.lo, v, aim);
+  const hi = Math.max(reach.hi, v, aim);
+  if (lo !== reach.lo || hi !== reach.hi) setReach({ lo, hi });
+  useEffect(() => {
+    if (pull || (reach.lo === v && reach.hi === v)) return;
+    const id = window.setTimeout(() => setReach({ lo: v, hi: v }), HERO_SETTLE_MS);
+    return () => window.clearTimeout(id);
+  }, [v, pull, reach]);
+  const first = count < 2 ? v : lo - HERO_BEHIND;
+  // A drag runs ahead of its own preloading, so it mounts a screen further.
+  const ahead = (pull ? 3 : 2) * fit + 1;
+  const slots = count < 2 ? [v] : Array.from({ length: hi + ahead - first + 1 }, (_, i) => first + i);
+  // The 16:9 art loads for the cards in view and one past them, since any of
+  // them can be clicked and grow (a poster loads wherever it is mounted).
+  // Around both ends of a move: a drag can land past the cards in view.
+  const wantArt = (slot: number) => slot >= Math.min(v, aim) - HERO_BEHIND && slot <= Math.max(v, aim) + fit + 1;
   const out = said !== v && !REDUCED_MOTION;
   const note = items[mod(REDUCED_MOTION ? v : said, count)];
   const style: CSSProperties & Record<`--${string}`, string | number> = { "--v": v, "--s0": first };
@@ -2596,6 +2645,7 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
         * width, so every card lights its own rim. Same geometry, same
         * transition, so the light never trails the picture. Dark only. */}
       <span className="shero__step" ref={stepRef} aria-hidden />
+      <span className="shero__lead" ref={leadRef} aria-hidden />
       <div className="shero__glowbox" aria-hidden>
         <div className="shero__glowtrack">
           {slots.map((slot) => {
@@ -2603,14 +2653,14 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
             if (!item) return null;
             return (
               <div
-                key={slot}
+                key={`${slot}:${item.id}`}
                 className={
                   "shero__glowcard" +
                   (slot === v ? " shero__glowcard--active" : "") +
                   (!item.backdrop && item.poster ? " shero__nobd" : "")
                 }
               >
-                <HeroLayers item={item} backdrop={item.backdrop ?? null} poster={item.poster ?? null} />
+                <HeroLayers item={item} backdrop={item.backdrop ?? null} poster={item.poster ?? null} art={wantArt(slot)} />
               </div>
             );
           })}
@@ -2642,6 +2692,7 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
                 key={`${slot}:${item.id}`}
                 item={item}
                 active={active}
+                art={wantArt(slot)}
                 // The focused card opens the title; a poster slides in.
                 onClick={() => (active ? onOpen(item) : setV(slot))}
               />
@@ -2677,7 +2728,7 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
  * one is a tab stop; the posters are reached by click, drag or the arrows.
  * A picture that fails to load counts as missing (HeroLayers draws the
  * fallbacks). */
-function HeroCard({ item, active, onClick }: { item: VodItem; active: boolean; onClick: () => void }) {
+function HeroCard({ item, active, art, onClick }: { item: VodItem; active: boolean; art: boolean; onClick: () => void }) {
   const [backdropBad, setBackdropBad] = useState(false);
   const [posterBad, setPosterBad] = useState(false);
   const backdrop = !backdropBad && item.backdrop ? item.backdrop : null;
@@ -2694,6 +2745,7 @@ function HeroCard({ item, active, onClick }: { item: VodItem; active: boolean; o
         item={item}
         backdrop={backdrop}
         poster={poster}
+        art={art}
         onBackdropError={() => setBackdropBad(true)}
         onPosterError={() => setPosterBad(true)}
       />
@@ -2716,21 +2768,26 @@ function HeroLayers({
   item,
   backdrop,
   poster,
+  art,
   onBackdropError,
   onPosterError,
 }: {
   item: VodItem;
   backdrop: string | null;
   poster: string | null;
+  /** Load the 16:9 art. Once on it stays on. */
+  art: boolean;
   onBackdropError?: () => void;
   onPosterError?: () => void;
 }) {
   const wide = backdrop ?? poster;
   const tall = poster ?? backdrop;
+  const [armed, setArmed] = useState(art);
+  if (art && !armed) setArmed(true);
   return (
     <>
       <div className={"shero__layer shero__layer--b" + (wide ? "" : " shero__layer--bare")}>
-        {wide && (
+        {wide && armed && (
           <img
             key={wide}
             className={"shero__art art-in" + (backdrop ? "" : " shero__art--blur")}

@@ -41,7 +41,10 @@
   --gap: 30px;
   --in: var(--gut, 28px);
   --step: calc(var(--pw) + var(--gap));
-  --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+  /* The move eases in and settles (the old hero's curve, Adam: it left at
+     full speed). The poster fades keep a fast start, or the seam lingers. */
+  --ease: cubic-bezier(0.45, 0.05, 0.2, 1);
+  --ease-fade: cubic-bezier(0.22, 0.8, 0.24, 1);
   /* --k is the motion switch: every duration below is a share of it, so 0
    * is no transition anywhere. Off until a frame has painted at the measured
    * geometry and across a window resize (.shero--ready, set by the component)
@@ -58,8 +61,10 @@
   overflow-y: visible;
   flex-shrink: 0;
 }
-/* A poster and a gap wide, for the component to read a drag's step from. */
-.shero__step {
+/* A poster and a gap wide, and the focused card and a gap wide, for the
+ * component to read a drag's step and how many cards fit the window from. */
+.shero__step,
+.shero__lead {
   position: absolute;
   top: 0;
   left: 0;
@@ -67,6 +72,9 @@
   height: 0;
   visibility: hidden;
   pointer-events: none;
+}
+.shero__lead {
+  width: calc(var(--w) + var(--gap));
 }
 .shero--ready {
   --k: 1;
@@ -183,9 +191,12 @@
 }
 /* The 16:9 art is as wide as the focused card, the poster as wide as a
  * poster, both at the left. The poster lies over the art and does the
- * fading, both ways. Growing, the art under it shows at once; shrinking, it
- * stays until the card is poster-sized again (the opacity step waits out the
- * duration), so no gap opens beside a shrinking poster. */
+ * fading, both ways, in the share of the slide where the two pictures would
+ * otherwise sit side by side with a hard edge. Growing, it is gone in the
+ * first 35% (the art under it shows at once). Shrinking, the art stays
+ * until the card is poster-sized again (the opacity step waits out the
+ * duration), so no gap opens beside a shrinking poster, and the poster
+ * comes back over the last 35% only. */
 .shero__layer {
   position: absolute;
   top: 0;
@@ -208,7 +219,7 @@
 .shero__layer--p {
   z-index: 1;
   width: var(--pw);
-  transition: opacity var(--dur) var(--ease);
+  transition: opacity calc(var(--dur) * 0.35) var(--ease-fade) calc(var(--dur) * 0.65);
 }
 :is(.shero__card--active, .shero__glowcard--active) .shero__layer--b {
   opacity: 1;
@@ -216,6 +227,7 @@
 }
 :is(.shero__card--active, .shero__glowcard--active) .shero__layer--p {
   opacity: 0;
+  transition: opacity calc(var(--dur) * 0.35) var(--ease-fade);
 }
 /* No 16:9 art: the poster stands in for it, blurred and darkened, and the
  * sharp poster stays at the card's right instead of fading away. */

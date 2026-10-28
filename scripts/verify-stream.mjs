@@ -246,7 +246,9 @@ const openStream = async (p) => {
   );
   check(
     "the hero leaves out a title whose details fail or never come, rather than showing its preview",
-    up && cards.length > 0 && cards.every((c) => c.title.startsWith("Fake Series") && c.art.includes("/bg/")),
+    // Only the cards on screen and one past load their 16:9 art (the shelf
+    // hero mounts more ahead); those that did must be a backdrop.
+    up && cards.length > 0 && cards.every((c) => c.title.startsWith("Fake Series") && (!c.art || c.art.includes("/bg/"))) && cards.some((c) => c.art.includes("/bg/")),
     JSON.stringify(cards.map((c) => [c.title, c.art.replace(/^.*\/(\w+\/\w+\.png)$/, "$1")])),
   );
   check("and waits on them for 4 seconds at most", up && took < 9_000, `${took}ms`);

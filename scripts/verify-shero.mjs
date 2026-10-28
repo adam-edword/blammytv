@@ -21,6 +21,15 @@ const check = (name, ok, extra = "") => {
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const seed = () => {
+  // Seeded, as screens.mjs does: the hero's order is a shuffle, and a draw
+  // that put a title with no poster and no synopsis first crashed two checks.
+  let n = 42;
+  Math.random = () => {
+    n = (n + 0x6d2b79f5) | 0;
+    let t = Math.imul(n ^ (n >>> 15), 1 | n);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
   localStorage.setItem("btv:onboarded", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   sessionStorage.setItem("btv:welcome-played", "1");
@@ -29,9 +38,16 @@ const seed = () => {
  * every title gets a logo (the fake's own metas have none), and a picture
  * whose address matches `abort` fails to load (a hero pick always has a
  * backdrop, so a missing one is a failed one). */
-const context = async ({ width = 1440, height = 900, reduced = false, abort = [], logo = true } = {}) => {
+const context = async ({ width = 1440, height = 900, reduced = false, abort = [], logo = true, lag = null } = {}) => {
   const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: reduced ? "reduce" : "no-preference" });
   await ctx.route((u) => u.hostname !== "localhost", (r) => r.abort());
+  // `lag.ms` holds every card picture back that long (a slow network): set it
+  // once the shelf is at rest, so only a picture first asked for mid-move is late.
+  if (lag)
+    await ctx.route(/localhost:8084\/(poster|bg)\/(?!logo)/, async (r) => {
+      if (lag.ms) await new Promise((res) => setTimeout(res, lag.ms));
+      await r.continue().catch(() => {});
+    });
   for (const re of abort) await ctx.route(re, (r) => r.abort());
   if (logo)
     await ctx.route(/localhost:8084\/meta\//, async (r) => {
@@ -183,7 +199,8 @@ const near = (a, b, tol = 1) => Math.abs(a - b) <= tol;
   const widths = new Set(s.map((x) => Math.round(x.cw / 20)));
   check(
     "the card really grows frame by frame (and the track's transition is the 620ms one)",
-    s.length > 20 && widths.size >= 6 && s[0].cw < 365 && near(s.at(-1).cw, 960, 1) && trackMs === "0.62s",
+    // 10 frames in 1.2s proves a glide and not a jump, on a slow CI runner too.
+    s.length >= 10 && widths.size >= 6 && s[0].cw < 365 && near(s.at(-1).cw, 960, 1) && trackMs === "0.62s",
     JSON.stringify({ frames: s.length, from: s[0].cw, to: s.at(-1).cw, distinct: widths.size, trackMs }),
   );
   check(
@@ -207,6 +224,215 @@ const near = (a, b, tol = 1) => Math.abs(a - b) <= tol;
     (await active(p)) === slid && slid !== before && (await p.locator(".vod-detail").count()) === 0,
     JSON.stringify({ before, slid, now: await active(p) }),
   );
+  await ctx.close();
+}
+
+// ------------------------------------------------ moving more than one card
+// The recording's bugs: a jump of several cards unmounted the shrinking card
+// and left the peek empty, mounted cards in view with no picture, a poster
+// and the 16:9 art side by side with a hard edge, and the glow lit round the
+// wrong card. A per-frame watcher in the page sees all of it; the shelf is
+// at rest and every picture loaded before it starts.
+const rest = (p) =>
+  p.waitForFunction(
+    () => {
+      const imgs = [...document.querySelectorAll(".shero__card img.shero__art, .shero__card img.shero__poster")];
+      return imgs.length > 4 && imgs.every((i) => i.hasAttribute("data-loaded"));
+    },
+    null,
+    { timeout: 10_000 },
+  );
+/** Starts the watcher. Every frame it checks, for the cards (`.shero__card`):
+ *  - gone: one that was in view the frame before is out of the DOM now;
+ *  - popped: one that enters the view with its poster not decoded, or the
+ *    focused one without its 16:9 art decoded;
+ *  - holes: the window's left or right edge is not covered by any card;
+ *  - jump: a card moved faster than 14px/ms (the slide's own top speed is
+ *    about 10, a three-card jump with the card beside it shrinking), which is
+ *    a rebase, not motion;
+ *  - glow: the copies behind (`.shero__glowcard`) are the same cards in the
+ *    same order at the same left and width (the largest gap is kept). */
+const watch = (p) =>
+  p.evaluate(() => {
+    const vw = innerWidth;
+    const w = (window.__w = { frames: 0, gone: [], popped: [], holes: [], jump: 0, glowL: 0, glowW: 0, mism: 0, stop: false, oldGoneW: null, old: document.querySelector(".shero__card--active"), seen: 0 });
+    const t0 = performance.now();
+    let seen = new Set();
+    let prev = new Map();
+    let oldW = 0;
+    let last = t0;
+    const tick = (now) => {
+      const cards = [...document.querySelectorAll(".shero__card")];
+      const rs = cards.map((c) => c.getBoundingClientRect());
+      const at = Math.round(now - t0);
+      for (const n of seen) if (!n.isConnected) w.gone.push(`${n.getAttribute("aria-label")}@${at}`);
+      if (w.oldGoneW === null && !w.old.isConnected) w.oldGoneW = oldW;
+      if (w.old.isConnected) oldW = w.old.getBoundingClientRect().width;
+      const inView = new Set();
+      const next = new Map();
+      cards.forEach((c, i) => {
+        const r = rs[i];
+        next.set(c, r.left);
+        if (r.right > 0 && r.left < vw) {
+          inView.add(c);
+          const poster = c.querySelector(".shero__poster");
+          if (w.frames > 0 && !seen.has(c) && poster && !poster.hasAttribute("data-loaded")) w.popped.push(`${c.getAttribute("aria-label")} poster@${at}`);
+        }
+        const was = prev.get(c);
+        if (was !== undefined) { const ex = Math.abs(r.left - was) - 14 * (now - last); if (ex > w.jump) w.jumpAt = `${c.getAttribute("aria-label")} ${Math.round(r.left - was)}px in ${Math.round(now - last)}ms@${at}`; w.jump = Math.max(w.jump, ex); }
+      });
+      const on = document.querySelector(".shero__card--active");
+      const art = on?.querySelector(".shero__art");
+      if (w.frames > 0 && art && !art.hasAttribute("data-loaded")) w.popped.push(`${on.getAttribute("aria-label")} art@${at}`);
+      if (Math.min(...rs.map((r) => r.left)) > 0 || Math.max(...rs.map((r) => r.right)) < vw) w.holes.push(at);
+      const glow = [...document.querySelectorAll(".shero__glowcard")];
+      if (glow.length !== cards.length || !glow.length) w.mism++;
+      else
+        glow.forEach((g, i) => {
+          const gr = g.getBoundingClientRect();
+          w.glowL = Math.max(w.glowL, Math.abs(gr.left - rs[i].left));
+          w.glowW = Math.max(w.glowW, Math.abs(gr.width - rs[i].width));
+        });
+      seen = inView;
+      prev = next;
+      last = now;
+      w.frames++;
+      w.seen = Math.max(w.seen, inView.size);
+      if (!w.stop) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+const report = async (p) => {
+  await p.evaluate(() => (window.__w.stop = true));
+  return p.evaluate(() => ({ ...window.__w, old: null }));
+};
+const clean = (w, pw) =>
+  w.frames > 30 && w.seen >= 3 && w.gone.length === 0 && w.popped.length === 0 && w.holes.length === 0 && w.jump < 30 &&
+  w.mism === 0 && w.glowL <= 2 && w.glowW <= 2 && (w.oldGoneW === null || w.oldGoneW <= pw + 2);
+const brief = (w) => JSON.stringify({ frames: w.frames, gone: w.gone.slice(0, 3), popped: w.popped.slice(0, 3), holes: w.holes.length, jump: Math.round(w.jump), jumpAt: w.jumpAt, mism: w.mism, glow: [Math.round(w.glowL), Math.round(w.glowW)], oldGoneW: w.oldGoneW });
+
+for (const [width, height] of [[1920, 1080], [1280, 800]]) {
+  const lag = { ms: 0 };
+  const ctx = await context({ width, height, lag });
+  const p = await openStream(ctx, { mouse: [width / 2, 300] });
+  await rest(p);
+  const cards = await rects(p, ".shero__card");
+  const a = cards.findIndex((c) => c.w > 600);
+  const pw = cards[0].w;
+  check(
+    `at ${width}px the cards mounted cover the window: two cards past the right edge, one past the left`,
+    cards.filter((c) => c.l >= width).length >= 2 && cards.filter((c) => c.r <= 0).length >= 1 && cards.at(-1).r > width,
+    JSON.stringify({ ahead: cards.filter((c) => c.l >= width).length, behind: cards.filter((c) => c.r <= 0).length }),
+  );
+  // The farthest poster showing, clicked: three cards at 1920, one at 1280.
+  const k = cards.findIndex((c, i) => i > a && c.r > width - 5 && c.l < width - 20) - a;
+  lag.ms = 1000;
+  await watch(p);
+  const target = p.locator(".shero__card").nth(a + k);
+  const want = await target.getAttribute("aria-label");
+  await target.click({ position: { x: 12, y: 40 } });
+  await p.waitForTimeout(2200);
+  const w = await report(p);
+  check(
+    `at ${width}px a click ${k} poster${k > 1 ? "s" : ""} along: the shrinking card stays until it is poster-sized, no card enters view undecoded, the glow stays behind its card`,
+    (await active(p)) === want && k === (width === 1920 ? 3 : 1) && clean(w, pw),
+    `k=${k} ${brief(w)}`,
+  );
+  // Several presses mid-slide: each retargets from where the shelf is.
+  lag.ms = 0;
+  await rest(p);
+  const ls = await labels(p);
+  const at = ls.indexOf(await active(p));
+  await p.locator(".shero__card--active").focus();
+  await watch(p);
+  for (const key of ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowLeft", "ArrowLeft"]) {
+    await p.keyboard.press(key);
+    await p.waitForTimeout(110);
+  }
+  await p.waitForTimeout(1500);
+  const w2 = await report(p);
+  check(
+    `at ${width}px five arrow presses in a row mid-slide land on the right card with nothing popping, jumping or unmounting in view`,
+    (await active(p)) === ls[at + 1] && clean(w2, pw),
+    brief(w2),
+  );
+  if (width === 1920) {
+    // A long drag: 5 steps in about half a second, then release.
+    lag.ms = 1000;
+    await rest(p);
+    const before = await labels(p);
+    const from = before.indexOf(await active(p));
+    await watch(p);
+    await p.mouse.move(1910, 300);
+    await p.mouse.down();
+    for (let i = 1; i <= 20; i++) {
+      await p.mouse.move(1910 - i * 95, 300);
+      await p.waitForTimeout(25);
+    }
+    await p.mouse.up();
+    await p.waitForTimeout(2200);
+    const w3 = await report(p);
+    check(
+      "a long drag over five steps lands five cards on, with nothing popping, jumping or unmounting in view",
+      (await active(p)) === before[from + 5] && clean(w3, pw),
+      brief(w3),
+    );
+  }
+  await ctx.close();
+}
+
+// ------------------------------------------------- the poster's fade timing
+{
+  // One click grows the card to its right and shrinks the focused one. The
+  // transitions it starts are paused and set to chosen moments, so the check
+  // does not depend on how fast this machine draws frames: opacity of each
+  // card's poster and 16:9 layers (and the glow copies') at each moment, as a
+  // share of the 620ms slide.
+  const ctx = await context();
+  const p = await openStream(ctx);
+  await rest(p);
+  const at = await p.evaluate(async () => {
+    const old = document.querySelector(".shero__card--active");
+    const inn = old.nextElementSibling;
+    const gOld = document.querySelector(".shero__glowcard--active");
+    const gInn = gOld.nextElementSibling;
+    inn.click();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const anims = document.getAnimations().filter((a) => a.transitionProperty === "opacity");
+    anims.forEach((a) => a.pause());
+    const op = (c, s) => Number(getComputedStyle(c.querySelector(s)).opacity);
+    const out = {};
+    for (const t of [0, 40, 100, 186, 217, 300, 500, 600]) {
+      anims.forEach((a) => (a.currentTime = t));
+      out[t] = {};
+      for (const [k, c] of [["old", old], ["inn", inn], ["gOld", gOld], ["gInn", gInn]]) out[t][k] = { p: op(c, ".shero__layer--p"), b: op(c, ".shero__layer--b") };
+    }
+    // The shrinking poster's own transition, to place its fade-in.
+    for (const t of [403, 450, 500, 550, 620, 700]) {
+      anims.forEach((a) => (a.currentTime = t));
+      out[t] = { ...out[t] };
+      for (const [k, c] of [["old", old], ["gOld", gOld]]) out[t][k] = { p: op(c, ".shero__layer--p"), b: op(c, ".shero__layer--b") };
+    }
+    return { out, n: anims.length };
+  });
+  const o = at.out;
+  for (const [who, inn, old] of [["card", "inn", "old"], ["glow copy", "gInn", "gOld"]]) {
+    const grow = [0, 40, 100, 186, 217, 300, 500, 600].map((t) => o[t][inn]);
+    check(
+      `growing, the ${who}'s poster starts opaque, fades, and is gone by 30% of the grow, the 16:9 art under it showing throughout`,
+      grow[0].p === 1 && grow[1].p > 0.1 && grow[1].p < 0.9 && grow[3].p < 0.1 && grow.slice(3).every((x) => x.p < 0.1) && grow.every((x) => x.b === 1),
+      JSON.stringify(grow.map((x) => +x.p.toFixed(2))),
+    );
+    const hold = [0, 40, 100, 186, 217, 300].map((t) => o[t][old]);
+    const back = [403, 450, 500, 550].map((t) => o[t][old].p);
+    const end = [620, 700].map((t) => o[t][old]);
+    check(
+      `shrinking, the ${who}'s 16:9 art stays and the poster stays out for the first 65%, then fades in and is fully there at the end`,
+      hold.every((x) => x.p < 0.1 && x.b === 1) && back[0] < 0.1 && back[1] > 0.05 && back[1] < 0.95 && back[2] > back[1] && end.every((x) => x.p === 1 && x.b === 0),
+      JSON.stringify({ hold: hold.map((x) => +x.p.toFixed(2)), back: back.map((x) => +x.toFixed(2)), end: end.map((x) => [x.p, x.b]) }),
+    );
+  }
+  check("the transitions under test exist (a poster and a 16:9 layer on each of four cards)", at.n >= 8, `n=${at.n}`);
   await ctx.close();
 }
 

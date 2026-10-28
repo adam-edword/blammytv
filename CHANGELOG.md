@@ -2,6 +2,15 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.7: A smoother Stream shelf (unreleased)
+
+- **Jumping several titles along works.** Clicking a poster further down,
+  or dragging past a few, no longer drops the old title mid-shrink or
+  slides in empty cards.
+- **The poster melts into its picture** in the first moments of the grow,
+  instead of sitting beside it.
+- **The shelf eases in and settles**, instead of leaving at full speed.
+
 ## 1.0.6: Record live TV (unreleased)
 
 This one needs the new build.
