@@ -42,7 +42,14 @@ export function ContinueCard({
     entry.posSec && entry.durSec && entry.posSec < entry.durSec * 0.9
       ? Math.max(1, Math.round((entry.durSec - entry.posSec) / 60))
       : null;
-  const metaLine = [meta, leftMin != null ? `${leftMin}m Left` : null]
+  // Which episode, for a series (Apple's TV app does; the label was stored
+  // and never shown). An entry from before season/episode were kept has
+  // only the label.
+  const ep =
+    entry.season != null && entry.episode != null
+      ? `S${entry.season} · E${entry.episode}`
+      : (entry.label?.match(/^S\d+ · E\d+/)?.[0] ?? null);
+  const metaLine = [ep, meta, leftMin != null ? `${leftMin}m Left` : null]
     .filter(Boolean)
     .join(" · ");
   const [holding, setHolding] = useState(false);

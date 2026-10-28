@@ -1211,7 +1211,6 @@
   cursor: pointer;
   transition: transform 160ms var(--ease-out);
 }
-.continue-card:hover { transform: translateY(-3px); }
 /* 300px tall, as the art was; exactly 16:9 now instead of whatever the
  * backdrop's own aspect was, so every card in the row is one width. */
 .continue-card .tile__pic {
@@ -2288,12 +2287,13 @@
 /* ---- Press feedback (motion plan 001). The poster press lives on the
  * CARD, not .stream-card__tilt — react-parallax-tilt drives the wrapper's
  * transform inline, and inline always beats a stylesheet :active. The
- * hover-lifted continue card settles to -1px, not a jump to origin. ---- */
+ * continue card no longer lifts on hover (Adam, 1.0.16): it presses like the
+ * posters. ---- */
 .stream-card:active {
   transform: scale(0.98);
 }
 .continue-card:active {
-  transform: translateY(-1px) scale(0.98);
+  transform: scale(0.98);
 }
 .vod-source:active,
 .episode-card:active {

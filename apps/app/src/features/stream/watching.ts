@@ -16,7 +16,7 @@ export interface WatchEntry {
   from?: VodFrom;
   episodeId?: string;
   title: string;
-  /** Episode label ("S1 · E4 — …") when applicable. */
+  /** Episode label ("S1 · E4: Title") when applicable. */
   label?: string;
   /** Landscape art preferred (backdrop), poster fallback. */
   art?: string;

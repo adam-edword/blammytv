@@ -109,6 +109,18 @@ check(
 
 // Both targets must exist and be REAL buttons — the whole point is that they
 // are separately clickable inside a card that is itself a click target.
+await card.hover();
+await page.waitForTimeout(300);
+check(
+  "hovering the card doesn't lift it (Adam): no transform on the card",
+  (await card.evaluate((c) => getComputedStyle(c).transform)) === "none",
+);
+check(
+  "a series card says which episode, before the time left",
+  /^S1 · E4 · \d+m Left$/.test(
+    (await card.locator(".stream-card__meta").innerText({ timeout: 2000 }).catch(() => "")).trim(),
+  ),
+);
 check(
   "the Sources chip is a button",
   (await card.locator("button.continue-card__sources").count()) === 1,

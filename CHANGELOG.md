@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.16: Continue Watching says which episode (unreleased)
+
+- **A series on Continue Watching shows its episode**, "S1 · E4 · 42m
+  Left".
+- **Continue Watching cards no longer lift** when you point at them; they
+  lean like the rest.
+
 ## 1.0.15: Stream's rows, tidier (unreleased)
 
 - **Smaller posters on Stream's rows**, so more fit across. Library and
