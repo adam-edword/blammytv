@@ -74,6 +74,7 @@ export const KEY_GROUPS = {
     "startupTab",
     "showChannelNumber",
     "showHero",
+    "heroStyle",
     "cardMeta",
     "overlayMeta",
     "rowCap",

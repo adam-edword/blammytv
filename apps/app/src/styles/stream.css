@@ -392,6 +392,200 @@
   overflow: hidden;
 }
 
+/* ---- featured hero, the large style (Figma 133-721). The shelf above is
+ * the other (Settings, Appearance, Stream, Carousel Style). 80vh sliding
+ * track, 60px-radius cards, neighbors peeking with a 30px gap. Escapes .stream's padding so
+ * the peeks bleed to the window edges. Geometry (card width / offset) is
+ * measured + set inline by the component; the track only animates
+ * transform. ---- */
+.lhero {
+  position: relative;
+  height: 80vh;
+  margin: 0 calc(var(--gut, 28px) * -1);
+  /* Clip the sliding track horizontally ONLY; `hidden` would force the
+   * y-axis too and guillotine the active card's glow into a rectangle.
+   * `clip` leaves overflow-y genuinely visible. */
+  overflow-x: clip;
+  overflow-y: visible;
+  flex-shrink: 0;
+}
+.lhero__track {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* above the glow box */
+  transition: transform 650ms cubic-bezier(0.45, 0.05, 0.2, 1);
+  will-change: transform;
+}
+/* The shadow slider's stationary window (left/width inline from measured
+ * geometry): clips a second, blurred copy of the track. The imgs' own
+ * 70px blur softens their edges well inside the clip, so the box edge
+ * never reads hard. */
+.lhero__glowbox {
+  position: absolute;
+  top: -90px;
+  bottom: -90px;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 90px;
+  pointer-events: none;
+  opacity: 0.8; /* Adam's final trim on the whole light layer */
+  /* Feathered window: the box reaches ~90px past the card on the sides
+   * and ~52px vertically, and the feather eats only the outer half of
+   * that, so a real halo band survives at strength. (The first feather
+   * pass swallowed the whole halo: 70px falloff on a 24px overscan.)
+   * Don't chase halo-shape artifacts here: the "bright rim on hover"
+   * was the tilted card's projection exposing the glow behind its own
+   * edge; the Tilt scale bump covers it (see Hero). */
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
+    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 180px, #000 calc(100% - 180px), transparent),
+    linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
+  mask-composite: intersect;
+}
+.lhero__glowtrack {
+  position: absolute;
+  inset: 0;
+  transition: transform 650ms cubic-bezier(0.45, 0.05, 0.2, 1);
+  will-change: transform;
+}
+.lhero__glowbox img {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+  filter: blur(70px) saturate(1.4);
+  /* Neighbor light rests dim; the incoming slide's light fades up fast
+   * and undelayed, while the OUTGOING one holds until the slide's final
+   * stretch (350ms delay on the way down): light leads the arrival and
+   * trails the departure. */
+  opacity: 0.3;
+  transition: opacity 300ms ease 350ms;
+}
+/* Dark only (plan 022). Light on a light page isn't light: the art's colour
+ * blurred over white read as a smudge round the card, and a third of it
+ * still did. */
+:root[data-theme="light"] .lhero__glowbox {
+  display: none;
+}
+.lhero__glowbox img.lhero__glow--lit {
+  opacity: 0.7;
+  transition: opacity 300ms ease;
+}
+/* Not yet decoded (lib/artIn.ts): no light. Once it is, the rules above
+ * fade it up to theirs, a card's art and its light arriving together. */
+.lhero__glowbox img:not([data-loaded]) {
+  opacity: 0;
+}
+/* Slides are absolutely placed on the track at slot * step (inline left),
+ * the infinite window repositions freely. Vertical inset gives the active
+ * card's glow room to breathe inside the clipped section. */
+.lhero__card {
+  position: absolute;
+  top: 22px;
+  bottom: 22px;
+  border-radius: var(--radius-card);
+  /* No overflow:hidden here, it would clip the Tilt lean/scale (the
+   * .lhero__tilt wrapper grows past the box on hover). The rounding
+   * lives on the art/scrim layers instead; the ambient glow is the
+   * separate .lhero__glowbox layer behind the track. */
+  background: var(--surface);
+  cursor: pointer;
+  /* Own compositor layer: the rounded content rides the track's
+   * transform without re-rasterizing every frame. */
+  transform: translateZ(0);
+}
+.lhero__card--active { cursor: pointer; }
+/* The Apple TV lean's transform surface: fills the slide, so the art/
+ * scrim/text inside keep their exact geometry. react-parallax-tilt owns
+ * this element's transform; the slide div above stays carousel-only. */
+.lhero__tilt {
+  position: absolute;
+  inset: 0;
+}
+/* Glare exists on every slide (the lib only creates it when enabled at
+ * MOUNT, and slides mount non-active, so the prop can't gate by card).
+ * Visibility gates here instead: only the center card gets the sheen. */
+.lhero__card:not(.lhero__card--active) .lhero__tilt .glare-wrapper {
+  display: none;
+}
+.lhero__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-card); /* the card itself no longer clips (glow) */
+}
+.lhero__scrim {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-card);
+  background:
+    linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 45%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.5), transparent 55%);
+}
+.lhero__text {
+  position: absolute;
+  left: 56px;
+  bottom: 52px;
+  max-width: 52ch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--on-image);
+}
+/* Clearlogo title art when the addon provides it; text is the fallback. */
+.lhero__logo {
+  max-width: 420px;
+  max-height: 160px;
+  object-fit: contain;
+  object-position: left bottom;
+}
+/* The name in type, standing where a logo would (a provider's titles never
+ * have one). Sized to take about a logo's room, not the art's: 92px set a
+ * five-word name in five lines over the picture (Adam, plan 028). A long name
+ * steps down a size, and the lines are balanced so none is a lone word. */
+.lhero__title {
+  /* An h2's own margin (0.83em, some 60px at this size) was the gap between
+   * the name and the synopsis; the logo, an img, never had one. */
+  margin: 0;
+  max-width: 620px;
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: clamp(40px, 4.4vw, 72px);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-wrap: balance;
+  /* Was #f5eecf, a warm cream that was BlammyTV's and nobody else's. Over
+   * art a fixed light is right (the scrim below it is the only guaranteed
+   * ground), but it is shadcn's foreground now, not a brand tint. */
+  color: oklch(0.985 0 0);
+}
+.lhero__title--long {
+  font-size: clamp(30px, 3vw, 52px);
+}
+.lhero__synopsis {
+  font-size: 15px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--on-image) 85%, transparent);
+  max-width: 48ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 10;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lhero__meta {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--on-image) 60%, transparent);
+}
+.lhero__rating { color: var(--rating); }
+.lhero__actions { display: flex; gap: 10px; margin-top: 6px; }
+
 /* ---- rows ---- */
 .stream__rows {
   display: flex;
@@ -2049,6 +2243,12 @@
 @media (prefers-reduced-motion: reduce) {
   .shero--ready {
     --k: 0;
+  }
+  /* The large style's slide snaps; the glow's opacity crossfade stays, as it
+   * keeps the change comprehensible. */
+  .lhero__track,
+  .lhero__glowtrack {
+    transition: none;
   }
   .continue-card:hover:not(:active),
   .vod-more__card:hover:not(:active) {

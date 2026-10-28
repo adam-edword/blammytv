@@ -8,6 +8,7 @@ import { loadJfConn } from "../jellyfin/store";
 import { hasXtLibrary } from "../xtvod/store";
 import { HeroSourcesSection } from "./HeroSourcesSection";
 import { loadShowHero, saveShowHero } from "./showHero";
+import { HERO_STYLES, loadHeroStyle, saveHeroStyle, type HeroStyle } from "./heroStyle";
 import {
   STARTUP_TABS,
   loadStartupTab,
@@ -149,6 +150,7 @@ export function AppearancePage({
   };
 
   const [hero, setHero] = useState<boolean>(loadShowHero);
+  const [heroStyle, setHeroStyle] = useState<HeroStyle>(loadHeroStyle);
 
   // The slider steps by 5; clicking the number swaps it for a type-in field.
   const [rowCap, setRowCap] = useState<number>(loadRowCap);
@@ -261,6 +263,23 @@ export function AppearancePage({
               label="Featured carousel"
             />
           </div>
+
+          {hero && (
+            <div className="customize-row" data-setting="carousel-style">
+              <div>
+                <h4 className="customize-row__title">Carousel Style</h4>
+              </div>
+              <Segmented
+                label="Carousel style"
+                options={HERO_STYLES}
+                value={heroStyle}
+                onChange={(next) => {
+                  setHeroStyle(next);
+                  saveHeroStyle(next);
+                }}
+              />
+            </div>
+          )}
 
           {hero && hasAio && <HeroSourcesSection />}
 

@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.12: Pick the carousel's style (unreleased)
+
+- **Settings → Appearance → Stream → Carousel Style**: Shelf (the new
+  one) or Large (the original, with Watch Now and More Info on the card).
+
 ## 1.0.11: The shelf loads further ahead (unreleased)
 
 - **A fast drag along Stream's shelf** no longer reaches posters that are

@@ -198,6 +198,13 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["hero", "banner", "slider"],
   },
   {
+    id: "carousel-style",
+    label: "Carousel Style",
+    page: "appearance",
+    world: "stream",
+    keywords: ["hero", "banner", "slider", "shelf", "large", "big", "wide", "watch now", "layout"],
+  },
+  {
     id: "hero-sources",
     label: "Carousel Catalogs",
     page: "appearance",

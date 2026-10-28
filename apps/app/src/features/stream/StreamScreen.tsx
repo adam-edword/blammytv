@@ -85,6 +85,7 @@ import { onPlaylistsChange } from "../settings/playlists";
 import { AIO_CONN_CHANGED } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
+import { loadHeroStyle } from "../settings/heroStyle";
 import { countdownFrom, loadAutoplayNext } from "../settings/upNext";
 import {
   discoverKey,
@@ -2096,6 +2097,7 @@ export function StreamScreen({ home }: { home?: number } = {}) {
           xt={xt}
           onRetry={() => setVodTick((t) => t + 1)}
           onOpen={cardOpen}
+          onWatchNow={watchNow}
           watching={watching}
           onClearWatching={(id) => setWatching(clearWatching(id))}
           onOpenWatching={(e) => {
@@ -2184,6 +2186,7 @@ function Home({
   jf,
   xt,
   onOpen,
+  onWatchNow,
   watching,
   onClearWatching,
   onOpenWatching,
@@ -2194,6 +2197,7 @@ function Home({
   jf: JfLoad;
   xt: XtLoad;
   onOpen: (i: VodItem) => void;
+  onWatchNow: (i: VodItem) => void;
   watching: WatchEntry[];
   onClearWatching: (id: string) => void;
   onOpenWatching: (e: WatchEntry) => void;
@@ -2205,6 +2209,7 @@ function Home({
   // Not live WHILE Settings is open, unlike cardMeta below — the modal is
   // over the top of it, so there is nothing to see.
   const showHero = loadShowHero();
+  const heroStyle = loadHeroStyle();
 
   // Which details the cards show — flips live while Settings is open.
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
@@ -2329,7 +2334,11 @@ function Home({
       {/* Entirely, and with no gap: the rows are the next element, so
         * turning it off just lets them start at the top. */}
       {showHero && featured.length > 0 && (
-        <Hero items={featured} onOpen={onOpen} />
+        heroStyle === "large" ? (
+          <LargeHero items={featured} onOpen={onOpen} onWatchNow={onWatchNow} />
+        ) : (
+          <Hero items={featured} onOpen={onOpen} />
+        )
       )}
       <div className="stream__rows">
         {activeWatching.length > 0 && (
@@ -2884,6 +2893,334 @@ function HeroTitle({ item }: { item: VodItem }) {
       src={item.logo}
       alt={item.title}
       draggable={false}
+      onLoad={artLoaded}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+/** The large hero, the first one (Figma 133-721), back as the second style
+ * (Settings, Appearance, Stream, Carousel Style): a ~80vh sliding carousel
+ * that never rewinds. Its own classes (`.lhero`) keep it clear of the shelf's
+ * `.shero`. The index is VIRTUAL (unbounded, forward-only on auto-advance); slides
+ * are a moving window of absolute-positioned cards, each showing
+ * items[slot mod n], so wrapping from the 9th back to the 1st is just one
+ * more slide to the right, forever. Hovering the section pauses the
+ * auto-advance; the active card wears the Figma glow; neighbors stay at
+ * full strength and click-slide. */
+const LARGE_GAP = 30;
+function largeMargin(w: number): number {
+  // Side inset ≈ 15% of the window, clamped sane. The card is ~15%
+  // thinner than full-bleed and the neighbors fill the reveal.
+  return Math.min(320, Math.max(200, w * 0.15));
+}
+function LargeHero({
+  items,
+  onOpen,
+  onWatchNow,
+}: {
+  items: VodItem[];
+  onOpen: (i: VodItem) => void;
+  onWatchNow: (i: VodItem) => void;
+}) {
+  const [v, setV] = useState(0); // virtual index, never wraps
+  const [width, setWidth] = useState(0);
+  const [hovered, setHovered] = useState(false);
+  /** Keyboard focus is inside the carousel. Autoplay used to pause for the
+   * mouse alone, so a focused Watch now slid 1,000px off screen 8s later,
+   * taking the focus ring with it. */
+  const [focused, setFocused] = useState(false);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const count = items.length;
+  // Layout effect: measured BEFORE first paint, so no width-0 frame exists.
+  useLayoutEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const measure = () => setWidth(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // A picture under the header (plan 022). Scrolled, the hero passes under
+  // the header, whose scrim is the page's colour: in light, a white haze
+  // over the art with dark ink on it. While the active card overlaps the
+  // header, the root says so and the header takes the picture's ink
+  // (tokens.css, .on-picture), which is what dark already draws.
+  useEffect(() => {
+    const host = hostRef.current;
+    const scroller = host?.closest<HTMLElement>(".stream");
+    if (!host || !scroller) return;
+    const root = document.documentElement;
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const card = host.querySelector(".lhero__card--active")?.getBoundingClientRect();
+      const header = document.querySelector(".header")?.getBoundingClientRect();
+      const under = !!card && !!header && card.height > 0 && card.top < header.bottom && card.bottom > header.top;
+      if (under !== (root.dataset.headerOver === "picture")) {
+        if (under) root.dataset.headerOver = "picture";
+        else delete root.dataset.headerOver;
+      }
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    check();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(raf);
+      scroller.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      delete root.dataset.headerOver;
+    };
+  }, []);
+  // Track transitions stay OFF until a frame has painted at the measured
+  // geometry, otherwise entering the tab animates the 650ms slide from
+  // the width-0 layout ("the slider moves in a bit"). Same guard snaps
+  // (not glides) the tracks on window resizes.
+  const [animReady, setAnimReady] = useState(false);
+  const lastW = useRef(width);
+  if (lastW.current !== width) {
+    lastW.current = width;
+    if (animReady) setAnimReady(false);
+  }
+  useEffect(() => {
+    if (animReady || width === 0) return;
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setAnimReady(true)),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [animReady, width]);
+  useEffect(() => {
+    // Paused under the pointer, with focus inside, and never at all under
+    // reduced motion: content that moves on its own has to be stoppable,
+    // and a preference against motion is the clearest "stop" there is.
+    if (hovered || focused || REDUCED_MOTION || count < 2) return;
+    const id = window.setInterval(() => setV((x) => x + 1), 8000);
+    return () => window.clearInterval(id);
+  }, [hovered, focused, count]);
+
+  const m = largeMargin(width);
+  const cardW = Math.max(0, width - 2 * m);
+  const step = cardW + LARGE_GAP;
+  // The hero's Apple TV lean rides an inner wrapper (see .lhero__tilt);
+  // the slide div's transform is carousel geometry and stays untouched.
+  const reducedMotion = REDUCED_MOTION;
+
+  // Window of live slots around the current one: both neighbors visible,
+  // one extra each side so a slide-in mounts before it enters the frame.
+  // One extra slot AHEAD of the window: the next-next card mounts and
+  // decodes ~8s before it ever enters the frame, so a slide never pays
+  // an image decode mid-animation.
+  const slots = [v - 2, v - 1, v, v + 1, v + 2, v + 3];
+  return (
+    <div
+      className="lhero"
+      ref={hostRef}
+      role="region"
+      aria-label="Featured"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+          setFocused(false);
+      }}
+    >
+      {/* Adam's shadow slider: the same carousel again, blurred, masked
+        * to the stationary (android-style) box behind the center slot.
+        * The box never moves; the blurred art sliding through it IS the
+        * ambient light reacting to the cards, in exact lockstep (same
+        * geometry, same transition). The inner track's offset subtracts
+        * the box's own left so both tracks align in screen space. */}
+      <div
+        className="lhero__glowbox"
+        aria-hidden
+        style={{ left: m - 210, width: cardW + 420 }}
+      >
+        <div
+          className="lhero__glowtrack"
+          style={{
+            transform: `translateX(${210 - v * step}px)`,
+            transition: animReady ? undefined : "none",
+          }}
+        >
+          {slots.map((slot) => {
+            const item = items[((slot % count) + count) % count];
+            const art = item?.backdrop ?? item?.poster;
+            return art ? (
+              <img
+                key={`${slot}:${art}`}
+                className={slot === v ? "lhero__glow--lit" : undefined}
+                src={art}
+                alt=""
+                decoding="async"
+                onLoad={artLoaded}
+                style={{ left: slot * step, width: cardW }}
+              />
+            ) : null;
+          })}
+        </div>
+      </div>
+      <div
+        className="lhero__track"
+        // react-parallax-tilt caches each card's rect on mouseenter, and
+        // a slide moves cards WITHOUT re-firing enter (the pointer never
+        // "leaves" per the hover state), so every slid card tilts
+        // against a rect that's stale by one step, pinning the math at
+        // its clamp (reads as a dead hover; only the never-slid first
+        // card worked). The lib re-measures on window resize, so poke
+        // that when the track's own slide settles. Guard target +
+        // property: transitionend bubbles up from the tilt wrappers.
+        onTransitionEnd={(e) => {
+          if (e.target === e.currentTarget && e.propertyName === "transform") {
+            window.dispatchEvent(new Event("resize"));
+          }
+        }}
+        style={{
+          transform: `translateX(${m - v * step}px)`,
+          transition: animReady ? undefined : "none",
+        }}
+      >
+        {slots.map((slot) => {
+          const item = items[((slot % count) + count) % count];
+          if (!item) return null;
+          const active = slot === v;
+          return (
+            <div
+              key={slot}
+              role="button"
+              tabIndex={active ? 0 : -1}
+              onKeyDown={(e) => {
+                if (active && (e.key === "Enter" || e.key === " ")) onOpen(item);
+              }}
+              className={"lhero__card" + (active ? " lhero__card--active" : "")}
+              style={{ left: slot * step, width: cardW }}
+              // Whole-card click: neighbors slide into place; the ACTIVE
+              // card opens the title's source-selection screen (the
+              // buttons stopPropagation, so Watch Now stays instant-play).
+              onClick={() => (active ? onOpen(item) : setV(slot))}
+            >
+              {/* Tilt wraps art+scrim+text but NOT the card div (its
+                * left/width + translateZ(0) are the carousel's geometry)
+                * and not the .lhero__glowbox layer behind the track,
+                * ambient light shouldn't rotate with the object. Active
+                * card only: a peeking
+                * neighbor pivots around an offscreen center and reads
+                * broken. At this size 0.5° is plenty (Adam: 2° read as
+                * a barn door); scale is a hair (1.005), just enough to
+                * keep the leaning card covering the glow behind its own
+                * edge; glare is faint (text lives here). */}
+              <Tilt
+                className="lhero__tilt"
+                tiltEnable={active && !reducedMotion}
+                tiltMaxAngleX={0.5}
+                tiltMaxAngleY={0.5}
+                // Tilting shrinks the projection on the receding side a
+                // couple px, unveiling the bright glow behind the card's
+                // own edge (read as a rim). The hair of scale keeps the
+                // card covering its footprint at full lean.
+                scale={reducedMotion ? 1 : 1.005}
+                perspective={2500}
+                transitionSpeed={1000}
+                // Faint: text and buttons live on this card, so the
+                // sheen must never read as glare over UI. MUST be
+                // constant: the lib creates the glare element only if
+                // enabled AT MOUNT, and slides mount non-active (the
+                // pre-decode window), so gating on `active` here means
+                // no glare ever exists. CSS hides it on non-active
+                // cards instead (.lhero__card rule).
+                glareEnable={!reducedMotion}
+                glareMaxOpacity={0.12}
+                glarePosition="all"
+                glareBorderRadius="var(--radius-card)"
+              >
+              {(item.backdrop ?? item.poster) && (
+                <img
+                  key={item.backdrop ?? item.poster}
+                  className="lhero__art art-in"
+                  src={item.backdrop ?? item.poster}
+                  alt=""
+                  decoding="async"
+                  onLoad={artLoaded}
+                />
+              )}
+              <div className="lhero__scrim" aria-hidden />
+              <div className="lhero__text on-picture">
+                <LargeHeroTitle key={item.logo ?? item.id} item={item} />
+                {item.synopsis && (
+                  <p className="lhero__synopsis">{item.synopsis}</p>
+                )}
+                <p className="lhero__meta">
+                  {[
+                    item.year,
+                    item.runtimeMin ? `${item.runtimeMin} min` : null,
+                    item.kind === "series" ? "Series" : "Movie",
+                  ]
+                    .filter(Boolean)
+                    // " · ", the app's one separator (016 4.5): three
+                    // spaces under `white-space: pre` read as a layout gap
+                    // rather than as a list.
+                    .join(" · ")}
+                  {item.rating ? (
+                    <span className="lhero__rating">
+                      {" · "}★ {item.rating.toFixed(1)}/10
+                    </span>
+                  ) : null}
+                </p>
+                <div className="lhero__actions">
+                  {/* Out of the tab order on the peeking slides. They were
+                    * all tab stops, so 8 of the hero's 12 led to buttons
+                    * off the edge of the screen. `inert` would also stop
+                    * a click on a neighbour sliding it in, so it's this. */}
+                  <Button
+                    variant="default"
+                    type="button"
+                    tabIndex={active ? undefined : -1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onWatchNow(item);
+                    }}
+                  >
+                    Watch Now
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    tabIndex={active ? undefined : -1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpen(item);
+                    }}
+                  >
+                    More Info
+                  </Button>
+                </div>
+              </div>
+              </Tilt>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** The hero card's title: the clearlogo, fading in once decoded, or the
+ * name in type when there is no logo or it fails to load. It used to be
+ * the browser's broken-image box with the name as its alt text. */
+function LargeHeroTitle({ item }: { item: VodItem }) {
+  const [failed, setFailed] = useState(false);
+  if (!item.logo || failed)
+    // Past a short name the type steps down (stream.css): about two lines.
+    return <h2 className={"lhero__title" + (item.title.length > 18 ? " lhero__title--long" : "")}>{item.title}</h2>;
+  return (
+    <img
+      className="lhero__logo art-in"
+      src={item.logo}
+      alt={item.title}
       onLoad={artLoaded}
       onError={() => setFailed(true)}
     />

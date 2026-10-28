@@ -247,9 +247,9 @@ const closeSettings = async (page) => {
   await page.waitForTimeout(300);
   const look = await titles(page);
   check(
-    "Appearance, on Stream: the interface, the carousel, the cards, the playing info, the row size, and Reset Appearance last",
+    "Appearance, on Stream: the interface, the carousel and its style, the cards, the playing info, the row size, and Reset Appearance last",
     JSON.stringify(look) ===
-      JSON.stringify(["Accent Color", "Appearance", "Startup Tab", "Clock Format", "Featured Carousel", "Carousel Catalogs", "Card Details", "Info While Playing", "Titles per Row", "Reset Appearance"]),
+      JSON.stringify(["Accent Color", "Appearance", "Startup Tab", "Clock Format", "Featured Carousel", "Carousel Style", "Carousel Catalogs", "Card Details", "Info While Playing", "Titles per Row", "Reset Appearance"]),
     JSON.stringify(look),
   );
   const lookNotes = await notesByRow(page);
