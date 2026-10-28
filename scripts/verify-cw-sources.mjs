@@ -116,10 +116,9 @@ check(
   (await card.evaluate((c) => getComputedStyle(c).transform)) === "none",
 );
 check(
-  "a series card says which episode, before the time left",
-  /^S1 · E4 · \d+m Left$/.test(
-    (await card.locator(".stream-card__meta").innerText({ timeout: 2000 }).catch(() => "")).trim(),
-  ),
+  "a series card names its episode beside the title, and the line under it is the time left",
+  (await card.locator(".stream-card__name").innerText({ timeout: 2000 }).catch(() => "")).trim() === `${ENTRY.title} | S1 E4` &&
+    /^\d+m Left$/.test((await card.locator(".stream-card__meta").innerText({ timeout: 2000 }).catch(() => "")).trim()),
 );
 check(
   "the Sources chip is a button",
@@ -134,7 +133,8 @@ check(
   (await card
     .locator("button.continue-card__text .stream-card__name")
     .innerText({ timeout: 2000 })
-    .catch(() => null)) === ENTRY.title,
+    .catch(() => ""))
+    .startsWith(ENTRY.title),
 );
 
 // The routing assertion. Clicking either target must leave Home for the

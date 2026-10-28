@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.18: Ratings with a star; the episode beside the title (unreleased)
+
+- **Ratings on cards have a star**, "★ 8.1", so they can't be read as
+  something else.
+- **Continue Watching puts a series' episode beside its title**,
+  "Dr. STONE | S3 E8", and the line under it is the details and time left.
+
 ## 1.0.17: Smaller Files, and recordings that say what they're doing (unreleased)
 
 - **Settings → Playback → Recording Quality**: Original Quality, or

@@ -1279,6 +1279,8 @@
   border-radius: 6px;
 }
 .continue-card__text:hover .stream-card__name { color: var(--accent); }
+/* "| S3 E8" after a series' title: part of the name, quieter than it. */
+.continue-card__ep { color: var(--text-muted); font-weight: 500; }
 /* Hold-to-clear progress: fills linearly over EXACTLY the 1000ms hold
  * timer in StreamScreen (the animation IS the countdown — keep it under
  * reduced motion, it carries information). A transition, not a keyframe:

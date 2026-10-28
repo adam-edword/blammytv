@@ -159,7 +159,11 @@ Not the whole board. CI runs all of it on every push, so a full local run
 before each one doubled every version's wait and bought nothing CI doesn't
 (Adam, v0.9.127: "feels like these are taking the longest by far").
 
-- **Always:** `pnpm typecheck`, `pnpm lint`, `pnpm test`. About two minutes.
+- **A small tweak** (copy, a CSS value, a one-line fix): `pnpm typecheck`,
+  `pnpm lint` and the unit test file it touches, then push. CI runs the
+  rest. Adam (1.0.18): "for changes that small i dont think we need to run
+  tests on all the things".
+- **Anything bigger:** `pnpm typecheck`, `pnpm lint`, `pnpm test`. About two minutes.
 - **The harnesses the change touches:** `pnpm verify <name>`, new checks
   included.
 - **A native change:** `node scripts/check-rust.mjs`, clippy, and the host

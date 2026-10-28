@@ -66,7 +66,9 @@ export function cardMetaLine(
   },
 ): string {
   const text: Record<CardMetaField, string | null> = {
-    rating: parts.rating ? parts.rating.toFixed(1) : null,
+    // The star says what the number is (Adam: "S3 · E8 · 8.1" read as an
+    // episode), as the shelf's "★ 7.6/10" does.
+    rating: parts.rating ? `★ ${parts.rating.toFixed(1)}` : null,
     year: parts.year ? String(parts.year) : null,
     runtime: parts.runtimeMin ? `${parts.runtimeMin} min` : null,
     genre: parts.genre ?? null,

@@ -42,14 +42,16 @@ export function ContinueCard({
     entry.posSec && entry.durSec && entry.posSec < entry.durSec * 0.9
       ? Math.max(1, Math.round((entry.durSec - entry.posSec) / 60))
       : null;
-  // Which episode, for a series (Apple's TV app does; the label was stored
-  // and never shown). An entry from before season/episode were kept has
-  // only the label.
+  // Which episode, for a series, beside the title: "Dr. STONE | S3 E8" (Adam).
+  // An entry from before season/episode were kept has only the label.
+  const epOf = entry.label?.match(/^S(\d+) · E(\d+)/);
   const ep =
     entry.season != null && entry.episode != null
-      ? `S${entry.season} · E${entry.episode}`
-      : (entry.label?.match(/^S\d+ · E\d+/)?.[0] ?? null);
-  const metaLine = [ep, meta, leftMin != null ? `${leftMin}m Left` : null]
+      ? `S${entry.season} E${entry.episode}`
+      : epOf
+        ? `S${epOf[1]} E${epOf[2]}`
+        : null;
+  const metaLine = [meta, leftMin != null ? `${leftMin}m Left` : null]
     .filter(Boolean)
     .join(" · ");
   const [holding, setHolding] = useState(false);
@@ -206,7 +208,10 @@ export function ContinueCard({
           if (wasClick()) onSources();
         }}
       >
-        <span className="stream-card__name">{entry.title}</span>
+        <span className="stream-card__name">
+          {entry.title}
+          {ep && <span className="continue-card__ep"> | {ep}</span>}
+        </span>
         {metaLine && <span className="stream-card__meta">{metaLine}</span>}
       </button>
     </div>

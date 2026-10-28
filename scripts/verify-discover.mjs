@@ -406,7 +406,8 @@ await page4.addInitScript(() => {
 await page4.goto("http://localhost:4173/");
 await page4.getByRole("button", { name: "Stream", exact: true }).click();
 await page4.waitForSelector(".continue-card", { timeout: 20_000 });
-const cwTitles = await page4.$$eval(".continue-card .stream-card__name", (els) => els.map((e) => e.textContent));
+// The title alone: a series' name also carries "| S1 E2" (1.0.18).
+const cwTitles = await page4.$$eval(".continue-card .stream-card__name", (els) => els.map((e) => e.firstChild?.textContent));
 check("finished movie retired from Continue Watching",
   !cwTitles.includes("Fake Movie Five") && cwTitles.includes("Fake Movie Three") && cwTitles.includes("Fake Series One"),
   cwTitles.join(", "));
