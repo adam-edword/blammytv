@@ -1,4 +1,5 @@
 import type { VodItem } from "../stream/model";
+import type { Appearances, GenreRow } from "./genreRows";
 
 /**
  * Discover's browse state, held for the life of the app process.
@@ -28,6 +29,11 @@ export type DiscoverSession = {
   seen: string[];
   exhausted: boolean;
   scroll: number;
+  /** A genre page's rows (plan 034), built once from the pool they came from.
+   * Null: no rows, the page is the grid. */
+  rows: GenreRow[] | null;
+  /** Where each card was seen, which ranks the next batch the grid loads. */
+  appear: Appearances;
 };
 
 let held: DiscoverSession | null = null;

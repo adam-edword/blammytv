@@ -602,17 +602,21 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
     JSON.stringify(rail),
   );
   await page.locator(".genre-card", { hasText: "Action" }).first().click();
-  await page.waitForFunction(() => document.querySelectorAll(".disc-grid .stream-card").length >= 40, null, { timeout: 20_000 }).catch(() => {});
+  // A genre is rows now (plan 034, 1.0.30), built from a pool of the first
+  // three pages, which it reads up front instead of as the grid scrolls.
+  await page.locator(".genre-rows .media-row__title").first().waitFor({ timeout: 20_000 });
   const g0 = asked("GET", "/Items", (c) => c.query.Genres === "Action" && c.query.StartIndex === "0")[0];
   check(
     "  a genre page asks Genres, from the first title, a page at a time",
     !!g0 && g0.query.ParentId === VIEWS[0].id && g0.query.Limit === "40",
     JSON.stringify(g0?.query),
   );
-  await page.locator(".discover__sentinel").scrollIntoViewIfNeeded();
   const more = await waitFor(page, async () => asked("GET", "/Items", (c) => c.query.Genres === "Action" && c.query.StartIndex === "40").length > 0, 15_000);
   const g40 = asked("GET", "/Items", (c) => c.query.Genres === "Action" && c.query.StartIndex === "40")[0];
   check("  and the next page from where the cursor stands", more && g40?.query.ParentId === VIEWS[0].id, JSON.stringify(g40?.query));
+  // See All Action is the genre as one grid.
+  await page.getByRole("button", { name: "See All Action", exact: true }).click();
+  await page.waitForFunction(() => document.querySelectorAll(".disc-grid .stream-card").length > 40, null, { timeout: 20_000 }).catch(() => {});
   const gridNames = await page.locator(".disc-grid .stream-card__name").allInnerTexts();
   check(
     "  the grid holds only that genre's titles",
@@ -839,7 +843,7 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
   await page.locator(".genre-card").first().waitFor({ timeout: 20_000 });
   const clickedAt = Date.now();
   await page.locator(".genre-card", { hasText: "Action" }).first().click();
-  await page.waitForFunction(() => document.querySelectorAll(".disc-grid .stream-card").length >= 40, null, { timeout: 20_000 }).catch(() => {});
+  await page.locator(".genre-rows .media-row__title").first().waitFor({ timeout: 20_000 }).catch(() => {});
   const plain = asked("GET", "/Items", (c) => c.query.ParentId === EXTRA_VIEWS[1].id && c.query.Genres === "Action")[0];
   check(
     "Discover: a genre page also asks a catalog that lists no genres, which serves any",
@@ -850,8 +854,8 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
   // first catalog fills alone, and Bagged Film comes from the second. CI
   // read "0 cards" here once (v0.11.22) and four local runs, cold and warm,
   // never did; the detail says what the page held if it happens again.
-  const bagged = await waitFor(page, async () => (await page.locator(".disc-grid .stream-card__name", { hasText: "Bagged Film" }).count()) > 0, 15_000);
-  const grid = await page.locator(".disc-grid .stream-card__name").allInnerTexts();
+  const bagged = await waitFor(page, async () => (await page.locator(".genre-rows .stream-card__name", { hasText: "Bagged Film" }).count()) > 0, 15_000);
+  const grid = await page.locator(".genre-rows .stream-card__name").allInnerTexts();
   const genreOn = await page.locator(".genre-card--on .genre-card__name").allInnerTexts();
   // CI read "0 cards" a second time (0.12.0) and the page never does here: say
   // which state the grid was in (still loading, a failure or empty card) and
@@ -866,7 +870,7 @@ const opens = (p) => p.evaluate(() => window.__sourceAsks.slice());
   // (for the detail only) and say when Bagged Film showed, if it ever did.
   let lateMs = null;
   if (!bagged) {
-    const late = await waitFor(page, async () => (await page.locator(".disc-grid .stream-card__name", { hasText: "Bagged Film" }).count()) > 0, 30_000);
+    const late = await waitFor(page, async () => (await page.locator(".genre-rows .stream-card__name", { hasText: "Bagged Film" }).count()) > 0, 30_000);
     lateMs = late ? Date.now() - clickedAt : "never in 30s more";
   }
   check(
