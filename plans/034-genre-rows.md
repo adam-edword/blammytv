@@ -1,6 +1,6 @@
 # Plan 034: Discover's genre pages as rows
 
-Status: DECIDED (2026-10-29, Adam), mockup signed off:
+Status: BUILT in v1.0.31; its numbers wait on Adam's btvGenreGrid paste. Mockup signed off:
 https://claude.ai/artifact/Egy5aKhEsii1nyLUv6hKtG. Waits on data from
 `copy(btvGenreGrid())` (v1.0.29) before the build.
 

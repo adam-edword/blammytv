@@ -2,6 +2,16 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.31: Genres as rows (unreleased)
+
+- **Picking a genre in Discover opens rows**: Popular (from TMDB, when the
+  app has its key), Just the genre, its Series, then the mixes your
+  catalogs hold, like Romantic Comedy or Action Comedy.
+- **Titles that aren't the genre are left out**, and the rest are ranked by
+  how much of the title is the genre, then by how popular it looks.
+- **See All** on a row opens it as a grid; See All at the foot opens the
+  whole genre.
+
 ## 1.0.30: Start On keeps Stream for a new Xtream playlist (unreleased)
 
 - **Picking Stream with only an Xtream playlist opens on Stream again**, not
