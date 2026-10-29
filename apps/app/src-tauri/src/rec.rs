@@ -4825,9 +4825,13 @@ mod tests {
         assert_eq!((f.job, f.progress), (None, None));
         assert_eq!(r.get("g").unwrap().job, None);
         // a is repackaged by itself, and its shrink waits for the page too.
+        // The .ts goes after the index has the .mkv (the save first, so a
+        // failed save loses nothing), so wait for that too: Windows' CI read
+        // the gap between the two once (1.0.32).
         until("a to be repackaged", 90, || {
             r.get("a")
                 .is_some_and(|a| a.path.ends_with("a.mkv") && a.job == Some(Job::Shrink) && a.progress.is_none())
+                && !dir.join("a.ts").exists()
         });
         let a = r.get("a").unwrap();
         assert!(
