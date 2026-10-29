@@ -29,15 +29,16 @@
 
 /* ---- featured hero (plan 031): the shelf. One 16:9 card in focus, the rest
  * 2:3 posters at its height, the focused title's details under the card.
- * The focused card is 2.07x a Continue Watching card (1104 x 621 at its
- * 300px; 1.8x until 1.0.23, Adam: "like 15% bigger"), capped at 80vw so a
+ * The focused card is 1.97x a Continue Watching card (1050 x 591 at its
+ * 300px; 1.8x until 1.0.23, then 15% bigger, then 5% back, Adam: "a bit too
+ * big"), capped at 80vw so a
  * narrow window still shows a poster beside it; the
  * posters are 2:3 at its height; the gap is 16px, the rows' own (Adam); the
  * focused card sits at
  * the page's left edge, the previous one peeking in beside it. Escapes
  * .stream's padding so the peeks bleed to the window edges. ---- */
 .shero {
-  --w: min(calc(var(--cw-h, 300px) * 3.68), 80vw);
+  --w: min(calc(var(--cw-h, 300px) * 3.5), 80vw);
   --h: calc(var(--w) * 9 / 16);
   --pw: calc(var(--h) * 2 / 3);
   --gap: 16px;

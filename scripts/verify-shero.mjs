@@ -99,8 +99,8 @@ const near = (a, b, tol = 1) => Math.abs(a - b) <= tol;
     return { w: r.width, h: r.height };
   });
   check(
-    "the focused card is 16:9 and 2.07x a Continue Watching card, the posters 2:3, all one height",
-    near(cw.w, 533.3, 0.5) && near(on.w, cw.w * 2.07) && near(on.h * 16, on.w * 9, 1) && posters.length >= 4 &&
+    "the focused card is 16:9 and 1.97x a Continue Watching card, the posters 2:3, all one height",
+    near(cw.w, 533.3, 0.5) && near(on.w, cw.w * 1.96875) && near(on.h * 16, on.w * 9, 1) && posters.length >= 4 &&
       posters.every((c) => near(c.w * 3, c.h * 2, 1) && near(c.h, on.h, 0.5)),
     JSON.stringify({ cw, on: [on.w, on.h], posters: posters.map((c) => [c.w, c.h]) }),
   );
@@ -211,12 +211,12 @@ const near = (a, b, tol = 1) => Math.abs(a - b) <= tol;
   check(
     "the card really grows frame by frame (and the track's transition is the 620ms one)",
     // 10 frames in 1.2s proves a glide and not a jump, on a slow CI runner too.
-    s.length >= 10 && widths.size >= 6 && s[0].cw < 420 && near(s.at(-1).cw, 1104, 1) && trackMs === "0.62s",
+    s.length >= 10 && widths.size >= 6 && s[0].cw < 400 && near(s.at(-1).cw, 1050, 1) && trackMs === "0.62s",
     JSON.stringify({ frames: s.length, from: s[0].cw, to: s.at(-1).cw, distinct: widths.size, trackMs }),
   );
   check(
     "the logo's box is the same size at every moment of the grow, sized from the full card",
-    spread("lw") < 0.5 && spread("lh") < 0.5 && near(s.at(-1).lw, 0.46 * 1104, 1) && near(s.at(-1).lh, 0.34 * 621, 1) && spread("lx") < 0.5,
+    spread("lw") < 0.5 && spread("lh") < 0.5 && near(s.at(-1).lw, 0.46 * 1050, 1) && near(s.at(-1).lh, 0.34 * 590.625, 1) && spread("lx") < 0.5,
     JSON.stringify({ w: [Math.min(...s.map((x) => x.lw)), Math.max(...s.map((x) => x.lw))], h: [Math.min(...s.map((x) => x.lh)), Math.max(...s.map((x) => x.lh))], x: spread("lx") }),
   );
   const early = s.filter((x) => x.t < 300);
@@ -227,7 +227,7 @@ const near = (a, b, tol = 1) => Math.abs(a - b) <= tol;
   );
   check(
     "the poster layer is as wide as a poster, and the 16:9 layer as wide as the focused card, throughout the grow",
-    spread("pw") < 0.5 && near(s[0].pw, 414, 0.5) && spread("bw") < 0.5 && near(s[0].bw, 1104, 0.5),
+    spread("pw") < 0.5 && near(s[0].pw, 393.75, 0.5) && spread("bw") < 0.5 && near(s[0].bw, 1050, 0.5),
     JSON.stringify({ pw: [s[0].pw, spread("pw")], bw: [s[0].bw, spread("bw")] }),
   );
   check(
@@ -336,7 +336,8 @@ for (const [width, height] of [[1920, 1080], [1280, 800]]) {
     JSON.stringify({ ahead: cards.filter((c) => c.l >= width).length, behind: cards.filter((c) => c.r <= 0).length }),
   );
   // The farthest poster showing, clicked: two cards at 1920, one at 1280.
-  const k = cards.findIndex((c, i) => i > a && c.r > width - 5 && c.l < width - 20) - a;
+  // The farthest card with room to click (40px or more in view).
+  const k = cards.reduce((m, c, i) => (i > a && c.l < width - 40 ? i : m), -1) - a;
   lag.ms = 1000;
   await watch(p);
   const target = p.locator(".shero__card").nth(a + k);
@@ -369,7 +370,7 @@ for (const [width, height] of [[1920, 1080], [1280, 800]]) {
   );
   if (width === 1920) {
     // A long drag: 4 steps in about half a second, then release. Four, since
-    // 1.0.23's bigger posters (430px a step) put a fifth past the window.
+    // 1.0.23's bigger posters (410px a step or more) put a fifth past the window.
     lag.ms = 1000;
     await rest(p);
     const before = await labels(p);
@@ -395,7 +396,7 @@ for (const [width, height] of [[1920, 1080], [1280, 800]]) {
     await p.mouse.move(1910, 300);
     await p.mouse.down();
     for (let i = 1; i <= 20; i++) {
-      await p.mouse.move(1910 - i * 86, 300);
+      await p.mouse.move(1910 - i * 84, 300);
       await p.waitForTimeout(25);
     }
     await p.mouse.up();
@@ -993,7 +994,7 @@ const settled = (p) =>
       nobd: c.classList.contains("shero__nobd"),
       same: art.src === c.querySelector(".shero__poster").src && /\/poster\//.test(art.src),
       blur: /blur/.test(getComputedStyle(art).filter),
-      right: Math.abs(lp.right - cr.right) < 1 && Math.abs(lp.width - 414) < 1,
+      right: Math.abs(lp.right - cr.right) < 1 && Math.abs(lp.width - 393.75) < 1,
       opacity: Number(getComputedStyle(c.querySelector(".shero__layer--p")).opacity),
     };
   });
@@ -1018,7 +1019,7 @@ const settled = (p) =>
   });
   check(
     "with no poster: the 16:9 art, cropped to the poster's box",
-    r.same && near(r.w, 414, 1) && r.fit === "cover" && !r.blur,
+    r.same && near(r.w, 393.75, 1) && r.fit === "cover" && !r.blur,
     JSON.stringify(r),
   );
   await ctx.close();

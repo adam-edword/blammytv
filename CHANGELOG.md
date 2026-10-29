@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.25: The shelf a touch smaller (unreleased)
+
+- **The shelf carousel is 5% smaller than in 1.0.23**: the focused card is
+  1050 x 591 on a wide window.
+
 ## 1.0.24: Fixes from a review of everything since 1.0 (unreleased)
 
 - **A finished Smaller Files shrink is kept** when the recording is open
