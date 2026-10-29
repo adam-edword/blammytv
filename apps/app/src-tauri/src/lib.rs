@@ -18,6 +18,7 @@ mod mvproxy;
 mod rec;
 mod settingsfile;
 mod trakt;
+mod vlc;
 
 #[cfg(windows)]
 mod credman;
@@ -50,6 +51,14 @@ pub fn emit_ui_pos(event: &str, pos: f64) {
     }
 }
 
+/// Like emit_ui but carrying a record (vlc-progress's `{ pos, len, state }`).
+pub fn emit_ui_json<S: serde::Serialize + Clone>(event: &str, payload: S) {
+    if let Some(app) = APP.get() {
+        use tauri::Emitter;
+        let _ = app.emit(event, payload);
+    }
+}
+
 // Current popout playback position (seconds) — used to reclaim it in-app.
 #[tauri::command]
 fn popout_pos() -> f64 {
@@ -61,6 +70,25 @@ fn popout_pos() -> f64 {
     {
         0.0
     }
+}
+
+/// Pop a film or an episode out to VLC (plan 032). Ok once VLC has started;
+/// the error is "vlc not installed" when there is none, or a short word on what
+/// was refused, never the URL. From then on `vlc-progress` carries `{ pos, len,
+/// state }` every few seconds, ending with state "gone". One VLC is followed at
+/// a time: a second open stops following the first and leaves its window alone.
+#[tauri::command]
+async fn vlc_open(
+    url: String,
+    title: String,
+    user_agent: Option<String>,
+    start: Option<f64>,
+) -> Result<(), String> {
+    let started = vlc::launch(url, title, user_agent, start)?;
+    tauri::async_runtime::spawn(vlc::follow(started, |p| {
+        emit_ui_json("vlc-progress", p.clone())
+    }));
+    Ok(())
 }
 
 // Close the popout window (used by the "Bring it back" button).
@@ -2119,6 +2147,7 @@ pub fn run() {
             popout_open,
             popout_pos,
             popout_stop,
+            vlc_open,
             inv_open,
             inv_set_rect,
             inv_stop,

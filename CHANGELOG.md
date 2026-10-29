@@ -2,6 +2,12 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.20: VLC, the native half (unreleased)
+
+- **Nothing to see yet.** The app can now find VLC, start it on a film or an
+  episode, and read back how far you've got. The setting and the button
+  come with the next part.
+
 ## 1.0.19: The episode without the pipe (unreleased)
 
 - **Continue Watching reads "Dr. STONE S3 E8"**, the episode in grey.

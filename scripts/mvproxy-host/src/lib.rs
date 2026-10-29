@@ -35,3 +35,5 @@ pub mod settingsfile;
 pub mod jf;
 #[path = "../../../apps/app/src-tauri/src/rec.rs"]
 pub mod rec;
+#[path = "../../../apps/app/src-tauri/src/vlc.rs"]
+pub mod vlc;

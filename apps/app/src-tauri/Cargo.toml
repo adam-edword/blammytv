@@ -100,4 +100,6 @@ windows = { version = "0.61", features = [
     "Win32_System_Power",
     "Win32_Storage_FileSystem",
     "Win32_System_SystemInformation",
+    # vlc.rs: where VLC is installed (HKLM\SOFTWARE\VideoLAN\VLC).
+    "Win32_System_Registry",
 ] }

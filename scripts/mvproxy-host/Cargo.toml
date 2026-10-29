@@ -13,6 +13,8 @@
 # open probe do with it (mpvagent.rs)
 # and the recorder (rec.rs, plan 029): a real ffmpeg writing real files from a
 # fake provider, so BLAMMYTV_FFMPEG needs mpeg2video and mp2 as well
+# and how VLC is found, started and asked how far it has got (vlc.rs, plan 032)
+# against a fake registry and a fake web interface
 # on a Linux box,
 # where the app crate itself will not build (gdk-sys; see CLAUDE.md). The
 # files are included as they are, byte for byte.
