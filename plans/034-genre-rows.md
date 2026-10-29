@@ -1,8 +1,8 @@
 # Plan 034: Discover's genre pages as rows
 
-Status: BUILT in v1.0.31; its numbers wait on Adam's btvGenreGrid paste. Mockup signed off:
-https://claude.ai/artifact/Egy5aKhEsii1nyLUv6hKtG. Waits on data from
-`copy(btvGenreGrid())` (v1.0.29) before the build.
+Status: BUILT in v1.0.31, retuned in v1.0.32 on Adam's Comedy paste
+(fixtures/comedy-sample.json): order-aware rank, one mix per card, more
+names. Mockup signed off: https://claude.ai/artifact/Egy5aKhEsii1nyLUv6hKtG
 
 ## The problem
 

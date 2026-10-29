@@ -2,6 +2,14 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.32: Genre rows tuned on a real library (unreleased)
+
+- **A title that leads with the genre ranks first.** Forrest Gump and Ted
+  Lasso now sit above Pulp Fiction on Comedy.
+- **Each title is in one mix row**, so anime stays in Anime Comedy instead
+  of filling every row, and Romantic Comedy holds romcoms.
+- **Format tags like Reality or Talk Show don't make rows.**
+
 ## 1.0.31: Genres as rows (unreleased)
 
 - **Picking a genre in Discover opens rows**: Popular (from TMDB, when the
