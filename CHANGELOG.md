@@ -2,6 +2,12 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.30: Start On keeps Stream for a new Xtream playlist (unreleased)
+
+- **Picking Stream with only an Xtream playlist opens on Stream again**, not
+  Live TV. Start On treated a playlist whose movies hadn't been read yet as
+  having none (1.0.28).
+
 ## 1.0.29: A look inside Discover's genre grids (unreleased)
 
 - **Nothing changes on screen.** For the genre rows to come (plan 034),

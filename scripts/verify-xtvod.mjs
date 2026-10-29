@@ -709,7 +709,11 @@ await p.context().close();
 {
   await clearLog();
   const q = await openPage({ seeds: { xtVod: { vod1: { off: true, picks: [ACTION] } } } });
-  await q.waitForTimeout(3000);
+  // With no library on there is nothing to stream, so the launch opens on Live
+  // TV (Start On offers only what a source backs, 1.0.28): Stream is visited.
+  await q.waitForTimeout(1500);
+  await goTo(q, "home");
+  await q.waitForTimeout(1500);
   const text = await q.locator("main").innerText();
   check(
     "a playlist whose library is switched off puts nothing in Stream and asks the panel for no list",
