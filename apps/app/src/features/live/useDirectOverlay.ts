@@ -22,8 +22,11 @@ import {
 } from "./seekHold";
 import {
   behindLive,
+  goLiveAction,
   nextBaseline,
+  nextReadWatch,
   type EdgeBaseline,
+  type ReadWatch,
 } from "./liveEdge";
 import { dvrChanged, dvrWindow, type DvrWindow } from "./dvr";
 import { endDecision, looksFailedOpen, type EndInputs } from "./ending";
@@ -159,6 +162,10 @@ export function useDirectOverlay(
     presentedAt: 0,
     /** The user has seeked on this stream, so the baseline stops refining. */
     seeked: false,
+    /** Whether reading has kept up with the clock on this stream, for Go Live
+     * (liveEdge.ts nextReadWatch). Null until the first reading after the
+     * picture, and again after a reload. */
+    readWatch: null as ReadWatch | null,
     behind: 0,
     behindCbs: new Set<(sec: number) => void>(),
     dvr: null as DvrWindow | null,
@@ -201,6 +208,7 @@ export function useDirectOverlay(
     s.edgeBaseline = null;
     s.presentedAt = 0;
     s.seeked = false;
+    s.readWatch = null;
     s.behind = 0;
     s.dvr = null;
     s.tracks = null;
@@ -279,6 +287,8 @@ export function useDirectOverlay(
           switch (endDecision(inputs)) {
             case "present":
               s.presentedAt = performance.now();
+              // A reload is a new buffer, so a stall on the last one is over.
+              s.readWatch = null;
               s.loading = false;
               s.loadingCbs.forEach((cb) => cb(false));
               break;
@@ -321,6 +331,12 @@ export function useDirectOverlay(
             sincePresent: s.presentedAt ? performance.now() - s.presentedAt : 0,
             seeked: s.seeked,
           });
+          if (!s.loading) {
+            s.readWatch = nextReadWatch(s.readWatch, {
+              end: st.dvrEnd,
+              now: performance.now(),
+            });
+          }
           // The live DVR window. Null until the baseline settles, because a
           // window built on a wrong gap is worse than no window.
           const win = dvrWindow(
@@ -439,6 +455,20 @@ export function useDirectOverlay(
         s.seeked = true;
         s.seekHold = nextHoldAbs(s.time, s.seekable, p, performance.now());
         void tauriMpvSeekAbs(p).catch(() => {});
+      },
+      // Go Live as a seek, when the buffer reaches the edge and reading never
+      // stalled; false sends nothing and the chrome reloads instead. Arms
+      // `seeked` like any seek, so the edge baseline stays where it was.
+      seekLive: () => {
+        const act = goLiveAction({
+          watch: s.readWatch,
+          edge: s.dvr?.end,
+          buffering: s.buffering,
+        });
+        if (act.kind !== "seek") return false;
+        s.seeked = true;
+        void tauriMpvSeekAbs(act.to).catch(() => {});
+        return true;
       },
       setSpeed: (sp) => void tauriMpvSetSpeed(sp).catch(() => {}),
       // PRESENT ONLY IF THE HOST OFFERS ONE, because its presence is the

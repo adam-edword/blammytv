@@ -60,6 +60,11 @@ export interface OverlayApi {
   multiview?: () => void;
   toggleFavorite?: () => void; // star/unstar the playing channel
   goLive?: () => void; // reload the stream at the live edge
+  /** Live: seek to the live edge instead of reloading, when the buffer reaches
+   * it and reading never stalled (liveEdge.ts goLiveAction). Returns whether it
+   * did; false means nothing was sent and the caller reloads with `goLive`.
+   * Absent on a host with no such buffer, which reloads. */
+  seekLive?: () => boolean;
   setMouseIgnore: (ignore: boolean) => void;
   getMeta: () => Promise<TheaterMeta | null>;
   onMeta: (cb: (meta: TheaterMeta | null) => void) => () => void;

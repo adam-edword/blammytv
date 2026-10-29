@@ -2,6 +2,16 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.21: Pause and rewind live TV for hours (unreleased)
+
+- **Live TV keeps hours behind you.** A live channel buffers to disk, so you
+  can pause it or rewind it for about two hours or more, not a few minutes.
+- **LIVE jumps straight back** to the live edge without reloading the
+  channel, when the stream has kept up. If it stalled, LIVE reloads it as
+  before.
+- **The buffer stops growing** at 12 GB or when the drive gets under 2 GB
+  free, and is deleted when you change channel.
+
 ## 1.0.20: VLC, the native half (unreleased)
 
 - **Nothing to see yet.** The app can now find VLC, start it on a film or an

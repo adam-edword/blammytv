@@ -6,6 +6,7 @@ mod logtail;
 mod mal;
 mod mpv;
 mod mpvagent;
+mod mpvcache;
 mod mpvheader;
 mod mpvopen;
 mod mpvprefs;
@@ -157,6 +158,7 @@ fn popout_open(
         size.as_deref(),
         corner.as_deref(),
         agent.as_deref(),
+        live,
     )
 }
 
@@ -693,7 +695,10 @@ fn mpv_status() -> String {
     // whenever it actually needs time order, which is the proof that the raw
     // order is not it. With two ranges the naive read took the start of the
     // NEWEST and the end of the OLDEST and inverted them.
-    let dvr = mpv::get_property("demuxer-cache-state")
+    let cache_state = mpv::get_property("demuxer-cache-state");
+    // The disk cache's brake (mpv.rs guard_cache), on the reading it needs.
+    mpv::guard_cache(cache_state.as_deref());
+    let dvr = cache_state
         .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
         .and_then(|v| {
             let ranges = v.get("seekable-ranges")?.as_array()?;

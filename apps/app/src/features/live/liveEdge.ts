@@ -117,3 +117,75 @@ export function nextBaseline(
     return { gap: cur.gap, settling: false };
   return { gap: Math.max(cur.gap, o.cacheDur), settling: true };
 }
+
+/**
+ * Whether the buffer's end can be trusted to BE live, for Go Live.
+ *
+ * Go Live used to reload the stream, because the buffer behind a paused player
+ * stopped growing once its forward half was full (a few minutes), so the end of
+ * it was nowhere near now. Live channels sit on a disk cache now (mpvcache.rs),
+ * where reading goes on while paused and the end of the buffer is the live edge.
+ * Then Go Live is a seek, and the stream is not touched. The reload stays for a
+ * reader that stopped, a dead socket having nothing to seek to.
+ *
+ * "Stopped" is read from the one number the poll already has, the end of the
+ * seekable range. The provider's clock is the wall clock, so the end advances
+ * one second a second, and `end - now` is flat while reading keeps up. It falls
+ * when reading does not. The test is that figure against the best it has been:
+ * a bigger fall than STALL_SECS, once, and the stream is stalled until it is
+ * reloaded. Sticky on purpose: a stall that recovered by reconnecting may have
+ * left a hole, and a reload is the way back to a buffer that is known whole.
+ */
+export const STALL_SECS = 20;
+
+/** The best `end - now` seen on this stream, and whether it has since fallen
+ * short of that by more than STALL_SECS. */
+export interface ReadWatch {
+  peak: number;
+  stalled: boolean;
+}
+
+/**
+ * The watch after this reading. `end` is the seekable range's end in stream
+ * seconds, `now` is performance.now() in ms. Null `end` (nothing known) changes
+ * nothing. Start a stream with null.
+ *
+ * The peak is the best so far rather than the first reading, because the buffer
+ * fills faster than real time for its first seconds and a first reading would
+ * bank that as slack.
+ *
+ * STALL_SECS is wide because a stream of HLS segments lands its end in steps of
+ * a segment, ten seconds or so, and that is not a stall. A false stall costs a
+ * reload, which is what Go Live was before. A missed one costs a seek into a
+ * buffer that is a little old.
+ */
+export function nextReadWatch(
+  cur: ReadWatch | null,
+  o: { end: number | null | undefined; now: number },
+): ReadWatch | null {
+  if (o.end == null) return cur;
+  const lead = o.end - o.now / 1000;
+  if (!cur) return { peak: lead, stalled: false };
+  const peak = Math.max(cur.peak, lead);
+  return { peak, stalled: cur.stalled || peak - lead > STALL_SECS };
+}
+
+/** What Go Live does: seek to a second, or reload the stream. */
+export type GoLive = { kind: "seek"; to: number } | { kind: "reload" };
+
+/**
+ * Seek to the live edge when the buffer reaches it, reload when it may not.
+ * `edge` is the DVR window's end (dvr.ts), null until the edge baseline has
+ * settled, and a press before then reloads as it always did. A player that is
+ * buffering now has nothing at the end of its buffer to land on.
+ */
+export function goLiveAction(o: {
+  watch: ReadWatch | null;
+  edge: number | null | undefined;
+  buffering: boolean;
+}): GoLive {
+  if (o.edge == null || o.watch == null || o.watch.stalled || o.buffering) {
+    return { kind: "reload" };
+  }
+  return { kind: "seek", to: o.edge };
+}

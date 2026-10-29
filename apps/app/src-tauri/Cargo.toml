@@ -96,7 +96,8 @@ windows = { version = "0.61", features = [
     "Win32_Media_Audio",
     "Win32_System_Com",
     # rec.rs: the PC kept awake while a recording runs, the drive's free space,
-    # and the clock a recording's file name is stamped with.
+    # and the clock a recording's file name is stamped with. mpv.rs: the free
+    # space under the live channels' disk cache (mpvcache.rs).
     "Win32_System_Power",
     "Win32_Storage_FileSystem",
     "Win32_System_SystemInformation",

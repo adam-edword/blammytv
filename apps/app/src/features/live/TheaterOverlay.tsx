@@ -289,6 +289,24 @@ export function TheaterOverlay({
     // The reload stops the file, and mpv puts its subtitle delay back.
     setSubDelay(0);
   }, []);
+  /**
+   * The LIVE button. A seek to the buffer's end when the player's disk cache
+   * reaches it and reading never stalled (liveEdge.ts goLiveAction): the stream
+   * is not touched, so a long rewind or pause costs nothing to come back from.
+   * Otherwise the reload above. The watchdog and Retry call `jumpLive` and
+   * never this: a dead socket has nothing to seek to.
+   *
+   * A seek does not unpause, and the reload did, so this does.
+   */
+  const goLive = useCallback(() => {
+    if (!api()?.seekLive?.()) {
+      jumpLive();
+      return;
+    }
+    api()?.setPause(false);
+    setPaused(false);
+    setLivePct(100);
+  }, [jumpLive]);
   // Seeded from prefs, not from 1/false: this component unmounts on the
   // popout round-trip (and on a tab bounce), and a fresh mount doesn't
   // just FORGET the level — its [volume, muted] effect PUSHES the default
@@ -1197,12 +1215,13 @@ export function TheaterOverlay({
     };
   }, [playbackKey]);
 
-  // Jump to the live edge. A forward seek can't reach it (mpv never pulled the
-  // data between the playback buffer and now), so this reloads the stream on
-  // the same mpv instance — it restarts at the newest segment while the overlay
-  // stays put (video just rebuffers). Then peg the indicator to live.
-  // (The button is `jumpLive` itself now — pegging the indicator moved into
-  // the helper so the watchdog and the Retry button get it too.)
+  // Jump to the live edge. On the in-memory cache a forward seek can't reach
+  // it (mpv never pulled the data between the playback buffer and now), so
+  // `jumpLive` reloads the stream on the same mpv instance: it restarts at
+  // the newest segment while the overlay stays put (video just rebuffers).
+  // The disk cache keeps reading, so the button (`goLive`) seeks when it can
+  // and falls back to that reload. Either way the indicator is pegged to live
+  // (the helpers do it, so the watchdog and the Retry button get it too).
   // At the live edge (within a hair of 100) → the dot burns bright; behind it
   // dims. The only way to fall behind in this UI is the seek controls, so the
   // indicator is an honest read of "are we live" without polling mpv.
@@ -2093,7 +2112,7 @@ export function TheaterOverlay({
                     (atLive ? " is-live" : "")
                   }
                   aria-label="Jump to Live"
-                  onClick={jumpLive}
+                  onClick={goLive}
                 >
                   <span className="theater-live__dot" />
                   LIVE

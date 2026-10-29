@@ -127,6 +127,19 @@ No rebuild. In the app's console on a live channel:
 
 ## Phase 1: pause and rewind for hours (native, small)
 
+**Built in v1.0.21.** Two findings changed the shape (measured on mpv 0.37,
+`mpvcache.rs`'s header has the detail):
+- With `cache-on-disk`, mpv's byte limits count packet metadata only (about
+  256 bytes a packet), so the window is sized in metadata: 337500KiB, about 2
+  hours at 150 packets a second, about 4 on a typical channel.
+- The cache FILE is append-only and never trimmed, so a time limit does not
+  bound the disk. A file cap was added beside the 2 GB free rule:
+  `MAX_FILE_BYTES` 12 GiB, about 2 hours at 13 Mbit/s. At the cap or under 2 GB
+  free, `cache-on-disk=no` at runtime and the stream carries on in memory.
+  The cap's value is Adam's to confirm.
+- Go Live seeks to the buffer's end unless the seekable end fell more than 20s
+  behind the clock (a stall, sticky until a reload), and reloads then.
+
 - Live only: `reset_per_file` turns `cache-on-disk` on with an app-chosen
   `demuxer-cache-dir` under the app's data folder, emptied at startup (Kodi's
   pattern). VOD keeps today's in-memory cache.

@@ -67,7 +67,7 @@ mvconvert.rs, HEVC conversion through an actual ffmpeg included), and so
 do Trakt's and MAL's (trakt.rs and mal.rs, against fakes) and multi-view's
 sound listener and jitter buffer (mvaudio.rs; its cpal output, mvaudio_out.rs,
 needs a device and is type-checked only) and AIOStreams' Jellyfin side
-(aiojf.rs, against a fake) and a Jellyfin server's own client (jf.rs, against a fake) and the header a Jellyfin stream asks mpv to send (mpvheader.rs) and the player settings' checks (mpvprefs.rs) and the dead-link probe (mpvopen.rs, against local servers) and the Vulkan loader's order (mpvvulkan.rs) and About's versions and update notes (about.rs) and the log's read-back (logtail.rs) and the settings file's checks (settingsfile.rs) and a playlist's User-Agent (mpvagent.rs) and the external subtitles' rules (mpvsubs.rs) and the recorder (rec.rs, the real ffmpeg against a fake provider) and VLC's launch and poller (vlc.rs, against fakes), from a host crate that includes the files as they
+(aiojf.rs, against a fake) and a Jellyfin server's own client (jf.rs, against a fake) and the header a Jellyfin stream asks mpv to send (mpvheader.rs) and the player settings' checks (mpvprefs.rs) and the dead-link probe (mpvopen.rs, against local servers) and the Vulkan loader's order (mpvvulkan.rs) and About's versions and update notes (about.rs) and the log's read-back (logtail.rs) and the settings file's checks (settingsfile.rs) and a playlist's User-Agent (mpvagent.rs) and the external subtitles' rules (mpvsubs.rs) and the recorder (rec.rs, the real ffmpeg against a fake provider) and VLC's launch and poller (vlc.rs, against fakes) and live TV's disk cache (mpvcache.rs), from a host crate that includes the files as they
 are:
 
 ```
@@ -75,7 +75,7 @@ curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 426 tests (plan 032): 52 for the proxy (35 mvproxy, 17 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 22 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 62 for a Jellyfin server's own client (jf.rs), 6 for the header a Jellyfin stream asks mpv to send (mpvheader.rs), 16 for mpvprefs, 21 for mpvopen, 9 for mpvvulkan, 8 for about, 16 for logtail, 14 for settingsfile, 10 for mpvagent, 8 for mpvsubs, 71 for rec, 29 for vlc. On CI the Windows job runs the same tests with the
+Baseline 438 tests (plan 029 Phase 1): 52 for the proxy (35 mvproxy, 17 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 22 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 62 for a Jellyfin server's own client (jf.rs), 6 for the header a Jellyfin stream asks mpv to send (mpvheader.rs), 16 for mpvprefs, 21 for mpvopen, 9 for mpvvulkan, 8 for about, 16 for logtail, 14 for settingsfile, 10 for mpvagent, 8 for mpvsubs, 71 for rec, 29 for vlc, 12 for mpvcache. On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 
@@ -90,13 +90,13 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **80/80 harnesses clean, 2556 checks** (1.0.5), or one
+Baseline is **80/80 harnesses clean, 2561 checks** (1.0.5), or one
 fewer: verify-cw-sources' last check only runs when the catalog is still
 loading at the click; the script says so and it is not a failure. verify-kit
 (plan 019) has one section per shared primitive, so a later change that
 undoes one fails there. If playwright-core is not installed, point `PW_FROM` at somewhere
 that can require it. verify-fetchvulkan needs 7-Zip (CI has it): without
-it that one reads `0✓ 1✗` and the total is 2533.
+it that one reads `0✓ 1✗` and the total is 2538.
 
 It refuses to start if anything is already on one of its ports, and that
 refusal is load-bearing: a leftover `vite preview` on 4173 binds first, our

@@ -3,9 +3,13 @@ import {
   EDGE_TOL,
   PCT_PER_SEC,
   SETTLE_MS,
+  STALL_SECS,
   behindLive,
+  goLiveAction,
   livePctFor,
   nextBaseline,
+  nextReadWatch,
+  type ReadWatch,
 } from "./liveEdge";
 
 // The readings this was built from, taken on a real live channel.
@@ -163,5 +167,112 @@ describe("nextBaseline", () => {
 
   it("pins the settle window with a literal", () => {
     expect(SETTLE_MS).toBe(10_000);
+  });
+});
+
+describe("nextReadWatch", () => {
+  // A stream whose buffer ends 5s ahead of the clock when it starts: stream
+  // second 105 at 100,000ms. Reading that keeps up puts the end one second
+  // further on for every second on the clock.
+  const T0 = 100_000;
+  const at = (sec: number) => ({ now: T0 + sec * 1000 });
+
+  it("pins the stall window with a literal", () => {
+    expect(STALL_SECS).toBe(20);
+  });
+
+  it("starts at the first reading, not stalled", () => {
+    expect(nextReadWatch(null, { end: 105, ...at(0) })).toEqual({ peak: 5, stalled: false });
+  });
+
+  it("changes nothing without a reading", () => {
+    expect(nextReadWatch(null, { end: null, ...at(0) })).toBeNull();
+    const w: ReadWatch = { peak: 5, stalled: false };
+    expect(nextReadWatch(w, { end: undefined, ...at(9) })).toBe(w);
+  });
+
+  it("holds still while reading keeps up, for an hour", () => {
+    let w = nextReadWatch(null, { end: 105, ...at(0) });
+    for (let sec = 1; sec <= 3600; sec++) {
+      w = nextReadWatch(w, { end: 105 + sec, ...at(sec) });
+    }
+    expect(w).toEqual({ peak: 5, stalled: false });
+  });
+
+  it("holds still across the steps of an HLS stream", () => {
+    // The end lands in 10s segments: nothing for 9s, then 10s at once. The
+    // figure dips by up to a segment and is back on the next one.
+    let w = nextReadWatch(null, { end: 115, ...at(0) });
+    for (let seg = 1; seg <= 60; seg++) {
+      w = nextReadWatch(w, { end: 115 + (seg - 1) * 10, ...at(seg * 10 - 1) });
+      w = nextReadWatch(w, { end: 115 + seg * 10, ...at(seg * 10) });
+    }
+    expect(w?.stalled).toBe(false);
+  });
+
+  it("calls it a stall once reading falls behind the clock by more than the window", () => {
+    // Reading keeps up to stream second 205 (100s in) and stops. 20s later the
+    // figure is exactly the window below its best, which is not yet a stall; a
+    // second after that it is.
+    let w: ReadWatch | null = { peak: 5, stalled: false };
+    w = nextReadWatch(w, { end: 205, ...at(100) });
+    expect(w).toEqual({ peak: 5, stalled: false });
+    w = nextReadWatch(w, { end: 205, ...at(120) });
+    expect(w?.stalled).toBe(false);
+    w = nextReadWatch(w, { end: 205, ...at(121) });
+    expect(w?.stalled).toBe(true);
+  });
+
+  it("stays stalled when reading catches up: a reload is the way back", () => {
+    let w: ReadWatch | null = { peak: 5, stalled: false };
+    w = nextReadWatch(w, { end: 105, ...at(60) });
+    expect(w?.stalled).toBe(true);
+    // A burst that puts the end past where it should be.
+    w = nextReadWatch(w, { end: 400, ...at(61) });
+    expect(w?.stalled).toBe(true);
+  });
+
+  it("does not bank the fill at the start as slack", () => {
+    // The buffer fills faster than real time at first: 5s ahead, then 15s
+    // ahead a second later. A stall after that is measured from the 15.
+    let w = nextReadWatch(null, { end: 105, ...at(0) });
+    w = nextReadWatch(w, { end: 116, ...at(1) });
+    expect(w).toEqual({ peak: 15, stalled: false });
+    // Reading stops at 116. At 26s the figure has fallen 25 below its best.
+    expect(nextReadWatch(w, { end: 116, ...at(26) })?.stalled).toBe(true);
+  });
+});
+
+describe("goLiveAction", () => {
+  const ok: ReadWatch = { peak: 5, stalled: false };
+
+  it("seeks to the edge when the buffer reaches it", () => {
+    expect(goLiveAction({ watch: ok, edge: 3600.5, buffering: false })).toEqual({
+      kind: "seek",
+      to: 3600.5,
+    });
+  });
+
+  it("seeks to an edge of zero: that is a real second", () => {
+    expect(goLiveAction({ watch: ok, edge: 0, buffering: false })).toEqual({
+      kind: "seek",
+      to: 0,
+    });
+  });
+
+  it("reloads when reading stalled", () => {
+    expect(
+      goLiveAction({ watch: { peak: 5, stalled: true }, edge: 3600, buffering: false }),
+    ).toEqual({ kind: "reload" });
+  });
+
+  it("reloads when nothing is known yet", () => {
+    expect(goLiveAction({ watch: null, edge: 3600, buffering: false })).toEqual({ kind: "reload" });
+    expect(goLiveAction({ watch: ok, edge: null, buffering: false })).toEqual({ kind: "reload" });
+    expect(goLiveAction({ watch: ok, edge: undefined, buffering: false })).toEqual({ kind: "reload" });
+  });
+
+  it("reloads while the player is buffering", () => {
+    expect(goLiveAction({ watch: ok, edge: 3600, buffering: true })).toEqual({ kind: "reload" });
   });
 });
