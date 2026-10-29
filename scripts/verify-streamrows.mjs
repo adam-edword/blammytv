@@ -220,7 +220,10 @@ const clickNeighbour = async (p) => {
     }, buf.toString("base64"));
   };
   await p.mouse.move(5, 5);
-  const bare = [1380, 700];
+  // Just under the posters' foot, at the right: the shelf's height moved in
+  // 1.0.23 (bigger cards), so read it rather than assume it.
+  const shelfFoot = await p.evaluate(() => Math.round(document.querySelector(".shero__viewport").getBoundingClientRect().bottom));
+  const bare = [1380, shelfFoot + 40];
   const withRed = await redAt(...bare);
   await p.addStyleTag({ content: ".shero__ambient { visibility: hidden !important; }" });
   const noRed = await redAt(...bare);

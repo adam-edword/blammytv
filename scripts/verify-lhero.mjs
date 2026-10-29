@@ -81,11 +81,13 @@ const titles = (p) =>
   );
 const trackX = (p) =>
   p.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector(".lhero__track")).transform).m41);
-/** Slide to the next card by clicking the neighbour peeking in at the right. */
+/** Slide to the next card by clicking the neighbour peeking in at the right.
+ * The card itself, near its left edge, not a fixed point on the screen: Stream
+ * sometimes comes back from a title's page scrolled down (about 1 in 10 here,
+ * filed on its own), and a fixed point then lands on a button. */
 const next = async (p) => {
-  const w = await p.evaluate(() => document.querySelector(".lhero").clientWidth);
   const before = await activeTitle(p);
-  await p.mouse.click(w - 80, 450);
+  await p.locator(".lhero__card--active + .lhero__card").click({ position: { x: 40, y: 200 } });
   await p.waitForFunction((b) => {
     const c = document.querySelector(".lhero__card--active");
     return (c?.querySelector(".lhero__logo")?.alt ?? c?.querySelector(".lhero__title")?.textContent) !== b;

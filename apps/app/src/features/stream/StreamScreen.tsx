@@ -2621,8 +2621,9 @@ function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => voi
   // Three screens ahead at rest, so a fast drag never reaches a poster that
   // only started loading when it began (CI's runner dragged five posters
   // along in under a second and caught one mid-load). A drag mounts one
-  // screen further still.
-  const ahead = (pull ? 4 : 3) * fit + 1;
+  // screen further still. Never fewer than a fast five-poster drag reveals
+  // (five, the screen, and two): bigger cards fit fewer to a screen (1.0.23).
+  const ahead = Math.max((pull ? 4 : 3) * fit + 1, fit + 7);
   const slots = count < 2 ? [v] : Array.from({ length: hi + ahead - first + 1 }, (_, i) => first + i);
   // The 16:9 art loads for the cards in view and one past them, since any of
   // them can be clicked and grow (a poster loads wherever it is mounted).
@@ -2872,11 +2873,12 @@ function HeroCard({ item, active, art, still, onClick }: { item: VodItem; active
         // The focused card is about 2.7x a poster's width, so the same 5
         // degrees at the library's 1000px perspective swung its near edge
         // ~34px past itself, over its neighbours 16px away (Adam). Weaker
-        // and seen from further off, it overhangs ~10px.
-        tiltMaxAngleX={active ? 3 : 5}
-        tiltMaxAngleY={active ? 3 : 5}
+        // and seen from further off, it overhangs ~10px. 2.5 and 1.005 since
+        // 1.0.23's bigger card: 3 and 1.01 left it 1.5px off its neighbours.
+        tiltMaxAngleX={active ? 2.5 : 5}
+        tiltMaxAngleY={active ? 2.5 : 5}
         perspective={active ? 2500 : 1000}
-        scale={REDUCED_MOTION ? 1 : active ? 1.01 : 1.03}
+        scale={REDUCED_MOTION ? 1 : active ? 1.005 : 1.03}
         transitionSpeed={650}
         glareEnable={!REDUCED_MOTION}
         glareMaxOpacity={0.12}

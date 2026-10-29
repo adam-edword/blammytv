@@ -42,6 +42,9 @@ swapped).
 Geometry (Adam, after the prototype: the focused card is 1.8x a Continue
 Watching card, as his mockup had it, 860 against 470):
 
+- **1.0.23 (Adam: "like 15% bigger"):** 2.07x, 1104 x 621, capped at 80vw; the
+  focused card leans 2.5 degrees and lifts 1.005 so it stays clear of its
+  neighbours, and the shelf preloads at least a five-poster drag ahead.
 - Focused card 1.8x the Continue Watching card's width (960 x 540 at
   today's 533 x 300; it follows whatever sizes that card, the UI scale
   included), capped at 72vw. Posters 2:3 at the same height (360 wide).

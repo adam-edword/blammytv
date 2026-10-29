@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.23: A bigger shelf (unreleased)
+
+- **The shelf carousel is 15% bigger.** The focused card is 1104 x 621 on a
+  wide window, and the posters beside it grow with it.
+- **The focused card leans a touch less**, so the bigger card still stays
+  clear of the posters beside it.
+
 ## 1.0.22: Record a programme from the Guide (unreleased)
 
 - **Right-click a programme in the Guide → Record.** It records from a
