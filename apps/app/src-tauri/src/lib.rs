@@ -2168,6 +2168,11 @@ pub fn run() {
             // un-maximized size survives every later launch instead of being
             // forced back to maximized.
             if let Some(win) = app.get_webview_window("main") {
+                // A lone Alt froze the page in keyboard menu mode (inv.rs).
+                #[cfg(windows)]
+                if let Ok(h) = win.hwnd() {
+                    inv::keep_alt_out_of_menu(h.0 as isize);
+                }
                 let marker = app
                     .path()
                     .app_config_dir()

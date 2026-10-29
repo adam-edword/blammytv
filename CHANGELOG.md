@@ -2,6 +2,12 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.27: Alt no longer freezes the app (unreleased)
+
+- **Pressing Alt on its own no longer freezes the page.** Windows put the
+  window into its keyboard menu mode, which held the mouse until you
+  clicked or pressed Alt again. Alt+F4 and Alt+Space work as before.
+
 ## 1.0.26: Home, behind the logo (unreleased)
 
 - **Click the logo in the middle of the nav for Home**: the carousel,
