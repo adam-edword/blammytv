@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { logGridPage, logGridReset, logGridShown } from "./genreLog";
 import { Button } from "../../components/ui/button";
 import { DiscoverIcon, SearchIcon, WarnIcon } from "../../ui/icons";
 import { StateCard } from "../../ui/StateCard";
@@ -346,6 +347,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
       busyRef.current = true;
       const reqId = reset ? ++reqIdRef.current : reqIdRef.current;
       if (reset) {
+        logGridReset(genre);
         cursors.current = {};
         doneRef.current = {};
         seenRef.current = new Set();
@@ -389,6 +391,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         if (reqId !== reqIdRef.current) return; // filter changed mid-flight
         for (const { c, page } of pages) {
           if (page === null) continue;
+          logGridPage(c, cursors.current[catKey(c)] ?? 0, page);
           cursors.current[catKey(c)] =
             (cursors.current[catKey(c)] ?? 0) + page.length;
           if (page.length === 0) doneRef.current[catKey(c)] = true;
@@ -405,6 +408,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           const at = pin ? merged.findIndex((i) => i.id === pin) : -1;
           if (at > 0) merged.unshift(...merged.splice(at, 1));
         }
+        logGridShown(merged);
         setItems((prev) => (reset ? merged : [...prev, ...merged]));
         // Every page null = nothing was HEARD, not "the catalog is empty" —
         // a reset in that state renders the honest failure note instead of

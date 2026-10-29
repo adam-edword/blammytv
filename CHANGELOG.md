@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.29: A look inside Discover's genre grids (unreleased)
+
+- **Nothing changes on screen.** For the genre rows to come (plan 034),
+  `copy(btvGenreGrid())` in the console copies what the Discover grid on
+  screen is made of: each card's catalog and place in it, its genres and
+  rating.
+
 ## 1.0.28: Home first in Settings; Start On only where you have a source (unreleased)
 
 - **Home is the first page in Settings.**
