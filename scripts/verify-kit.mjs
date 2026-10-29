@@ -236,9 +236,9 @@ const dimmedText = () =>
   await page.locator(".header__right button").last().click();
   await page.locator(".settings").waitFor();
   await page.waitForTimeout(900);
-  // Every page: Settings is five of them since v0.11.26, and the one it
-  // opens on is wherever it was left.
-  for (const name of ["Sources", "Playback", "Appearance", "Accounts", "App"]) {
+  // Every page: Settings is five of them since v0.11.26 (six with Home, plan
+  // 033), and the one it opens on is wherever it was left.
+  for (const name of ["Sources", "Playback", "Appearance", "Home", "Accounts", "App"]) {
     await page.getByRole("tab", { name, exact: true }).click();
     await page.waitForTimeout(500);
     for (const d of await dimmedText()) found.push(`settings ${name} ${d}`);
@@ -351,7 +351,7 @@ const dimmedText = () =>
 }
 
 // ======================================================================= K2b
-// The rail (ui/Rail.tsx, plan 025): Settings' five pages, a vertical tablist.
+// The rail (ui/Rail.tsx, plan 025): Settings' six pages, a vertical tablist.
 // It shares Segmented's keys and its chip, and none of its capsule.
 {
   await goTo(page, "guide");
@@ -360,7 +360,7 @@ const dimmedText = () =>
   await page.waitForTimeout(700);
   const rail = page.getByRole("tablist", { name: "Settings" });
   const tab = (n) => rail.getByRole("tab", { name: n, exact: true });
-  const PAGES = ["Sources", "Playback", "Appearance", "Accounts", "App"];
+  const PAGES = ["Sources", "Playback", "Appearance", "Home", "Accounts", "App"];
   await tab("Sources").click();
   const shape = await rail.evaluate((el) => {
     const tabs = [...el.querySelectorAll("[role=tab]")];
@@ -378,7 +378,7 @@ const dimmedText = () =>
     };
   });
   check(
-    "K2b. the rail is a vertical tablist of the five pages, in order, 180px wide",
+    "K2b. the rail is a vertical tablist of the six pages, in order, 180px wide",
     shape.orient === "vertical" && JSON.stringify(shape.names) === JSON.stringify(PAGES) && shape.column && shape.width === 180,
     JSON.stringify(shape),
   );
@@ -389,7 +389,7 @@ const dimmedText = () =>
   );
   check(
     "  one tab stop: the chosen page's",
-    shape.stops.join() === "0,-1,-1,-1,-1" && shape.selected.join() === "true,false,false,false,false",
+    shape.stops.join() === "0,-1,-1,-1,-1,-1" && shape.selected.join() === "true,false,false,false,false,false",
     JSON.stringify({ stops: shape.stops, selected: shape.selected }),
   );
   const tintOn = await token("--tint-on");
@@ -2244,7 +2244,7 @@ const dimmedText = () =>
       await page.getByRole("tab", { name, exact: true }).click();
       await page.waitForTimeout(600);
     };
-    const PAGES = ["Sources", "Playback", "Appearance", "Accounts", "App"];
+    const PAGES = ["Sources", "Playback", "Appearance", "Home", "Accounts", "App"];
     const fades = () =>
       page.evaluate(() => {
         const b = document.querySelector(".settings__body");

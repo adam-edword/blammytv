@@ -16,7 +16,7 @@ export interface RailItem<K extends string> {
 }
 
 /**
- * A vertical tablist: Settings' five pages down the left of the card (plan
+ * A vertical tablist: Settings' pages down the left of the card (plan
  * 025). Each item is a mark and a name.
  *
  * A SEPARATE CONTROL, NOT A SEGMENTED ORIENTATION. Segmented is a capsule: a

@@ -572,6 +572,15 @@ export function TvIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** A house, for Settings' Home page. */
+export function HomeIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
+    </Svg>
+  );
+}
+
 /** The design's rainbow favorite star: dark core under a rainbow
  * gradient, gradient stroke. `vivid` fills at full strength (the guide's
  * starred state) instead of the sidebar's muted 70%. Gradient ids are

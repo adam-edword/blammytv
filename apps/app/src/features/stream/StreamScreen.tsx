@@ -60,6 +60,15 @@ import {
   resolveVodSources,
 } from "./source";
 import { readStreamScroll, saveStreamScroll } from "./session";
+import { peekCatalogRows } from "../home/catalogRows";
+import {
+  homeRows,
+  onHomeRowsChange,
+  saveHomeRows,
+  withNewCatalogRows,
+  type HomeRow,
+} from "../home/layout";
+import { loadAiojf, AIOJF_SYNCED } from "../aiojf/store";
 import { SaveButton } from "./SaveButton";
 import { isOut, nextEpisode, nextUpEpisode, openingSeason, pickCachedIndex, pickResumeIndex } from "./mapper";
 import { dropPrefetch, prefetchSources, takePrefetched } from "./prefetch";
@@ -76,7 +85,7 @@ import {
 import { filmWatched, loadAioWatched, loadJfWatched, loadWatched, markWatched } from "./watched";
 import { loadAioConn } from "../aiojf/conn";
 import { loadJfVod, peekJfVod } from "../jellyfin/vod";
-import { JF_CHANGED, loadJfConn } from "../jellyfin/store";
+import { JF_CHANGED, JF_SYNCED, loadJf, loadJfConn } from "../jellyfin/store";
 import { eligiblePlaylists, hasXtLibrary, XT_CHANGED, xtLibraryPending } from "../xtvod/store";
 import { loadXtVod, peekXtVod, XT_LOADED, xtLibraries, xtUserAgent } from "../xtvod/vod";
 import { XtCollections } from "../xtvod/Collections";
@@ -216,7 +225,29 @@ function prefetchEpisode(episodeId: string, from: VodItem["from"]) {
   prefetchSources(episodeId, () => resolveVodSources("series", episodeId, { from }));
 }
 
-export function StreamScreen({ home }: { home?: number } = {}) {
+/** The key a root's scroll offset is held under: Home's is its own. */
+const scrollKeyOf = (hub: boolean) => (hub ? "hub:" : "") + configKey();
+
+export function StreamScreen({
+  home,
+  root = "stream",
+  onEditHome,
+}: {
+  /** Counts presses of the pill (or the logo, for Home) that is already
+   * showing: the screen goes to the top of its stack. */
+  home?: number;
+  /**
+   * Which page this is the root of (plan 033). "stream" is the Stream tab:
+   * the rows in the order they have always had. "home" is the page behind the
+   * logo: the same rows, in the order Settings → Home gives them. A title
+   * opened from either opens here and Back returns here, which is why Home is
+   * a second root of this screen and not a screen of its own.
+   */
+  root?: "stream" | "home";
+  /** Home's "Edit Home": App opens Settings on its Home page. */
+  onEditHome?: () => void;
+} = {}) {
+  const hub = root === "home";
   const [load, setLoad] = useState<Load>(initialLoad);
   const [jf, setJf] = useState<JfLoad>(initialJf);
   const [xt, setXt] = useState<XtLoad>(initialXt);
@@ -273,16 +304,24 @@ export function StreamScreen({ home }: { home?: number } = {}) {
   // landing back at the top of the rows every time is the same annoyance
   // that back used to have. Mirrored on scroll rather than read at cleanup,
   // because an unmount cleanup runs after React has detached the ref.
-  const homeScroll = useRef(readStreamScroll(configKey()));
+  // Home keeps its own offset, under its own key: the two roots are not the
+  // same page, and one slot would have each take the other's.
+  const homeScroll = useRef(readStreamScroll(scrollKeyOf(hub)));
   useEffect(() => {
     if (homeScroll.current) restoreTo(homeScroll.current);
     // Mount only: later runs would yank the user back to a stale offset.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(
-    () => () => saveStreamScroll(configKey(), homeScroll.current),
-    [],
+    () => () => saveStreamScroll(scrollKeyOf(hub), homeScroll.current),
+    [hub],
   );
+  // Home's rows: what Settings → Home has, kept as it changes so the page
+  // moves behind Settings. Seeded the first time it is opened (layout.ts).
+  const [layout, setLayout] = useState<HomeRow[] | undefined>(() =>
+    hub ? homeRows(peekCatalogRows().map((r) => r.id)) : undefined,
+  );
+  useEffect(() => (hub ? onHomeRowsChange(setLayout) : undefined), [hub]);
   // Between "user clicked play" and "sources resolved": the player-style
   // black screen with the art breathing, INSTANTLY — a quick-resume /
   // Watch Now click must never sit on a dead screen for seconds.
@@ -775,9 +814,12 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         });
       }
     };
+    // Not Home's: App sends these hand-offs to the Stream tab, and a Home
+    // that took one in the beat before the tab swaps would lose the title.
+    if (hub) return;
     consume();
     return onOpenRequest(consume);
-  }, [cardOpen, stop, depth, cancelResolve]);
+  }, [cardOpen, stop, depth, cancelResolve, hub]);
 
   // Theater ↔ OS-fullscreen. State flips in the pure updater; the window
   // call rides outside it.
@@ -1326,9 +1368,10 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         handoffArm.current = false;
       });
     };
+    if (hub) return; // as the item mailbox above
     consume();
     return onResumeRequest(consume);
-  }, [quickResume, openSources, catalogItem]);
+  }, [quickResume, openSources, catalogItem, hub]);
 
   const [panelTick, setPanelTick] = useState(0);
   useEffect(() => {
@@ -2095,6 +2138,8 @@ export function StreamScreen({ home }: { home?: number } = {}) {
           load={load}
           jf={jf}
           xt={xt}
+          layout={layout}
+          onEditHome={onEditHome}
           onRetry={() => setVodTick((t) => t + 1)}
           onOpen={cardOpen}
           onWatchNow={watchNow}
@@ -2181,10 +2226,103 @@ export function StreamScreen({ home }: { home?: number } = {}) {
 
 // ---------------------------------------------------------------------------
 
+/** What the row renderers below draw from: the page's loaded state. Stream
+ * draws them in one fixed order and Home in the saved one (plan 033), from
+ * this, so the two can't drift. */
+interface RowData {
+  aio: VodData | null;
+  jfData: VodData | null;
+  aioOn: boolean;
+  jfOn: boolean;
+  featured: VodItem[];
+  activeWatching: WatchEntry[];
+  metaFields: CardMetaField[];
+  onOpen: (i: VodItem) => void;
+  onWatchNow: (i: VodItem) => void;
+  onClearWatching: (id: string) => void;
+  onOpenWatching: (e: WatchEntry) => void;
+  onSourcesWatching: (e: WatchEntry) => void;
+}
+
+/** The carousel, in the style Appearance picks. Whether it is wanted at all is
+ * the caller's: Stream's Featured Carousel switch, Home's row switch. */
+function CarouselRow({ d }: { d: RowData }) {
+  if (d.featured.length === 0) return null;
+  return loadHeroStyle() === "large" ? (
+    <LargeHero items={d.featured} onOpen={d.onOpen} onWatchNow={d.onWatchNow} />
+  ) : (
+    <Hero items={d.featured} onOpen={d.onOpen} />
+  );
+}
+
+function ContinueRow({ d, title }: { d: RowData; title?: string }) {
+  if (d.activeWatching.length === 0) return null;
+  return (
+    <section className="media-row">
+      <h3 className="media-row__title">{title ?? "Continue Watching"}</h3>
+      <RowScroller>
+        {d.activeWatching.map((e) => (
+          <ContinueCard
+            key={e.id}
+            entry={e}
+            metaFields={d.metaFields}
+            onOpen={() => d.onOpenWatching(e)}
+            onSources={() => d.onSourcesWatching(e)}
+            onClear={() => d.onClearWatching(e.id)}
+          />
+        ))}
+      </RowScroller>
+    </section>
+  );
+}
+
+/** What AIOStreams has next for you (plan 023, A5): its own rows, empty ones
+ * not drawn, and your Jellyfin's own (plan 027, D5). `title` is Home's name
+ * for the Next Up row(s). */
+function UpNextBlock({ d, title }: { d: RowData; title?: string }) {
+  return (
+    <>
+      {d.aio && <UpNextRows catalog={d.aio.items} metaFields={d.metaFields} onOpen={d.onOpen} title={title} />}
+      {d.jfOn && (
+        <JfUpNextRow
+          catalog={d.jfData?.items ?? NO_ITEMS}
+          metaFields={d.metaFields}
+          onOpen={d.onOpen}
+          shared={d.aioOn}
+          title={title}
+        />
+      )}
+    </>
+  );
+}
+
+function CatalogRow({ d, b, title }: { d: RowData; b: Shown; title?: string }) {
+  return (
+    <section className="media-row">
+      <h3 className="media-row__title">{title ?? b.row.title}</h3>
+      <RowScroller>
+        {b.row.itemIds.map((id) => {
+          const item = b.items.get(id);
+          return item ? <Card key={id} item={item} metaFields={d.metaFields} onOpen={d.onOpen} /> : null;
+        })}
+      </RowScroller>
+    </section>
+  );
+}
+
+/**
+ * The rows, as Stream's page and as Home's. Without `layout` this is Stream:
+ * the carousel, Continue Watching, Up Next, then every catalog row, in that
+ * order, with the playlists' folders after them. With one it is Home: the same
+ * renderers in the order Settings → Home gives, a row only when it is on and
+ * has something in it. The states (no sources, loading, an error) are shared.
+ */
 function Home({
   load,
   jf,
   xt,
+  layout,
+  onEditHome,
   onOpen,
   onWatchNow,
   watching,
@@ -2196,6 +2334,9 @@ function Home({
   load: Load;
   jf: JfLoad;
   xt: XtLoad;
+  /** Home's rows. None is Stream's own page. */
+  layout?: readonly HomeRow[];
+  onEditHome?: () => void;
   onOpen: (i: VodItem) => void;
   onWatchNow: (i: VodItem) => void;
   watching: WatchEntry[];
@@ -2207,9 +2348,9 @@ function Home({
   // Read during render rather than into state: App owns the Settings
   // modal, so closing it re-renders this tree and the change lands then.
   // Not live WHILE Settings is open, unlike cardMeta below — the modal is
-  // over the top of it, so there is nothing to see.
+  // over the top of it, so there is nothing to see. (Home's rows are live:
+  // layout.ts fires the event StreamScreen listens to.)
   const showHero = loadShowHero();
-  const heroStyle = loadHeroStyle();
 
   // Which details the cards show — flips live while Settings is open.
   const [metaFields, setMetaFields] = useState<CardMetaField[]>(loadCardMeta);
@@ -2224,6 +2365,38 @@ function Home({
   // Movies or Shows Yet" as it always did, not that a catalog failed.
   const xtOn =
     xt.status !== "off" && (hasXtLibrary() || (xt.status === "loading" && xtLibraryPending()));
+  // What is ready from each source. One that is not never holds back the
+  // other: your Jellyfin up and the addon down still shows your library.
+  const aio = aioOn && load.status === "ready" ? load.data : null;
+  const jfData = jf.status === "ready" ? jf.data : null;
+  const xtData = xtOn && xt.status === "ready" ? xt.data : null;
+
+  // Home only. A catalog row it has not seen is added at the end, switched on
+  // (layout.ts), as the catalogs land.
+  const catalogIds = useMemo(
+    () => [aio, jfData, xtData].flatMap((data) => data?.rows.map((r) => r.id) ?? []),
+    [aio, jfData, xtData],
+  );
+  useEffect(() => {
+    if (!layout) return;
+    const next = withNewCatalogRows(layout, catalogIds);
+    if (next !== layout) saveHomeRows(next);
+  }, [layout, catalogIds]);
+  // And Up Next's rows draw themselves from what the last sync stored, so
+  // whether Home has anything at all has to hear one land.
+  const [, setSynced] = useState(0);
+  const onHome = !!layout;
+  useEffect(() => {
+    if (!onHome) return;
+    const again = () => setSynced((n) => n + 1);
+    window.addEventListener(AIOJF_SYNCED, again);
+    window.addEventListener(JF_SYNCED, again);
+    return () => {
+      window.removeEventListener(AIOJF_SYNCED, again);
+      window.removeEventListener(JF_SYNCED, again);
+    };
+  }, [onHome]);
+
   if (!aioOn && !jfOn && !xtOn) {
     return (
       <StateCard
@@ -2234,11 +2407,6 @@ function Home({
       />
     );
   }
-  // What is ready from each source. One that is not never holds back the
-  // other: your Jellyfin up and the addon down still shows your library.
-  const aio = aioOn && load.status === "ready" ? load.data : null;
-  const jfData = jf.status === "ready" ? jf.data : null;
-  const xtData = xtOn && xt.status === "ready" ? xt.data : null;
   if (!aio && !jfData && !xtData) {
     if ((aioOn && load.status === "loading") || jf.status === "loading" || xt.status === "loading")
       return (
@@ -2298,6 +2466,77 @@ function Home({
     ...(jfData ? jfData.rows.map((row) => ({ row, items: jfData.items })) : []),
     ...(xtData ? xtData.rows.map((row) => ({ row, items: xtData.items })) : []),
   ];
+  const d: RowData = {
+    aio,
+    jfData,
+    aioOn,
+    jfOn,
+    featured,
+    activeWatching,
+    metaFields,
+    onOpen,
+    onWatchNow,
+    onClearWatching,
+    onOpenWatching,
+    onSourcesWatching,
+  };
+
+  if (layout) {
+    // Home. A row is drawn when it is on and has something in it, the way Up
+    // Next has always been: an empty one is not an empty heading.
+    const byId = new Map(shown.map((b) => [b.row.id, b]));
+    const stored = aio ? loadAiojf() : null;
+    const upNext =
+      (stored ? (stored.nextUp?.length ?? 0) + (stored.upcoming?.length ?? 0) : 0) +
+      (jfOn ? (loadJf().nextUp?.length ?? 0) : 0);
+    const drawn = layout.filter((r) => {
+      if (!r.on) return false;
+      switch (r.kind) {
+        case "carousel":
+          return featured.length > 0;
+        case "continue":
+          return activeWatching.length > 0;
+        case "upnext":
+          return upNext > 0;
+        case "catalog":
+          return (byId.get(r.id)?.row.itemIds.length ?? 0) > 0;
+      }
+    });
+    if (drawn.length === 0)
+      return (
+        <StateCard
+          className="stream__note"
+          icon={<StreamIcon size={28} />}
+          title="Nothing on Home"
+          sub="Every row is switched off or has nothing in it."
+          actions={
+            onEditHome && (
+              <Button variant="default" type="button" onClick={onEditHome}>
+                Edit Home
+              </Button>
+            )
+          }
+        />
+      );
+    return (
+      <>
+        {/* Pinned to the top, outside the rows, as on Stream. */}
+        {drawn.some((r) => r.kind === "carousel") && <CarouselRow d={d} />}
+        <div className="stream__rows">
+          {drawn.map((r) =>
+            r.kind === "continue" ? (
+              <ContinueRow key={r.id} d={d} title={r.title} />
+            ) : r.kind === "upnext" ? (
+              <UpNextBlock key={r.id} d={d} title={r.title} />
+            ) : r.kind === "catalog" ? (
+              <CatalogRow key={r.id} d={d} b={byId.get(r.id)!} title={r.title} />
+            ) : null,
+          )}
+        </div>
+      </>
+    );
+  }
+
   // After the rows, the playlists' end of the page (plan 028). With no other
   // source and no row picked, the folders ARE the page; otherwise one button
   // opens the Rows drawer, whether or not a row is picked yet.
@@ -2333,53 +2572,12 @@ function Home({
     <>
       {/* Entirely, and with no gap: the rows are the next element, so
         * turning it off just lets them start at the top. */}
-      {showHero && featured.length > 0 && (
-        heroStyle === "large" ? (
-          <LargeHero items={featured} onOpen={onOpen} onWatchNow={onWatchNow} />
-        ) : (
-          <Hero items={featured} onOpen={onOpen} />
-        )
-      )}
+      {showHero && <CarouselRow d={d} />}
       <div className="stream__rows">
-        {activeWatching.length > 0 && (
-          <section className="media-row">
-            <h3 className="media-row__title">Continue Watching</h3>
-            <RowScroller>
-              {activeWatching.map((e) => (
-                <ContinueCard
-                  key={e.id}
-                  entry={e}
-                  metaFields={metaFields}
-                  onOpen={() => onOpenWatching(e)}
-                  onSources={() => onSourcesWatching(e)}
-                  onClear={() => onClearWatching(e.id)}
-                />
-              ))}
-            </RowScroller>
-          </section>
-        )}
-        {/* What AIOStreams has next for you (plan 023, A5): its own rows
-          * under Continue Watching, empty ones not drawn. */}
-        {aio && <UpNextRows catalog={aio.items} metaFields={metaFields} onOpen={onOpen} />}
-        {/* And your Jellyfin's own (plan 027, D5). */}
-        {jfOn && <JfUpNextRow catalog={jfData?.items ?? NO_ITEMS} metaFields={metaFields} onOpen={onOpen} shared={aioOn} />}
+        <ContinueRow d={d} />
+        <UpNextBlock d={d} />
         {shown.map((b) => (
-          <section key={b.row.id} className="media-row">
-            <h3 className="media-row__title">{b.row.title}</h3>
-            <RowScroller>
-              {b.row.itemIds.map((id) => {
-                const item = b.items.get(id);
-                return item ? (
-                  <Card
-                    key={id}
-                    item={item}
-                    metaFields={metaFields}
-                    onOpen={onOpen}
-                  />
-                ) : null;
-              })}
-            </RowScroller>
-          </section>
+          <CatalogRow key={b.row.id} d={d} b={b} />
         ))}
         {folderPage && <XtCollections />}
         {libs.length > 0 && !folderPage && <XtRowsDrawer edit={xtRows} />}

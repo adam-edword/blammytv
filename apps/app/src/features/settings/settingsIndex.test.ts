@@ -212,6 +212,14 @@ describe("findSettings", () => {
     expect(new Set(hero).size).toBe(hero.length);
   });
 
+  it("finds Home's rows by its name, and Startup Tab by it too (plan 033)", () => {
+    expect(settingById("home-rows")?.page).toBe("home");
+    // The label starts with it, so it is first; Startup Tab has it as a keyword.
+    expect(ids("home")[0]).toBe("home-rows");
+    expect(ids("home")).toContain("startup-tab");
+    expect(ids("reorder")).toContain("home-rows");
+  });
+
   it("stops at the limit, keeping the best", () => {
     const all = ids("a");
     expect(all.length).toBeGreaterThan(5);

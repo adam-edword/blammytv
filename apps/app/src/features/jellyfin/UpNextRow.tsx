@@ -14,19 +14,22 @@ import { JF_SYNCED, loadJf } from "./store";
  * empty row does not render.
  *
  * `shared`: AIOStreams is signed in as well, and has a row of the same name, so
- * this one says whose it is.
+ * this one says whose it is. `title` is Home's name for it (plan 033), which the
+ * person may have changed; it replaces both.
  */
 export function JfUpNextRow({
   catalog,
   metaFields,
   onOpen,
   shared,
+  title,
 }: {
   /** The loaded library's items: a show in it opens as itself. */
   catalog: ReadonlyMap<string, VodItem>;
   metaFields: CardMetaField[];
   onOpen: (i: VodItem) => void;
   shared: boolean;
+  title?: string;
 }) {
   const [stored, setStored] = useState(loadJf);
   useEffect(() => {
@@ -54,7 +57,7 @@ export function JfUpNextRow({
   if (cards.length === 0) return null;
   return (
     <section className="media-row">
-      <h3 className="media-row__title">{shared ? "Next Up on Jellyfin" : "Next Up"}</h3>
+      <h3 className="media-row__title">{title ?? (shared ? "Next Up on Jellyfin" : "Next Up")}</h3>
       <RowScroller>
         {cards.map((c) => (
           <Card key={c.key} item={c.item} metaFields={metaFields} meta={c.meta} onOpen={onOpen} />

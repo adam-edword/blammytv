@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { EyeDropperIcon, PlayIcon, SettingsIcon, TvIcon, UserIcon } from "../../ui/icons";
+import { EyeDropperIcon, HomeIcon, PlayIcon, SettingsIcon, TvIcon, UserIcon } from "../../ui/icons";
 import type { SettingsTab } from "./settingsTab";
 
 /**
@@ -15,6 +15,8 @@ export function pageIcon(tab: SettingsTab, size: number): ReactNode {
       return <PlayIcon size={size} />;
     case "appearance":
       return <EyeDropperIcon size={size} />;
+    case "home":
+      return <HomeIcon size={size} />;
     case "accounts":
       return <UserIcon size={size} />;
     case "app":

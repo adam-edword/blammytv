@@ -15,6 +15,7 @@ import { Segmented } from "../../ui/Segmented";
 import { SourcesPage } from "./SourcesPage";
 import { PlaybackPage } from "./PlaybackPage";
 import { AppearancePage } from "./AppearancePage";
+import { HomePage } from "./HomePage";
 import { AccountsPage } from "./AccountsPage";
 import { AppPage } from "./AppPage";
 import { returnFocus } from "../../lib/returnFocus";
@@ -23,9 +24,9 @@ import { liftedRow } from "../../lib/liftedRow";
 import { settingById, type SettingsFind } from "./settingsIndex";
 
 /**
- * Five questions, one page each: what you WATCH (Sources), how it PLAYS
- * (Playback), how it LOOKS (Appearance), WHO you are (Accounts), and the APP
- * itself (App). Everything is filed by that question, never by which screen
+ * Six questions, one page each: what you WATCH (Sources), how it PLAYS
+ * (Playback), how it LOOKS (Appearance), what is on HOME (Home), WHO you are
+ * (Accounts), and the APP itself (App). Everything is filed by that question, never by which screen
  * it happens to affect. The words are in settingsTab.ts.
  *
  * The rule is 0.8.0's, and it has held through three shapes. The rail was
@@ -35,7 +36,8 @@ import { settingById, type SettingsFind } from "./settingsIndex";
  * rail on a screen most people touch once. Then two tabs, General and
  * Customize, which filed four playback rows under "how it looks" and had
  * nowhere to put anything new about playback or the app (plan 025). Five
- * questions fixes that without stretching the rule.
+ * questions fixed that without stretching the rule, and Home (plan 033) is a
+ * sixth that moves nothing: it is a page of its own.
  *
  * The pages that differ per world carry the same Live TV / Stream pill
  * (Sources: where content comes from; Appearance: how that content looks).
@@ -356,6 +358,7 @@ export function SettingsModal({
                   {tab === "sources" && <SourcesPage initialWorld={seed} />}
                   {tab === "playback" && <PlaybackPage onSignIn={toStreamSources} />}
                   {tab === "appearance" && <AppearancePage initialWorld={seed} onSignIn={toStreamSources} />}
+                  {tab === "home" && <HomePage />}
                   {tab === "accounts" && <AccountsPage />}
                   {tab === "app" && <AppPage />}
                 </div>

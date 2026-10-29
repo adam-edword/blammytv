@@ -75,6 +75,10 @@ export const KEY_GROUPS = {
     "showChannelNumber",
     "showHero",
     "heroStyle",
+    // Home's rows (plan 033): their order, switches and names. A catalog row's
+    // id can name a playlist or a server of this PC; on another it matches no
+    // row and draws nothing, which does no harm.
+    "homeRows",
     "cardMeta",
     "overlayMeta",
     "rowCap",

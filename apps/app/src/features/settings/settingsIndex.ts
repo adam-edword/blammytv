@@ -188,7 +188,7 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     id: "startup-tab",
     label: "Startup Tab",
     page: "appearance",
-    keywords: ["start", "launch", "open on", "default tab"],
+    keywords: ["start", "launch", "open on", "default tab", "home"],
   },
   {
     id: "clock-format",
@@ -250,6 +250,12 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     label: "Reset Appearance",
     page: "appearance",
     keywords: ["reset", "default", "defaults", "restore", "factory"],
+  },
+  {
+    id: "home-rows",
+    label: "Home Rows",
+    page: "home",
+    keywords: ["home", "rows", "order", "reorder", "drag", "rename", "layout"],
   },
   {
     id: "trakt",

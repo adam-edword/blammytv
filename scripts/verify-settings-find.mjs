@@ -400,6 +400,7 @@ const POSITIONS = [
   { page: "Playback", key: "playback" },
   { page: "Appearance", key: "appearance", world: "stream", pill: ["Media", "Stream"] },
   { page: "Appearance", key: "appearance", world: "live", pill: ["Media", "Live TV"] },
+  { page: "Home", key: "home" },
   { page: "Accounts", key: "accounts" },
   { page: "App", key: "app" },
 ];

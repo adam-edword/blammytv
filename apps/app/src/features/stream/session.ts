@@ -13,13 +13,15 @@
  * it.
  */
 
-let held: { key: string; scroll: number } | null = null;
+// One offset per key, because Stream and Home (plan 033) each hold one. A key
+// is the catalog's configuration, so one that changed finds no offset.
+const held = new Map<string, number>();
 
 export function saveStreamScroll(key: string, scroll: number): void {
-  held = { key, scroll };
+  held.set(key, scroll);
 }
 
 /** The offset, if it belongs to the catalog that is configured now. */
 export function readStreamScroll(key: string): number {
-  return held && held.key === key ? held.scroll : 0;
+  return held.get(key) ?? 0;
 }

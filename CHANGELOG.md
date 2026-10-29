@@ -2,6 +2,16 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.26: Home, behind the logo (unreleased)
+
+- **Click the logo in the middle of the nav for Home**: the carousel,
+  Continue Watching, Up Next and your catalog rows, in the order you set.
+  The logo glows softly while you're there, and no tab is lit.
+- **Settings → Home** (a new page): drag rows into order, rename them, or
+  switch them off. Home changes behind Settings as you go.
+- **Start On can be Home.** Live TV stays the default.
+- **Stream's own page is unchanged.**
+
 ## 1.0.25: The shelf a touch smaller (unreleased)
 
 - **The shelf carousel is 5% smaller than in 1.0.23**: the focused card is

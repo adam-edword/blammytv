@@ -70,6 +70,14 @@ const NAV_SETTLE_MS = 190;
  * settle time so the two read as one movement rather than a queue. */
 const SWAP_MS = 180;
 
+/** The side a launch opens on: Home if that was picked, Live TV if it was and
+ * there is a live source to show, else Stream. */
+function startSection(): Section {
+  const tab = loadStartupTab();
+  if (tab === "home") return "home";
+  return tab === "live" && loadPlaylists().some((p) => p.enabled) ? "live" : "stream";
+}
+
 export function App() {
   // Trakt (plan 015): sync at launch, on coming back, and soon after the
   // Trakt Watchlist changes. Here, not in Root: Root mounts the pop-out and
@@ -82,8 +90,8 @@ export function App() {
   // Nav is two facts, not one: which SIDE of the app (Live TV vs Stream)
   // and which Stream PAGE (the pill rail). streamTab survives a trip to
   // Live TV — coming back lands where you were; the startup setting only
-  // decides the launch position. (The stored value stays the flat
-  // three-way enum: it's a launch preference, mapped here at boot.)
+  // decides the launch position. (The stored value stays a flat enum, now
+  // four-way with Home: it's a launch preference, mapped here at boot.)
   // The Live tab exists only while a live source (any playlist kind) is
   // configured — without one it showed the mock catalog to real users.
   // Adding a playlist in Settings reveals the tab live; removing the last
@@ -100,9 +108,7 @@ export function App() {
   // And a provider's movies and shows (plan 028): read at launch, so Stream is
   // ready before it is visited and the record of what each holds is filled.
   useEffect(() => watchXtLibrary(), []);
-  const [section, setSection] = useState<Section>(() =>
-    loadStartupTab() === "live" && hasEnabledPlaylist() ? "live" : "stream",
-  );
+  const [section, setSection] = useState<Section>(startSection);
   useEffect(() => {
     if (!hasLiveSource) setSection((s) => (s === "live" ? "stream" : s));
   }, [hasLiveSource]);
@@ -443,7 +449,7 @@ export function App() {
    * else, the whole unmount just happens together, a fraction later — the
    * same as having clicked a fraction later.
    */
-  const key = `${section === "live" ? liveTab : streamTab}:${sportsHome}`;
+  const key = `${section === "home" ? "hub" : section === "live" ? liveTab : streamTab}:${sportsHome}`;
   const [view, setView] = useState(key);
   useEffect(() => {
     if (view === key) return;
@@ -555,8 +561,22 @@ export function App() {
           <DiscoverScreen home={streamHome} />
         ) : dest === "mylist" ? (
           <LibraryScreen home={streamHome} />
+        ) : dest === "hub" ? (
+          // Keyed, so the two never share one screen's state: both are a
+          // StreamScreen in the same place in this chain.
+          <StreamScreen
+            key="hub"
+            root="home"
+            home={streamHome}
+            onEditHome={() => {
+              saveSettingsTab("home");
+              setSettingsFrom(null);
+              setSettingsFind(null);
+              setSettingsOpen(true);
+            }}
+          />
         ) : (
-          <StreamScreen home={streamHome} />
+          <StreamScreen key="stream" home={streamHome} />
         )}
       </main>
       {settingsOpen && (
@@ -610,7 +630,7 @@ export function App() {
           // the finale starts, under the overlay, so the app it fades into
           // is already the right one.
           onFinish={() => {
-            setSection(loadStartupTab() === "live" && hasEnabledPlaylist() ? "live" : "stream");
+            setSection(startSection());
             setStreamTab(loadStartupTab() === "discover" ? "discover" : "home");
           }}
           onDone={() => setOnboarding(false)}

@@ -1090,6 +1090,39 @@ input.rowcap__value--edit:focus-visible {
   background: var(--tint-on);
 }
 
+/* Home's rows (features/settings/HomePage.tsx) are the Rows drawer's row
+ * (.xtrow, stream.css): this is the name as a field, quiet until it is
+ * hovered or focused, and the blank where the pinned carousel's handle would
+ * be, so its name lines up with the others. */
+/* The section stacks its children to the start; these run the full width. */
+.homerows > * {
+  width: 100%;
+}
+.homerows__title {
+  width: 100%;
+  min-width: 0;
+  margin: 0 -6px;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-chip);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.homerows__title:hover {
+  border-color: var(--border);
+}
+.homerows__nogrip {
+  flex: none;
+  width: 28px;
+}
+.homerows__pinned {
+  margin-bottom: 2px;
+}
+
 /* A field that cannot be saved as it stands says so in the danger voice. */
 .settings-field__error {
   color: var(--danger-text);

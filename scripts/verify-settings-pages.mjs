@@ -1,13 +1,14 @@
-// E2E: Settings in five pages (plan 025, P1: the move; v0.11.26).
+// E2E: Settings in six pages (plan 025, P1: the move; v0.11.26; Home, plan 033).
 //
-// Settings was two tabs, General and Customize. It is five pages in a rail
+// Settings was two tabs, General and Customize. It is six pages in a rail
 // down the left of the card: Sources (what you watch), Playback (how it
-// plays), Appearance (how it looks), Accounts (who you are) and App (the app
-// itself). P1 moves what was there and adds no setting, so the checks are
+// plays), Appearance (how it looks), Home (what is on it), Accounts (who you
+// are) and App (the app itself). Home, the sixth, moves nothing; its own
+// checks are verify-home. P1 moves what was there and adds no setting, so the checks are
 // about a row having MOVED and not been lost, and about everything that
 // names a page still going to the right one:
 //
-//   - the rail: five pages in order, each with its line, a vertical tablist;
+//   - the rail: six pages in order, each with its line, a vertical tablist;
 //   - every page's rows, by label, and none anywhere twice;
 //   - the arrows and Home/End between pages, and the page following;
 //   - Settings opens where it was left, and an old stored "general" or
@@ -40,7 +41,7 @@ const check = (n, ok, d = "") => {
 
 const XTREAM = { v: 1, data: [{ kind: "xtream", id: "t", name: "Test", enabled: true, server: "http://localhost:8081", username: "u", password: "p" }] };
 const AIO = { v: 1, data: "http://localhost:8084/manifest.json" };
-const PAGES = ["Sources", "Playback", "Appearance", "Accounts", "App"];
+const PAGES = ["Sources", "Playback", "Appearance", "Home", "Accounts", "App"];
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const errors = [];
@@ -142,7 +143,7 @@ const closeSettings = async (page) => {
       stops: tabs.map((t) => t.tabIndex),
     };
   });
-  check("the rail lists the five pages in order", JSON.stringify(shape.names) === JSON.stringify(PAGES), JSON.stringify(shape.names));
+  check("the rail lists the six pages in order", JSON.stringify(shape.names) === JSON.stringify(PAGES), JSON.stringify(shape.names));
   check("  each its name alone, with no line under it (v0.11.56)", JSON.stringify(shape.text) === JSON.stringify(PAGES), JSON.stringify(shape.text));
   check(
     "  and a mark and a name, in a vertical tablist with one tab stop",
@@ -413,7 +414,7 @@ for (const [old, want] of [
   const at = places.indexOf("Settings");
   check(
     "the palette has a place for Settings, then one for each page in the rail's order",
-    at >= 0 && JSON.stringify(places.slice(at, at + 6)) === JSON.stringify(["Settings", ...PAGES]),
+    at >= 0 && JSON.stringify(places.slice(at, at + 1 + PAGES.length)) === JSON.stringify(["Settings", ...PAGES]),
     JSON.stringify(places),
   );
   await page.keyboard.press("Escape");
@@ -468,7 +469,7 @@ for (const [old, want] of [
     };
   });
   check(
-    "at a narrow card the rail is the segmented row: five pages, side by side, names only",
+    "at a narrow card the rail is the segmented row: six pages, side by side, names only",
     row.isSeg && row.rail === 0 && row.names.join() === PAGES.join() && row.words.join() === PAGES.join() && row.level && row.leftToRight && row.inCard && row.card < 640,
     JSON.stringify(row),
   );

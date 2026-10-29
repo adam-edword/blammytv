@@ -1,6 +1,9 @@
 # Plan 033: Home, behind the logo
 
-Status: DECIDED (2026-10-28). Not built. Mockup (v9):
+Status: Phase 1 built in v1.0.26. Phases 2 and 3 not built.
+
+Open from phase 1: with no live source the mark isn't drawn (it divides the
+live tabs from Stream's), so Home is reachable only through Start On. Mockup (v9):
 https://claude.ai/artifact/8Aj6udrLVFGeZFSQSjRzyz
 
 The logo in the middle of the nav opens Home: one page built from rows of

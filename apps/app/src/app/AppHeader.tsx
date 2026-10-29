@@ -51,9 +51,11 @@ import {
   onClockFormatChange,
 } from "../features/settings/clockFormat";
 
-/** The app's two SIDES. "Stream" in the top nav is a section header,
- * not a page — the pill rail below picks the actual Stream page. */
-export type Section = "live" | "stream";
+/** The app's two SIDES, and Home between them. "Stream" in the top nav is a
+ * section header, not a page: the pill rail below picks the actual Stream
+ * page. "home" is the page behind the logo (plan 033): on no side, so no tab
+ * is current while it shows. */
+export type Section = "live" | "stream" | "home";
 /** The Stream section's pages (the pill rail). Adding one = a new entry
  * here + in RAIL + a screen in App's switch — nothing else. */
 export type StreamTab = "home" | "discover" | "mylist";
@@ -259,7 +261,9 @@ export function AppHeader({
   const sizes = useRef(new Map<string, [number, number]>());
 
   const shown = DESTS.filter((d) => showLive || d.side !== "live");
-  const active: DestKey = section === "live" ? liveTab : streamTab;
+  /* None on Home: the pill sits on no tab, and the mark is the current item. */
+  const onHome = section === "home";
+  const active: DestKey | null = onHome ? null : section === "live" ? liveTab : streamTab;
   /* The second row belongs to Discover and nothing else. It is always in
    * the DOM so its widths can be measured and its open/close can animate;
    * `subOpen` decides whether it has any height. */
@@ -457,7 +461,7 @@ export function AppHeader({
     const border = parseFloat(cs.borderLeftWidth) || 0;
     const from = pad + border;
 
-    const row1 = layoutRow(rowNavRef.current, pillRef.current, active);
+    const row1 = layoutRow(rowNavRef.current, pillRef.current, active ?? "");
     const markMid = row1.markMid;
     /* ONE thumb for the whole row, REC included. The type chips and REC are
      * mutually exclusive on screen — opening the recommender replaces the
@@ -521,8 +525,8 @@ export function AppHeader({
    * One turn of the logo's conic gradient, on click.
    *
    * Decoration, deliberately: the mark is the most colourful thing in the
-   * app and was the only part of the bar that did nothing. It navigates
-   * nowhere and changes no state.
+   * app and was the only part of the bar that did nothing. It turns whether
+   * or not the click goes anywhere; the click goes Home (below).
    *
    * The class is removed and re-added around a forced reflow because a CSS
    * animation does not restart on an element that already has it — without
@@ -536,6 +540,13 @@ export function AppHeader({
     void el.offsetWidth;
     el.classList.add("is-spinning");
   }, []);
+  /* The glow while on Home (base.css, .navcap__mark--on). A class set by
+   * hand, as is-spinning is: a className from React would be rewritten by
+   * the render the click causes, taking is-spinning off in the middle of the
+   * turn. */
+  useLayoutEffect(() => {
+    markRef.current?.classList.toggle("navcap__mark--on", onHome);
+  }, [onHome, showLive]);
   useEffect(() => {
     const el = markRef.current;
     if (!el) return;
@@ -593,6 +604,18 @@ export function AppHeader({
     }
   };
 
+  /** The mark goes Home, and pressed on Home it goes to the top of it, as
+   * the Stream pill does on Stream.
+   *
+   * shortcut: the mark is only drawn between the two sides, so with no live
+   * source there is no way to Home but Start On. Draw it for that case once
+   * the capsule's centring without a mark is decided (plan 033). */
+  const goHub = () => {
+    spin();
+    if (onHome) onStreamHome();
+    onSection("home");
+  };
+
   return (
     <header className="header" ref={ref}>
       {/* Progressive blur: stacked backdrop layers with geometrically
@@ -635,17 +658,21 @@ export function AppHeader({
                that list and hide the buttons from it. */
             <Fragment key={d.key}>
               {prev && prev.side !== d.side && (
-                <button
-                  type="button"
-                  className="navcap__mark"
-                  ref={markRef}
-                  onClick={spin}
-                  aria-label="BlammyTV"
-                >
-                  <b>
-                    <i />
-                  </b>
-                </button>
+                <Hint label="Home">
+                  <button
+                    type="button"
+                    data-dest="hub"
+                    className="navcap__mark"
+                    ref={markRef}
+                    onClick={goHub}
+                    aria-current={onHome ? "page" : undefined}
+                    aria-label="Home"
+                  >
+                    <b>
+                      <i />
+                    </b>
+                  </button>
+                </Hint>
               )}
               {/* The name, for the tabs that show only their icon; the
                 * current one says it in its pill already. */}

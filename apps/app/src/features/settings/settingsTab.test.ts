@@ -45,7 +45,7 @@ describe("loadSettingsTab", () => {
     expect(loadSettingsTab()).toBe("sources");
   });
 
-  it("lists the five pages in the order the rail shows them", () => {
-    expect(SETTINGS_PAGES.map((p) => p.key)).toEqual(["sources", "playback", "appearance", "accounts", "app"]);
+  it("lists the six pages in the order the rail shows them", () => {
+    expect(SETTINGS_PAGES.map((p) => p.key)).toEqual(["sources", "playback", "appearance", "home", "accounts", "app"]);
   });
 });

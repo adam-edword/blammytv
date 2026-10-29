@@ -1,14 +1,15 @@
 import { load, save } from "../../lib/storage";
 
 /**
- * Settings' five pages, in the order the rail lists them. Each is one
+ * Settings' six pages, in the order the rail lists them. Each is one
  * question (the filing rule from 0.8.0, see SettingsModal), named by one word.
- * The palette lists the same five, so the names live here and nowhere else.
+ * The palette lists the same six, so the names live here and nowhere else.
  */
 export const SETTINGS_PAGES = [
   { key: "sources", label: "Sources" },
   { key: "playback", label: "Playback" },
   { key: "appearance", label: "Appearance" },
+  { key: "home", label: "Home" },
   { key: "accounts", label: "Accounts" },
   { key: "app", label: "App" },
 ] as const;
@@ -30,7 +31,8 @@ export type SettingsTab = (typeof SETTINGS_PAGES)[number]["key"];
  * and Customize until the five pages; the key is the same and its version
  * stays, because a version bump would send everyone who last left Customize
  * to Sources instead of to the page that holds what that tab mostly was.
- * General held Sources first; Customize was the look.
+ * General held Sources first; Customize was the look. (Home, the sixth page,
+ * came with plan 033 and moves nothing.)
  */
 
 const KEY = "settingsTab";
