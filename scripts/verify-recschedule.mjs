@@ -18,7 +18,8 @@
 // - A clash is said when it is scheduled: a line of one with a recording
 //   running, a line of two with a recording and a scheduled one, and no
 //   limit reported is never refused. A programme after a scheduled one,
-//   clear of it, is not a clash.
+//   clear of it, is not a clash, and neither is one back to back with it on a
+//   line of one: the minute of padding either side never clashes.
 // - A missed start is a row that says so and can only be deleted.
 // - A channel's card has no Record in its menu: the item is for a programme.
 //
@@ -427,15 +428,29 @@ async function pick(page, id, c, name) {
   await pick(page, ESPN, later, "Record");
   await dot(page, ESPN, later.start).waitFor({ timeout: 5000 });
   check("  and once it has ended the same press schedules", (await calls(page, "rec_schedule")).length === 1);
-  // A programme clear of it, hours later, is no clash; one on top of it is.
-  const clear = (await cells(page, ESPN)).find((c) => c.start >= later.end + 2 * MIN);
+  // The next programme, back to back: native keeps the two with a minute of
+  // padding that meets in the middle, and that is no clash (it was, when the
+  // padding counted, and the second was refused here).
+  const adjacent = (await cells(page, ESPN)).find((c) => c.start === later.end);
+  await pick(page, ESPN, adjacent, "Record");
+  // A clash would leave no dot: that reads as the failed check below, not a crash.
+  await dot(page, ESPN, adjacent.start).waitFor({ timeout: 5000 }).catch(() => {});
+  const kept = (await natives(page)).filter((r) => r.status === "scheduled");
+  const [first, second] = [later.start, adjacent.start].map((s) => kept.find((r) => r.startedAt === s));
+  check(
+    "a programme back to back with the scheduled one, on a line of one, schedules without a clash",
+    (await calls(page, "rec_schedule")).length === 2 && !!first && !!second && first.stopAt > second.startAt,
+    kept.map((r) => `${r.startAt}..${r.stopAt}`).join(" | "),
+  );
+  // A programme clear of both, hours later, is no clash; one on top of them is.
+  const clear = (await cells(page, ESPN)).find((c) => c.start >= adjacent.end + 2 * MIN);
   await pick(page, ESPN, clear, "Record");
   await dot(page, ESPN, clear.start).waitFor({ timeout: 5000 });
-  check("a programme that starts after the scheduled one ends is not a clash", (await calls(page, "rec_schedule")).length === 2);
+  check("a programme that starts after the scheduled ones end is not a clash", (await calls(page, "rec_schedule")).length === 3);
   const sky = (await cells(page, SKY)).find((c) => c.start < later.end && c.end > later.start);
   await pick(page, SKY, sky, "Record");
   await said(page, /^Couldn’t schedule/);
-  check("  and another channel’s programme at the same time, on the same line, is", (await calls(page, "rec_schedule")).length === 2 && (await dot(page, SKY, sky.start).count()) === 0);
+  check("  and another channel’s programme at the same time, on the same line, is", (await calls(page, "rec_schedule")).length === 3 && (await dot(page, SKY, sky.start).count()) === 0);
   check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }

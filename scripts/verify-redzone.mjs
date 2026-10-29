@@ -39,6 +39,7 @@ const { chromium } = req("playwright-core");
 import { goTo } from "./nav-settle.mjs";
 
 const URL = process.env.APP_URL ?? "http://localhost:4173/";
+const PANEL = process.env.PANEL ?? "http://localhost:8081";
 const W = 1600;
 const H = 900;
 let fail = 0;
@@ -118,7 +119,7 @@ const panel = (id, user, enabled = true) => ({
   id,
   name: `Panel ${id}`,
   enabled,
-  server: "http://localhost:8081",
+  server: PANEL,
   username: user,
   password: "p",
 });
@@ -130,6 +131,9 @@ const FULL_GRID = [filler(2, "RZ Filler One"), filler(3, "RZ Filler Two"), fille
  * RedZone. */
 async function open({ events, playlists, grid = [], dest = "multiview", pick = null }) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
+  // Offline: the fakes and the app are all this talks to. Registered first,
+  // so the fulfils below (tried first) win for their hosts.
+  await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
   await ctx.route(/strem\.io/, (r) => r.abort());
   await ctx.route(/a\.espncdn\.com/, (r) => r.fulfill({ status: 200, contentType: "image/png", body: PIXEL }));
   await ctx.route(/site\.api\.espn\.com/, (route) => {
@@ -437,7 +441,7 @@ async function sportsBar(page, games) {
   });
   const first = await sportsBar(page, 2);
   const held = [];
-  await page.route(/localhost:8081\/player_api\.php.*get_live_streams/, (r) => void held.push(r));
+  await page.route((u) => u.href.startsWith(`${PANEL}/player_api.php`) && u.href.includes("get_live_streams"), (r) => void held.push(r));
   // Sports' own node, marked before Settings opens: a remount would lose it.
   await page.evaluate(() => {
     document.querySelector(".sports__head--today").__kept = true;

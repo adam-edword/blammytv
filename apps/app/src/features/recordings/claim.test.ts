@@ -1,6 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RecRecord } from "../../lib/tauri";
 
+const MIN = 60_000;
+let list: RecRecord[] = [];
+let playlists: unknown[] = [];
+const stopRecording = vi.fn((_id: string): Promise<unknown> => Promise.resolve({}));
+const fetchConnections = vi.fn((_p: unknown): Promise<unknown> => Promise.resolve(null));
 const startRecording = vi.fn((_a: unknown) => Promise.resolve("s1"));
 const tauriRecScheduleFail = vi.fn((_id: string, _why: string) => Promise.resolve());
 const lookupLive = vi.fn((): unknown => null);
@@ -8,7 +13,13 @@ const loadLive = vi.fn((_now: Date): Promise<unknown> => Promise.resolve({ chann
 const resolveStreamUrl = vi.fn((_c: unknown): Promise<string | null> => Promise.resolve(null));
 const streamUserAgent = vi.fn((_id: string): string | undefined => undefined);
 
-vi.mock("./store", () => ({ startRecording: (a: unknown) => startRecording(a) }));
+vi.mock("./store", () => ({
+  listNow: () => list,
+  startRecording: (a: unknown) => startRecording(a),
+  stopRecording: (id: string) => stopRecording(id),
+}));
+vi.mock("../../data/xtream", () => ({ fetchConnections: (p: unknown) => fetchConnections(p) }));
+vi.mock("../settings/playlists", () => ({ loadPlaylists: () => playlists }));
 vi.mock("../../lib/tauri", () => ({
   tauriRecScheduleFail: (id: string, why: string) => tauriRecScheduleFail(id, why),
 }));
@@ -44,6 +55,8 @@ const due = (o: Partial<RecRecord> = {}): RecRecord => ({
 const channel = { id: "p1:7", name: "BBC One" };
 
 beforeEach(() => {
+  list = [];
+  playlists = [];
   startRecording.mockClear();
   startRecording.mockImplementation(() => Promise.resolve("s1"));
   tauriRecScheduleFail.mockClear();
@@ -118,5 +131,87 @@ describe("a scheduled start that has come (plan 029, Phase 3)", () => {
     const m = await import("./claim");
     await Promise.all([m.claimDue(due()), m.claimDue(due())]);
     expect(startRecording).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a start that comes due while an earlier recording is in its padding", () => {
+  const T = new Date("2026-10-30T20:00:00Z").getTime(); // the next programme starts here
+  const earlier = (id = "a", o: Partial<RecRecord> = {}): RecRecord => ({
+    ...due(),
+    id,
+    status: "recording",
+    startedAt: T - 31 * MIN,
+    channelId: undefined,
+    due: false,
+    stopAt: T + MIN, // its programme ends at T; the minute after is padding
+    ...o,
+  });
+  const next = () => due({ startedAt: T, startAt: T - MIN, stopAt: T + 31 * MIN });
+  const order: string[] = [];
+  let claimDue: (r: RecRecord) => Promise<void>;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    ({ claimDue } = await import("./claim"));
+    vi.useFakeTimers();
+    vi.setSystemTime(T - MIN); // its own padding has begun: the start is due
+    order.length = 0;
+    playlists = [{ id: "p1", kind: "xtream" }];
+    fetchConnections.mockReset().mockResolvedValue({ active: 1, max: 1 });
+    stopRecording.mockReset().mockImplementation((id: string) => {
+      order.push(`stop ${id}`);
+      return Promise.resolve({});
+    });
+    startRecording.mockImplementation(() => {
+      order.push("start");
+      return Promise.resolve("s1");
+    });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("stops it at its programme's end, and then starts", async () => {
+    list = [earlier(), next()];
+    const p = claimDue(next());
+    // A moment early: the earlier programme is still on, so nothing is stopped.
+    await vi.advanceTimersByTimeAsync(MIN - 1);
+    expect(order).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    await p;
+    expect(order).toEqual(["stop a", "start"]);
+  });
+
+  it("leaves it alone when the line has room", async () => {
+    list = [earlier(), next()];
+    fetchConnections.mockResolvedValue({ active: 1, max: 2 });
+    await claimDue(next());
+    expect(order).toEqual(["start"]);
+  });
+
+  it("leaves it alone when the line reports no limit, or cannot be asked", async () => {
+    list = [earlier(), next()];
+    fetchConnections.mockResolvedValue(null);
+    await claimDue(next());
+    fetchConnections.mockRejectedValue(new Error("offline"));
+    await claimDue(next());
+    playlists = [{ id: "p1", kind: "m3u" }];
+    await claimDue(next());
+    expect(order).toEqual(["start", "start", "start"]);
+  });
+
+  it("asks the panel nothing when no earlier recording is in the way", async () => {
+    list = [earlier("long", { stopAt: T + 20 * MIN }), earlier("buffer", { buffer: true }), next()];
+    await claimDue(next());
+    expect(fetchConnections).not.toHaveBeenCalled();
+    expect(order).toEqual(["start"]);
+  });
+
+  it("does not stop it when the scheduled record was cancelled while it waited", async () => {
+    list = [earlier(), next()];
+    const p = claimDue(next());
+    await vi.advanceTimersByTimeAsync(10_000);
+    list = [earlier()];
+    await vi.advanceTimersByTimeAsync(MIN);
+    await p;
+    expect(order).not.toContain("stop a");
   });
 });

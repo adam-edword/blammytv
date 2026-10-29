@@ -14,7 +14,8 @@ import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
 
-const URL = "http://localhost:4173/";
+const URL = process.env.APP_URL ?? "http://localhost:4173/";
+const SERVER = process.env.M3U ?? "http://localhost:8082";
 const results = [];
 const check = (name, ok, extra = "") => {
   results.push([name, ok]);
@@ -29,7 +30,7 @@ const PLAYLIST = {
       id: "m1",
       name: "Test M3U",
       enabled: true,
-      url: "http://localhost:8082/playlist.m3u",
+      url: `${SERVER}/playlist.m3u`,
     },
   ],
 };
@@ -37,7 +38,14 @@ const PLAYLIST = {
 const browser = await chromium.launch({
   executablePath: "/opt/pw-browsers/chromium",
 });
-const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+/** A context that reaches only localhost: the fake and the app are all this
+ * talks to, so no external host is left to the live service. */
+async function offline() {
+  const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await c.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+  return c;
+}
+const ctx = await offline();
 const page = await ctx.newPage();
 await page.addInitScript((pl) => {
   localStorage.setItem("btv:onboarded", "1");
@@ -78,12 +86,12 @@ for (const [label, path] of [
   ["the guide from url-tvg renders", "/playlist.m3u"],
   ["  and one served as a .xml.gz file renders too", "/playlist-gz.m3u"],
 ]) {
-  const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const c = await offline();
   const p = await c.newPage();
   await p.addInitScript((pl) => {
     localStorage.setItem("btv:onboarded", "1");
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
-  }, { v: 1, data: [{ ...PLAYLIST.data[0], url: `http://localhost:8082${path}` }] });
+  }, { v: 1, data: [{ ...PLAYLIST.data[0], url: `${SERVER}${path}` }] });
   await p.goto(URL);
   const shown = await p
     .waitForFunction(() => document.body.innerText.includes("ESPN Hour"), null, { timeout: 20_000 })
@@ -98,10 +106,9 @@ for (const [label, path] of [
 // playlist, and with others its channels vanished while Settings said
 // "Channels OK". Now it is the playlist's error, and a playlist that loaded
 // before keeps its channels.
-const SERVER = "http://localhost:8082";
 const m3u = (id, name, path) => ({ kind: "m3u", id, name, enabled: true, url: `${SERVER}${path}` });
 async function openWith(playlists) {
-  const c = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const c = await offline();
   const p = await c.newPage();
   p.logs = [];
   p.on("console", (m) => p.logs.push(m.text()));

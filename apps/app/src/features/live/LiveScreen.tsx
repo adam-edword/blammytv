@@ -70,6 +70,7 @@ import { Hint } from "../../ui/Hint";
 import { Guide } from "./Guide";
 import { Hero } from "./Hero";
 import type { Channel, GuideChannel, LiveData, Programme } from "./model";
+import { resumesGuide } from "./popoutBack";
 import { loadRecents, recordRecent } from "./recents";
 import {
   onWatchRequest,
@@ -622,10 +623,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   useEffect(() => {
     if (!isTauri()) return;
     return onPopoutClosed(() => {
-      // Only a popout the Guide opened (plan 016 F11). A game popped out of
-      // Sports, closed while the Guide was up, started the Guide's own
-      // channel in the mini player.
-      if (popoutOpenedBy() === "guide" && heroIdRef.current) setPlaying(true);
+      // Only a popout the Guide opened (plan 016 F11), and not over a
+      // recording the player has open since (`resumesGuide`).
+      if (resumesGuide(popoutOpenedBy(), heroIdRef.current, recIdRef.current)) setPlaying(true);
     });
   }, []);
 

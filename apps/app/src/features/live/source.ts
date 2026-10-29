@@ -15,6 +15,7 @@ import {
 import {
   loadPlaylists,
   onPlaylistsChange,
+  playlistsSavedEmpty,
   type M3uPlaylist,
   type StalkerPlaylist,
   type XtreamPlaylist,
@@ -499,8 +500,9 @@ export function watchPlaylists(): () => void {
   // from (diskCache.ts), so a playlist taken out of Settings takes it with it:
   // on every save, and at launch for a list replaced while the app was closed
   // or by a settings import. Not at launch when none read back: storage.ts
-  // answers [] for a key it can't read, and that must not wipe the copy.
-  if (loadPlaylists().length > 0) forgetRemoved();
+  // answers [] for a key it can't read, and that must not wipe the copy. A
+  // list saved as empty (an import without playlists) is read back, and goes.
+  if (loadPlaylists().length > 0 || playlistsSavedEmpty()) forgetRemoved();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const off = onPlaylistsChange(() => {
     forgetRemoved();

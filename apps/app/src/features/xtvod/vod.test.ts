@@ -820,6 +820,27 @@ describe("watchXtLibrary", () => {
     off();
   });
 
+  it("clears every pick at launch when the playlists are saved as an empty list (an import without playlists)", async () => {
+    store.setPicks("t", pickM("12"));
+    seed();
+    vi.useFakeTimers();
+    const off = vod.watchXtLibrary();
+    expect(disk.prune).toHaveBeenCalledTimes(1);
+    expect(disk.prune).toHaveBeenCalledWith(new Set());
+    expect(store.loadPicks("t")).toEqual([]);
+    off();
+  });
+
+  it("keeps every pick at launch when there are no saved playlists at all", async () => {
+    store.setPicks("t", pickM("12"));
+    mem.delete("blammytv.playlists");
+    vi.useFakeTimers();
+    const off = vod.watchXtLibrary();
+    expect(disk.prune).not.toHaveBeenCalled();
+    expect(store.loadPicks("t")).toEqual(pickM("12"));
+    off();
+  });
+
   it("does nothing once stopped", async () => {
     vi.useFakeTimers();
     const off = vod.watchXtLibrary();

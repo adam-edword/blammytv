@@ -2,6 +2,19 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.24: Fixes from a review of everything since 1.0 (unreleased)
+
+- **A finished Smaller Files shrink is kept** when the recording is open
+  somewhere, and swapped in later, not encoded all over again.
+- **Quitting BlammyTV stops** a recording that's still being finished or
+  shrunk; it picks up again at the next launch.
+- **Closing a Guide pop-out no longer starts the channel over a recording**
+  you had opened in the meantime.
+- **Importing settings with no playlists clears** what the old playlists
+  left on disk, logins included.
+- **Two programmes back to back on a one-stream line** can both be
+  scheduled; the first stops at its programme's end so the second can start.
+
 ## 1.0.23: A bigger shelf (unreleased)
 
 - **The shelf carousel is 15% bigger.** The focused card is 1104 x 621 on a

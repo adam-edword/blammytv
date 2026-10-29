@@ -26,7 +26,7 @@ import {
 import { scrubbedMessage } from "../../lib/errors";
 import { cleanUserAgent } from "../../lib/userAgent";
 import { loadShowAdult } from "../settings/adultFilter";
-import { loadPlaylists, onPlaylistsChange, type XtreamPlaylist } from "../settings/playlists";
+import { loadPlaylists, onPlaylistsChange, playlistsSavedEmpty, type XtreamPlaylist } from "../settings/playlists";
 import { loadRowCap } from "../settings/rowCap";
 import { mapStreams } from "../stream/mapper";
 import type { StreamRow, StreamSource, VodData, VodItem } from "../stream/model";
@@ -500,8 +500,9 @@ export function watchXtLibrary(): () => void {
   // A settings import replaces the playlists and reloads the window, so what
   // the old ones left behind is cleared here, once per launch. Not when none
   // read back: storage.ts answers [] for a key it can't read, and that must
-  // not wipe every playlist's picks.
-  if (loadPlaylists().length > 0) forgetRemoved();
+  // not wipe every playlist's picks. A list saved as empty (an import without
+  // playlists) is read back, and its playlists' data goes.
+  if (loadPlaylists().length > 0 || playlistsSavedEmpty()) forgetRemoved();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const soon = (ms: number) => {
     clearTimeout(timer);

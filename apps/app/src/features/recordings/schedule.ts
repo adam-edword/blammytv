@@ -9,22 +9,23 @@ import type { Recording } from "./store";
  */
 
 /** A minute either side of a programme, for a guide that runs late. The same
- * number as rec.rs's PAD_MS, which adds it; this counts a line's connections
- * over the span native will really hold them. */
+ * number as rec.rs's PAD_MS, which adds it. Padding never causes a clash: a
+ * line's connections are counted over the programmes' own times (`holds`), and
+ * when a start comes due while an earlier recording is still in its padding,
+ * that one is stopped at its programme's end (`handOver`). */
 export const PAD_MS = 60_000;
 
 /** A scheduled programme, as the Guide marks it. */
 export const scheduleKey = (channelId: string, startMs: number): string =>
   `${channelId}\n${startMs}`;
 
-/** When a recording holds a connection on its line: from when it starts to
- * when it stops, or for good if nothing ends it. Null for one that holds none
- * (it is over, or it reads the player's own buffer). */
+/** When a recording holds a connection on its line, by its programme's own
+ * times and not its padding: from the programme's start to its end, or for
+ * good if nothing ends it. Null for one that holds none (it is over, or it
+ * reads the player's own buffer). */
 function holds(r: Recording): { from: number; to: number } | null {
-  if (r.buffer) return null;
-  if (r.status === "scheduled") return { from: r.startAt ?? r.startedAt, to: r.stopAt ?? Infinity };
-  if (r.status === "recording") return { from: r.startedAt, to: r.stopAt ?? Infinity };
-  return null;
+  if (r.buffer || (r.status !== "scheduled" && r.status !== "recording")) return null;
+  return { from: r.startedAt, to: r.stopAt == null ? Infinity : r.stopAt - PAD_MS };
 }
 
 /** How many of the app's recordings hold a connection on this playlist's line
@@ -60,6 +61,44 @@ export function clash(
   if (n + 1 <= line.max) return null;
   const others = n === 1 ? "1 other recording overlaps" : `${n} other recordings overlap`;
   return `${others} this one, and your line allows ${line.max} ${line.max === 1 ? "stream" : "streams"} at once`;
+}
+
+/** The recordings running on this line whose programme is over by `start`,
+ * soonest first: the ones that would still hold a connection when a recording
+ * of a programme starting then begins its padding. */
+export function endsBefore(list: readonly Recording[], playlistId: string, start: number): Recording[] {
+  return list
+    .filter(
+      (r) =>
+        r.status === "recording" &&
+        !r.buffer &&
+        r.playlistId === playlistId &&
+        r.stopAt != null &&
+        r.stopAt - PAD_MS <= start,
+    )
+    .sort((a, b) => (a.stopAt as number) - (b.stopAt as number));
+}
+
+/**
+ * A scheduled start has come on a line that is full only because earlier
+ * recordings are in their padding: which of them to stop, and when (their
+ * programmes' end, Unix ms), so this one can begin. Null when the line has
+ * room, reports no limit, or would still be full after stopping them (the
+ * start then says why it cannot, as ever).
+ */
+export function handOver(
+  list: readonly Recording[],
+  line: { max: number } | null | undefined,
+  playlistId: string,
+  start: number,
+): { stop: string[]; at: number } | null {
+  if (!line) return null;
+  const held = list.filter((r) => r.status === "recording" && !r.buffer && r.playlistId === playlistId);
+  const need = held.length + 1 - line.max;
+  const early = endsBefore(list, playlistId, start);
+  if (need <= 0 || early.length < need) return null;
+  const stop = early.slice(0, need);
+  return { stop: stop.map((r) => r.id), at: Math.max(...stop.map((r) => (r.stopAt as number) - PAD_MS)) };
 }
 
 /** What the right-click menu says about a programme: Record, Cancel Recording

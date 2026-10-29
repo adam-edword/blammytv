@@ -94,7 +94,9 @@ pub const MIN_TO_RUN: u64 = GIB;
 
 /// A programme is recorded from this long before it starts until this long
 /// after it ends (plan 029, Phase 3), for a guide that runs late. The page
-/// counts a line's connections over the same span (recordings/schedule.ts).
+/// counts a line's connections by the programmes' own times, so padding never
+/// clashes, and stops an earlier recording at its programme's end when the
+/// next one's start comes due (recordings/schedule.ts, claim.ts).
 pub const PAD_MS: u64 = 60_000;
 
 /// How late a scan may find a scheduled start and still begin it. A start found
@@ -142,6 +144,11 @@ const NAME_TAKEN: &str = "an .mkv with that name is already there";
 /// Why a shrink could not put its file in place. Windows refuses to replace
 /// a file the player has open. Launch tries such a shrink again.
 const IN_USE: &str = "couldn't replace the file, it may be playing";
+
+/// The extension of a shrink that was written and checked but could not be
+/// put in place. Launch keeps it and the next shrink of that file places it;
+/// a `shrink.tmp` never checked out, so launch removes those.
+const SHRINK_READY: &str = "shrink.ready";
 
 // ---------------------------------------------------------------------------
 // What the page sees.
@@ -1770,6 +1777,7 @@ impl Rec {
             // in goes too, unless another entry names it. Not the other way
             // round: the .mkv beside a .ts entry may be somebody's own.
             if is_ext(&path, "mkv") {
+                let _ = std::fs::remove_file(path.with_extension(SHRINK_READY));
                 let ts = path.with_extension("ts");
                 let named = lock(&self.records)
                     .iter()
@@ -1853,6 +1861,53 @@ fn ff(ffmpeg: &Path) -> std::process::Command {
     cmd
 }
 
+/// Puts a job's ffmpeg in a Windows job object that ends it when the app does.
+/// Windows doesn't end a child with its parent, so a remux or shrink ffmpeg
+/// would run on after BlammyTV was quit, holding the file. The job is made
+/// once and its handle is never closed: the OS closes it as the process exits,
+/// and KILL_ON_JOB_CLOSE ends whatever is in it. Not the recording writer: its
+/// stdin closing is how it finishes its file (header). A job that can't be made
+/// or joined leaves the ffmpeg as it was; the temp file is cleaned at launch.
+#[cfg(windows)]
+fn end_with_app(child: &std::process::Child) {
+    use std::ffi::c_void;
+    use std::os::windows::io::AsRawHandle;
+    use windows::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+    // The handle as an isize so a static can hold it; 0 = none.
+    static JOB: OnceLock<isize> = OnceLock::new();
+    let job = *JOB.get_or_init(|| unsafe {
+        let Ok(job) = CreateJobObjectW(None, None) else {
+            return 0;
+        };
+        let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let set = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const c_void,
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        if set.is_err() {
+            let _ = CloseHandle(job);
+            return 0;
+        }
+        job.0 as isize
+    });
+    let joined = job != 0
+        && unsafe {
+            AssignProcessToJobObject(HANDLE(job as *mut c_void), HANDLE(child.as_raw_handle()))
+        }
+        .is_ok();
+    if !joined {
+        log::warn!("[rec] ffmpeg is not tied to the app, it may outlive it");
+    }
+}
+
 fn path_str(p: &Path) -> String {
     p.to_string_lossy().into_owned()
 }
@@ -1921,6 +1976,8 @@ fn run(
             log::warn!("[rec] ffmpeg did not start: {}", e.kind());
             "ffmpeg didn't start".to_string()
         })?;
+    #[cfg(windows)]
+    end_with_app(&child);
     let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
         let _ = child.kill();
         return Err("ffmpeg's pipes did not open".into());
@@ -2098,9 +2155,11 @@ impl Rec {
     }
 
     /// When the index opens: the temp files a run that died left are removed
-    /// (the originals were never touched), and the jobs it did not finish are
-    /// queued again, oldest first. A repackaging that already failed is not
-    /// tried at every launch. Answers whether a record changed.
+    /// (the originals were never touched; a checked shrink that only awaits
+    /// its placing is not a temp file, see `SHRINK_READY`), and the jobs it
+    /// did not finish are queued again, oldest first. A repackaging that
+    /// already failed is not tried at every launch. Answers whether a record
+    /// changed.
     fn take_up_work(&self) -> bool {
         let mut fixed = false;
         let mut again = Vec::new();
@@ -2133,6 +2192,11 @@ impl Rec {
             } else {
                 None
             };
+            // A checked shrink waits for its file's next shrink; for a file
+            // that will not have one it is only taking up disk.
+            if want != Some(Job::Shrink) {
+                let _ = std::fs::remove_file(path.with_extension(SHRINK_READY));
+            }
             if r.job != want || r.progress.is_some() {
                 r.job = want;
                 r.progress = None;
@@ -2351,24 +2415,44 @@ impl Rec {
         if !is_ext(&src, "mkv") || !src.is_file() {
             return Err("the file is gone".into());
         }
-        let encoder = *self.encoder.get_or_init(|| pick_encoder(ffmpeg));
         let before = size_of(&src).unwrap_or(0);
         let tmp = src.with_extension("shrink.tmp");
-        let _ = std::fs::remove_file(&tmp);
-        let mut video = ["-vf", DEINTERLACE, "-c:v", encoder]
-            .map(String::from)
-            .to_vec();
-        video.extend(hevc_args(encoder).iter().map(|a| a.to_string()));
-        let after = self
-            .write_temp(ffmpeg, &src, &tmp, &video, 0.85, cancel, report)
-            .and_then(|want| self.verify(ffmpeg, &src, &tmp, want, 0.85, cancel, report))
-            .and_then(|()| {
-                let after = size_of(&tmp).unwrap_or(0);
-                if after >= before {
-                    return Err("it didn't get any smaller".to_string());
-                }
-                self.place(&tmp, &src, true, cancel)
-            });
+        let ready = src.with_extension(SHRINK_READY);
+        // A shrink an earlier pass finished and checked but could not put in
+        // place (the player had the original open): placed now, with no second
+        // encode. One that is no longer smaller than the file is dropped.
+        if ready.is_file() && size_of(&ready).map_or(true, |a| a >= before) {
+            let _ = std::fs::remove_file(&ready);
+        }
+        let after = if ready.is_file() {
+            self.place(&ready, &src, true, cancel)
+        } else {
+            let encoder = *self.encoder.get_or_init(|| pick_encoder(ffmpeg));
+            let _ = std::fs::remove_file(&tmp);
+            let mut video = ["-vf", DEINTERLACE, "-c:v", encoder]
+                .map(String::from)
+                .to_vec();
+            video.extend(hevc_args(encoder).iter().map(|a| a.to_string()));
+            let placed = self
+                .write_temp(ffmpeg, &src, &tmp, &video, 0.85, cancel, report)
+                .and_then(|want| self.verify(ffmpeg, &src, &tmp, want, 0.85, cancel, report))
+                .and_then(|()| {
+                    let after = size_of(&tmp).unwrap_or(0);
+                    if after >= before {
+                        return Err("it didn't get any smaller".to_string());
+                    }
+                    self.place(&tmp, &src, true, cancel)
+                });
+            // Only the last step failed: the file is whole and checked, so it
+            // is kept under a name launch does not clean up. Anything else
+            // that went wrong, it never checked out and goes.
+            if placed.as_ref().is_err_and(|why| why == IN_USE)
+                && std::fs::rename(&tmp, &ready).is_ok()
+            {
+                log::info!("[rec] the smaller file is kept to place later");
+            }
+            placed
+        };
         if after.is_err() {
             let _ = std::fs::remove_file(&tmp);
         }
@@ -5216,8 +5300,126 @@ mod tests {
         wait_worker(&b);
         assert_eq!(r.job_reason.as_deref(), Some(IN_USE), "{r:?}");
         assert_eq!((r.saved, r.progress), (0, None));
-        // No temp file left.
+        // The smaller file is whole and checked, so it is kept to be placed
+        // later; no temp file is left.
+        assert_eq!(listing(&b.out), ["m.mkv", "m.shrink.ready"]);
+    }
+
+    #[test]
+    fn a_checked_shrink_that_only_could_not_be_placed_is_placed_later_without_a_second_encode() {
+        let encodes = Arc::new(AtomicUsize::new(0));
+        let counted = encodes.clone();
+        let b = Bench::new("in-use-kept", move |c| {
+            c.repack = true;
+            c.after_write = Some(Arc::new(move |tmp| {
+                // Only the first encode: the player has the original open, which
+                // is a rename that cannot happen.
+                if counted.fetch_add(1, Ordering::SeqCst) == 0 {
+                    let mkv = tmp.with_file_name("m.mkv");
+                    std::fs::remove_file(&mkv).unwrap();
+                    std::fs::create_dir(&mkv).unwrap();
+                }
+            }));
+        });
+        let mkv = add_finished(&b, "m", 1_000, "mkv");
+        let original = std::fs::read(&mkv).unwrap();
+        b.rec.set_smaller(true);
+        wait_idle(&b, "m");
+        wait_worker(&b);
+        assert_eq!(b.rec.get("m").unwrap().job_reason.as_deref(), Some(IN_USE));
+        assert_eq!(encodes.load(Ordering::SeqCst), 1);
+        // The player lets go (the original is as it was) and the queue passes.
+        std::fs::remove_dir(&mkv).unwrap();
+        std::fs::write(&mkv, &original).unwrap();
+        b.rec.queue("m", Job::Shrink);
+        b.rec.kick();
+        until("the kept file to be placed", 60, || {
+            b.rec.get("m").unwrap().job_reason.is_none()
+        });
+        wait_worker(&b);
+        let r = b.rec.get("m").unwrap();
+        assert_eq!(encodes.load(Ordering::SeqCst), 1, "it was encoded again");
         assert_eq!(listing(&b.out), ["m.mkv"]);
+        let after = size_of(&mkv).unwrap();
+        assert!(after < original.len() as u64, "{after}");
+        assert_eq!((r.bytes, r.saved), (after, original.len() as u64 - after));
+        assert_eq!((r.job, r.progress), (None, None));
+    }
+
+    #[test]
+    fn a_shrink_that_does_not_check_out_leaves_nothing_to_place_later() {
+        let b = Bench::new("shrink-bad", |c| {
+            c.repack = true;
+            c.after_write = Some(Arc::new(|tmp| {
+                let f = OpenOptions::new().write(true).open(tmp).unwrap();
+                f.set_len(f.metadata().unwrap().len() / 2).unwrap();
+            }));
+        });
+        let mkv = add_finished(&b, "m", 1_000, "mkv");
+        let before = size_of(&mkv);
+        b.rec.set_smaller(true);
+        let r = wait_idle(&b, "m");
+        wait_worker(&b);
+        let why = r.job_reason.expect("it says why");
+        assert!(why.starts_with("the new file"), "{why}");
+        assert_eq!(size_of(&mkv), before);
+        assert_eq!(listing(&b.out), ["m.mkv"]);
+    }
+
+    #[test]
+    fn a_checked_shrink_waiting_to_be_placed_survives_launch_and_goes_with_its_recording() {
+        let _lane = lock(&LANE);
+        let dir = temp("ready-launch");
+        let index = dir.join("recordings.json");
+        let file = |name: &str| {
+            let p = dir.join(name);
+            std::fs::write(&p, b"x").unwrap();
+            p
+        };
+        let busy = |id: &str, path: &Path, why: &str| {
+            let mut r = record(id, Status::Done, path);
+            r.bytes = 1;
+            r.job_reason = Some(why.into());
+            r
+        };
+        write_index(
+            &index,
+            vec![
+                busy("busy", &file("busy.mkv"), IN_USE),
+                // Its shrink was refused for another reason: nothing to place.
+                busy("other", &file("other.mkv"), "it didn't get any smaller"),
+            ],
+        );
+        for name in [
+            "busy.shrink.ready",
+            "busy.shrink.tmp",
+            "other.shrink.ready",
+            "orphan.shrink.ready",
+        ] {
+            file(name);
+        }
+        let mut cfg = cfg_quiet();
+        cfg.repack = true;
+        cfg.ffmpeg = Some(dir.join("no-ffmpeg"));
+        let r = Rec::open(index, cfg);
+        // The unchecked temp goes, the checked file waits, and one that no
+        // shrink will place goes. (A file no record names is not ours to find.)
+        assert_eq!(
+            listing(&dir),
+            [
+                "busy.mkv",
+                "busy.shrink.ready",
+                "orphan.shrink.ready",
+                "other.mkv",
+                "recordings.json"
+            ]
+        );
+        r.delete("busy").unwrap();
+        assert_eq!(
+            listing(&dir),
+            ["orphan.shrink.ready", "other.mkv", "recordings.json"]
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

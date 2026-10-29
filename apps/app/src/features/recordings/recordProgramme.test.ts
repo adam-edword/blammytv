@@ -87,6 +87,27 @@ describe("Record on a programme to come", () => {
     expect(scheduleRecording).toHaveBeenCalledTimes(1);
   });
 
+  it("does not call two programmes back to back a clash on a one-stream line, though the padding meets", async () => {
+    const first = prog(30 * MIN, 30 * MIN);
+    list = [
+      running({
+        id: "s0",
+        status: "scheduled",
+        startedAt: first.start.getTime(),
+        stopAt: first.end.getTime() + MIN,
+      }),
+    ];
+    const said = await recordProgramme(channel, prog(60 * MIN, 30 * MIN), { max: 1 }, NOW);
+    expect(said).toMatch(/^Scheduled to record News/);
+    expect(scheduleRecording).toHaveBeenCalledTimes(1);
+    // Starting a millisecond before the first one ends is a real overlap.
+    scheduleRecording.mockClear();
+    expect(await recordProgramme(channel, prog(60 * MIN - 1, 30 * MIN), { max: 1 }, NOW)).toMatch(
+      /^Couldn’t schedule: 1 other recording overlaps/,
+    );
+    expect(scheduleRecording).not.toHaveBeenCalled();
+  });
+
   it("goes ahead when the line reports no limit", async () => {
     list = [running(), running({ id: "r2" })];
     await recordProgramme(channel, prog(60 * MIN, 30 * MIN), null, NOW);

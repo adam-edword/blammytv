@@ -4,7 +4,7 @@ import { resolveStreamUrl, streamUserAgent } from "../live/stream";
 import { loadClockFormat } from "../settings/clockFormat";
 import { loadRecordingsFolder } from "../settings/recordingsFolder";
 import { plainError, startFailure } from "./format";
-import { PAD_MS, clash } from "./schedule";
+import { clash } from "./schedule";
 import {
   deleteRecording,
   listNow,
@@ -21,7 +21,8 @@ import {
  * the same `rec_start` as Record in the player (the reason it could not start
  * is the toast). One that is yet to come is kept by native (`rec_schedule`),
  * which starts it a minute before. Either way the line is counted first, over
- * the span the recording will hold a connection, and a clash is said now.
+ * the programme's own times (a minute of padding never clashes, claim.ts hands
+ * the line over), and a clash is said now.
  *
  * Always a stream of its own, never the player's buffer (D3): that has no
  * end time, so a one-connection line records a programme that is on only when
@@ -38,7 +39,7 @@ export async function recordProgramme(
   const end = programme.end.getTime();
   const on = start <= now;
   const verb = on ? "record" : "schedule";
-  const why = clash(listNow(), line, playlistId, on ? now : start - PAD_MS, end + PAD_MS);
+  const why = clash(listNow(), line, playlistId, on ? now : start, end);
   if (why) return `Couldn’t ${verb}: ${why}.`;
   try {
     if (on) {

@@ -101,6 +101,9 @@ windows = { version = "0.61", features = [
     "Win32_System_Power",
     "Win32_Storage_FileSystem",
     "Win32_System_SystemInformation",
+    # rec.rs: a remux or shrink ffmpeg is put in a job object that ends it when
+    # the app quits (Windows leaves a child running after its parent).
+    "Win32_System_JobObjects",
     # vlc.rs: where VLC is installed (HKLM\SOFTWARE\VideoLAN\VLC).
     "Win32_System_Registry",
 ] }

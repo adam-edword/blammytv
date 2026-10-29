@@ -33,9 +33,11 @@ const xtream = (id: string, password = "p") => ({
   password,
 });
 let playlists = [xtream("A")];
+let savedEmpty = false;
 const listeners = new Set<() => void>();
 vi.mock("../settings/playlists", () => ({
   loadPlaylists: () => playlists,
+  playlistsSavedEmpty: () => savedEmpty,
   onPlaylistsChange: (cb: () => void) => {
     listeners.add(cb);
     return () => listeners.delete(cb);
@@ -60,6 +62,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-09-24T19:00:00Z"));
   vi.stubGlobal("window", new EventTarget());
   playlists = [xtream("A")];
+  savedEmpty = false;
   authenticate.mockResolvedValue(undefined);
   fetchLiveCategories.mockResolvedValue([]);
   fetchLiveStreams.mockImplementation(async (p: { id: string }) => [
@@ -198,5 +201,14 @@ describe("a playlist change loads the catalog on any screen (LV3)", () => {
     playlists = [];
     m.watchPlaylists()();
     expect(diskPrune).not.toHaveBeenCalled();
+  });
+
+  it("prunes at launch when the playlists are saved as an empty list (an import without playlists)", async () => {
+    const { m } = await addB();
+    playlists = [];
+    savedEmpty = true;
+    m.watchPlaylists()();
+    expect(diskPrune).toHaveBeenCalledTimes(1);
+    expect(diskPrune).toHaveBeenLastCalledWith(new Set());
   });
 });
