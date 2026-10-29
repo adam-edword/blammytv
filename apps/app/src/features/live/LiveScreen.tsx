@@ -736,6 +736,11 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   // Sidebar connection pills; keyed on the tuned stream so each tune
   // re-polls once the panel has registered the session.
   const conns = useConnections(playUrl);
+  // The Guide's Record counts a programme against the line when it is used,
+  // so it reads the latest and the Guide never renders for a new reading.
+  const connsRef = useRef(conns);
+  connsRef.current = conns;
+  const lineFor = useCallback((playlistId: string) => connsRef.current.get(playlistId) ?? null, []);
   const heroChannelRef = useRef(heroChannel);
   heroChannelRef.current = heroChannel;
   const heroId = heroChannel?.id;
@@ -1279,6 +1284,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 guidePending={live.status === "ready" && !!live.data.guidePending}
                 guideLists={guideLists}
                 onNotice={notice}
+                lineFor={lineFor}
               />
             )}
             {/* The catalog no longer waits on the guide (a big provider's

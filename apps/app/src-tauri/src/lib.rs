@@ -1176,8 +1176,12 @@ async fn rec_pick_folder(
 /// Record a live channel to a file, in Rust, whatever the player does. Answers
 /// the recording's id once bytes are coming, and rejects with why not (the host
 /// and a reason, never the link). `rec-update` events then carry the record as
-/// its status and size change.
+/// its status and size change. `until` is a programme's end (Unix ms): the
+/// recording stops a minute after it. `schedule_id` is a scheduled record the
+/// page was told is due (`rec_schedule`): the recording takes its id and stop
+/// time, and a start that fails leaves that record Failed.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 async fn rec_start(
     app: tauri::AppHandle,
     url: String,
@@ -1186,19 +1190,56 @@ async fn rec_start(
     programme: Option<String>,
     playlist_id: String,
     folder: Option<String>,
+    until: Option<u64>,
+    schedule_id: Option<String>,
 ) -> Result<String, String> {
     let user_agent = mpvagent::clean(user_agent)?;
     let folder = recordings_folder(&app, folder)?;
-    rec::get()?
-        .start(rec::Spec {
-            url,
-            user_agent,
-            channel,
-            programme,
-            playlist_id,
-            folder,
-        })
-        .await
+    let spec = rec::Spec {
+        url,
+        user_agent,
+        channel,
+        programme,
+        playlist_id,
+        folder,
+        id: None,
+        until,
+    };
+    match schedule_id {
+        Some(id) => rec::get()?.start_scheduled(&id, spec).await,
+        None => rec::get()?.start(spec).await,
+    }
+}
+
+/// Keep a programme from the Guide to record (plan 029, Phase 3): native
+/// starts the clock, saves it across restarts and tells the page when it is
+/// due, with `rec-update` carrying the record as `due`. `start` and `end` are
+/// the programme's own times (Unix ms); native adds the minute either side.
+#[tauri::command]
+fn rec_schedule(
+    channel_id: String,
+    channel: String,
+    programme: Option<String>,
+    playlist_id: String,
+    start: u64,
+    end: u64,
+) -> Result<rec::Record, String> {
+    rec::get()?.schedule(rec::Plan {
+        channel_id,
+        channel,
+        programme,
+        playlist_id,
+        start,
+        end,
+    })
+}
+
+/// A due recording the page could not start for want of a link. Failed, with
+/// why.
+#[tauri::command]
+fn rec_schedule_fail(id: String, reason: String) -> Result<(), String> {
+    rec::get()?.fail_scheduled(&id, &reason);
+    Ok(())
 }
 
 /// Record the player's own buffer from where it is playing (plan 029, D3): for
@@ -2186,6 +2227,8 @@ pub fn run() {
             rec_default_folder,
             rec_pick_folder,
             rec_start,
+            rec_schedule,
+            rec_schedule_fail,
             rec_buffer_start,
             rec_stop,
             rec_list,

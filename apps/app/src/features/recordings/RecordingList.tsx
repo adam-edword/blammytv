@@ -11,6 +11,8 @@ const STATUS: Record<Recording["status"], string> = {
   done: "Done",
   partial: "Partial",
   failed: "Failed",
+  scheduled: "Scheduled",
+  missed: "Missed",
 };
 
 /** "Couldn’t delete: the file is in use or read-only." */
@@ -50,6 +52,11 @@ function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
  * Recordings mode and Library's section are this one list. A running one
  * counts its size as native reports it and offers Stop Recording where
  * Delete would be, because native refuses to delete a file it is writing.
+ *
+ * A programme scheduled from the Guide (Phase 3) is a row with no file yet:
+ * its programme's start where the date goes, "Scheduled" for the status and
+ * Cancel Recording for the only action. One whose start was missed says so and
+ * can only be deleted.
  */
 export function RecordingList({
   playingId,
@@ -92,6 +99,9 @@ export function RecordingList({
     <ul className="rec-list">
       {recs.map((r) => {
         const running = r.status === "recording";
+        const waiting = r.status === "scheduled";
+        // Neither a scheduled nor a missed recording has a length or a size.
+        const empty = waiting || r.status === "missed";
         const ms = (r.endedAt ?? now) - r.startedAt;
         const when = formatWhen(new Date(r.startedAt), new Date(now), clock);
         const reason = r.reason ? reasonLine(r.reason) : "";
@@ -117,12 +127,9 @@ export function RecordingList({
               <p className="rec-row__meta">
                 <span className={"rec-row__status rec-row__status--" + r.status}>
                   {running && <span className="rec-dot" aria-hidden />}
-                  {r.job ? work : STATUS[r.status]}
+                  {r.job ? work : waiting && r.due ? "Starting" : STATUS[r.status]}
                 </span>
-                {" · "}
-                {formatDuration(ms)}
-                {" · "}
-                {formatSize(r.bytes)}
+                {!empty && ` · ${formatDuration(ms)} · ${formatSize(r.bytes)}`}
                 {!r.job && work && ` · ${work}`}
               </p>
               {reason && <p className="rec-row__why">{reason}</p>}
@@ -134,41 +141,48 @@ export function RecordingList({
               )}
             </div>
             <div className="rec-row__actions">
-              {running ? (
+              {running || waiting ? (
                 <Button
                   variant="outline"
                   size="sm"
                   type="button"
                   onClick={() => {
                     say(r.id, null);
-                    stopRecording(r.id).catch((e) => say(r.id, couldnt("stop", e)));
+                    // Cancelling a scheduled one is deleting its record: it has no file.
+                    (running ? stopRecording(r.id) : deleteRecording(r.id)).catch((e) =>
+                      say(r.id, couldnt(running ? "stop" : "cancel", e)),
+                    );
                   }}
                 >
-                  Stop Recording
+                  {running ? "Stop Recording" : "Cancel Recording"}
                 </Button>
               ) : (
+                !empty && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    disabled={r.status === "failed" && r.bytes === 0}
+                    onClick={() => onPlay(r.id)}
+                  >
+                    Play
+                  </Button>
+                )
+              )}
+              {!empty && r.path && (
                 <Button
                   variant="outline"
                   size="sm"
                   type="button"
-                  disabled={r.status === "failed" && r.bytes === 0}
-                  onClick={() => onPlay(r.id)}
+                  onClick={() => {
+                    say(r.id, null);
+                    tauriRecShow(r.id).catch((e) => say(r.id, couldnt("show the folder", e)));
+                  }}
                 >
-                  Play
+                  Show in Folder
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={() => {
-                  say(r.id, null);
-                  tauriRecShow(r.id).catch((e) => say(r.id, couldnt("show the folder", e)));
-                }}
-              >
-                Show in Folder
-              </Button>
-              {!running && (
+              {!running && !waiting && (
                 <DeleteButton
                   onConfirm={() => {
                     say(r.id, null);

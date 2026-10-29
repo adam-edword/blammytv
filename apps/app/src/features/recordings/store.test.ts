@@ -9,6 +9,10 @@ const tauriRecStart = vi.fn((_a: unknown) => Promise.resolve("r2"));
 const tauriRecBufferStart = vi.fn((_a: unknown) => Promise.resolve("buf"));
 const tauriRecStop = vi.fn((id: string) => Promise.resolve(rec({ id, status: "done", endedAt: 9 })));
 const tauriRecDelete = vi.fn((_id: string) => Promise.resolve());
+const tauriRecSchedule = vi.fn((_a: unknown) => Promise.resolve(rec({ id: "s1", status: "scheduled" })));
+// claim.ts brings the playlists with it; what the store hands it is the subject here.
+const claimDue = vi.fn((_r: RecRecord) => Promise.resolve());
+vi.mock("./claim", () => ({ claimDue: (r: RecRecord) => claimDue(r) }));
 vi.mock("../../lib/tauri", () => ({
   isTauri: () => true,
   onRecUpdate: (cb: (r: RecRecord) => void) => {
@@ -20,6 +24,7 @@ vi.mock("../../lib/tauri", () => ({
   tauriRecBufferStart: (a: unknown) => tauriRecBufferStart(a),
   tauriRecStop: (id: string) => tauriRecStop(id),
   tauriRecDelete: (id: string) => tauriRecDelete(id),
+  tauriRecSchedule: (a: unknown) => tauriRecSchedule(a),
 }));
 
 const rec = (o: Partial<RecRecord> & { id: string }): RecRecord => ({
@@ -55,6 +60,8 @@ beforeEach(() => {
   tauriRecBufferStart.mockClear();
   tauriRecStop.mockClear();
   tauriRecDelete.mockClear();
+  tauriRecSchedule.mockClear();
+  claimDue.mockClear();
 });
 
 describe("upsert and merge", () => {
@@ -311,5 +318,106 @@ describe("a recording's job (plan 029, Phase 4)", () => {
     emit(rec({ id: "a", status: "done", endedAt: 9, job: "shrink", progress: 0.7 }));
     expect(mod.listNow()[0].progress).toBe(0.7);
     expect(tauriRecList.mock.calls.length).toBe(asked);
+  });
+});
+
+describe("a programme scheduled from the Guide (plan 029, Phase 3)", () => {
+  const planned = (o: Partial<RecRecord> = {}) =>
+    rec({
+      id: "s1",
+      status: "scheduled",
+      path: "",
+      channelId: "p1:7",
+      startedAt: 5000,
+      startAt: 4000,
+      stopAt: 9000,
+      ...o,
+    });
+  const settle = async () => {
+    for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+
+  it("keeps it, answers the Scheduled record, and shows it in the list", async () => {
+    const { mod } = await fresh();
+    const sent = await mod.scheduleRecording({
+      channelId: "p1:7",
+      channel: "BBC One",
+      programme: "News",
+      playlistId: "p1",
+      start: 5000,
+      end: 8000,
+    });
+    expect(tauriRecSchedule).toHaveBeenCalledWith({
+      channelId: "p1:7",
+      channel: "BBC One",
+      programme: "News",
+      playlistId: "p1",
+      start: 5000,
+      end: 8000,
+    });
+    expect(sent.id).toBe("s1");
+    expect(mod.listNow().map((r) => r.id)).toEqual(["s1"]);
+  });
+
+  it("marks the programme by channel and start, until it is cancelled or settles", async () => {
+    const { mod } = await fresh();
+    emit(planned());
+    expect([...mod.plannedNow()]).toEqual(["p1:7\n5000"]);
+    // A running recording marks nothing.
+    emit(rec({ id: "r", channelId: "p1:8", startedAt: 6000 }));
+    expect(mod.plannedNow().size).toBe(1);
+    await mod.deleteRecording("s1");
+    expect(mod.plannedNow().size).toBe(0);
+    emit(planned());
+    emit(planned({ status: "missed" }));
+    expect(mod.plannedNow().size).toBe(0);
+  });
+
+  it("keeps the same set while a recording only grows, so the Guide is not drawn again", async () => {
+    const { mod } = await fresh();
+    emit(planned());
+    const before = mod.plannedNow();
+    emit(rec({ id: "r", bytes: 10 }));
+    emit(rec({ id: "r", bytes: 20 }));
+    expect(mod.plannedNow()).toBe(before);
+  });
+
+  it("hands a due one to claim.ts, once, whether the list or the event brings it", async () => {
+    listAnswer = [planned({ due: true })];
+    await fresh();
+    await settle();
+    expect(claimDue).toHaveBeenCalledTimes(1);
+    expect(claimDue.mock.calls[0][0]).toMatchObject({ id: "s1", due: true });
+    emit(planned({ due: true }));
+    emit(planned({ due: true, bytes: 1 }));
+    await settle();
+    expect(claimDue).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands over a due one that arrives as an event, and not before it is due", async () => {
+    await fresh();
+    emit(planned());
+    await settle();
+    expect(claimDue).not.toHaveBeenCalled();
+    emit(planned({ due: true }));
+    await settle();
+    expect(claimDue).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not hand over a record that is not waiting", async () => {
+    await fresh();
+    emit(planned({ status: "missed", due: true }));
+    emit(planned({ id: "s2", status: "failed", due: true }));
+    emit(rec({ id: "r", due: true }));
+    await settle();
+    expect(claimDue).not.toHaveBeenCalled();
+  });
+
+  it("is neither a running recording nor work: restarts wait for neither", async () => {
+    const { mod } = await fresh();
+    emit(planned({ due: true }));
+    expect(mod.runningNow()).toBe(false);
+    expect(mod.workingNow()).toBe(false);
+    expect(mod.streamsNow().ids).toBe("");
   });
 });

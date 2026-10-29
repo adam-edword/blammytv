@@ -2,6 +2,19 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.22: Record a programme from the Guide (unreleased)
+
+- **Right-click a programme in the Guide → Record.** It records from a
+  minute before it starts to a minute after it ends. One that's on now
+  starts straight away.
+- **Scheduled recordings survive a restart.** One whose start went by while
+  BlammyTV was closed shows as Missed; it isn't started late.
+- **Too many at once is said when you schedule it**, not when it fails:
+  "1 other recording overlaps this one, and your line allows 1 stream at
+  once."
+- **Cancel Recording** in the same menu, or on the row in Recordings. A
+  scheduled programme has a ring in the Guide.
+
 ## 1.0.21: Pause and rewind live TV for hours (unreleased)
 
 - **Live TV keeps hours behind you.** A live channel buffers to disk, so you

@@ -1,10 +1,12 @@
 import { useSyncExternalStore } from "react";
+import { scheduleKey } from "./schedule";
 import {
   isTauri,
   onRecUpdate,
   tauriRecBufferStart,
   tauriRecDelete,
   tauriRecList,
+  tauriRecSchedule,
   tauriRecStart,
   tauriRecStop,
   type RecRecord,
@@ -21,6 +23,11 @@ import {
  * the first one that asks and never stopped.
  *
  * Times are Unix ms, newest started first.
+ *
+ * A programme scheduled from the Guide (Phase 3) is a record here too, with the
+ * status "scheduled". Native keeps its clock; when the start comes the record
+ * arrives as `due` and this hands it to claim.ts, which finds the link and
+ * starts it. That is the only thing a due record needs from the page.
  */
 export type Recording = RecRecord;
 
@@ -92,6 +99,7 @@ const sameKeys = (a: ReadonlySet<string>, b: ReadonlySet<string>): boolean =>
 
 let list: readonly Recording[] = [];
 let keys: ReadonlySet<string> = new Set();
+let planned: ReadonlySet<string> = new Set();
 let streams: StreamRecs = streamRecs([]);
 let running = false;
 let working = false;
@@ -100,12 +108,27 @@ let started = false;
  * older than it, and must not put the old row back. */
 const spoken = new Set<string>();
 const subs = new Set<() => void>();
+/** Due records already handed to claim.ts, so an event and a list that both
+ * carry one start it once. */
+const handed = new Set<string>();
 
 function set(next: readonly Recording[]): void {
   list = next;
   // The Guide listens to the keys alone: a 5s size update must not re-render it.
   const k = runningKeys(next);
   if (!sameKeys(k, keys)) keys = k;
+  const sk = new Set(
+    next
+      .filter((r) => r.status === "scheduled" && r.channelId)
+      .map((r) => scheduleKey(r.channelId as string, r.startedAt)),
+  );
+  if (!sameKeys(sk, planned)) planned = sk;
+  for (const r of next) {
+    if (r.status !== "scheduled" || !r.due || handed.has(r.id)) continue;
+    handed.add(r.id);
+    // Loaded when first needed: it brings the playlists' code with it.
+    void import("./claim").then((m) => m.claimDue(r)).catch(() => {});
+  }
   const s = streamRecs(next);
   if (s.ids !== streams.ids) streams = s;
   running = next.some((r) => r.status === "recording");
@@ -146,6 +169,7 @@ export const watch = (cb: () => void): (() => void) => {
 export const listNow = (): readonly Recording[] => list;
 export const keysNow = (): ReadonlySet<string> => keys;
 export const streamsNow = (): StreamRecs => streams;
+export const plannedNow = (): ReadonlySet<string> => planned;
 export const runningNow = (): boolean => running;
 /** Whether any finished recording has a job, waiting or running (plan 029,
  * Phase 4): native is repackaging or shrinking, and a restart would end it. */
@@ -164,6 +188,10 @@ export const useRecording = (id: string | null): Recording | undefined =>
 /** Which channels are being recorded, as `recKey`s. The same set until a
  * recording starts or ends. */
 export const useRunningKeys = (): ReadonlySet<string> => useSyncExternalStore(watch, keysNow);
+
+/** The programmes with a recording scheduled, as `scheduleKey`s. The same set
+ * until one is scheduled, cancelled or settles. */
+export const useScheduledKeys = (): ReadonlySet<string> => useSyncExternalStore(watch, plannedNow);
 
 /** The running recordings that hold a connection, for the grid's room and the
  * counts. Re-renders only when one starts or ends. */
@@ -191,6 +219,15 @@ export async function startRecording(a: Parameters<typeof tauriRecStart>[0]): Pr
   return id;
 }
 
+/** Keep a programme to record. Answers the Scheduled record; rejects with
+ * native's reason. */
+export async function scheduleRecording(a: Parameters<typeof tauriRecSchedule>[0]): Promise<Recording> {
+  start();
+  const rec = await tauriRecSchedule(a);
+  apply(rec);
+  return rec;
+}
+
 /** Record the player's own buffer (D3). Answers the id; rejects with native's
  * reason. It holds no connection of its own, which the record says (`buffer`). */
 export async function startBufferRecording(a: Parameters<typeof tauriRecBufferStart>[0]): Promise<string> {
@@ -207,8 +244,8 @@ export async function stopRecording(id: string): Promise<Recording> {
   return rec;
 }
 
-/** Delete a finished recording's file and entry. Rejects with native's reason
- * (a running one is refused). */
+/** Delete a finished recording's file and entry, or cancel a scheduled one.
+ * Rejects with native's reason (a running one is refused). */
 export async function deleteRecording(id: string): Promise<void> {
   await tauriRecDelete(id);
   set(list.filter((r) => r.id !== id));

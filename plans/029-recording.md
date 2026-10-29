@@ -182,6 +182,15 @@ No rebuild. In the app's console on a live channel:
 
 ## Phase 3: Record a programme from the Guide
 
+**Built in v1.0.22.** The schedule lives in `recordings.json` as Scheduled
+and Missed records, ticked once a second by a native thread. When a start is
+due, native flags it and the page finds the link and starts it, so the index
+never holds a link. Choices Adam can overrule: a start found over 30s late is
+Missed; Cancel Recording in the Guide menu and on the list row; a hollow dot
+on a scheduled programme. Known limit, queued for the fix batch: two
+programmes back to back on a one-stream line overlap by the 2 minutes of
+padding, so the second counts as a clash.
+
 - Right-click a programme → Record. It starts at the programme's start (or now,
   if it's on) and stops at its end, plus a minute either side for a guide
   that runs late.

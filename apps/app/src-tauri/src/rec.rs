@@ -65,7 +65,7 @@
 //! a real ffmpeg; lib.rs pulls in tauri and cannot be built on Linux. Nothing
 //! here names tauri: lib.rs hands it a callback for the events.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::OpenOptions;
 use std::future::Future;
 use std::io::BufRead;
@@ -92,6 +92,15 @@ pub const MIN_TO_START: u64 = 2 * GIB;
 /// Under this, a running one is stopped and its file kept.
 pub const MIN_TO_RUN: u64 = GIB;
 
+/// A programme is recorded from this long before it starts until this long
+/// after it ends (plan 029, Phase 3), for a guide that runs late. The page
+/// counts a line's connections over the same span (recordings/schedule.ts).
+pub const PAD_MS: u64 = 60_000;
+
+/// How late a scan may find a scheduled start and still begin it. A start found
+/// later than this was slept through, and a recording is never started late.
+const LATE_MS: u64 = 30_000;
+
 /// The most a name's channel and programme parts may be, in characters, so a
 /// path stays well under Windows' 260.
 const CHANNEL_MAX: usize = 50;
@@ -111,6 +120,7 @@ pub const STREAM_LOST: &str = "stream lost";
 pub const DISK_FULL: &str = "disk full";
 pub const CHANNEL_CHANGED: &str = "stopped when the channel changed";
 pub const NOTHING: &str = "nothing was recorded";
+pub const MISSED: &str = "the app was not running at the start";
 const RECORDER_STOPPED: &str = "the recorder stopped";
 
 /// How far a repackaged or smaller file's length may be from the original's:
@@ -121,7 +131,8 @@ const RECORDER_STOPPED: &str = "the recorder stopped";
 const LENGTH_SLACK: f64 = 2.0;
 const LENGTH_PART: f64 = 0.001;
 
-/// What a job answers when a delete ended it. Never shown.
+/// What a job answers when a delete ended it, and a start from a schedule when
+/// the record was cancelled first. Never shown.
 const CANCELLED: &str = "cancelled";
 
 /// Why a repackaging stopped before it began: a file is already where the
@@ -142,6 +153,10 @@ pub enum Status {
     Done,
     Partial,
     Failed,
+    /// Waiting for its start (Phase 3). Has no file yet.
+    Scheduled,
+    /// Its start passed while the app was not running.
+    Missed,
 }
 
 /// One recording, as the index keeps it and the page reads it. Times are Unix
@@ -156,6 +171,17 @@ pub enum Status {
 /// waits. `job_reason` is why the last job failed and the original was kept,
 /// null otherwise. `saved` is the bytes a shrink took off the file. An index
 /// from before these existed has none, and reads as no job and 0.
+///
+/// Scheduled from the Guide (Phase 3): a Scheduled record is not yet a
+/// recording. `started_at` is the programme's start, so a list sorts it by when
+/// it happens, `channel_id` is the page's own id for the channel (the page finds
+/// the link from it, so the index never holds one), `start_at` is when the
+/// recorder starts (the programme's start less `PAD_MS`, or now) and `stop_at`
+/// when it stops (the end plus `PAD_MS`). `due` is a start the page has been
+/// told to make. A recording that was started from a schedule keeps its id
+/// and its `stop_at`, which a running one carries even when it was started by
+/// hand for a programme (`Spec::until`). An index from before has none, and a
+/// record that has none of them sends none to the page.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Record {
@@ -182,6 +208,14 @@ pub struct Record {
     pub job_reason: Option<String>,
     #[serde(default)]
     pub saved: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub due: bool,
 }
 
 /// The work a finished recording is waiting for or having done. `Remux` is the
@@ -209,6 +243,20 @@ pub struct Spec {
     pub programme: Option<String>,
     pub playlist_id: String,
     pub folder: PathBuf,
+    /// The id of the scheduled record this start answers (`start_scheduled`).
+    pub id: Option<String>,
+    /// The programme's end, Unix ms: the recording stops `PAD_MS` after it.
+    pub until: Option<u64>,
+}
+
+/// What `schedule` is given: the programme's own times, Unix ms.
+pub struct Plan {
+    pub channel_id: String,
+    pub channel: String,
+    pub programme: Option<String>,
+    pub playlist_id: String,
+    pub start: u64,
+    pub end: u64,
 }
 
 /// What `buffer_start` is given.
@@ -265,6 +313,8 @@ pub struct Config {
     /// Called with a repackaged file once ffmpeg has written it and before it
     /// is checked. A test damages the file here.
     pub after_write: Option<OnFile>,
+    /// How often the schedule is looked at.
+    pub sched_tick: Duration,
 }
 
 impl Config {
@@ -285,6 +335,7 @@ impl Config {
             emit,
             repack: false,
             after_write: None,
+            sched_tick: Duration::from_secs(1),
         }
     }
 }
@@ -452,6 +503,14 @@ fn ours(path: &Path) -> bool {
 fn is_ext(path: &Path, ext: &str) -> bool {
     path.extension()
         .is_some_and(|e| e.eq_ignore_ascii_case(ext))
+}
+
+/// A scheduled recording whose start went by.
+fn miss(r: &mut Record, now: u64) {
+    r.status = Status::Missed;
+    r.reason = Some(MISSED.into());
+    r.ended_at = Some(now);
+    r.due = false;
 }
 
 /// A recording that wrote nothing failed, whatever ended it.
@@ -917,6 +976,8 @@ struct Live {
     /// A recording of the player's own buffer, which only the player's
     /// changes end (`player_changed`).
     buffer: bool,
+    /// When the schedule stops it (`sched_tick`), Unix ms.
+    stop_at: Option<u64>,
 }
 
 pub struct Rec {
@@ -942,6 +1003,8 @@ pub struct Rec {
     encoder: OnceLock<&'static str>,
     /// Recordings between asking to start and being registered (`Starting`).
     starting: AtomicUsize,
+    /// Scheduled records the page is starting right now (`start_scheduled`).
+    claims: Mutex<HashSet<String>>,
 }
 
 /// Held by `start` and `buffer_start` from before a file is reserved until the
@@ -983,10 +1046,19 @@ enum Ended {
 
 impl Rec {
     /// Read the index; a recording it still calls Recording is one the app died
-    /// in.
+    /// in, and a Scheduled one whose start has passed is one the app was not
+    /// running for: Missed, not started late.
     pub fn open(index: PathBuf, cfg: Config) -> Arc<Rec> {
         let (mut records, writable) = load(&index);
         let mut fixed = false;
+        let now = now_ms();
+        for r in records
+            .iter_mut()
+            .filter(|r| r.status == Status::Scheduled && !r.start_at.is_some_and(|s| s > now))
+        {
+            miss(r, now);
+            fixed = true;
+        }
         for r in records.iter_mut().filter(|r| r.status == Status::Recording) {
             let meta = std::fs::metadata(&r.path).ok();
             r.bytes = meta.as_ref().map_or(r.bytes, |m| m.len());
@@ -1012,6 +1084,7 @@ impl Rec {
             smaller: Mutex::new(None),
             encoder: OnceLock::new(),
             starting: AtomicUsize::new(0),
+            claims: Mutex::new(HashSet::new()),
         });
         if rec.cfg.repack {
             fixed |= rec.take_up_work();
@@ -1020,6 +1093,17 @@ impl Rec {
             rec.save();
         }
         rec.kick();
+        // The schedule's clock is native, so a minimised window or a busy page
+        // changes nothing. It holds the recorder weakly and ends with it.
+        let weak = Arc::downgrade(&rec);
+        let every = rec.cfg.sched_tick;
+        let _ = std::thread::Builder::new()
+            .name("rec-schedule".into())
+            .spawn(move || loop {
+                std::thread::sleep(every);
+                let Some(rec) = weak.upgrade() else { break };
+                rec.sched_tick(now_ms());
+            });
         rec
     }
 
@@ -1125,6 +1209,10 @@ impl Rec {
             progress: None,
             job_reason: None,
             saved: 0,
+            channel_id: None,
+            start_at: None,
+            stop_at: None,
+            due: false,
         }
     }
 
@@ -1132,7 +1220,12 @@ impl Rec {
     /// `finish`.
     fn register(&self, record: &Record, live: Live) {
         lock(&self.live).insert(record.id.clone(), live);
-        lock(&self.records).push(record.clone());
+        {
+            // A recording started from a schedule takes the scheduled record's place.
+            let mut records = lock(&self.records);
+            records.retain(|r| r.id != record.id);
+            records.push(record.clone());
+        }
         self.awake.hold();
         self.save();
         (self.cfg.emit)(record);
@@ -1190,6 +1283,7 @@ impl Rec {
             Some(p) => p.clone(),
             None => mvconvert::locate()?,
         };
+        let (id, stop_at) = (spec.id, spec.until.map(|end| end.saturating_add(PAD_MS)));
         let path = self.reserve(&spec.folder, &spec.channel, spec.programme.as_deref())?;
         let source = Source {
             hls: is_hls(&spec.url),
@@ -1206,6 +1300,17 @@ impl Rec {
                 return Err(e);
             }
         };
+        // Cancelled while it connected. Nothing awaits between here and
+        // `register`, bar the microseconds a cancel could land in.
+        if let Some(id) = &id {
+            let waiting = lock(&self.records)
+                .iter()
+                .any(|r| &r.id == id && r.status == Status::Scheduled);
+            if !waiting {
+                let _ = std::fs::remove_file(&path);
+                return Err(CANCELLED.into());
+            }
+        }
         let file = path.to_string_lossy().into_owned();
         let spawned = mvconvert::command(&ffmpeg)
             .args(writer_args(&file))
@@ -1228,7 +1333,12 @@ impl Rec {
         let problems = Problems::default();
         let log = tokio::spawn(follow(stderr, vec![file], problems.clone()));
 
-        let record = self.new_record(spec.channel, spec.programme, spec.playlist_id, &path, false);
+        let mut record =
+            self.new_record(spec.channel, spec.programme, spec.playlist_id, &path, false);
+        if let Some(id) = id {
+            record.id = id;
+        }
+        record.stop_at = stop_at;
         let (stop_tx, stop_rx) = watch::channel(None);
         let (done_tx, done_rx) = watch::channel(false);
         let stop_tx: StopTx = Arc::new(stop_tx);
@@ -1239,6 +1349,7 @@ impl Rec {
                 done: done_rx,
                 url: Some(source.url.clone()),
                 buffer: false,
+                stop_at,
             },
         );
         log::info!(
@@ -1433,6 +1544,7 @@ impl Rec {
                 done: done_rx,
                 url: None,
                 buffer: true,
+                stop_at: None,
             },
         );
         log::info!("[rec] {} started: the player's buffer", record.id);
@@ -1464,6 +1576,135 @@ impl Rec {
     pub fn player_changed(&self) {
         for l in lock(&self.live).values().filter(|l| l.buffer) {
             ask_stop(&l.stop, Why::ChannelChanged);
+        }
+    }
+
+    /// Keep a programme to record (Phase 3). The record is Scheduled and in the
+    /// index at once, so it outlives a restart. It starts `PAD_MS` before the
+    /// programme, or now if that has passed, and the page is told when
+    /// (`sched_tick`). Asked twice for the same programme, it answers the first.
+    pub fn schedule(&self, plan: Plan) -> Result<Record, String> {
+        let now = now_ms();
+        if plan.end <= plan.start {
+            return Err("that programme has no length".into());
+        }
+        if plan.end.saturating_add(PAD_MS) <= now {
+            return Err("that programme is over".into());
+        }
+        let record = {
+            let mut records = lock(&self.records);
+            let same = records.iter().find(|r| {
+                r.status == Status::Scheduled
+                    && r.channel_id.as_deref() == Some(plan.channel_id.as_str())
+                    && r.started_at == plan.start
+            });
+            if let Some(r) = same {
+                return Ok(r.clone());
+            }
+            let mut record = self.new_record(
+                plan.channel,
+                plan.programme,
+                plan.playlist_id,
+                Path::new(""),
+                false,
+            );
+            record.status = Status::Scheduled;
+            record.started_at = plan.start;
+            record.channel_id = Some(plan.channel_id);
+            record.start_at = Some(plan.start.saturating_sub(PAD_MS).max(now));
+            record.stop_at = Some(plan.end.saturating_add(PAD_MS));
+            records.push(record.clone());
+            record
+        };
+        // A schedule that cannot be kept would be lost at the next launch.
+        if !self.save() {
+            lock(&self.records).retain(|r| r.id != record.id);
+            return Err("the schedule couldn't be saved".into());
+        }
+        (self.cfg.emit)(&record);
+        Ok(record)
+    }
+
+    /// A scheduled record the page could not start (no link for its channel):
+    /// Failed, with why. One that has since started or been cancelled is left.
+    pub fn fail_scheduled(&self, id: &str, reason: &str) {
+        self.change(id, true, |r| {
+            let waiting = r.status == Status::Scheduled;
+            if waiting {
+                r.status = Status::Failed;
+                r.reason = Some(reason.into());
+                r.ended_at = Some(now_ms());
+                r.due = false;
+            }
+            waiting
+        });
+    }
+
+    /// `start`, for a scheduled record the page was told was due. The recording
+    /// takes the record's id, so the list shows the one row change, and stops at
+    /// the record's `stop_at`. A start that fails leaves the record Failed, with
+    /// why.
+    pub async fn start_scheduled(
+        self: &Arc<Self>,
+        id: &str,
+        mut spec: Spec,
+    ) -> Result<String, String> {
+        let sched = self
+            .get(id)
+            .filter(|r| r.status == Status::Scheduled)
+            .ok_or(CANCELLED)?;
+        if !lock(&self.claims).insert(id.to_string()) {
+            return Err("that recording is already starting".into());
+        }
+        struct Claim<'a>(&'a Rec, String);
+        impl Drop for Claim<'_> {
+            fn drop(&mut self) {
+                lock(&self.0.claims).remove(&self.1);
+            }
+        }
+        let _claim = Claim(self, id.to_string());
+        spec.id = Some(id.to_string());
+        spec.until = sched.stop_at.map(|stop| stop.saturating_sub(PAD_MS));
+        let started = self.start(spec).await;
+        if let Err(why) = &started {
+            self.fail_scheduled(id, why);
+        }
+        started
+    }
+
+    /// Once a tick, with the time: stop the recordings that have run to their
+    /// end, tell the page about the scheduled ones that are due, and mark the
+    /// ones whose start went by Missed. The time is an argument so a test can
+    /// run the clock.
+    pub fn sched_tick(&self, now: u64) {
+        for l in lock(&self.live).values() {
+            if l.stop_at.is_some_and(|stop| now >= stop) {
+                ask_stop(&l.stop, Why::User);
+            }
+        }
+        let waiting: Vec<String> = lock(&self.records)
+            .iter()
+            .filter(|r| r.status == Status::Scheduled)
+            .map(|r| r.id.clone())
+            .collect();
+        for id in waiting {
+            self.change(&id, true, |r| {
+                let start = r.start_at.unwrap_or(0);
+                let over = now >= r.stop_at.unwrap_or(0);
+                if r.status != Status::Scheduled || (!r.due && now < start) {
+                    return false;
+                }
+                // Due, and waiting for the page: it has until the programme is over.
+                if r.due && !over {
+                    return false;
+                }
+                if !r.due && !over && now - start <= LATE_MS {
+                    r.due = true;
+                } else {
+                    miss(r, now);
+                }
+                true
+            });
         }
     }
 
@@ -2682,6 +2923,8 @@ mod tests {
                 programme: Some("The Match".into()),
                 playlist_id: "p1".into(),
                 folder: self.out.clone(),
+                id: None,
+                until: None,
             }
         }
 
@@ -2894,6 +3137,10 @@ mod tests {
             progress: None,
             job_reason: None,
             saved: 0,
+            channel_id: None,
+            start_at: None,
+            stop_at: None,
+            due: false,
         }
     }
 
@@ -5066,5 +5313,374 @@ mod tests {
         wait_idle(&b, "m");
         wait_idle(&b, &id);
         assert!(b.rec.get("m").unwrap().saved > 0);
+    }
+
+    // --- the schedule (Phase 3) ---
+
+    const MIN: u64 = 60_000;
+
+    /// A programme `from` ms from now that lasts `len` ms.
+    fn programme(from: i64, len: u64) -> Plan {
+        let start = (now_ms() as i64 + from) as u64;
+        Plan {
+            channel_id: "p1:42".into(),
+            channel: "News: HD/1".into(),
+            programme: Some("The Match".into()),
+            playlist_id: "p1".into(),
+            start,
+            end: start + len,
+        }
+    }
+
+    fn events_of(b: &Bench, id: &str) -> Vec<Record> {
+        lock(&b.events)
+            .iter()
+            .filter(|r| r.id == id)
+            .cloned()
+            .collect()
+    }
+
+    #[test]
+    fn a_scheduled_programme_starts_a_minute_early_and_stops_a_minute_late() {
+        let b = Bench::new("sched-times", |_| {});
+        let plan = programme(10 * MIN as i64, 60 * MIN);
+        let (start, end) = (plan.start, plan.end);
+        let r = b.rec.schedule(plan).unwrap();
+        assert_eq!(r.status, Status::Scheduled);
+        assert_eq!(r.start_at, Some(start - MIN));
+        assert_eq!(r.stop_at, Some(end + MIN));
+        // The list sorts it by the programme, and it has no file yet.
+        assert_eq!((r.started_at, r.path.as_str(), r.bytes), (start, "", 0));
+        assert_eq!(r.channel_id.as_deref(), Some("p1:42"));
+        assert!(!r.due && r.ended_at.is_none());
+        // The page hears of it at once.
+        assert_eq!(events_of(&b, &r.id), vec![r.clone()]);
+        // And it is in the index, so a new run has it.
+        let again = Rec::open(b.root.join("recordings.json"), cfg_quiet());
+        assert_eq!(again.get(&r.id).unwrap(), r);
+    }
+
+    #[test]
+    fn a_programme_that_is_on_starts_now_and_one_that_is_over_is_refused() {
+        let b = Bench::new("sched-now", |_| {});
+        let before = now_ms();
+        let on = b.rec.schedule(programme(-20 * MIN as i64, 60 * MIN)).unwrap();
+        let after = now_ms();
+        let at = on.start_at.unwrap();
+        assert!(before <= at && at <= after, "{at} not in {before}..{after}");
+        // Its end still counts a minute late.
+        assert!(on.stop_at.unwrap() > after + 39 * MIN);
+        // Over, but inside the extra minute: still worth a try.
+        assert!(b.rec.schedule(programme(-61 * MIN as i64, 60 * MIN + 30_000)).is_ok());
+        // Over.
+        let over = b.rec.schedule(programme(-90 * MIN as i64, 20 * MIN)).unwrap_err();
+        assert_eq!(over, "that programme is over");
+        let empty = b.rec.schedule(programme(10 * MIN as i64, 0)).unwrap_err();
+        assert_eq!(empty, "that programme has no length");
+    }
+
+    #[test]
+    fn asking_twice_for_one_programme_is_one_recording() {
+        let b = Bench::new("sched-twice", |_| {});
+        let plan = programme(10 * MIN as i64, 30 * MIN);
+        let again = Plan {
+            channel_id: plan.channel_id.clone(),
+            channel: plan.channel.clone(),
+            programme: plan.programme.clone(),
+            playlist_id: plan.playlist_id.clone(),
+            start: plan.start,
+            end: plan.end,
+        };
+        let first = b.rec.schedule(plan).unwrap();
+        assert_eq!(b.rec.schedule(again).unwrap().id, first.id);
+        assert_eq!(b.rec.list().len(), 1);
+        // The same time on another channel is another recording.
+        let mut other = programme(0, 30 * MIN);
+        other.start = first.started_at;
+        other.end = first.started_at + 30 * MIN;
+        other.channel_id = "p1:43".into();
+        assert_ne!(b.rec.schedule(other).unwrap().id, first.id);
+    }
+
+    #[test]
+    fn the_page_is_told_when_a_start_is_due_and_not_before() {
+        let b = Bench::new("sched-due", |_| {});
+        let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        let at = r.start_at.unwrap();
+        b.rec.sched_tick(at - 1);
+        assert!(!b.rec.get(&r.id).unwrap().due);
+        assert_eq!(events_of(&b, &r.id).len(), 1);
+        b.rec.sched_tick(at);
+        let due = b.rec.get(&r.id).unwrap();
+        assert_eq!((due.status, due.due), (Status::Scheduled, true));
+        assert_eq!(events_of(&b, &r.id).last().unwrap(), &due);
+        // Told once, not every tick.
+        b.rec.sched_tick(at + 5_000);
+        b.rec.sched_tick(at + 10_000);
+        assert_eq!(events_of(&b, &r.id).len(), 2);
+        // Late by the limit is still on time.
+        let late = b.rec.schedule(programme(11 * MIN as i64, 30 * MIN)).unwrap();
+        b.rec.sched_tick(late.start_at.unwrap() + LATE_MS);
+        assert!(b.rec.get(&late.id).unwrap().due);
+    }
+
+    #[test]
+    fn a_start_found_late_is_missed_and_not_started() {
+        let b = Bench::new("sched-late", |_| {});
+        let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        let at = r.start_at.unwrap();
+        b.rec.sched_tick(at + LATE_MS + 1);
+        let missed = b.rec.get(&r.id).unwrap();
+        assert_eq!(missed.status, Status::Missed);
+        assert_eq!(missed.reason.as_deref(), Some(MISSED));
+        assert!(!missed.due && missed.ended_at.is_some());
+        // Said to the page, kept in the index, and never offered again.
+        assert_eq!(events_of(&b, &r.id).last().unwrap(), &missed);
+        b.rec.sched_tick(at + LATE_MS + 5_000);
+        assert_eq!(events_of(&b, &r.id).len(), 2);
+        let again = Rec::open(b.root.join("recordings.json"), cfg_quiet());
+        assert_eq!(again.get(&r.id).unwrap().status, Status::Missed);
+    }
+
+    #[test]
+    fn a_due_start_the_page_never_made_is_missed_when_the_programme_is_over() {
+        let b = Bench::new("sched-unclaimed", |_| {});
+        let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        b.rec.sched_tick(r.start_at.unwrap());
+        // A long wait on the page is not a miss while there is programme left.
+        b.rec.sched_tick(r.start_at.unwrap() + 5 * MIN);
+        assert!(b.rec.get(&r.id).unwrap().due);
+        b.rec.sched_tick(r.stop_at.unwrap() - 1);
+        assert_eq!(b.rec.get(&r.id).unwrap().status, Status::Scheduled);
+        b.rec.sched_tick(r.stop_at.unwrap());
+        let missed = b.rec.get(&r.id).unwrap();
+        assert_eq!((missed.status, missed.due), (Status::Missed, false));
+    }
+
+    #[test]
+    fn a_schedule_survives_a_restart_and_a_start_that_passed_meanwhile_is_missed() {
+        let dir = temp("sched-restart");
+        let index = dir.join("recordings.json");
+        let now = now_ms();
+        let waiting = |id: &str, start_at: u64| {
+            let mut r = record(id, Status::Scheduled, Path::new(""));
+            r.started_at = start_at + MIN;
+            r.start_at = Some(start_at);
+            r.stop_at = Some(start_at + 62 * MIN);
+            r.channel_id = Some("p1:42".into());
+            r
+        };
+        let mut due = waiting("was-due", now - 5 * MIN);
+        due.due = true;
+        write_index(
+            &index,
+            vec![
+                waiting("later", now + 30 * MIN),
+                waiting("passed", now - 5 * MIN),
+                waiting("passed-mid-programme", now - 20 * MIN),
+                due,
+                record("kept", Status::Done, &dir.join("a.ts")),
+            ],
+        );
+        let r = Rec::open(index.clone(), cfg_quiet());
+        let later = r.get("later").unwrap();
+        assert_eq!((later.status, later.due), (Status::Scheduled, false));
+        for id in ["passed", "passed-mid-programme", "was-due"] {
+            let m = r.get(id).unwrap();
+            assert_eq!(m.status, Status::Missed, "{id}");
+            assert_eq!(m.reason.as_deref(), Some(MISSED), "{id}");
+            assert!(m.ended_at.is_some() && !m.due, "{id}");
+        }
+        assert_eq!(r.get("kept").unwrap().status, Status::Done);
+        // Settled on disk: the next run finds the same.
+        let again = Rec::open(index, cfg_quiet());
+        assert_eq!(again.list(), r.list());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cancelling_removes_the_schedule_and_a_start_that_was_on_its_way_finds_it_gone() {
+        let b = Bench::new("sched-cancel", |_| {});
+        let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        b.rec.delete(&r.id).unwrap();
+        assert!(b.rec.list().is_empty());
+        let again = Rec::open(b.root.join("recordings.json"), cfg_quiet());
+        assert!(again.list().is_empty());
+        // The page was already on its way to start it.
+        let fake = serve(|_| stream(0.0, 8.0));
+        let url = format!("{}/live/u/p/1.ts", fake.base);
+        let why = b
+            .block(b.rec.start_scheduled(&r.id, b.spec(&url)))
+            .unwrap_err();
+        assert_eq!(why, CANCELLED);
+        assert!(lock(&fake.hits).is_empty(), "the provider was asked");
+        // Cancelled while it connected: nothing is left, and nothing records.
+        let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        let slow = serve(|_| {
+            std::thread::sleep(Duration::from_millis(600));
+            stream(0.0, 8.0)
+        });
+        let url = format!("{}/live/u/p/1.ts", slow.base);
+        let why = std::thread::scope(|s| {
+            let starting = s.spawn(|| b.block(b.rec.start_scheduled(&r.id, b.spec(&url))));
+            until("the provider to be asked", 10, || !lock(&slow.hits).is_empty());
+            b.rec.delete(&r.id).unwrap();
+            starting.join().unwrap().unwrap_err()
+        });
+        assert_eq!(why, CANCELLED);
+        assert!(b.rec.list().is_empty() && lock(&b.rec.live).is_empty());
+        assert_eq!(std::fs::read_dir(&b.out).map(|d| d.count()).unwrap_or(0), 0);
+    }
+
+    #[test]
+    fn a_scheduled_recording_takes_its_records_place_and_stops_a_minute_after_the_end() {
+        let (fake, _) = plan(vec![stream(0.0, 8.0)]);
+        let b = Bench::new("sched-run", |_| {});
+        let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        b.rec.sched_tick(r.start_at.unwrap());
+        // What the page does when it hears it is due.
+        let url = format!("{}/live/u/p/1.ts", fake.base);
+        let id = b
+            .block(b.rec.start_scheduled(&r.id, b.spec(&url)))
+            .expect("started");
+        assert_eq!(id, r.id);
+        // One row that changed, not two.
+        let all = b.rec.list();
+        assert_eq!(all.len(), 1, "{all:?}");
+        assert_eq!(all[0].status, Status::Recording);
+        assert_eq!(all[0].stop_at, r.stop_at);
+        assert!(!all[0].due && all[0].path.ends_with(".ts"));
+        assert_eq!(events_of(&b, &id).last().unwrap().status, Status::Recording);
+        // The same record cannot be started again.
+        assert!(b.block(b.rec.start_scheduled(&id, b.spec(&url))).is_err());
+        b.wait_still(&id);
+        // Not at the end of the programme: a minute after it.
+        let stop = r.stop_at.unwrap();
+        b.rec.sched_tick(stop - 1);
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(b.status(&id), Status::Recording);
+        b.rec.sched_tick(stop);
+        let done = b.wait_over(&id, 20);
+        assert_eq!((done.status, done.reason.clone()), (Status::Done, None));
+        near(&check(Path::new(&done.path)), 8.0);
+        // The index holds the one record, done.
+        let again = Rec::open(b.root.join("recordings.json"), cfg_quiet());
+        assert_eq!(again.list().len(), 1);
+        assert_eq!(again.get(&id).unwrap().status, Status::Done);
+    }
+
+    #[test]
+    fn a_recording_started_by_hand_for_a_programme_stops_a_minute_after_its_end() {
+        let (fake, _) = plan(vec![stream(0.0, 8.0)]);
+        let b = Bench::new("sched-until", |_| {});
+        let end = now_ms() + 30 * MIN;
+        let mut spec = b.spec(&format!("{}/live/u/p/1.ts", fake.base));
+        spec.until = Some(end);
+        let id = b.block(b.rec.start(spec)).expect("started");
+        assert_eq!(b.rec.get(&id).unwrap().stop_at, Some(end + MIN));
+        b.wait_still(&id);
+        b.rec.sched_tick(end + MIN - 1);
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(b.status(&id), Status::Recording);
+        b.rec.sched_tick(end + MIN);
+        assert_eq!(b.wait_over(&id, 20).status, Status::Done);
+        // One with no end is left to run.
+        let (fake, _) = plan(vec![stream(0.0, 8.0)]);
+        let id = b.start(&format!("{}/live/u/p/1.ts", fake.base));
+        assert_eq!(b.rec.get(&id).unwrap().stop_at, None);
+        b.rec.sched_tick(u64::MAX);
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(b.status(&id), Status::Recording);
+        b.stop(&id);
+    }
+
+    #[test]
+    fn a_start_that_fails_leaves_the_scheduled_record_failed_with_why() {
+        let fake = serve(|_| Reply::Status(403));
+        let b = Bench::new("sched-fails", |_| {});
+        let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        b.rec.sched_tick(r.start_at.unwrap());
+        let url = format!("{}/live/u/p/1.ts", fake.base);
+        let why = b
+            .block(b.rec.start_scheduled(&r.id, b.spec(&url)))
+            .unwrap_err();
+        assert!(why.contains("HTTP 403"), "{why}");
+        let failed = b.rec.get(&r.id).unwrap();
+        assert_eq!(failed.status, Status::Failed);
+        assert_eq!(failed.reason.as_deref(), Some(why.as_str()));
+        assert!(!failed.due && failed.ended_at.is_some());
+        // Nothing left to start, and nothing on disk. Its row can be deleted.
+        assert_eq!(std::fs::read_dir(&b.out).map(|d| d.count()).unwrap_or(0), 0);
+        b.rec.delete(&r.id).unwrap();
+        assert!(b.rec.list().is_empty());
+    }
+
+    #[test]
+    fn a_page_without_a_link_fails_the_record_and_only_a_waiting_one() {
+        let b = Bench::new("sched-nolink", |_| {});
+        let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        b.rec.sched_tick(r.start_at.unwrap());
+        b.rec.fail_scheduled(&r.id, "there is no link for this channel");
+        let failed = b.rec.get(&r.id).unwrap();
+        assert_eq!(failed.status, Status::Failed);
+        assert_eq!(failed.reason.as_deref(), Some("there is no link for this channel"));
+        assert!(!failed.due);
+        // A second word on it changes nothing.
+        let n = events_of(&b, &r.id).len();
+        b.rec.fail_scheduled(&r.id, "another reason");
+        assert_eq!(b.rec.get(&r.id).unwrap(), failed);
+        assert_eq!(events_of(&b, &r.id).len(), n);
+        // And a recording that already runs is not failed by a late word.
+        let (fake, _) = plan(vec![stream(0.0, 8.0)]);
+        let id = b.start(&format!("{}/live/u/p/1.ts", fake.base));
+        b.rec.fail_scheduled(&id, "too late");
+        assert_eq!(b.status(&id), Status::Recording);
+        b.stop(&id);
+    }
+
+    #[test]
+    fn the_schedule_keeps_its_own_clock() {
+        // No tick is driven by hand: the thread finds the start by itself.
+        let b = Bench::new("sched-clock", |c| c.sched_tick = Duration::from_millis(30));
+        let r = b.rec.schedule(programme(-(MIN as i64) / 2, 30 * MIN)).unwrap();
+        until("the start to be found due", 10, || b.rec.get(&r.id).unwrap().due);
+        assert!(events_of(&b, &r.id).last().unwrap().due);
+        // And the thread goes when the recorder does.
+        let weak = Arc::downgrade(&b.rec);
+        let rec = b.rec.clone();
+        drop(b);
+        drop(rec);
+        until("the recorder to be dropped", 10, || weak.upgrade().is_none());
+    }
+
+    #[test]
+    fn the_page_hears_a_scheduled_record_in_camel_case_and_an_old_one_as_before() {
+        let mut r = record("a", Status::Scheduled, Path::new(""));
+        r.channel_id = Some("p1:42".into());
+        r.start_at = Some(5);
+        r.stop_at = Some(9);
+        r.due = true;
+        let json = serde_json::to_value(&r).unwrap();
+        assert_eq!(json["status"], "scheduled");
+        assert_eq!(json["channelId"], "p1:42");
+        assert_eq!((json["startAt"].as_u64(), json["stopAt"].as_u64()), (Some(5), Some(9)));
+        assert_eq!(json["due"], true);
+        assert_eq!(serde_json::to_value(Status::Missed).unwrap(), "missed");
+        // A record that was never scheduled sends none of these.
+        let plain = serde_json::to_value(record("b", Status::Done, Path::new("C:\\v\\b.ts"))).unwrap();
+        let keys = plain.as_object().unwrap();
+        assert!(["channelId", "startAt", "stopAt", "due"].iter().all(|k| !keys.contains_key(*k)));
+        // And an index from before reads as not scheduled.
+        let dir = temp("old-sched-index");
+        let index = dir.join("recordings.json");
+        std::fs::write(
+            &index,
+            r#"{"version":1,"records":[{"id":"a","channel":"News","playlistId":"p1","startedAt":1000,"path":"C:\\v\\a.ts","bytes":5,"status":"done"}]}"#,
+        )
+        .unwrap();
+        let (records, _) = load(&index);
+        let a = &records[0];
+        assert_eq!((a.channel_id.clone(), a.start_at, a.stop_at, a.due), (None, None, None, false));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

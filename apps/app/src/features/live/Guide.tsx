@@ -19,6 +19,7 @@ import {
   GuideIcon,
   MultiviewIcon,
   RainbowStarIcon,
+  RecordIcon,
   StarGhostIcon,
   StarRainbowHollowIcon,
 } from "../../ui/icons";
@@ -40,7 +41,16 @@ import {
   onClockFormatChange,
 } from "../settings/clockFormat";
 import { ChannelLogo } from "../../ui/ChannelLogo";
-import { playlistOf, recKey, useRunningKeys } from "../recordings/store";
+import { isTauri } from "../../lib/tauri";
+import { cancelProgramme, recordProgramme } from "../recordings/recordProgramme";
+import { programmeAction, scheduleKey, type ProgrammeAction } from "../recordings/schedule";
+import {
+  listNow,
+  playlistOf,
+  recKey,
+  useRunningKeys,
+  useScheduledKeys,
+} from "../recordings/store";
 import { QualityBadge } from "../../ui/QualityBadge";
 import {
   GUIDE_HOURS,
@@ -213,6 +223,7 @@ export const Guide = memo(function Guide({
   guidePending = false,
   guideLists,
   onNotice,
+  lineFor,
 }: {
   channels: Array<{ channel: Channel; programmes: Programme[] }>;
   selectedId: string;
@@ -239,11 +250,17 @@ export const Guide = memo(function Guide({
   guideLists?: ReadonlyMap<string, readonly GuideChannel[]>;
   /** A line for the screen's toast. */
   onNotice?: (message: string) => void;
+  /** A playlist's line as the panel last reported it, for Record to count a
+   * programme's connections against. Read when the menu is used, not drawn,
+   * so a new reading never renders the Guide. */
+  lineFor?: (playlistId: string) => { max: number } | null;
 }) {
   // Channels with a recording running (plan 029): a dot on the card. The set
   // is the same object until one starts or ends, so size updates do not
   // re-render the guide.
   const recording = useRunningKeys();
+  // Programmes with a recording scheduled (Phase 3): a hollow dot in the cell.
+  const planned = useScheduledKeys();
   // The now-line creeps and the window jumps at half-hour boundaries.
   const [now, setNow] = useState(() => new Date());
   const [clockFmt, setClockFmt] = useState(loadClockFormat);
@@ -662,6 +679,10 @@ export const Guide = memo(function Guide({
    * ruler, the gaps) opens nothing.
    */
   const [menuFor, setMenuFor] = useState<Channel | null>(null);
+  /** What Record offers for the programme the menu was opened on (Phase 3), and
+   * the programme: null when it was opened on a channel card or a programme
+   * that is over. A new object on each right-click, so it is read fresh. */
+  const [menuRec, setMenuRec] = useState<{ action: ProgrammeAction; programme: Programme } | null>(null);
   /** Fix guide… (guideFix.ts): which channel and source it was picked on.
    * Taken from the menu, and opened once the menu has closed (below). */
   const [fixing, setFixing] = useState<(Fixing & { n: number }) | null>(null);
@@ -701,6 +722,32 @@ export const Guide = memo(function Guide({
       return;
     }
     setMenuFor(ch);
+    // The programme under the pointer, if it is one: its cell says which.
+    const cell = (e.target as Element).closest<HTMLElement>(".guide__cell[data-start]");
+    const [from, to] = [Number(cell?.dataset.start), Number(cell?.dataset.end)];
+    const programme = cell
+      ? channels
+          .find((c) => c.channel.id === ch.id)
+          ?.programmes.find((p) => p.start.getTime() === from && p.end.getTime() === to)
+      : undefined;
+    const action =
+      programme && isTauri()
+        ? programmeAction(
+            listNow(),
+            { channelId: ch.id, playlistId: playlistOf(ch.id), channel: ch.name, start: from, end: to },
+            Date.now(),
+          )
+        : null;
+    setMenuRec(programme && action ? { action, programme } : null);
+  };
+  const onRecordItem = (ch: Channel, rec: NonNullable<typeof menuRec>) => {
+    const a = rec.action;
+    if (!a || a.kind === "recording") return;
+    const done =
+      a.kind === "cancel"
+        ? cancelProgramme(a.id)
+        : recordProgramme(ch, rec.programme, lineFor?.(playlistOf(ch.id)) ?? null);
+    void done.then((m) => onNotice?.(m));
   };
 
   return (
@@ -784,6 +831,8 @@ export const Guide = memo(function Guide({
           const selected = channel.id === selectedId;
           const favorite = favorites.includes(channel.id);
           const recorded = recording.has(recKey(playlistOf(channel.id), channel.name));
+          const plannedHere = (b: Block) =>
+            planned.size > 0 && planned.has(scheduleKey(channel.id, b.p.start.getTime()));
           /* Previews attach to the card and the cells themselves — NOT
            * the row. A row-level enter previewed the channel's airing
            * programme, so sweeping vertically across the lane flashed
@@ -885,19 +934,22 @@ export const Guide = memo(function Guide({
                       key={b.key}
                       type="button"
                       data-key={b.key}
+                      data-start={b.p.start.getTime()}
+                      data-end={b.p.end.getTime()}
                       data-left={b.left}
                       data-width={b.width}
                       data-clip={b.clip ? "1" : undefined}
                       className={cellClass(b)}
                       style={{ left: b.left, width: b.width }}
                       data-hint={b.p.title}
-                      aria-label={`${channel.name}, ${b.p.title}, ${b.range}${b.live ? ", on now" : ""}`}
+                      aria-label={`${channel.name}, ${b.p.title}, ${b.range}${b.live ? ", on now" : ""}${plannedHere(b) ? ", scheduled to record" : ""}`}
                       onClick={() => onSelect(channel.id)}
                       onMouseEnter={() =>
                         onPreview({ channel, programme: b.p })
                       }
                     >
                       {cellBody(b)}
+                      {plannedHere(b) && <span className="guide__rec guide__rec--sched" aria-hidden />}
                     </button>
                   ))
                 )}
@@ -937,6 +989,15 @@ export const Guide = memo(function Guide({
             <ContextMenuLabel className="truncate text-xs text-muted-foreground">
               {menuFor.name}
             </ContextMenuLabel>
+            {menuRec?.action && (
+              <ContextMenuItem
+                disabled={menuRec.action.kind === "recording"}
+                onSelect={() => onRecordItem(menuFor, menuRec)}
+              >
+                <RecordIcon size={16} />
+                {menuRec.action.label}
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               onSelect={() =>
                 requestAddToMultiview({ channelId: menuFor.id, label: menuFor.name })

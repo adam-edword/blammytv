@@ -68,6 +68,19 @@
   pointer-events: none;
 }
 
+/* A programme with a recording scheduled (Phase 3): the same dot, hollow, on
+ * the corner of its cell. It goes when the recording starts, and the card's
+ * dot takes over. */
+.guide__rec--sched {
+  top: 8px;
+  right: 8px;
+  left: auto;
+  box-sizing: border-box;
+  background: transparent;
+  border: 2px solid var(--danger);
+  box-shadow: none;
+}
+
 /* The recordings list takes the Guide's place, and goes with it when the
  * theater fills the main column. */
 .rec-page {
@@ -141,6 +154,7 @@
 }
 .rec-row__status--recording,
 .rec-row__status--failed,
+.rec-row__status--missed,
 .rec-row__err {
   color: var(--danger-text);
 }

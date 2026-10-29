@@ -194,7 +194,7 @@ export function tauriInvStop(): Promise<void> {
  * names an id and never a path, and native's reasons are plain lowercase
  * fragments with no link in them. Times are Unix ms. ---- */
 
-export type RecStatus = "recording" | "done" | "partial" | "failed";
+export type RecStatus = "recording" | "done" | "partial" | "failed" | "scheduled" | "missed";
 
 export interface RecRecord {
   id: string;
@@ -221,6 +221,17 @@ export interface RecRecord {
   jobReason?: string | null;
   /** Bytes the repackaging and shrinking took off the file so far. */
   saved?: number;
+  /* A programme scheduled from the Guide (Phase 3). Absent on a record that
+   * never was one. A scheduled record has no file (`path` is ""), and its
+   * `startedAt` is the programme's start. */
+  /** The page's id for the channel, which finds its link when the time comes. */
+  channelId?: string;
+  /** When the recorder starts and stops (Unix ms): a minute either side of the
+   * programme. On a running recording, `stopAt` is when it stops by itself. */
+  startAt?: number;
+  stopAt?: number;
+  /** The start has come: the page is to start it (store.ts hands it to claim.ts). */
+  due?: boolean;
 }
 
 export type RecJob = "remux" | "shrink";
@@ -234,6 +245,10 @@ export function tauriRecStart(a: {
   programme?: string;
   playlistId: string;
   folder?: string;
+  /** A programme's end (Unix ms): it stops a minute after. */
+  until?: number;
+  /** A scheduled record that is due: the recording takes its place. */
+  scheduleId?: string;
 }): Promise<string> {
   return invoke("rec_start", {
     url: a.url,
@@ -241,8 +256,35 @@ export function tauriRecStart(a: {
     programme: a.programme ?? null,
     playlistId: a.playlistId,
     folder: a.folder || null,
+    until: a.until ?? null,
+    scheduleId: a.scheduleId ?? null,
     ...agentArg(a.userAgent),
   });
+}
+/** Keep a programme to record: native starts the clock, keeps it across
+ * restarts and sends the record as `due` when its start comes. The times are
+ * the programme's own (Unix ms); native adds the minute either side. Answers
+ * the Scheduled record, and rejects with why not (over, or not saved). */
+export function tauriRecSchedule(a: {
+  channelId: string;
+  channel: string;
+  programme?: string;
+  playlistId: string;
+  start: number;
+  end: number;
+}): Promise<RecRecord> {
+  return invoke("rec_schedule", {
+    channelId: a.channelId,
+    channel: a.channel,
+    programme: a.programme ?? null,
+    playlistId: a.playlistId,
+    start: a.start,
+    end: a.end,
+  });
+}
+/** A due recording the page has no link for: Failed, with why. */
+export function tauriRecScheduleFail(id: string, reason: string): Promise<void> {
+  return invoke("rec_schedule_fail", { id, reason });
 }
 /** Record the in-app player's own buffer from where it is playing (D3, for a
  * line with one connection). Answers the recording's id. Ends by itself,
