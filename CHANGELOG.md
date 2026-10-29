@@ -2,11 +2,21 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.28: Home first in Settings; Start On only where you have a source (unreleased)
+
+- **Home is the first page in Settings.**
+- **Start On offers only places you can use**: Live TV once you have a
+  playlist, and Home, Stream and Discover once you have something to stream.
+  Onboarding skips the question when there's only one place to go.
+- **The logo is always in the nav.** Without a playlist it sits at the left
+  end, so Home is always a click away.
+
 ## 1.0.27: Alt no longer freezes the app (unreleased)
 
 - **Pressing Alt on its own no longer freezes the page.** Windows put the
   window into its keyboard menu mode, which held the mouse until you
-  clicked or pressed Alt again. Alt+F4 and Alt+Space work as before.
+  clicked or pressed Alt again, and cut the sound while it lasted. Alt+F4
+  and Alt+Space work as before.
 
 ## 1.0.26: Home, behind the logo (unreleased)
 

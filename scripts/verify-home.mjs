@@ -21,7 +21,11 @@
 //   - with every row off: "Nothing on Home" and an Edit Home that opens
 //     Settings on the Home page;
 //   - Start On: Home is the first of four, picked and launched on; the default
-//     is still Live TV.
+//     is still Live TV. It offers only the places there is a source for:
+//     no Live TV without a playlist, no Home or Stream without a stream
+//     source, and no row at all with neither;
+//   - the mark is drawn with no playlist too, first in the capsule, glowing
+//     and current on Home, and pressed it goes Home.
 //
 //   node scripts/fake-panel.mjs   # :8081
 //   node scripts/fake-aio.mjs     # :8084
@@ -460,6 +464,36 @@ const stream = async (page) => {
   await ctx.close();
 }
 {
+  // Only a stream source: Live TV is not on offer, and the stored default
+  // (Live TV) shows Stream instead, unsaved: where a launch opens then.
+  const { ctx, page } = await open({ store: { aiostreams: AIO } });
+  await openSettings(page, "Appearance");
+  const start = page.getByRole("group", { name: "Start on", exact: true });
+  const names = await start.getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  check("with only a stream source, Start On leaves out Live TV", JSON.stringify(names) === JSON.stringify(["Home", "Stream", "Stream · Discover"]), JSON.stringify(names));
+  const pressed = await start.getByRole("button", { pressed: true }).getAttribute("aria-label");
+  const kept = await page.evaluate(() => localStorage.getItem("blammytv.startupTab"));
+  check("  and shows Stream as chosen without saving it, where the launch opens", pressed === "Stream" && kept === null && (await screen(page)) === "home", JSON.stringify({ pressed, kept, screen: await screen(page) }));
+  await ctx.close();
+}
+{
+  // Only a playlist: Live TV alone.
+  const { ctx, page } = await open({ store: { playlists: XTREAM } });
+  await openSettings(page, "Appearance");
+  const start = page.getByRole("group", { name: "Start on", exact: true });
+  const names = await start.getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  check("with only a playlist, Start On offers Live TV alone", JSON.stringify(names) === JSON.stringify(["Live TV"]), JSON.stringify(names));
+  await ctx.close();
+}
+{
+  // Neither: the row is not there.
+  const { ctx, page } = await open({ store: {} });
+  await openSettings(page, "Appearance");
+  const rows = await page.locator(".settings__body .customize-row__title").allInnerTexts();
+  check("with no source at all, Startup Tab is left out", rows.includes("Clock Format") && !rows.includes("Startup Tab") && (await page.getByRole("group", { name: "Start on", exact: true }).count()) === 0, JSON.stringify(rows));
+  await ctx.close();
+}
+{
   // Nothing stored: Live TV, as before, with a live source; Stream without one.
   const { ctx, page } = await open({ store: SEEDED });
   await page.locator("main[data-screen='guide']").waitFor({ timeout: 10_000 });
@@ -467,13 +501,28 @@ const stream = async (page) => {
   await ctx.close();
 }
 {
-  // Home picked with no live source: Home still opens (the mark, which is the
-  // way back, is only drawn between the two sides, so it has no live side to
-  // divide here).
+  // Home picked with no live source: Home still opens, and the mark, the way
+  // back to it, is drawn here too: first in the capsule, with no live tabs
+  // before it.
   const { ctx, page } = await open({ store: { aiostreams: AIO, startupTab: { v: 1, data: "home" } } });
   await page.locator("main[data-screen='hub']").waitFor({ timeout: 10_000 });
   await rowsReady(page);
   check("Home picked with no playlist still launches on Home, with its rows", (await screen(page)) === "hub" && (await titles(page)).join() === AIO_ROWS.join(), JSON.stringify(await titles(page)));
+  const lit = await markSettled(page, { glow: 0.4, pill: 0 });
+  const place = await page.evaluate(() => {
+    const m = document.querySelector("[data-dest='hub']")?.getBoundingClientRect();
+    const first = document.querySelector(".navcap__row--nav .navcap__item")?.getBoundingClientRect();
+    const live = document.querySelectorAll("[data-dest='guide'], [data-dest='multiview'], [data-dest='sports']").length;
+    return { drawn: !!m, first: !!m && !!first && m.right <= first.left + 0.5, live };
+  });
+  check("  with no playlist the mark is drawn first in the capsule, with no live tab", place.drawn && place.first && place.live === 0, JSON.stringify(place));
+  check("  and on Home it is current and glowing at the left end too", lit.label === "Home" && lit.current === "page" && lit.on && lit.tabs.length === 0, JSON.stringify(lit));
+  await goTo(page, "home");
+  await page.locator("main[data-screen='stream']").waitFor({ timeout: 10_000 }).catch(() => {});
+  const away = await mark(page);
+  await page.locator("[data-dest='hub']").click();
+  await page.locator("main[data-screen='hub']").waitFor({ timeout: 10_000 }).catch(() => {});
+  check("  pressed from Stream it goes Home", away.current === null && (await screen(page)) === "hub" && (await mark(page)).current === "page", JSON.stringify({ away: away.current, screen: await screen(page) }));
   await ctx.close();
 }
 

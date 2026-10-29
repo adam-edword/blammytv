@@ -631,8 +631,8 @@ if (!FAST) {
   await page.getByRole("button", { name: /do this later/i }).click(); // live tv
   await page.waitForSelector(".onb-prefs", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  // Neither source was added, so there is no place to choose: Start On is
+  // skipped and the tour is next.
   await page.waitForSelector(".onb-tour", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
@@ -649,6 +649,52 @@ if (!FAST) {
   check("reduced motion: completes instantly, timeline never starts",
     state.onbGone && !state.welcomeUp && !landingClass && state.onboarded === "1",
     JSON.stringify({ ...state, landingClass }));
+  await page.close();
+}
+
+// 7b. Start On offers only the places there is a source for, and is skipped
+//     with fewer than two (Adam: nothing to suggest without a source).
+if (!FAST) {
+  // A playlist and no streams: Live TV is the only place, so the step is
+  // skipped going on, the choice is saved, and Back skips it too.
+  const page = await newPage();
+  await page.goto("http://localhost:4173/?onboarding=1");
+  await page.waitForSelector(".onb");
+  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.getByRole("button", { name: /do this later/i }).click(); // streams
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  const fields = page.locator(".onb-fields .onb-input");
+  await fields.nth(0).fill("http://localhost:8081");
+  await fields.nth(1).fill("u");
+  await fields.nth(2).fill("p");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 10000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const toured = await page.waitForSelector(".onb-tour", { timeout: 8000 }).then(() => true).catch(() => false);
+  check("with only a playlist added, Start On is skipped: Accent and clock goes straight to the tour", toured);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.startupTab") ?? "null")?.data ?? null);
+  check("  and its one place, Live TV, is saved as the startup tab", saved === "live", String(saved));
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 }).catch(() => null);
+  check("  Back from the tour skips it too: Accent and clock", (await page.$eval(".onb-title", (el) => el.textContent).catch(() => "")) === "Accent and Clock");
+  await page.close();
+}
+if (!FAST) {
+  // Streams and no playlist: the step is there, without Live TV.
+  const page = await newPage();
+  await page.goto("http://localhost:4173/?onboarding=1");
+  await page.waitForSelector(".onb");
+  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.waitForSelector(".onb-input", { timeout: 8000 });
+  await page.locator(".onb-input").fill("http://localhost:8084/manifest.json");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 10000 });
+  await page.getByRole("button", { name: /do this later/i }).click(); // live tv
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
+  const names = await page.locator(".onb-stage > .onb-chips").getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  check("with only streams added, Start On is shown without Live TV", JSON.stringify(names) === JSON.stringify(["Home", "Stream", "Stream · Discover"]), JSON.stringify(names));
   await page.close();
 }
 

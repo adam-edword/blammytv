@@ -16,6 +16,26 @@ export const STARTUP_TABS: Array<{ key: StartupTab; label: string }> = [
   { key: "discover", label: "Stream · Discover" },
 ];
 
+/**
+ * The places worth offering, given what is set up: Live TV needs a playlist,
+ * and the Stream pages need something to stream from. In STARTUP_TABS' order.
+ * Home sits with Stream because in phase 1 every row on it is a film or a
+ * show; phase 2's live rows widen it to `live || stream`.
+ */
+export function startupChoices({ live, stream }: { live: boolean; stream: boolean }) {
+  return STARTUP_TABS.filter((t) => (t.key === "live" ? live : stream));
+}
+
+/** Where a launch opens, and so what the picker shows as chosen: the stored
+ * tab if it is on offer, else Stream if that is (where a launch fell back to
+ * before), else the first choice. Never saved, so a source added later gets
+ * the stored tab back. App's launch reads the same, so the two can't differ. */
+export function shownStartup(stored: StartupTab, choices: ReadonlyArray<{ key: StartupTab }>): StartupTab {
+  if (choices.some((c) => c.key === stored)) return stored;
+  if (choices.some((c) => c.key === "stream")) return "stream";
+  return choices[0]?.key ?? stored;
+}
+
 const KEY = "startupTab";
 const VERSION = 1;
 

@@ -6,10 +6,10 @@ import { load, save } from "../../lib/storage";
  * The palette lists the same six, so the names live here and nowhere else.
  */
 export const SETTINGS_PAGES = [
+  { key: "home", label: "Home" },
   { key: "sources", label: "Sources" },
   { key: "playback", label: "Playback" },
   { key: "appearance", label: "Appearance" },
-  { key: "home", label: "Home" },
   { key: "accounts", label: "Accounts" },
   { key: "app", label: "App" },
 ] as const;
@@ -33,6 +33,10 @@ export type SettingsTab = (typeof SETTINGS_PAGES)[number]["key"];
  * to Sources instead of to the page that holds what that tab mostly was.
  * General held Sources first; Customize was the look. (Home, the sixth page,
  * came with plan 033 and moves nothing.)
+ *
+ * HOME IS LISTED FIRST BUT NOT OPENED ON. `FIRST` stays Sources: it is
+ * where Settings lands when nothing is stored, and the places that open
+ * Settings to add a source rely on it.
  */
 
 const KEY = "settingsTab";

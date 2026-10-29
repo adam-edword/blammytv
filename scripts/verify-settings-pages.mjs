@@ -41,7 +41,7 @@ const check = (n, ok, d = "") => {
 
 const XTREAM = { v: 1, data: [{ kind: "xtream", id: "t", name: "Test", enabled: true, server: "http://localhost:8081", username: "u", password: "p" }] };
 const AIO = { v: 1, data: "http://localhost:8084/manifest.json" };
-const PAGES = ["Sources", "Playback", "Appearance", "Home", "Accounts", "App"];
+const PAGES = ["Home", "Sources", "Playback", "Appearance", "Accounts", "App"];
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const errors = [];
@@ -303,7 +303,7 @@ const closeSettings = async (page) => {
   const afterHome = await current(page);
   check(
     "the arrows move between pages, Home and End jump",
-    afterDown === "Playback" && afterDown2 === "Appearance" && afterUp === "Playback" && afterEnd === "App" && afterHome === "Sources",
+    afterDown === "Playback" && afterDown2 === "Appearance" && afterUp === "Playback" && afterEnd === "App" && afterHome === "Home",
     JSON.stringify({ afterDown, afterDown2, afterUp, afterEnd, afterHome }),
   );
   await page.keyboard.press("End");

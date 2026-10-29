@@ -71,7 +71,8 @@ export type LiveTab = "guide" | "multiview" | "sports";
  * The header used to show two SIDES (Live TV | Stream) with a sub-rail
  * under each. The capsule shows every page at once instead, so the
  * side is no longer something the user navigates — it is just which half
- * of the bar a destination sits in, marked by the app mark between them.
+ * of the bar a destination sits in, marked by the app mark between them (or
+ * first, with no live half).
  *
  * The two-level state behind it is UNCHANGED: each entry writes both the
  * section and its tab, so App and every screen carry on as before.
@@ -241,7 +242,8 @@ export function AppHeader({
 
   /* ---------------------------------------------------------- capsule
    * The pill is ONE element that travels; the mark is pinned to the
-   * window midline and the capsule grows unevenly around it.
+   * window midline and the capsule grows unevenly around it. With no live
+   * half the mark is the first item and the capsule centres instead.
    *
    * Every number here is COMPUTED from measured widths rather than read
    * back off the DOM, because offsetWidth during the transition returns
@@ -472,17 +474,20 @@ export function AppHeader({
       subPillRef.current,
       recOpen ? "rec" : filter,
     );
-    /* NO LIVE SOURCE, NO MARK: the mark divides the live tabs from the
-     * rest, so without a playlist there is nothing for it to divide and
-     * nothing to hold the midline. The capsule centres itself instead (plan
-     * 016 3.5, v0.10.34). It used to stop here, with `left: 50%` and no
-     * margin, so its LEFT EDGE sat on the midline: 117.5px right of centre
-     * on Stream at 1600px, 189px on Discover.
+    /* NO LIVE SOURCE: THE MARK OPENS THE ROW. It is always drawn, and with
+     * no playlist there is no live half before it, so it sits at the left
+     * end with nothing on that side to balance against. Holding it on the
+     * midline would throw the capsule off to the right, so the capsule
+     * centres itself instead (plan 016 3.5, v0.10.34), which leaves the mark
+     * at the left of a centred bar. (`markMid === null` is the guard for a
+     * mark that is not in the DOM.) Before that it stopped with `left: 50%` and
+     * no margin, so the capsule's LEFT EDGE sat on the midline: 117.5px right
+     * of centre on Stream at 1600px, 189px on Discover.
      *
      * Its width is max(row 1, row 2 when open), the rule base.css states
      * for .navcap--open, from the same target widths, so it holds centre
      * through the unfold on the same clock. */
-    if (markMid === null) {
+    if (markMid === null || !showLive) {
       const width = Math.max(row1.width, subOpen ? row2.width : 0) + 2 * from;
       nav.style.marginLeft = `${-width / 2}px`;
       return;
@@ -508,7 +513,7 @@ export function AppHeader({
      * so its margin moves only itself.
      */
     nav.style.marginLeft = `${-(markMid + from)}px`;
-  }, [active, filter, recOpen, subOpen, layoutRow]);
+  }, [active, filter, recOpen, subOpen, showLive, layoutRow]);
 
   // A button's own width does not change when you click a DIFFERENT one, so
   // measuring is keyed on the destination set alone. It runs first because
@@ -605,11 +610,7 @@ export function AppHeader({
   };
 
   /** The mark goes Home, and pressed on Home it goes to the top of it, as
-   * the Stream pill does on Stream.
-   *
-   * shortcut: the mark is only drawn between the two sides, so with no live
-   * source there is no way to Home but Start On. Draw it for that case once
-   * the capsule's centring without a mark is decided (plan 033). */
+   * the Stream pill does on Stream. */
   const goHub = () => {
     spin();
     if (onHome) onStreamHome();
@@ -657,7 +658,9 @@ export function AppHeader({
                nav.children, and even a display:contents span would sit in
                that list and hide the buttons from it. */
             <Fragment key={d.key}>
-              {prev && prev.side !== d.side && (
+              {/* Between the halves, or first when there is no live half. Stream's
+                * tabs are always shown, so the mark never ends the row. */}
+              {(prev ? prev.side !== d.side : !showLive) && (
                 <Hint label="Home">
                   <button
                     type="button"

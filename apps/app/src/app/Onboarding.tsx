@@ -18,11 +18,12 @@ import {
   type ClockFormat,
 } from "../features/settings/clockFormat";
 import {
-  STARTUP_TABS,
   loadStartupTab,
   saveStartupTab,
+  shownStartup,
   type StartupTab,
 } from "../features/settings/startupTab";
+import { currentStartupChoices } from "../features/settings/startupSources";
 import {
   EMPTY_PLAYLIST_FORM,
   KIND_TABS,
@@ -325,10 +326,14 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
    * answered. */
   const followAny = useRef(false);
   /** The step `dir` away from `from`. The follow step is not there when the
-   * build has nothing to follow with, in either direction. */
+   * build has nothing to follow with, and the start step is not there when
+   * there is nothing to choose between (fewer than two places to open on),
+   * in either direction. */
   const hop = (from: number, dir: 1 | -1) => {
     const next = from + dir;
-    return next === STEP.follow && !followAny.current ? next + dir : next;
+    if (next === STEP.follow && !followAny.current) return next + dir;
+    if (next === STEP.start && currentStartupChoices().length < 2) return next + dir;
+    return next;
   };
 
   const advance = () => {
@@ -342,6 +347,10 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     setPhase("out");
     window.clearTimeout(swapTimer.current);
     swapTimer.current = window.setTimeout(() => {
+      // The start step skipped for having one place to open on: that place
+      // is the answer, so save it.
+      const only = currentStartupChoices();
+      if (step + 1 === STEP.start && only.length === 1) saveStartupTab(only[0].key);
       setStep((s) => hop(s, 1));
       setPhase("in");
     }, SWAP_MS);
@@ -688,6 +697,8 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
 
   // --- Startup tab step ---------------------------------------------------
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
+  // Read when the step shows: the sources are added on the steps before it.
+  const startupOpts = step === STEP.start ? currentStartupChoices() : [];
   const pickStartup = (tab: StartupTab) => {
     setStartup(tab);
     saveStartupTab(tab);
@@ -1101,8 +1112,8 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
         <div className="onb-chips" style={idx(1)}>
           <Segmented
             label="Start on"
-            options={STARTUP_TABS}
-            value={startup}
+            options={startupOpts}
+            value={shownStartup(startup, startupOpts)}
             onChange={pickStartup}
           />
         </div>

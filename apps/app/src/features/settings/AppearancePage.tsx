@@ -10,11 +10,12 @@ import { HeroSourcesSection } from "./HeroSourcesSection";
 import { loadShowHero, saveShowHero } from "./showHero";
 import { HERO_STYLES, loadHeroStyle, saveHeroStyle, type HeroStyle } from "./heroStyle";
 import {
-  STARTUP_TABS,
   loadStartupTab,
   saveStartupTab,
+  shownStartup,
   type StartupTab,
 } from "./startupTab";
+import { currentStartupChoices } from "./startupSources";
 import {
   CARD_META_FIELDS,
   loadCardMeta,
@@ -65,7 +66,7 @@ const WORLD_TABS = [
   { key: "live", label: "Live TV" },
 ] as const;
 
-// STARTUP_TABS lives in startupTab.ts: one list shared with onboarding.
+// The Startup Tab choices live in startupTab.ts: one list shared with onboarding.
 
 /**
  * Appearance: how it looks. The accent, light or dark, the clock, and what
@@ -95,6 +96,9 @@ export function AppearancePage({
     setStartup(next);
     saveStartupTab(next);
   };
+  // Only the places there is a source for, read once per mount like hasStream
+  // below. A stored tab that is not among them shows the first one, unsaved.
+  const [startupOpts] = useState(currentStartupChoices);
 
   // Ephemeral, like Sources' pill: always opens on Stream, unless a find
   // from the palette names the pill its row is under.
@@ -214,12 +218,14 @@ export function AppearancePage({
           <Segmented label="Appearance" options={THEME_TABS} value={theme} onChange={pickTheme} />
         </div>
 
-        <div className="customize-row" data-setting="startup-tab">
-          <div>
-            <h4 className="customize-row__title">Startup Tab</h4>
+        {startupOpts.length > 0 && (
+          <div className="customize-row" data-setting="startup-tab">
+            <div>
+              <h4 className="customize-row__title">Startup Tab</h4>
+            </div>
+            <Segmented label="Start on" options={startupOpts} value={shownStartup(startup, startupOpts)} onChange={pickStartup} />
           </div>
-          <Segmented label="Start on" options={STARTUP_TABS} value={startup} onChange={pickStartup} />
-        </div>
+        )}
 
         <div className="customize-row" data-setting="clock-format">
           <div>

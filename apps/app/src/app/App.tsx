@@ -31,17 +31,11 @@ import {
   requestWatchInPlayer,
 } from "../features/live/multiviewEntry";
 import { Palette, type GoTarget } from "../features/palette/Palette";
-import { loadAioConn } from "../features/aiojf/conn";
-import { loadJfConn } from "../features/jellyfin/store";
-import { hasXtLibrary } from "../features/xtvod/store";
 import { watchXtLibrary } from "../features/xtvod/vod";
 import { saveSettingsTab } from "../features/settings/settingsTab";
 import { watchPlayerPrefs } from "../features/settings/playerPrefsSync";
 import { watchRecordingQuality } from "../features/settings/recordingQuality";
-import {
-  loadPlaylists,
-  onPlaylistsChange,
-} from "../features/settings/playlists";
+import { onPlaylistsChange } from "../features/settings/playlists";
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { LibraryScreen } from "../features/stream/LibraryScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
@@ -49,7 +43,7 @@ import { setModalOpen } from "../lib/modalOpen";
 import { setFullscreenChecked } from "../lib/fullscreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
 import { settingById, type SettingsFind } from "../features/settings/settingsIndex";
-import { loadStartupTab } from "../features/settings/startupTab";
+import { effectiveStartupTab, hasLivePlaylist, hasStreamSource } from "../features/settings/startupSources";
 import {
   onGenreRequest,
   onOpenRequest,
@@ -73,9 +67,9 @@ const SWAP_MS = 180;
 /** The side a launch opens on: Home if that was picked, Live TV if it was and
  * there is a live source to show, else Stream. */
 function startSection(): Section {
-  const tab = loadStartupTab();
+  const tab = effectiveStartupTab();
   if (tab === "home") return "home";
-  return tab === "live" && loadPlaylists().some((p) => p.enabled) ? "live" : "stream";
+  return tab === "live" && hasLivePlaylist() ? "live" : "stream";
 }
 
 export function App() {
@@ -96,10 +90,9 @@ export function App() {
   // configured — without one it showed the mock catalog to real users.
   // Adding a playlist in Settings reveals the tab live; removing the last
   // one hides it and bounces the section to Stream.
-  const hasEnabledPlaylist = () => loadPlaylists().some((p) => p.enabled);
-  const [hasLiveSource, setHasLiveSource] = useState(hasEnabledPlaylist);
+  const [hasLiveSource, setHasLiveSource] = useState(hasLivePlaylist);
   useEffect(
-    () => onPlaylistsChange(() => setHasLiveSource(hasEnabledPlaylist())),
+    () => onPlaylistsChange(() => setHasLiveSource(hasLivePlaylist())),
     [],
   );
   // The catalog follows the playlists on every screen, not just the Guide:
@@ -152,7 +145,7 @@ export function App() {
     return () => window.clearTimeout(t);
   }, []);
   const [streamTab, setStreamTab] = useState<StreamTab>(() =>
-    loadStartupTab() === "discover" ? "discover" : "home",
+    effectiveStartupTab() === "discover" ? "discover" : "home",
   );
   // Which Live page is showing. Ephemeral like the Stream rail's memory:
   // it survives a trip to Stream, and Live always opens on the Guide at
@@ -593,7 +586,7 @@ export function App() {
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
         hasLive={hasLiveSource}
-        hasStream={!!loadAioConn() || !!loadJfConn() || hasXtLibrary()}
+        hasStream={hasStreamSource()}
         // Found, not played full-screen: the Guide tunes it in its preview.
         onChannel={(id) => requestWatchInPlayer(id, false)}
         // Backing out of it returns to the grid it was found over, like a
@@ -631,7 +624,7 @@ export function App() {
           // is already the right one.
           onFinish={() => {
             setSection(startSection());
-            setStreamTab(loadStartupTab() === "discover" ? "discover" : "home");
+            setStreamTab(effectiveStartupTab() === "discover" ? "discover" : "home");
           }}
           onDone={() => setOnboarding(false)}
         />

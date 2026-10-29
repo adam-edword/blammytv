@@ -46,6 +46,6 @@ describe("loadSettingsTab", () => {
   });
 
   it("lists the six pages in the order the rail shows them", () => {
-    expect(SETTINGS_PAGES.map((p) => p.key)).toEqual(["sources", "playback", "appearance", "home", "accounts", "app"]);
+    expect(SETTINGS_PAGES.map((p) => p.key)).toEqual(["home", "sources", "playback", "appearance", "accounts", "app"]);
   });
 });

@@ -238,7 +238,7 @@ const dimmedText = () =>
   await page.waitForTimeout(900);
   // Every page: Settings is five of them since v0.11.26 (six with Home, plan
   // 033), and the one it opens on is wherever it was left.
-  for (const name of ["Sources", "Playback", "Appearance", "Home", "Accounts", "App"]) {
+  for (const name of ["Home", "Sources", "Playback", "Appearance", "Accounts", "App"]) {
     await page.getByRole("tab", { name, exact: true }).click();
     await page.waitForTimeout(500);
     for (const d of await dimmedText()) found.push(`settings ${name} ${d}`);
@@ -360,7 +360,7 @@ const dimmedText = () =>
   await page.waitForTimeout(700);
   const rail = page.getByRole("tablist", { name: "Settings" });
   const tab = (n) => rail.getByRole("tab", { name: n, exact: true });
-  const PAGES = ["Sources", "Playback", "Appearance", "Home", "Accounts", "App"];
+  const PAGES = ["Home", "Sources", "Playback", "Appearance", "Accounts", "App"];
   await tab("Sources").click();
   const shape = await rail.evaluate((el) => {
     const tabs = [...el.querySelectorAll("[role=tab]")];
@@ -389,7 +389,7 @@ const dimmedText = () =>
   );
   check(
     "  one tab stop: the chosen page's",
-    shape.stops.join() === "0,-1,-1,-1,-1,-1" && shape.selected.join() === "true,false,false,false,false,false",
+    shape.stops.join() === "-1,0,-1,-1,-1,-1" && shape.selected.join() === "false,true,false,false,false,false",
     JSON.stringify({ stops: shape.stops, selected: shape.selected }),
   );
   const tintOn = await token("--tint-on");
@@ -463,12 +463,13 @@ const dimmedText = () =>
   await page.keyboard.press("End");
   const end = await on("App");
   await page.keyboard.press("ArrowDown");
-  const wrap = await on("Sources");
+  const wrap = await on("Home");
   await page.keyboard.press("End");
   await page.keyboard.press("Home");
-  const home = await on("Sources");
-  check("  ↑ goes back, End jumps to App, ↓ from there wraps to Sources, Home jumps to Sources", up && end && wrap && home, JSON.stringify({ up, end, wrap, home }));
-  // And the page follows the tab.
+  const home = await on("Home");
+  check("  ↑ goes back, End jumps to App, ↓ from there wraps to Home (the first page), Home jumps to Home", up && end && wrap && home, JSON.stringify({ up, end, wrap, home }));
+  // And the page follows the tab: Home, then three down is Appearance.
+  await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(300);
@@ -2244,7 +2245,7 @@ const dimmedText = () =>
       await page.getByRole("tab", { name, exact: true }).click();
       await page.waitForTimeout(600);
     };
-    const PAGES = ["Sources", "Playback", "Appearance", "Home", "Accounts", "App"];
+    const PAGES = ["Home", "Sources", "Playback", "Appearance", "Accounts", "App"];
     const fades = () =>
       page.evaluate(() => {
         const b = document.querySelector(".settings__body");
@@ -2406,10 +2407,11 @@ const dimmedText = () =>
     JSON.stringify({ inTheater, ...over }),
   );
 
-  // With no playlist there is no mark, and the capsule centres itself
-  // (v0.10.34, plan 016 3.5). Its left edge used to sit on the midline:
-  // 117.5px right of centre at 1600, 189 on Discover with the second row
-  // open. Its own context: the page above has a playlist.
+  // With no playlist the mark is still drawn, first in the capsule, and the
+  // capsule centres itself (v0.10.34, plan 016 3.5; the mark came back in
+  // plan 033, Adam: "if no tv, its on the left"). Its left edge used to sit
+  // on the midline: 117.5px right of centre at 1600, 189 on Discover with
+  // the second row open. Its own context: the page above has a playlist.
   const ctx7 = await browser.newContext({ viewport: { width: W, height: H } });
   await ctx7.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
   const p7 = await ctx7.newPage();
@@ -2425,12 +2427,19 @@ const dimmedText = () =>
     await p7.waitForTimeout(900);
     centre[dest] = await p7.evaluate(() => {
       const r = document.querySelector(".navcap").getBoundingClientRect();
-      return { off: Math.round((r.left + r.width / 2 - innerWidth / 2) * 10) / 10, mark: !!document.querySelector(".navcap__mark") };
+      const mark = document.querySelector(".navcap__mark");
+      const firstTab = document.querySelector('.navcap__row--nav .navcap__item');
+      return {
+        off: Math.round((r.left + r.width / 2 - innerWidth / 2) * 10) / 10,
+        mark: !!mark,
+        // First in the row: the mark ends before the first tab begins.
+        first: !!mark && mark.getBoundingClientRect().right <= firstTab.getBoundingClientRect().left + 0.5,
+      };
     });
   }
   check(
-    "  with no live source the capsule is centred, on Stream and on Discover's two rows",
-    !centre.home.mark && Math.abs(centre.home.off) <= 1 && Math.abs(centre.discover.off) <= 1,
+    "  with no live source the mark is drawn at the left end and the capsule is centred, on Stream and on Discover's two rows",
+    centre.home.mark && centre.home.first && centre.discover.mark && centre.discover.first && Math.abs(centre.home.off) <= 1 && Math.abs(centre.discover.off) <= 1,
     JSON.stringify(centre),
   );
   await ctx7.close();
