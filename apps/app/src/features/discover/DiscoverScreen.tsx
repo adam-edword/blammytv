@@ -55,6 +55,7 @@ import {
   buildRows,
   dropOffGenre,
   noteAppearances,
+  orderMeaningful,
   pinFirst,
   rankCards,
   type Appearances,
@@ -466,7 +467,8 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           // there are no rows to make (too few cards say anything), the page
           // is today's grid, ranked.
           const pin = genreArtTitle(genre);
-          const shown = pinFirst(rankCards(dropOffGenre(pool, genre), appearRef.current), pin);
+          const order = { genre, ordered: orderMeaningful(pool) };
+          const shown = pinFirst(rankCards(dropOffGenre(pool, genre), appearRef.current, order), pin);
           const made = buildRows(pool, genre, filter, appearRef.current, { tmdb: popular, pin });
           logGridShown(shown);
           setItems(shown);
@@ -485,7 +487,10 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         // A genre's later batches rank on their own and are appended, so a
         // card already on screen never moves.
         const merged = genre
-          ? rankCards(dropOffGenre(got.fresh, genre), appearRef.current)
+          ? rankCards(dropOffGenre(got.fresh, genre), appearRef.current, {
+              genre,
+              ordered: orderMeaningful(got.fresh),
+            })
           : got.fresh;
         logGridShown(merged);
         setItems((prev) => (reset ? merged : [...prev, ...merged]));

@@ -334,9 +334,10 @@ const NOTICES_ONLY = [
  *     pages of 8, so the pool (three pages) holds 24 and the 25th arrives only
  *     when See All Comedy scrolls: six pure comedies, six Romance + Comedy
  *     (exactly the floor for a row), five Horror + Comedy (one under it), six
- *     Western + Comedy (a row named "Comedy and Western"), one Comedy + Crime +
- *     Drama that must rank under every pure title however well it is rated, and
- *     a pure comedy rated 9.5 that arrives late.
+ *     Kids + Comedy (a row named "Comedy and Kids"; the sixth also says
+ *     Romance, so it would make seven Romance if a title could sit in two
+ *     mixes), one Comedy + Crime + Drama that must rank under every pure title
+ *     however well it is rated, and a pure comedy rated 9.5 that arrives late.
  *   - gr-more: genre extra with no options, filters. Three of gr-top's pure
  *     comedies again, so a title can be in two or three catalogs.
  *   - gr-loose: genre extra with no options that IGNORES the filter, as real
@@ -364,7 +365,12 @@ const SIX = ["One", "Two", "Three", "Four", "Five", "Six"];
 const GR_PURE = SIX.map((w, i) => gr(`tt6000${i + 1}`, `GR Pure ${w}`, ["Comedy"], { rating: [7, 8, 6, 9, 5, 7.5][i] }));
 const GR_ROMANCE = SIX.map((w, i) => gr(`tt6100${i + 1}`, `GR Romance ${w}`, ["Comedy", "Romance"], { rating: 7 }));
 const GR_HORROR = SIX.slice(0, 5).map((w, i) => gr(`tt6200${i + 1}`, `GR Horror ${w}`, ["Comedy", "Horror"], { rating: 7 }));
-const GR_WESTERN = SIX.map((w, i) => gr(`tt6400${i + 1}`, `GR Western ${w}`, ["Comedy", "Western"], { rating: 7 }));
+// The last Kids also lists Romance after it, so it could sit in two mixes.
+// Every list here is alphabetical (a pool's order means nothing, so the rank is
+// the count of genres); "Kids" has no adjective in the name table on purpose.
+const GR_KIDS = SIX.map((w, i) =>
+  gr(`tt6400${i + 1}`, `GR Kids ${w}`, i === 5 ? ["Comedy", "Kids", "Romance"] : ["Comedy", "Kids"], { rating: 7 }),
+);
 const GR_TRIO = gr("tt63001", "GR Trio", ["Comedy", "Crime", "Drama"], { rating: 9.9 });
 const GR_LATE = gr("tt60007", "GR Pure Late", ["Comedy"], { rating: 9.5 });
 const GR_OFF = [gr("tt65001", "GR Off Horror", ["Horror", "Crime"]), gr("tt65002", "GR Off Drama", ["Drama"])];
@@ -393,7 +399,7 @@ const GENRE_ROWS = {
       ],
     },
     catalogs: {
-      "movie:gr-top": { filters: true, list: grList([P2, P1, P3], GR_ROMANCE, GR_HORROR, [GR_TRIO, P4, P5, P6], GR_WESTERN, [GR_LATE]) },
+      "movie:gr-top": { filters: true, list: grList([P2, P1, P3], GR_ROMANCE, GR_HORROR, [GR_TRIO, P4, P5, P6], GR_KIDS, [GR_LATE]) },
       "movie:gr-more": { filters: true, list: [P1, P3, P5] },
       "movie:gr-loose": { filters: false, list: [GR_OFF[0], GR_OFF[1], P1, ...GR_BLANK] },
       "series:gr-series": { filters: true, list: GR_SHOWS },

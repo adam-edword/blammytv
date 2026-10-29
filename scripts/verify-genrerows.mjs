@@ -123,7 +123,7 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true });
   check("and goes when the rows land", (await page.locator(".genre-rows .disc-skel").count()) === 0);
 
   check("the rows, in order, named: TMDB, Just, the series, the mixes",
-    same(await titles(page), ["Popular Comedy", "Just Comedy", "Comedy Series", "Romantic Comedy", "Comedy and Western"]),
+    same(await titles(page), ["Popular Comedy", "Just Comedy", "Comedy Series", "Romantic Comedy", "Comedy and Kids"]),
     (await titles(page)).join(" | "));
   check("Horror + Comedy has 5 titles and no row; Romance + Comedy has 6 and one",
     !(await titles(page)).includes("Horror Comedy") && (await titles(page)).includes("Romantic Comedy"));
@@ -147,7 +147,14 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true });
     same(await names(row(page, "Romantic Comedy")), [PIN, ...SIX.filter((w) => w !== "Three").map((w) => `GR Romance ${w}`)]),
     (await names(row(page, "Romantic Comedy"))).join(", "));
   check("a pair with no name in the table is Comedy and the other",
-    same(await names(row(page, "Comedy and Western")), SIX.map((w) => `GR Western ${w}`)));
+    same(await names(row(page, "Comedy and Kids")), SIX.map((w) => `GR Kids ${w}`)));
+  // GR Kids Six also says Romance. It is dealt to its first other genre, so
+  // Romance stays at the six it had and the title is in one mix row.
+  const mixNames = [...(await names(row(page, "Romantic Comedy"))), ...(await names(row(page, "Comedy and Kids")))];
+  check("a title is in one mix row: Kids Six is in Comedy and Kids and not in Romantic Comedy",
+    new Set(mixNames).size === mixNames.length && mixNames.filter((n) => n === "GR Kids Six").length === 1 &&
+      (await names(row(page, "Comedy and Kids"))).includes("GR Kids Six"),
+    `${mixNames.length} cards, ${new Set(mixNames).size} titles`);
 
   // The off-genre drop, with the catalog that sent them proved to have done so
   const log = await page.evaluate(() => window.btvGenreGrid());
@@ -189,7 +196,7 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true });
   await back(page).click();
   await rowsUp(page);
   await page.waitForTimeout(400);
-  check("Back returns to the rows", same(await titles(page), ["Popular Comedy", "Just Comedy", "Comedy Series", "Romantic Comedy", "Comedy and Western"]));
+  check("Back returns to the rows", same(await titles(page), ["Popular Comedy", "Just Comedy", "Comedy Series", "Romantic Comedy", "Comedy and Kids"]));
   const y2 = await scrollTop(page);
   check("at the scroll position they were left at", Math.abs(y2 - y) <= 4 && y > 100, `${y} -> ${y2}`);
 
@@ -201,11 +208,11 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true });
   const FIRST = [
     PIN, ...JUST,
     "GR Romance One", "GR Show Four", "GR Romance Two", "GR Romance Four", "GR Romance Five", "GR Romance Six",
-    ...SIX.slice(0, 5).map((w) => `GR Horror ${w}`), ...SIX.map((w) => `GR Western ${w}`),
-    "GR Trio", "GR Blank One", "GR Blank Two",
+    ...SIX.slice(0, 5).map((w) => `GR Horror ${w}`), ...SIX.slice(0, 5).map((w) => `GR Kids ${w}`),
+    "GR Trio", "GR Kids Six", "GR Blank One", "GR Blank Two",
   ];
   const first = await gridNames(page);
-  check("See All Comedy is the pool, off-genre dropped, ranked: the card's title, the pure ones, the pairs, the trio (rated 9.9), then the unknown",
+  check("See All Comedy is the pool, off-genre dropped, ranked: the card's title, the pure ones, the pairs, the trios (the one rated 9.9 first), then the unknown",
     same(first, FIRST), first.length + " cards: " + first.slice(0, 12).join(", "));
   check("it is titled for the genre", (await page.locator(".library__heading").textContent()) === "All Comedy");
   check("a title with no genres is here, though in no row", first.includes("GR Blank One"));
@@ -228,7 +235,7 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true });
   await rowsUp(page);
   await page.waitForTimeout(500);
   check("leaving Discover and coming back restores the rows without asking again",
-    same(await titles(page), ["Popular Comedy", "Just Comedy", "Comedy Series", "Romantic Comedy", "Comedy and Western"]) &&
+    same(await titles(page), ["Popular Comedy", "Just Comedy", "Comedy Series", "Romantic Comedy", "Comedy and Kids"]) &&
       genreAsks() === asks && (await page.locator(".genre-card--on").count()) === 1, `${asks} -> ${genreAsks()}`);
   await ctx.close();
 }
@@ -240,7 +247,7 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true });
   await pickComedy(page);
   await rowsUp(page);
   check("on Movies there is no Series row",
-    same(await titles(page), ["Popular Comedy", "Just Comedy", "Romantic Comedy", "Comedy and Western"]), (await titles(page)).join(" | "));
+    same(await titles(page), ["Popular Comedy", "Just Comedy", "Romantic Comedy", "Comedy and Kids"]), (await titles(page)).join(" | "));
   check("TMDB's row is the six films, and it asked for no shows",
     same(await names(row(page, "Popular Comedy")), POPULAR_FILMS) && !asked.tmdb.some((a) => a.startsWith("/discover/tv")));
   check("Just Comedy is the films only", same(await names(row(page, "Just Comedy")), JUST.filter((n) => !n.startsWith("GR Show"))));
@@ -266,7 +273,7 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true });
   await pickComedy(page);
   await rowsUp(page);
   check("without a TMDB key there is no TMDB row, no chip and no ask",
-    same(await titles(page), ["Just Comedy", "Comedy Series", "Romantic Comedy", "Comedy and Western"]) &&
+    same(await titles(page), ["Just Comedy", "Comedy Series", "Romantic Comedy", "Comedy and Kids"]) &&
       (await page.locator(".genre-rows__chip").count()) === 0 && asked.tmdb.length === 0);
   await ctx.close();
 }

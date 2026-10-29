@@ -144,9 +144,30 @@ describe("mixName", () => {
     expect(mixName("Comedy", "Family")).toBe("Family Comedy");
     expect(mixName("Comedy", "Drama")).toBe("Comedy Drama");
   });
+  it("names the pairs a Comedy page grows from real catalogs", () => {
+    const names: Record<string, string> = {
+      Anime: "Anime Comedy",
+      Fantasy: "Fantasy Comedy",
+      Adventure: "Adventure Comedy",
+      "Science Fiction": "Sci-Fi Comedy",
+      "Sci-Fi": "Sci-Fi Comedy",
+      Mystery: "Mystery Comedy",
+      Sport: "Sports Comedy",
+      Sports: "Sports Comedy",
+      Musical: "Musical Comedy",
+      Music: "Musical Comedy",
+      War: "War Comedy",
+      History: "Historical Comedy",
+      Western: "Western Comedy",
+      Thriller: "Comedy Thriller",
+    };
+    for (const [other, name] of Object.entries(names)) expect(mixName("Comedy", other), other).toBe(name);
+    expect(mixName("Documentary", "History")).toBe("Historical Documentary");
+    expect(mixName("Horror", "Anime")).toBe("Horror and Anime");
+  });
   it("uses the other genre's own casing and the picked genre's", () => {
     expect(mixName("Comedy", " romance ")).toBe("Romantic Comedy");
-    expect(mixName("Comedy", "Mystery")).toBe("Comedy and Mystery");
+    expect(mixName("Comedy", "Biography")).toBe("Comedy and Biography");
   });
   it("only puts an adjective in front of a genre that works as the noun", () => {
     expect(mixName("Drama", "Crime")).toBe("Crime Drama");
@@ -206,14 +227,31 @@ describe("buildRows", () => {
     expect(titles(buildRows(pool, "Comedy", "series", none))).not.toContain("Comedy Series");
   });
 
-  it("ranks every row, and a card can sit in more than one", () => {
+  it("ranks every row", () => {
     const pool = [card("trio", ["Comedy", "Romance", "Drama"]), ...mix("Romance", MIN_ROW - 1), card("solo", ["Comedy"])];
     const a: Appearances = new Map();
     const rows = buildRows(pool, "Comedy", "movie", a);
     expect(rows.map((r) => r.id)).toEqual(["just", "mix:romance"]);
     expect(rows[1].all[rows[1].all.length - 1].id).toBe("trio"); // three genres, last
-    // And it is in Drama? Only one card, so no row. In Romance, yes.
-    expect(ids(rows[1].all)).toContain("trio");
+  });
+
+  it("puts a card in one mix: its first other genre", () => {
+    // The trio would be the sixth card of both rows. It goes to Romance, so
+    // Drama is left with five and has no row.
+    const pool = [card("trio", ["Comedy", "Romance", "Drama"]), ...mix("Romance", MIN_ROW - 1), ...mix("Drama", MIN_ROW - 1)];
+    const rows = buildRows(pool, "Comedy", "movie", none);
+    expect(rows.map((r) => r.id)).toEqual(["mix:romance"]);
+    expect(ids(rows[0].all)).toContain("trio");
+  });
+
+  it("deals Anime first, skips tags that are not genres, and leaves a card with no genre out of every mix", () => {
+    const anime = Array.from({ length: MIN_ROW }, (_, i) => card(`an${i}`, ["Animation", "Comedy", "Anime", "Action"]));
+    const reality = Array.from({ length: MIN_ROW }, (_, i) => card(`re${i}`, ["Reality", "Comedy", "Romance"]));
+    const only = card("only", ["Game Show", "Comedy"]);
+    const rows = buildRows([...anime, ...reality, only], "Comedy", "movie", none);
+    expect(rows.map((r) => r.title)).toEqual(["Anime Comedy", "Romantic Comedy"]);
+    expect(ids(rows[0].all).sort()).toEqual(ids(anime).sort());
+    expect(ids(rows[1].all).sort()).toEqual(ids(reality).sort());
   });
 
   it("shows TMDB's row first, from TMDB, with at least MIN_ROW titles", () => {

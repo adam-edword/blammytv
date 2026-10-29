@@ -14,9 +14,12 @@ import type { TypeFilter } from "./typeFilter";
  * mixes). It is all pure so it can be tested without a browser; the screen
  * does the fetching.
  *
- * EVERY NUMBER BELOW IS A GUESS UNTIL `copy(btvGenreGrid())` HAS BEEN READ
- * ON REAL CATALOGS (Adam's paste, 1.0.29's log). They are named and in one
- * place so tuning them is one edit each.
+ * THE NUMBERS BELOW ARE TUNED ON ONE `copy(btvGenreGrid())` OF COMEDY
+ * (1.0.31, six MDBList lists through AIOStreams; the sample is the fixture
+ * in fixtures/comedy-sample.json). What it showed: the addon's genre list is
+ * in TMDB's order, main genre first, not alphabetical; anime titles carry
+ * four to seven genres; and some tags (Reality, Talk Show) are not genres.
+ * They are named and in one place so tuning them is one edit each.
  */
 
 /** The pool is the first pages of every catalog that serves the genre, until
@@ -31,6 +34,22 @@ export const MIN_TAGGED = 0.5;
 export const MIN_ROW = 6;
 /** At most this many mix rows. */
 export const MAX_MIX_ROWS = 6;
+/** At least this share of the cards with two or more genres must list them out
+ * of alphabetical order for the order to mean something (TMDB's order puts the
+ * main genre first). Alphabetical lists say nothing about which genre leads. */
+export const ORDERED_SHARE = 0.3;
+/** Tags that describe a show's format, not what it is about. A card is never
+ * put in a mix row for one of these. */
+export const NOT_GENRES: ReadonlySet<string> = new Set([
+  "mini-series",
+  "reality",
+  "talk show",
+  "news",
+  "game show",
+  "travel",
+  "food",
+  "soap",
+]);
 /** The most cards a row shows. See All shows the lot. */
 export const ROW_MAX = 20;
 /** The most TMDB titles looked up in the user's addons. */
@@ -104,14 +123,34 @@ export function taggedShare(items: readonly VodItem[]): number {
   return items.filter((i) => tagsOf(i).length > 0).length / items.length;
 }
 
+/** Whether the order of a card's genres means something: at least
+ * ORDERED_SHARE of the cards with two or more genres list them out of
+ * alphabetical order. Read over the whole pool, so every row of a page agrees. */
+export function orderMeaningful(items: readonly VodItem[]): boolean {
+  const many = items.map(tagsOf).filter((t) => t.length >= 2);
+  const loose = many.filter((t) => t.some((x, i) => i > 0 && t[i - 1] > x)).length;
+  return many.length > 0 && loose / many.length >= ORDERED_SHARE;
+}
+
 const cmp = (a: number, b: number): number => (a < b ? -1 : a > b ? 1 : 0);
+
+/** How the genres of a card are read: `genre` is the one picked, and `ordered`
+ * is `orderMeaningful` of the pool. */
+export interface GenreOrder {
+  genre: string;
+  ordered: boolean;
+}
 
 /**
  * How much of a title is the genre, then how popular it looks.
  *
- *   1. the number of genres on the card, fewest first (Comedy alone ranks
- *      above Comedy, Crime and Drama). A card with no genres is unknown, not
- *      pure, so it goes after every card that has some.
+ *   1. how far the genre is from the card's top: when the order of the card's
+ *      genres is meaningful, its place in the list, capped at the third (a
+ *      show that leads with Comedy ranks above one that tucks it third).
+ *      Otherwise the number of genres on the card, fewest first (Comedy alone
+ *      ranks above Comedy, Crime and Drama). Without `order` it is the count.
+ *      A card with no genres is unknown, not pure, so it goes after every card
+ *      that has some.
  *   2. the number of catalogs that sent it, most first
  *   3. its best place in any of them, lowest first
  *   4. its rating, highest first (none after any)
@@ -120,15 +159,22 @@ const cmp = (a: number, b: number): number => (a < b ? -1 : a > b ? 1 : 0);
  * There is no popularity number in a catalog; where a title sits in each
  * catalog's own order, and in how many, is the nearest thing.
  */
-export function rankCards(items: readonly VodItem[], appear: Appearances): VodItem[] {
+export function rankCards(
+  items: readonly VodItem[],
+  appear: Appearances,
+  order?: GenreOrder,
+): VodItem[] {
+  const g = order ? norm(order.genre) : "";
   return items
     .map((item, i) => {
       const seen = appear.get(itemKey(item));
-      const tags = tagsOf(item).length;
+      const tags = tagsOf(item);
+      const at = tags.indexOf(g);
+      const lead = order?.ordered ? (at < 0 ? 2 : Math.min(at, 2)) : tags.length;
       return {
         item,
         i,
-        tags: tags === 0 ? Infinity : tags,
+        tags: tags.length === 0 ? Infinity : lead,
         cats: seen?.cats.length ?? 0,
         best: seen?.best ?? Infinity,
         rating: item.rating ?? -Infinity,
@@ -161,13 +207,27 @@ export function pinFirst(items: readonly VodItem[], id: string | null): VodItem[
  * Drama go together the same way round whichever was picked. Anything else is
  * "{Genre} and {Other}".
  */
-const ADJECTIVE: Record<string, string> = {
-  romance: "Romantic",
-  action: "Action",
-  horror: "Horror",
-  animation: "Animated",
-  crime: "Crime",
-  family: "Family",
+const PAIR: Record<string, string> = {
+  anime: "Anime {G}",
+  romance: "Romantic {G}",
+  action: "Action {G}",
+  horror: "Horror {G}",
+  animation: "Animated {G}",
+  crime: "Crime {G}",
+  family: "Family {G}",
+  fantasy: "Fantasy {G}",
+  adventure: "Adventure {G}",
+  "science fiction": "Sci-Fi {G}",
+  "sci-fi": "Sci-Fi {G}",
+  mystery: "Mystery {G}",
+  sport: "Sports {G}",
+  sports: "Sports {G}",
+  musical: "Musical {G}",
+  music: "Musical {G}",
+  war: "War {G}",
+  history: "Historical {G}",
+  western: "Western {G}",
+  thriller: "{G} Thriller",
 };
 const NOUNS = new Set(["comedy", "drama", "thriller", "documentary"]);
 
@@ -176,16 +236,24 @@ export function mixName(genre: string, other: string): string {
   const x = norm(other);
   if ((g === "comedy" && x === "drama") || (g === "drama" && x === "comedy"))
     return "Comedy Drama";
-  const adjective = ADJECTIVE[x];
-  if (NOUNS.has(g) && adjective) return `${adjective} ${genre}`;
+  const pair = PAIR[x];
+  if (NOUNS.has(g) && pair) return pair.replace("{G}", genre);
   return `${genre} and ${other}`;
+}
+
+/** The one mix a card goes in: Anime if it has it (an Animation tag beside
+ * Anime says nothing more), else its first tag that is not the picked genre
+ * and is a genre. None if it has no such tag. */
+function mixTag(tags: readonly string[], g: string): string | undefined {
+  if (g !== "anime" && tags.includes("anime")) return "anime";
+  return tags.find((t) => t !== g && !NOT_GENRES.has(t));
 }
 
 /**
  * The rows, top to bottom: TMDB's popular titles (resolved already, in TMDB's
  * order), the cards that are only this genre, its series (type filter Any
- * only), then the mixes. Every pool row is ranked by `rankCards`; a card can
- * sit in more than one. Empty when nothing qualifies, which the screen shows
+ * only), then the mixes. Every pool row is ranked by `rankCards`. A card is in
+ * at most one mix (see `mixTag`), but Just and Series can hold it too. Empty when nothing qualifies, which the screen shows
  * as the ranked grid. So is a pool where fewer than MIN_TAGGED of the cards
  * carry any genres.
  *
@@ -211,10 +279,11 @@ export function buildRows(
   if (tmdb.length >= MIN_ROW)
     rows.push({ id: "tmdb", title: `Popular ${genre}`, from: "TMDB", all: tmdb });
 
+  const order = { genre, ordered: orderMeaningful(pool) };
   const ranked = (id: string, title: string, cards: VodItem[]): GenreRow => ({
     id,
     title,
-    all: rankCards(cards, appear),
+    all: rankCards(cards, appear, order),
   });
 
   const just = tagged.filter((i) => tagsOf(i).length === 1);
@@ -226,16 +295,17 @@ export function buildRows(
   }
 
   // The other genres, in the order they were first met, then by how many
-  // cards carry them: a tie keeps that order, so the page is stable.
+  // cards they hold: a tie keeps that order, so the page is stable. Each card
+  // is dealt to one of them, so a title is in one mix at most.
   const mixes = new Map<string, { name: string; cards: VodItem[] }>();
-  for (const card of tagged)
-    for (const tag of tagsOf(card)) {
-      if (tag === g) continue;
-      const name = card.genres.find((x) => norm(x) === tag) as string;
-      const mix = mixes.get(tag) ?? { name: name.trim(), cards: [] };
-      mix.cards.push(card);
-      mixes.set(tag, mix);
-    }
+  for (const card of tagged) {
+    const tag = mixTag(tagsOf(card), g);
+    if (!tag) continue;
+    const name = card.genres.find((x) => norm(x) === tag) as string;
+    const mix = mixes.get(tag) ?? { name: name.trim(), cards: [] };
+    mix.cards.push(card);
+    mixes.set(tag, mix);
+  }
   [...mixes.entries()]
     .filter(([, m]) => m.cards.length >= MIN_ROW)
     .sort((a, b) => b[1].cards.length - a[1].cards.length)
