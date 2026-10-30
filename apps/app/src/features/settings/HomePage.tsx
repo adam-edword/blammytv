@@ -32,6 +32,7 @@ import {
   type HomeRowKind,
   type LiveKind,
 } from "../home/layout";
+import { RowGlyph } from "../home/RowGlyph";
 import { importStrand } from "../home/strand";
 import { TRAKT_NAMES } from "../home/traktRows";
 import { useRecordings } from "../recordings/store";
@@ -209,6 +210,7 @@ export function HomePage() {
                 {/* The carousel stays on top: no handle, and the space it
                   * would take is kept so the names line up. */}
                 <span className="homerows__nogrip" aria-hidden />
+                <RowGlyph kind={r.kind} />
                 <span className="xtrow__text">
                   <span className="xtrow__name">{OWN.carousel}</span>
                   <span className="xtrow__kind">{KIND.carousel}</span>
@@ -237,6 +239,7 @@ export function HomePage() {
                   <button type="button" className="xtrow__grip" {...grip} aria-label={`Reorder ${items[i].label}`}>
                     <GripIcon size={16} />
                   </button>
+                  <RowGlyph kind={r.kind} />
                   <span className="xtrow__text">
                     <RowTitle
                       name={ownName(r, own, lists)}

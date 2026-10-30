@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.40: A picture of each Home row (unreleased)
+
+- **Settings → Home shows a small picture of each row** beside its name:
+  wide cards for Continue Watching, posters for a catalog, channel tiles
+  for On Now, and so on. A row that's switched off shows its picture
+  dimmed.
+
 ## 1.0.39: Saved's list menu, and MPV (unreleased)
 
 - **Add Row → Saved** shows its list of Library lists in full, instead of

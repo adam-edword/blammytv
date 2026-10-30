@@ -259,6 +259,9 @@ const editor = (page) =>
       kind: r.querySelector(".xtrow__kind")?.textContent ?? null,
       on: r.querySelector("[role=switch]")?.getAttribute("aria-checked") === "true",
       grip: !!r.querySelector("button[aria-label^='Reorder']"),
+      glyph: r.querySelector(".homerows__glyph")?.getAttribute("data-glyph") ?? null,
+      shapes: r.querySelectorAll(".homerows__glyph svg > *").length,
+      dim: Number(getComputedStyle(r.querySelector(".homerows__glyph svg") ?? r).opacity),
     })),
   );
 /** Lift a row by its handle, move it with the arrows, drop it. */
@@ -414,6 +417,13 @@ const stream = async (page) => {
     JSON.stringify(rows.map((r) => r.name)),
   );
   check("  each with its kind in grey and a switch, all on", rows.every((r) => r.kind && r.on), JSON.stringify(rows.map((r) => r.kind)));
+  // Each row has a picture of its kind (1.0.40), drawn, and none dimmed while on.
+  check(
+    "  each with a picture of its row: the carousel's, Watching's, and posters for a catalog",
+    JSON.stringify(rows.map((r) => r.glyph)) === JSON.stringify(["carousel", "continue", "upnext", "onnow", "games", ...AIO_ROWS.map(() => "catalog")]) &&
+      rows.every((r) => r.shapes >= 3 && r.dim === 1),
+    JSON.stringify(rows.map((r) => [r.glyph, r.shapes, r.dim])),
+  );
   check("  Home is drawn behind it", (await settingsUp(page)) && (await titles(page)).length === 6);
 
   // Reorder: Top Series up one place. Home follows, and Settings stays up.
@@ -452,6 +462,8 @@ const stream = async (page) => {
   const off = await titles(page);
   check("switching a row off takes it off Home, behind Settings, which stays open", (await settingsUp(page)) && !off.includes("Top Movies") && off.includes("Top Series"), JSON.stringify(off));
   check("  the row stays in the editor, off", (await editor(page)).some((r) => r.name === "Top Movies" && !r.on));
+  await page.waitForTimeout(250);
+  check("  its picture is dimmed, and the others' are not", (await editor(page)).every((r) => (r.name === "Top Movies" ? r.dim < 0.5 : r.dim === 1)), JSON.stringify((await editor(page)).map((r) => [r.name, r.dim])));
   check("  and in the layout, off, not removed", (await stored(page)).some((r) => r.id === "aio:top-movies" && r.on === false));
 
   // Carousel: only a switch. Off, and the carousel goes.
