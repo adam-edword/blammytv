@@ -315,8 +315,10 @@ What they agree on, and what this app holds to:
   https://developer.apple.com/library/archive/documentation/FinalCutProX/Conceptual/FxPlugHIG/TextStyleGuidelines/TextStyleGuidelines.html
 - **No comma before "and", "or", "but" or "so" joining two short
   clauses** (Adam, 1.2.0: "feels kinda AI"): "Films and shows open in VLC
-  and your place still syncs", not "…in VLC, and your place…". Lists keep
-  no serial comma too ("record, pause and rewind").
+  and your place still syncs", not "…in VLC, and your place…". Same for a
+  trailing phrase: "Prism, Velvet and Lagoon in Settings → Appearance", not
+  "…Lagoon, in Settings". Lists keep no serial comma too ("record, pause
+  and rewind").
 - **Contractions are fine. Put the most important thing first.**
 
 ## Delegation: orchestrate by task shape, not by default
