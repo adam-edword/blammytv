@@ -56,7 +56,7 @@ async function open(opts = {}) {
   const errs = [];
   page.on("pageerror", (e) => errs.push(String(e)));
   await page.addInitScript((pl) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     sessionStorage.setItem("btv:welcome-played", "1");
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
     localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));

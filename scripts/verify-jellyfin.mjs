@@ -159,7 +159,7 @@ const stub = ({ o }) => {
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
   if (sessionStorage.getItem("seeded")) return;
   sessionStorage.setItem("seeded", "1");
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "stream" }));
   if (o.aio) localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: o.aio }));
@@ -445,14 +445,17 @@ await fake("/__reset", { method: "POST" });
   check("  and the genre rail is the genres its titles carry", rail.includes("Documentary") && rail.includes("Drama") && rail.includes("Mystery"), JSON.stringify(rail));
   check("  with nothing asked of AIOStreams", !p.requests.some((u) => u.includes(":8084")));
 
-  // A genre is the server's filter: only that genre's titles come back.
+  // A genre is the server's filter: only that genre's titles come back. And a
+  // genre is rows now (plan 034, 1.0.30), so they are read from the rows, once
+  // each (a title can be in more than one).
+  const rowNames = () => p.locator(".genre-rows .stream-card__name").allInnerTexts().then((n) => [...new Set(n)]);
   await p.locator(".genre-card", { hasText: /^Documentary$/ }).click();
   const filtered = await waitFor(p, async () => {
-    const n = await names();
+    const n = await rowNames();
     return n.length === 1 && n[0] === "The Turn";
   }, 15_000);
   const asked = p.native.st.calls.filter(([c, a]) => c === "jf_request" && a.path === "/Items" && a.query?.Genres === "Documentary");
-  check("a genre card asks the server for that genre and shows only its titles", filtered && asked.length >= 1, JSON.stringify(await names()));
+  check("a genre card asks the server for that genre and shows only its titles", filtered && asked.length >= 1, JSON.stringify(await rowNames()));
   await p.locator(".genre-card--on").click();
   await waitFor(p, async () => (await names()).length >= 2);
 
@@ -488,9 +491,10 @@ await fake("/__reset", { method: "POST" });
   const streamAsks = () => p.requests.filter((u) => u.includes(":8084/") && u.includes("/stream/"));
   const before = streamAsks().length;
   // From the genre's own page (a read of the server), not Stream's cached rows.
+  const rowNames = () => p.locator(".genre-rows .stream-card__name").allInnerTexts().then((n) => [...new Set(n)]);
   await p.locator(".genre-card", { hasText: /^Documentary$/ }).click();
-  await waitFor(p, async () => (await names()).length === 1 && (await names())[0] === "The Turn", 15_000);
-  await p.locator(".disc-grid .stream-card", { hasText: "The Turn" }).first().click();
+  await waitFor(p, async () => (await rowNames()).length === 1 && (await rowNames())[0] === "The Turn", 15_000);
+  await p.locator(".genre-rows .stream-card", { hasText: "The Turn" }).first().click();
   await p.locator(".vod-source").first().waitFor({ timeout: 15_000 });
   await p.waitForTimeout(2500);
   const lines = await p.locator(".vod-source").allInnerTexts();

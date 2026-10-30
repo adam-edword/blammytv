@@ -97,7 +97,7 @@ const stub = (presenting) => `
     },
   };
   window.__sportsFixture = { game: ${JSON.stringify(GAME)}, others: [] };
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.playlists", ${JSON.stringify(JSON.stringify(PLAYLIST))});
 `;
 

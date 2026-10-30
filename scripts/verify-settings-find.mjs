@@ -58,7 +58,7 @@ async function open({ store = {}, width = 1440, height = 900, tauri = false, red
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(
     ({ store, tauri }) => {
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       // Once: a reload in a check must see what the check left.
       if (!sessionStorage.getItem("seeded")) {
@@ -210,6 +210,8 @@ const alpha = (c) => {
   await closePalette(page);
 
   await ask(page, "zzzz");
+  // The title search has to come back empty before the palette says so.
+  await page.locator(".palette .mvpick__empty").waitFor({ timeout: 5000 }).catch(() => {});
   const none = await sections(page);
   const emptyNote = await page.locator(".palette .mvpick__empty").count();
   check("  and none for a word no row has", !none.some((s) => s.name === "Settings") && emptyNote === 1, JSON.stringify(none.map((s) => s.name)));
@@ -400,6 +402,7 @@ const POSITIONS = [
   { page: "Playback", key: "playback" },
   { page: "Appearance", key: "appearance", world: "stream", pill: ["Media", "Stream"] },
   { page: "Appearance", key: "appearance", world: "live", pill: ["Media", "Live TV"] },
+  { page: "Home", key: "home" },
   { page: "Accounts", key: "accounts" },
   { page: "App", key: "app" },
 ];
@@ -458,7 +461,8 @@ async function registryMatches(page, positions, label, absent = []) {
   await gear(page).click();
   await settingsUp(page);
   await page.waitForTimeout(400);
-  const { reg } = await registryMatches(page, POSITIONS.filter((p) => !["accounts", "app"].includes(p.key)), "browser", ["jellyfin"]);
+  // Recordings Folder and Recording Quality, like Jellyfin's sign-in, are drawn only by the app; verify-recordings and the native block below check them there.
+  const { reg } = await registryMatches(page, POSITIONS.filter((p) => !["accounts", "app"].includes(p.key)), "browser", ["jellyfin", "recordings-folder", "recording-quality"]);
   // The registry itself: a label for every row, ids that are unique.
   check("the registry's ids are unique and every row has a label", new Set(reg.map((r) => r.id)).size === reg.length && reg.every((r) => r.label.trim()), `${reg.length} rows`);
   await ctx.close();
@@ -480,6 +484,17 @@ async function registryMatches(page, positions, label, absent = []) {
   const tr = await landed(page, "trakt");
   check('"trakt" opens Accounts', (await current(page)) === "Accounts" && tk?.rows[0]?.label === "Trakt" && tk.rows[0].sub === "Settings · Accounts", `${await current(page)} / ${JSON.stringify(tk?.rows[0])}`);
   check("  with the row lit and focus on its Connect", !!tr && tr.lit && tr.inRow && tr.focusLabel === "Connect", JSON.stringify(tr));
+  await closeSettings(page);
+
+  // ------------------------------------------------ "smaller files": Playback, Recording Quality
+  await ask(page, "smaller files");
+  const rq = await settingsSection(page);
+  await page.keyboard.press("Enter");
+  await settingsUp(page);
+  await settle(page);
+  const rql = await landed(page, "recording-quality");
+  check('"smaller files" lists Recording Quality, "Settings · Playback", and opens Playback', rq?.rows[0]?.label === "Recording Quality" && rq.rows[0].sub === "Settings · Playback" && (await current(page)) === "Playback", `${await current(page)} / ${JSON.stringify(rq?.rows[0])}`);
+  check("  with the row lit and focus on its first choice, Original Quality", !!rql && rql.lit && rql.inView && rql.inRow && /Original Quality/.test(rql.focusLabel ?? ""), JSON.stringify(rql));
   await closeSettings(page);
 
   // ------------------------------------------------ "clear": App, not armed, and Escape
@@ -571,7 +586,7 @@ async function registryMatches(page, positions, label, absent = []) {
 // ====================================================================
 {
   // No AIOStreams: Playback shows the sign-in note where Stream's rows would be.
-  // The Player group (Speaker Setup, Subtitle Size, Pop-Out Window; Audio Channels and Pop-out until 0.12) is for
+  // The Player group (Speaker Setup, Subtitle Size, Pop Out Films and Shows In, Pop-Out Window; Audio Channels and Pop-out until 0.12) is for
   // Live TV too and is drawn without one: that is what a find can still land
   // on. The query was "subtitle" until Subtitle Size took that word.
   const errorsBefore = errors.length;
@@ -595,8 +610,8 @@ async function registryMatches(page, positions, label, absent = []) {
     JSON.stringify({ s: s?.rows[0], text: note.text.slice(0, 100) }),
   );
   check(
-    "  nothing lit, none of Stream's rows drawn, the Player group's three there, and focus left on the card",
-    note.lit === 0 && note.stream === 0 && note.player.join() === "audio-channels,subtitle-size,popout" && note.onCard,
+    "  nothing lit, none of Stream's rows drawn, the Player group's four there, and focus left on the card",
+    note.lit === 0 && note.stream === 0 && note.player.join() === "audio-channels,subtitle-size,popout-app,popout" && note.onCard,
     JSON.stringify(note),
   );
   await closeSettings(page);

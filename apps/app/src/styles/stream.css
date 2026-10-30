@@ -2,13 +2,20 @@
  * detail page with the addon's pre-ranked source rail, episode grid. */
 
 .stream {
+  /* Stream's one left edge (Adam): the hero's focused card, its details and
+   * every row line up here. The rows use it for their bleed too (the
+   * viewport and scroller below), so a row still scrolls to the window's
+   * edge, not to this line. Other screens' rows have no --gut and keep 28px. */
+  --gut: max(28px, 3.3vw);
+  /* A Continue Watching card's height, which the hero is sized from. */
+  --cw-h: 300px;
   /* Full window width regardless of content — as a flex child of
    * .app-main it otherwise sizes to max-content and a sparse detail
    * page collapses into a left-hand strip. */
   width: 100%;
   height: 100%;
   overflow-y: auto;
-  padding: calc(var(--header-h, 76px) + 8px) 28px 40px;
+  padding: calc(var(--header-h, 76px) + 8px) var(--gut) 40px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -20,23 +27,432 @@
   margin: auto;
 }
 
-/* ---- featured hero (Figma 133-721): 80vh sliding track, 60px-radius
- * cards, neighbors peeking with a 30px gap. Escapes .stream's padding so
+/* ---- featured hero (plan 031): the shelf. One 16:9 card in focus, the rest
+ * 2:3 posters at its height, the focused title's details under the card.
+ * The focused card is 1.97x a Continue Watching card (1050 x 591 at its
+ * 300px; 1.8x until 1.0.23, then 15% bigger, then 5% back, Adam: "a bit too
+ * big"), capped at 80vw so a
+ * narrow window still shows a poster beside it; the
+ * posters are 2:3 at its height; the gap is 16px, the rows' own (Adam); the
+ * focused card sits at
+ * the page's left edge, the previous one peeking in beside it. Escapes
+ * .stream's padding so the peeks bleed to the window edges. ---- */
+.shero {
+  --w: min(calc(var(--cw-h, 300px) * 3.5), 80vw);
+  --h: calc(var(--w) * 9 / 16);
+  --pw: calc(var(--h) * 2 / 3);
+  --gap: 16px;
+  --in: var(--gut, 28px);
+  --step: calc(var(--pw) + var(--gap));
+  /* The move eases in and settles (the old hero's curve, Adam: it left at
+     full speed). The poster fades keep a fast start, or the seam lingers. */
+  --ease: cubic-bezier(0.45, 0.05, 0.2, 1);
+  --ease-fade: cubic-bezier(0.22, 0.8, 0.24, 1);
+  /* --k is the motion switch: every duration below is a share of it, so 0
+   * is no transition anywhere. Off until a frame has painted at the measured
+   * geometry and across a window resize (.shero--ready, set by the component)
+   * and under reduced motion. */
+  --k: 0;
+  --dur: calc(var(--k) * 620ms);
+  position: relative;
+  margin: 0 calc(var(--gut, 28px) * -1);
+  padding: 18px 0 30px;
+  /* Clip the sliding track horizontally ONLY: `hidden` would force the
+   * y-axis too and guillotine the glow into a rectangle. `clip` leaves
+   * overflow-y genuinely visible. */
+  overflow-x: clip;
+  overflow-y: visible;
+  flex-shrink: 0;
+}
+/* A poster and a gap wide, and the focused card and a gap wide, for the
+ * component to read a drag's step and how many cards fit the window from. */
+.shero__step,
+.shero__lead {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--step);
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.shero__lead {
+  width: calc(var(--w) + var(--gap));
+}
+.shero--ready {
+  --k: 1;
+}
+.shero__viewport {
+  position: relative;
+  z-index: 1; /* above the glow */
+  cursor: grab;
+  /* A sideways drag is the shelf's; a vertical one still scrolls the page. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.shero[data-drag] .shero__viewport,
+.shero[data-drag] .shero__card {
+  cursor: grabbing;
+}
+/* The track is a window of slots, the first of which is --s0. Its margin
+ * stands in for the slots before the window, so a slot that leaves it does
+ * not move the rest; the transform puts the focused card (slot --v, the
+ * posters before it a step each) at the inset. --drag is the pointer's
+ * travel mid-drag, set by the component. */
+.shero__track,
+.shero__glowtrack {
+  display: flex;
+  gap: var(--gap);
+  height: var(--h);
+  margin-left: calc(var(--s0) * var(--step));
+  will-change: transform;
+  transition: transform var(--dur) var(--ease);
+}
+.shero__track {
+  transform: translateX(calc(var(--in) - var(--v) * var(--step) + var(--drag, 0px)));
+}
+.shero[data-drag] .shero__track,
+.shero[data-drag] .shero__glowtrack {
+  transition: none;
+}
+/* The glow (Adam: keep it; 110px past the card each side, 56px above and
+ * below): the same shelf again, blurred and brightened, sliding in lockstep
+ * behind a window that stays put around the focused card and fades at its
+ * edges. Inside it every card's copy shines at the same strength, focused or not. The window's
+ * left is --in minus 110px, so the blurred track sits 110px in from the real
+ * one's offset. The blur softens the copies' edges well inside the clip. */
+.shero__glowbox {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 60px;
+  top: calc(18px - 56px);
+  height: calc(var(--h) + 112px);
+  left: calc(var(--in) - 110px);
+  width: calc(var(--w) + 220px);
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 90px, #000 calc(100% - 90px), transparent),
+    linear-gradient(to bottom, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 90px, #000 calc(100% - 90px), transparent),
+    linear-gradient(to bottom, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+  mask-composite: intersect;
+  /* --hero-glow is a theme pack's (Prism's ramp), drawn in place of the
+   * copies; unset, none, and the copies are the glow. */
+  background: var(--hero-glow, none);
+}
+.shero__glowtrack {
+  margin-top: 56px;
+  filter: blur(32px) saturate(1.9) brightness(1.55);
+  transform: translateX(calc(110px - var(--v) * var(--step) + var(--drag, 0px)));
+}
+/* Dark only (plan 022). Light on a light page isn't light: the art's colour
+ * blurred over white read as a smudge round the card, and a third of it
+ * still did. */
+:root[data-theme="light"] .shero__glowbox {
+  display: none;
+}
+/* The ambient colour (Adam: "the ambient is cool"): the focused title's 16:9
+ * art, blurred to colour behind the top of the PAGE, fading out down it so it
+ * is gone by the second row. From the scroll box's top (the section sits
+ * below the header's room), the window's width, and under everything: it is
+ * the section's first child at z 0, so the glow, the shelf and the rows (all
+ * later in the tree) paint over it. Two layers, the newer fading in over the
+ * older (the component), at --k, so none under reduced motion. Dark only, as
+ * the glow is: a wash on white needs its own pass.
+ * The blur and the fade are painted into the canvases ONCE (HeroAmbient), not
+ * done as a CSS filter and mask: those are redone by the compositor on every
+ * frame the shelf slides across them, which dropped the slide to a few frames
+ * on a software rasteriser (verify-shero's frame floors). */
+.shero__ambient {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: calc((var(--header-h, 76px) + 8px) * -1);
+  height: 1300px;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* 120px past the box on every side, so the blur's soft edge is out of sight. */
+.shero__ambient canvas {
+  position: absolute;
+  left: -120px;
+  top: -120px;
+  width: calc(100% + 240px);
+  height: calc(100% + 240px);
+  opacity: 0;
+  transition: opacity calc(var(--k) * 900ms) ease;
+}
+.shero__ambient canvas.on {
+  opacity: 0.42;
+}
+:root[data-theme="light"] .shero__ambient {
+  display: none;
+}
+/* A card, and the glow's copy of one. Each picture keeps its own size while
+ * the card around it resizes (the layers below); the card's width reveals
+ * or covers them. Zooming either to the moving box slid a poster's printed
+ * title off its bottom. */
+.shero__card,
+.shero__glowcard {
+  position: relative;
+  flex: none;
+  width: var(--pw);
+  height: 100%;
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  transition: width var(--dur) var(--ease);
+}
+/* Own compositor layer: the rounded content rides the track's transform
+ * without re-rasterizing every frame. A real card's picture gets one from
+ * the tilt's own transform (.shero__tilt); a second on the card doubled the
+ * layers, and a software rasteriser dropped frames mid-drag for it. */
+.shero__glowcard {
+  transform: translateZ(0);
+  overflow: hidden;
+  opacity: 0.75; /* focused and neighbours alike (Adam) */
+}
+/* The picture of a real card (HeroCard's Tilt): react-parallax-tilt owns its
+ * transform (lean, scale, glare). The clip and the ground live here and not
+ * on the card, so the 1.03 scale and the lean are not cut off by the card,
+ * and no flat box shows behind a lifted corner. No hover shadow, unlike the
+ * row cards: the glow is this shelf's depth cue. */
+.shero__tilt {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: var(--surface);
+}
+/* The glare is a child the library appends; the layers are positioned, so it
+ * needs a z-index of its own to show over them. Its mask (the library's clip
+ * for Safari) cost a software rasteriser a render pass per card at rest, and
+ * the wrapper's own overflow and radius already clip it in Chromium. */
+.shero__tilt .glare-wrapper {
+  z-index: 3;
+  -webkit-mask-image: none !important;
+}
+/* Flat while the shelf moves (and while it is dragged): the lean comes from a
+ * rect cached before the card moved or resized, so it would lean toward a
+ * place the card is no longer. The library's own transition is 650ms, so a
+ * card under the pointer eases flat here in a short one instead of snapping.
+ * HeroCard measures again when the shelf stops. */
+.shero--moving .shero__tilt,
+.shero[data-drag] .shero__tilt {
+  transform: none !important;
+  transition: transform calc(var(--k) * 200ms) ease-out !important;
+}
+.shero--moving .shero__tilt .glare-wrapper,
+.shero[data-drag] .shero__tilt .glare-wrapper {
+  opacity: 0;
+  transition: opacity calc(var(--k) * 200ms) ease-out;
+}
+.shero__card--active,
+.shero__glowcard--active {
+  width: var(--w);
+}
+.shero__card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+/* The hairline round a picture, on the Tilt so it leans with it. */
+.shero__tilt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-image) 10%, transparent);
+}
+/* The 16:9 art is as wide as the focused card, the poster as wide as a
+ * poster, both at the left. Growing, the art fades in over the first 45%
+ * (Adam: it snapped in) and the poster over it fades out from 10% to 50%,
+ * so the art leads and the card never dips to its ground, and the two
+ * pictures never sit side by side at full strength. Shrinking, the art
+ * stays until the card is poster-sized again (the opacity step waits out
+ * the duration), so no gap opens beside a shrinking poster, and the poster
+ * comes back over the last 35% only. */
+.shero__layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+}
+.shero__layer img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-user-drag: none;
+}
+.shero__layer--b {
+  width: var(--w);
+  opacity: 0;
+  transition: opacity 0s linear var(--dur);
+}
+.shero__layer--p {
+  z-index: 1;
+  width: var(--pw);
+  transition: opacity calc(var(--dur) * 0.35) var(--ease-fade) calc(var(--dur) * 0.65);
+}
+:is(.shero__card--active, .shero__glowcard--active) .shero__layer--b {
+  opacity: 1;
+  transition: opacity calc(var(--dur) * 0.45) var(--ease-fade);
+}
+:is(.shero__card--active, .shero__glowcard--active) .shero__layer--p {
+  opacity: 0;
+  transition: opacity calc(var(--dur) * 0.4) var(--ease-fade) calc(var(--dur) * 0.1);
+}
+/* No 16:9 art: the poster stands in for it, blurred and darkened, and the
+ * sharp poster stays at the card's right instead of fading away. */
+.shero__art--blur {
+  filter: blur(28px) brightness(0.5) saturate(1.2);
+  transform: scale(1.3);
+}
+.shero__nobd .shero__layer--p {
+  left: auto;
+  right: 0;
+}
+.shero__nobd:is(.shero__card--active, .shero__glowcard--active) .shero__layer--p {
+  opacity: 1;
+}
+/* Neither: a row card's letter on its colour, and the focused card's ground
+ * a fixed dark, since the title and logo on it wear the picture's ink. */
+.shero__layer--bare {
+  background: oklch(0.205 0 0);
+}
+.shero__mono {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 42px;
+  color: var(--text-muted);
+}
+.shero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+  background: linear-gradient(to top, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0) 45%);
+}
+.shero__card--active .shero__scrim {
+  opacity: 1;
+}
+/* The title: a clearlogo when the addon provides one, its name in type when
+ * not. It only fades, once the card has grown past 55% of the way, and it is
+ * sized and placed from the FULL card (--w, --h), never the growing one, so
+ * it never moves or changes size. */
+.shero__mark {
+  position: absolute;
+  z-index: 2;
+  left: calc(var(--w) * 0.043);
+  bottom: calc(var(--h) * 0.08);
+  margin: 0;
+  opacity: 0;
+  transition: opacity calc(var(--k) * 280ms) ease;
+}
+.shero__card--active .shero__mark {
+  opacity: 1;
+  transition-delay: calc(var(--dur) * 0.55);
+}
+.shero__card--active img.shero__mark:not([data-loaded]) {
+  opacity: 0;
+}
+.shero__logo {
+  width: calc(var(--w) * 0.46);
+  height: calc(var(--h) * 0.34);
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 2px 18px rgb(0 0 0 / 0.45));
+}
+/* The name in type, standing where a logo would (a provider's titles never
+ * have one). Sized to take about a logo's room: 92px set a five-word name
+ * in five lines over the picture (Adam, plan 028). A long name steps down a
+ * size, and the lines are balanced so none is a lone word. */
+.shero__title {
+  display: block;
+  max-width: calc(var(--w) * 0.6);
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: calc(var(--w) * 0.07);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-wrap: balance;
+  /* Over art a fixed light is right (the scrim below it is the only
+   * guaranteed ground), but it is shadcn's foreground now, not a brand
+   * tint. */
+  color: oklch(0.985 0 0);
+}
+.shero__title--long {
+  font-size: calc(var(--w) * 0.052);
+}
+/* Under the card, on the PAGE: the page's text tokens, not the picture's
+ * ink, or they vanish in the light theme. */
+.shero__info {
+  position: relative;
+  z-index: 1;
+  margin-left: var(--in);
+  width: min(var(--w), 760px);
+  padding-top: 18px;
+  /* Meta and three lines of synopsis, so the rows below hold still as the
+   * titles change. */
+  min-height: 120px;
+}
+.shero__info > * {
+  transition: opacity calc(var(--k) * 220ms) ease;
+}
+.shero__info--out > * {
+  opacity: 0;
+}
+.shero__meta {
+  margin: 0;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.shero__rating {
+  color: var(--rating);
+}
+.shero__synopsis {
+  margin: 10px 0 0;
+  max-width: 720px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--text) 85%, transparent);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---- featured hero, the large style (Figma 133-721). The shelf above is
+ * the other (Settings, Appearance, Stream, Carousel Style). 80vh sliding
+ * track, 60px-radius cards, neighbors peeking with a 30px gap. Escapes .stream's padding so
  * the peeks bleed to the window edges. Geometry (card width / offset) is
  * measured + set inline by the component; the track only animates
  * transform. ---- */
-.shero {
+.lhero {
   position: relative;
   height: 80vh;
-  margin: 0 -28px;
-  /* Clip the sliding track horizontally ONLY — `hidden` would force the
+  margin: 0 calc(var(--gut, 28px) * -1);
+  /* Clip the sliding track horizontally ONLY; `hidden` would force the
    * y-axis too and guillotine the active card's glow into a rectangle.
    * `clip` leaves overflow-y genuinely visible. */
   overflow-x: clip;
   overflow-y: visible;
   flex-shrink: 0;
 }
-.shero__track {
+.lhero__track {
   position: absolute;
   inset: 0;
   z-index: 1; /* above the glow box */
@@ -47,7 +463,7 @@
  * geometry): clips a second, blurred copy of the track. The imgs' own
  * 70px blur softens their edges well inside the clip, so the box edge
  * never reads hard. */
-.shero__glowbox {
+.lhero__glowbox {
   position: absolute;
   top: -90px;
   bottom: -90px;
@@ -58,9 +474,9 @@
   opacity: 0.8; /* Adam's final trim on the whole light layer */
   /* Feathered window: the box reaches ~90px past the card on the sides
    * and ~52px vertically, and the feather eats only the outer half of
-   * that — so a real halo band survives at strength. (The first feather
+   * that, so a real halo band survives at strength. (The first feather
    * pass swallowed the whole halo: 70px falloff on a 24px overscan.)
-   * Don't chase halo-shape artifacts here — the "bright rim on hover"
+   * Don't chase halo-shape artifacts here: the "bright rim on hover"
    * was the tilted card's projection exposing the glow behind its own
    * edge; the Tilt scale bump covers it (see Hero). */
   -webkit-mask-image:
@@ -72,13 +488,13 @@
     linear-gradient(to bottom, transparent, #000 120px, #000 calc(100% - 120px), transparent);
   mask-composite: intersect;
 }
-.shero__glowtrack {
+.lhero__glowtrack {
   position: absolute;
   inset: 0;
   transition: transform 650ms cubic-bezier(0.45, 0.05, 0.2, 1);
   will-change: transform;
 }
-.shero__glowbox img {
+.lhero__glowbox img {
   position: absolute;
   top: 0;
   height: 100%;
@@ -87,7 +503,7 @@
   filter: blur(70px) saturate(1.4);
   /* Neighbor light rests dim; the incoming slide's light fades up fast
    * and undelayed, while the OUTGOING one holds until the slide's final
-   * stretch (350ms delay on the way down) — light leads the arrival and
+   * stretch (350ms delay on the way down): light leads the arrival and
    * trails the departure. */
   opacity: 0.3;
   transition: opacity 300ms ease 350ms;
@@ -95,51 +511,51 @@
 /* Dark only (plan 022). Light on a light page isn't light: the art's colour
  * blurred over white read as a smudge round the card, and a third of it
  * still did. */
-:root[data-theme="light"] .shero__glowbox {
+:root[data-theme="light"] .lhero__glowbox {
   display: none;
 }
-.shero__glowbox img.shero__glow--lit {
+.lhero__glowbox img.lhero__glow--lit {
   opacity: 0.7;
   transition: opacity 300ms ease;
 }
 /* Not yet decoded (lib/artIn.ts): no light. Once it is, the rules above
  * fade it up to theirs, a card's art and its light arriving together. */
-.shero__glowbox img:not([data-loaded]) {
+.lhero__glowbox img:not([data-loaded]) {
   opacity: 0;
 }
-/* Slides are absolutely placed on the track at slot * step (inline left) —
+/* Slides are absolutely placed on the track at slot * step (inline left),
  * the infinite window repositions freely. Vertical inset gives the active
  * card's glow room to breathe inside the clipped section. */
-.shero__card {
+.lhero__card {
   position: absolute;
   top: 22px;
   bottom: 22px;
   border-radius: var(--radius-card);
-  /* No overflow:hidden here — it would clip the Tilt lean/scale (the
-   * .shero__tilt wrapper grows past the box on hover). The rounding
+  /* No overflow:hidden here, it would clip the Tilt lean/scale (the
+   * .lhero__tilt wrapper grows past the box on hover). The rounding
    * lives on the art/scrim layers instead; the ambient glow is the
-   * separate .shero__glowbox layer behind the track. */
+   * separate .lhero__glowbox layer behind the track. */
   background: var(--surface);
   cursor: pointer;
   /* Own compositor layer: the rounded content rides the track's
    * transform without re-rasterizing every frame. */
   transform: translateZ(0);
 }
-.shero__card--active { cursor: pointer; }
+.lhero__card--active { cursor: pointer; }
 /* The Apple TV lean's transform surface: fills the slide, so the art/
  * scrim/text inside keep their exact geometry. react-parallax-tilt owns
- * this element's transform — the slide div above stays carousel-only. */
-.shero__tilt {
+ * this element's transform; the slide div above stays carousel-only. */
+.lhero__tilt {
   position: absolute;
   inset: 0;
 }
 /* Glare exists on every slide (the lib only creates it when enabled at
- * MOUNT, and slides mount non-active — so the prop can't gate by card).
+ * MOUNT, and slides mount non-active, so the prop can't gate by card).
  * Visibility gates here instead: only the center card gets the sheen. */
-.shero__card:not(.shero__card--active) .shero__tilt .glare-wrapper {
+.lhero__card:not(.lhero__card--active) .lhero__tilt .glare-wrapper {
   display: none;
 }
-.shero__art {
+.lhero__art {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -147,7 +563,7 @@
   object-fit: cover;
   border-radius: var(--radius-card); /* the card itself no longer clips (glow) */
 }
-.shero__scrim {
+.lhero__scrim {
   position: absolute;
   inset: 0;
   border-radius: var(--radius-card);
@@ -155,7 +571,7 @@
     linear-gradient(to top, rgba(0, 0, 0, 0.72), transparent 45%),
     linear-gradient(to right, rgba(0, 0, 0, 0.5), transparent 55%);
 }
-.shero__text {
+.lhero__text {
   position: absolute;
   left: 56px;
   bottom: 52px;
@@ -166,7 +582,7 @@
   color: var(--on-image);
 }
 /* Clearlogo title art when the addon provides it; text is the fallback. */
-.shero__logo {
+.lhero__logo {
   max-width: 420px;
   max-height: 160px;
   object-fit: contain;
@@ -176,7 +592,7 @@
  * have one). Sized to take about a logo's room, not the art's: 92px set a
  * five-word name in five lines over the picture (Adam, plan 028). A long name
  * steps down a size, and the lines are balanced so none is a lone word. */
-.shero__title {
+.lhero__title {
   /* An h2's own margin (0.83em, some 60px at this size) was the gap between
    * the name and the synopsis; the logo, an img, never had one. */
   margin: 0;
@@ -192,10 +608,10 @@
    * ground), but it is shadcn's foreground now, not a brand tint. */
   color: oklch(0.985 0 0);
 }
-.shero__title--long {
+.lhero__title--long {
   font-size: clamp(30px, 3vw, 52px);
 }
-.shero__synopsis {
+.lhero__synopsis {
   font-size: 15px;
   line-height: 1.5;
   color: color-mix(in srgb, var(--on-image) 85%, transparent);
@@ -205,19 +621,30 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.shero__meta {
+.lhero__meta {
   font-size: 14px;
   font-variant-numeric: tabular-nums;
   color: color-mix(in srgb, var(--on-image) 60%, transparent);
 }
-.shero__rating { color: var(--rating); }
-.shero__actions { display: flex; gap: 10px; margin-top: 6px; }
+.lhero__rating { color: var(--rating); }
+.lhero__actions { display: flex; gap: 10px; margin-top: 6px; }
 
 /* ---- rows ---- */
 .stream__rows {
   display: flex;
   flex-direction: column;
   gap: 26px;
+  /* Positioned, no z-index: it paints after the shelf's ambient colour
+   * (.shero__ambient, z 0, earlier in the tree), so the rows' own words sit
+   * over it, not under. No new stacking context. */
+  position: relative;
+}
+/* An imported Home row there is nothing to fill yet (features/home/ListRows.tsx):
+ * its name, and one quiet line under it. */
+.home-needs__note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
 }
 /* shadcn's largest heading in a dashboard is `text-2xl font-semibold`, and
  * a row title is a section heading, not a page. 41px was competing with the
@@ -630,7 +1057,7 @@
 /* The viewport owns the page-padding bleed + anchors scrims/arrows. */
 .media-row__viewport {
   position: relative;
-  margin: 0 -28px;
+  margin: 0 calc(var(--gut, 28px) * -1);
 }
 .media-row__scroller {
   display: flex;
@@ -639,7 +1066,7 @@
   /* Top headroom for the tilt/scale hover — a 1.04× poster grows ~9px
    * upward and overflow-x:auto forces overflow-y to clip (spec quirk).
    * The title's margin shrinks to keep the visual rhythm unchanged. */
-  padding: 18px 28px 10px;
+  padding: 18px var(--gut, 28px) 10px;
 }
 /* Mid-drag: the row scrolls under the cursor — suppress hover lifts and
  * accidental selection so the gesture reads as grabbing the shelf. */
@@ -753,6 +1180,39 @@
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+/* Stream's own rows (Home, `.stream__rows`) are smaller: posters 240 wide, and
+ * the meta line (rating, year, length) shows on hover or keyboard focus. It
+ * keeps its space, so nothing under it moves. Discover and the Library keep
+ * 300 and a meta that always shows; Continue Watching's tiles are a different
+ * card (.continue-card). A line that says which episode is next
+ * (data-said, Next Up) is not a detail and stays. Three classes, so a
+ * Continue Watching name (two) is never caught. */
+.stream__rows .stream-card .stream-card__poster,
+.stream__rows .stream-card .stream-card__mono {
+  width: 240px;
+}
+.stream__rows .stream-card .stream-card__name,
+.stream__rows .stream-card .stream-card__meta {
+  max-width: 240px;
+}
+.stream__rows .stream-card > .stream-card__meta:not([data-said]) {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.stream__rows .stream-card:is(:hover, :focus-visible) > .stream-card__meta:not([data-said]) {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stream__rows .stream-card > .stream-card__meta:not([data-said]) {
+    transition: none;
+  }
+}
+/* A touch screen never hovers, and a tap is not :focus-visible: show it. */
+@media (hover: none) {
+  .stream__rows .stream-card > .stream-card__meta:not([data-said]) {
+    opacity: 1;
+  }
+}
 
 /* Continue Watching: the tile (ui.css, plan 019 K7) + the press-and-hold
  * clear. The hold label fades in while the art dims; releasing early opens
@@ -763,12 +1223,11 @@
   cursor: pointer;
   transition: transform 160ms var(--ease-out);
 }
-.continue-card:hover { transform: translateY(-3px); }
 /* 300px tall, as the art was; exactly 16:9 now instead of whatever the
  * backdrop's own aspect was, so every card in the row is one width. */
 .continue-card .tile__pic {
-  height: 300px;
-  width: calc(300px * 16 / 9);
+  height: var(--cw-h, 300px);
+  width: calc(var(--cw-h, 300px) * 16 / 9);
 }
 /* In a grid (the Library's history) the column sets the width: at the
  * row's 300px height every card was 533px across in a 300px column, over
@@ -832,6 +1291,8 @@
   border-radius: 6px;
 }
 .continue-card__text:hover .stream-card__name { color: var(--accent); }
+/* "S3 E8" after a series' title: part of the name, quieter than it. */
+.continue-card__ep { color: var(--text-muted); font-weight: 500; }
 /* Hold-to-clear progress: fills linearly over EXACTLY the 1000ms hold
  * timer in StreamScreen (the animation IS the countdown — keep it under
  * reduced motion, it carries information). A transition, not a keyframe:
@@ -873,6 +1334,47 @@
   pointer-events: none;
   transition: opacity var(--dur-hover) ease;
 }
+
+/* Home's channel tile (On Now, Recent Channels; features/home/LiveRows.tsx):
+ * the tile of ui.css (a 16:9 picture, progress under it, the caption under
+ * that) with the channel's logo on its plate where the art would be. A fixed
+ * width, so a row of them lines up whatever the names are. */
+.chan-tile {
+  flex: 0 0 auto;
+  width: 320px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.chan-tile__pic {
+  display: grid;
+  place-items: center;
+}
+.chan-tile__quality {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.chan-tile__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+/* The caption's lines are single lines in the tile's width. */
+.chan-tile .stream-card__name,
+.chan-tile .stream-card__meta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+.chan-tile:hover .stream-card__name { color: var(--accent); }
 
 /* Cast line: quiet credit under the meta. */
 .vod-detail__castline {
@@ -1840,12 +2342,13 @@
 /* ---- Press feedback (motion plan 001). The poster press lives on the
  * CARD, not .stream-card__tilt — react-parallax-tilt drives the wrapper's
  * transform inline, and inline always beats a stylesheet :active. The
- * hover-lifted continue card settles to -1px, not a jump to origin. ---- */
+ * continue card no longer lifts on hover (Adam, 1.0.16): it presses like the
+ * posters. ---- */
 .stream-card:active {
   transform: scale(0.98);
 }
 .continue-card:active {
-  transform: translateY(-1px) scale(0.98);
+  transform: scale(0.98);
 }
 .vod-source:active,
 .episode-card:active {
@@ -1864,13 +2367,17 @@
   }
 }
 
-/* Reduced motion (motion plan 006): the hero's near-fullscreen slide
- * snaps instead (the glow's opacity crossfade stays — it keeps the
- * change comprehensible); hover LIFTS drop, press dips stay (:active
- * is feedback), brightness/shadow hovers untouched. */
+/* Reduced motion (motion plan 006): the hero's shelf snaps instead, and so
+ * does everything on it (--k, on the hero itself); hover LIFTS drop, press
+ * dips stay (:active is feedback), brightness/shadow hovers untouched. */
 @media (prefers-reduced-motion: reduce) {
-  .shero__track,
-  .shero__glowtrack {
+  .shero--ready {
+    --k: 0;
+  }
+  /* The large style's slide snaps; the glow's opacity crossfade stays, as it
+   * keeps the change comprehensible. */
+  .lhero__track,
+  .lhero__glowtrack {
     transition: none;
   }
   .continue-card:hover:not(:active),
@@ -2029,4 +2536,30 @@
  * screen for up to the addon's full 30s timeout. */
 .tune__vodcancel {
   margin-top: 10px;
+}
+
+/* A pop-out to VLC that did not start (plan 032): under the player's top
+ * right buttons, where the Pop Out button was. The player plays on. */
+.vlc-note {
+  position: fixed;
+  top: 68px;
+  right: 20px;
+  z-index: var(--z-player-over);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(440px, calc(100vw - 40px));
+  padding: 8px 8px 8px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--float-border);
+  background: var(--float-bg);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  box-shadow: var(--float-shadow);
+  color: var(--text);
+}
+.vlc-note__msg {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13.5px;
 }

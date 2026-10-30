@@ -39,6 +39,31 @@ export function words(s: string): string[] {
 }
 
 /**
+ * A title's key and words, kept for the session. Every query scores every
+ * title, and folding one (NFD plus two regexes) is most of what a score costs:
+ * 30,000 titles took about 70ms a query in Node and about 30ms with the folds
+ * kept (the first query pays for them, roughly 50ms more). Discover asks Movies
+ * and Shows, then a broadened pass, on every keystroke. A title folds the same
+ * whatever is typed, so it folds once. The query is not kept: it is one string
+ * a pass.
+ *
+ * shortcut: cleared whole at 200,000 titles rather than evicting one by one,
+ * which is more than two big libraries and the catalogs hold; a session past
+ * it just folds again.
+ */
+const FOLDED_CAP = 200_000;
+const folds = new Map<string, { k: string; w: string[] }>();
+function foldedTitle(title: string): { k: string; w: string[] } {
+  let f = folds.get(title);
+  if (!f) {
+    if (folds.size >= FOLDED_CAP) folds.clear();
+    f = { k: key(title), w: words(title) };
+    folds.set(title, f);
+  }
+  return f;
+}
+
+/**
  * 0 means "not a match at all"; higher is better.
  *
  * The tiers are ordered by how much of the title the query accounts for,
@@ -51,7 +76,8 @@ export function words(s: string): string[] {
  * neither is a prefix of anything.
  */
 export function score(title: string, query: string): number {
-  const t = key(title);
+  const folded = foldedTitle(title);
+  const t = folded.k;
   const q = key(query);
   if (!t || !q) return 0;
 
@@ -62,7 +88,7 @@ export function score(title: string, query: string): number {
   // Every typed word present in the title, each as a whole word or the
   // start of one. "dark knight" -> "The Dark Knight"; "harr pot" ->
   // "Harry Potter…", which is what typing ahead feels like.
-  const tw = words(title);
+  const tw = folded.w;
   const qw = words(query);
   if (qw.length === 0) return 0;
   const hit = qw.filter((w) => tw.some((x) => x.startsWith(w))).length;

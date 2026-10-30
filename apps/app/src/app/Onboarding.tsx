@@ -1,4 +1,5 @@
 import { Button } from "../components/ui/button";
+import { useCursorGlow } from "../ui/useCursorGlow";
 import {
   useEffect,
   useRef,
@@ -18,11 +19,12 @@ import {
   type ClockFormat,
 } from "../features/settings/clockFormat";
 import {
-  STARTUP_TABS,
   loadStartupTab,
   saveStartupTab,
+  shownStartup,
   type StartupTab,
 } from "../features/settings/startupTab";
+import { currentStartupChoices } from "../features/settings/startupSources";
 import {
   EMPTY_PLAYLIST_FORM,
   KIND_TABS,
@@ -46,6 +48,7 @@ import { discoverEndpoint } from "../data/stalker";
 import { httpGetText } from "../lib/http";
 import { scrubbedMessage } from "../lib/errors";
 import { AccentPicker } from "../features/settings/AccentPicker";
+import { loadThemePack, packInfo, packShowing, themeAccentStore } from "../features/settings/themePack";
 import { TraktSection } from "../features/settings/TraktSection";
 import { MalSection } from "../features/settings/MalSection";
 import { readSignIn } from "../features/aiojf/account";
@@ -261,32 +264,9 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
   // The cursor glow lerps toward the pointer ON BOOTSCENE'S CLOCK
   // (onTick — one rAF loop, ever). Reduced-motion never runs the loop,
   // so the glow stays hidden rather than stuck at 0,0.
+  // The lerp is ui/useCursorGlow.ts, which Prism's glow shares.
   const cursorRef = useRef<HTMLDivElement>(null);
-  const pointerRef = useRef<{ x: number; y: number } | null>(null);
-  const glowPosRef = useRef<{ x: number; y: number } | null>(null);
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      pointerRef.current = { x: e.clientX, y: e.clientY };
-    };
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
-  }, []);
-  const cursorTick = (_now: number, dt: number) => {
-    const target = pointerRef.current;
-    if (!target || !cursorRef.current) return;
-    let pos = glowPosRef.current;
-    if (!pos) {
-      // First sighting jumps straight to the pointer — no sweep in
-      // from the corner.
-      pos = { ...target };
-      glowPosRef.current = pos;
-      cursorRef.current.classList.add("is-live");
-    } else {
-      pos.x += (target.x - pos.x) * Math.min(1, dt * 9);
-      pos.y += (target.y - pos.y) * Math.min(1, dt * 9);
-    }
-    cursorRef.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
-  };
+  const cursorTick = useCursorGlow(cursorRef);
 
   const think = () => bootRef.current?.think();
   /** Verifications hold the spin the whole time they run. */
@@ -325,10 +305,14 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
    * answered. */
   const followAny = useRef(false);
   /** The step `dir` away from `from`. The follow step is not there when the
-   * build has nothing to follow with, in either direction. */
+   * build has nothing to follow with, and the start step is not there when
+   * there is nothing to choose between (fewer than two places to open on),
+   * in either direction. */
   const hop = (from: number, dir: 1 | -1) => {
     const next = from + dir;
-    return next === STEP.follow && !followAny.current ? next + dir : next;
+    if (next === STEP.follow && !followAny.current) return next + dir;
+    if (next === STEP.start && currentStartupChoices().length < 2) return next + dir;
+    return next;
   };
 
   const advance = () => {
@@ -342,6 +326,10 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     setPhase("out");
     window.clearTimeout(swapTimer.current);
     swapTimer.current = window.setTimeout(() => {
+      // The start step skipped for having one place to open on: that place
+      // is the answer, so save it.
+      const only = currentStartupChoices();
+      if (step + 1 === STEP.start && only.length === 1) saveStartupTab(only[0].key);
       setStep((s) => hop(s, 1));
       setPhase("in");
     }, SWAP_MS);
@@ -686,8 +674,15 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     saveClockFormat(next);
   };
 
+  // Replayed from Settings, the app may wear a theme (plan 035): the accent
+  // picker then writes that theme's store, as Appearance's does, and a theme
+  // with no accent of its own (Prism) has no picker. Read when the step shows.
+  const themed = step === STEP.look && packShowing(loadThemePack()) ? packInfo(loadThemePack()) : null;
+
   // --- Startup tab step ---------------------------------------------------
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
+  // Read when the step shows: the sources are added on the steps before it.
+  const startupOpts = step === STEP.start ? currentStartupChoices() : [];
   const pickStartup = (tab: StartupTab) => {
     setStartup(tab);
     saveStartupTab(tab);
@@ -1077,8 +1072,16 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
             v0.9.79, so this is the same component, not a copy.
             One grid for both rows so the labels share a column. */}
         <div className="onb-prefs" style={idx(1)}>
-          <span className="onb-chips__label">Accent</span>
-          <AccentPicker portalContainer={root} />
+          {!(themed && !themed.accent) && (
+            <>
+              <span className="onb-chips__label">Accent</span>
+              <AccentPicker
+                portalContainer={root}
+                store={themed ? themeAccentStore(themed.key) : undefined}
+                theme={themed?.accent ? { name: themed.label, hex: themed.accent } : undefined}
+              />
+            </>
+          )}
           <span className="onb-chips__label">Clock</span>
           <div className="onb-chips">
             <Segmented label="Clock format" options={CLOCK_TABS} value={clock} onChange={pickClock} />
@@ -1101,8 +1104,8 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
         <div className="onb-chips" style={idx(1)}>
           <Segmented
             label="Start on"
-            options={STARTUP_TABS}
-            value={startup}
+            options={startupOpts}
+            value={shownStartup(startup, startupOpts)}
             onChange={pickStartup}
           />
         </div>

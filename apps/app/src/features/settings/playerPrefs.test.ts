@@ -35,20 +35,24 @@ vi.stubGlobal(
 
 const {
   AUDIO_CHANNEL_TABS,
+  POPOUT_APP_TABS,
   POPOUT_CORNERS,
   POPOUT_SIZE_TABS,
   SUBTITLE_SIZE_TABS,
   loadAudioChannels,
+  loadPopoutApp,
   loadPopoutCorner,
   loadPopoutSize,
   loadSubtitleSize,
   mpvAudioChannels,
   onAudioChannelsChange,
+  onPopoutAppChange,
   onPopoutCornerChange,
   onPopoutSizeChange,
   onSubtitleSizeChange,
   popoutPlace,
   saveAudioChannels,
+  savePopoutApp,
   savePopoutCorner,
   savePopoutSize,
   saveSubtitleSize,
@@ -239,5 +243,44 @@ describe("Pop-out", () => {
     savePopoutCorner("top-right");
     expect(sizes).toEqual(["medium"]);
     expect(corners).toEqual(["top-right"]);
+  });
+});
+
+describe("Pop Out Films and Shows In (plan 032)", () => {
+  it("is BlammyTV by default, which is what a pop-out always was", () => {
+    expect(loadPopoutApp()).toBe("blammytv");
+    expect(store.size).toBe(0);
+  });
+
+  it("keeps VLC, and BlammyTV again", () => {
+    savePopoutApp("vlc");
+    expect(loadPopoutApp()).toBe("vlc");
+    expect(JSON.parse(store.get("blammytv.popoutApp")!)).toEqual({ v: 1, data: "vlc" });
+    savePopoutApp("blammytv");
+    expect(loadPopoutApp()).toBe("blammytv");
+  });
+
+  it("reads anything else as BlammyTV", () => {
+    for (const junk of ["VLC", "mpv", "", 1, null, true, [], {}]) {
+      store.clear();
+      put("popoutApp", junk);
+      expect(loadPopoutApp(), JSON.stringify(junk)).toBe("blammytv");
+    }
+    put("popoutApp", "vlc", 2);
+    expect(loadPopoutApp()).toBe("blammytv");
+  });
+
+  it("offers BlammyTV and VLC, in that order", () => {
+    expect(POPOUT_APP_TABS.map((t) => t.label)).toEqual(["MPV", "VLC"]);
+    expect(POPOUT_APP_TABS.map((t) => t.key)).toEqual(["blammytv", "vlc"]);
+  });
+
+  it("tells listeners what was chosen", () => {
+    const seen: string[] = [];
+    const off = onPopoutAppChange((v) => seen.push(v));
+    savePopoutApp("vlc");
+    off();
+    savePopoutApp("blammytv");
+    expect(seen).toEqual(["vlc"]);
   });
 });

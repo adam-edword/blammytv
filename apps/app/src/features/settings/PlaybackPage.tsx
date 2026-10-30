@@ -1,4 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui/button";
+import { isTauri, tauriRecDefaultFolder, tauriRecPickFolder } from "../../lib/tauri";
 import { EYEBROW } from "../../ui/eyebrow";
 import { Segmented } from "../../ui/Segmented";
 import { Combobox, type ComboboxOption } from "../../ui/Combobox";
@@ -38,22 +40,35 @@ import {
 } from "./upNext";
 import {
   AUDIO_CHANNEL_TABS,
+  POPOUT_APP_TABS,
   POPOUT_CORNERS,
   POPOUT_SIZE_TABS,
   SUBTITLE_SIZE_TABS,
   loadAudioChannels,
+  loadPopoutApp,
   loadPopoutCorner,
   loadPopoutSize,
   loadSubtitleSize,
   saveAudioChannels,
+  savePopoutApp,
   savePopoutCorner,
   savePopoutSize,
   saveSubtitleSize,
   type AudioChannels,
+  type PopoutApp,
   type PopoutCorner,
   type PopoutSize,
   type SubtitleSize,
 } from "./playerPrefs";
+import { plainError } from "../recordings/format";
+import {
+  RECORDING_QUALITY_TABS,
+  loadRecordingQuality,
+  saveRecordingQuality,
+  type RecordingQuality,
+} from "./recordingQuality";
+import { loadRecordingsFolder, saveRecordingsFolder } from "./recordingsFolder";
+import { recordingWarningsOn, showRecordingWarningsAgain } from "./recordingWarning";
 import { SignInNote } from "./SignInNote";
 
 /**
@@ -114,6 +129,33 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
   const [subSize, setSubSize] = useState<SubtitleSize>(loadSubtitleSize);
   const [popSize, setPopSize] = useState<PopoutSize>(loadPopoutSize);
   const [popCorner, setPopCorner] = useState<PopoutCorner>(loadPopoutCorner);
+  const [popApp, setPopApp] = useState<PopoutApp>(loadPopoutApp);
+
+  // Recordings Folder: the one picked, else the default native names. Only
+  // the app records, so only the app draws it.
+  const [recFolder, setRecFolder] = useState<string>(loadRecordingsFolder);
+  const [recDefault, setRecDefault] = useState<string>("");
+  const [recQuality, setRecQuality] = useState<RecordingQuality>(loadRecordingQuality);
+  const [recFolderErr, setRecFolderErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isTauri()) return;
+    tauriRecDefaultFolder().then(setRecDefault, () => {});
+  }, []);
+  // The reminder before Record reads the player's own buffer (a line of one
+  // stream). "Don't Show Again" turns it off; the way back is here, drawn only
+  // while it is off.
+  const [recWarning, setRecWarning] = useState<boolean>(recordingWarningsOn);
+  const changeRecFolder = () => {
+    setRecFolderErr(null);
+    tauriRecPickFolder(recFolder || recDefault).then(
+      (path) => {
+        if (!path) return;
+        setRecFolder(path);
+        saveRecordingsFolder(path);
+      },
+      (e) => setRecFolderErr(`Couldn’t open the folder picker: ${plainError(e).replace(/\.+$/, "")}.`),
+    );
+  };
 
   const pickSkip = (type: SkipType, mode: SkipMode) => {
     const next = { ...skipping, [type]: mode };
@@ -327,6 +369,24 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
           />
         </div>
 
+        <div className="customize-row" data-setting="popout-app">
+          <div>
+            <h4 className="customize-row__title">Pop Out Films and Shows In</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Live TV always pops out in MPV.
+            </p>
+          </div>
+          <Segmented
+            label="Pop out films and shows in"
+            options={POPOUT_APP_TABS}
+            value={popApp}
+            onChange={(k: PopoutApp) => {
+              setPopApp(k);
+              savePopoutApp(k);
+            }}
+          />
+        </div>
+
         {/* Stacked: two choices, and the corner has five words. */}
         <div className="customize-stack" data-setting="popout">
           <div>
@@ -363,6 +423,63 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
           </div>
         </div>
       </section>
+
+      {isTauri() && (
+        <>
+          <h3 className={`settings__group ${EYEBROW}`}>Recordings</h3>
+          <section className="settings-section">
+            <div className="customize-stack" data-setting="recordings-folder">
+              <div>
+                <h4 className="customize-row__title">Recordings Folder</h4>
+                <p className="settings__section-note settings__section-note--dim break-all">
+                  {recFolder || recDefault}
+                </p>
+                {recFolderErr && (
+                  <p className="settings__section-note" role="alert">
+                    {recFolderErr}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2 self-start">
+                <Button variant="outline" type="button" onClick={changeRecFolder}>
+                  Change…
+                </Button>
+                {!recWarning && (
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => {
+                      setRecWarning(true);
+                      showRecordingWarningsAgain();
+                    }}
+                  >
+                    Show Recording Warnings Again
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="customize-stack" data-setting="recording-quality">
+              <div>
+                <h4 className="customize-row__title">Recording Quality</h4>
+                <p className="settings__section-note settings__section-note--dim">
+                  Smaller Files compresses each recording after it finishes.
+                </p>
+              </div>
+              <Segmented
+                className="self-start"
+                label="Recording quality"
+                options={RECORDING_QUALITY_TABS}
+                value={recQuality}
+                onChange={(k: RecordingQuality) => {
+                  setRecQuality(k);
+                  saveRecordingQuality(k);
+                }}
+              />
+            </div>
+          </section>
+        </>
+      )}
     </>
   );
 }

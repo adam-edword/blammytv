@@ -35,6 +35,22 @@ describe("allowedSizes", () => {
   });
 });
 
+describe("allowedSizes with the app's own recordings (plan 029)", () => {
+  it("offers only the sizes that fit in the limit less what runs", () => {
+    expect(allowedSizes({ max: 4 }, 1)).toEqual([2, 3]);
+    expect(allowedSizes({ max: 3 }, 1)).toEqual([2]);
+    expect(allowedSizes({ max: 3 }, 2)).toEqual([]);
+  });
+
+  it("changes nothing with none running", () => {
+    expect(allowedSizes({ max: 3 }, 0)).toEqual(allowedSizes({ max: 3 }));
+  });
+
+  it("still offers everything when the line reports no limit", () => {
+    expect(allowedSizes(null, 2)).toEqual([2, 3, 4]);
+  });
+});
+
 describe("capLine", () => {
   it("says the number, because that is the actionable part", () => {
     expect(capLine({ max: 3 })).toContain("3");

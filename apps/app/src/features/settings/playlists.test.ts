@@ -6,6 +6,7 @@ import {
   isCategoryHidden,
   isHttpUrl,
   playlistSource,
+  playlistsSavedEmpty,
   removePlaylist,
   replacePlaylist,
   savePlaylists,
@@ -102,6 +103,11 @@ describe("helpers", () => {
     expect(playlistSource(addPlaylist([], draft(), "a")[0])).toBe(
       "https://host.example",
     );
+  });
+
+  it("stars out an M3U link whole, host and all", () => {
+    const m3u = addPlaylist([], { ...draft(), kind: "m3u", url: "http://tv.example.com:8080/get.php?password=secret" }, "m")[0];
+    expect(playlistSource(m3u)).toBe("•••••");
   });
 
   it("accepts only http(s) URLs", () => {
@@ -259,5 +265,48 @@ describe("a playlist's hand-matched guide channels go with it", () => {
     savePlaylists(togglePlaylist(list, "a"));
     savePlaylists(replacePlaylist(list, "a", draft("Renamed")));
     expect(loadGuideFixes("a")).toEqual({ "a:1": "g1" });
+  });
+});
+
+describe("playlistsSavedEmpty", () => {
+  const mem = new Map<string, string>();
+  beforeEach(() => {
+    mem.clear();
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => void mem.set(k, v),
+      removeItem: (k: string) => void mem.delete(k),
+    });
+    vi.stubGlobal("window", new EventTarget());
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("is true for an empty list that was saved", () => {
+    savePlaylists([]);
+    expect(playlistsSavedEmpty()).toBe(true);
+    mem.set("blammytv.playlists", JSON.stringify({ v: 1, data: [] }));
+    expect(playlistsSavedEmpty()).toBe(true);
+  });
+
+  it("is false for a list with playlists in it", () => {
+    savePlaylists(addPlaylist([], draft("A"), "a"));
+    expect(playlistsSavedEmpty()).toBe(false);
+  });
+
+  it("is false for a key that is absent, unreadable, of another version or not a list", () => {
+    expect(playlistsSavedEmpty()).toBe(false);
+    for (const raw of ["{unreadable", "", '{"v":2,"data":[]}', '{"v":1,"data":{}}', '{"v":1}', "[]", "null"]) {
+      mem.set("blammytv.playlists", raw);
+      expect(playlistsSavedEmpty(), raw).toBe(false);
+    }
+  });
+
+  it("is false when the store cannot be read", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+    });
+    expect(playlistsSavedEmpty()).toBe(false);
   });
 });

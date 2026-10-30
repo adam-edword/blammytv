@@ -2,6 +2,469 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.0: Home and recording (2026-10-30)
+
+This one runs the installer. There's no 1.1: Home and recording would each
+have been one, and they land together.
+
+### Home
+
+- **Click the logo for Home**: one page of Continue Watching, Up Next, your
+  catalogs, On Now, Recent Channels, Today's Games, Recordings, Saved lists
+  and Trakt's Trending and Popular.
+- **Settings → Home** puts the rows in your order, renames them and switches
+  them off, with a picture of each. **Import Layout** takes a layout exported
+  from Strand.
+- **Today's Games** has a sport menu beside its title.
+- **Startup Tab** can open the app on Home.
+
+### Record Live TV
+
+- **Record what you're watching** or right-click a programme in the Guide to
+  record it later. Cancel it the same way.
+- **Pause and rewind live TV** for hours. LIVE jumps back to now.
+- **Recordings play from Library and Live TV** and can be saved smaller.
+  Pick where they go in Settings → Playback → Recordings Folder.
+
+### Also New
+
+- **Pop out films and shows in VLC** from Settings → Playback. Your place
+  still syncs to Continue Watching and Trakt.
+- **Themes**: Prism, Velvet and Lagoon in Settings → Appearance → Theme.
+- **Genres in Discover open as rows**: what's popular, then the mixes your
+  catalogs hold.
+- **Ctrl+K finds films and shows** and can send a search to Discover.
+- **What's New** shows after an update like this one, and Settings → App
+  opens it any time.
+
+### Fixes
+
+- Alt no longer freezes the app or mutes it.
+- Go Live after a stalled channel reloads once, then jumps to live.
+- The nav centres its rows with or without a TV playlist.
+
+The 1.0.1 to 1.0.49 entries below are the builds that became 1.2.0.
+
+## 1.0.49: Prism's now-line shows its colours (unreleased)
+
+- **The Guide's now-line in Prism** shows the whole rainbow down the
+  window instead of only red. The colours stay put as you scroll the list.
+
+## 1.0.48: Pick a sport on Today's Games (unreleased)
+
+- **Today's Games has a sport menu beside its title** on Home: All Sports,
+  or a sport you follow that has games today, with how many. Your pick
+  stays. On a day your sport has no games the row shows everything.
+- **This replaces 1.0.47's row per sport.** Add Row → Sports offers Today's
+  Games again.
+
+## 1.0.47: One games row per sport, and Home fixes (unreleased)
+
+- **Add Row → Sports** offers a row for each sport you follow, like
+  Basketball Today, beside Today's Games.
+- **Startup Tab can open on Home** with only a TV playlist.
+- **Settings → Home lists a new source's rows** right away, and dragging a
+  row keeps the others in their places.
+- **Removing or adding a row** keeps your place for the keyboard.
+- **Recordings can be added back** with no playlist.
+- **Importing a Strand layout twice** no longer doubles its watchlist.
+- **A Trakt row picks up a new Titles per Row** on your next visit.
+
+## 1.0.46: What's New, and the docs for 1.2 (unreleased)
+
+- **The first launch after an update shows What's New.** The boot plays,
+  then the logo rises to the top and the new release's highlights fill in
+  below. Click or press any key to skip straight to it.
+- **See Full Changelog** lists every release. **Settings → App → What's
+  New** opens it any time.
+- **Ctrl+K** finds What's New by "changelog" or "release notes".
+- The docs have new Home and Recording pages, and Appearance, Stream and
+  Live TV cover themes, pop-out, genre rows and Ctrl+K.
+
+## 1.0.45: Fixes from the 1.2 review (unreleased)
+
+- **A programme can't be recorded twice.** Right-clicking one that's
+  scheduled or already recording offers Cancel Recording or shows
+  Recording, even in the minute before it starts or after the guide moves
+  its time.
+- **Recordings play from Live TV with no playlist**, or while the channels
+  are still loading.
+- **The VLC note doesn't come back** when you play the same title again.
+- **Switching genres in Discover** stops the old genre's searches.
+- **Replaying onboarding** saves your accent to the theme you're using, and
+  Prism doesn't get one.
+- **Velvet and Lagoon's focus ring and selection** follow the accent you
+  pick.
+- **Settings → Appearance notices** when Match Windows switches to Light.
+
+## 1.0.44: Ctrl+K search fixes (unreleased)
+
+- **A search that can't reach your sources says so** instead of "Nothing
+  matches that."
+- **Reopening Ctrl+K** no longer flashes the last search's answer.
+- **Titles in your lists** show their saved mark in the search results too.
+
+## 1.0.43: Find films and shows from Ctrl+K (unreleased)
+
+- **Type a title into Ctrl+K** and it searches the way Discover does. Up to
+  five results show under More Films and Series, below anything else that
+  matched.
+- **"Searching…"** shows while the search runs.
+- **The last line is always Search Discover for what you typed.**
+
+## 1.0.42: Both nav rows centred, with or without TV (unreleased)
+
+- **Discover's search row centres under the tabs** when you have a TV
+  playlist, instead of sitting at the left. The logo stays in the middle.
+
+## 1.0.41: The tabs centre over Discover's search (unreleased)
+
+- **With no TV playlist**, the tabs now sit centred over Discover's search
+  row, instead of at its left with a gap on the right.
+
+## 1.0.40: A picture of each Home row (unreleased)
+
+- **Settings → Home shows a small picture of each row** beside its name:
+  wide cards for Continue Watching, posters for a catalog, channel tiles
+  for On Now, and so on. A row that's switched off shows its picture
+  dimmed.
+
+## 1.0.39: Saved's list menu, and MPV (unreleased)
+
+- **Add Row → Saved** shows its list of Library lists in full, instead of
+  cut off at the menu's edge.
+- **Pop Out Films and Shows In** offers MPV and VLC. MPV is the app's own
+  player, as before.
+
+## 1.0.38: Saved and Trakt rows on Home, and Strand import (unreleased)
+
+- **Settings → Home → Add Row** now offers Saved (any Library list) and
+  Trakt's Trending and Popular movies and shows.
+- **Import Layout** takes a layout exported from Strand: paste it, and its
+  rows join yours in Strand's order. A row Home can't fill yet shows as
+  Needs a Source.
+- **A playlist-only Home** shows the playlist's Movies and Shows folders,
+  as Stream does, instead of "Nothing on Home".
+- **Renaming Up Next** no longer gives both Next Up rows the same name:
+  Jellyfin's adds "on Jellyfin".
+- **Back from a title found with Ctrl+K on Home** returns to Home.
+- **Home with only live rows** says it's loading until they answer.
+
+## 1.0.37: Themes (unreleased)
+
+- **Settings → Appearance → Theme:** Default, Prism, Velvet and Lagoon.
+- **Prism** makes the app look like onboarding: true black, white type,
+  faint dots behind everything, and a soft light that follows your mouse
+  between the cards. The rainbow shows in the Guide's now-line, the
+  player's progress bar and the shelf's glow.
+- **Velvet** (oxblood and brass) and **Lagoon** (deep teal and aqua) each
+  keep their own accent colour, and remember your pick.
+- **Themes are dark only.** In Light, the app keeps its own look.
+
+## 1.0.36: Fixes for VLC and Home's live rows (unreleased)
+
+- **Starting another episode while VLC plays** no longer has VLC's spot
+  written over it in Continue Watching.
+- **Popping out to VLC past 80%** no longer tells Trakt about the same
+  watch twice.
+- **Switching on a Home live row** shows your current channels, not the
+  ones from before a playlist change.
+- **The Recordings row works with no playlist**, since recordings are
+  files on your PC.
+
+## 1.0.35: Live TV on Home (unreleased)
+
+- **Four new Home rows:** On Now (your starred channels with what's on and
+  a progress bar), Recent Channels, Today's Games (for the leagues and
+  teams you follow) and Recordings.
+- **Settings → Home → Add Row** adds them, and the x takes one off.
+- **On Now and Today's Games show up once on their own** when you have a
+  playlist. Take one off and it stays off.
+- **A click on a channel** opens it in the Guide's player, a game opens in
+  the Sports theater, and a recording plays.
+
+## 1.0.34: Fixes from the code review (unreleased)
+
+- **Go Live after a stalled channel reloads once, then seeks** like it
+  should, instead of reloading on every press.
+- **Record on a programme that's on can't start it twice** if you click it
+  again while the first is starting. The menu reads Recording meanwhile.
+- **Flipping tabs while a genre loads** no longer brings you back to an
+  empty genre page.
+- **A genre's later titles rank by the same rule as its first.**
+- **See All moves keyboard focus** to the page's Back button, and Back
+  returns it to See All.
+- **VLC gets 45 seconds to start**, not 20, so a slow first launch is still
+  followed.
+- **Cancelling a scheduled recording that can't be saved** says so and keeps
+  it, instead of quietly coming back at the next launch.
+
+## 1.0.33: Pop out films and shows in VLC (unreleased)
+
+- **Settings → Playback → Pop Out Films and Shows In** picks BlammyTV or
+  VLC. With VLC, Pop Out closes the player and VLC carries on from your
+  position.
+- **VLC's position comes back** to Continue Watching, Trakt, AIOStreams and
+  Jellyfin, and a title counts as watched at the same 90% line.
+- **No VLC on the PC:** the player keeps playing, and a note offers
+  Download VLC. Live TV always pops out in BlammyTV.
+
+## 1.0.32: Genre rows tuned on a real library (unreleased)
+
+- **A title that leads with the genre ranks first.** Forrest Gump and Ted
+  Lasso now sit above Pulp Fiction on Comedy.
+- **Each title is in one mix row**, so anime stays in Anime Comedy instead
+  of filling every row, and Romantic Comedy holds romcoms.
+- **Format tags like Reality or Talk Show don't make rows.**
+
+## 1.0.31: Genres as rows (unreleased)
+
+- **Picking a genre in Discover opens rows**: Popular (from TMDB, when the
+  app has its key), Just the genre, its Series, then the mixes your
+  catalogs hold, like Romantic Comedy or Action Comedy.
+- **Titles that aren't the genre are left out**, and the rest are ranked by
+  how much of the title is the genre, then by how popular it looks.
+- **See All** on a row opens it as a grid; See All at the foot opens the
+  whole genre.
+
+## 1.0.30: Start On keeps Stream for a new Xtream playlist (unreleased)
+
+- **Picking Stream with only an Xtream playlist opens on Stream again**, not
+  Live TV. Start On treated a playlist whose movies hadn't been read yet as
+  having none (1.0.28).
+
+## 1.0.29: A look inside Discover's genre grids (unreleased)
+
+- **Nothing changes on screen.** For the genre rows to come (plan 034),
+  `copy(btvGenreGrid())` in the console copies what the Discover grid on
+  screen is made of: each card's catalog and place in it, its genres and
+  rating.
+
+## 1.0.28: Home first in Settings; Start On only where you have a source (unreleased)
+
+- **Home is the first page in Settings.**
+- **Start On offers only places you can use**: Live TV once you have a
+  playlist, and Home, Stream and Discover once you have something to stream.
+  Onboarding skips the question when there's only one place to go.
+- **The logo is always in the nav.** Without a playlist it sits at the left
+  end, so Home is always a click away.
+
+## 1.0.27: Alt no longer freezes the app (unreleased)
+
+- **Pressing Alt on its own no longer freezes the page.** Windows put the
+  window into its keyboard menu mode, which held the mouse until you
+  clicked or pressed Alt again, and cut the sound while it lasted. Alt+F4
+  and Alt+Space work as before.
+
+## 1.0.26: Home, behind the logo (unreleased)
+
+- **Click the logo in the middle of the nav for Home**: the carousel,
+  Continue Watching, Up Next and your catalog rows, in the order you set.
+  The logo glows softly while you're there, and no tab is lit.
+- **Settings → Home** (a new page): drag rows into order, rename them, or
+  switch them off. Home changes behind Settings as you go.
+- **Start On can be Home.** Live TV stays the default.
+- **Stream's own page is unchanged.**
+
+## 1.0.25: The shelf a touch smaller (unreleased)
+
+- **The shelf carousel is 5% smaller than in 1.0.23**: the focused card is
+  1050 x 591 on a wide window.
+
+## 1.0.24: Fixes from a review of everything since 1.0 (unreleased)
+
+- **A finished Smaller Files shrink is kept** when the recording is open
+  somewhere, and swapped in later, not encoded all over again.
+- **Quitting BlammyTV stops** a recording that's still being finished or
+  shrunk; it picks up again at the next launch.
+- **Closing a Guide pop-out no longer starts the channel over a recording**
+  you had opened in the meantime.
+- **Importing settings with no playlists clears** what the old playlists
+  left on disk, logins included.
+- **Two programmes back to back on a one-stream line** can both be
+  scheduled; the first stops at its programme's end so the second can start.
+
+## 1.0.23: A bigger shelf (unreleased)
+
+- **The shelf carousel is 15% bigger.** The focused card is 1104 x 621 on a
+  wide window, and the posters beside it grow with it.
+- **The focused card leans a touch less**, so the bigger card still stays
+  clear of the posters beside it.
+
+## 1.0.22: Record a programme from the Guide (unreleased)
+
+- **Right-click a programme in the Guide → Record.** It records from a
+  minute before it starts to a minute after it ends. One that's on now
+  starts straight away.
+- **Scheduled recordings survive a restart.** One whose start went by while
+  BlammyTV was closed shows as Missed; it isn't started late.
+- **Too many at once is said when you schedule it**, not when it fails:
+  "1 other recording overlaps this one, and your line allows 1 stream at
+  once."
+- **Cancel Recording** in the same menu, or on the row in Recordings. A
+  scheduled programme has a ring in the Guide.
+
+## 1.0.21: Pause and rewind live TV for hours (unreleased)
+
+- **Live TV keeps hours behind you.** A live channel buffers to disk, so you
+  can pause it or rewind it for about two hours or more, not a few minutes.
+- **LIVE jumps straight back** to the live edge without reloading the
+  channel, when the stream has kept up. If it stalled, LIVE reloads it as
+  before.
+- **The buffer stops growing** at 12 GB or when the drive gets under 2 GB
+  free, and is deleted when you change channel.
+
+## 1.0.20: VLC, the native half (unreleased)
+
+- **Nothing to see yet.** The app can now find VLC, start it on a film or an
+  episode, and read back how far you've got. The setting and the button
+  come with the next part.
+
+## 1.0.19: The episode without the pipe (unreleased)
+
+- **Continue Watching reads "Dr. STONE S3 E8"**, the episode in grey.
+
+## 1.0.18: Ratings with a star; the episode beside the title (unreleased)
+
+- **Ratings on cards have a star**, "★ 8.1", so they can't be read as
+  something else.
+- **Continue Watching puts a series' episode beside its title**,
+  "Dr. STONE | S3 E8", and the line under it is the details and time left.
+
+## 1.0.17: Smaller Files, and recordings that say what they're doing (unreleased)
+
+- **Settings → Playback → Recording Quality**: Original Quality, or
+  Smaller Files, which compresses each recording after it finishes.
+- **A recording's row says what's happening to it**: Waiting to Finish,
+  Finishing 40%, Waiting to Shrink, Shrinking 70%, then how much it saved.
+- **Install and Restart wait** while a recording is being finished or
+  shrunk, as they wait for one that's recording.
+
+## 1.0.16: Continue Watching says which episode (unreleased)
+
+- **A series on Continue Watching shows its episode**, "S1 · E4 · 42m
+  Left".
+- **Continue Watching cards no longer lift** when you point at them; they
+  lean like the rest.
+
+## 1.0.15: Stream's rows, tidier (unreleased)
+
+- **Smaller posters on Stream's rows**, so more fit across. Library and
+  Discover are unchanged.
+- **A poster's rating, year and length show when you point at it** (or
+  Tab to it); the title always shows. Next Up's episode line stays.
+- **The page takes the shelf's colour**: the focused title's picture,
+  blurred to colour, behind the top of Stream, and it changes with the
+  shelf. Dark theme only for now.
+
+## 1.0.14: Recordings saved as .mkv, and smaller if you like (unreleased)
+
+- **A finished recording is repackaged into an .mkv**, losslessly. It seeks
+  better in other players and is a little smaller. The .ts it was recorded
+  to is replaced only once the .mkv plays through to the end at the same
+  length; if it doesn't, the .ts stays.
+- **Smaller Files** (the setting arrives with the next version): a finished
+  recording can be re-encoded to HEVC, about half the size, on your GPU when
+  you have one. Interlaced channels are deinterlaced on the way.
+- Work goes one recording at a time, never while one is recording, and picks
+  up where it left off after a restart.
+
+## 1.0.13: Watch Now with the keyboard (unreleased)
+
+- **Enter on the Large carousel's Watch Now** just plays, instead of also
+  opening the title's page.
+
+## 1.0.12: Pick the carousel's style (unreleased)
+
+- **Settings → Appearance → Stream → Carousel Style**: Shelf (the new
+  one) or Large (the original, with Watch Now and More Info on the card).
+
+## 1.0.11: The shelf loads further ahead (unreleased)
+
+- **A fast drag along Stream's shelf** no longer reaches posters that are
+  still loading: the shelf now has three screens of posters ready.
+
+## 1.0.10: A gentler lean on the shelf's big card (unreleased)
+
+- **The focused card on Stream's shelf leans gently** and no longer
+  swings over the cards beside it. Posters keep the rows' lean.
+
+## 1.0.9: The shelf's pictures fade in (unreleased)
+
+- **A growing card's wide picture fades in** instead of snapping on, and
+  the poster over it fades out just behind it.
+- **The shelf's cards sit closer together**, 16px apart like the rows.
+
+## 1.0.8: The shelf's cards tilt (unreleased)
+
+- **Every card on Stream's shelf leans under the pointer**, posters and
+  the focused card alike, with the same gentle lean, lift and sheen as the
+  rows. Only the card leans, not its glow, and nothing leans while the
+  shelf slides or you drag it.
+
+## 1.0.7: A smoother Stream shelf (unreleased)
+
+- **Jumping several titles along works.** Clicking a poster further down,
+  or dragging past a few, no longer drops the old title mid-shrink or
+  slides in empty cards.
+- **The poster melts into its picture** in the first moments of the grow,
+  instead of sitting beside it.
+- **The shelf eases in and settles**, instead of leaving at full speed.
+
+## 1.0.6: Record live TV (unreleased)
+
+This one needs the new build.
+
+- **Record what you're watching.** Press Record in the player. It keeps
+  recording when you change channel, go live or close the player, until
+  you press Stop Recording. A dot in the Guide marks the channel.
+- **Recordings** is a fourth list in the Live TV sidebar, and a section in
+  Library: play one, show it in its folder, or delete it.
+- **Pick where they go** in Settings → Playback → Recordings Folder.
+  `Videos\BlammyTV` until you do.
+- **Record says it uses a connection**, and names how many your line
+  allows. On a line of one, recording the channel you're watching records
+  from the picture itself, and says what that means first. Don't Show
+  Again on either; Settings → Playback brings them back.
+- **A recording counts against your line** in Multi-View, and the app
+  won't install an update while one runs.
+
+## 1.0.5: A new Stream hero (unreleased)
+
+- **Stream opens on a shelf.** One title in focus at 16:9 with its logo,
+  the next few as posters beside it, and its details underneath. A poster
+  grows into its picture as it slides into focus. Click one, drag the
+  shelf, or use the arrow keys; clicking the title in focus opens it.
+- **It's smaller than the old hero**, so Continue Watching shows on the
+  first screen on most windows, and the rows line up with the title in
+  focus.
+- **The glow behind it is tighter and brighter**, and lights every card
+  near the one in focus.
+
+## 1.0.4: Playlist links starred out (unreleased)
+
+- **Settings → Sources stars out an M3U playlist's link**, so its user name
+  and password stay off your screen.
+
+## 1.0.2: Safer playlist reads (unreleased)
+
+- **An M3U link that opens a web page says so.** It used to show no
+  channels and no reason. A playlist that loaded before keeps its channels.
+- **An Xtream account that lapses keeps its movies and shows in Stream**,
+  instead of emptying your rows until the next read 12 hours later. Stream
+  tries again every few minutes.
+- **The guide kept on this PC is removed with the playlist it came from.**
+  Switching a playlist off keeps it.
+
+## 1.0.1: Fixes from the 1.0 review (unreleased)
+
+- **Watch RedZone goes away as soon as you switch its playlist off** in
+  Settings, instead of a moment later.
+- **The movie and show lists kept on this PC no longer hold your
+  password**, and a playlist you removed, or replaced with a settings
+  import, has its lists cleared at the next launch.
+- **Discover's search is faster** with a big provider library.
+
 ## 1.0.0: Your provider's movies and shows, and NFL RedZone (2026-10-21)
 
 This one runs the installer, like 0.12.0.

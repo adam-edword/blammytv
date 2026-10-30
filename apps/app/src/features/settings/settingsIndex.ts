@@ -161,6 +161,30 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["pop-out", "popout", "pop out", "pip", "picture in picture", "window", "corner", "floating", "position", "size"],
   },
   {
+    id: "popout-app",
+    label: "Pop Out Films and Shows In",
+    page: "playback",
+    keywords: ["vlc", "external player", "other player", "video player", "videolan", "open in vlc", "pop out", "pop-out", "popout"],
+  },
+  {
+    id: "recordings-folder",
+    label: "Recordings Folder",
+    page: "playback",
+    keywords: ["record", "recording", "recordings", "dvr", "folder", "directory", "path", "save", "where", "videos", "location"],
+  },
+  {
+    id: "recording-quality",
+    label: "Recording Quality",
+    page: "playback",
+    keywords: ["record", "recording", "recordings", "dvr", "smaller", "smaller files", "original", "size", "space", "disk", "compress", "shrink", "hevc", "h265", "x265", "reencode", "encode", "gpu"],
+  },
+  {
+    id: "theme-pack",
+    label: "Theme",
+    page: "appearance",
+    keywords: ["prism", "velvet", "lagoon", "palette", "colour", "color", "look", "skin", "dark"],
+  },
+  {
     id: "accent",
     label: "Accent Color",
     page: "appearance",
@@ -176,7 +200,7 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     id: "startup-tab",
     label: "Startup Tab",
     page: "appearance",
-    keywords: ["start", "launch", "open on", "default tab"],
+    keywords: ["start", "launch", "open on", "default tab", "home"],
   },
   {
     id: "clock-format",
@@ -190,6 +214,13 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     page: "appearance",
     world: "stream",
     keywords: ["hero", "banner", "slider"],
+  },
+  {
+    id: "carousel-style",
+    label: "Carousel Style",
+    page: "appearance",
+    world: "stream",
+    keywords: ["hero", "banner", "slider", "shelf", "large", "big", "wide", "watch now", "layout"],
   },
   {
     id: "hero-sources",
@@ -233,6 +264,12 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["reset", "default", "defaults", "restore", "factory"],
   },
   {
+    id: "home-rows",
+    label: "Home Rows",
+    page: "home",
+    keywords: ["home", "rows", "order", "reorder", "drag", "rename", "layout", "strand", "import layout", "needs a source"],
+  },
+  {
     id: "trakt",
     label: "Trakt",
     page: "accounts",
@@ -249,6 +286,12 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     label: "Updates",
     page: "app",
     keywords: ["update", "version", "check for updates", "upgrade", "install"],
+  },
+  {
+    id: "whats-new",
+    label: "What’s New",
+    page: "app",
+    keywords: ["what's new", "whats new", "changelog", "release notes"],
   },
   {
     id: "shortcuts",
@@ -310,14 +353,18 @@ export function findSettings(query: string, limit: number): SettingRow[] {
   if (!q) return [];
   const starts: SettingRow[] = [];
   const has: SettingRow[] = [];
+  // A keyword with a word that starts with the query beats one that only
+  // holds it: "log" is the Diagnostics' "logs" before What's New's "changelog".
+  const keyWord: SettingRow[] = [];
   const keyed: SettingRow[] = [];
   for (const r of SETTINGS_INDEX) {
     const label = r.label.toLowerCase();
     if (label.startsWith(q)) starts.push(r);
     else if (label.includes(q)) has.push(r);
+    else if (r.keywords.some((k) => k.split(/[\s-]+/).some((w) => w.startsWith(q)))) keyWord.push(r);
     else if (r.keywords.some((k) => k.includes(q))) keyed.push(r);
   }
-  return [...starts, ...has, ...keyed].slice(0, limit);
+  return [...starts, ...has, ...keyWord, ...keyed].slice(0, limit);
 }
 
 /**

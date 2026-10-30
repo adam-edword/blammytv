@@ -11,6 +11,8 @@ pub mod mal;
 pub mod aiojf;
 #[path = "../../../apps/app/src-tauri/src/mpvagent.rs"]
 pub mod mpvagent;
+#[path = "../../../apps/app/src-tauri/src/mpvcache.rs"]
+pub mod mpvcache;
 #[path = "../../../apps/app/src-tauri/src/mpvheader.rs"]
 pub mod mpvheader;
 #[path = "../../../apps/app/src-tauri/src/mpvsubs.rs"]
@@ -33,3 +35,7 @@ pub mod logtail;
 pub mod settingsfile;
 #[path = "../../../apps/app/src-tauri/src/jf.rs"]
 pub mod jf;
+#[path = "../../../apps/app/src-tauri/src/rec.rs"]
+pub mod rec;
+#[path = "../../../apps/app/src-tauri/src/vlc.rs"]
+pub mod vlc;

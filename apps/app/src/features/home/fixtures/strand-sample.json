@@ -1,0 +1,8 @@
+[
+  {"id":"1B4E28BA-2FA1-4D3B-A3F5-0E8D6C1F7A01","isEnabled":true,"sortOrder":0,"source":{"continueWatching":{}},"style":"row_classic","title":"Continue Watching"},
+  {"id":"2C5F39CB-3AB2-4E4C-B4A6-1F9E7D2A8B02","isEnabled":true,"sortOrder":1,"source":{"localWatchlist":{}},"style":"row_classic","title":"Watchlist"},
+  {"id":"3D6A4ADC-4BC3-4F5D-85B7-2A0F8E3B9C03","isEnabled":true,"sortOrder":2,"source":{"traktBuiltIn":{"_0":"trending_movies"}},"style":"row_classic","title":"Trending Movies"},
+  {"id":"4E7B5BED-5CD4-406E-96C8-3B1A9F4CAD04","isEnabled":true,"sortOrder":3,"source":{"traktBuiltIn":{"_0":"trending_shows"}},"style":"row_classic","title":"Trending Shows"},
+  {"id":"5F8C6CFE-6DE5-417F-A7D9-4C2BAB5DBE05","isEnabled":true,"sortOrder":4,"source":{"traktBuiltIn":{"_0":"popular_movies"}},"style":"row_classic","title":"Popular Movies"},
+  {"id":"608D7D0F-7EF6-4280-B8EA-5D3CBC6ECF06","isEnabled":true,"sortOrder":5,"source":{"traktBuiltIn":{"_0":"popular_shows"}},"style":"row_classic","title":"Popular Shows"}
+]

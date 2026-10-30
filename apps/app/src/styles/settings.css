@@ -1090,6 +1090,110 @@ input.rowcap__value--edit:focus-visible {
   background: var(--tint-on);
 }
 
+/* Home's rows (features/settings/HomePage.tsx) are the Rows drawer's row
+ * (.xtrow, stream.css): this is the name as a field, quiet until it is
+ * hovered or focused, and the blank where the pinned carousel's handle would
+ * be, so its name lines up with the others. */
+/* The section stacks its children to the start; these run the full width. */
+.homerows > * {
+  width: 100%;
+}
+.homerows__title {
+  width: 100%;
+  min-width: 0;
+  margin: 0 -6px;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-chip);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.homerows__title:hover {
+  border-color: var(--border);
+}
+.homerows__nogrip {
+  flex: none;
+  width: 28px;
+}
+.homerows__pinned {
+  margin-bottom: 2px;
+}
+/* A picture of the row as Home draws it (home/RowGlyph.tsx), dimmed with a
+ * row that is switched off. */
+.homerows__glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 46px;
+  border-radius: var(--radius-chip);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.homerows__glyph svg {
+  display: block;
+  width: 68px;
+  height: 36px;
+  transition: opacity 0.2s var(--ease-out);
+}
+.xtrow:has([role="switch"][aria-checked="false"]) .homerows__glyph svg {
+  opacity: 0.35;
+}
+@media (prefers-reduced-motion: reduce) {
+  .homerows__glyph svg {
+    transition: none;
+  }
+}
+/* The x that takes a live row off Home (the pill's x, xtpill__x), and the
+ * space it would take on the rows that stay, so the switches line up. */
+.homerows__x,
+.homerows__nox {
+  flex: none;
+  width: 26px;
+  height: 26px;
+}
+.homerows__x {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-muted);
+}
+.homerows__x:hover {
+  background: var(--tint-on);
+  color: var(--text);
+}
+/* Why a row is empty: under the kind, in the same grey. */
+.homerows__why {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* Import Layout's box: a layout pasted in, a long line of JSON. */
+.homerows__paste {
+  width: 100%;
+  min-height: 140px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-chip);
+  background: none;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  resize: vertical;
+}
+.homerows__paste:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 1px;
+}
+.homerows__paste[aria-invalid="true"] {
+  border-color: var(--danger-text);
+}
+
 /* A field that cannot be saved as it stands says so in the danger voice. */
 .settings-field__error {
   color: var(--danger-text);

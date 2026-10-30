@@ -80,7 +80,13 @@ export const Card = memo(function Card({
         )}
       </Tilt>
       <span className="stream-card__name">{item.title}</span>
-      {shown && <span className="stream-card__meta">{shown}</span>}
+      {/* data-said: a line the row asked for (which episode is next), which
+        * Stream's rows keep showing; the chosen details wait for hover. */}
+      {shown && (
+        <span className="stream-card__meta" data-said={metaLine ? "" : undefined}>
+          {shown}
+        </span>
+      )}
     </button>
   );
 });

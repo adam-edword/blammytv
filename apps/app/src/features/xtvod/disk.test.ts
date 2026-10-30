@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { digest, diskDrop, diskGet, diskPut, fingerprint } from "./disk";
+import { digest, diskDrop, diskGet, diskPrune, diskPut, fingerprint } from "./disk";
 import type { XtLists } from "./library";
 
 const lists: XtLists = {
@@ -37,6 +37,15 @@ function fakeIndexedDB() {
           delete: (k: string) => {
             data.delete(k);
             later(() => tx.oncomplete?.());
+          },
+          getAllKeys: () => {
+            const r: { result?: unknown[]; onsuccess?: () => void } = {};
+            later(() => {
+              r.result = [...data.keys()];
+              r.onsuccess?.();
+              later(() => tx.oncomplete?.());
+            });
+            return r;
           },
         }),
       });
@@ -86,6 +95,7 @@ describe("with no IndexedDB (a node test, a private window that refuses one)", (
     expect(await diskGet("t", "fp")).toBeNull();
     await expect(diskPut("t", "fp", 1, lists)).resolves.toBeUndefined();
     await expect(diskDrop("t")).resolves.toBeUndefined();
+    await expect(diskPrune(new Set())).resolves.toBeUndefined();
   });
 });
 
@@ -120,10 +130,61 @@ describe("with IndexedDB", () => {
     const idb = fakeIndexedDB();
     vi.stubGlobal("indexedDB", idb);
     vi.spyOn(console, "info").mockImplementation(() => {});
-    for (const bad of [{ fp: "fp1", at: 1 }, { fp: "fp1", at: "x", lists }, { fp: "fp1", at: 1, lists: { movies: [] } }, "junk", 5]) {
+    // The fingerprint as a record keeps it, so only the shape can be the miss.
+    await diskPut("t", "fp1", 1, lists);
+    const fp = (idb.data.get("t") as { fp: string }).fp;
+    expect((await diskGet("t", "fp1"))?.at).toBe(1);
+    for (const bad of [{ fp, at: 1 }, { fp, at: "x", lists }, { fp, at: 1, lists: { movies: [] } }, "junk", 5]) {
       idb.data.set("t", bad);
       expect(await diskGet("t", "fp1")).toBeNull();
     }
+  });
+
+  it("keeps no password on disk: the record holds a hash, which still matches its own account and not a changed one", async () => {
+    const idb = fakeIndexedDB();
+    vi.stubGlobal("indexedDB", idb);
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const acct = { server: "http://panel.example.invalid:8080", username: "usr-uniq-3", password: "s3cr3tpassw0rd" };
+    await diskPut("t", fingerprint(acct), 77, lists);
+    const kept = idb.data.get("t") as { fp: string };
+    const all = JSON.stringify(kept);
+    for (const secret of [acct.password, acct.username, "panel.example", fingerprint(acct)]) expect(all).not.toContain(secret);
+    expect(kept.fp).toMatch(/^[0-9a-f]{64}$/);
+    expect(await diskGet("t", fingerprint(acct))).toEqual({ at: 77, lists });
+    expect(await diskGet("t", fingerprint({ ...acct, password: "changed-pass" }))).toBeNull();
+    expect(await diskGet("t", fingerprint({ ...acct, username: "eve" }))).toBeNull();
+  });
+
+  it("treats a record 1.0.0 wrote, with the fingerprint itself in it, as a miss, and the next write replaces it", async () => {
+    const idb = fakeIndexedDB();
+    vi.stubGlobal("indexedDB", idb);
+    const logged: unknown[][] = [];
+    vi.spyOn(console, "info").mockImplementation((...a: unknown[]) => void logged.push(a));
+    const fp = fingerprint({ server: "http://panel.example.invalid:8080", username: "usr-uniq-4", password: "0ldr3cordpw" });
+    idb.data.set("t", { fp, at: 5, lists });
+    expect(await diskGet("t", fp)).toBeNull();
+    // A miss that says so, and says nothing of the account.
+    expect(JSON.stringify(logged)).toContain("disk MISS: stored");
+    expect(JSON.stringify(logged)).not.toContain("0ldr3cordpw");
+    await diskPut("t", fp, 6, lists);
+    expect(JSON.stringify(idb.data.get("t"))).not.toContain("0ldr3cordpw");
+    expect(await diskGet("t", fp)).toEqual({ at: 6, lists });
+  });
+
+  it("prunes every record whose playlist is not in the list, whether or not it ever had a pick, and keeps the others", async () => {
+    const idb = fakeIndexedDB();
+    vi.stubGlobal("indexedDB", idb);
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    await diskPut("t", "fp1", 1, lists);
+    await diskPut("gone", "fp2", 2, lists);
+    await diskPut("also-gone", "fp3", 3, lists);
+    idb.data.set("junk-key", "not a record");
+    await diskPrune(new Set(["t", "u"]));
+    expect([...idb.data.keys()]).toEqual(["t"]);
+    expect((await diskGet("t", "fp1"))?.at).toBe(1);
+    // Nothing to prune is nothing to do.
+    await expect(diskPrune(new Set(["t"]))).resolves.toBeUndefined();
+    expect([...idb.data.keys()]).toEqual(["t"]);
   });
 
   it("drops one playlist's record and leaves the others', so a removed playlist takes its account with it", async () => {

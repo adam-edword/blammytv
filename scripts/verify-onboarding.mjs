@@ -71,7 +71,7 @@ if (!FAST) {
 
 // 3. Gate: completed flag wins.
 if (!FAST) {
-  const page = await newPage({ "btv:onboarded": "1" });
+  const page = await newPage({ "btv:onboarded": "1", "blammytv.whatsNewSeen": JSON.stringify({ v: 1, data: "999.0" }) });
   await page.goto("http://localhost:4173/");
   await page.waitForTimeout(1200);
   check("completed flag: no onboarding", !(await page.$(".onb")));
@@ -540,6 +540,45 @@ const openCustom = async (page) => {
   });
 };
 const underChip = (at) => Math.abs(at.dx) <= 1 && at.gap >= 2 && at.gap <= 6;
+
+// 5c2. Replayed under a theme (plan 035). Velvet takes an accent of its own,
+//      so the picker writes Velvet's store (and leads with Velvet's brass);
+//      before, it wrote the default store, and the pick vanished at the next
+//      boot. Prism has no accent, so the row is not there at all.
+if (!FAST) {
+  const page = await newPage({ "blammytv.themePack": JSON.stringify({ v: 1, data: "velvet" }) });
+  await toAccentStep(page);
+  const group = page.getByRole("group", { name: "Accent color" });
+  check("replayed under Velvet, the accent picker leads with Velvet's brass",
+    (await group.locator("button").first().getAttribute("aria-label")) === "Velvet");
+  await group.getByRole("button", { name: "Blue", exact: true }).click();
+  await page.waitForTimeout(150);
+  const kept = await page.evaluate(() => ({
+    own: JSON.parse(localStorage.getItem("blammytv.themeAccents") ?? "{}")?.data?.velvet?.accent,
+    dflt: localStorage.getItem("blammytv.accent"),
+    inline: document.documentElement.style.getPropertyValue("--accent"),
+  }));
+  check("  a pick goes in Velvet's store and not the default one, and is on the page",
+    kept.own === "#3730ff" && kept.dflt === null && kept.inline === "#3730ff", JSON.stringify(kept));
+  await page.close();
+
+  const prism = await newPage({ "blammytv.themePack": JSON.stringify({ v: 1, data: "prism" }) });
+  await toAccentStep(prism);
+  const row = await prism.evaluate(() => ({
+    picker: document.querySelectorAll("[aria-label='Accent color']").length,
+    labels: [...document.querySelectorAll(".onb-prefs .onb-chips__label")].map((e) => e.textContent),
+  }));
+  check("replayed under Prism, which paints its own ramp, there is no accent row, and the clock row stays",
+    row.picker === 0 && row.labels.join() === "Clock", JSON.stringify(row));
+  await prism.close();
+
+  const plain = await newPage();
+  await toAccentStep(plain);
+  const none = await plain.evaluate(() => [...document.querySelectorAll(".onb-prefs .onb-chips__label")].map((e) => e.textContent));
+  check("with no theme the step is as it was: Accent, then Clock", none.join() === "Accent,Clock", none.join());
+  await plain.close();
+}
+
 if (!FAST) {
   const page = await newPage();
   await toAccentStep(page);
@@ -631,8 +670,8 @@ if (!FAST) {
   await page.getByRole("button", { name: /do this later/i }).click(); // live tv
   await page.waitForSelector(".onb-prefs", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  // Neither source was added, so there is no place to choose: Start On is
+  // skipped and the tour is next.
   await page.waitForSelector(".onb-tour", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
@@ -649,6 +688,57 @@ if (!FAST) {
   check("reduced motion: completes instantly, timeline never starts",
     state.onbGone && !state.welcomeUp && !landingClass && state.onboarded === "1",
     JSON.stringify({ ...state, landingClass }));
+  await page.close();
+}
+
+// 7b. Start On offers only the places there is a source for, and is skipped
+//     with fewer than two (Adam: nothing to suggest without a source).
+if (!FAST) {
+  // A playlist and no streams: Live TV is the only place, so the step is
+  // skipped going on, the choice is saved, and Back skips it too.
+  const page = await newPage();
+  await page.goto("http://localhost:4173/?onboarding=1");
+  await page.waitForSelector(".onb");
+  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.getByRole("button", { name: /do this later/i }).click(); // streams
+  await page.waitForSelector(".onb-fields", { timeout: 8000 });
+  const fields = page.locator(".onb-fields .onb-input");
+  await fields.nth(0).fill("http://localhost:8081");
+  await fields.nth(1).fill("u");
+  await fields.nth(2).fill("p");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-prefs", { timeout: 10000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  // Home works with a playlist alone (its live rows), so Start On has two
+  // places to choose between here and is shown (changed in the 1.2.0 review;
+  // it used to be skipped with Live TV as the one place).
+  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
+  const names = await page.locator(".onb-stage > .onb-chips").getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  check("with only a playlist added, Start On is shown with Home and Live TV", JSON.stringify(names) === JSON.stringify(["Home", "Live TV"]), JSON.stringify(names));
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const toured = await page.waitForSelector(".onb-tour", { timeout: 8000 }).then(() => true).catch(() => false);
+  check("  and Continue goes on to the tour", toured);
+  await page.getByRole("button", { name: "← Back" }).click();
+  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 }).catch(() => null);
+  check("  Back from the tour lands on Start On", (await page.$eval(".onb-title", (el) => el.textContent).catch(() => "")) === "Where should we start?");
+  await page.close();
+}
+if (!FAST) {
+  // Streams and no playlist: the step is there, without Live TV.
+  const page = await newPage();
+  await page.goto("http://localhost:4173/?onboarding=1");
+  await page.waitForSelector(".onb");
+  await page.getByRole("button", { name: "Get Started" }).click();
+  await page.waitForSelector(".onb-input", { timeout: 8000 });
+  await page.locator(".onb-input").fill("http://localhost:8084/manifest.json");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-fields", { timeout: 10000 });
+  await page.getByRole("button", { name: /do this later/i }).click(); // live tv
+  await page.waitForSelector(".onb-prefs", { timeout: 8000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
+  const names = await page.locator(".onb-stage > .onb-chips").getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  check("with only streams added, Start On is shown without Live TV", JSON.stringify(names) === JSON.stringify(["Home", "Stream", "Stream · Discover"]), JSON.stringify(names));
   await page.close();
 }
 
@@ -680,7 +770,7 @@ if (!FAST) {
 //    paint carries no infinite animation (the hue spin is dead), and
 //    skip-on-input works.
 if (!FAST) {
-  const page = await newPage({ "btv:onboarded": "1" });
+  const page = await newPage({ "btv:onboarded": "1", "blammytv.whatsNewSeen": JSON.stringify({ v: 1, data: "999.0" }) });
   await page.goto("http://localhost:4173/?welcome=1");
   await page.waitForSelector(".boot-overlay", { timeout: 8000 });
   const applied = await page.$eval(".boot-frame", (el) => ({
@@ -715,7 +805,7 @@ if (!FAST) {
 
 // 10. Cold boot skip: any input dismisses it immediately.
 if (!FAST) {
-  const page = await newPage({ "btv:onboarded": "1" });
+  const page = await newPage({ "btv:onboarded": "1", "blammytv.whatsNewSeen": JSON.stringify({ v: 1, data: "999.0" }) });
   await page.goto("http://localhost:4173/?welcome=1");
   await page.waitForSelector(".boot-overlay", { timeout: 8000 });
   await page.waitForTimeout(400);

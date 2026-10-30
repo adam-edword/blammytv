@@ -21,7 +21,9 @@
  * interchangeable and only the top-level ones match `time-pos`.
  *
  * The window GROWS as you watch, from nothing at tune-in up to whatever
- * `demuxer-max-back-bytes` holds (256MiB, so minutes rather than hours).
+ * `demuxer-max-back-bytes` holds: 256MiB in memory, so minutes, and on the
+ * disk cache a live channel has since plan 029 (mpvcache.rs), at least two
+ * hours.
  * That is why the bar is drawn from live data every tick instead of being
  * given a fixed span: any span picked in advance would be wrong for the
  * first few minutes of every channel.

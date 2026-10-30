@@ -1,0 +1,154 @@
+---
+title: Home
+description: The page behind the logo. Rows of films, shows, channels, games and recordings in the order you set.
+---
+
+Click the BlammyTV logo in the middle of the nav bar to open **Home**. It's one
+page of rows: films and shows from your sources, live channels, games and
+recordings. You pick the rows and their order in **Settings → Home**.
+
+The logo glows while you're on Home and no tab is lit. Click it again to jump
+back to the top. Without a live TV playlist the logo sits at the left end of
+the bar. It's always there.
+
+<Callout title="Stream Is Unchanged">
+
+The [Stream](/using/stream/) tab keeps its own fixed order. Home is the mix:
+the same films and shows plus your live rows, arranged the way you like. Until
+you change anything, Home is Stream's page with the live rows added.
+
+</Callout>
+
+## The Rows
+
+Home draws a row only when it's switched on and has something in it. A row
+with nothing to show leaves no empty heading.
+
+- **Featured Carousel** is the sliding hero at the top. It follows **Carousel
+  Style** and the catalogs you picked in [Appearance](/using/appearance/#stream).
+  It only has a switch.
+- **Continue Watching** is what you've started and not finished. A card
+  resumes it where you left off.
+- **Up Next** is the next episode of the shows you're watching, from
+  AIOStreams and Jellyfin. On the page the rows read Next Up. With both
+  signed in, Jellyfin's says **on Jellyfin**.
+- **Catalog rows** are the rows Stream shows: each AIOStreams catalog, each
+  Jellyfin library and the folders you picked from an
+  [Xtream playlist](/sources/xtream/#movies-and-shows). A card opens the
+  title's page.
+- **On Now** is your starred channels, each with what's on, a progress bar
+  and what's next. A card plays the channel in the Guide's player.
+- **Recent Channels** is the channels you tuned lately, on the same cards.
+- **Today's Games** is today's games for the leagues, teams and conferences
+  you follow in [Sports](/using/sports/). It obeys Sports' **Ranked** switch.
+  A card opens the game in Sports' theater. Follow nothing in Sports and the
+  row stays empty. Home doesn't ask for every league. The button beside the
+  title picks a sport: **All Sports**, or one that has games today, with how
+  many. Home remembers your pick. If that sport has no games today, the row
+  shows them all until it does.
+- **Recordings** is your 20 newest finished [recordings](/using/recording/).
+  **Play** opens one in Live TV's player.
+- **Saved** is one of your [Library](/using/library/#your-lists) lists as a
+  row. Add as many lists as you like. A card opens the title's page.
+- **Trending Movies**, **Trending Shows**, **Popular Movies** and **Popular
+  Shows** are Trakt's own lists. They need Trakt connected in **Settings →
+  Accounts** and hold as many titles as **Titles per Row** allows. Trakt
+  doesn't send artwork. These cards show a letter where the poster would be.
+- **Needs a Source** is a row imported from Strand that Home can't fill yet.
+  See [Import Layout](#import-layout).
+
+A title opened from Home opens right there. Back returns you to Home.
+
+If every row is off or empty, Home says **Nothing on Home** with an **Edit
+Home** button that opens Settings → Home. While a live row is still loading it
+says **Loading Home…** instead.
+
+### The First Time
+
+The first time you open Home it sets itself up with the carousel (on if
+**Featured Carousel** is on in Appearance), Continue Watching, Up Next, then
+every catalog row in Stream's order. With a live TV playlist it adds On Now and
+Today's Games as well. Everything else you add yourself.
+
+## Settings → Home
+
+**Settings → Home** is the first page in Settings. Every change applies as you
+make it and Home moves behind Settings while you work. There's no Save button.
+
+Each row in **Home Rows** has a small picture of its shape beside its name:
+wide cards for Continue Watching, posters for a catalog, channel tiles for On
+Now and so on. A row that's switched off shows its picture dimmed.
+
+- **Reorder** by dragging a row by its handle. The keyboard works too. The
+  carousel stays pinned to the top and has no handle.
+- **Rename** a row by typing in its name. Clear the field and click away to
+  get the row's own name back.
+- **Switch** a row on or off. Off rows stay in the list.
+- **Remove** a row with the ✕. Only the live rows, Saved, Trakt and Needs a
+  Source rows have one.
+
+Continue Watching, Up Next and the catalog rows can be switched off but not
+removed. They come from your sources. A removed one would only come back at
+the next launch. When a source gains a catalog, its row is added at the end
+and switched on.
+
+On Now and Today's Games are added once on their own when you first have a
+playlist. If you take one off, it stays off.
+
+### Add Row
+
+**Add Row** offers the rows that aren't on Home yet, in groups:
+
+- **Watching** has **Saved**, which opens a list of your Library lists.
+- **Live TV** has **On Now**, **Recent Channels** and **Recordings**. On Now
+  and Recent Channels need a live TV playlist. Recordings doesn't.
+- **Sports** has **Today's Games**.
+- **Films & Shows** has Trakt's four lists.
+
+A group with nothing left to add isn't shown. **Add Row** goes away when every
+row is on Home.
+
+### Why a Row Is Empty
+
+When a row has nothing to draw, a grey line under its name says why:
+
+- **Star channels in the Guide to fill this row.** for On Now
+- **Channels you watch show here.** for Recent Channels
+- **Follow a league in Sports to fill this row.** or **No games today for your
+  leagues.** for Today's Games
+- **Recordings you make show here.** for Recordings
+- **Save titles to this list to fill this row.** or **This list is gone.** for
+  Saved
+- **Sign in to Trakt to fill this row.** for a Trakt row
+- **Add a playlist to fill this row.** for a live row with no playlist
+
+### Import Layout
+
+**Import Layout** brings in a layout exported from Strand. Paste it into the
+box and press **Add Rows**. A line says how many rows were added and how many
+were already on Home. If the text isn't a Strand layout you'll see **This isn't
+a layout exported from Strand.** and nothing changes.
+
+Imported rows go after the ones you have. They keep Strand's order, names and
+switches.
+
+- **Continue Watching** is skipped, because Home already has one. If Strand has
+  it off, yours switches off.
+- **Watchlist** becomes a Saved row on your Trakt Watchlist list when you have
+  one. Otherwise it uses your first Library list. With no list at all it
+  becomes a Needs a Source row.
+- **Trending and popular lists** become the matching Trakt rows.
+- **Anything else** becomes a **Needs a Source** row. It keeps Strand's row, so
+  a later version can fill it. On Home it shows its name and **This row needs a
+  source.**
+
+Importing the same layout twice adds nothing the second time. A row Strand has
+switched off is switched off here too. A row Strand has on never turns one of
+yours back on.
+
+## Open on Home
+
+To start BlammyTV on Home, pick it under **Settings → Appearance → Startup
+Tab**. Home is the first choice there. Like Stream and Discover it shows up
+once you have something to stream: AIOStreams, Jellyfin or an Xtream playlist
+with movies and shows. The default stays Live TV.

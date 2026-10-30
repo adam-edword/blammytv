@@ -16,10 +16,11 @@ let pending: VodItem | null = null;
 
 /** Which grid the hand-off came from — backing all the way out returns
  * THERE, not to a hardcoded tab. "home" is the app palette's (plan 019,
- * K11) from anywhere but Discover and the Library: it can open a title from
- * any tab, and Stream's own rows are the nearest thing to where it came
- * from. */
-export type OpenOrigin = "discover" | "mylist" | "home";
+ * K11) from anywhere but Discover, the Library and Home: it can open a title
+ * from any tab, and Stream's own rows are the nearest thing to where it came
+ * from. "hub" is the page behind the logo (plan 033), which the palette can
+ * open a title over too: Back goes to it, not to Stream. */
+export type OpenOrigin = "discover" | "mylist" | "home" | "hub";
 let origin: OpenOrigin = "discover";
 /** The return the latest hand-off replaced. See keepEarlierReturn. */
 let replaced: { origin: OpenOrigin; list: string | null } | null = null;

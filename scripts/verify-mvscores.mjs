@@ -163,7 +163,7 @@ await page.addInitScript(
     // Set once: the reload below must find what the page itself saved.
     if (sessionStorage.getItem("mvscores-seeded")) return;
     sessionStorage.setItem("mvscores-seeded", "1");
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     sessionStorage.setItem("btv:welcome-played", "1");
     localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
     // Four leagues in three sports: American football has two, so the

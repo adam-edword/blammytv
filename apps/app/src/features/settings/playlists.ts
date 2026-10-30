@@ -1,4 +1,4 @@
-import { hasId, loadList, save } from "../../lib/storage";
+import { hasId, isEnvelope, loadList, readRaw, save } from "../../lib/storage";
 import { USER_AGENT_MAX, userAgentOk } from "../../lib/userAgent";
 import { keepGuideFixesFor } from "../live/guideFix";
 
@@ -149,7 +149,9 @@ export function playlistSource(p: Playlist): string {
     case "xtream":
       return p.server;
     case "m3u":
-      return p.url;
+      // Starred out whole (Adam, 1.0.3): its path or query is usually the
+      // account's user name and password, and a host can name a person too.
+      return "•••••";
     case "stalker":
       return p.portal;
   }
@@ -346,6 +348,22 @@ export function loadPlaylists(): Playlist[] {
   return loadList(KEY, VERSION, (x): x is Playlist =>
     hasId(x) && ["xtream", "m3u", "stalker"].includes((x as { kind?: unknown }).kind as string),
   );
+}
+
+/** Whether the playlists are saved as an empty list: the key is there, reads
+ * back, is this version and holds []. `loadPlaylists` answers [] for that and
+ * also for a key that is absent, unreadable or of another shape, which a
+ * launch must not take for "none": it would wipe every playlist's cached data
+ * (the guide's copy and the libraries' lists) for a failed read. */
+export function playlistsSavedEmpty(): boolean {
+  const raw = readRaw(KEY);
+  if (raw === null) return false;
+  try {
+    const env: unknown = JSON.parse(raw);
+    return isEnvelope(env) && env.v === VERSION && Array.isArray(env.data) && env.data.length === 0;
+  } catch {
+    return false;
+  }
 }
 
 /** Saving notifies listeners (the Live tab) so its data refreshes without

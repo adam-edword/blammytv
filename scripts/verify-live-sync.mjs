@@ -12,6 +12,10 @@
 //   with it once, and the palette and the picker find an M3U channel;
 // - on the Guide, where its own listener sits beside the app's, switching it
 //   off again is still one load.
+// And the guide's copy on disk follows the saved playlists: it holds the
+// panel's account, so a playlist switched off keeps it, a playlist deleted
+// takes it, and a copy no saved playlist owns (one a settings import left, or
+// 1.0.1's, with the account itself in it) is gone at the next launch.
 //
 //   node scripts/fake-panel.mjs   # :8081
 //   node scripts/fake-m3u.mjs     # :8082
@@ -64,7 +68,7 @@ const seen = [];
 page.on("request", (r) => seen.push(r.url()));
 await page.addInitScript((pl) => {
   sessionStorage.setItem("btv:welcome-played", "1");
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
 }, PLAYLISTS);
@@ -150,6 +154,119 @@ check(
   `${panelLoads() - p1} reloads`,
 );
 check("and the M3U isn't fetched for it", m3uLoads() === m1, `${m3uLoads() - m1} fetches`);
+
+// ---- The guide's copy on disk, and the playlists that own it
+/** The guide's record as it is on disk: its key, the ids it names, and its
+ * channel count; null when there is none (or no database). */
+const liveRecord = (pg = page) =>
+  pg.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const open = indexedDB.open("blammytv", 1);
+        open.onerror = () => resolve(null);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains("liveCache")) return resolve(null), db.close();
+          const rq = db.transaction("liveCache").objectStore("liveCache").get("live");
+          rq.onsuccess = () => {
+            const v = rq.result;
+            resolve(v ? { key: v.key, ids: v.ids ?? null, channels: v.data?.channels?.length ?? 0 } : null);
+            db.close();
+          };
+          rq.onerror = () => resolve(null);
+        };
+      }),
+  );
+const until = async (fn, ms, every = 200) => {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (await fn()) return true;
+    await page.waitForTimeout(every);
+  }
+  return false;
+};
+// The Guide is up on the panel alone: its catalog and guide have landed, and
+// the write runs a moment after.
+await toggle("Test M3U"); // back on, so the record names two playlists
+const wrote = await until(async () => ((await liveRecord())?.ids ?? []).join() === "t,m", 20_000);
+const rec = await liveRecord();
+check("(control) the guide's copy is on disk, naming both playlists it was built from", wrote, JSON.stringify(rec));
+check(
+  "  and holds a hash of the playlists' accounts, not the accounts",
+  /^[0-9a-f]{64}$/.test(rec?.key ?? "") && !/localhost|8081/.test(rec?.key ?? ""),
+  JSON.stringify(rec?.key),
+);
+
+// Deleting the M3U: the copy names it, so it goes at once (the panel's load
+// writes a fresh one a few seconds on). Caught between the two, polled fast: a
+// copy that is merely replaced later would pass a check that only asked
+// whether it still named the M3U.
+await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+await page.getByRole("button", { name: "Delete Test M3U" }).click();
+await page.getByRole("button", { name: "Click again to remove Test M3U" }).click();
+const dropped = await until(async () => (await liveRecord()) === null, 2000, 50);
+check("deleting a playlist the copy was built from drops the copy", dropped, JSON.stringify(await liveRecord()));
+const again = await until(async () => ((await liveRecord())?.ids ?? []).join() === "t", 20_000);
+check("  and the load that follows writes a copy of the one that is left", again, JSON.stringify(await liveRecord()));
+
+// Switching the last one off is not deleting it: the copy stays.
+await page.getByRole("switch", { name: "Test enabled" }).click();
+await page.waitForTimeout(3000);
+check("a playlist only switched off keeps its copy", (await liveRecord())?.ids?.join() === "t", JSON.stringify(await liveRecord()));
+
+// Deleting the last one: nothing loads after it, so nothing would replace the copy.
+await page.getByRole("button", { name: "Delete Test", exact: true }).click();
+await page.getByRole("button", { name: "Click again to remove Test" }).click();
+const gone = await until(async () => (await liveRecord()) === null, 10_000);
+check("deleting the last playlist drops the copy, with no source left to load", gone, JSON.stringify(await liveRecord()));
+
+// And a copy no saved playlist owns is gone at the next launch: here 1.0.1's,
+// which names no playlist and holds the account itself. In a context of its own
+// whose one saved playlist is switched off, so that nothing loads after the
+// launch to write a copy of its own over the planted one.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await ctx2.route(/^https?:\/\/(?!localhost|127\.0\.0\.1)/, (r) => r.abort());
+  const p2 = await ctx2.newPage();
+  await p2.addInitScript((pl) => {
+    sessionStorage.setItem("btv:welcome-played", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
+    localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
+  }, { v: 1, data: [{ kind: "m3u", id: "m", name: "Test M3U", enabled: false, url: "http://localhost:8082/playlist.m3u" }] });
+  await p2.goto(URL, { waitUntil: "domcontentloaded" });
+  await p2.getByRole("button", { name: "Settings", exact: true }).first().waitFor({ timeout: 15_000 });
+  await p2.waitForTimeout(1000); // the launch's own prune has run, on an empty database
+  const planted = await p2.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const open = indexedDB.open("blammytv", 1);
+        open.onupgradeneeded = () => {
+          if (!open.result.objectStoreNames.contains("liveCache")) open.result.createObjectStore("liveCache");
+        };
+        open.onerror = () => resolve(false);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction("liveCache", "readwrite");
+          const data = { groups: [], channels: [], programmes: new Map() };
+          tx.objectStore("liveCache").put({ key: JSON.stringify([[["t", "http://old.invalid", "olduser", "oldpass", []]], false]), at: 1, data }, "live");
+          tx.oncomplete = () => (db.close(), resolve(true));
+          tx.onerror = () => resolve(false);
+        };
+      }),
+  );
+  check("(control) a copy from before the prune, with the account in its key, is planted", planted && !!(await liveRecord(p2))?.key.includes("oldpass"), JSON.stringify(await liveRecord(p2)));
+  await p2.reload({ waitUntil: "domcontentloaded" });
+  const swept = await (async () => {
+    const end = Date.now() + 10_000;
+    while (Date.now() < end) {
+      if ((await liveRecord(p2)) === null) return true;
+      await p2.waitForTimeout(200);
+    }
+    return false;
+  })();
+  check("a reload drops a copy that names no saved playlist", swept, JSON.stringify(await liveRecord(p2)));
+  await ctx2.close();
+}
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();

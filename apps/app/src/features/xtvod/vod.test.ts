@@ -30,12 +30,13 @@ vi.mock("../../data/xtream", () => ({
 }));
 // The fingerprint and the digest stay real; only the database is stood in for
 // (a node test has no indexedDB, so the real one answers null and writes nothing).
-const disk = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), drop: vi.fn() }));
+const disk = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), drop: vi.fn(), prune: vi.fn() }));
 vi.mock("./disk", async (orig) => ({
   ...(await orig<typeof import("./disk")>()),
   diskGet: disk.get,
   diskPut: disk.put,
   diskDrop: disk.drop,
+  diskPrune: disk.prune,
 }));
 
 import {
@@ -121,6 +122,7 @@ beforeEach(async () => {
   disk.get.mockResolvedValue(null);
   disk.put.mockResolvedValue(undefined);
   disk.drop.mockResolvedValue(undefined);
+  disk.prune.mockResolvedValue(undefined);
   net.vodInfo.mockResolvedValue(VOD_INFO);
   net.seriesInfo.mockImplementation(async (_p: unknown, id: string) => (id === "3102" ? SERIES_INFO_4K : SERIES_INFO));
   panel();
@@ -417,6 +419,54 @@ describe("the lists", () => {
     expect(net.vods).toHaveBeenCalledTimes(2);
     expect(vod.peekXtVod()!.items.has(MOVIE_KEY)).toBe(true);
     warn.mockRestore();
+  });
+
+  it("keep what was shown when the read behind it comes back with no movie and no show, write nothing, and do not hammer the panel", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const was = await lists();
+    disk.get.mockResolvedValue({ at: Date.now() - vod.LISTS_TTL_MS - HOUR, lists: was });
+    panel([], []); // a lapsed account's panel, once its sign-in object is read as lists
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const first = await vod.loadXtVod();
+    await flush();
+    expect(first.items.has(MOVIE_KEY)).toBe(true);
+    expect(net.vods).toHaveBeenCalledTimes(1);
+    expect(disk.put).not.toHaveBeenCalled();
+    expect(vod.peekXtVod()!.items.has(MOVIE_KEY)).toBe(true);
+    expect(store.loadHeld("t")).toEqual({ movies: was.movies.length, shows: was.shows.length });
+    // It said so, with the account as a digest.
+    expect(warn.mock.calls.map((c) => c.join(" ")).join("\n")).toMatch(/read failed \(\w+\): the panel answered with no movies or shows/);
+    // Held off like any failed read: the next ask inside five minutes reads nothing.
+    await vod.loadXtVod();
+    expect(net.vods).toHaveBeenCalledTimes(1);
+    // Past it, a read with titles in it replaces the copy again.
+    vi.setSystemTime(Date.now() + 6 * 60_000);
+    panel([MOVIE_4K], []);
+    await vod.loadXtVod();
+    await flush();
+    expect(net.vods).toHaveBeenCalledTimes(2);
+    expect(disk.put).toHaveBeenCalledTimes(1);
+    expect(store.loadHeld("t")).toEqual({ movies: 1, shows: 0 });
+    warn.mockRestore();
+  });
+
+  it("take an empty read of one list as the panel's, and an empty first read as a live TV only panel", async () => {
+    // Movies gone, shows still there: only both empty at once is refused.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    disk.get.mockResolvedValue({ at: Date.now() - vod.LISTS_TTL_MS - HOUR, lists: await lists() });
+    panel([], SHOWS);
+    await vod.loadXtVod();
+    await flush();
+    expect(disk.put).toHaveBeenCalledTimes(1);
+    expect(store.loadHeld("t")).toEqual({ movies: 0, shows: 2 });
+    // And with no copy at all there is nothing to keep: an empty read is read.
+    disk.put.mockClear();
+    await boot();
+    disk.get.mockResolvedValue(null);
+    panel([], []);
+    expect((await vod.loadXtVod()).error).toBeUndefined();
+    expect(store.loadHeld("t")).toEqual({ movies: 0, shows: 0 });
+    expect(disk.put).toHaveBeenCalledTimes(1);
   });
 
   it("are an error when there is no copy to show and the panel cannot be read, and Retry reads it again", async () => {
@@ -747,6 +797,50 @@ describe("watchXtLibrary", () => {
     off();
   });
 
+  it("clears what the saved playlists don't own at launch: their lists on disk, and their picks", async () => {
+    seed(playlist("t"), playlist("u", { server: "http://other.example.invalid:8080" }));
+    // What a settings import leaves behind: the old playlists' choices, and a
+    // list on disk that nothing here ever picked from.
+    store.setPicks("gone", pickM("12"));
+    vi.useFakeTimers();
+    const off = vod.watchXtLibrary();
+    expect(disk.prune).toHaveBeenCalledTimes(1);
+    expect(disk.prune).toHaveBeenCalledWith(new Set(["t", "u"]));
+    expect(store.loadPicks("gone")).toEqual([]);
+    off();
+  });
+
+  it("keeps every pick at launch when the playlists read back empty (an unreadable key reads as [])", async () => {
+    store.setPicks("t", pickM("12"));
+    mem.set("blammytv.playlists", "{unreadable");
+    vi.useFakeTimers();
+    const off = vod.watchXtLibrary();
+    expect(disk.prune).not.toHaveBeenCalled();
+    expect(store.loadPicks("t")).toEqual(pickM("12"));
+    off();
+  });
+
+  it("clears every pick at launch when the playlists are saved as an empty list (an import without playlists)", async () => {
+    store.setPicks("t", pickM("12"));
+    seed();
+    vi.useFakeTimers();
+    const off = vod.watchXtLibrary();
+    expect(disk.prune).toHaveBeenCalledTimes(1);
+    expect(disk.prune).toHaveBeenCalledWith(new Set());
+    expect(store.loadPicks("t")).toEqual([]);
+    off();
+  });
+
+  it("keeps every pick at launch when there are no saved playlists at all", async () => {
+    store.setPicks("t", pickM("12"));
+    mem.delete("blammytv.playlists");
+    vi.useFakeTimers();
+    const off = vod.watchXtLibrary();
+    expect(disk.prune).not.toHaveBeenCalled();
+    expect(store.loadPicks("t")).toEqual(pickM("12"));
+    off();
+  });
+
   it("does nothing once stopped", async () => {
     vi.useFakeTimers();
     const off = vod.watchXtLibrary();
@@ -979,6 +1073,13 @@ describe("a playlist taken out of Settings", () => {
     const reads = net.vods.mock.calls.length;
     await vod.loadXtVod();
     expect(net.vods.mock.calls.length).toBe(reads + 1);
+  });
+
+  it("takes the lists on disk of one that has no pick and no record of what it held, which nothing named to drop", async () => {
+    seed(playlist("u", { server: "http://other.example.invalid:8080" }));
+    vod.forgetRemoved();
+    expect(disk.drop).not.toHaveBeenCalled();
+    expect(disk.prune).toHaveBeenCalledWith(new Set(["u"]));
   });
 
   it("is done by the watcher whenever the list of playlists is saved", async () => {

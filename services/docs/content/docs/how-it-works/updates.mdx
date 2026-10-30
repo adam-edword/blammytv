@@ -6,7 +6,7 @@ description: How BlammyTV checks for, verifies and applies an update.
 BlammyTV updates itself. The check runs against release manifests published on
 GitHub.
 
-## What gets verified
+## What Gets Verified
 
 An update isn't applied just because it downloaded. Each package carries a
 detached signature, and the app checks that signature against a public key
@@ -24,7 +24,7 @@ In practice that means:
 The same check runs before publishing, offline, against the exact bytes that
 will be uploaded. A release that can't verify locally doesn't ship.
 
-## Two kinds of update
+## Two Kinds of Update
 
 BlammyTV separates the native shell from the interface it renders:
 
@@ -34,7 +34,7 @@ BlammyTV separates the native shell from the interface it renders:
   they're gated on the native version so an interface build can never land on
   a shell too old to run it.
 
-## Turning it off
+## Turning It Off
 
 There's no switch. The app checks for a new version a few seconds after it
 starts, and **Settings → App → Updates** has a **Check for Updates** button

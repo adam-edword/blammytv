@@ -1,3 +1,4 @@
+import { runningNow, workingNow } from "../features/recordings/store";
 import { isLivePopout } from "./tauri";
 
 /**
@@ -23,12 +24,43 @@ import { isLivePopout } from "./tauri";
  * now and Install passed this guard and ended the PiP. It is the one
  * thing here read from state, `livePopout` in lib/tauri.ts. A VOD pop-out
  * needs no flag: StreamScreen keeps `.vod-stage--popped` mounted for it.
+ *
+ * And a recording (plan 029), the other thing a restart ends: one that runs
+ * in Rust with no player open is held too. It is also read from state, the
+ * recordings store's. A caller that draws it re-renders on a recording
+ * starting or ending with `useRecordingBusy`.
+ *
+ * And a recording's job after it ends (plan 029, Phase 4): native is
+ * repackaging or shrinking the file, and a restart would throw that away. Held
+ * the same way, from the same store.
  */
-export function isPlaying(): boolean {
+function watching(): boolean {
   return (
     document.querySelector(".vod-stage") !== null ||
     document.getElementById("inv-chrome") !== null ||
     document.querySelector(".mvtab .mvtile:not(.mvtile--empty)") !== null ||
     isLivePopout()
   );
+}
+
+export function isPlaying(): boolean {
+  return watching() || runningNow() || workingNow();
+}
+
+/**
+ * What to finish before an install or a restart, as the first sentence of
+ * its hint ("Finish watching first."), or null when nothing is in the way.
+ * Says what is actually holding it: a recording is stopped, not watched, and
+ * a finished one with a job is waited for.
+ */
+export function finishFirst(): string | null {
+  const todo = [
+    watching() && "finish watching",
+    runningNow() && "stop recording",
+    workingNow() && "wait for recordings to finish",
+  ].filter((t): t is string => !!t);
+  if (todo.length === 0) return null;
+  const last = todo.pop()!;
+  const said = todo.length ? `${todo.join(", ")} and ${last}` : last;
+  return `${said[0].toUpperCase()}${said.slice(1)} first.`;
 }

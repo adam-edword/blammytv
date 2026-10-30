@@ -239,6 +239,9 @@ export function useGames(
    * every render.
    */
   watching = false,
+  // Home asks only while a games row is on: off, nothing is read and no timer
+  // or listener is armed. The Sports board always passes true.
+  enabled = true,
 ) {
   const [days, setDays] = useState<Day[]>([]);
   /**
@@ -335,6 +338,7 @@ export function useGames(
    * one (the Sports audit). */
   const boardGen = useRef(0);
   useEffect(() => {
+    if (!enabled) return;
     const paths = key ? key.split(",") : [];
     const clubKeys = teamKey ? teamKey.split(",") : [];
     const ac = new AbortController();
@@ -682,7 +686,7 @@ export function useGames(
     // it changes with `narrowed`, which also changes `key` and `dayCount`,
     // so the effect already re-runs. Leaving it out would make that a
     // coincidence the next caller has to know about.
-  }, [dayCount, key, teamKey, reach]);
+  }, [dayCount, key, teamKey, reach, enabled]);
 
   /**
    * The next five days, appended.

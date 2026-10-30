@@ -51,7 +51,7 @@ export function ModeSwitcher({
         <path d="M12 14.3l7.37 -7.37" />
         <path d="M12 19.6l8.85 -8.85" />
       </svg>
-      <span className="sr-only">Toggle theme</span>
+      <span className="sr-only">Toggle Theme</span>
     </Button>
   )
 }

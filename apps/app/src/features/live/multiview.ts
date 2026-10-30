@@ -38,15 +38,20 @@ export const GRID_SIZES: readonly GridSize[] = [2, 3, 4];
  * connection), and the honest failure for that is a tile that does not tune,
  * which is visible, rather than a size we quietly refused to offer.
  *
+ * LESS WHAT THE APP RECORDS (plan 029). A running stream recording is a
+ * connection of the app's own, held the whole time, so a line of three with
+ * one recording feeds a grid of two. `recording` is how many run on this line.
+ *
  * NULL MEANS UNKNOWN, NOT ZERO. Stalker portals rarely publish a limit and
  * M3U has no API at all (see connections.ts), so a null offers everything:
  * refusing a feature because we could not ask is worse than letting it try.
  */
 export function allowedSizes(
   conns: { max: number } | null | undefined,
+  recording = 0,
 ): GridSize[] {
   if (!conns) return [...GRID_SIZES];
-  return GRID_SIZES.filter((n) => n <= conns.max);
+  return GRID_SIZES.filter((n) => n <= conns.max - recording);
 }
 
 /**

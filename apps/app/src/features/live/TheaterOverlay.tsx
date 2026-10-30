@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "../../components/ui/button";
 import {
   isTauri,
@@ -215,6 +215,8 @@ export function TheaterOverlay({
   playbackKey,
   showId,
   vod: vodProp,
+  file = false,
+  recordSlot,
 }: {
   frame?: OverlayFrame;
   /** VOD only: the TITLE this playback belongs to, so track and speed
@@ -233,6 +235,14 @@ export function TheaterOverlay({
    * the subtitle-prefs apply. Meta remains the fallback only for the
    * legacy overlay-webview entry (main.tsx), which has no host. */
   vod?: boolean;
+  /** A recording (plan 029): a file on this PC, played with the VOD chrome.
+   * It has no sources to switch between and no link to pop out, so those two
+   * buttons are not drawn. */
+  file?: boolean;
+  /** The Record button, for a live channel (features/recordings). The host
+   * owns it because only it knows the stream; drawn in the controls beside
+   * Stats for Nerds. */
+  recordSlot?: ReactNode;
 } = {}) {
   const [meta, setMeta] = useState<TheaterMeta | null>(null);
   // The title logo lines up with the text under it by its ink (lib/logoInk).
@@ -279,6 +289,24 @@ export function TheaterOverlay({
     // The reload stops the file, and mpv puts its subtitle delay back.
     setSubDelay(0);
   }, []);
+  /**
+   * The LIVE button. A seek to the buffer's end when the player's disk cache
+   * reaches it and reading never stalled (liveEdge.ts goLiveAction): the stream
+   * is not touched, so a long rewind or pause costs nothing to come back from.
+   * Otherwise the reload above. The watchdog and Retry call `jumpLive` and
+   * never this: a dead socket has nothing to seek to.
+   *
+   * A seek does not unpause, and the reload did, so this does.
+   */
+  const goLive = useCallback(() => {
+    if (!api()?.seekLive?.()) {
+      jumpLive();
+      return;
+    }
+    api()?.setPause(false);
+    setPaused(false);
+    setLivePct(100);
+  }, [jumpLive]);
   // Seeded from prefs, not from 1/false: this component unmounts on the
   // popout round-trip (and on a tab bounce), and a fresh mount doesn't
   // just FORGET the level — its [volume, muted] effect PUSHES the default
@@ -494,7 +522,7 @@ export function TheaterOverlay({
   const pickSpeed = useCallback((sp: number) => {
     setSpeed(sp);
     api()?.setSpeed?.(sp);
-    if (vodRef.current) rememberPlayback({ speed: sp }, showRef.current);
+    if (vodRef.current && !fileRef.current) rememberPlayback({ speed: sp }, showRef.current);
     setMenu(null);
   }, []);
   // Scrub-in-progress fraction (0..1); null = not scrubbing. While held,
@@ -894,6 +922,9 @@ export function TheaterOverlay({
   // second half only actually works because selectAudio/selectSub blank the
   // poll's dedupe key, see useDirectOverlay).
   const vodRef = useRef(false); // mirrors `vod` for the stable callbacks
+  // A recording's picks are not a film's to remember (plan 029).
+  const fileRef = useRef(file);
+  fileRef.current = file;
   // Read through a ref: the choose* callbacks are deliberately stable.
   const showRef = useRef(showId);
   showRef.current = showId;
@@ -903,7 +934,7 @@ export function TheaterOverlay({
     api()?.selectAudio?.(id);
     // VOD continuity: an explicit pick is remembered by LANGUAGE and
     // re-applied on the next episode's load (reset_per_file clears them).
-    if (vodRef.current) {
+    if (vodRef.current && !fileRef.current) {
       const t = tracksRef.current?.audio.find((a) => a.id === id);
       // "" when the track names no language at all: that CLEARS the memory
       // rather than leaving it. Skipping the write instead left the previous
@@ -922,7 +953,7 @@ export function TheaterOverlay({
   }, []);
   const chooseSub = useCallback((id: number | null) => {
     api()?.selectSub?.(id === null ? "no" : id);
-    if (vodRef.current) {
+    if (vodRef.current && !fileRef.current) {
       if (id === null) rememberPlayback({ subLang: "off" }, showRef.current);
       else {
         const t = tracksRef.current?.subs.find((x) => x.id === id);
@@ -1184,12 +1215,13 @@ export function TheaterOverlay({
     };
   }, [playbackKey]);
 
-  // Jump to the live edge. A forward seek can't reach it (mpv never pulled the
-  // data between the playback buffer and now), so this reloads the stream on
-  // the same mpv instance — it restarts at the newest segment while the overlay
-  // stays put (video just rebuffers). Then peg the indicator to live.
-  // (The button is `jumpLive` itself now — pegging the indicator moved into
-  // the helper so the watchdog and the Retry button get it too.)
+  // Jump to the live edge. On the in-memory cache a forward seek can't reach
+  // it (mpv never pulled the data between the playback buffer and now), so
+  // `jumpLive` reloads the stream on the same mpv instance: it restarts at
+  // the newest segment while the overlay stays put (video just rebuffers).
+  // The disk cache keeps reading, so the button (`goLive`) seeks when it can
+  // and falls back to that reload. Either way the indicator is pegged to live
+  // (the helpers do it, so the watchdog and the Retry button get it too).
   // At the live edge (within a hair of 100) → the dot burns bright; behind it
   // dims. The only way to fall behind in this UI is the seek controls, so the
   // indicator is an honest read of "are we live" without polling mpv.
@@ -1749,6 +1781,7 @@ export function TheaterOverlay({
             </Button>
           </Hint>
         )}
+        {!file && (
         <Hint label="Pop Out">
           <Button variant="chip" size="icon"
             type="button"
@@ -1759,6 +1792,7 @@ export function TheaterOverlay({
             <PopoutIcon className="size-5" />
           </Button>
         </Hint>
+        )}
         <Hint label={fs ? "Exit Fullscreen" : "Fullscreen"}>
           <Button variant="chip" size="icon"
             type="button"
@@ -2078,7 +2112,7 @@ export function TheaterOverlay({
                     (atLive ? " is-live" : "")
                   }
                   aria-label="Jump to Live"
-                  onClick={jumpLive}
+                  onClick={goLive}
                 >
                   <span className="theater-live__dot" />
                   LIVE
@@ -2089,7 +2123,7 @@ export function TheaterOverlay({
 
           <div className="theater-controls__group">
             {/* In-playback source switcher — VOD only. */}
-            {vod && (
+            {vod && !file && (
               <Hint side="top" label="Sources">
                 <Button variant="ghost" size="icon"
                   type="button"
@@ -2138,6 +2172,7 @@ export function TheaterOverlay({
                 )}
               </div>
             )}
+            {recordSlot}
             {/* Stats for nerds (theater/fullscreen only; needs the shell for
               * the mpv_stats command). Toggles the top-left telemetry panel. */}
             {isTauri() && (
@@ -2348,7 +2383,7 @@ export function TheaterOverlay({
  * always over a picture, and the page's tint is dark in the light theme,
  * which vanished on a dark capsule. A seek that can't happen stays
  * focusable and hoverable (aria-disabled), so its tooltip can say why. */
-const IN_CAPSULE =
+export const IN_CAPSULE =
   "rounded-full text-on-image/85 hover:bg-on-image/12 hover:text-on-image " +
   "aria-expanded:bg-on-image/16 aria-expanded:text-on-image " +
   "aria-pressed:bg-on-image/16 aria-pressed:text-on-image " +

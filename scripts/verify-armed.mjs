@@ -37,7 +37,7 @@ async function open(seed) {
   await page.route("**://v3-cinemeta.strem.io/**", (r) => r.abort());
   await page.route("**://image.tmdb.org/**", (r) => r.abort());
   await page.addInitScript((s) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     sessionStorage.setItem("btv:welcome-played", "1");
     for (const [k, v] of Object.entries(s))
       localStorage.setItem(`blammytv.${k}`, JSON.stringify({ v: 1, data: v }));

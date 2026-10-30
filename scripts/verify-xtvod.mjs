@@ -48,6 +48,10 @@
 //   switch and its rows under it, a live-only playlist has neither; the switch
 //   off empties Stream (and costs no download to turn back on); removing the
 //   playlist drops its choices, its record of what it held and its lists on disk.
+// - What no playlist owns is cleared at launch: a record on disk for a playlist
+//   that is not saved (a settings import replaced the list) is gone after a
+//   reload, the saved playlists' records stay, and they hold a hash of the
+//   account and not the account.
 // - Discover (batch 5): with only a library, the grid is the provider's titles,
 //   newest first, with no genre rail; the Movies and Series chips filter it;
 //   a search finds a film in a folder nobody picked and a show; a result opens
@@ -117,7 +121,7 @@ const stub = ({ playlists, seeds, connected }) => {
   // Seeded once per tab: a reload keeps what the page wrote since.
   if (sessionStorage.getItem("seeded")) return;
   sessionStorage.setItem("seeded", "1");
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "stream" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: playlists }));
@@ -440,6 +444,10 @@ await coll(p).waitFor({ timeout: 20_000 });
   await p.locator(".vod-source").first().waitFor({ timeout: 15_000 });
   const sources = await p.locator(".vod-source").allInnerTexts();
   check("the film opens with two sources, 2160p first and then HD", sources.length === 2 && /2160p/.test(sources[0]) && /HD/.test(sources[1]) && !/2160p/.test(sources[1]), JSON.stringify(sources));
+  // The sources come off the cache the moment the page opens; the panel's own
+  // page (get_vod_info) answers a beat later, and a quick page, as this one now
+  // is with the hero cut down, read it before it was there.
+  await p.waitForFunction(() => /The plot of 4K/.test(document.querySelector(".vod-detail")?.textContent ?? ""), null, { timeout: 5000 }).catch(() => {});
   const detail = await p.locator(".vod-detail").first().innerText();
   check("  with the page the panel gave it (synopsis and year)", /The plot of 4K The Fantastic 4/.test(detail) && /2025/.test(detail), detail.slice(0, 160));
   const log = await panelLog();
@@ -701,7 +709,11 @@ await p.context().close();
 {
   await clearLog();
   const q = await openPage({ seeds: { xtVod: { vod1: { off: true, picks: [ACTION] } } } });
-  await q.waitForTimeout(3000);
+  // With no library on there is nothing to stream, so the launch opens on Live
+  // TV (Start On offers only what a source backs, 1.0.28): Stream is visited.
+  await q.waitForTimeout(1500);
+  await goTo(q, "home");
+  await q.waitForTimeout(1500);
   const text = await q.locator("main").innerText();
   check(
     "a playlist whose library is switched off puts nothing in Stream and asks the panel for no list",
@@ -967,6 +979,142 @@ const heldBoth = (p) => async () => {
   check("  and its choices and its record of what it held, and not the other's", !choices || !("vod1" in choices), JSON.stringify(choices));
   check("  the other's record of what it held is still there", !!held?.live1 && !held.vod1, JSON.stringify(held));
   await r.context().close();
+}
+
+// ============================================ what no playlist owns, at launch
+{
+  /** The record under `id` as it is on disk, or null (the database or the record is not there). */
+  const diskRecord = (p, id) =>
+    p.evaluate(
+      (k) =>
+        new Promise((resolve) => {
+          const rq = indexedDB.open("blammytv-vod", 1);
+          rq.onerror = () => resolve(null);
+          rq.onsuccess = () => {
+            const db = rq.result;
+            const g = db.transaction("lists").objectStore("lists").get(k);
+            g.onsuccess = () => {
+              db.close();
+              resolve(g.result ?? null);
+            };
+            g.onerror = () => {
+              db.close();
+              resolve(null);
+            };
+          };
+        }),
+      id,
+    );
+  /** What a settings import leaves: a record under an id no saved playlist has,
+   * in the shape 1.0.0 wrote (the account itself in `fp`). */
+  const plant = (p, id) =>
+    p.evaluate(
+      (k) =>
+        new Promise((resolve) => {
+          const rq = indexedDB.open("blammytv-vod", 1);
+          rq.onerror = () => resolve(false);
+          rq.onsuccess = () => {
+            const db = rq.result;
+            const tx = db.transaction("lists", "readwrite");
+            const empty = { movies: [], shows: [], movieFolders: [], showFolders: [] };
+            tx.objectStore("lists").put({ fp: JSON.stringify(["http://old.invalid", "olduser", "oldpass"]), at: 1, lists: empty }, k);
+            tx.oncomplete = () => {
+              db.close();
+              resolve(true);
+            };
+            tx.onerror = () => resolve(false);
+          };
+        }),
+      id,
+    );
+  const g = await openPage({ playlists: [playlist("vod", { name: "Vod Panel" }), LIVE_ONLY()], seeds: { xtVod: { vod1: { off: false, picks: { movie: ["12"] } } } } });
+  await g.locator(".media-row__title", { hasText: /^Action$/ }).waitFor({ timeout: 20_000 });
+  const both = await waitFor(g, async () => ((await diskKeys(g)) ?? []).join() === "live1,vod1", 10_000);
+  const planted = await plant(g, "ghost");
+  check("(control) both playlists' lists are on disk, and a record no playlist owns is planted beside them", both && planted && ((await diskKeys(g)) ?? []).join() === "ghost,live1,vod1", JSON.stringify(await diskKeys(g)));
+  await g.reload({ waitUntil: "domcontentloaded" });
+  const cleared = await waitFor(g, async () => ((await diskKeys(g)) ?? []).join() === "live1,vod1", 10_000);
+  check("a reload clears the record no playlist owns, and leaves the saved playlists' records", cleared, JSON.stringify(await diskKeys(g)));
+  const rec = await diskRecord(g, "vod1");
+  check("  and what the saved ones keep of the account is a hash, not the account", typeof rec?.fp === "string" && /^[0-9a-f]{64}$/.test(rec.fp), JSON.stringify(rec?.fp ?? null));
+  await g.context().close();
+}
+
+// ============================================ a lapsed account's answer
+// A panel whose account lapsed answers EVERY call with {"user_info":{"auth":0}}
+// and a 200. That is not a list, so it is a failed read: the copy on disk and
+// the rows stay, whatever its age. It used to read as a library of nothing,
+// replace the copy (on disk too, stamped now) and empty Stream for 12 hours.
+{
+  /** The record on disk for the playlist: when it was read and what it holds. */
+  const record = (p) =>
+    p.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const rq = indexedDB.open("blammytv-vod", 1);
+          rq.onerror = () => resolve(null);
+          rq.onsuccess = () => {
+            const db = rq.result;
+            if (!db.objectStoreNames.contains("lists")) return resolve(null), db.close();
+            const g = db.transaction("lists").objectStore("lists").get("vod1");
+            g.onsuccess = () => {
+              db.close();
+              resolve(g.result ? { at: g.result.at, movies: g.result.lists.movies.length, shows: g.result.lists.shows.length } : null);
+            };
+            g.onerror = () => (db.close(), resolve(null));
+          };
+        }),
+    );
+  /** Make the record 13 hours old, past the 12 the lists are used as they are. */
+  const age = (p) =>
+    p.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const rq = indexedDB.open("blammytv-vod", 1);
+          rq.onerror = () => resolve(false);
+          rq.onsuccess = () => {
+            const db = rq.result;
+            const tx = db.transaction("lists", "readwrite");
+            const g = tx.objectStore("lists").get("vod1");
+            g.onsuccess = () => tx.objectStore("lists").put({ ...g.result, at: Date.now() - 13 * 3600_000 }, "vod1");
+            tx.oncomplete = () => (db.close(), resolve(true));
+            tx.onerror = () => resolve(false);
+          };
+        }),
+    );
+  await fetch(`${PANEL}/__lapse?on=0`);
+  const q = await openPage({ playlists: [playlist("vodlapse")], seeds: { xtVod: { vod1: { picks: [ACTION] } } } });
+  try {
+    await q.locator(".media-row__title", { hasText: /^Action$/ }).waitFor({ timeout: 20_000 });
+    const wrote = await waitFor(q, async () => (await record(q))?.movies > 0, 10_000);
+    const before = await record(q);
+    const aged = await age(q);
+    check("(control) the account's lists are on disk, and the copy is made 13 hours old", wrote && aged && before.movies > 0 && before.shows > 0, JSON.stringify(before));
+    const old = await record(q);
+
+    // The account lapses. A relaunch shows the old copy at once and reads again behind it.
+    await fetch(`${PANEL}/__lapse?on=1`);
+    await clearLog();
+    await q.reload({ waitUntil: "domcontentloaded" });
+    await q.locator(".media-row__title", { hasText: /^Action$/ }).waitFor({ timeout: 20_000 });
+    const asked = await waitFor(q, async () => listCalls(await panelLog(), "vodlapse").length > 0, 15_000);
+    check("(control) the launch read the lists again, and the panel answered them with the sign-in object", asked && listCalls(await panelLog(), "vodlapse").length >= 4, JSON.stringify(listCalls(await panelLog(), "vodlapse").map((c) => c.action)));
+    await q.waitForTimeout(2000); // what the failed read would have done to the page
+    check("the rows are still there", (await rowTitles(q)).includes("Action") && (await rowCards(q, "Action")).length > 0, JSON.stringify(await rowTitles(q)));
+    const kept = await record(q);
+    check("  and so is the copy on disk, as it was: not replaced with nothing, not stamped now", kept?.movies === old.movies && kept?.shows === old.shows && kept?.at === old.at, JSON.stringify({ old, kept }));
+    const held = await storeOf(q, "xtVodHeld");
+    check("  and the record of what the playlist held did not drop to nothing", held?.vod1?.movies > 0, JSON.stringify(held));
+
+    // The account is back: the next launch reads it, and the copy is the new read.
+    await fetch(`${PANEL}/__lapse?on=0`);
+    await q.reload({ waitUntil: "domcontentloaded" });
+    const renewed = await waitFor(q, async () => (await record(q))?.at > old.at, 15_000);
+    check("once the panel answers again, the next launch reads it and replaces the copy", renewed && (await rowTitles(q)).includes("Action"), JSON.stringify(await record(q)));
+  } finally {
+    await fetch(`${PANEL}/__lapse?on=0`);
+    await q.context().close();
+  }
 }
 
 // ============================================ Discover

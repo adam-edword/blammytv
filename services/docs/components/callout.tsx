@@ -22,6 +22,9 @@ export function Callout({
       data-variant={variant}
       className={cn(
         "not-typeset mt-6 w-auto rounded-2xl border-surface bg-surface text-surface-foreground md:-mx-1 **:[a]:font-medium **:[a]:underline **:[a]:decoration-current/30 **:[a]:hover:decoration-current **:[code]:border",
+        // A warning gets a quiet amber tint. Nothing else changes, so it
+        // still reads as the same callout.
+        "data-[variant=warning]:border-amber-200 data-[variant=warning]:bg-amber-50 dark:data-[variant=warning]:border-amber-500/25 dark:data-[variant=warning]:bg-amber-500/10",
         className
       )}
       {...props}

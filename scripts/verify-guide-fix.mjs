@@ -89,7 +89,7 @@ await page.addInitScript((pl) => {
   if (sessionStorage.getItem("seeded")) return;
   sessionStorage.setItem("seeded", "1");
   sessionStorage.setItem("btv:welcome-played", "1");
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
 }, PLAYLISTS);
 
@@ -285,7 +285,7 @@ await dialog.waitFor({ state: "detached", timeout: 5000 });
     p.on("pageerror", (e) => errors.push(String(e)));
     await p.addInitScript((pl) => {
       sessionStorage.setItem("btv:welcome-played", "1");
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
     }, EV);
     await p.goto(URL, { waitUntil: "domcontentloaded" });

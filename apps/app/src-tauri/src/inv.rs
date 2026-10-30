@@ -9,13 +9,51 @@
 
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicIsize, Ordering};
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DestroyWindow, SetWindowPos, HWND_BOTTOM, SWP_NOACTIVATE,
-    SWP_SHOWWINDOW, WINDOW_EX_STYLE, WINDOW_STYLE, WS_CHILD, WS_VISIBLE,
+    CallWindowProcW, CreateWindowExW, DestroyWindow, SetWindowLongPtrW, SetWindowPos, GWLP_WNDPROC,
+    HWND_BOTTOM, SC_KEYMENU, SWP_NOACTIVATE, SWP_SHOWWINDOW, WINDOW_EX_STYLE, WINDOW_STYLE,
+    WM_SYSCOMMAND, WNDPROC, WS_CHILD, WS_VISIBLE,
 };
 
 static CHILD: AtomicIsize = AtomicIsize::new(0);
+
+/// The main window's own window procedure, which `alt_proc` passes on to.
+static PREV_PROC: AtomicIsize = AtomicIsize::new(0);
+
+/// Alt pressed and let go on its own puts a window with a system menu into
+/// keyboard menu mode: a modal loop that holds the mouse until a click or
+/// another Alt, so the page took no hover and no scroll while the video, on
+/// its own threads, played on (Adam, 1.0.27). WebView2 hands the unused Alt to
+/// this window, and Windows makes it WM_SYSCOMMAND / SC_KEYMENU with an lParam
+/// of 0. That one is dropped. Alt+Space (the system menu: a nonzero lParam,
+/// the space) and Alt+F4 (SC_CLOSE) are not touched, and the page still gets
+/// its Alt keydown first. Main thread, once, from setup.
+pub fn keep_alt_out_of_menu(hwnd: isize) {
+    if PREV_PROC.load(Ordering::SeqCst) != 0 {
+        return;
+    }
+    let proc_addr = alt_proc as unsafe extern "system" fn(HWND, u32, WPARAM, LPARAM) -> LRESULT;
+    let prev = unsafe {
+        SetWindowLongPtrW(
+            HWND(hwnd as *mut c_void),
+            GWLP_WNDPROC,
+            proc_addr as usize as isize,
+        )
+    };
+    PREV_PROC.store(prev, Ordering::SeqCst);
+}
+
+unsafe extern "system" fn alt_proc(h: HWND, msg: u32, w: WPARAM, l: LPARAM) -> LRESULT {
+    if msg == WM_SYSCOMMAND && (w.0 & 0xFFF0) as u32 == SC_KEYMENU && l.0 == 0 {
+        log::info!("[win] Alt alone: keyboard menu mode skipped");
+        return LRESULT(0);
+    }
+    // SAFETY: PREV_PROC is the procedure SetWindowLongPtrW returned for this
+    // window, set before this one could be called.
+    let prev: WNDPROC = std::mem::transmute::<isize, WNDPROC>(PREV_PROC.load(Ordering::SeqCst));
+    CallWindowProcW(prev, h, msg, w, l)
+}
 
 /// Open the video child at the given rect (PHYSICAL px, window-client
 /// coords), parked at the bottom of the z-order, and start mpv into it.

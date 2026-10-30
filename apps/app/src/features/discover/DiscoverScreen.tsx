@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { logGridPage, logGridReset, logGridShown } from "./genreLog";
 import { Button } from "../../components/ui/button";
 import { DiscoverIcon, SearchIcon, WarnIcon } from "../../ui/icons";
 import { StateCard } from "../../ui/StateCard";
+import { BackButton } from "../../ui/BackButton";
 import {
   loadCardMeta,
   onCardMetaChange,
@@ -43,8 +45,24 @@ import {
 } from "./searchQuery";
 import { scrubbedMessage } from "../../lib/errors";
 import { useMouseNav } from "../../lib/mouseNav";
+import { returnFocus } from "../../lib/returnFocus";
 import { useViewStack } from "../../lib/viewStack";
 import { Recommender } from "./Recommender";
+import {
+  TMDB_WAIT_MS,
+  POOL_PAGES,
+  POOL_TARGET,
+  ROW_MAX,
+  buildRows,
+  dropOffGenre,
+  noteAppearances,
+  orderMeaningful,
+  pinFirst,
+  rankCards,
+  type Appearances,
+  type GenreRow,
+} from "./genreRows";
+import { popularInGenre } from "./genreTmdb";
 import {
   onRecommendRequest,
   publishRecommend,
@@ -78,6 +96,10 @@ type DiscoverView = {
    * genre and the type do. Back and the mouse's back button then leave it
    * for free, with the grid underneath restored to where it was. */
   rec?: true;
+  /* A genre's "See All" page (plan 034): a row's id, or "all" for the whole
+   * genre. A page like the recommender, so Back and the mouse's back button
+   * return to the rows at the scroll position they were left at. */
+  see?: string;
 };
 
 type Cfg =
@@ -183,6 +205,10 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
     else if (match !== genre) replaceView((v) => ({ ...v, genre: match }));
   }, [cfg, genre, replaceView]);
   const [items, setItems] = useState<VodItem[]>(session?.items ?? []);
+  // The genre page's rows (plan 034), built once when the pool lands. Null is
+  // no rows: the unfiltered grid, or a genre whose cards say too little about
+  // themselves to cut into rows, which is the ranked grid instead.
+  const [rows, setRows] = useState<GenreRow[] | null>(session?.rows ?? null);
   const [phase, setPhase] = useState<"first" | "more" | "idle" | "done">(
     session ? (session.exhausted ? "done" : "idle") : "first",
   );
@@ -336,8 +362,18 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
   const cursors = useRef<Record<string, number>>({ ...(session?.cursors ?? {}) });
   const doneRef = useRef<Record<string, boolean>>({ ...(session?.done ?? {}) });
   const seenRef = useRef<Set<string>>(new Set(session?.seen ?? []));
+  // Where each card of a genre was seen, which ranks the rows and every batch
+  // the grid loads after them.
+  const appearRef = useRef<Appearances>(new Map(session?.appear ?? []));
   const busyRef = useRef(false);
   const reqIdRef = useRef(0);
+  // A genre's pool is still loading: the cursors and seen keys are ahead of
+  // anything on screen, so a snapshot taken now would restore a page with no
+  // first titles. Set by each reset, cleared when the current request ends.
+  const poolingRef = useRef(false);
+  // orderMeaningful of the first pool. Every later batch of the page ranks by
+  // it, so a card does not read differently from one batch to the next.
+  const orderedRef = useRef(session?.ordered ?? false);
 
   const loadMore = useCallback(
     async (reset: boolean) => {
@@ -346,9 +382,13 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
       busyRef.current = true;
       const reqId = reset ? ++reqIdRef.current : reqIdRef.current;
       if (reset) {
+        logGridReset(genre);
         cursors.current = {};
         doneRef.current = {};
         seenRef.current = new Set();
+        appearRef.current = new Map();
+        poolingRef.current = !!genre;
+        setRows(null);
         // The UNFILTERED grid seeds instantly from the Stream tab's cache
         // (same catalogs, already fetched); each catalog's skip cursor
         // starts past the cached depth so infinite scroll continues on
@@ -369,56 +409,118 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         setPhase("more");
       }
       try {
-        const active = gridCatalogs(cfg.cfg.catalogs, filter, genre).filter(
-          (c) => !doneRef.current[catKey(c)],
-        );
-        if (active.length === 0) {
-          if (reqId === reqIdRef.current) setPhase("done");
+        // One page from every catalog still open. Moves the cursors, logs
+        // the page, notes where each card sat (a genre's ranking reads it),
+        // and returns the cards not seen before, interleaved. `pages` is
+        // empty when every catalog is done; the whole result is null when a
+        // newer request took over while this one was out.
+        const round = async () => {
+          const active = gridCatalogs(cfg.cfg.catalogs, filter, genre).filter(
+            (c) => !doneRef.current[catKey(c)],
+          );
+          if (active.length === 0) return { pages: [], fresh: [] as VodItem[] };
+          const pages = await Promise.all(
+            active.map((c) =>
+              fetchDiscoverPage(cfg.cfg, c, genre, cursors.current[catKey(c)] ?? 0)
+                .then((page) => ({ c, page: page as VodItem[] | null }))
+                // null = transient failure: no cursor advance, NOT done.
+                // An empty SUCCESS is the only exhaustion signal, so a
+                // network blip can't bench a catalog until the next reset.
+                .catch(() => ({ c, page: null })),
+            ),
+          );
+          if (reqId !== reqIdRef.current) return null; // filter changed mid-flight
+          for (const { c, page } of pages) {
+            if (page === null) continue;
+            const at = cursors.current[catKey(c)] ?? 0;
+            logGridPage(c, at, page);
+            if (genre) noteAppearances(appearRef.current, catKey(c), at, page);
+            cursors.current[catKey(c)] = at + page.length;
+            if (page.length === 0) doneRef.current[catKey(c)] = true;
+          }
+          const fresh = interleave(...pages.map((p) => p.page ?? [])).filter((i) => {
+            if (seenRef.current.has(itemKey(i))) return false;
+            seenRef.current.add(itemKey(i));
+            return true;
+          });
+          return { pages, fresh };
+        };
+        const spent = (pages: { page: VodItem[] | null }[]) =>
+          pages.every(({ page }) => page !== null && page.length === 0);
+
+        if (reset && genre) {
+          // A genre opens as rows (plan 034): the first pages of every
+          // catalog that serves it, until there are about POOL_TARGET cards,
+          // POOL_PAGES deep at most. TMDB's popular titles are asked for at
+          // the same time, and waited for only so long.
+          const tmdb = Promise.race([
+            // Live while this is the current request: a hop to another genre,
+            // or leaving the page, stops the lookups and not only the wait.
+            popularInGenre(genre, filter, undefined, () => reqId === reqIdRef.current).catch(
+              () => [] as VodItem[],
+            ),
+            new Promise<VodItem[]>((r) => window.setTimeout(() => r([]), TMDB_WAIT_MS)),
+          ]);
+          const pool: VodItem[] = [];
+          let heard = false;
+          let finished = false;
+          for (let n = 0; n < POOL_PAGES && pool.length < POOL_TARGET && !finished; n++) {
+            const got = await round();
+            if (got === null) return;
+            finished = got.pages.length === 0 || spent(got.pages);
+            // No catalog serving the genre has nothing to hear, which is not
+            // a failure either.
+            heard ||= got.pages.length === 0 || got.pages.some(({ page }) => page !== null);
+            pool.push(...got.fresh);
+          }
+          const popular = await tmdb;
+          if (reqId !== reqIdRef.current) return;
+          // Off-genre cards are gone from everything; cards that say nothing
+          // about their genres stay for See All and never reach a row. When
+          // there are no rows to make (too few cards say anything), the page
+          // is today's grid, ranked.
+          const pin = genreArtTitle(genre);
+          orderedRef.current = orderMeaningful(pool);
+          const order = { genre, ordered: orderedRef.current };
+          const shown = pinFirst(rankCards(dropOffGenre(pool, genre), appearRef.current, order), pin);
+          const made = buildRows(pool, genre, filter, appearRef.current, { tmdb: popular, pin });
+          logGridShown(shown);
+          setItems(shown);
+          setRows(made.length > 0 ? made : null);
+          setGridFailed(!heard);
+          setPhase(finished ? "done" : "idle");
           return;
         }
-        const pages = await Promise.all(
-          active.map((c) =>
-            fetchDiscoverPage(cfg.cfg, c, genre, cursors.current[catKey(c)] ?? 0)
-              .then((page) => ({ c, page: page as VodItem[] | null }))
-              // null = transient failure: no cursor advance, NOT done —
-              // an empty SUCCESS is the only exhaustion signal, so a
-              // network blip can't bench a catalog until the next reset.
-              .catch(() => ({ c, page: null })),
-          ),
-        );
-        if (reqId !== reqIdRef.current) return; // filter changed mid-flight
-        for (const { c, page } of pages) {
-          if (page === null) continue;
-          cursors.current[catKey(c)] =
-            (cursors.current[catKey(c)] ?? 0) + page.length;
-          if (page.length === 0) doneRef.current[catKey(c)] = true;
+
+        const got = await round();
+        if (got === null) return;
+        if (got.pages.length === 0) {
+          setPhase("done");
+          return;
         }
-        const merged = interleave(...pages.map((p) => p.page ?? [])).filter((i) => {
-          if (seenRef.current.has(itemKey(i))) return false;
-          seenRef.current.add(itemKey(i));
-          return true;
-        });
-        // The genre card's own title leads its grid: what the wallpaper
-        // promised is the first thing the click delivers.
-        if (reset && genre) {
-          const pin = genreArtTitle(genre);
-          const at = pin ? merged.findIndex((i) => i.id === pin) : -1;
-          if (at > 0) merged.unshift(...merged.splice(at, 1));
-        }
+        // A genre's later batches rank on their own and are appended, so a
+        // card already on screen never moves.
+        const merged = genre
+          ? rankCards(dropOffGenre(got.fresh, genre), appearRef.current, {
+              genre,
+              ordered: orderedRef.current,
+            })
+          : got.fresh;
+        logGridShown(merged);
         setItems((prev) => (reset ? merged : [...prev, ...merged]));
         // Every page null = nothing was HEARD, not "the catalog is empty" —
         // a reset in that state renders the honest failure note instead of
         // the definitive empty-catalog copy.
-        if (reset) setGridFailed(pages.every(({ page }) => page === null));
-        const exhausted = pages.every(
-          ({ page }) => page !== null && page.length === 0,
-        );
-        setPhase(exhausted ? "done" : "idle");
+        if (reset) setGridFailed(got.pages.every(({ page }) => page === null));
+        setPhase(spent(got.pages) ? "done" : "idle");
       } finally {
         // Only the CURRENT request may unlatch: a superseded flight's
         // finally otherwise opened a concurrent same-generation load
         // (double-advanced cursors = a silently skipped page).
-        if (reqId === reqIdRef.current) busyRef.current = false;
+        if (reqId === reqIdRef.current) {
+          busyRef.current = false;
+          poolingRef.current = false;
+        }
       }
     },
     [cfg, filter, genre],
@@ -444,6 +546,38 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
     void loadMore(true);
   }, [loadMore]);
 
+  // What a genre shows (plan 034): its rows, or one grid. The grid is a
+  // See All page (the whole genre, or one row's cards), or the whole page when
+  // there are no rows to show.
+  const seeing =
+    genre && view.see === "all"
+      ? "all"
+      : genre && rows
+        ? (rows.find((r) => r.id === view.see) ?? null)
+        : null;
+  const rowsMode = !!genre && !!rows && !seeing;
+  const seeAll = useCallback(
+    (see: string) => navigate({ filter, genre, see }),
+    [navigate, filter, genre],
+  );
+  // Focus follows the page change, as the draw's does (TournamentDraw): into
+  // the See All page on its Back button, and back out onto the See All button
+  // it was opened from. That button is a new node by then, so it is found
+  // again by what it opened.
+  const backRef = useRef<HTMLButtonElement>(null);
+  const seenFrom = useRef<string | null>(null);
+  const inSeeAll = !!seeing;
+  const wasSeeAll = useRef(inSeeAll);
+  useEffect(() => {
+    if (inSeeAll === wasSeeAll.current) return;
+    wasSeeAll.current = inSeeAll;
+    if (inSeeAll) returnFocus(backRef.current);
+    else if (seenFrom.current)
+      returnFocus(
+        scrollRef.current?.querySelector<HTMLElement>(`[data-see-all="${seenFrom.current}"]`),
+      );
+  }, [inSeeAll, scrollRef]);
+
   // Infinite scroll: one sentinel under the grid.
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -461,7 +595,8 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
     // `searching` unmounts/remounts the sentinel with the browse branch —
     // without it in the deps the observer kept watching a detached node
     // and infinite scroll died after any search round-trip.
-  }, [loadMore, phase, searching]);
+    // And with the rows: they have no sentinel, a See All page does.
+  }, [loadMore, phase, searching, rowsMode, seeing]);
 
   const open = useCallback((item: VodItem) => requestOpenInStream(item), []);
 
@@ -484,12 +619,24 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
   const lastScroll = useRef(session?.scroll ?? 0);
   const itemsRef = useRef(items);
   itemsRef.current = items;
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const viewRef = useRef(view);
   viewRef.current = view;
+  // Leaving the page ends the request in flight: it stops pooling and asking
+  // TMDB, and writes nothing to the shared genre log once the page is gone.
   useEffect(
     () => () => {
+      reqIdRef.current++;
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      // Mid-pool there is no coherent state to keep: the last snapshot stands.
+      if (poolingRef.current) return;
       saveDiscoverSession({
         key: discoverKey(),
         filter: viewRef.current.filter,
@@ -499,7 +646,11 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         done: { ...doneRef.current },
         seen: [...seenRef.current],
         exhausted: phaseRef.current === "done",
-        scroll: lastScroll.current,
+        // A See All page is not restored (the rows are), so neither is its offset.
+        scroll: viewRef.current.see ? 0 : lastScroll.current,
+        rows: rowsRef.current,
+        appear: new Map(appearRef.current),
+        ordered: orderedRef.current,
       });
     },
     [],
@@ -526,6 +677,9 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         onOpen={open}
       />
     );
+
+  // A row's See All is that row's cards; the rest of the grids are the feed.
+  const shown = seeing && seeing !== "all" ? seeing.all : items;
 
   if (cfg.status === "error") {
     return (
@@ -648,22 +802,103 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         </section>
       )}
 
+      {rowsMode && rows ? (
+        <>
+          {/* A genre's rows (plan 034): Stream's own row markup, so the
+            * posters are its 240 and the details wait for a hover. */}
+          <div className="stream__rows genre-rows">
+            {rows.map((row) => (
+              <section className="media-row" key={row.id}>
+                <div className="genre-rows__head">
+                  <h3 className="media-row__title">{row.title}</h3>
+                  {row.from && (
+                    <span className="genre-rows__chip">From {row.from}</span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    className="genre-rows__all"
+                    aria-label={`See All ${row.title}`}
+                    data-see-all={row.id}
+                    onClick={() => {
+                      seenFrom.current = row.id;
+                      seeAll(row.id);
+                    }}
+                  >
+                    See All
+                  </Button>
+                </div>
+                <RowScroller>
+                  {row.all.slice(0, ROW_MAX).map((item) => (
+                    <Card
+                      key={itemKey(item)}
+                      item={item}
+                      metaFields={gridMetaFields}
+                      onOpen={open}
+                    />
+                  ))}
+                </RowScroller>
+              </section>
+            ))}
+          </div>
+          {items.length > 0 && (
+            <div className="genre-rows__foot">
+              <Button
+                variant="secondary"
+                type="button"
+                data-see-all="all"
+                onClick={() => {
+                  seenFrom.current = "all";
+                  seeAll("all");
+                }}
+              >
+                See All {genre}
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
       <section className="discover__gridwrap">
-        <h3 className="media-row__title">
-          {genre ?? (filter === "movie" ? "Movies" : filter === "series" ? "Series" : "Popular")}
-        </h3>
+        {seeing ? (
+          <div className="library__bar">
+            <BackButton ref={backRef} className="vod-back" onClick={goBack} />
+            <h2 className="library__heading">
+              {seeing === "all" ? `All ${genre}` : seeing.title}
+            </h2>
+          </div>
+        ) : genre && phase === "first" ? null : (
+          <h3 className="media-row__title">
+            {genre ?? (filter === "movie" ? "Movies" : filter === "series" ? "Series" : "Popular")}
+          </h3>
+        )}
         {phase === "first" ? (
           <>
             <p className="vh" role="status">
               Loading the catalog…
             </p>
-            <div className="disc-grid" aria-hidden>
-            {Array.from({ length: 12 }, (_, i) => (
-              <div key={i} className="disc-skel" />
-            ))}
-            </div>
+            {genre ? (
+              <div className="stream__rows genre-rows" aria-hidden>
+                {[0, 1].map((r) => (
+                  <section className="media-row" key={r}>
+                    <div className="disc-skel genre-rows__skel-title" />
+                    <div className="genre-rows__skel">
+                      {Array.from({ length: 8 }, (_, i) => (
+                        <div key={i} className="disc-skel" />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="disc-grid" aria-hidden>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <div key={i} className="disc-skel" />
+                ))}
+              </div>
+            )}
           </>
-        ) : items.length === 0 && gridFailed ? (
+        ) : shown.length === 0 && gridFailed ? (
           <StateCard
             role="alert"
             icon={<WarnIcon size={28} />}
@@ -679,14 +914,14 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
               </Button>
             }
           />
-        ) : items.length === 0 ? (
+        ) : shown.length === 0 ? (
           <StateCard
             icon={<DiscoverIcon size={28} />}
             title="No Titles"
           />
         ) : (
           <div className="disc-grid">
-            {items.map((item) => (
+            {shown.map((item) => (
               <Card
                 key={itemKey(item)}
                 item={item}
@@ -701,8 +936,13 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
             Loading More…
           </p>
         )}
-        <div ref={sentinelRef} className="discover__sentinel" aria-hidden />
+        {/* A row's See All is that row and no more: no sentinel, or it would
+          * page the whole genre in behind it. */}
+        {shown === items && (
+          <div ref={sentinelRef} className="discover__sentinel" aria-hidden />
+        )}
       </section>
+      )}
         </>
       )}
     </div>

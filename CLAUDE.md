@@ -67,7 +67,7 @@ mvconvert.rs, HEVC conversion through an actual ffmpeg included), and so
 do Trakt's and MAL's (trakt.rs and mal.rs, against fakes) and multi-view's
 sound listener and jitter buffer (mvaudio.rs; its cpal output, mvaudio_out.rs,
 needs a device and is type-checked only) and AIOStreams' Jellyfin side
-(aiojf.rs, against a fake) and a Jellyfin server's own client (jf.rs, against a fake) and the header a Jellyfin stream asks mpv to send (mpvheader.rs) and the player settings' checks (mpvprefs.rs) and the dead-link probe (mpvopen.rs, against local servers) and the Vulkan loader's order (mpvvulkan.rs) and About's versions and update notes (about.rs) and the log's read-back (logtail.rs) and the settings file's checks (settingsfile.rs) and a playlist's User-Agent (mpvagent.rs) and the external subtitles' rules (mpvsubs.rs), from a host crate that includes the files as they
+(aiojf.rs, against a fake) and a Jellyfin server's own client (jf.rs, against a fake) and the header a Jellyfin stream asks mpv to send (mpvheader.rs) and the player settings' checks (mpvprefs.rs) and the dead-link probe (mpvopen.rs, against local servers) and the Vulkan loader's order (mpvvulkan.rs) and About's versions and update notes (about.rs) and the log's read-back (logtail.rs) and the settings file's checks (settingsfile.rs) and a playlist's User-Agent (mpvagent.rs) and the external subtitles' rules (mpvsubs.rs) and the recorder (rec.rs, the real ffmpeg against a fake provider) and VLC's launch and poller (vlc.rs, against fakes) and live TV's disk cache (mpvcache.rs), from a host crate that includes the files as they
 are:
 
 ```
@@ -75,7 +75,7 @@ curl -sSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-
 cd scripts/mvproxy-host && BLAMMYTV_FFMPEG=/tmp/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg cargo test
 ```
 
-Baseline 326 tests (plan 027 batch 6): 52 for the proxy (35 mvproxy, 17 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 22 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 62 for a Jellyfin server's own client (jf.rs), 6 for the header a Jellyfin stream asks mpv to send (mpvheader.rs), 16 for mpvprefs, 21 for mpvopen, 9 for mpvvulkan, 8 for about, 16 for logtail, 14 for settingsfile, 10 for mpvagent, 8 for mpvsubs. On CI the Windows job runs the same tests with the
+Baseline 459 tests (1.0.45): 52 for the proxy (35 mvproxy, 17 mvconvert), 3 for mpvurl, 15 for Trakt, 17 for MAL, 22 for mvaudio, 47 for AIOStreams' Jellyfin side (aiojf.rs), 62 for a Jellyfin server's own client (jf.rs), 6 for the header a Jellyfin stream asks mpv to send (mpvheader.rs), 16 for mpvprefs, 21 for mpvopen, 9 for mpvvulkan, 8 for about, 16 for logtail, 14 for settingsfile, 10 for mpvagent, 8 for mpvsubs, 91 for rec, 30 for vlc, 12 for mpvcache. On CI the Windows job runs the same tests with the
 bundled ffmpeg (`scripts/fetch-ffmpeg.mjs`), on the CPU path: no GPU there. It does catch every signature
 mistake, which is the class that has reached users' rebuilds before.
 
@@ -90,13 +90,13 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **77/77 harnesses clean, 2391 checks** (1.0.0), or one
+Baseline is **89/89 harnesses clean, 3314 checks** (1.0.48, CI: 1542 + 1772), or one
 fewer: verify-cw-sources' last check only runs when the catalog is still
 loading at the click; the script says so and it is not a failure. verify-kit
 (plan 019) has one section per shared primitive, so a later change that
 undoes one fails there. If playwright-core is not installed, point `PW_FROM` at somewhere
 that can require it. verify-fetchvulkan needs 7-Zip (CI has it): without
-it that one reads `0✓ 1✗` and the total is 2368.
+it that one reads `0✓ 1✗` and the total is 3313.
 
 It refuses to start if anything is already on one of its ports, and that
 refusal is load-bearing: a leftover `vite preview` on 4173 binds first, our
@@ -159,7 +159,11 @@ Not the whole board. CI runs all of it on every push, so a full local run
 before each one doubled every version's wait and bought nothing CI doesn't
 (Adam, v0.9.127: "feels like these are taking the longest by far").
 
-- **Always:** `pnpm typecheck`, `pnpm lint`, `pnpm test`. About two minutes.
+- **A small tweak** (copy, a CSS value, a one-line fix): `pnpm typecheck`,
+  `pnpm lint` and the unit test file it touches, then push. CI runs the
+  rest. Adam (1.0.18): "for changes that small i dont think we need to run
+  tests on all the things".
+- **Anything bigger:** `pnpm typecheck`, `pnpm lint`, `pnpm test`. About two minutes.
 - **The harnesses the change touches:** `pnpm verify <name>`, new checks
   included.
 - **A native change:** `node scripts/check-rust.mjs`, clippy, and the host
@@ -309,6 +313,12 @@ What they agree on, and what this app holds to:
   always capitalized. No period. A full sentence is sentence case and ends
   with a period. Source:
   https://developer.apple.com/library/archive/documentation/FinalCutProX/Conceptual/FxPlugHIG/TextStyleGuidelines/TextStyleGuidelines.html
+- **No comma before "and", "or", "but" or "so" joining two short
+  clauses** (Adam, 1.2.0: "feels kinda AI"): "Films and shows open in VLC
+  and your place still syncs", not "…in VLC, and your place…". Same for a
+  trailing phrase: "Prism, Velvet and Lagoon in Settings → Appearance", not
+  "…Lagoon, in Settings". Lists keep no serial comma too ("record, pause
+  and rewind").
 - **Contractions are fine. Put the most important thing first.**
 
 ## Delegation: orchestrate by task shape, not by default

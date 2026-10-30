@@ -2,6 +2,7 @@ import { scrubbedMessage } from "../../lib/errors";
 import { clearSearchCache, loadDiscover, searchDiscover } from "./data";
 import { broaden, score } from "./match";
 import { resolveVodItem } from "../stream/source";
+import { gridLog } from "./genreLog";
 import {
   findByWords,
   genreIds,
@@ -23,6 +24,8 @@ import {
  *   await btvDiscover()        // what your addons actually advertise
  *   await btvTmdb("<key>")     // store a key and check TMDB end to end
  *   await btvTmdb()            // re-check with the stored key
+ *   copy(btvGenreGrid())       // the Discover grid on screen: each card's
+ *                              // catalog, place in it and genres
  *
  * NEVER PRINTS THE MANIFEST URL. It embeds the user's whole addon config,
  * which is a credential; the existing [discover] line carries the same
@@ -32,6 +35,7 @@ import {
 interface Probes {
   btvDiscover?: () => Promise<void>;
   btvTmdb?: (key?: string) => Promise<void>;
+  btvGenreGrid?: () => unknown;
 }
 
 export function installDiscoverProbe(): void {
@@ -70,6 +74,13 @@ export function installDiscoverProbe(): void {
       console.error("[probe] discover failed:", scrubbedMessage(e));
     }
   };
+
+  /** The Discover grid on screen, as it was made (genreLog.ts): per card its
+   * title, genres, rating and every `catalog#position` it came back at; per
+   * catalog what it declares and how much of what it sent carries the genre.
+   * For the genre rows rework: are the off-genre cards a catalog ignoring the
+   * filter, or titles that do carry the genre as a side tag? */
+  w.btvGenreGrid = () => gridLog();
 
   /** Store a key if one is passed, then ask TMDB whether this app's idea of
    * its API is still true. See tmdb.ts: none of those shapes has ever been

@@ -122,6 +122,16 @@ export function RecentsIcon({ size = 19, className }: IconProps) {
   );
 }
 
+/** Record: a ring with a dot in it, the mark a recorder wears. */
+export function RecordIcon({ size = 19, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
 /** Interface / Close (X) */
 export function CloseIcon({ size = 24, className }: IconProps) {
   return (
@@ -558,6 +568,15 @@ export function TvIcon({ size = 16, className }: IconProps) {
     <Svg size={size} className={className}>
       <rect x="2" y="7" width="20" height="14" rx="2" />
       <path d="M16 3L12 7L8 3" />
+    </Svg>
+  );
+}
+
+/** A house, for Settings' Home page. */
+export function HomeIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
     </Svg>
   );
 }

@@ -9,7 +9,8 @@ import {
   tauriFrontendStatus,
   tauriInstallUpdate,
 } from "../../lib/tauri";
-import { isPlaying } from "../../lib/playingNow";
+import { finishFirst, isPlaying } from "../../lib/playingNow";
+import { useRecordingBusy } from "../recordings/store";
 import { EYEBROW } from "../../ui/eyebrow";
 import { Hint } from "../../ui/Hint";
 import { noteLines } from "./updateNotes";
@@ -31,6 +32,8 @@ type Phase =
 
 export function UpdatesSection() {
   const [phase, setPhase] = useState<Phase>({ at: "idle" });
+  // A recording starting or ending changes what holds an install (plan 029).
+  useRecordingBusy();
   // Hot channel (plan 008): a staged frontend waiting to be served. It
   // applies on the next launch whether or not anyone touches this row —
   // that alone is the bulk of the win — so the button is an accelerator,
@@ -53,6 +56,7 @@ export function UpdatesSection() {
   useEffect(() => () => window.clearTimeout(revertTimer.current), []);
 
   if (!isTauri()) return null; // browser dev: no updater to talk to
+  const lead = finishFirst();
 
   const check = () => {
     setPhase({ at: "checking" });
@@ -140,7 +144,7 @@ export function UpdatesSection() {
         // Installing restarts the app, so it waits for playback to finish
         // like Restart now does (F20).
         <Hint
-          label="Finish watching first. Then install."
+          label={`${lead} Then install.`}
           off={phase.at === "installing" || !isPlaying()}
         >
         <Button
@@ -168,7 +172,7 @@ export function UpdatesSection() {
         // pointer and so no hint, and the hint is the reason it is grey.
         // The click is refused in the handler either way.
         <Hint
-          label="Finish watching first. It applies on its own next launch."
+          label={`${lead} It applies on its own next launch.`}
           off={!isPlaying()}
         >
         <Button

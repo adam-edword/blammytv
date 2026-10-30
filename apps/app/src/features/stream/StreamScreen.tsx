@@ -5,6 +5,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
+  type PointerEvent,
 } from "react";
 import {
   CheckIcon,
@@ -39,7 +41,7 @@ import {
   ItemHeader,
   ItemTitle,
 } from "../../components/ui/item";
-import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
+import { isTauri, openExternal, tauriSetFullscreen } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
 import { dayLabel } from "../../lib/time";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -58,6 +60,25 @@ import {
   resolveVodSources,
 } from "./source";
 import { readStreamScroll, saveStreamScroll } from "./session";
+import { loadLists, toItem } from "./lists";
+import { peekCatalogRows } from "../home/catalogRows";
+import {
+  homeRows,
+  isLive,
+  loadOffered,
+  onHomeRowsChange,
+  saveHomeRows,
+  withAutoRows,
+  withNewCatalogRows,
+  type HomeRow,
+} from "../home/layout";
+import { ChannelRow, GamesRow, RecordingsRow } from "../home/LiveRows";
+import { NeedsRow, TitlesRow } from "../home/ListRows";
+import { TRAKT_NAMES } from "../home/traktRows";
+import { liveHas, useLiveRows, useLiveSource, type LiveRowsData } from "../home/useLiveRows";
+import { useTraktRows } from "../home/useTraktRows";
+import { hasLivePlaylist } from "../settings/startupSources";
+import { loadAiojf, AIOJF_SYNCED } from "../aiojf/store";
 import { SaveButton } from "./SaveButton";
 import { isOut, nextEpisode, nextUpEpisode, openingSeason, pickCachedIndex, pickResumeIndex } from "./mapper";
 import { dropPrefetch, prefetchSources, takePrefetched } from "./prefetch";
@@ -74,7 +95,7 @@ import {
 import { filmWatched, loadAioWatched, loadJfWatched, loadWatched, markWatched } from "./watched";
 import { loadAioConn } from "../aiojf/conn";
 import { loadJfVod, peekJfVod } from "../jellyfin/vod";
-import { JF_CHANGED, loadJfConn } from "../jellyfin/store";
+import { JF_CHANGED, JF_SYNCED, loadJf, loadJfConn } from "../jellyfin/store";
 import { eligiblePlaylists, hasXtLibrary, XT_CHANGED, xtLibraryPending } from "../xtvod/store";
 import { loadXtVod, peekXtVod, XT_LOADED, xtLibraries, xtUserAgent } from "../xtvod/vod";
 import { XtCollections } from "../xtvod/Collections";
@@ -83,6 +104,7 @@ import { onPlaylistsChange } from "../settings/playlists";
 import { AIO_CONN_CHANGED } from "../settings/aiostreams";
 import { loadOneClickPlay } from "../settings/oneClickPlay";
 import { loadShowHero } from "../settings/showHero";
+import { loadHeroStyle } from "../settings/heroStyle";
 import { countdownFrom, loadAutoplayNext } from "../settings/upNext";
 import {
   discoverKey,
@@ -108,6 +130,7 @@ import {
   rolledForward,
   updateWatchingProgress,
   updateWatchingSource,
+  WATCHING_CHANGED,
   type WatchEntry,
 } from "./watching";
 import {
@@ -129,6 +152,8 @@ import { useJfReport } from "../jellyfin/report";
 import { rememberForMal } from "../mal/sync";
 import { useMalTicks } from "../mal/ticks";
 import { loadTrakt, TRAKT_SYNCED } from "../trakt/store";
+import { loadPopoutApp } from "../settings/playerPrefs";
+import { openInVlc, vlcTitle, type VlcOpenFailure } from "./vlcSession";
 import { Hint } from "../../ui/Hint";
 import { Card } from "../../ui/Card";
 import { RowScroller } from "../../ui/RowScroller";
@@ -171,6 +196,7 @@ type JfLoad = Load | { status: "off" };
 type XtLoad = JfLoad;
 
 const NO_ITEMS: ReadonlyMap<string, VodItem> = new Map();
+const NO_CARDS: readonly VodItem[] = [];
 
 /** One row of the Stream home after Continue Watching, and the items it names. */
 interface Shown {
@@ -213,7 +239,29 @@ function prefetchEpisode(episodeId: string, from: VodItem["from"]) {
   prefetchSources(episodeId, () => resolveVodSources("series", episodeId, { from }));
 }
 
-export function StreamScreen({ home }: { home?: number } = {}) {
+/** The key a root's scroll offset is held under: Home's is its own. */
+const scrollKeyOf = (hub: boolean) => (hub ? "hub:" : "") + configKey();
+
+export function StreamScreen({
+  home,
+  root = "stream",
+  onEditHome,
+}: {
+  /** Counts presses of the pill (or the logo, for Home) that is already
+   * showing: the screen goes to the top of its stack. */
+  home?: number;
+  /**
+   * Which page this is the root of (plan 033). "stream" is the Stream tab:
+   * the rows in the order they have always had. "home" is the page behind the
+   * logo: the same rows, in the order Settings → Home gives them. A title
+   * opened from either opens here and Back returns here, which is why Home is
+   * a second root of this screen and not a screen of its own.
+   */
+  root?: "stream" | "home";
+  /** Home's "Edit Home": App opens Settings on its Home page. */
+  onEditHome?: () => void;
+} = {}) {
+  const hub = root === "home";
   const [load, setLoad] = useState<Load>(initialLoad);
   const [jf, setJf] = useState<JfLoad>(initialJf);
   const [xt, setXt] = useState<XtLoad>(initialXt);
@@ -245,12 +293,26 @@ export function StreamScreen({ home }: { home?: number } = {}) {
   // has it without each passing one.
   const agentFor = playing?.item.from === "xt" ? playing.item.id : null;
   const playAgent = useMemo(() => (agentFor ? xtUserAgent(agentFor) : undefined), [agentFor]);
+  // Pop-out to VLC (plan 032): why it did not start, for the stream it was
+  // asked on, and the toast once it has (the player is closed by then).
+  const [vlcNote, setVlcNote] = useState<(VlcOpenFailure & { key: string }) | null>(null);
+  const [inVlc, setInVlc] = useState(false);
+  useEffect(() => {
+    if (!inVlc) return;
+    const t = window.setTimeout(() => setInVlc(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [inVlc]);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
-  // A Trakt sync can move Continue Watching (plan 015, T4).
+  // A Trakt sync can move Continue Watching (plan 015, T4), and so can VLC's
+  // reports (plan 032), which are no sync.
   useEffect(() => {
     const reread = () => setWatching(loadWatching());
     window.addEventListener(TRAKT_SYNCED, reread);
-    return () => window.removeEventListener(TRAKT_SYNCED, reread);
+    window.addEventListener(WATCHING_CHANGED, reread);
+    return () => {
+      window.removeEventListener(TRAKT_SYNCED, reread);
+      window.removeEventListener(WATCHING_CHANGED, reread);
+    };
   }, []);
   const {
     view,
@@ -270,16 +332,28 @@ export function StreamScreen({ home }: { home?: number } = {}) {
   // landing back at the top of the rows every time is the same annoyance
   // that back used to have. Mirrored on scroll rather than read at cleanup,
   // because an unmount cleanup runs after React has detached the ref.
-  const homeScroll = useRef(readStreamScroll(configKey()));
+  // Home keeps its own offset, under its own key: the two roots are not the
+  // same page, and one slot would have each take the other's.
+  const homeScroll = useRef(readStreamScroll(scrollKeyOf(hub)));
   useEffect(() => {
     if (homeScroll.current) restoreTo(homeScroll.current);
     // Mount only: later runs would yank the user back to a stale offset.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(
-    () => () => saveStreamScroll(configKey(), homeScroll.current),
-    [],
+    () => () => saveStreamScroll(scrollKeyOf(hub), homeScroll.current),
+    [hub],
   );
+  // Home's rows: what Settings → Home has, kept as it changes so the page
+  // moves behind Settings. Seeded the first time it is opened (layout.ts).
+  const [layout, setLayout] = useState<HomeRow[] | undefined>(() =>
+    hub ? homeRows(peekCatalogRows().map((r) => r.id), hasLivePlaylist()) : undefined,
+  );
+  // A layout effect: Home (a child) saves rows the moment it mounts when its
+  // catalogs or live source are already known (a row new since the seed, On
+  // Now), and a child's effect runs before this one's, so listening in a
+  // passive effect missed that save and the row did not draw until the next visit.
+  useLayoutEffect(() => (hub ? onHomeRowsChange(setLayout) : undefined), [hub]);
   // Between "user clicked play" and "sources resolved": the player-style
   // black screen with the art breathing, INSTANTLY — a quick-resume /
   // Watch Now click must never sit on a dead screen for seconds.
@@ -772,9 +846,12 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         });
       }
     };
+    // Not Home's: App sends these hand-offs to the Stream tab, and a Home
+    // that took one in the beat before the tab swaps would lose the title.
+    if (hub) return;
     consume();
     return onOpenRequest(consume);
-  }, [cardOpen, stop, depth, cancelResolve]);
+  }, [cardOpen, stop, depth, cancelResolve, hub]);
 
   // Theater ↔ OS-fullscreen. State flips in the pure updater; the window
   // call rides outside it.
@@ -1323,9 +1400,10 @@ export function StreamScreen({ home }: { home?: number } = {}) {
         handoffArm.current = false;
       });
     };
+    if (hub) return; // as the item mailbox above
     consume();
     return onResumeRequest(consume);
-  }, [quickResume, openSources, catalogItem]);
+  }, [quickResume, openSources, catalogItem, hub]);
 
   const [panelTick, setPanelTick] = useState(0);
   useEffect(() => {
@@ -1403,6 +1481,12 @@ export function StreamScreen({ home }: { home?: number } = {}) {
   // Identity of the CURRENT stream. reloadTick rides it so a Retry counts
   // as a new stream even when the re-resolve returned the identical url.
   const streamKey = playing ? `${playing.url}#${playing.reloadTick ?? 0}` : null;
+  // A VLC failure belongs to the stream it came from. Once that one is gone
+  // (the player closed, another picked) the note goes too, or playing the same
+  // address again would show it before any attempt.
+  useEffect(() => {
+    setVlcNote((n) => (n && n.key === streamKey ? n : null));
+  }, [streamKey]);
   const directApi = useDirectOverlay(
     isTauri() && !!playing && !playing.popped,
     streamKey,
@@ -1425,6 +1509,37 @@ export function StreamScreen({ home }: { home?: number } = {}) {
       // playback returns in-app at the popout's final position.
       onPopout: () => {
         if (!playing) return;
+        // VLC (Settings → Playback): it plays from here on, and the app only
+        // follows it (vlcSession.ts), so the player closes and the title's
+        // page is back. Not started (no VLC, or refused): the player plays on.
+        if (loadPopoutApp() === "vlc") {
+          const asked = playing;
+          setVlcNote(null);
+          void (async () => {
+            const st = await tauriMpvStatus().catch(() => null);
+            const fail = await openInVlc(
+              {
+                itemId: asked.item.id,
+                kind: asked.item.kind,
+                title: asked.item.title,
+                year: asked.item.year,
+                episodeId: asked.episodeId,
+                season: asked.episodeInfo?.season,
+                from: asked.item.from,
+                streamUrl: asked.url,
+                counted: !!st?.dur && (st.pos ?? 0) / st.dur > 0.8,
+              },
+              vlcTitle(asked.item.title, asked.episodeInfo),
+              playAgent,
+              st?.pos ?? asked.resumeAt,
+            );
+            if (fail) return setVlcNote({ ...fail, key: `${asked.url}#${asked.reloadTick ?? 0}` });
+            // Still that stream: a pick made while VLC started is not closed.
+            if (playingRef.current?.url === asked.url) stop();
+            setInVlc(true);
+          })();
+          return;
+        }
         const shell = document.querySelector<HTMLElement>(".app-shell");
         if (shell) shell.style.clipPath = "";
         void tauriPopoutOpen(playing.url, false, undefined, playAgent).catch(() => {});
@@ -2038,6 +2153,38 @@ export function StreamScreen({ home }: { home?: number } = {}) {
             </div>,
             chromeHostRef.current,
           )}
+        {vlcNote &&
+          vlcNote.key === streamKey &&
+          !playing.popped &&
+          chromeHostRef.current &&
+          createPortal(
+            <div className="vlc-note" role="alert" data-interactive>
+              <span className="vlc-note__msg">
+                {vlcNote.missing
+                  ? "VLC isn’t installed."
+                  : `Couldn’t open VLC: ${vlcNote.why.replace(/\.+$/, "")}.`}
+              </span>
+              {vlcNote.missing && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  type="button"
+                  onClick={() => openExternal("https://www.videolan.org/vlc/")}
+                >
+                  Download VLC
+                </Button>
+              )}
+              <Button variant="chip" size="icon-chip"
+                type="button"
+                className="player__btn"
+                aria-label="Dismiss"
+                onClick={() => setVlcNote(null)}
+              >
+                <CloseIcon className="size-3.5" />
+              </Button>
+            </div>,
+            chromeHostRef.current,
+          )}
         {playing.popped && (
           <div className="vod-pip">
             {(playing.item.logo ?? playing.item.poster) && (
@@ -2092,6 +2239,8 @@ export function StreamScreen({ home }: { home?: number } = {}) {
           load={load}
           jf={jf}
           xt={xt}
+          layout={layout}
+          onEditHome={onEditHome}
           onRetry={() => setVodTick((t) => t + 1)}
           onOpen={cardOpen}
           onWatchNow={watchNow}
@@ -2172,16 +2321,119 @@ export function StreamScreen({ home }: { home?: number } = {}) {
           }
         />
       )}
+      {inVlc &&
+        createPortal(
+          <div className="live-toast" role="status">
+            <span className="live-toast__msg">Playing in VLC</span>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
 
+/** What the row renderers below draw from: the page's loaded state. Stream
+ * draws them in one fixed order and Home in the saved one (plan 033), from
+ * this, so the two can't drift. */
+interface RowData {
+  aio: VodData | null;
+  jfData: VodData | null;
+  aioOn: boolean;
+  jfOn: boolean;
+  featured: VodItem[];
+  activeWatching: WatchEntry[];
+  metaFields: CardMetaField[];
+  onOpen: (i: VodItem) => void;
+  onWatchNow: (i: VodItem) => void;
+  onClearWatching: (id: string) => void;
+  onOpenWatching: (e: WatchEntry) => void;
+  onSourcesWatching: (e: WatchEntry) => void;
+  /** Home's live rows (plan 033, phase 2). Empty on Stream's own page. */
+  live: LiveRowsData;
+}
+
+/** The carousel, in the style Appearance picks. Whether it is wanted at all is
+ * the caller's: Stream's Featured Carousel switch, Home's row switch. */
+function CarouselRow({ d }: { d: RowData }) {
+  if (d.featured.length === 0) return null;
+  return loadHeroStyle() === "large" ? (
+    <LargeHero items={d.featured} onOpen={d.onOpen} onWatchNow={d.onWatchNow} />
+  ) : (
+    <Hero items={d.featured} onOpen={d.onOpen} />
+  );
+}
+
+function ContinueRow({ d, title }: { d: RowData; title?: string }) {
+  if (d.activeWatching.length === 0) return null;
+  return (
+    <section className="media-row">
+      <h3 className="media-row__title">{title ?? "Continue Watching"}</h3>
+      <RowScroller>
+        {d.activeWatching.map((e) => (
+          <ContinueCard
+            key={e.id}
+            entry={e}
+            metaFields={d.metaFields}
+            onOpen={() => d.onOpenWatching(e)}
+            onSources={() => d.onSourcesWatching(e)}
+            onClear={() => d.onClearWatching(e.id)}
+          />
+        ))}
+      </RowScroller>
+    </section>
+  );
+}
+
+/** What AIOStreams has next for you (plan 023, A5): its own rows, empty ones
+ * not drawn, and your Jellyfin's own (plan 027, D5). `title` is Home's name
+ * for the Next Up row(s): AIOStreams' takes it, and your Jellyfin's adds "on
+ * Jellyfin" when both are signed in, so the two rows never share a name. */
+function UpNextBlock({ d, title }: { d: RowData; title?: string }) {
+  return (
+    <>
+      {d.aio && <UpNextRows catalog={d.aio.items} metaFields={d.metaFields} onOpen={d.onOpen} title={title} />}
+      {d.jfOn && (
+        <JfUpNextRow
+          catalog={d.jfData?.items ?? NO_ITEMS}
+          metaFields={d.metaFields}
+          onOpen={d.onOpen}
+          shared={d.aioOn}
+          title={title}
+        />
+      )}
+    </>
+  );
+}
+
+function CatalogRow({ d, b, title }: { d: RowData; b: Shown; title?: string }) {
+  return (
+    <section className="media-row">
+      <h3 className="media-row__title">{title ?? b.row.title}</h3>
+      <RowScroller>
+        {b.row.itemIds.map((id) => {
+          const item = b.items.get(id);
+          return item ? <Card key={id} item={item} metaFields={d.metaFields} onOpen={d.onOpen} /> : null;
+        })}
+      </RowScroller>
+    </section>
+  );
+}
+
+/**
+ * The rows, as Stream's page and as Home's. Without `layout` this is Stream:
+ * the carousel, Continue Watching, Up Next, then every catalog row, in that
+ * order, with the playlists' folders after them. With one it is Home: the same
+ * renderers in the order Settings → Home gives, a row only when it is on and
+ * has something in it. The states (no sources, loading, an error) are shared.
+ */
 function Home({
   load,
   jf,
   xt,
+  layout,
+  onEditHome,
   onOpen,
   onWatchNow,
   watching,
@@ -2193,6 +2445,9 @@ function Home({
   load: Load;
   jf: JfLoad;
   xt: XtLoad;
+  /** Home's rows. None is Stream's own page. */
+  layout?: readonly HomeRow[];
+  onEditHome?: () => void;
   onOpen: (i: VodItem) => void;
   onWatchNow: (i: VodItem) => void;
   watching: WatchEntry[];
@@ -2204,7 +2459,8 @@ function Home({
   // Read during render rather than into state: App owns the Settings
   // modal, so closing it re-renders this tree and the change lands then.
   // Not live WHILE Settings is open, unlike cardMeta below — the modal is
-  // over the top of it, so there is nothing to see.
+  // over the top of it, so there is nothing to see. (Home's rows are live:
+  // layout.ts fires the event StreamScreen listens to.)
   const showHero = loadShowHero();
 
   // Which details the cards show — flips live while Settings is open.
@@ -2220,7 +2476,78 @@ function Home({
   // Movies or Shows Yet" as it always did, not that a catalog failed.
   const xtOn =
     xt.status !== "off" && (hasXtLibrary() || (xt.status === "loading" && xtLibraryPending()));
-  if (!aioOn && !jfOn && !xtOn) {
+  // What is ready from each source. One that is not never holds back the
+  // other: your Jellyfin up and the addon down still shows your library.
+  const aio = aioOn && load.status === "ready" ? load.data : null;
+  const jfData = jf.status === "ready" ? jf.data : null;
+  const xtData = xtOn && xt.status === "ready" ? xt.data : null;
+
+  // Home only. A catalog row it has not seen is added at the end, switched on
+  // (layout.ts), as the catalogs land. So are On Now and Today's Games, once,
+  // when there is a live source.
+  const catalogIds = useMemo(
+    () => [aio, jfData, xtData].flatMap((data) => data?.rows.map((r) => r.id) ?? []),
+    [aio, jfData, xtData],
+  );
+  const liveSource = useLiveSource();
+  useEffect(() => {
+    if (!layout) return;
+    const next = withAutoRows(withNewCatalogRows(layout, catalogIds), loadOffered(), liveSource);
+    if (next !== layout) saveHomeRows(next);
+  }, [layout, catalogIds, liveSource]);
+  // The live rows' data, read only for a row that is on (and only on Home).
+  const live = useLiveRows(layout, liveSource);
+  // The sport menu on Today's Games saves its pick on the row (none is All Sports).
+  const pickSport = useCallback(
+    (sport?: string) => {
+      if (layout) saveHomeRows(layout.map((r) => (r.kind === "games" ? { ...r, sport } : r)));
+    },
+    [layout],
+  );
+  // And Up Next's rows draw themselves from what the last sync stored, so
+  // whether Home has anything at all has to hear one land. So does a Saved row,
+  // since a Trakt sync can change the Trakt Watchlist.
+  const [synced, setSynced] = useState(0);
+  const onHome = !!layout;
+  useEffect(() => {
+    if (!onHome) return;
+    const again = () => setSynced((n) => n + 1);
+    window.addEventListener(AIOJF_SYNCED, again);
+    window.addEventListener(JF_SYNCED, again);
+    window.addEventListener(TRAKT_SYNCED, again);
+    return () => {
+      window.removeEventListener(AIOJF_SYNCED, again);
+      window.removeEventListener(JF_SYNCED, again);
+      window.removeEventListener(TRAKT_SYNCED, again);
+    };
+  }, [onHome]);
+  // Phase 3's rows. Saved: the Library's lists, read only while a Saved row is
+  // on, as the Library draws them. Trakt: asked for only for a Trakt row that
+  // is on, and only signed in (useTraktRows). Both as the cards the Library
+  // draws, made once, so the memoized cards do not redraw with Home.
+  const wantsSaved = !!layout?.some((r) => r.kind === "saved" && r.on);
+  const saved = useMemo(
+    () =>
+      new Map(
+        wantsSaved ? loadLists().map((l) => [l.id, { name: l.name, items: l.entries.map(toItem) }] as const) : [],
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `synced` is the reread
+    [wantsSaved, synced],
+  );
+  const traktRaw = useTraktRows(layout, onHome);
+  const traktItems = useMemo(
+    () => new Map(Object.entries(traktRaw).map(([list, entries]) => [list, entries.map(toItem)] as const)),
+    [traktRaw],
+  );
+
+  // Home with a live row that has something: the page is that row, whatever
+  // the catalogs are doing. And a setup with no stream source at all but live
+  // rows on (live TV only) is Home's own "Nothing on Home", not a prompt to
+  // add a catalog. The states below are for a page with nothing else to show.
+  const liveAny = !!layout && layout.some((r) => r.on && liveHas(r.kind, live));
+  const liveOnly = !!layout && liveSource && !aioOn && !jfOn && !xtOn && layout.some((r) => r.on && isLive(r.kind));
+  const skipStates = liveAny || liveOnly;
+  if (!aioOn && !jfOn && !xtOn && !skipStates) {
     return (
       <StateCard
         className="stream__note"
@@ -2230,12 +2557,7 @@ function Home({
       />
     );
   }
-  // What is ready from each source. One that is not never holds back the
-  // other: your Jellyfin up and the addon down still shows your library.
-  const aio = aioOn && load.status === "ready" ? load.data : null;
-  const jfData = jf.status === "ready" ? jf.data : null;
-  const xtData = xtOn && xt.status === "ready" ? xt.data : null;
-  if (!aio && !jfData && !xtData) {
+  if (!aio && !jfData && !xtData && !skipStates) {
     if ((aioOn && load.status === "loading") || jf.status === "loading" || xt.status === "loading")
       return (
         <StateCard
@@ -2294,11 +2616,129 @@ function Home({
     ...(jfData ? jfData.rows.map((row) => ({ row, items: jfData.items })) : []),
     ...(xtData ? xtData.rows.map((row) => ({ row, items: xtData.items })) : []),
   ];
-  // After the rows, the playlists' end of the page (plan 028). With no other
-  // source and no row picked, the folders ARE the page; otherwise one button
-  // opens the Rows drawer, whether or not a row is picked yet.
+  const d: RowData = {
+    aio,
+    jfData,
+    aioOn,
+    jfOn,
+    featured,
+    activeWatching,
+    metaFields,
+    onOpen,
+    onWatchNow,
+    onClearWatching,
+    onOpenWatching,
+    onSourcesWatching,
+    live,
+  };
+
+  // The playlists' end of the page (plan 028). With no other source and no row
+  // picked, the folders ARE the page; otherwise one button opens the Rows
+  // drawer, whether or not a row is picked yet. Home shows the folders too: a
+  // setup with only a playlist's library has nothing else to draw.
   const xtRows = !!xtData && xtData.rows.length > 0;
   const folderPage = libs.length > 0 && !aioOn && !jfOn && !xtRows;
+
+  if (layout) {
+    // Home. A row is drawn when it is on and has something in it, the way Up
+    // Next has always been: an empty one is not an empty heading. Needs a
+    // Source is the exception, and is drawn whatever is behind it.
+    const byId = new Map(shown.map((b) => [b.row.id, b]));
+    const stored = aio ? loadAiojf() : null;
+    const upNext =
+      (stored ? (stored.nextUp?.length ?? 0) + (stored.upcoming?.length ?? 0) : 0) +
+      (jfOn ? (loadJf().nextUp?.length ?? 0) : 0);
+    const drawn = layout.filter((r) => {
+      if (!r.on) return false;
+      switch (r.kind) {
+        case "carousel":
+          return featured.length > 0;
+        case "continue":
+          return activeWatching.length > 0;
+        case "upnext":
+          return upNext > 0;
+        case "catalog":
+          return (byId.get(r.id)?.row.itemIds.length ?? 0) > 0;
+        case "saved":
+          return (saved.get(r.list)?.items.length ?? 0) > 0;
+        case "trakt":
+          return (traktItems.get(r.list)?.length ?? 0) > 0;
+        case "needs":
+          return true;
+        default:
+          return liveHas(r.kind, live);
+      }
+    });
+    // A live row that is on and has not answered yet (the channel catalog, ESPN)
+    // is not an empty one: say it is loading, not that Home has nothing.
+    if (drawn.length === 0 && !folderPage && live.pending)
+      return <StateCard className="stream__note" role="status" busy title="Loading Home…" />;
+    if (drawn.length === 0 && !folderPage)
+      return (
+        <StateCard
+          className="stream__note"
+          icon={<StreamIcon size={28} />}
+          title="Nothing on Home"
+          sub="Every row is switched off or has nothing in it."
+          actions={
+            onEditHome && (
+              <Button variant="default" type="button" onClick={onEditHome}>
+                Edit Home
+              </Button>
+            )
+          }
+        />
+      );
+    return (
+      <>
+        {/* Pinned to the top, outside the rows, as on Stream. */}
+        {drawn.some((r) => r.kind === "carousel") && <CarouselRow d={d} />}
+        <div className="stream__rows">
+          {drawn.map((r) =>
+            r.kind === "continue" ? (
+              <ContinueRow key={r.id} d={d} title={r.title} />
+            ) : r.kind === "upnext" ? (
+              <UpNextBlock key={r.id} d={d} title={r.title} />
+            ) : r.kind === "catalog" ? (
+              <CatalogRow key={r.id} d={d} b={byId.get(r.id)!} title={r.title} />
+            ) : r.kind === "onnow" ? (
+              <ChannelRow key={r.id} title={r.title ?? "On Now"} cards={live.onNow} clock={live.clock} />
+            ) : r.kind === "recent" ? (
+              <ChannelRow key={r.id} title={r.title ?? "Recent Channels"} cards={live.recent} clock={live.clock} />
+            ) : r.kind === "games" ? (
+              <GamesRow key={r.id} title={r.title ?? "Today’s Games"} games={live.games} sport={r.sport} onSport={pickSport} />
+            ) : r.kind === "recordings" ? (
+              <RecordingsRow key={r.id} title={r.title ?? "Recordings"} recordings={live.recordings} now={live.now} clock={live.clock} />
+            ) : r.kind === "saved" ? (
+              <TitlesRow
+                key={r.id}
+                kind="saved"
+                title={r.title ?? saved.get(r.list)?.name ?? "Saved"}
+                items={saved.get(r.list)?.items ?? NO_CARDS}
+                metaFields={metaFields}
+                onOpen={onOpen}
+              />
+            ) : r.kind === "trakt" ? (
+              <TitlesRow
+                key={r.id}
+                kind="trakt"
+                title={r.title ?? TRAKT_NAMES[r.list]}
+                items={traktItems.get(r.list) ?? NO_CARDS}
+                metaFields={metaFields}
+                onOpen={onOpen}
+              />
+            ) : r.kind === "needs" ? (
+              <NeedsRow key={r.id} title={r.title} />
+            ) : null,
+          )}
+          {folderPage && <XtCollections />}
+        </div>
+      </>
+    );
+  }
+
+  // After the rows, the playlists' end of the page (plan 028): the folders
+  // (`folderPage`, above) or the button that opens the Rows drawer.
   // A "ready" catalog can still be EMPTY (buildVod swallows per-catalog
   // failures into empty rows) — without this branch that rendered a
   // completely blank tab. Discover and Live both narrate the same state. A
@@ -2329,49 +2769,12 @@ function Home({
     <>
       {/* Entirely, and with no gap: the rows are the next element, so
         * turning it off just lets them start at the top. */}
-      {showHero && featured.length > 0 && (
-        <Hero items={featured} onOpen={onOpen} onWatchNow={onWatchNow} />
-      )}
+      {showHero && <CarouselRow d={d} />}
       <div className="stream__rows">
-        {activeWatching.length > 0 && (
-          <section className="media-row">
-            <h3 className="media-row__title">Continue Watching</h3>
-            <RowScroller>
-              {activeWatching.map((e) => (
-                <ContinueCard
-                  key={e.id}
-                  entry={e}
-                  metaFields={metaFields}
-                  onOpen={() => onOpenWatching(e)}
-                  onSources={() => onSourcesWatching(e)}
-                  onClear={() => onClearWatching(e.id)}
-                />
-              ))}
-            </RowScroller>
-          </section>
-        )}
-        {/* What AIOStreams has next for you (plan 023, A5): its own rows
-          * under Continue Watching, empty ones not drawn. */}
-        {aio && <UpNextRows catalog={aio.items} metaFields={metaFields} onOpen={onOpen} />}
-        {/* And your Jellyfin's own (plan 027, D5). */}
-        {jfOn && <JfUpNextRow catalog={jfData?.items ?? NO_ITEMS} metaFields={metaFields} onOpen={onOpen} shared={aioOn} />}
+        <ContinueRow d={d} />
+        <UpNextBlock d={d} />
         {shown.map((b) => (
-          <section key={b.row.id} className="media-row">
-            <h3 className="media-row__title">{b.row.title}</h3>
-            <RowScroller>
-              {b.row.itemIds.map((id) => {
-                const item = b.items.get(id);
-                return item ? (
-                  <Card
-                    key={id}
-                    item={item}
-                    metaFields={metaFields}
-                    onOpen={onOpen}
-                  />
-                ) : null;
-              })}
-            </RowScroller>
-          </section>
+          <CatalogRow key={b.row.id} d={d} b={b} />
         ))}
         {folderPage && <XtCollections />}
         {libs.length > 0 && !folderPage && <XtRowsDrawer edit={xtRows} />}
@@ -2380,50 +2783,76 @@ function Home({
   );
 }
 
-/** The Figma hero (133-721): a ~90vh sliding carousel that never rewinds.
- * The index is VIRTUAL (unbounded, forward-only on auto-advance); slides
- * are a moving window of absolute-positioned cards, each showing
- * items[slot mod n] — so wrapping from the 9th back to the 1st is just one
- * more slide to the right, forever. Hovering the section pauses the
- * auto-advance; the active card wears the Figma glow; neighbors stay at
- * full strength and click-slide. */
-const HERO_GAP = 30;
-function heroMargin(w: number): number {
-  // Side inset ≈ 15% of the window, clamped sane — the card is ~15%
-  // thinner than full-bleed and the neighbors fill the reveal.
-  return Math.min(320, Math.max(200, w * 0.15));
+/** The shelf hero (plan 031): one 16:9 card in focus, the rest 2:3 posters at
+ * its height, and the focused title's details under the card. The sizes are
+ * all CSS (stream.css: the focused card is 1.8x a Continue Watching card);
+ * the component hands it the slot (`--v`, `--s0`) and nothing else. The
+ * index is VIRTUAL (unbounded, forward-only on
+ * auto-advance); the cards are a moving window of slots, each showing
+ * items[slot mod n], so wrapping from the 9th back to the 1st is just one
+ * more slide to the right, forever. Hovering the section, or focus inside
+ * it, pauses the auto-advance. Clicking the focused card (or Enter on it)
+ * opens the title; clicking a poster slides it in; ← → move while focus is
+ * in the hero; a drag moves the shelf and settles on a poster. */
+function mod(n: number, m: number): number {
+  return ((n % m) + m) % m;
 }
-function Hero({
-  items,
-  onOpen,
-  onWatchNow,
-}: {
-  items: VodItem[];
-  onOpen: (i: VodItem) => void;
-  onWatchNow: (i: VodItem) => void;
-}) {
-  const [v, setV] = useState(0); // virtual index — never wraps
+/** The shelf's reach behind the focused card, in slots: the previous card
+ * peeks in at the left, one more waits off screen. Ahead the reach comes from
+ * the window's width (`fit` in Hero): twice what shows, so a click on the
+ * farthest poster has everything its slide brings into view already mounted
+ * and loaded. */
+const HERO_BEHIND = 2;
+/** A drag moves at most this many cards, so a pull far past the shelf can't
+ * keep mounting cards (or land on one never mounted). */
+const HERO_MAX_DRAG = 12;
+const clampDrag = (n: number) => Math.max(-HERO_MAX_DRAG, Math.min(HERO_MAX_DRAG, n));
+/** How long a moved shelf keeps every card it passed over mounted: the 620ms
+ * slide (stream.css, `--dur`) and a frame, with slack for the eased-in tail
+ * (the last pixels of the shrink land late on a slow frame). Dropping a card
+ * sooner takes it off screen mid-slide. */
+const HERO_SETTLE_MS = 900;
+function Hero({ items, onOpen }: { items: VodItem[]; onOpen: (i: VodItem) => void }) {
+  const [v, setV] = useState(0); // virtual index, never wraps
   const [width, setWidth] = useState(0);
+  /** Posters after the focused card it takes to reach the window's right edge
+   * (3 at 1920px wide, 1 at 1280). */
+  const [fit, setFit] = useState(2);
   const [hovered, setHovered] = useState(false);
   /** Keyboard focus is inside the carousel. Autoplay used to pause for the
-   * mouse alone, so a focused Watch now slid 1,000px off screen 8s later,
-   * taking the focus ring with it. */
+   * mouse alone, so a focused button slid off screen 8s later, taking the
+   * focus ring with it. */
   const [focused, setFocused] = useState(false);
-  const hostRef = useRef<HTMLDivElement | null>(null);
+  /** The slot whose meta and synopsis are on the page. It trails `v` by the
+   * fade-out, so the old words leave before the new ones arrive. */
+  const [said, setSaid] = useState(0);
+  const hostRef = useRef<HTMLElement | null>(null);
+  /** Probes as wide as the CSS says: a poster and a gap, and the focused card
+   * and a gap. The sizes are read off the page, not worked out here. */
+  const stepRef = useRef<HTMLSpanElement | null>(null);
+  const leadRef = useRef<HTMLSpanElement | null>(null);
   const count = items.length;
   // Layout effect: measured BEFORE first paint, so no width-0 frame exists.
   useLayoutEffect(() => {
     const el = hostRef.current;
-    if (!el) return;
-    const measure = () => setWidth(el.clientWidth);
+    const step = stepRef.current;
+    const lead = leadRef.current;
+    if (!el || !step || !lead) return;
+    const measure = () => {
+      setWidth(el.clientWidth);
+      const s = step.getBoundingClientRect().width;
+      if (s > 0) setFit(Math.max(0, Math.ceil((el.clientWidth - lead.getBoundingClientRect().width) / s)));
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    ro.observe(step);
+    ro.observe(lead);
     return () => ro.disconnect();
   }, []);
   // A picture under the header (plan 022). Scrolled, the hero passes under
   // the header, whose scrim is the page's colour: in light, a white haze
-  // over the art with dark ink on it. While the active card overlaps the
+  // over the art with dark ink on it. While the focused card overlaps the
   // header, the root says so and the header takes the picture's ink
   // (tokens.css, .on-picture), which is what dark already draws.
   useEffect(() => {
@@ -2455,8 +2884,582 @@ function Hero({
       delete root.dataset.headerOver;
     };
   }, []);
+  // Transitions stay OFF (stream.css, `--k`) until a frame has painted at the
+  // measured geometry, otherwise entering the tab animates the slide from
+  // the width-0 layout ("the slider moves in a bit"). Same guard snaps
+  // (not glides) the shelf on window resizes.
+  const [animReady, setAnimReady] = useState(false);
+  const lastW = useRef(width);
+  if (lastW.current !== width) {
+    lastW.current = width;
+    if (animReady) setAnimReady(false);
+  }
+  useEffect(() => {
+    if (animReady || width === 0) return;
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setAnimReady(true)),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [animReady, width]);
+  /** A drag is under way (a ref: it must not re-render the hero per move). */
+  const dragging = useRef(false);
+  useEffect(() => {
+    // Paused under the pointer, with focus inside, mid-drag, and never at
+    // all under reduced motion: content that moves on its own has to be
+    // stoppable, and a preference against motion is the clearest "stop".
+    if (hovered || focused || REDUCED_MOTION || count < 2) return;
+    const id = window.setInterval(() => {
+      if (!dragging.current) setV((x) => x + 1);
+    }, 8000);
+    return () => window.clearInterval(id);
+  }, [hovered, focused, count]);
+  useEffect(() => {
+    if (said === v) return;
+    const id = window.setTimeout(() => setSaid(v), 240);
+    return () => window.clearTimeout(id);
+  }, [v, said]);
+  // An arrow key moves the focus ring with the focused card: the one that
+  // had it is a poster now, and Enter on a poster would slide back.
+  const refocus = useRef(false);
+  useEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    hostRef.current?.querySelector<HTMLElement>(".shero__card--active")?.focus({ preventScroll: true });
+  }, [v]);
+
+  // Drag (Adam): the shelf follows the pointer 1:1, and on release settles on
+  // the nearest poster; a flick of under a step still moves one. After a few
+  // px it is a drag and never a click. lib/useDragScroll maps the pointer to
+  // scrollLeft, which does not fit a shelf that snaps to steps, so its
+  // safeguards (a lost up event, the latch on the trailing click) are
+  // repeated here.
+  const drag = useRef<{ x: number; lastX: number; lastT: number; vx: number; on: boolean } | null>(null);
+  const justDragged = useRef(false);
+  /** Whole steps the pointer has dragged the shelf, so the cards ahead of it
+   * mount before it gets there. */
+  const [pull, setPull] = useState(0);
+  const stopDrag = useCallback(() => {
+    drag.current = null;
+    dragging.current = false;
+    setPull(0);
+    const host = hostRef.current;
+    if (!host) return;
+    delete host.dataset.drag;
+    host.style.removeProperty("--drag");
+  }, []);
+  useEffect(() => {
+    window.addEventListener("blur", stopDrag);
+    return () => window.removeEventListener("blur", stopDrag);
+  }, [stopDrag]);
+  const onPointerDown = (e: PointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || count < 2) return;
+    justDragged.current = false;
+    drag.current = { x: e.clientX, lastX: e.clientX, lastT: e.timeStamp, vx: 0, on: false };
+  };
+  const onPointerMove = (e: PointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    const host = hostRef.current;
+    if (!d || !host) return;
+    // Fires on plain hover too; no button down means the gesture is over,
+    // whatever events did or did not arrive.
+    if (e.buttons === 0) return stopDrag();
+    const dx = e.clientX - d.x;
+    if (!d.on && Math.abs(dx) < 6) return; // click slop
+    if (!d.on) {
+      d.on = true;
+      dragging.current = true;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      host.dataset.drag = "";
+    }
+    d.vx = (e.clientX - d.lastX) / Math.max(1, e.timeStamp - d.lastT);
+    d.lastX = e.clientX;
+    d.lastT = e.timeStamp;
+    host.style.setProperty("--drag", `${dx}px`);
+    const step = stepRef.current?.getBoundingClientRect().width ?? 0;
+    if (step > 0) setPull(clampDrag(Math.round(-dx / step)));
+  };
+  const onPointerUp = (e: PointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    stopDrag();
+    if (!d?.on) return;
+    justDragged.current = true;
+    // Self-heal: if the trailing click never arrives, don't leave the latch
+    // armed to eat a later real one.
+    window.setTimeout(() => {
+      justDragged.current = false;
+    }, 250);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    // A step is one poster and a gap, read off the page (a probe as wide as
+    // the CSS says), not worked out here.
+    const step = stepRef.current?.getBoundingClientRect().width ?? 0;
+    let n = step > 0 ? clampDrag(Math.round(-(e.clientX - d.x) / step)) : 0;
+    if (n === 0 && Math.abs(d.vx) > 0.35) n = d.vx < 0 ? 1 : -1;
+    if (n) setV((x) => x + n);
+  };
+
+  // The cards mounted. A move mounts the union of the window before and after
+  // it and keeps it until the slide has finished: rebasing the track mid-slide
+  // would drop the card that is shrinking (a focused card is wider than the
+  // slots the margin stands in for, so the rest jump) and mount cards in view.
+  // Widened here, in render, so no frame draws the narrower window.
+  const [reach, setReach] = useState({ lo: 0, hi: 0 });
+  const aim = v + pull;
+  const lo = Math.min(reach.lo, v, aim);
+  const hi = Math.max(reach.hi, v, aim);
+  if (lo !== reach.lo || hi !== reach.hi) setReach({ lo, hi });
+  useEffect(() => {
+    if (pull || (reach.lo === v && reach.hi === v)) return;
+    const id = window.setTimeout(() => setReach({ lo: v, hi: v }), HERO_SETTLE_MS);
+    return () => window.clearTimeout(id);
+  }, [v, pull, reach]);
+  const first = count < 2 ? v : lo - HERO_BEHIND;
+  // Three screens ahead at rest, so a fast drag never reaches a poster that
+  // only started loading when it began (CI's runner dragged five posters
+  // along in under a second and caught one mid-load). A drag mounts one
+  // screen further still. Never fewer than a fast five-poster drag reveals
+  // (five, the screen, and two): bigger cards fit fewer to a screen (1.0.23).
+  const ahead = Math.max((pull ? 4 : 3) * fit + 1, fit + 7);
+  const slots = count < 2 ? [v] : Array.from({ length: hi + ahead - first + 1 }, (_, i) => first + i);
+  // The 16:9 art loads for the cards in view and one past them, since any of
+  // them can be clicked and grow (a poster loads wherever it is mounted).
+  // Around both ends of a move: a drag can land past the cards in view.
+  const wantArt = (slot: number) => slot >= Math.min(v, aim) - HERO_BEHIND && slot <= Math.max(v, aim) + fit + 1;
+  const out = said !== v && !REDUCED_MOTION;
+  // The shelf is on the move, or has not settled from one (reach is back to
+  // {v, v} HERO_SETTLE_MS after it): the cards are flat then and measure
+  // again when it stops (HeroCard).
+  const moving = pull !== 0 || reach.lo !== v || reach.hi !== v;
+  const note = items[mod(REDUCED_MOTION ? v : said, count)];
+  /** The focused title, now: the ambient colour follows `v` and not `said`. */
+  const focusItem = items[mod(v, count)];
+  const style: CSSProperties & Record<`--${string}`, string | number> = { "--v": v, "--s0": first };
+  return (
+    <section
+      className={"shero" + (animReady ? " shero--ready" : "") + (moving ? " shero--moving" : "")}
+      ref={hostRef}
+      aria-roledescription="carousel"
+      aria-label="Featured"
+      style={style}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+          setFocused(false);
+      }}
+      onKeyDown={(e) => {
+        if (count < 2 || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+        e.preventDefault();
+        refocus.current = true;
+        setV((x) => x + (e.key === "ArrowRight" ? 1 : -1));
+      }}
+    >
+      <HeroAmbient src={focusItem.backdrop ?? focusItem.poster ?? null} fallback={focusItem.poster ?? null} />
+      {/* The glow (Adam: keep it): the same shelf again, blurred and
+        * brightened, sliding in lockstep behind the real one across the full
+        * width, so every card lights its own rim. Same geometry, same
+        * transition, so the light never trails the picture. Dark only. */}
+      <span className="shero__step" ref={stepRef} aria-hidden />
+      <span className="shero__lead" ref={leadRef} aria-hidden />
+      <div className="shero__glowbox" aria-hidden>
+        <div className="shero__glowtrack">
+          {slots.map((slot) => {
+            const item = items[mod(slot, count)];
+            if (!item) return null;
+            return (
+              <div
+                key={`${slot}:${item.id}`}
+                className={
+                  "shero__glowcard" +
+                  (slot === v ? " shero__glowcard--active" : "") +
+                  (!item.backdrop && item.poster ? " shero__nobd" : "")
+                }
+              >
+                <HeroLayers item={item} backdrop={item.backdrop ?? null} poster={item.poster ?? null} art={wantArt(slot)} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div
+        className="shero__viewport"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={stopDrag}
+        onLostPointerCapture={stopDrag}
+        // The click after a drag lands on whatever the pointer was released
+        // over, the focused card included; it must not open the title.
+        onClickCapture={(e) => {
+          if (!justDragged.current) return;
+          justDragged.current = false;
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <div className="shero__track">
+          {slots.map((slot) => {
+            const item = items[mod(slot, count)];
+            if (!item) return null;
+            const active = slot === v;
+            return (
+              <HeroCard
+                key={`${slot}:${item.id}`}
+                item={item}
+                active={active}
+                art={wantArt(slot)}
+                still={!moving}
+                // The focused card opens the title; a poster slides in.
+                onClick={() => (active ? onOpen(item) : setV(slot))}
+              />
+            );
+          })}
+        </div>
+      </div>
+      <div className={"shero__info" + (out ? " shero__info--out" : "")}>
+        <p className="shero__meta">
+          {[
+            note.year,
+            note.runtimeMin ? `${note.runtimeMin} min` : null,
+            note.kind === "series" ? "Series" : "Movie",
+          ]
+            .filter(Boolean)
+            // " · ", the app's one separator (016 4.5): three
+            // spaces under `white-space: pre` read as a layout gap
+            // rather than as a list.
+            .join(" · ")}
+          {note.rating ? (
+            <span className="shero__rating">
+              {" · "}★ {note.rating.toFixed(1)}/10
+            </span>
+          ) : null}
+        </p>
+        {note.synopsis && <p className="shero__synopsis">{note.synopsis}</p>}
+      </div>
+    </section>
+  );
+}
+
+/** The ambient canvases' size: a quarter of the box (1440 x 1300) and the
+ * 120px of margin round it, which the blur and the fade are painted at. */
+const AMBIENT_W = 420;
+const AMBIENT_H = 385;
+/** The art, cropped to cover, blurred (90px at full size), more saturated, and
+ * faded down the page (opaque at the top, 0.6 at 45%, clear at the bottom of
+ * the 1300px box). Painted once per pick: see stream.css, `.shero__ambient`. */
+function paintAmbient(c: HTMLCanvasElement, src: string | null, fallback: string | null = null) {
+  const g = c.getContext("2d");
+  if (!g) return;
+  g.clearRect(0, 0, AMBIENT_W, AMBIENT_H);
+  if (!src) return;
+  const img = new Image();
+  img.onload = () => {
+    if (c.dataset.src !== src) return; // a newer pick took this layer
+    // Drawn larger than the canvas, or the blur fades out at its edges.
+    const k = Math.max((AMBIENT_W + 60) / img.naturalWidth, (AMBIENT_H + 60) / img.naturalHeight);
+    const w = img.naturalWidth * k;
+    const h = img.naturalHeight * k;
+    g.clearRect(0, 0, AMBIENT_W, AMBIENT_H);
+    g.filter = "blur(22px) saturate(1.5)";
+    g.drawImage(img, (AMBIENT_W - w) / 2, (AMBIENT_H - h) / 2, w, h);
+    g.filter = "none";
+    const fade = g.createLinearGradient(0, 30, 0, AMBIENT_H - 30);
+    fade.addColorStop(0, "#000");
+    fade.addColorStop(0.45, "rgb(0 0 0 / 0.6)");
+    fade.addColorStop(1, "transparent");
+    g.globalCompositeOperation = "destination-in";
+    g.fillStyle = fade;
+    g.fillRect(0, 0, AMBIENT_W, AMBIENT_H);
+    g.globalCompositeOperation = "source-over";
+  };
+  // A backdrop that fails falls back to the poster, as the shelf's card does
+  // (from review: the wash went blank).
+  img.onerror = () => {
+    if (c.dataset.src === src && fallback && fallback !== src) {
+      c.dataset.src = fallback;
+      paintAmbient(c, fallback);
+    }
+  };
+  img.src = src;
+}
+
+/** The focused title's art, blurred to colour behind the top of the page
+ * (stream.css, `.shero__ambient`). It lives in the shelf, which already knows
+ * the focused title, so the page needs nothing passed up. Two layers: the one
+ * not showing takes the new picture and fades in over the other. */
+function HeroAmbient({ src, fallback }: { src: string | null; fallback: string | null }) {
+  const [slot, setSlot] = useState<{ urls: (string | null)[]; on: number }>({ urls: [src, null], on: 0 });
+  if (slot.urls[slot.on] !== src) {
+    const on = 1 - slot.on;
+    setSlot({ urls: slot.urls.map((u, i) => (i === on ? src : u)), on });
+  }
+  const layers = useRef<(HTMLCanvasElement | null)[]>([null, null]);
+  useEffect(() => {
+    slot.urls.forEach((u, i) => {
+      const c = layers.current[i];
+      if (c && (c.dataset.src ?? "") !== (u ?? "")) {
+        c.dataset.src = u ?? "";
+        paintAmbient(c, u, fallback);
+      }
+    });
+    // fallback changes with src (the same title), and a layer already showing
+    // its picture is not repainted (the dataset check), so this costs nothing.
+  }, [slot, fallback]);
+  return (
+    <div className="shero__ambient" aria-hidden>
+      {slot.urls.map((_, i) => (
+        <canvas
+          key={i}
+          ref={(el) => {
+            layers.current[i] = el;
+          }}
+          className={i === slot.on ? "on" : undefined}
+          width={AMBIENT_W}
+          height={AMBIENT_H}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One card of the shelf: a button whose name is the title. Only the focused
+ * one is a tab stop; the posters are reached by click, drag or the arrows.
+ * A picture that fails to load counts as missing (HeroLayers draws the
+ * fallbacks).
+ *
+ * The picture leans and catches the sheen the row cards do, a poster with
+ * Card's own props and the wide focused card more gently. The button stays
+ * OUTSIDE the Tilt, as Card's and
+ * ContinueCard's do: it keeps the focus ring and the click, and the details
+ * under the shelf don't lean. The logo is inside, so it leans with the
+ * picture. The library works the lean out from a rect it cached on
+ * mouseenter, and a sliding card's rect is wrong the moment it moves, so a
+ * moving shelf holds every card flat (stream.css, `.shero--moving`), no lean
+ * is worked out meanwhile (`still`), and when it stops each card measures
+ * again. Disabling the tilt doesn't flatten it: the library keeps its angles. */
+function HeroCard({ item, active, art, still, onClick }: { item: VodItem; active: boolean; art: boolean; still: boolean; onClick: () => void }) {
+  const [backdropBad, setBackdropBad] = useState(false);
+  const [posterBad, setPosterBad] = useState(false);
+  const backdrop = !backdropBad && item.backdrop ? item.backdrop : null;
+  const poster = !posterBad && item.poster ? item.poster : null;
+  const tilt = useRef<Tilt>(null);
+  const wasStill = useRef(still);
+  // Layout effect: it measures at the first frame of the settle, before the
+  // card's own transform transition (the library's, 650ms) has moved off flat.
+  useLayoutEffect(() => {
+    if (still && !wasStill.current) {
+      tilt.current?.setSize();
+      tilt.current?.mainLoop(new CustomEvent("autoreset"));
+    }
+    wasStill.current = still;
+  }, [still]);
+  return (
+    <button
+      type="button"
+      aria-label={item.title}
+      tabIndex={active ? 0 : -1}
+      className={"shero__card" + (active ? " shero__card--active" : "") + (!backdrop && poster ? " shero__nobd" : "")}
+      onClick={onClick}
+    >
+      <Tilt
+        ref={tilt}
+        className="shero__tilt"
+        tiltEnable={!REDUCED_MOTION && still}
+        // The focused card is about 2.7x a poster's width, so the same 5
+        // degrees at the library's 1000px perspective swung its near edge
+        // ~34px past itself, over its neighbours 16px away (Adam). Weaker
+        // and seen from further off, it overhangs ~10px. 2.5 and 1.005 since
+        // 1.0.23's bigger card: 3 and 1.01 left it 1.5px off its neighbours.
+        tiltMaxAngleX={active ? 2.5 : 5}
+        tiltMaxAngleY={active ? 2.5 : 5}
+        perspective={active ? 2500 : 1000}
+        scale={REDUCED_MOTION ? 1 : active ? 1.005 : 1.03}
+        transitionSpeed={650}
+        glareEnable={!REDUCED_MOTION}
+        glareMaxOpacity={0.12}
+        glarePosition="all"
+        glareBorderRadius="var(--radius-card)"
+      >
+        <HeroLayers
+          item={item}
+          backdrop={backdrop}
+          poster={poster}
+          art={art}
+          onBackdropError={() => setBackdropBad(true)}
+          onPosterError={() => setPosterBad(true)}
+        />
+        <span className="shero__scrim" aria-hidden />
+        <HeroTitle key={item.logo ?? item.id} item={item} />
+      </Tilt>
+    </button>
+  );
+}
+
+/** A card's two pictures, each at its own size however wide the card is:
+ * the 16:9 art as wide as the focused card, the poster as wide as a poster,
+ * both anchored at the left, and the card's width reveals or covers them
+ * (stream.css has the fading). Missing art (plan 031):
+ *  - no 16:9 art: the poster, blurred and darkened, stands in for it, and
+ *    the sharp poster sits at the card's right;
+ *  - no poster: the 16:9 art, cropped to the poster's box;
+ *  - neither: the card's colour and the title's first letter, as a row's
+ *    card does. */
+function HeroLayers({
+  item,
+  backdrop,
+  poster,
+  art,
+  onBackdropError,
+  onPosterError,
+}: {
+  item: VodItem;
+  backdrop: string | null;
+  poster: string | null;
+  /** Load the 16:9 art. Once on it stays on. */
+  art: boolean;
+  onBackdropError?: () => void;
+  onPosterError?: () => void;
+}) {
+  const wide = backdrop ?? poster;
+  const tall = poster ?? backdrop;
+  const [armed, setArmed] = useState(art);
+  if (art && !armed) setArmed(true);
+  return (
+    <>
+      <div className={"shero__layer shero__layer--b" + (wide ? "" : " shero__layer--bare")}>
+        {wide && armed && (
+          <img
+            key={wide}
+            className={"shero__art art-in" + (backdrop ? "" : " shero__art--blur")}
+            src={wide}
+            alt=""
+            decoding="async"
+            draggable={false}
+            onLoad={artLoaded}
+            onError={backdrop ? onBackdropError : onPosterError}
+          />
+        )}
+      </div>
+      <div className="shero__layer shero__layer--p">
+        {tall ? (
+          <img
+            key={tall}
+            className="shero__poster art-in"
+            src={tall}
+            alt=""
+            decoding="async"
+            draggable={false}
+            onLoad={artLoaded}
+            onError={poster ? onPosterError : onBackdropError}
+          />
+        ) : (
+          <span className="shero__mono">{item.title.slice(0, 1)}</span>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** The hero card's title: the clearlogo, or the name in type when there is
+ * no logo or it fails to load. It used to be the browser's broken-image box
+ * with the name as its alt text. Either way it only fades in, at its final
+ * size and place, once the card has grown (stream.css, `.shero__mark`). */
+function HeroTitle({ item }: { item: VodItem }) {
+  const [failed, setFailed] = useState(false);
+  if (!item.logo || failed)
+    // Past a short name the type steps down (stream.css): about two lines.
+    return <span className={"shero__mark shero__title" + (item.title.length > 18 ? " shero__title--long" : "")}>{item.title}</span>;
+  return (
+    <img
+      className="shero__mark shero__logo"
+      src={item.logo}
+      alt={item.title}
+      draggable={false}
+      onLoad={artLoaded}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+/** The large hero, the first one (Figma 133-721), back as the second style
+ * (Settings, Appearance, Stream, Carousel Style): a ~80vh sliding carousel
+ * that never rewinds. Its own classes (`.lhero`) keep it clear of the shelf's
+ * `.shero`. The index is VIRTUAL (unbounded, forward-only on auto-advance); slides
+ * are a moving window of absolute-positioned cards, each showing
+ * items[slot mod n], so wrapping from the 9th back to the 1st is just one
+ * more slide to the right, forever. Hovering the section pauses the
+ * auto-advance; the active card wears the Figma glow; neighbors stay at
+ * full strength and click-slide. */
+const LARGE_GAP = 30;
+function largeMargin(w: number): number {
+  // Side inset ≈ 15% of the window, clamped sane. The card is ~15%
+  // thinner than full-bleed and the neighbors fill the reveal.
+  return Math.min(320, Math.max(200, w * 0.15));
+}
+function LargeHero({
+  items,
+  onOpen,
+  onWatchNow,
+}: {
+  items: VodItem[];
+  onOpen: (i: VodItem) => void;
+  onWatchNow: (i: VodItem) => void;
+}) {
+  const [v, setV] = useState(0); // virtual index, never wraps
+  const [width, setWidth] = useState(0);
+  const [hovered, setHovered] = useState(false);
+  /** Keyboard focus is inside the carousel. Autoplay used to pause for the
+   * mouse alone, so a focused Watch now slid 1,000px off screen 8s later,
+   * taking the focus ring with it. */
+  const [focused, setFocused] = useState(false);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const count = items.length;
+  // Layout effect: measured BEFORE first paint, so no width-0 frame exists.
+  useLayoutEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const measure = () => setWidth(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // A picture under the header (plan 022). Scrolled, the hero passes under
+  // the header, whose scrim is the page's colour: in light, a white haze
+  // over the art with dark ink on it. While the active card overlaps the
+  // header, the root says so and the header takes the picture's ink
+  // (tokens.css, .on-picture), which is what dark already draws.
+  useEffect(() => {
+    const host = hostRef.current;
+    const scroller = host?.closest<HTMLElement>(".stream");
+    if (!host || !scroller) return;
+    const root = document.documentElement;
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const card = host.querySelector(".lhero__card--active")?.getBoundingClientRect();
+      const header = document.querySelector(".header")?.getBoundingClientRect();
+      const under = !!card && !!header && card.height > 0 && card.top < header.bottom && card.bottom > header.top;
+      if (under !== (root.dataset.headerOver === "picture")) {
+        if (under) root.dataset.headerOver = "picture";
+        else delete root.dataset.headerOver;
+      }
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    check();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(raf);
+      scroller.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      delete root.dataset.headerOver;
+    };
+  }, []);
   // Track transitions stay OFF until a frame has painted at the measured
-  // geometry — otherwise entering the tab animates the 650ms slide from
+  // geometry, otherwise entering the tab animates the 650ms slide from
   // the width-0 layout ("the slider moves in a bit"). Same guard snaps
   // (not glides) the tracks on window resizes.
   const [animReady, setAnimReady] = useState(false);
@@ -2481,10 +3484,10 @@ function Hero({
     return () => window.clearInterval(id);
   }, [hovered, focused, count]);
 
-  const m = heroMargin(width);
+  const m = largeMargin(width);
   const cardW = Math.max(0, width - 2 * m);
-  const step = cardW + HERO_GAP;
-  // The hero's Apple TV lean rides an inner wrapper (see .shero__tilt) —
+  const step = cardW + LARGE_GAP;
+  // The hero's Apple TV lean rides an inner wrapper (see .lhero__tilt);
   // the slide div's transform is carousel geometry and stays untouched.
   const reducedMotion = REDUCED_MOTION;
 
@@ -2496,7 +3499,7 @@ function Hero({
   const slots = [v - 2, v - 1, v, v + 1, v + 2, v + 3];
   return (
     <div
-      className="shero"
+      className="lhero"
       ref={hostRef}
       role="region"
       aria-label="Featured"
@@ -2510,17 +3513,17 @@ function Hero({
     >
       {/* Adam's shadow slider: the same carousel again, blurred, masked
         * to the stationary (android-style) box behind the center slot.
-        * The box never moves — the blurred art sliding through it IS the
+        * The box never moves; the blurred art sliding through it IS the
         * ambient light reacting to the cards, in exact lockstep (same
         * geometry, same transition). The inner track's offset subtracts
         * the box's own left so both tracks align in screen space. */}
       <div
-        className="shero__glowbox"
+        className="lhero__glowbox"
         aria-hidden
         style={{ left: m - 210, width: cardW + 420 }}
       >
         <div
-          className="shero__glowtrack"
+          className="lhero__glowtrack"
           style={{
             transform: `translateX(${210 - v * step}px)`,
             transition: animReady ? undefined : "none",
@@ -2532,7 +3535,7 @@ function Hero({
             return art ? (
               <img
                 key={`${slot}:${art}`}
-                className={slot === v ? "shero__glow--lit" : undefined}
+                className={slot === v ? "lhero__glow--lit" : undefined}
                 src={art}
                 alt=""
                 decoding="async"
@@ -2544,10 +3547,10 @@ function Hero({
         </div>
       </div>
       <div
-        className="shero__track"
+        className="lhero__track"
         // react-parallax-tilt caches each card's rect on mouseenter, and
         // a slide moves cards WITHOUT re-firing enter (the pointer never
-        // "leaves" per the hover state) — so every slid card tilts
+        // "leaves" per the hover state), so every slid card tilts
         // against a rect that's stale by one step, pinning the math at
         // its clamp (reads as a dead hover; only the never-slid first
         // card worked). The lib re-measures on window resize, so poke
@@ -2573,9 +3576,11 @@ function Hero({
               role="button"
               tabIndex={active ? 0 : -1}
               onKeyDown={(e) => {
-                if (active && (e.key === "Enter" || e.key === " ")) onOpen(item);
+                // The card's own key only: Enter on Watch Now bubbled up here
+                // and opened the page as well as playing (from review).
+                if (active && e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) onOpen(item);
               }}
-              className={"shero__card" + (active ? " shero__card--active" : "")}
+              className={"lhero__card" + (active ? " lhero__card--active" : "")}
               style={{ left: slot * step, width: cardW }}
               // Whole-card click: neighbors slide into place; the ACTIVE
               // card opens the title's source-selection screen (the
@@ -2584,16 +3589,16 @@ function Hero({
             >
               {/* Tilt wraps art+scrim+text but NOT the card div (its
                 * left/width + translateZ(0) are the carousel's geometry)
-                * and not the .shero__glowbox layer behind the track —
+                * and not the .lhero__glowbox layer behind the track,
                 * ambient light shouldn't rotate with the object. Active
                 * card only: a peeking
                 * neighbor pivots around an offscreen center and reads
-                * broken. At this size 0.5° is plenty (Adam — 2° read as
-                * a barn door); scale is a hair (1.005) — just enough to
+                * broken. At this size 0.5° is plenty (Adam: 2° read as
+                * a barn door); scale is a hair (1.005), just enough to
                 * keep the leaning card covering the glow behind its own
                 * edge; glare is faint (text lives here). */}
               <Tilt
-                className="shero__tilt"
+                className="lhero__tilt"
                 tiltEnable={active && !reducedMotion}
                 tiltMaxAngleX={0.5}
                 tiltMaxAngleY={0.5}
@@ -2604,13 +3609,13 @@ function Hero({
                 scale={reducedMotion ? 1 : 1.005}
                 perspective={2500}
                 transitionSpeed={1000}
-                // Faint — text and buttons live on this card, so the
+                // Faint: text and buttons live on this card, so the
                 // sheen must never read as glare over UI. MUST be
                 // constant: the lib creates the glare element only if
                 // enabled AT MOUNT, and slides mount non-active (the
-                // pre-decode window) — so gating on `active` here means
+                // pre-decode window), so gating on `active` here means
                 // no glare ever exists. CSS hides it on non-active
-                // cards instead (.shero__card rule).
+                // cards instead (.lhero__card rule).
                 glareEnable={!reducedMotion}
                 glareMaxOpacity={0.12}
                 glarePosition="all"
@@ -2619,20 +3624,20 @@ function Hero({
               {(item.backdrop ?? item.poster) && (
                 <img
                   key={item.backdrop ?? item.poster}
-                  className="shero__art art-in"
+                  className="lhero__art art-in"
                   src={item.backdrop ?? item.poster}
                   alt=""
                   decoding="async"
                   onLoad={artLoaded}
                 />
               )}
-              <div className="shero__scrim" aria-hidden />
-              <div className="shero__text on-picture">
-                <HeroTitle key={item.logo ?? item.id} item={item} />
+              <div className="lhero__scrim" aria-hidden />
+              <div className="lhero__text on-picture">
+                <LargeHeroTitle key={item.logo ?? item.id} item={item} />
                 {item.synopsis && (
-                  <p className="shero__synopsis">{item.synopsis}</p>
+                  <p className="lhero__synopsis">{item.synopsis}</p>
                 )}
-                <p className="shero__meta">
+                <p className="lhero__meta">
                   {[
                     item.year,
                     item.runtimeMin ? `${item.runtimeMin} min` : null,
@@ -2644,12 +3649,12 @@ function Hero({
                     // rather than as a list.
                     .join(" · ")}
                   {item.rating ? (
-                    <span className="shero__rating">
+                    <span className="lhero__rating">
                       {" · "}★ {item.rating.toFixed(1)}/10
                     </span>
                   ) : null}
                 </p>
-                <div className="shero__actions">
+                <div className="lhero__actions">
                   {/* Out of the tab order on the peeking slides. They were
                     * all tab stops, so 8 of the hero's 12 led to buttons
                     * off the edge of the screen. `inert` would also stop
@@ -2690,14 +3695,14 @@ function Hero({
 /** The hero card's title: the clearlogo, fading in once decoded, or the
  * name in type when there is no logo or it fails to load. It used to be
  * the browser's broken-image box with the name as its alt text. */
-function HeroTitle({ item }: { item: VodItem }) {
+function LargeHeroTitle({ item }: { item: VodItem }) {
   const [failed, setFailed] = useState(false);
   if (!item.logo || failed)
     // Past a short name the type steps down (stream.css): about two lines.
-    return <h2 className={"shero__title" + (item.title.length > 18 ? " shero__title--long" : "")}>{item.title}</h2>;
+    return <h2 className={"lhero__title" + (item.title.length > 18 ? " lhero__title--long" : "")}>{item.title}</h2>;
   return (
     <img
-      className="shero__logo art-in"
+      className="lhero__logo art-in"
       src={item.logo}
       alt={item.title}
       onLoad={artLoaded}

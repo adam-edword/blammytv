@@ -107,7 +107,7 @@ async function open({ store = SEEDED, width = 1440, height = 900, tauri = false,
       window.__calls = [];
       window.__unhandled = [];
       window.addEventListener("unhandledrejection", (e) => window.__unhandled.push(String(e.reason)));
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       // Once: a reload in a check must see what the check left.
       if (!sessionStorage.getItem("seeded")) {
@@ -237,10 +237,10 @@ const appVersion = (page) =>
   await openApp(page);
   const rows = await titles(page);
   check(
-    "App: Updates, Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, then Clear All Login Info",
-    rows.length === 8 &&
+    "App: Updates, What’s New, Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, then Clear All Login Info",
+    rows.length === 9 &&
       /^BlammyTV v/.test(rows[0]) &&
-      rows.slice(1).join("|") === "Keyboard Shortcuts|About|Replay Setup|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
+      rows.slice(1).join("|") === "What’s New|Keyboard Shortcuts|About|Replay Setup|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
     JSON.stringify(rows),
   );
   const row = page.locator("[data-setting='shortcuts']");
@@ -892,8 +892,8 @@ for (const [label, about] of [
   check("a browser (no native at all) shows the app's version alone", JSON.stringify(rows) === JSON.stringify(["App"]), JSON.stringify(rows));
   const titlesNow = await titles(page);
   check(
-    "  and the page is Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, Clear All Login Info (no update row there)",
-    titlesNow.join("|") === "Keyboard Shortcuts|About|Replay Setup|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
+    "  and the page is What’s New, Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, Clear All Login Info (no update row there)",
+    titlesNow.join("|") === "What’s New|Keyboard Shortcuts|About|Replay Setup|Copy Diagnostics|Export Settings|Import Settings|Clear All Login Info",
     JSON.stringify(titlesNow),
   );
   await ctx.close();

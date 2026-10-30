@@ -14,9 +14,9 @@ import ReactParallaxTilt, { type ReactParallaxTiltProps } from "react-parallax-t
  * Measured on 300 cards: 142 to 227ms and 300 layouts, down to 38 to 48ms
  * and none.
  *
- * The window resize the library listens to still measures. Stream's hero
- * relies on it (it fires one after each slide), and it is where a card
- * that has never been hovered gets its first size now.
+ * The window resize the library listens to still measures, and it is where
+ * a card that has never been hovered gets its first size now. Stream's
+ * shelf measures its own cards again when a slide stops (HeroCard).
  *
  * `setSize` and `componentDidMount` are the library's public members;
  * verify-tilt fails if a version changes what they do.

@@ -15,14 +15,19 @@ import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
 import { Onboarding } from "./Onboarding";
 import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
+import { WhatsNew } from "./WhatsNew";
+import { onWhatsNewRequest, whatsNewDue } from "../features/whatsnew/whatsNewGate";
 import { LiveScreen } from "../features/live/LiveScreen";
+import { onPlayRecordingRequest } from "../features/recordings/playRequest";
 import { SportsScreen } from "../features/sports/SportsScreen";
+import { onOpenGameRequest } from "../features/sports/gameRequest";
 import { MultiviewTab } from "../features/live/MultiviewTab";
 import { watchPlaylists } from "../features/live/source";
 import { useAiojfSync } from "../features/aiojf/sync";
 import { useJfSync } from "../features/jellyfin/sync";
 import { useMalSync } from "../features/mal/sync";
 import { useTraktSync } from "../features/trakt/sync";
+import { useVlcFollow } from "../features/stream/useVlcFollow";
 import {
   onAddRequest,
   onMultiviewRequest,
@@ -30,24 +35,20 @@ import {
   requestWatchInPlayer,
 } from "../features/live/multiviewEntry";
 import { Palette, type GoTarget } from "../features/palette/Palette";
-import { loadAioConn } from "../features/aiojf/conn";
-import { loadJfConn } from "../features/jellyfin/store";
-import { hasXtLibrary } from "../features/xtvod/store";
 import { watchXtLibrary } from "../features/xtvod/vod";
 import { saveSettingsTab } from "../features/settings/settingsTab";
 import { watchPlayerPrefs } from "../features/settings/playerPrefsSync";
-import {
-  loadPlaylists,
-  onPlaylistsChange,
-} from "../features/settings/playlists";
+import { watchRecordingQuality } from "../features/settings/recordingQuality";
+import { onPlaylistsChange } from "../features/settings/playlists";
 import { StreamScreen } from "../features/stream/StreamScreen";
 import { LibraryScreen } from "../features/stream/LibraryScreen";
 import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { setModalOpen } from "../lib/modalOpen";
 import { setFullscreenChecked } from "../lib/fullscreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
+import { PrismGlow } from "../ui/PrismGlow";
 import { settingById, type SettingsFind } from "../features/settings/settingsIndex";
-import { loadStartupTab } from "../features/settings/startupTab";
+import { effectiveStartupTab, hasLivePlaylist, hasStreamSource } from "../features/settings/startupSources";
 import {
   onGenreRequest,
   onOpenRequest,
@@ -68,6 +69,14 @@ const NAV_SETTLE_MS = 190;
  * settle time so the two read as one movement rather than a queue. */
 const SWAP_MS = 180;
 
+/** The side a launch opens on: Home if that was picked, Live TV if it was and
+ * there is a live source to show, else Stream. */
+function startSection(): Section {
+  const tab = effectiveStartupTab();
+  if (tab === "home") return "home";
+  return tab === "live" && hasLivePlaylist() ? "live" : "stream";
+}
+
 export function App() {
   // Trakt (plan 015): sync at launch, on coming back, and soon after the
   // Trakt Watchlist changes. Here, not in Root: Root mounts the pop-out and
@@ -77,19 +86,21 @@ export function App() {
   useMalSync();
   useAiojfSync();
   useJfSync();
+  // A film or an episode playing in VLC is reported as one in the app is
+  // (plan 032). Here, not in StreamScreen: the player is closed by then.
+  useVlcFollow();
   // Nav is two facts, not one: which SIDE of the app (Live TV vs Stream)
   // and which Stream PAGE (the pill rail). streamTab survives a trip to
   // Live TV — coming back lands where you were; the startup setting only
-  // decides the launch position. (The stored value stays the flat
-  // three-way enum: it's a launch preference, mapped here at boot.)
+  // decides the launch position. (The stored value stays a flat enum, now
+  // four-way with Home: it's a launch preference, mapped here at boot.)
   // The Live tab exists only while a live source (any playlist kind) is
   // configured — without one it showed the mock catalog to real users.
   // Adding a playlist in Settings reveals the tab live; removing the last
   // one hides it and bounces the section to Stream.
-  const hasEnabledPlaylist = () => loadPlaylists().some((p) => p.enabled);
-  const [hasLiveSource, setHasLiveSource] = useState(hasEnabledPlaylist);
+  const [hasLiveSource, setHasLiveSource] = useState(hasLivePlaylist);
   useEffect(
-    () => onPlaylistsChange(() => setHasLiveSource(hasEnabledPlaylist())),
+    () => onPlaylistsChange(() => setHasLiveSource(hasLivePlaylist())),
     [],
   );
   // The catalog follows the playlists on every screen, not just the Guide:
@@ -98,9 +109,7 @@ export function App() {
   // And a provider's movies and shows (plan 028): read at launch, so Stream is
   // ready before it is visited and the record of what each holds is filled.
   useEffect(() => watchXtLibrary(), []);
-  const [section, setSection] = useState<Section>(() =>
-    loadStartupTab() === "live" && hasEnabledPlaylist() ? "live" : "stream",
-  );
+  const [section, setSection] = useState<Section>(startSection);
   useEffect(() => {
     if (!hasLiveSource) setSection((s) => (s === "live" ? "stream" : s));
   }, [hasLiveSource]);
@@ -120,6 +129,12 @@ export function App() {
     if (!isTauri()) return;
     return watchPlayerPrefs();
   }, []);
+  // Recording Quality: native waits for this first call before it runs a
+  // shrink left from the last run, so it goes early (recordingQuality.ts).
+  useEffect(() => {
+    if (!isTauri()) return;
+    return watchRecordingQuality();
+  }, []);
   // Stage a newer frontend in the background, always and silently (plan
   // 008 phase 3). Nothing about the running app changes: staging only
   // decides what the NEXT launch serves, so there is no reload to schedule
@@ -138,7 +153,7 @@ export function App() {
     return () => window.clearTimeout(t);
   }, []);
   const [streamTab, setStreamTab] = useState<StreamTab>(() =>
-    loadStartupTab() === "discover" ? "discover" : "home",
+    effectiveStartupTab() === "discover" ? "discover" : "home",
   );
   // Which Live page is showing. Ephemeral like the Stream rail's memory:
   // it survives a trip to Stream, and Live always opens on the Guide at
@@ -185,9 +200,25 @@ export function App() {
   // boot phase (the boot's actors live inside the overlay, v0.4.36) —
   // it owns that launch's boot, so welcome never follows it.
   const [onboarding, setOnboarding] = useState(shouldShowOnboarding);
+  // What's New (whatsNewGate): the launch after an update shows it before the
+  // app, and Settings → App → What's New shows it again ("settings"). Never on
+  // a first run, which has onboarding. It sits over everything and plays the
+  // boot itself on the launch that shows it, so the welcome does not.
+  const [whatsNew, setWhatsNew] = useState<null | "launch" | "settings">(() =>
+    whatsNewDue(shouldShowOnboarding()) ? "launch" : null,
+  );
+  const [whatsNewBoot] = useState(() => whatsNew === "launch" && shouldPlayWelcome());
   // Boot animation: plays over the shell while it loads, once per launch.
   const [welcome, setWelcome] = useState(
-    () => !shouldShowOnboarding() && shouldPlayWelcome(),
+    () => !shouldShowOnboarding() && whatsNew === null && shouldPlayWelcome(),
+  );
+  useEffect(
+    () =>
+      onWhatsNewRequest(() => {
+        setSettingsOpen(false);
+        setWhatsNew("settings");
+      }),
+    [],
   );
 
   // Settings → App → "Replay Onboarding": mount the flow over the
@@ -208,13 +239,13 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
       if (e.key.toLowerCase() !== "k") return;
-      if (onboarding || settingsOpen) return;
+      if (onboarding || settingsOpen || whatsNew) return;
       e.preventDefault();
       setPaletteOpen((o) => !o);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onboarding, settingsOpen]);
+  }, [onboarding, settingsOpen, whatsNew]);
 
   // Section switches are instant: leaving Live unmounts LiveScreen, whose
   // InvertedPlayer cleanup heals the shell's clip hole SYNCHRONOUSLY (before
@@ -253,6 +284,11 @@ export function App() {
   useEffect(
     () =>
       onReturnRequest((from) => {
+        // Home is a section of its own, not a Stream tab.
+        if (from === "hub") {
+          setSection("home");
+          return;
+        }
         setSection("stream");
         setStreamTab(from);
       }),
@@ -287,6 +323,26 @@ export function App() {
       }),
     [],
   );
+  // Library's Play on a recording → the Guide, which plays it in Recordings
+  // mode (LiveScreen drains the mailbox itself).
+  useEffect(
+    () =>
+      onPlayRecordingRequest(() => {
+        setSection("live");
+        setLiveTab("guide");
+      }),
+    [],
+  );
+  // Home's Today's Games → the Sports board, which opens the game as it
+  // mounts (SportsScreen drains the mailbox itself).
+  useEffect(
+    () =>
+      onOpenGameRequest(() => {
+        setSection("live");
+        setLiveTab("sports");
+      }),
+    [],
+  );
   // A genre pill on the detail screens → Discover, that genre selected
   // (DiscoverScreen drains the mailbox itself).
   useEffect(
@@ -303,20 +359,20 @@ export function App() {
   // doesn't read through the glass (see player.css [data-native-hidden]).
   useEffect(() => {
     const root = document.documentElement;
-    if (settingsOpen) root.dataset.nativeHidden = "1";
+    if (settingsOpen || whatsNew) root.dataset.nativeHidden = "1";
     else delete root.dataset.nativeHidden;
     return () => {
       delete root.dataset.nativeHidden;
     };
-  }, [settingsOpen]);
+  }, [settingsOpen, whatsNew]);
 
   // The screen underneath a modal stays mounted and keeps its own window
   // listeners, so it has to be told to sit still. See lib/modalOpen. The
   // palette too: mouse Back under it walked the page it covers back a step.
   useEffect(() => {
-    setModalOpen(settingsOpen || paletteOpen);
+    setModalOpen(settingsOpen || paletteOpen || whatsNew !== null);
     return () => setModalOpen(false);
-  }, [settingsOpen, paletteOpen]);
+  }, [settingsOpen, paletteOpen, whatsNew]);
 
   /*
    * THE MOUSE'S BACK BUTTON CLOSES THE MODAL.
@@ -425,7 +481,7 @@ export function App() {
    * else, the whole unmount just happens together, a fraction later — the
    * same as having clicked a fraction later.
    */
-  const key = `${section === "live" ? liveTab : streamTab}:${sportsHome}`;
+  const key = `${section === "home" ? "hub" : section === "live" ? liveTab : streamTab}:${sportsHome}`;
   const [view, setView] = useState(key);
   useEffect(() => {
     if (view === key) return;
@@ -504,6 +560,8 @@ export function App() {
 
   return (
     <div className="app-shell">
+      {/* Inside the shell on purpose: the video hole cuts it (PrismGlow.tsx). */}
+      <PrismGlow />
       <AppHeader
         section={section}
         showLive={hasLiveSource}
@@ -537,8 +595,22 @@ export function App() {
           <DiscoverScreen home={streamHome} />
         ) : dest === "mylist" ? (
           <LibraryScreen home={streamHome} />
+        ) : dest === "hub" ? (
+          // Keyed, so the two never share one screen's state: both are a
+          // StreamScreen in the same place in this chain.
+          <StreamScreen
+            key="hub"
+            root="home"
+            home={streamHome}
+            onEditHome={() => {
+              saveSettingsTab("home");
+              setSettingsFrom(null);
+              setSettingsFind(null);
+              setSettingsOpen(true);
+            }}
+          />
         ) : (
-          <StreamScreen home={streamHome} />
+          <StreamScreen key="stream" home={streamHome} />
         )}
       </main>
       {settingsOpen && (
@@ -555,13 +627,13 @@ export function App() {
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
         hasLive={hasLiveSource}
-        hasStream={!!loadAioConn() || !!loadJfConn() || hasXtLibrary()}
+        hasStream={hasStreamSource()}
         // Found, not played full-screen: the Guide tunes it in its preview.
         onChannel={(id) => requestWatchInPlayer(id, false)}
         // Backing out of it returns to the grid it was found over, like a
         // pick made in that grid; from anywhere else, Stream's own rows.
         onTitle={(item) =>
-          requestOpenInStream(item, dest === "discover" || dest === "mylist" ? dest : "home")
+          requestOpenInStream(item, dest === "discover" || dest === "mylist" || dest === "hub" ? dest : "home")
         }
         onGo={(to: GoTarget, from) => {
           if (to.kind === "live") {
@@ -583,6 +655,22 @@ export function App() {
         }}
       />
       {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
+      {whatsNew && (
+        <WhatsNew
+          boot={whatsNew === "launch" && whatsNewBoot}
+          onClose={() => {
+            setWhatsNew(null);
+            // From Settings, back to Settings: its App page, on the row, which
+            // lands focus on the button that opened this.
+            if (whatsNew === "settings") {
+              saveSettingsTab("app");
+              setSettingsFrom(null);
+              setSettingsFind({ row: "whats-new", n: ++findCount.current });
+              setSettingsOpen(true);
+            }
+          }}
+        />
+      )}
       {onboarding && (
         <Onboarding
           // Where a launch would open, now that onboarding has set it up.
@@ -592,8 +680,8 @@ export function App() {
           // the finale starts, under the overlay, so the app it fades into
           // is already the right one.
           onFinish={() => {
-            setSection(loadStartupTab() === "live" && hasEnabledPlaylist() ? "live" : "stream");
-            setStreamTab(loadStartupTab() === "discover" ? "discover" : "home");
+            setSection(startSection());
+            setStreamTab(effectiveStartupTab() === "discover" ? "discover" : "home");
           }}
           onDone={() => setOnboarding(false)}
         />

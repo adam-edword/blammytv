@@ -33,7 +33,7 @@ const page = await (
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 await page.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
 });
 await page.goto(process.env.APP_URL ?? "http://localhost:4173/", {
@@ -198,7 +198,7 @@ const stalePage = await (
 ).newPage();
 stalePage.on("pageerror", (e) => errors.push(String(e)));
 await stalePage.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.accent", JSON.stringify({ v: 1, data: "#7b5bf5" }));
   // And a stored LIGHT theme, which 0.9.0 could set and v0.10.65's

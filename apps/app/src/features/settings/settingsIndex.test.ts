@@ -91,8 +91,15 @@ describe("findSettings", () => {
       expect(ids(q), q).toContain("popout");
   });
 
+  it("finds Pop Out Films and Shows In by what a person would type (plan 032)", () => {
+    for (const q of ["vlc", "videolan", "external player", "pop out films"]) expect(ids(q), q).toContain("popout-app");
+    expect(ids("vlc")).toEqual(["popout-app"]);
+    // The pop-out's window still comes first for "pop-out".
+    expect(ids("pop-out")[0]).toBe("popout");
+  });
+
   it("files the player rows on Playback, under no pill", () => {
-    for (const id of ["audio-channels", "subtitle-size", "popout"]) {
+    for (const id of ["audio-channels", "subtitle-size", "popout", "popout-app"]) {
       const r = settingById(id);
       expect(r?.page, id).toBe("playback");
       expect(r?.world, id).toBeUndefined();
@@ -187,10 +194,16 @@ describe("findSettings", () => {
     expect(at("replay-onboarding")).toBeGreaterThan(at("startup-tab"));
   });
 
-  it("holds the three bands in order for any query, and the registry's order inside each", () => {
+  // Four bands since 1.2.0: a keyword WORD that starts with the query now
+  // beats a keyword that only holds it ("log" finds the Diagnostics' "logs"
+  // before What's New's "changelog"). An intended change to the ranking.
+  it("holds the four bands in order for any query, and the registry's order inside each", () => {
     const band = (id: string, q: string) => {
-      const label = settingById(id)!.label.toLowerCase();
-      return label.startsWith(q) ? 0 : label.includes(q) ? 1 : 2;
+      const r = settingById(id)!;
+      const label = r.label.toLowerCase();
+      if (label.startsWith(q)) return 0;
+      if (label.includes(q)) return 1;
+      return r.keywords.some((k) => k.split(/[\s-]+/).some((w) => w.startsWith(q))) ? 2 : 3;
     };
     for (const q of ["a", "c", "up", "hero", "sync", "o", "log", "re", "pla", "time", "set"]) {
       const got = ids(q);
@@ -198,7 +211,7 @@ describe("findSettings", () => {
       const bands = got.map((id) => band(id, q));
       expect(bands, q).toEqual([...bands].sort((a, b) => a - b));
       const order = SETTINGS_INDEX.map((r) => r.id);
-      for (const b of [0, 1, 2]) {
+      for (const b of [0, 1, 2, 3]) {
         const inBand = got.filter((id) => band(id, q) === b).map((id) => order.indexOf(id));
         expect(inBand, `${q} band ${b}`).toEqual([...inBand].sort((x, y) => x - y));
       }
@@ -210,6 +223,14 @@ describe("findSettings", () => {
     expect(ids("sync")).toEqual(["aiostreams", "trakt", "mal"]);
     const hero = ids("hero");
     expect(new Set(hero).size).toBe(hero.length);
+  });
+
+  it("finds Home's rows by its name, and Startup Tab by it too (plan 033)", () => {
+    expect(settingById("home-rows")?.page).toBe("home");
+    // The label starts with it, so it is first; Startup Tab has it as a keyword.
+    expect(ids("home")[0]).toBe("home-rows");
+    expect(ids("home")).toContain("startup-tab");
+    expect(ids("reorder")).toContain("home-rows");
   });
 
   it("stops at the limit, keeping the best", () => {

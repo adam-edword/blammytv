@@ -15,10 +15,12 @@ import { saveAioUrl, saveHeroSources } from "./aiostreams";
 import { diskClear } from "../live/diskCache";
 import { forgetXtLists } from "../xtvod/vod";
 import { requestOnboardingReplay } from "../../app/onboardingGate";
+import { requestWhatsNew } from "../whatsnew/whatsNewGate";
 import { ConfirmButton } from "./ConfirmButton";
 
 /**
- * App: the app itself. Updates (with What's new), Keyboard Shortcuts, About and
+ * App: the app itself. Updates (with What's new), What's New (the screen a
+ * launch shows after an update, on demand), Keyboard Shortcuts, About and
  * Replay Onboarding; then Privacy and data, which is Copy Diagnostics (plan
  * 025, P4b) and Export and Import Settings (P4c), and the one destructive
  * action left in Settings, last on the page.
@@ -60,6 +62,14 @@ export function AppPage() {
       <h3 className={`settings__group ${EYEBROW}`}>App</h3>
       <section className="settings-section">
         <UpdatesSection />
+        <div className="customize-row" data-setting="whats-new">
+          <div>
+            <h4 className="customize-row__title">What’s New</h4>
+          </div>
+          <Button variant="secondary" type="button" onClick={requestWhatsNew}>
+            Open
+          </Button>
+        </div>
         <ShortcutsSection />
         <AboutSection />
 

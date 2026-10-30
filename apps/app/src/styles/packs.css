@@ -1,0 +1,281 @@
+/**
+ * Theme packs (plan 035): three dark palettes, colour only, laid over
+ * tokens.css. Settings → Appearance → Theme sets `data-theme-pack` on the
+ * root (features/settings/themePack.ts).
+ *
+ * OVERLAYS, WITH NO DEFAULT PACK. No attribute is the base palette, byte for
+ * byte; "Default" in the picker removes the attribute rather than naming a
+ * pack. The old packs pinned --bg, --surface and the text tiers at the base's
+ * own specificity from a file after tokens.css, so a pack always outranked the
+ * palette it sat on, and a default pack made the base unreachable
+ * (old/themes/README.md). These blocks are not on that footing: each one is
+ * `:root[data-theme-pack]:not([data-theme="light"])`, three attributes and
+ * pseudo-classes deep, and only matches when a pack is chosen.
+ *
+ * DARK ONLY. tokens.css decides dark by the ABSENCE of data-theme="light"
+ * (theme.ts writes no attribute for dark), so the `:not` here is the same
+ * test. In Light a pack is inert: the attribute stays on the root and nothing
+ * below matches.
+ *
+ * Values are the canvas's tokens (plans/035-themes.md), every text tier
+ * checked for contrast in themePack.test.ts. Lagoon's translucent surfaces
+ * are composed over its --bg into solid colours (rgb over #08191e). Borders
+ * and tints stay alpha: they are drawn over whatever surface they sit on.
+ * Fonts, radii, Velvet's grain and vignette and Lagoon's lit page are left
+ * for later.
+ *
+ * What a block does not list resolves from tokens.css on the same element:
+ * --plate, --menu-highlight and --float-bg read the pack's own surfaces, and
+ * --accent-surface and the other accent shades follow the pack's accent.
+ *
+ * THE ACCENT. A pack's --accent is its default. A colour picked under a pack
+ * that takes one is written inline on the root by accent.ts, as always, and
+ * that beats this file: themePack.ts decides which pick is on the root.
+ */
+
+/* Every pack. --card-glass is a literal in tokens.css (dark's card colour,
+ * twice), so it has to be restated off --surface. */
+:root[data-theme-pack]:not([data-theme="light"]) {
+  --card-glass: linear-gradient(var(--surface), var(--surface));
+}
+
+/* ----------------------------------------------------------------- Prism
+ * The app in onboarding's look: true black, white ink, no colour of its own,
+ * with onboarding's dither field across the page and its cursor light behind
+ * the content. The brand ramp shows in three places only: the Guide's
+ * now-line, the player's progress fill and LIVE dot, and the Stream hero's
+ * halo. The rule: colour marks where you are and what is live, never
+ * content. The nav's pill and the focus ring are the app's own. */
+:root[data-theme-pack="prism"]:not([data-theme="light"]) {
+  --bg: #000000;
+  --surface: #111111;
+  --surface-track: #000000;
+  --surface-puck: #111111;
+  --surface-raised: #1c1c1c;
+  --sidebar: #0a0a0a;
+  --sidebar-accent: #1c1c1c;
+  --sidebar-foreground: #ffffff;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.08);
+  --border-raised: rgb(255 255 255 / 0.08);
+  --border-input: rgb(255 255 255 / 0.14);
+  --text: #ffffff;
+  --text-muted: #b5b5b5;
+  --text-dim: #9c9c9c;
+  --text-ghost: #8a8a8a;
+  --text-faint: #8a8a8a;
+  --accent: #ffffff;
+  --accent-ink: #000000;
+
+  /* Onboarding's dither (onboarding.css .onb-dither): two dot lattices, 4px
+   * and 8px. It is the shell's ::before (base.css), which lives inside the
+   * clip-path hole the inverted player cuts, so no dot is ever drawn over the
+   * video. */
+  --pack-bg-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 1.3px),
+    radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
+  --pack-bg-size: 4px 4px, 8px 8px;
+  --pack-bg-opacity: 1;
+
+  /* The hooks, each read where the thing is drawn (live.css, player.css,
+   * stream.css) and unset everywhere else. The conic ones are the mark's own
+   * (--logo-stops and --logo-angle). A linear gradient cannot take stops
+   * written in degrees, so those run the --brand-* ramp. */
+  --dot-glow: conic-gradient(from var(--logo-angle), var(--logo-stops));
+  --hero-glow: conic-gradient(from var(--logo-angle), var(--logo-stops));
+  --nowline-fill: linear-gradient(
+    180deg,
+    var(--brand-coral),
+    var(--brand-pink),
+    var(--brand-violet),
+    var(--brand-blue),
+    var(--brand-teal),
+    var(--brand-mint),
+    var(--brand-butter)
+  );
+  --progress-fill: linear-gradient(
+    90deg,
+    var(--brand-coral),
+    var(--brand-pink),
+    var(--brand-violet),
+    var(--brand-blue),
+    var(--brand-teal),
+    var(--brand-mint),
+    var(--brand-butter)
+  );
+}
+
+/* The now-line's ramp is pinned to the window, not the line: the line runs
+ * the whole channel list, thousands of pixels, and stretched over that only
+ * its red start ever showed (Adam, 1.2). No glow beside it (Adam, 1.2: "i
+ * dont think i like the glow"). */
+:root[data-theme-pack="prism"]:not([data-theme="light"]) .guide__nowline {
+  background-attachment: fixed;
+}
+
+/* THE LIVE DOT'S GLOW: a faint ring of the mark's own stops round it, dimming
+ * with the dot (player.css). Here and not in player.css, so the other themes
+ * carry no pseudo-element for it. */
+:root[data-theme-pack="prism"]:not([data-theme="light"]) .theater-live__dot {
+  position: relative;
+}
+:root[data-theme-pack="prism"]:not([data-theme="light"]) .theater-live__dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: var(--dot-glow);
+  filter: blur(4px);
+  opacity: 0.4;
+}
+
+/* THE CURSOR LIGHT (ui/PrismGlow.tsx, mounted inside .app-shell): onboarding's
+ * glow (onboarding.css .onb-cursor-glow), 120px, but brighter. z-index -1 puts
+ * it behind the shell's content and, drawn after the shell's ::before, over
+ * the dither: it lights the gaps between cards, never a poster. Hidden until
+ * the pointer first moves. Off while a player is up: the shell is cut by a
+ * clip-path then (the hole), the same test tokens.css uses for solid glass. */
+.prism-glow {
+  position: fixed;
+  top: -60px;
+  left: -60px;
+  z-index: -1;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0.05) 42%,
+    transparent 66%
+  );
+  opacity: 0;
+  transition: opacity 700ms ease;
+  will-change: transform;
+}
+.prism-glow.is-live {
+  opacity: 1;
+}
+:root:has(.app-shell[style*="clip-path"]) .prism-glow {
+  display: none;
+}
+
+/* THE HERO'S HALO. In place of the art's blurred copies, the ramp, blurred
+ * and faint. */
+:root[data-theme-pack="prism"]:not([data-theme="light"]) .shero__glowtrack {
+  display: none;
+}
+:root[data-theme-pack="prism"]:not([data-theme="light"]) .shero__glowbox {
+  filter: blur(70px);
+  opacity: 0.28;
+}
+
+/* SOLID. With transparency effects off (Windows' Visual effects) or forced
+ * colours, the glows and the dither go and the ramp fills are the accent. The
+ * hero keeps the art's own glow it has always had. */
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :root[data-theme-pack="prism"]:not([data-theme="light"]) {
+    --pack-bg-opacity: 0;
+    --dot-glow: none;
+    --hero-glow: none;
+    --nowline-fill: var(--accent);
+    --progress-fill: var(--accent);
+  }
+  .prism-glow {
+    display: none;
+  }
+  :root[data-theme-pack="prism"]:not([data-theme="light"]) .shero__glowtrack {
+    display: flex;
+  }
+  :root[data-theme-pack="prism"]:not([data-theme="light"]) .shero__glowbox {
+    filter: none;
+    opacity: 1;
+  }
+}
+
+/* ----------------------------------------------------------------- Velvet
+ * Oxblood surfaces, a brass accent. */
+:root[data-theme-pack="velvet"]:not([data-theme="light"]) {
+  --bg: #170d10;
+  --surface: #251619;
+  --surface-track: #120a0c;
+  --surface-puck: #251619;
+  --surface-raised: #352227;
+  --mix-base: #170d10;
+  --sidebar: #1f1215;
+  --sidebar-accent: #352227;
+  --sidebar-foreground: #f6ece5;
+  --sidebar-accent-foreground: #f6ece5;
+  --sidebar-border: rgb(246 236 229 / 0.08);
+  --border: rgb(246 236 229 / 0.1);
+  --border-strong: rgb(246 236 229 / 0.1);
+  --border-raised: rgb(246 236 229 / 0.1);
+  --border-input: rgb(246 236 229 / 0.16);
+  --text: #f6ece5;
+  --text-muted: #d6c3b9;
+  --text-dim: #bba59a;
+  --text-ghost: #a48f86;
+  --text-faint: #a48f86;
+  --accent: #e8bb6c;
+  --accent-ink: #1b1008;
+  --plate: #352227;
+  /* The pack's own brass, pick or no pick: a dark pick on the plate would
+   * fail 4.5:1. */
+  --plate-ink: #e8bb6c;
+  --rating: #e8bb6c;
+  --focus-ring: var(--accent);
+  --tint-on: color-mix(in srgb, var(--accent) 18%, transparent);
+  --glass-lift: inset 0 1px 0 rgb(246 236 229 / 0.06), 0 18px 50px rgb(20 4 6 / 0.6);
+}
+
+/* ----------------------------------------------------------------- Lagoon
+ * Deep teal, an aqua accent, and solid surfaces. */
+:root[data-theme-pack="lagoon"]:not([data-theme="light"]) {
+  --bg: #08191e;
+  --surface: #102d34;
+  --surface-track: #06151a;
+  --surface-puck: #06151a;
+  --surface-raised: #163940;
+  --sidebar: #0a2228;
+  --sidebar-accent: #163938;
+  --sidebar-foreground: #eefbf8;
+  --sidebar-accent-foreground: #eefbf8;
+  --sidebar-border: rgb(238 251 248 / 0.1);
+  --border: rgb(238 251 248 / 0.12);
+  --border-strong: rgb(238 251 248 / 0.12);
+  --border-raised: rgb(238 251 248 / 0.12);
+  --border-input: rgb(238 251 248 / 0.18);
+  --text: #eefbf8;
+  --text-muted: #acd3cc;
+  --text-dim: #9fc8c1;
+  --text-ghost: #86b1aa;
+  --text-faint: #86b1aa;
+  --accent: #5fe1c1;
+  --accent-ink: #03201a;
+  --plate: #243438;
+  --focus-ring: var(--accent);
+  --tint-on: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* A PICTURE IN A PACK. tokens.css remaps the page's ink to dark's on a
+ * picture (.on-picture, the header over one) because Light's is dark; in a
+ * pack the page is dark already, so the picture's scope keeps the pack's own
+ * ink and accent instead of falling back to the base palette's. */
+:root[data-theme-pack]:not([data-theme="light"]) .on-picture,
+:root[data-theme-pack]:not([data-theme="light"])[data-header-over="picture"] .header,
+:root[data-theme-pack]:not([data-theme="light"]):has(.vod-detail) .header {
+  --bg: inherit;
+  --text: inherit;
+  --text-muted: inherit;
+  --text-dim: inherit;
+  --glass: inherit;
+  --tint-hover: inherit;
+  --tint-on: inherit;
+  --focus-ring: inherit;
+  --accent: inherit;
+  --accent-ink: inherit;
+}

@@ -31,7 +31,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 await page.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
 });
 const boot = async () => {
@@ -175,7 +175,7 @@ check(
       onMeta: off, onLoading: off, onKey: off, onTime: off, onTracks: off, onChapters: off,
       getLoading: () => false, getTime: () => null, getTracks: () => null, getChapters: () => [],
     };
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     sessionStorage.setItem("btv:welcome-played", "1");
   });
   await ov.goto(`${URL}?overlay=1`, { waitUntil: "domcontentloaded" });

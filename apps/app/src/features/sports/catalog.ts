@@ -116,11 +116,12 @@ export function catalogFor(live: LiveData): Catalog {
   return built;
 }
 
-export function useCatalog(): Catalog | null {
+export function useCatalog(enabled = true): Catalog | null {
   // Loaded when cold, followed after. See useLiveData, which is where this
   // tab's own copy of that logic went.
-  const live = useLiveData();
-  return useMemo(() => (live ? catalogFor(live) : null), [live]);
+  const live = useLiveData(enabled);
+  // Off, no index is built from a catalog read at mount (Home's games rows).
+  return useMemo(() => (enabled && live ? catalogFor(live) : null), [enabled, live]);
 }
 
 function buildCatalog(live: LiveData): Catalog {

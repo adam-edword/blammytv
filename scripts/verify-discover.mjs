@@ -21,7 +21,7 @@ const page = await (await browser.newContext({ viewport: { width: 1440, height: 
 const offline = (p) => p.route("**://v3-cinemeta.strem.io/**", (r) => r.abort());
 await offline(page);
 await page.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem(
     "blammytv.aiostreams",
     JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }),
@@ -78,7 +78,10 @@ await page.getByRole("button", { name: "Any", exact: true }).click();
 await page.waitForTimeout(400);
 await page.locator(".genre-card", { hasText: "Comedy" }).click();
 await page.waitForTimeout(700);
-names = await gridTitles();
+// A genre is rows now (plan 034, 1.0.30; verify-genrerows covers them): every
+// card in them, in page order. The fake's Comedy is all pure, so it is Just
+// Comedy and Comedy Series.
+names = await page.$$eval(".genre-rows .stream-card__name", (els) => els.map((e) => e.textContent));
 check("Comedy rail filter narrows both types",
   names.includes("Fake Movie Two") && names.includes("Fake Series Two") &&
   !names.includes("Fake Movie One") && !names.includes("Fake Series One"),
@@ -94,15 +97,15 @@ const pinned = await page.evaluate(() => {
 if (pinned) {
   const word = ["One","Two","Three","Four","Five","Six","Seven","Eight"][Number(pinned.slice(-1)) - 1];
   const family = NAME_BY_ID[pinned.slice(0, 3)];
-  check("card art title leads its grid", names[0] === family + " " + word, "pin=" + pinned + " first=" + names[0]);
+  check("card art title leads the first row it is in", names[0] === family + " " + word, "pin=" + pinned + " first=" + names[0]);
 } else {
-  check("card art title leads its grid", false, "no pinned id in art memo");
+  check("card art title leads the first row it is in", false, "no pinned id in art memo");
 }
 
 await page.screenshot({ path: process.env.SHOT_DIR + "/discover.png" });
 
 // Hand-off: click a card → Stream tab detail with sources.
-await page.locator(".disc-grid .stream-card", { hasText: "Fake Movie Two" }).click();
+await page.locator(".genre-rows .stream-card", { hasText: "Fake Movie Two" }).first().click();
 await page.waitForFunction(() => document.body.innerText.includes("Sources"), null, { timeout: 15_000 }).catch(() => {});
 await page.waitForTimeout(500);
 const text = await page.evaluate(() => document.body.innerText);
@@ -113,7 +116,7 @@ await page.screenshot({ path: process.env.SHOT_DIR + "/discover-handoff.png" });
 // Back from the handed-off detail returns to DISCOVER, not Stream home.
 await page.getByRole("button", { name: /back/i }).first().click();
 await page.waitForTimeout(600);
-check("back returns to Discover grid", (await page.locator(".disc-grid").count()) > 0);
+check("back returns to Discover's genre page", (await page.locator(".genre-rows .stream-card").count()) > 0);
 // The nav is one flat capsule now (no section tab + sub-rail), so the
 // assertion is simply which destination carries aria-current.
 check("nav shows Discover as the active destination",
@@ -330,7 +333,7 @@ check("unsave empties the list",
 const page2 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 await offline(page2);
 await page2.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   sessionStorage.setItem("btv:welcome-played", "1");
@@ -365,7 +368,7 @@ await page2.close();
 const page3 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 await offline(page3);
 await page3.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   localStorage.setItem("blammytv.oneClickPlay", JSON.stringify({ v: 1, data: true }));
@@ -390,7 +393,7 @@ await page3.close();
 const page4 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 await offline(page4);
 await page4.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   sessionStorage.setItem("btv:welcome-played", "1");
@@ -406,7 +409,8 @@ await page4.addInitScript(() => {
 await page4.goto("http://localhost:4173/");
 await page4.getByRole("button", { name: "Stream", exact: true }).click();
 await page4.waitForSelector(".continue-card", { timeout: 20_000 });
-const cwTitles = await page4.$$eval(".continue-card .stream-card__name", (els) => els.map((e) => e.textContent));
+// The title alone: a series' name also carries "S1 E2" (1.0.18).
+const cwTitles = await page4.$$eval(".continue-card .stream-card__name", (els) => els.map((e) => e.firstChild?.textContent));
 check("finished movie retired from Continue Watching",
   !cwTitles.includes("Fake Movie Five") && cwTitles.includes("Fake Movie Three") && cwTitles.includes("Fake Series One"),
   cwTitles.join(", "));

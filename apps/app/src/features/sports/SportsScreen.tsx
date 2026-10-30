@@ -32,13 +32,15 @@ import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
 import { useConnections } from "../live/connections";
 import { allowedSizes } from "../live/multiview";
+import { useStreamRecs } from "../recordings/store";
 import { publishLiveGames, requestMultiview, requestWatchInPlayer } from "../live/multiviewEntry";
 import { useLiveData } from "../live/useLiveData";
-import { loadPlaylists } from "../settings/playlists";
+import { loadPlaylists, onPlaylistsChange } from "../settings/playlists";
 import { loadRedzoneChannel } from "../settings/redzoneChannel";
 import { redzoneChannel, redzoneOn } from "./redzone";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
+import { onOpenGameRequest, takeOpenGameRequest } from "./gameRequest";
 import { ALL_LEAGUES, league as byPath } from "./leagues";
 import { byKey as confByKey } from "./conferences";
 import type { CatalogLeague } from "./leagues";
@@ -82,6 +84,9 @@ import type { Field, Fixture, Game, Tournament } from "./model";
  * carries on behind you rather than starting here.
  */
 const LEAD_FALLBACK = 96;
+
+/** The enabled playlists' ids, as saved. */
+const enabledPlaylistIds = (): string[] => loadPlaylists().filter((p) => p.enabled).map((p) => p.id);
 
 export function SportsScreen({ home }: { home?: number } = {}) {
   /**
@@ -211,6 +216,9 @@ export function SportsScreen({ home }: { home?: number } = {}) {
    */
   const conns = useConnections(null);
   const cap = conns.size === 1 ? [...conns.values()][0] : null;
+  // And less what the app records on it: each recording is a connection of its own.
+  const recs = useStreamRecs();
+  const recording = conns.size === 1 ? (recs.lines.get([...conns.keys()][0]) ?? 0) : 0;
   const {
     days: raw,
     extra: rawExtra,
@@ -252,18 +260,17 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   // (redzone.ts). Today's games before the follow filter: someone following
   // a team that is off this week still wants RedZone.
   const liveData = useLiveData();
+  // Settings opens over this screen, so a playlist can be switched off while
+  // it is up, and the catalog only follows a moment later.
+  const [enabledIds, setEnabledIds] = useState(enabledPlaylistIds);
+  useEffect(() => onPlaylistsChange(() => setEnabledIds(enabledPlaylistIds())), []);
   const redzone = useMemo(() => {
     if (!liveData || !redzoneOn(raw[0]?.games ?? [])) return null;
-    const rz = redzoneChannel(
-      liveData.channels,
-      loadPlaylists().filter((p) => p.enabled).map((p) => p.id),
-      loadRedzoneChannel(),
-      liveData.hidden,
-    );
+    const rz = redzoneChannel(liveData.channels, enabledIds, loadRedzoneChannel(), liveData.hidden);
     // The Guide's player only tunes what the Guide lists, so a pick in a
     // folder you hid is Multi-View's to offer, not this button's.
     return rz && liveData.channels.includes(rz) ? rz : null;
-  }, [liveData, raw]);
+  }, [liveData, raw, enabledIds]);
   /**
    * RANKED ONLY: a college game stays only if a poll has heard of it.
    *
@@ -647,6 +654,16 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     invoker.current = g.id;
     setOpen(g);
   }, []);
+  // A game Home's Today's Games row asked for: opened as a click on its card
+  // would, on mount and on the event (gameRequest.ts).
+  useEffect(() => {
+    const take = () => {
+      const g = takeOpenGameRequest();
+      if (g) openGame(g);
+    };
+    take();
+    return onOpenGameRequest(take);
+  }, [openGame]);
   /** The same, for a day of a tournament. Focus comes back to the card. */
   const openTournament = useCallback((t: Tournament) => {
     invoker.current = t.id;
@@ -764,7 +781,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         // Today's Games' heading carries the board's tools on its own line,
         // and the board's note comes under it. Without a Today row, the
         // tools still head the board on their own.
-        const mvBtn = allowedSizes(cap).length > 0 && (
+        const mvBtn = allowedSizes(cap, recording).length > 0 && (
           <Button
             variant="outline"
             type="button"

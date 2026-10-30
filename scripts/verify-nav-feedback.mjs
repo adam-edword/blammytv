@@ -46,7 +46,7 @@ const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } })
 await ctx.route(/\.espn(cdn)?\.com\//, (r) => r.abort());
 const page = await ctx.newPage();
 await page.addInitScript((pl) => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
   sessionStorage.setItem("btv:welcome-played", "1");
   // The REC chip only exists with a TMDB key (v0.9.92, plan 016 D8), and
@@ -63,8 +63,9 @@ const angle = () => page.evaluate(() =>
 
 check("the mark is a button, not decoration",
   (await page.locator("button.navcap__mark").count()) === 1);
+// Named Home since plan 033: the mark goes Home as well as spinning.
 check("and it is reachable by name",
-  (await page.getByLabel("BlammyTV").count()) === 1);
+  (await page.getByRole("button", { name: "Home", exact: true }).count()) === 1);
 
 const paintedFrom = () => page.evaluate(() =>
   (getComputedStyle(document.querySelector(".navcap__mark i"))
@@ -128,6 +129,12 @@ check("a click DURING a spin restarts it",
   after < before - 40, `${before.toFixed(0)}deg -> ${after.toFixed(0)}deg`);
 await page.waitForTimeout(800);
 
+// The mark goes Home now (plan 033), and no tab is current there. Everything
+// below was written on a tab, so go back to the Guide, where this started,
+// and let the capsule settle.
+await page.locator('[data-dest="guide"]').click();
+await page.waitForTimeout(1200);
+
 // Press feedback. getBoundingClientRect is the honest read: it is the
 // painted box, which is exactly what a press is supposed to change.
 //
@@ -190,6 +197,12 @@ const drift = await page.evaluate(() => {
   return +(((r.left + r.width / 2) - innerWidth / 2).toFixed(2));
 });
 check("and the mark is still on the midline", Math.abs(drift) < 1.5, `${drift}px`);
+
+// Releasing the press above was a click on the mark, which goes Home. The
+// chip's checks below compare two screenshots byte for byte, and were written
+// on the Guide: go back there, where the glow is gone.
+await page.locator('[data-dest="guide"]').click();
+await page.waitForTimeout(1200);
 
 // ---- THE HEADER'S SETTINGS CHIP.
 //
@@ -403,7 +416,7 @@ await ctx.close();
   await rctx.route(/\.espn(cdn)?\.com\//, (r) => r.abort());
   const rp = await rctx.newPage();
   await rp.addInitScript((pl) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
     sessionStorage.setItem("btv:welcome-played", "1");
   }, PLAYLIST);

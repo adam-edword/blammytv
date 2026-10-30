@@ -1,5 +1,5 @@
 ---
-title: Stalker / MAG portals
+title: Stalker / MAG Portals
 description: Connect a Stalker portal using its URL and a MAC address.
 ---
 
@@ -7,7 +7,7 @@ Stalker (also called MAG) portals are the set-top-box protocol some providers
 offer instead of, or alongside, Xtream. BlammyTV speaks it directly, so you
 don't need the box.
 
-## What you need
+## What You Need
 
 | Field | Looks like |
 |---|---|
@@ -20,7 +20,7 @@ The MAC is the credential here. Portals authorise a device address rather than
 a username and password, so anyone with your MAC has your subscription. Treat
 it like a password.
 
-## The endpoint probe
+## The Endpoint Probe
 
 Stalker installs disagree about where the handshake lives. Some answer at
 `load.php`, others at `portal.php`. BlammyTV probes for the one your portal
@@ -30,19 +30,19 @@ there.
 If you move the portal to a different host, remove the source and re-add it
 rather than editing the URL, so the probe runs again.
 
-## What you get
+## What You Get
 
 - **Channels and genres**, as the portal organises them.
 - **Adult genres are recognised** and hidden unless you've turned adult
   content on. Portals flag these explicitly, so filtering here is more
   reliable than name-matching.
 
-## What you don't get
+## What You Don't Get
 
 **No connection count.** Portals rarely expose one, so the sidebar shows no
 badge rather than a guess.
 
-## If it fails
+## If It Fails
 
 - **The handshake was refused.** Usually the MAC isn't authorised on that
   portal, or the subscription attached to it has lapsed.

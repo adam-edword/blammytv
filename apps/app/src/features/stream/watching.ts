@@ -16,7 +16,7 @@ export interface WatchEntry {
   from?: VodFrom;
   episodeId?: string;
   title: string;
-  /** Episode label ("S1 · E4 — …") when applicable. */
+  /** Episode label ("S1 · E4: Title") when applicable. */
   label?: string;
   /** Landscape art preferred (backdrop), poster fallback. */
   art?: string;
@@ -48,6 +48,10 @@ export interface WatchEntry {
   trakt?: number;
   at: number;
 }
+
+/** Continue Watching moved with no Trakt sync behind it (VLC's 5s reports): the
+ * screens that show the list read it again, and Home's Trakt readers do not. */
+export const WATCHING_CHANGED = "blammytv:watching-changed";
 
 const KEY = "watching";
 const VERSION = 1;

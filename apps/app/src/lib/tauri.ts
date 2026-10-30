@@ -190,6 +190,161 @@ export function tauriInvStop(): Promise<void> {
   return invoke("inv_stop");
 }
 
+/* ---- Recording (rec.rs, plan 029). The record is the index's: the page
+ * names an id and never a path, and native's reasons are plain lowercase
+ * fragments with no link in them. Times are Unix ms. ---- */
+
+export type RecStatus = "recording" | "done" | "partial" | "failed" | "scheduled" | "missed";
+
+export interface RecRecord {
+  id: string;
+  channel: string;
+  programme: string | null;
+  playlistId: string;
+  startedAt: number;
+  endedAt: number | null;
+  path: string;
+  bytes: number;
+  status: RecStatus;
+  /** Why it is Partial or Failed; null otherwise. */
+  reason: string | null;
+  /** A recording of the player's own buffer: it opens no connection. */
+  buffer: boolean;
+  /* After it ends (Phase 4): the work it waits for or has under way. A native
+   * build from before v1.0.14 sends none of these, so all four may be absent. */
+  /** "remux" is the repackaging into .mkv, "shrink" the re-encode. Any job
+   * means the app is busy: Install and Restart wait. */
+  job?: RecJob | null;
+  /** 0 to 1 while the job runs; null while it waits its turn. */
+  progress?: number | null;
+  /** Why the last job failed and the original was kept; null otherwise. */
+  jobReason?: string | null;
+  /** Bytes the repackaging and shrinking took off the file so far. */
+  saved?: number;
+  /* A programme scheduled from the Guide (Phase 3). Absent on a record that
+   * never was one. A scheduled record has no file (`path` is ""), and its
+   * `startedAt` is the programme's start. */
+  /** The page's id for the channel, which finds its link when the time comes. */
+  channelId?: string;
+  /** When the recorder starts and stops (Unix ms): a minute either side of the
+   * programme. On a running recording, `stopAt` is when it stops by itself. */
+  startAt?: number;
+  stopAt?: number;
+  /** The start has come: the page is to start it (store.ts hands it to claim.ts). */
+  due?: boolean;
+}
+
+export type RecJob = "remux" | "shrink";
+
+/** Start recording a live channel. Answers the recording's id once bytes are
+ * coming (up to 20s), and rejects with why not. */
+export function tauriRecStart(a: {
+  url: string;
+  userAgent?: string;
+  channel: string;
+  programme?: string;
+  playlistId: string;
+  folder?: string;
+  /** A programme's end (Unix ms): it stops a minute after. */
+  until?: number;
+  /** A scheduled record that is due: the recording takes its place. */
+  scheduleId?: string;
+}): Promise<string> {
+  return invoke("rec_start", {
+    url: a.url,
+    channel: a.channel,
+    programme: a.programme ?? null,
+    playlistId: a.playlistId,
+    folder: a.folder || null,
+    until: a.until ?? null,
+    scheduleId: a.scheduleId ?? null,
+    ...agentArg(a.userAgent),
+  });
+}
+/** Keep a programme to record: native starts the clock, keeps it across
+ * restarts and sends the record as `due` when its start comes. The times are
+ * the programme's own (Unix ms); native adds the minute either side. Answers
+ * the Scheduled record, and rejects with why not (over, or not saved). */
+export function tauriRecSchedule(a: {
+  channelId: string;
+  channel: string;
+  programme?: string;
+  playlistId: string;
+  start: number;
+  end: number;
+}): Promise<RecRecord> {
+  return invoke("rec_schedule", {
+    channelId: a.channelId,
+    channel: a.channel,
+    programme: a.programme ?? null,
+    playlistId: a.playlistId,
+    start: a.start,
+    end: a.end,
+  });
+}
+/** A due recording the page has no link for: Failed, with why. */
+export function tauriRecScheduleFail(id: string, reason: string): Promise<void> {
+  return invoke("rec_schedule_fail", { id, reason });
+}
+/** Record the in-app player's own buffer from where it is playing (D3, for a
+ * line with one connection). Answers the recording's id. Ends by itself,
+ * Partial, when the player loads, reloads or stops. */
+export function tauriRecBufferStart(a: {
+  channel: string;
+  programme?: string;
+  playlistId: string;
+  folder?: string;
+}): Promise<string> {
+  return invoke("rec_buffer_start", {
+    channel: a.channel,
+    programme: a.programme ?? null,
+    playlistId: a.playlistId,
+    folder: a.folder || null,
+  });
+}
+export function tauriRecStop(id: string): Promise<RecRecord> {
+  return invoke("rec_stop", { id });
+}
+/** Every recording, newest first. */
+export function tauriRecList(): Promise<RecRecord[]> {
+  return invoke("rec_list");
+}
+/** Not while it records (native refuses). */
+export function tauriRecDelete(id: string): Promise<void> {
+  return invoke("rec_delete", { id });
+}
+export function tauriRecShow(id: string): Promise<void> {
+  return invoke("rec_show", { id });
+}
+/** Play a recording in the in-app player, at `inv_open`'s rect: a file, so
+ * it seeks like a film. The same player as `tauriInvOpen`, the same teardown
+ * (`tauriInvStop`). */
+export function tauriRecPlay(id: string, rect: CompRect): Promise<void> {
+  return invoke("rec_play", { id, x: rect.x, y: rect.y, w: rect.w, h: rect.h });
+}
+/** Settings → Playback → Recording Quality: whether a finished recording is
+ * re-encoded smaller. Said at launch and on every change, false included.
+ * Native holds a shrink left from the last run until the first call. Rejects
+ * on a build from before v1.0.14, which the caller takes quietly. */
+export function tauriRecSetSmaller(on: boolean): Promise<void> {
+  return invoke("rec_set_smaller", { on });
+}
+/** Where new recordings go when Settings has not picked a folder. */
+export function tauriRecDefaultFolder(): Promise<string> {
+  return invoke("rec_default_folder");
+}
+/** The folder dialog, starting at `current`. The chosen full path, or null
+ * when it was dismissed. */
+export function tauriRecPickFolder(current?: string): Promise<string | null> {
+  return invoke("rec_pick_folder", { current: current || null });
+}
+/** A recording's status or size changed (each status change, and every 5s of
+ * growth). The payload is the whole record. Resolves once it is listening,
+ * with the way to stop. */
+export function onRecUpdate(cb: (r: RecRecord) => void): Promise<() => void> {
+  return listen<RecRecord>("rec-update", (e) => cb(e.payload));
+}
+
 /** Raw mpv property snapshot, for the tune diagnostic. Every value is a
  * string ("<none>" when mpv has no answer, which is itself the signal for
  * several of the questions this exists to settle). Called only on rare
@@ -489,6 +644,29 @@ export function onPopoutClosed(cb: (pos?: number) => void): () => void {
     cb(typeof e.payload === "number" && e.payload > 0 ? e.payload : undefined),
   );
   return () => void un.then((f) => f());
+}
+
+/** What native answers `vlc_open` with when VLC is not on this PC (vlc.rs
+ * NOT_INSTALLED). Any other rejection is a short word on what was refused. */
+export const VLC_NOT_INSTALLED = "vlc not installed";
+
+/** Play a film or an episode in VLC (plan 032). Resolves once VLC has started,
+ * from `start` seconds in. The address is never logged here or there. */
+export function tauriVlcOpen(url: string, title: string, userAgent?: string, start?: number): Promise<void> {
+  return invoke("vlc_open", { url, title, ...agentArg(userAgent), ...(start && start >= 1 ? { start } : {}) });
+}
+
+/** Where VLC is, every few seconds, until it ends with state "gone" (the last
+ * position VLC gave is on that one). `len` is 0 until VLC knows it. */
+export interface VlcProgress {
+  pos: number;
+  len: number;
+  state: "playing" | "paused" | "stopped" | "gone";
+}
+
+/** Told each `vlc-progress`. Resolves once it is listening, with the way to stop. */
+export function onVlcProgress(cb: (p: VlcProgress) => void): Promise<() => void> {
+  return listen<VlcProgress>("vlc-progress", (e) => cb(e.payload));
 }
 
 /** Ask GitHub Releases (via tauri-plugin-updater) whether a newer signed

@@ -13,17 +13,24 @@ import type { LiveData } from "./model";
  * the same problem inside useCatalog; this is that code, moved here so both
  * tabs share one copy.
  */
-export function useLiveData(): LiveData | null {
+export function useLiveData(enabled = true): LiveData | null {
   // lookupLive for the FIRST paint, so a catalog older than half an hour
   // still draws while the effect below reloads it.
   const [live, setLive] = useState<LiveData | null>(lookupLive);
 
   useEffect(() => {
+    // Home asks only while one of its live rows is on (plan 033): off, it
+    // neither loads the catalog nor follows it.
+    if (!enabled) return;
     let alive = true;
     // Cold start, which only happens if this tab is the first thing opened.
     // loadLive is single-flighted and cached, so this joins the Live
     // screen's load rather than starting a second one.
-    if (!peekLive()) {
+    // Switched on with a fresh catalog (Home's row turned on): take it, since
+    // a refresh while off was heard by no one.
+    const cached = peekLive();
+    if (cached) setLive(cached);
+    else {
       void loadLive(new Date()).then(() => {
         // Whatever is CURRENT, not what this call resolved with. A
         // playlist edit during a cold load starts a second, forced load
@@ -44,7 +51,7 @@ export function useLiveData(): LiveData | null {
       alive = false;
       off();
     };
-  }, []);
+  }, [enabled]);
 
   return live;
 }

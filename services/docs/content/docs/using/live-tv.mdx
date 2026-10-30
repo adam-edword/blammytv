@@ -7,19 +7,20 @@ The Live TV tab is a programme guide over every channel your
 [playlists](/sources/) supply. Pick a channel to tune it. The player opens over
 the guide.
 
-## The sidebar
+## The Sidebar
 
-Three modes, on the rail at the left:
+Four modes, on the rail at the left:
 
 - **Playlist**, your categories, as your sources organise them
 - **Favorites**, channels you've starred, in the order you arranged them
 - **Recents**, what you've tuned lately, newest first
+- **Recordings**, what you've [recorded](/using/recording/)
 
 Below the mode rail, Xtream sources show a **connection badge**. `2/5` means
 two active streams against a cap of five. See [Connection
 limits](/troubleshooting/connections/).
 
-<Callout title="The default view is everything">
+<Callout title="The Default View Is Everything">
 
 With no category selected, the guide shows every channel from every enabled
 source, in provider order. On a large playlist that means the first thing you
@@ -28,7 +29,7 @@ you never watch, per source in Settings, is the quickest way to cut it down.
 
 </Callout>
 
-## The guide
+## The Guide
 
 A standard EPG grid: channels down the side, time across the top. It renders
 only the rows in view, so a hundred-thousand-channel playlist scrolls at the
@@ -41,9 +42,11 @@ The guide often arrives a moment after the channels do. It's the largest
 download of the load, so the channel list paints first and the programmes fill
 in when they land.
 
-### Right-click a channel
+### Right-Click a Channel
 
-- **Add to Multi-View** puts the channel in your Multi-View grid. A full grid
+- **Record** (on a programme) records it or schedules it if it hasn't started.
+  See [Recording](/using/recording/#record-a-programme-from-the-guide).
+- **Add to Multi-View** puts the channel in your [Multi-View](/using/multi-view/) grid. A full grid
   asks which tile it replaces.
 - **Fix Guide…** (Xtream and M3U channels with a guide) points a channel at
   the right programme guide when its listings are wrong or missing.
@@ -53,7 +56,7 @@ in when they land.
   one of your channels is RedZone. Without a pick, the app looks for a
   channel named RedZone itself.
 
-## The player
+## The Player
 
 Playback opens in a **mini** window over the guide, and expands to **theater**
 and then **fullscreen**. Live TV keeps a ladder on `Escape`: close the menu,
@@ -62,7 +65,12 @@ then leave fullscreen, then collapse back to mini.
 Press <kbd>i</kbd> in theater or fullscreen for a stats overlay showing what
 mpv is doing. It's the quickest way to tell a dead source from a slow one.
 
-## Keyboard shortcuts
+You can pause a channel or rewind it for two hours or more. **Record** is in
+the player's controls. See [Recording](/using/recording/). **Pop Out**
+moves the player into a window of its own. Live TV always pops out in MPV. See
+[Pop Out](/using/stream/#pop-out).
+
+## Keyboard Shortcuts
 
 These work whether the player has focus or the guide does.
 
@@ -80,7 +88,7 @@ These work whether the player has focus or the guide does.
 
 Volume and mute persist across everything you play, including the Stream tab.
 
-## Favorites and recents
+## Favorites and Recents
 
 Star a channel to put it in **Favorites**, where you can arrange it by hand.
 That order is yours and doesn't get re-sorted. **Recents** is maintained

@@ -3,6 +3,7 @@ import {
   tauriInvOpen,
   tauriInvSetRect,
   tauriInvStop,
+  tauriRecPlay,
   type CompRect,
 } from "../../lib/tauri";
 import { holeClip } from "./hole";
@@ -85,7 +86,10 @@ export function InvertedPlayer({
   start,
   live = false,
   userAgent,
+  recording,
 }: {
+  /** What the effect is keyed on. For a recording, a name of its own
+   * (`rec:<id>`): nothing is fetched from it. */
   url: string;
   /** The slot's own CSS corner radius, when it is not squared. Two things
    * are rounded by this number and they have to agree: the rect mpv draws
@@ -118,7 +122,12 @@ export function InvertedPlayer({
    * own. Read through a ref like `start`: it belongs to the url, and putting
    * it in the effect key would restart a stream for a setting change. */
   userAgent?: string;
+  /** A recording's id (plan 029): native plays that file, as a film, in
+   * place of `url`. Read through a ref, like the options above. */
+  recording?: string;
 }) {
+  const recRef = useRef(recording);
+  recRef.current = recording;
   const fsRef = useRef(squared);
   fsRef.current = squared;
   // Read live in the rAF for the same reason `squared` is: a host that
@@ -257,7 +266,9 @@ export function InvertedPlayer({
               ? tauriInvSetRect(rect)
               : ((opened = true),
                 ((openedAtRef.current = performance.now()),
-                tauriInvOpen(url, rect, startRef.current, liveRef.current, agentRef.current)));
+                recRef.current
+                  ? tauriRecPlay(recRef.current, rect)
+                  : tauriInvOpen(url, rect, startRef.current, liveRef.current, agentRef.current)));
             // Phase 2: once the native move has landed (plus a frame for
             // its present), open the full hole and snap the chrome to it.
             void move

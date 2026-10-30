@@ -4,6 +4,7 @@ import {
   type XtreamConnections,
 } from "../../data/xtream";
 import { loadPlaylists } from "../settings/playlists";
+import { useStreamRecs } from "../recordings/store";
 
 /**
  * Per-source connection usage for the sidebar pills ("2/5"). Xtream only:
@@ -14,7 +15,9 @@ import { loadPlaylists } from "../settings/playlists";
  * Polls while the Live tab is mounted (the screen unmounts on tab switch,
  * so this dies with it) and re-polls shortly after each tune — panels
  * take a few seconds to register the new session, and the number Bobby
- * actually cares about includes his own stream.
+ * actually cares about includes his own stream. A recording starting or
+ * ending is a tune of its own to the panel (plan 029), so it re-polls the
+ * same way.
  */
 const POLL_MS = 60_000;
 /** While something is waiting on the count: a multi-view tile waiting for
@@ -73,7 +76,7 @@ export function useConnections(
    * tuneKey null when nothing is playing — mount and "just stopped" are
    * indistinguishable from the key alone — and they want opposite timing:
    * mount should ask at once, a stop should give the panel a beat first. */
-  const lastKey = useRef<string | null | undefined>(undefined);
+  const lastKey = useRef<string | undefined>(undefined);
   /** Monotonic token so an OLDER refresh never writes over a newer one. The 4s and 20s
    * looks are 16s apart while the Rust HTTP client's timeout is 30s, so the
    * early response can genuinely land after the late one and put the stale
@@ -85,6 +88,10 @@ export function useConnections(
    * every answer was overtaken by the next ask and thrown away, and a tile
    * waiting for a slot waited the full 45s. */
   const applied = useRef(new Map<string, number>());
+  // Which stream recordings run, so one starting or ending is a change of the
+  // key like a tune is. Buffer recordings hold no connection and are not in it.
+  const recs = useStreamRecs().ids;
+  const change = `${tuneKey ?? ""}\n${recs}`;
   useEffect(() => {
     let stale = false;
     const refresh = () => {
@@ -118,8 +125,8 @@ export function useConnections(
     // identical run consume the mount branch, pushing the first read from
     // 0ms to 4s in every dev build. tuneKey can legitimately be null, so the
     // sentinel is undefined.
-    const first = lastKey.current === undefined || lastKey.current === tuneKey;
-    lastKey.current = tuneKey;
+    const first = lastKey.current === undefined || lastKey.current === change;
+    lastKey.current = change;
     // And on the first run, once more at SETTLE_MS: a count read at 0 was
     // taken before anything just opened had connected, and the next look
     // was a full minute away (plan 018, L3).
@@ -131,6 +138,6 @@ export function useConnections(
       timers.forEach(window.clearTimeout);
       window.clearInterval(id);
     };
-  }, [tuneKey, fast]);
+  }, [change, fast]);
   return conns;
 }

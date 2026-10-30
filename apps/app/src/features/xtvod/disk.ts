@@ -8,11 +8,13 @@
  * have to agree on. Never localStorage either, whose quota is a few megabytes
  * and one provider's movie list alone is 10.
  *
- * One record per playlist (its id is the record's key), carrying a fingerprint
- * of the playlist's server, user name and password. A read for another
- * fingerprint is a miss, so an edited playlist never shows the old account's
- * lists, and the next save overwrites the record rather than leaving it behind.
- * The fingerprint holds the credentials and is NEVER logged, only its digest.
+ * One record per playlist (its id is the record's key), carrying a SHA-256 of
+ * the playlist's fingerprint (server, user name and password). A read for
+ * another fingerprint is a miss, so an edited playlist never shows the old
+ * account's lists, and the next save overwrites the record rather than leaving
+ * it behind. The disk never holds the password, and the fingerprint is NEVER
+ * logged, only its digest. 1.0.0 kept the fingerprint itself: such a record
+ * matches nothing, and the next read of the panel replaces it.
  *
  * Every path degrades to null or nothing (node tests have no indexedDB, and a
  * private window may refuse to open one), and a failed write says so loudly:
@@ -40,7 +42,21 @@ export function digest(s: string): string {
   return (h >>> 0).toString(36);
 }
 
+/** The fingerprint as a record keeps it: SHA-256, in hex. (The guide's copy
+ * seals its cache key with this too, live/diskCache.ts.) Null where the page
+ * has no SubtleCrypto (an insecure origin), and then nothing is read or written
+ * rather than writing the fingerprint itself. */
+export async function seal(fp: string): Promise<string | null> {
+  try {
+    const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fp));
+    return Array.from(new Uint8Array(h), (b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return null;
+  }
+}
+
 interface DiskRecord {
+  /** `seal(fingerprint)`. */
   fp: string;
   at: number;
   lists: XtLists;
@@ -80,6 +96,10 @@ function sane(v: DiskRecord): boolean {
 /** The lists read for this playlist and fingerprint, with when they were read,
  * or null for a miss of any kind. */
 export async function diskGet(pid: string, fp: string): Promise<{ at: number; lists: XtLists } | null> {
+  const want = await seal(fp);
+  if (!want) return null;
+  // From open to the lists unpacked: what the launch path holds the main thread for.
+  const t0 = performance.now();
   const db = await openDb();
   if (!db) return null;
   return new Promise((resolve) => {
@@ -87,14 +107,15 @@ export async function diskGet(pid: string, fp: string): Promise<{ at: number; li
       const rq = db.transaction(STORE, "readonly").objectStore(STORE).get(pid);
       rq.onsuccess = () => {
         const v = rq.result as DiskRecord | undefined;
-        const hit = v && v.fp === fp && sane(v) ? v : null;
+        const hit = v && v.fp === want && sane(v) ? v : null;
+        const ms = Math.round(performance.now() - t0);
         console.info(
           !v
-            ? `[xt-vod] disk MISS: nothing stored yet (want ${digest(fp)})`
+            ? `[xt-vod] disk MISS: nothing stored yet (want ${digest(fp)}) in ${ms}ms`
             : hit
               ? `[xt-vod] disk HIT: ${Math.round((Date.now() - hit.at) / 60000)}min old, ` +
-                `${hit.lists.movies.length} movies, ${hit.lists.shows.length} shows`
-              : `[xt-vod] disk MISS: stored ${digest(String(v.fp))} != wanted ${digest(fp)}`,
+                `${hit.lists.movies.length} movies, ${hit.lists.shows.length} shows, read in ${ms}ms`
+              : `[xt-vod] disk MISS: stored ${digest(String(v.fp))} != wanted ${digest(want)} in ${ms}ms`,
         );
         resolve(hit ? { at: hit.at, lists: hit.lists } : null);
         db.close();
@@ -112,6 +133,11 @@ export async function diskGet(pid: string, fp: string): Promise<{ at: number; li
 
 /** Keep these lists for the playlist, in place of the last. Best effort. */
 export async function diskPut(pid: string, fp: string, at: number, lists: XtLists): Promise<void> {
+  const sealed = await seal(fp);
+  if (!sealed) {
+    console.warn("[xt-vod] disk write SKIPPED, no SubtleCrypto here, so the lists will download again at every launch");
+    return;
+  }
   const db = await openDb();
   if (!db) return;
   return new Promise((resolve) => {
@@ -121,7 +147,7 @@ export async function diskPut(pid: string, fp: string, at: number, lists: XtList
     };
     try {
       const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).put({ fp, at, lists } satisfies DiskRecord, pid);
+      tx.objectStore(STORE).put({ fp: sealed, at, lists } satisfies DiskRecord, pid);
       tx.oncomplete = () => {
         console.info(`[xt-vod] disk wrote ${lists.movies.length} movies, ${lists.shows.length} shows (${digest(fp)})`);
         done();
@@ -167,9 +193,37 @@ export async function diskDrop(pid: string): Promise<void> {
   });
 }
 
-/** Drop every playlist's lists. Each record carries its account's fingerprint
- * (server, user name and password), so Clear All Login Info takes them all, as
- * it takes the guide's copy (live/diskCache.ts `diskClear`). */
+/** Drop the lists of every playlist whose id is not in `keep`, whatever the
+ * record is: a playlist removed with no pick (so nothing named it to drop), or
+ * replaced wholesale by a settings import, would otherwise leave its record
+ * behind until Clear All Login Info. Best effort, in one transaction. */
+export async function diskPrune(keep: ReadonlySet<string>): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  return new Promise((resolve) => {
+    const done = () => {
+      db.close();
+      resolve();
+    };
+    try {
+      const tx = db.transaction(STORE, "readwrite");
+      const store = tx.objectStore(STORE);
+      const keys = store.getAllKeys();
+      keys.onsuccess = () => {
+        for (const k of keys.result) if (!keep.has(String(k))) store.delete(k);
+      };
+      tx.oncomplete = done;
+      tx.onerror = done;
+      tx.onabort = done;
+    } catch {
+      done();
+    }
+  });
+}
+
+/** Drop every playlist's lists. Each record carries a hash of its account's
+ * fingerprint (server, user name and password), so Clear All Login Info takes
+ * them all, as it takes the guide's copy (live/diskCache.ts `diskClear`). */
 export async function diskClearAll(): Promise<void> {
   const db = await openDb();
   if (!db) return;

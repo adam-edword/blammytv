@@ -655,6 +655,9 @@ button {
 }
 .navcap__row--nav {
   gap: 7px;
+  /* With no live half, place() centres it over a wider row 2 (and row 2
+   * under a wider row 1, in either layout). */
+  transition: margin-left var(--nav-dur) var(--nav-spring);
   /* Content width: this row is what the capsule measures itself against. */
   align-self: flex-start;
 }
@@ -680,6 +683,7 @@ button {
   width: 0;
   min-width: 100%;
   transition:
+    margin-left var(--nav-dur) var(--nav-spring),
     height var(--nav-dur) var(--nav-spring),
     opacity 200ms ease,
     transform var(--nav-dur) var(--nav-spring);
@@ -1092,6 +1096,45 @@ button {
   cursor: pointer;
   border-radius: var(--radius-pill, 999px);
   transition: transform 220ms var(--nav-spring);
+  /* The glow's box (below). Set here and not on --on so that the glow can
+   * fade out after the class is gone: isolation is what keeps its z-index 0
+   * behind the mark and above the capsule. */
+  position: relative;
+  isolation: isolate;
+}
+
+/*
+ * HOME'S GLOW (plan 033). On Home the mark is the current item, and it says
+ * so with the brand's own conic gradient behind it: blurred 12px, at 40%, with
+ * the hollow centre washed 20% black. On any other tab the glow is gone and
+ * the mark looks as it always has. The ::before is always there at opacity 0,
+ * so leaving Home fades it out; --on (set in AppHeader) is what lights it.
+ * The spin turns it with the mark: both read --logo-angle.
+ */
+.navcap__mark::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 12px;
+  pointer-events: none;
+  background: conic-gradient(from var(--logo-angle, 146.36deg), var(--logo-stops));
+  filter: blur(12px);
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+.navcap__mark--on::before {
+  opacity: 0.4;
+}
+.navcap__mark.is-spinning::before {
+  animation: navcap-spin 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.navcap__mark--on > b {
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.2) 60%, transparent 100%);
 }
 
 /* One turn of the conic's start angle. Only interpolable because
@@ -1110,6 +1153,8 @@ button {
 }
 .navcap__mark b {
   display: block;
+  position: relative;
+  z-index: 1;
   width: 37px;
   height: 37px;
   overflow: hidden;
@@ -1129,16 +1174,20 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .navcap,
+  .navcap__row--nav,
+  .navcap__row--sub,
   .navcap__pill,
   .navcap__lbl,
   .navcap__lbl > i,
   .navcap__item,
-  .navcap__mark {
+  .navcap__mark,
+  .navcap__mark::before {
     transition-duration: 1ms;
   }
   /* The spin is decoration with no state behind it, so it does not get a
    * fast version — it does not run. */
-  .navcap__mark.is-spinning i {
+  .navcap__mark.is-spinning i,
+  .navcap__mark.is-spinning::before {
     animation: none;
   }
 }

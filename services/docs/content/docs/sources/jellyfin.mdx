@@ -10,7 +10,7 @@ and a title you open from one plays the file on your server.
 BlammyTV doesn't host a Jellyfin server and doesn't supply one. You bring your
 own, and it's tested on Jellyfin 12.x.
 
-## Signing in
+## Signing In
 
 Go to **Settings → Sources → Stream → Jellyfin**. You need your server's
 address, like `jellyfin.example.com` or `192.168.1.20:8096`.
@@ -35,7 +35,7 @@ the internet. Use `https` when you can.
 
 One server at a time. Signing in to a second one means disconnecting the first.
 
-## What you get
+## What You Get
 
 - **Your libraries as rows** on the Stream home, one for each movie or show
   library. Music, books, collections, mixed libraries and Live TV aren't shown.
@@ -55,7 +55,7 @@ One server at a time. Signing in to a second one means disconnecting the first.
   timings. Markers from AIOStreams are never used on a file from your server,
   because they were made against a different file.
 
-<Callout title="Not yet run on a real Windows build">
+<Callout title="Not Yet Run on a Real Windows Build">
 
 BlammyTV was built from the answers of a real Jellyfin 12.2 and tested against
 a stand-in made from them. UNCHECKED on a live server: Discover's search and
@@ -64,7 +64,7 @@ in the real player, and artwork in the real app window.
 
 </Callout>
 
-## Where you left off
+## Where You Left Off
 
 Once you're in, any app signed in to your server as you picks up where you
 left off, BlammyTV included. It isn't a watch history: for that, connect Trakt
@@ -89,7 +89,7 @@ It syncs when the app opens, when you come back to it after a while, after you
 sign in, and from **Sync Now**. **Settings → Sources → Stream → Jellyfin**
 shows when it last ran.
 
-<Callout title="Trakt and your Jellyfin" variant="warning">
+<Callout title="Trakt and Your Jellyfin" variant="warning">
 
 If you connect Trakt in BlammyTV, it already reports what you play. UNCHECKED:
 if your Jellyfin runs a Trakt plugin, it may log the same watch that BlammyTV
@@ -101,7 +101,7 @@ Watched marks from your server never go to Trakt or MyAnimeList. They tick the
 episode grid and nothing else, so an episode both Jellyfin and Trakt know about
 is counted once in each.
 
-### Limits of the sync
+### Limits of the Sync
 
 - **It assumes Jellyfin's default thresholds** for when something counts as
   started and finished (watched past 5% to be resumable, past 90% to be
@@ -113,14 +113,14 @@ is counted once in each.
   Watching and Next Up. The Next Up request asks the server to leave those
   out, but a real server's answer to that hasn't been looked at.
 
-## Where it's kept
+## Where It's Kept
 
 Your sign-in lives in Windows Credential Manager. Export Settings never writes
 it into a file, and **Settings → App → Clear All Login Info** removes it and signs the device out on the server. The
 profile holds your server's address and your user name, and neither opens
 anything on its own. See [where your data goes](/how-it-works/).
 
-## Not here
+## Not Here
 
 - **Jellyfin's Live TV.** Live channels come from the [live TV
   sources](/sources/).

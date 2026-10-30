@@ -151,7 +151,7 @@ function stub({ playlists }) {
   if (sessionStorage.getItem("seeded")) return;
   sessionStorage.setItem("seeded", "1");
   sessionStorage.setItem("btv:welcome-played", "1");
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify(playlists));
   localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "live" }));
 }

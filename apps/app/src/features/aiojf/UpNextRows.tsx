@@ -20,16 +20,21 @@ function airDate(ms: number): string {
  * ones about to air. Read from what the last sync stored, and again after each
  * one. A card opens that show's episode page, as a Continue Watching card for
  * a show outside the catalog does. An empty row does not render.
+ *
+ * `title`: Home's name for the Next Up row (plan 033), which the person may have
+ * changed. Upcoming keeps its own.
  */
 export function UpNextRows({
   catalog,
   metaFields,
   onOpen,
+  title,
 }: {
   /** The loaded catalog's items: a show in it opens as itself. */
   catalog: ReadonlyMap<string, VodItem>;
   metaFields: CardMetaField[];
   onOpen: (i: VodItem) => void;
+  title?: string;
 }) {
   const [stored, setStored] = useState(loadAiojf);
   useEffect(() => {
@@ -49,20 +54,21 @@ export function UpNextRows({
         cast: [],
         seasons: [],
       };
-    const rowOf = (title: string, cards: UpNextCard[] | undefined, said: (c: UpNextCard) => string) => ({
-      title,
+    const rowOf = (key: string, name: string, cards: UpNextCard[] | undefined, said: (c: UpNextCard) => string) => ({
+      key,
+      title: name,
       cards: (cards ?? []).map((c) => ({ key: c.episodeId, item: itemOf(c), meta: said(c) })),
     });
     return [
-      rowOf("Next Up", stored.nextUp, (c) => c.label),
-      rowOf("Upcoming", stored.upcoming, (c) => (c.airsAt != null ? `${airDate(c.airsAt)} · ${c.label}` : c.label)),
+      rowOf("nextUp", title ?? "Next Up", stored.nextUp, (c) => c.label),
+      rowOf("upcoming", "Upcoming", stored.upcoming, (c) => (c.airsAt != null ? `${airDate(c.airsAt)} · ${c.label}` : c.label)),
     ].filter((r) => r.cards.length > 0);
-  }, [stored, catalog]);
+  }, [stored, catalog, title]);
 
   return (
     <>
       {rows.map((row) => (
-        <section key={row.title} className="media-row">
+        <section key={row.key} className="media-row">
           <h3 className="media-row__title">{row.title}</h3>
           <RowScroller>
             {row.cards.map((c) => (

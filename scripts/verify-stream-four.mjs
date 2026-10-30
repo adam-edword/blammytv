@@ -129,7 +129,7 @@ async function open(entry, { store = {}, chapters = [], tauri = false, clock = f
         };
         window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
       }
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: AIO }));
       localStorage.setItem("blammytv.watching", JSON.stringify({ v: 1, data: [{ ...entry, at: Date.now() }] }));

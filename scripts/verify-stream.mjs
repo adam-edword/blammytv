@@ -17,7 +17,7 @@ const check = (name, ok, extra = "") => {
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 await page.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   sessionStorage.setItem("btv:welcome-played", "1");
 });
@@ -30,39 +30,20 @@ check("catalog rows render", text.includes("Top Movies") && text.includes("Top S
 check("search-only catalog excluded", !text.includes("Search"));
 check("hero carousel present", await page.locator(".shero").count() > 0);
 
-// The tilt glare's corner against its card's (v0.9.132). react-parallax-tilt
-// clips its glare to a radius of its own, and each card named one, 25 to
-// 60px, that the restyle's 14px corners left behind: a rounder sheen inside
-// a squarer card. The hero's tilt has no corner of its own; its art does.
-const glareCorners = (sel) =>
-  page.evaluate((sel) =>
-    [...document.querySelectorAll(sel)].map((g) => {
-      const tilt = g.parentElement;
-      const card = getComputedStyle(tilt).borderTopLeftRadius !== "0px"
-        ? tilt
-        : tilt.querySelector(".shero__art") ?? tilt;
-      return [getComputedStyle(g).borderTopLeftRadius, getComputedStyle(card).borderTopLeftRadius];
-    }), sel);
-const heroGlare = await glareCorners(".shero__card--active .shero__tilt > .glare-wrapper");
-const cardGlare = await glareCorners(".stream-card__tilt > .glare-wrapper");
-check(
-  "the hero's and the posters' glare share their card's corner",
-  heroGlare.length > 0 && cardGlare.length > 0 && [...heroGlare, ...cardGlare].every(([g, c]) => g === c),
-  [...new Set([...heroGlare, ...cardGlare].map(([g, c]) => `glare ${g} on ${c}`))].join(", "),
-);
 await page.screenshot({ path: process.env.SHOT_DIR ? process.env.SHOT_DIR + "/stream-home.png" : "stream-home.png" });
 
 // Keyboard in the hero (v0.9.92). Every slide's buttons were tab stops,
 // peeking and off-screen slides included, and autoplay paused for the
 // mouse only, so a focused button slid off screen 8s after you reached it.
+// Now each card is a button, and the focused one is the only tab stop.
+const stops = await page.locator(".shero button:not([tabindex='-1'])").evaluateAll((els) => els.map((e) => e.classList.contains("shero__card--active")));
 check(
-  "no tab stops on the peeking hero slides",
-  (await page
-    .locator(".shero__card:not(.shero__card--active) button:not([tabindex='-1'])")
-    .count()) === 0,
+  "no tab stops on the peeking hero slides: the focused card is the only one",
+  (await page.locator(".shero__card:not(.shero__card--active)").count()) >= 3 && stops.length === 1 && stops[0] === true,
+  JSON.stringify(stops),
 );
 await page.mouse.move(2, 2); // no hover pause: this is the keyboard's case
-await page.locator(".shero__card--active button").first().focus();
+await page.locator(".shero__card--active").focus();
 await page.waitForTimeout(9_000); // one autoplay interval, and a second
 const stillHere = await page.evaluate(() => {
   const a = document.activeElement;
@@ -180,7 +161,7 @@ const titles = (p) =>
     ),
   );
 const seed = () => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   sessionStorage.setItem("btv:welcome-played", "1");
 };
@@ -198,22 +179,22 @@ const openStream = async (p) => {
 };
 
 // On a picture, the dark theme's ink in both themes (plan 022). In light,
-// Watch now turned black and More info vanished into the art; scrolled, the
-// header laid a white haze over the hero. The header takes the picture's
-// ink only while the hero is under it.
+// the title in type turned black over the art; scrolled, the header laid a
+// white haze over the hero. The header takes the picture's ink only while
+// the focused card is under it. (The meta and synopsis sit on the page, under
+// the card, so they take the page's: verify-shero reads them in light.)
 {
   const ctx = await quietContext();
   const p = await ctx.newPage();
   await openStream(p);
-  await p.waitForSelector(".shero__card--active .on-picture button", { timeout: 15_000 });
+  await p.waitForSelector(".shero__card--active .shero__title", { timeout: 15_000 });
   await p.evaluate(() => (document.documentElement.dataset.theme = "light"));
   const ink = () =>
     p.evaluate(() => {
-      const [watch, more] = document.querySelectorAll(".shero__card--active .shero__actions button");
+      const title = document.querySelector(".shero__card--active .shero__title");
       const header = document.querySelector(".header");
       return {
-        watch: getComputedStyle(watch).backgroundColor,
-        more: getComputedStyle(more).color,
+        title: getComputedStyle(title).color,
         page: getComputedStyle(document.body).color,
         header: getComputedStyle(header).getPropertyValue("--text").trim(),
         flag: document.documentElement.dataset.headerOver ?? "",
@@ -233,12 +214,12 @@ const openStream = async (p) => {
   // Lightness, whichever space it comes back in (a transition reads oklab).
   const L = (c) => Number(/^okl(?:ch|ab)\(([\d.]+)/.exec(c)?.[1] ?? NaN);
   check(
-    "in light, the hero's Watch now stays light and More info's words stay light on the art",
-    L(top.watch) === 0.985 && L(top.more) === 0.985 && L(top.page) === 0.145,
-    JSON.stringify({ watch: top.watch, more: top.more, page: top.page }),
+    "in light, the hero's title in type stays light on the art",
+    L(top.title) === 0.985 && L(top.page) === 0.145,
+    JSON.stringify({ title: top.title, page: top.page }),
   );
   check(
-    "the header takes the picture's ink while the hero is under it, and gives it back",
+    "the header takes the picture's ink while the focused card is under it, and gives it back",
     top.flag === "" && under.flag === "picture" && under.header === PIC && rows.flag === "" && rows.header === "oklch(0.145 0 0)",
     JSON.stringify({ top: top.flag, under: [under.flag, under.header], rows: [rows.flag, rows.header] }),
   );
@@ -265,7 +246,9 @@ const openStream = async (p) => {
   );
   check(
     "the hero leaves out a title whose details fail or never come, rather than showing its preview",
-    up && cards.length > 0 && cards.every((c) => c.title.startsWith("Fake Series") && c.art.includes("/bg/")),
+    // Only the cards on screen and one past load their 16:9 art (the shelf
+    // hero mounts more ahead); those that did must be a backdrop.
+    up && cards.length > 0 && cards.every((c) => c.title.startsWith("Fake Series") && (!c.art || c.art.includes("/bg/"))) && cards.some((c) => c.art.includes("/bg/")),
     JSON.stringify(cards.map((c) => [c.title, c.art.replace(/^.*\/(\w+\/\w+\.png)$/, "$1")])),
   );
   check("and waits on them for 4 seconds at most", up && took < 9_000, `${took}ms`);
@@ -291,13 +274,15 @@ const openStream = async (p) => {
     p.evaluate(() => {
       const op = (el) => (el ? Number(getComputedStyle(el).opacity) : -1);
       const art = document.querySelector(".shero__card--active .shero__art");
-      const glow = document.querySelector(".shero__glowbox img.shero__glow--lit");
+      const glowImg = document.querySelector(".shero__glowcard--active .shero__art");
+      // The light is the picture's own opacity under its card's.
+      const glow = glowImg ? op(glowImg) * op(glowImg.closest(".shero__glowcard")) : -1;
       const poster = document.querySelector(".stream-card__poster");
       const wrap = poster?.closest(".stream-card__tilt");
       return {
         art: op(art),
         loaded: art?.hasAttribute("data-loaded") ?? false,
-        glow: op(glow),
+        glow,
         poster: op(poster),
         placeholder: wrap ? getComputedStyle(wrap).backgroundColor : "",
       };
@@ -309,7 +294,7 @@ const openStream = async (p) => {
   const after = await style();
   check(
     "the hero's art and its light stay hidden until the picture is in, then fade up",
-    before.art === 0 && !before.loaded && before.glow === 0 && after.art === 1 && after.loaded && Math.abs(after.glow - 0.7) < 0.01,
+    before.art === 0 && !before.loaded && before.glow === 0 && after.art === 1 && after.loaded && Math.abs(after.glow - 0.75) < 0.01,
     JSON.stringify({ before, after }),
   );
   check(
@@ -342,7 +327,7 @@ const openStream = async (p) => {
       return {
         logo: logo ? logo.alt : null,
         loaded: logo?.hasAttribute("data-loaded") ?? false,
-        title: c.querySelector("h2.shero__title")?.textContent ?? null,
+        title: c.querySelector(".shero__title")?.textContent ?? null,
       };
     }),
   );

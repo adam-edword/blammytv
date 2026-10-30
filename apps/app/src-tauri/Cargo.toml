@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "1.0.0"
+version = "1.2.0"
 description = "Self-contained desktop IPTV/VOD client (Xtream Codes + AIOStreams/debrid)."
 authors = ["adam-edword"]
 license = ""
@@ -95,4 +95,15 @@ windows = { version = "0.61", features = [
     # mvaudio_out.rs: which device mpv's audio is on, beside multi-view's.
     "Win32_Media_Audio",
     "Win32_System_Com",
+    # rec.rs: the PC kept awake while a recording runs, the drive's free space,
+    # and the clock a recording's file name is stamped with. mpv.rs: the free
+    # space under the live channels' disk cache (mpvcache.rs).
+    "Win32_System_Power",
+    "Win32_Storage_FileSystem",
+    "Win32_System_SystemInformation",
+    # rec.rs: a remux or shrink ffmpeg is put in a job object that ends it when
+    # the app quits (Windows leaves a child running after its parent).
+    "Win32_System_JobObjects",
+    # vlc.rs: where VLC is installed (HKLM\SOFTWARE\VideoLAN\VLC).
+    "Win32_System_Registry",
 ] }

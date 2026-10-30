@@ -83,7 +83,7 @@
   letter-spacing: 0.2px;
 }
 /* Over wallpaper art (scrimmed), fixed light text is sanctioned — same
- * as .shero__text / .vod-detail__body. */
+ * as .shero__title / .vod-detail__body. */
 .genre-card:has(.genre-card__art) .genre-card__name {
   color: var(--on-image);
 }
@@ -370,4 +370,52 @@
   .rec__wallrow {
     animation: none;
   }
+}
+
+/* ---------------------------------------------------------- genre rows
+ * A picked genre is rows now (plan 034). They are Stream's own markup inside
+ * a `.stream__rows`, which is what gives them its 240 posters and the meta on
+ * hover; this is the row header (title, the source chip, See All) and the
+ * foot. */
+.genre-rows__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.genre-rows__chip {
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.genre-rows__all {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+.genre-rows__all:hover {
+  color: var(--text);
+}
+.genre-rows__foot {
+  padding: 18px 0 40px;
+}
+
+/* While the pool loads: two rows of the Stream card's width. */
+.genre-rows .disc-skel {
+  width: 240px;
+  flex: none;
+}
+.genre-rows .genre-rows__skel-title {
+  width: 180px;
+  height: 24px;
+  aspect-ratio: auto;
+  border-radius: 6px;
+}
+.genre-rows__skel {
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+  padding: 18px 0 10px;
 }

@@ -26,11 +26,11 @@ import {
 import { scrubbedMessage } from "../../lib/errors";
 import { cleanUserAgent } from "../../lib/userAgent";
 import { loadShowAdult } from "../settings/adultFilter";
-import { loadPlaylists, onPlaylistsChange, type XtreamPlaylist } from "../settings/playlists";
+import { loadPlaylists, onPlaylistsChange, playlistsSavedEmpty, type XtreamPlaylist } from "../settings/playlists";
 import { loadRowCap } from "../settings/rowCap";
 import { mapStreams } from "../stream/mapper";
 import type { StreamRow, StreamSource, VodData, VodItem } from "../stream/model";
-import { digest, diskClearAll, diskDrop, diskGet, diskPut, fingerprint } from "./disk";
+import { digest, diskClearAll, diskDrop, diskGet, diskPrune, diskPut, fingerprint } from "./disk";
 import { KIND_WORD, readKey, titleOf, type XtKind } from "./keys";
 import { feedOf, pageOf, searchTitles } from "./discover";
 import { buildLibrary, type XtFolder, type XtLibrary, type XtLists, type XtTitle } from "./library";
@@ -124,26 +124,42 @@ function adopt(p: XtreamPlaylist, m: Mem): void {
  * errors on one of them (rather than answering `[]`) has no library until it
  * does not. shortcut: split the movie half from the show half if a panel
  * turns up that serves one and fails the other. */
-async function fetchLists(p: XtreamPlaylist): Promise<XtLists> {
+async function fetchLists(
+  p: XtreamPlaylist,
+  fp: string,
+): Promise<{ lists: XtLists; fetchMs: number; coerceMs: number }> {
+  const t0 = performance.now();
   const [movies, shows, movieFolders, showFolders] = await Promise.all([
     fetchVodStreams(p),
     fetchSeries(p),
     fetchVodCategories(p),
     fetchSeriesCategories(p),
   ]);
-  return { movies: readMovies(movies), shows: readShows(shows), movieFolders, showFolders };
+  const t1 = performance.now();
+  const lists = { movies: readMovies(movies), shows: readShows(shows), movieFolders, showFolders };
+  // A read with nothing in it, where the copy it would replace had titles, is
+  // a panel that is not answering properly (a lapsed account, a panel limit),
+  // not a library that emptied itself. A FIRST empty read has no copy to
+  // replace: that is a live TV only panel, and is taken as it is.
+  const had = atFp(p.id, fp)?.lists;
+  if (had && had.movies.length + had.shows.length > 0 && lists.movies.length === 0 && lists.shows.length === 0)
+    throw new Error("the panel answered with no movies or shows");
+  return { lists, fetchMs: Math.round(t1 - t0), coerceMs: Math.round(performance.now() - t1) };
 }
 
 function refresh(p: XtreamPlaylist, fp: string): Promise<Mem> {
   const run = refreshing.get(p.id);
   if (run && run.fp === fp) return run.promise;
   const t0 = Date.now();
-  const promise = fetchLists(p).then(
-    (lists) => {
+  const promise = fetchLists(p, fp).then(
+    ({ lists, fetchMs, coerceMs }) => {
       const m: Mem = { fp, at: Date.now(), lists };
       failedAt.delete(p.id);
+      // The download and its JSON.parse are one step (lib/http.ts httpGetJson),
+      // so `fetch` holds both; `coerce` is read.ts turning the lists into ours.
       console.info(
-        `[xt-vod] read ${lists.movies.length} movies and ${lists.shows.length} shows in ${Date.now() - t0}ms (${digest(fp)})`,
+        `[xt-vod] read ${lists.movies.length} movies and ${lists.shows.length} shows in ${Date.now() - t0}ms ` +
+          `(fetch ${fetchMs}ms, coerce ${coerceMs}ms) (${digest(fp)})`,
       );
       if (stillCurrent(p, fp)) {
         adopt(p, m);
@@ -218,7 +234,9 @@ function libraryOf(p: XtreamPlaylist, m: Mem): XtLibrary {
   const hide = !loadShowAdult();
   const hit = built.get(p.id);
   if (hit && hit.m === m && hit.hide === hide) return hit.lib;
+  const t0 = performance.now();
   const lib = buildLibrary(p.id, m.lists, hide);
+  console.info(`[xt-vod] built ${lib.titles.size} titles in ${Math.round(performance.now() - t0)}ms (${digest(m.fp)})`);
   built.set(p.id, { m, hide, lib });
   return lib;
 }
@@ -479,6 +497,12 @@ export const xtDiscoverKey = (): string => {
  * memory and young. App mounts this once.
  */
 export function watchXtLibrary(): () => void {
+  // A settings import replaces the playlists and reloads the window, so what
+  // the old ones left behind is cleared here, once per launch. Not when none
+  // read back: storage.ts answers [] for a key it can't read, and that must
+  // not wipe every playlist's picks. A list saved as empty (an import without
+  // playlists) is read back, and its playlists' data goes.
+  if (loadPlaylists().length > 0 || playlistsSavedEmpty()) forgetRemoved();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const soon = (ms: number) => {
     clearTimeout(timer);
@@ -502,13 +526,17 @@ export function watchXtLibrary(): () => void {
  * A playlist taken out of Settings takes its library with it: its choices and
  * its record of what it held (store.ts), its lists on disk and the ones in
  * memory. Run on every save of the playlist list, which is how a deleted
- * playlist takes its guide fixes (settings/playlists.ts `savePlaylists`). It is
- * not called from there: store.ts reads the playlists, and the two would import
- * each other.
+ * playlist takes its guide fixes (settings/playlists.ts `savePlaylists`), and
+ * at launch (`watchXtLibrary`), for a list replaced while the app was closed or
+ * by a settings import. It is not called from there: store.ts reads the
+ * playlists, and the two would import each other.
  */
 export function forgetRemoved(): void {
   const keep = new Set(loadPlaylists().map((p) => p.id));
   for (const id of dropXtFor(keep)) void diskDrop(id);
+  // And any other record no playlist owns: one with no pick and no record of
+  // what it held is named by nothing above, and each keeps an account's hash.
+  void diskPrune(keep);
   for (const id of [...mem.keys()])
     if (!keep.has(id)) {
       mem.delete(id);

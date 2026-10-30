@@ -440,3 +440,73 @@ describe("gameOver (plan 018, L9)", () => {
     expect(gameOver({ channelId: "t:1", label: "ESPN" }, now, 0, true, false)).toBe(false);
   });
 });
+
+describe("a recording is the app's own connection (plan 029)", () => {
+  // Adam's line: three connections.
+  const line = (active: number) => ({ max: 3, active });
+
+  it("takes a slot from the tiles and counts in used", () => {
+    // One recording, no tiles: the panel counts it, and it is ours.
+    const r = roomOn(line(1), 0, true, 1);
+    expect(r).toEqual({ max: 3, elsewhere: 0, used: 1, left: 2 });
+  });
+
+  it("is not elsewhere, with or without a tile beside it", () => {
+    expect(roomOn(line(2), 1, true, 1).elsewhere).toBe(0);
+    expect(roomOn(line(3), 1, true, 1).elsewhere).toBe(1);
+  });
+
+  it("offers one fewer tile on the line it records on", () => {
+    expect(roomOn(line(1), 1, true, 0).left).toBe(2);
+    expect(roomOn(line(2), 1, true, 1).left).toBe(1);
+    expect(roomOn(line(3), 2, true, 1).left).toBe(0);
+  });
+
+  it("changes nothing when none run, which is every other line", () => {
+    expect(roomOn(line(2), 1, true, 0)).toEqual(roomOn(line(2), 1, true));
+  });
+
+  it("is not blamed on anyone while the panel catches up, either way", () => {
+    // Just ended: the panel still counts it, and the grid has nothing to say it is ours.
+    expect(roomOn(line(2), 1, false, 0).elsewhere).toBe(0);
+    // Just started: the panel has not counted it, and it still takes its slot.
+    expect(roomOn(line(1), 1, false, 1).left).toBe(1);
+  });
+
+  it("keeps the four-tile cap on tiles: with a recording, a line of five still fits four tiles", () => {
+    expect(roomOn({ max: 5, active: 1 }, 3, true, 1).left).toBe(1);
+    expect(roomOn({ max: 5, active: 5 }, 4, true, 1).left).toBe(0);
+  });
+
+  it("blames the line, not the four-tile cap, when a recording fills it", () => {
+    // Three tiles and a recording on a line of four: the line is full.
+    expect(fullReason(roomOn({ max: 4, active: 4 }, 3, true, 1))).toBe("Your line allows 4.");
+    // Four tiles and a recording on a line of five: that fills the line too.
+    expect(fullReason(roomOn({ max: 5, active: 5 }, 4, true, 1))).toBe("Your line allows 5.");
+    // Four tiles and a recording on a line of six: the line has room, so the cap is the reason.
+    expect(fullReason(roomOn({ max: 6, active: 5 }, 4, true, 1))).toBe("Four is the most multi-view shows.");
+  });
+
+  it("reads in the meter as part of the line's total, never as elsewhere", () => {
+    expect(meterLine(roomOn(line(1), 0, true, 1))).toBe("1 of 3 Streams in Use");
+    expect(meterLine(roomOn(line(3), 1, true, 1))).toBe("3 of 3 Streams in Use · 1 Elsewhere");
+  });
+
+  it("gives placeFor the same count: the recording's slot is ours, and only on its own line", () => {
+    const at = SETTLED_AFTER_MS;
+    const conns = new Map([
+      ["a", { active: 2, max: 2, at }],
+      ["b", { active: 0, max: 2, at }],
+    ]);
+    const grid = [pick("a:1")];
+    // "a" holds the tile and a recording: full, so the tile is the one to replace.
+    expect(placeFor(pick("a:2"), grid, conns, 0, new Map([["a", 1]]))).toEqual({ kind: "replace", among: ["a:1"] });
+    // The same panel count with no recording of ours is somebody else's, and also full.
+    expect(placeFor(pick("a:2"), grid, conns, 0).kind).toBe("replace");
+    // A recording on "a" says nothing about "b".
+    expect(placeFor(pick("b:1"), grid, conns, 0, new Map([["a", 1]])).kind).toBe("add");
+    // One tile and one recording on a line of three leaves one more.
+    const three = new Map([["a", { active: 2, max: 3, at }]]);
+    expect(placeFor(pick("a:2"), grid, three, 0, new Map([["a", 1]])).kind).toBe("add");
+  });
+});

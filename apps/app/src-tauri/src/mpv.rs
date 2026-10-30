@@ -5,6 +5,7 @@
 // see inv.rs) and the POPOUT PiP (mpv's own floating window).
 
 use crate::about;
+use crate::mpvcache;
 use crate::mpvopen;
 use crate::mpvprefs;
 use crate::mpvsubs;
@@ -21,6 +22,7 @@ type FnCreate = unsafe extern "C" fn() -> Handle;
 type FnSetOptionString = unsafe extern "C" fn(Handle, *const c_char, *const c_char) -> c_int;
 type FnInitialize = unsafe extern "C" fn(Handle) -> c_int;
 type FnCommand = unsafe extern "C" fn(Handle, *const *const c_char) -> c_int;
+type FnCommandAsync = unsafe extern "C" fn(Handle, u64, *const *const c_char) -> c_int;
 type FnSetPropertyString = unsafe extern "C" fn(Handle, *const c_char, *const c_char) -> c_int;
 type FnGetPropertyString = unsafe extern "C" fn(Handle, *const c_char) -> *mut c_char;
 type FnFree = unsafe extern "C" fn(*mut c_void);
@@ -35,6 +37,8 @@ struct MpvEvent {
     _reply_userdata: u64,
     _data: *mut c_void,
 }
+/// What `wait_event` returns when its time ran out with nothing to say.
+const MPV_EVENT_NONE: c_int = 0;
 const MPV_EVENT_SHUTDOWN: c_int = 1;
 /// The file is open and its tracks are known (mpv's client.h).
 const MPV_EVENT_FILE_LOADED: c_int = 8;
@@ -48,6 +52,9 @@ struct Lib {
     set_option_string: FnSetOptionString,
     initialize: FnInitialize,
     command: FnCommand,
+    /// Only the buffer recording needs it (`dump_cache_start`), so a libmpv
+    /// without it still plays.
+    command_async: Option<FnCommandAsync>,
     set_property_string: FnSetPropertyString,
     get_property_string: FnGetPropertyString,
     free: FnFree,
@@ -178,6 +185,10 @@ fn lib() -> Result<&'static Lib, String> {
             ),
             initialize: std::mem::transmute::<_, FnInitialize>(sym(b"mpv_initialize\0")?),
             command: std::mem::transmute::<_, FnCommand>(sym(b"mpv_command\0")?),
+            command_async: library
+                .get::<FnCommandAsync>(b"mpv_command_async\0")
+                .ok()
+                .map(|s| *s),
             set_property_string: std::mem::transmute::<_, FnSetPropertyString>(
                 sym(b"mpv_set_property_string\0")?,
             ),
@@ -339,6 +350,29 @@ fn subtitle_commands(url: &str) -> Vec<Vec<CString>> {
                 .collect::<Option<Vec<_>>>()
         })
         .collect()
+}
+
+/// The pop-out's `guard_cache`, on its own handle and from its own thread: the
+/// disk cache is still within its limits (true), or it has just been taken
+/// back to memory (false). Only called for a handle that started on disk.
+unsafe fn popout_cache_ok(l: &Lib, h: Handle) -> bool {
+    let name = CString::new("demuxer-cache-state").unwrap();
+    let ptr = (l.get_property_string)(h, name.as_ptr());
+    if ptr.is_null() {
+        return true;
+    }
+    let state = std::ffi::CStr::from_ptr(ptr).to_string_lossy().into_owned();
+    (l.free)(ptr as *mut c_void);
+    let (Some(bytes), Some(dir)) = (mpvcache::file_bytes(&state), cache_dir()) else {
+        return true;
+    };
+    if mpvcache::keep_disk(free_bytes(dir), bytes) {
+        return true;
+    }
+    let (k, v) = (CString::new("cache-on-disk").unwrap(), CString::new("no").unwrap());
+    (l.set_property_string)(h, k.as_ptr(), v.as_ptr());
+    log::info!("[mpv] pop-out rewind cache left the disk at {} MiB", bytes >> 20);
+    false
 }
 
 /// Run one prepared command on `h`. Whether mpv took it.
@@ -589,6 +623,9 @@ pub fn play_popout(
     size: Option<&str>,
     corner: Option<&str>,
     user_agent: Option<&str>,
+    // Whether this is a live stream, per the app's own meta (popout_open's
+    // flag). A live one gets the same disk cache as in the window.
+    live: Option<bool>,
 ) -> Result<(), String> {
     let l = lib()?;
     // Before mpv exists (plan 016 N4, F7): a URL with a null byte used to
@@ -640,6 +677,21 @@ pub fn play_popout(
         set("audio-channels", prefs.audio);
         set("sub-scale", &prefs.sub_scale.to_string());
         set("title", "BlammyTV — Popout");
+        // A live stream is cached on disk here too, so a pause in the
+        // pop-out can last hours. It is its own instance, so nothing from the
+        // window's player carries over: all of it is said here. A film keeps
+        // libmpv's own, as it always did. Under 2GB free, the same as the
+        // window: memory.
+        let disk_dir = cache_dir()
+            .filter(|d| live == Some(true) && mpvcache::keep_disk(free_bytes(d), 0))
+            .and_then(|d| d.to_str());
+        let disk = disk_dir.is_some();
+        if let Some(dir) = disk_dir {
+            set("demuxer-cache-dir", dir);
+            for (k, v) in mpvcache::options(true) {
+                set(k, &v);
+            }
+        }
         set("osc", "yes");
         // KEYS, not just the OSC bar. `osc` is a Lua script, so if it does
         // not load there is no control of any kind on this window — and
@@ -711,13 +763,22 @@ pub fn play_popout(
                 None => return,
             };
             let mut subs = Some(subs);
+            let mut on_disk = disk;
             loop {
-                let ev = (l.wait_event)(h, -1.0);
+                // A wait with an end, only to look at the disk cache now and
+                // then (the pop-out has no page polling it). A close still
+                // wakes it at once: `quit` queues SHUTDOWN.
+                let ev = (l.wait_event)(h, if on_disk { 10.0 } else { -1.0 });
                 if ev.is_null() {
                     continue;
                 }
                 match (*ev).event_id {
                     MPV_EVENT_SHUTDOWN => break,
+                    MPV_EVENT_NONE => {
+                        if on_disk && !popout_cache_ok(l, h) {
+                            on_disk = false;
+                        }
+                    }
                     // The file is open: add its Jellyfin subtitles, once.
                     // Here, on the handle's only event thread, so it cannot
                     // be commanded after it is destroyed below.
@@ -907,12 +968,21 @@ fn ensure_player(wid: isize) -> Result<(), String> {
         // A/B them on a live stream with no rebuild, and `playerDiag()`
         // reads demuxer-cache-time back.
         //
-        // The option NOT taken: `cache-on-disk=yes` is the true Stremio
-        // equivalent and makes the cache effectively unbounded, but it
-        // writes every byte streamed to a temp file, so a 60GB remux costs
-        // 60GB of disk. That is not a default anyone should get silently.
-        set("demuxer-max-bytes", "512MiB");
-        set("demuxer-max-back-bytes", "256MiB");
+        // `cache-on-disk=yes` is the true Stremio equivalent and makes the
+        // cache effectively unbounded, but it writes every byte streamed to
+        // a temp file, so a 60GB remux costs 60GB of disk. It was turned
+        // down for that reason, and still is for VOD. LIVE takes it (plan
+        // 029, phase 1): a channel's disk cache is bounded by mpvcache.rs,
+        // and is what lets a pause or a rewind last for hours. These are the
+        // in-memory numbers; `reset_per_file` sets the four options for each
+        // file, so a live channel's do not carry over to a film. The folder
+        // is the app's own, emptied once (`cache_dir`).
+        for (k, v) in mpvcache::options(false) {
+            set(k, &v);
+        }
+        if let Some(dir) = cache_dir().and_then(|d| d.to_str()) {
+            set("demuxer-cache-dir", dir);
+        }
         // Explicit, not load-bearing: libmpv already defaults idle=yes, so
         // this documents the requirement rather than creating it. The
         // requirement is real — without idle, a `stop` or a file reaching its
@@ -954,6 +1024,96 @@ fn ensure_player(wid: isize) -> Result<(), String> {
     // Once per process now, not once per tune.
     log::info!("[mpv-timing] create+init {}ms (once)", t0.elapsed().as_millis());
     Ok(())
+}
+
+/// Where a live channel's disk cache goes: a folder of our own under the app's
+/// local data folder, made and emptied of crash leftovers the first time it is
+/// asked for (before any player exists, so nothing in it is in use). None when
+/// the app's folders cannot be found or the folder cannot be made, which is a
+/// live channel on the in-memory cache, as before.
+fn cache_dir() -> Option<&'static std::path::Path> {
+    static DIR: OnceLock<Option<std::path::PathBuf>> = OnceLock::new();
+    DIR.get_or_init(|| {
+        use tauri::Manager;
+        let base = crate::APP.get()?.path().app_local_data_dir().ok()?;
+        let dir = mpvcache::dir_under(&base);
+        // mpv is handed the path as text.
+        dir.to_str()?;
+        // Counts only: the path has the user's name in it, and the log is a
+        // file a person sends.
+        match mpvcache::prepare(&dir) {
+            Ok(0) => {}
+            Ok(n) => log::info!("[mpv] removed {n} rewind cache file(s) left by the last run"),
+            Err(e) => {
+                log::warn!("[mpv] no rewind cache folder ({}); live stays in memory", e.kind());
+                return None;
+            }
+        }
+        Some(dir)
+    })
+    .as_deref()
+}
+
+/// Free bytes on the volume `dir` is on, for this user (quotas count). None
+/// when Windows will not say.
+#[cfg(windows)]
+fn free_bytes(dir: &std::path::Path) -> Option<u64> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::core::PCWSTR;
+    use windows::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+    let wide: Vec<u16> = dir.as_os_str().encode_wide().chain(Some(0)).collect();
+    let mut free = 0u64;
+    unsafe { GetDiskFreeSpaceExW(PCWSTR(wide.as_ptr()), Some(&mut free), None, None) }.ok()?;
+    Some(free)
+}
+
+/// Not Windows: the app does not run there, and "unknown" is the safe answer.
+#[cfg(not(windows))]
+fn free_bytes(_dir: &std::path::Path) -> Option<u64> {
+    None
+}
+
+/// Whether the in-app player's file is on the disk cache right now. Set when
+/// the options go out for a file, cleared when `guard_cache` takes it back to
+/// memory, so the guard is a no-op for every file that never had one.
+static ON_DISK: AtomicBool = AtomicBool::new(false);
+
+/// Send the cache options for the file about to load, on or off disk. `live`
+/// is the app's own word (None, a frontend that did not say, is not live).
+/// Reads the free space now: a file that starts with under 2GB free never goes
+/// on disk. Used by `reset_per_file` and `reload_live`.
+fn apply_cache(live: bool) {
+    let disk = live && cache_dir().is_some_and(|d| mpvcache::keep_disk(free_bytes(d), 0));
+    for (k, v) in mpvcache::options(disk) {
+        set_prop(k, &v);
+    }
+    ON_DISK.store(disk, Ordering::Relaxed);
+}
+
+/// Take a live file off the disk cache once it has grown to the cap or the
+/// disk is nearly full. mpv cannot be told a size limit (its cache file is
+/// append-only), so this is the only brake: `cache-on-disk=no` at runtime
+/// stops the file growing and the rest of the stream is kept in memory, with
+/// the window intact and shrinking to the memory limit as it is pruned. Called
+/// from the status poll with the `demuxer-cache-state` it already read.
+pub fn guard_cache(state: Option<&str>) {
+    if !ON_DISK.load(Ordering::Relaxed) {
+        return;
+    }
+    // Not for a few seconds after a load: until the old file has gone, the
+    // state is its, and its size is not this file's.
+    if !since_load_ms().is_some_and(|ms| ms >= 3000) {
+        return;
+    }
+    let (Some(bytes), Some(dir)) = (state.and_then(mpvcache::file_bytes), cache_dir()) else {
+        return;
+    };
+    if mpvcache::keep_disk(free_bytes(dir), bytes) {
+        return;
+    }
+    ON_DISK.store(false, Ordering::Relaxed);
+    set_prop("cache-on-disk", "no");
+    log::info!("[mpv] rewind cache left the disk at {} MiB", bytes >> 20);
 }
 
 /// Per-FILE state, reset on every load.
@@ -1030,6 +1190,13 @@ fn reset_per_file(start: Option<f64>, live: Option<bool>) {
             .filter(|s| *s > 0.0 && s.is_finite())
             .map_or_else(|| "none".to_string(), |s| s.to_string()),
     );
+    // THE CACHE, per kind of file. A live channel goes on the disk cache, so a
+    // pause or a rewind can last hours; a film keeps the in-memory one. Set
+    // before every load for the same reason as everything above: the last
+    // file's must not carry to this one. (The outgoing file is still open for
+    // a moment, so a film's demuxer may make its cache file just before it is
+    // closed again. mpv deletes it with the file.)
+    apply_cache(live == Some(true));
 }
 
 /// Start `url` in the in-app player, creating the player on first use.
@@ -1054,6 +1221,8 @@ pub fn play_wid(
     // independent mutexes and stop_popout drops POPOUT's before the quit.
     stop_popout();
     let t_ready = t0.elapsed();
+    // A recording of the old file's buffer ends with it (rec.rs).
+    crate::rec::player_changed();
     // This load supersedes whatever subtitles were still waiting to be added
     // to the file before it.
     let gen = SUB_GEN.fetch_add(1, Ordering::SeqCst) + 1;
@@ -1212,13 +1381,18 @@ pub fn seek_abs(pos: f64) {
 }
 
 /// "Go to live" for a live stream: reload the current URL on the composition
-/// PLAYER. A forward seek can't reach the live edge (mpv never pulled the data
-/// between the playback buffer and now), so we re-`loadfile` the same path,
-/// which restarts at the newest segment. Player-level options (wid, d3d11-flip,
+/// PLAYER. Since plan 029 phase 1 this is the fallback, not the way: with the
+/// disk cache reading goes on while paused, so the buffer reaches the edge and
+/// the page seeks to it (`mpv_seek_abs`) unless reading stalled. A stalled
+/// reader has no data between the buffer's end and now, so we re-`loadfile` the
+/// same path, which restarts at the newest segment, and this is also the
+/// watchdog's self-heal. Player-level options (wid, d3d11-flip,
 /// volume) persist across loadfile, so only the video rebuffers — the overlay
 /// stays put. Reversible: drop this and the goLive bridge/handler to restore
 /// the old (non-functional) forward-seek behavior.
 pub fn reload_live() {
+    // The reload drops the buffer a recording of it was reading (rec.rs).
+    crate::rec::player_changed();
     // UNPAUSE FIRST. This is the tune watchdog's silent recovery as well as
     // the user's go-live button, and mpv reports core-idle="yes" while
     // paused — so reloading a paused player can never reach `presenting`,
@@ -1228,6 +1402,9 @@ pub fn reload_live() {
     // reset_per_file: this reloads the SAME file, so the user's audio and
     // subtitle choices must survive it.
     set_prop("pause", "no");
+    // The reload opens a new file, so a new cache file: back on disk if the
+    // guard had taken the last one off (and still under the limits).
+    apply_cache(true);
     // get_property locks PLAYER and releases before we re-lock below.
     let url = match get_property("path") {
         Some(u) => u,
@@ -1271,6 +1448,8 @@ pub fn reload_live() {
 /// `stop` command for `shutdown()` and take the teardown cost back on
 /// switches only. Nothing else in the app needs to know.
 pub fn unload() {
+    // Stopping the file ends a recording of its buffer (rec.rs).
+    crate::rec::player_changed();
     let g = PLAYER.lock().unwrap();
     SUB_GEN.fetch_add(1, Ordering::SeqCst);
     if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
@@ -1284,6 +1463,65 @@ pub fn unload() {
         // and a stamp left over from the file before would read that idle as
         // one that followed a load.
         note_unloaded();
+    }
+}
+
+/// The id `dump_cache_start`'s command is given. Its answer comes as an event
+/// on this handle, and nothing reads this player's events, so it is never
+/// seen; the number is only there for the call.
+const DUMP_ID: u64 = 0x5245_4300;
+
+/// Record the in-app player's cache into `path`, from where it is playing now
+/// and on for as long as the file plays: mpv's `dump-cache <time-pos> no <file>`
+/// (input.rst: "If <end> is `no`, then continuous dumping is enabled. Then,
+/// after dumping the existing parts of the cache, anything read from network is
+/// appended to the cache as well"). The output format is the file's extension
+/// (`.ts`), and mpv warns that it "will only work if the output format is the
+/// same as the input format" (options.rst, `--stream-record`, whose writer this
+/// shares): a transport stream into `.ts` is that case.
+///
+/// THE ASYNC API, because the command "will not finish until playback is
+/// stopped, an error happens, another dump-cache command is run" (input.rst),
+/// and `mpv_command` would wait that long holding the PLAYER lock, which every
+/// poll of the player takes. `mpv_command_async` "never blocks the caller".
+/// The price is that mpv's answer is an event, so a dump mpv refuses is not
+/// heard of here: the file just stays empty, which rec.rs calls Failed.
+///
+/// Its own verb. `mpv_set` still refuses anything named record or dump.
+pub fn dump_cache_start(path: &str) -> Result<(), String> {
+    // Read first: get_property takes the PLAYER lock, taken again below.
+    let pos = read_prop("time-pos")
+        .and_then(|p| p.parse::<f64>().ok())
+        .filter(|p| p.is_finite() && *p >= 0.0)
+        .ok_or("nothing is playing yet")?;
+    let words = ["dump-cache", &pos.to_string(), "no", path]
+        .into_iter()
+        .map(CString::new)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "the file's name has a null byte")?;
+    let g = PLAYER.lock().unwrap();
+    let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) else {
+        return Err("no player".into());
+    };
+    let Some(command_async) = l.command_async else {
+        return Err("this libmpv cannot record the buffer".into());
+    };
+    let mut args: Vec<*const c_char> = words.iter().map(|w| w.as_ptr()).collect();
+    args.push(std::ptr::null());
+    if unsafe { command_async(p.0, DUMP_ID, args.as_ptr()) } < 0 {
+        return Err("the player would not record".into());
+    }
+    Ok(())
+}
+
+/// End an ongoing dump: `dump-cache` with an empty filename (input.rst: "If
+/// `<filename>` is an empty string, an ongoing `dump-cache` is stopped"). The
+/// two times are not looked at then. Does nothing with no player.
+pub fn dump_cache_stop() {
+    let words = ["dump-cache", "0", "0", ""].map(|w| CString::new(w).expect("no null byte"));
+    let g = PLAYER.lock().unwrap();
+    if let (Some(p), Some(l)) = (g.as_ref(), LIB.get()) {
+        unsafe { run_command(l, p.0, &words) };
     }
 }
 

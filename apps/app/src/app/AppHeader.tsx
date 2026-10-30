@@ -51,9 +51,11 @@ import {
   onClockFormatChange,
 } from "../features/settings/clockFormat";
 
-/** The app's two SIDES. "Stream" in the top nav is a section header,
- * not a page — the pill rail below picks the actual Stream page. */
-export type Section = "live" | "stream";
+/** The app's two SIDES, and Home between them. "Stream" in the top nav is a
+ * section header, not a page: the pill rail below picks the actual Stream
+ * page. "home" is the page behind the logo (plan 033): on no side, so no tab
+ * is current while it shows. */
+export type Section = "live" | "stream" | "home";
 /** The Stream section's pages (the pill rail). Adding one = a new entry
  * here + in RAIL + a screen in App's switch — nothing else. */
 export type StreamTab = "home" | "discover" | "mylist";
@@ -69,7 +71,8 @@ export type LiveTab = "guide" | "multiview" | "sports";
  * The header used to show two SIDES (Live TV | Stream) with a sub-rail
  * under each. The capsule shows every page at once instead, so the
  * side is no longer something the user navigates — it is just which half
- * of the bar a destination sits in, marked by the app mark between them.
+ * of the bar a destination sits in, marked by the app mark between them (or
+ * first, with no live half).
  *
  * The two-level state behind it is UNCHANGED: each entry writes both the
  * section and its tab, so App and every screen carry on as before.
@@ -239,7 +242,8 @@ export function AppHeader({
 
   /* ---------------------------------------------------------- capsule
    * The pill is ONE element that travels; the mark is pinned to the
-   * window midline and the capsule grows unevenly around it.
+   * window midline and the capsule grows unevenly around it. With no live
+   * half the mark is the first item and the capsule centres instead.
    *
    * Every number here is COMPUTED from measured widths rather than read
    * back off the DOM, because offsetWidth during the transition returns
@@ -259,7 +263,9 @@ export function AppHeader({
   const sizes = useRef(new Map<string, [number, number]>());
 
   const shown = DESTS.filter((d) => showLive || d.side !== "live");
-  const active: DestKey = section === "live" ? liveTab : streamTab;
+  /* None on Home: the pill sits on no tab, and the mark is the current item. */
+  const onHome = section === "home";
+  const active: DestKey | null = onHome ? null : section === "live" ? liveTab : streamTab;
   /* The second row belongs to Discover and nothing else. It is always in
    * the DOM so its widths can be measured and its open/close can animate;
    * `subOpen` decides whether it has any height. */
@@ -457,7 +463,7 @@ export function AppHeader({
     const border = parseFloat(cs.borderLeftWidth) || 0;
     const from = pad + border;
 
-    const row1 = layoutRow(rowNavRef.current, pillRef.current, active);
+    const row1 = layoutRow(rowNavRef.current, pillRef.current, active ?? "");
     const markMid = row1.markMid;
     /* ONE thumb for the whole row, REC included. The type chips and REC are
      * mutually exclusive on screen — opening the recommender replaces the
@@ -468,21 +474,35 @@ export function AppHeader({
       subPillRef.current,
       recOpen ? "rec" : filter,
     );
-    /* NO LIVE SOURCE, NO MARK: the mark divides the live tabs from the
-     * rest, so without a playlist there is nothing for it to divide and
-     * nothing to hold the midline. The capsule centres itself instead (plan
-     * 016 3.5, v0.10.34). It used to stop here, with `left: 50%` and no
-     * margin, so its LEFT EDGE sat on the midline: 117.5px right of centre
-     * on Stream at 1600px, 189px on Discover.
+    /* NO LIVE SOURCE: THE MARK OPENS THE ROW. It is always drawn, and with
+     * no playlist there is no live half before it, so it sits at the left
+     * end with nothing on that side to balance against. Holding it on the
+     * midline would throw the capsule off to the right, so the capsule
+     * centres itself instead (plan 016 3.5, v0.10.34), which leaves the mark
+     * at the left of a centred bar. (`markMid === null` is the guard for a
+     * mark that is not in the DOM.) Before that it stopped with `left: 50%` and
+     * no margin, so the capsule's LEFT EDGE sat on the midline: 117.5px right
+     * of centre on Stream at 1600px, 189px on Discover.
      *
      * Its width is max(row 1, row 2 when open), the rule base.css states
      * for .navcap--open, from the same target widths, so it holds centre
      * through the unfold on the same clock. */
-    if (markMid === null) {
+    /* THE NARROWER ROW CENTRES IN THE CAPSULE (Adam, 1.0.41 and 1.0.42),
+     * instead of sitting at its left with a gap on the right. Each row's
+     * items move as one, thumb included; margin-left, so on the capsule's
+     * own clock. Row 1 only with no live half: with one, the mark holds the
+     * midline and row 1 is what places the capsule. */
+    const rowNav = rowNavRef.current;
+    const rowSub = rowSubRef.current;
+    const gap = subOpen ? row2.width - row1.width : 0;
+    if (rowSub) rowSub.style.marginLeft = `${Math.max(0, -gap / 2)}px`;
+    if (markMid === null || !showLive) {
       const width = Math.max(row1.width, subOpen ? row2.width : 0) + 2 * from;
       nav.style.marginLeft = `${-width / 2}px`;
+      if (rowNav) rowNav.style.marginLeft = `${Math.max(0, gap / 2)}px`;
       return;
     }
+    if (rowNav) rowNav.style.marginLeft = "0px";
     /* The mark holds the midline; the capsule breathes around it.
      *
      * ONE CLOCK. These used to travel on `transform`, which the browser
@@ -504,7 +524,7 @@ export function AppHeader({
      * so its margin moves only itself.
      */
     nav.style.marginLeft = `${-(markMid + from)}px`;
-  }, [active, filter, recOpen, subOpen, layoutRow]);
+  }, [active, filter, recOpen, subOpen, showLive, layoutRow]);
 
   // A button's own width does not change when you click a DIFFERENT one, so
   // measuring is keyed on the destination set alone. It runs first because
@@ -521,8 +541,8 @@ export function AppHeader({
    * One turn of the logo's conic gradient, on click.
    *
    * Decoration, deliberately: the mark is the most colourful thing in the
-   * app and was the only part of the bar that did nothing. It navigates
-   * nowhere and changes no state.
+   * app and was the only part of the bar that did nothing. It turns whether
+   * or not the click goes anywhere; the click goes Home (below).
    *
    * The class is removed and re-added around a forced reflow because a CSS
    * animation does not restart on an element that already has it — without
@@ -536,6 +556,13 @@ export function AppHeader({
     void el.offsetWidth;
     el.classList.add("is-spinning");
   }, []);
+  /* The glow while on Home (base.css, .navcap__mark--on). A class set by
+   * hand, as is-spinning is: a className from React would be rewritten by
+   * the render the click causes, taking is-spinning off in the middle of the
+   * turn. */
+  useLayoutEffect(() => {
+    markRef.current?.classList.toggle("navcap__mark--on", onHome);
+  }, [onHome, showLive]);
   useEffect(() => {
     const el = markRef.current;
     if (!el) return;
@@ -593,6 +620,14 @@ export function AppHeader({
     }
   };
 
+  /** The mark goes Home, and pressed on Home it goes to the top of it, as
+   * the Stream pill does on Stream. */
+  const goHub = () => {
+    spin();
+    if (onHome) onStreamHome();
+    onSection("home");
+  };
+
   return (
     <header className="header" ref={ref}>
       {/* Progressive blur: stacked backdrop layers with geometrically
@@ -634,18 +669,24 @@ export function AppHeader({
                nav.children, and even a display:contents span would sit in
                that list and hide the buttons from it. */
             <Fragment key={d.key}>
-              {prev && prev.side !== d.side && (
-                <button
-                  type="button"
-                  className="navcap__mark"
-                  ref={markRef}
-                  onClick={spin}
-                  aria-label="BlammyTV"
-                >
-                  <b>
-                    <i />
-                  </b>
-                </button>
+              {/* Between the halves, or first when there is no live half. Stream's
+                * tabs are always shown, so the mark never ends the row. */}
+              {(prev ? prev.side !== d.side : !showLive) && (
+                <Hint label="Home">
+                  <button
+                    type="button"
+                    data-dest="hub"
+                    className="navcap__mark"
+                    ref={markRef}
+                    onClick={goHub}
+                    aria-current={onHome ? "page" : undefined}
+                    aria-label="Home"
+                  >
+                    <b>
+                      <i />
+                    </b>
+                  </button>
+                </Hint>
               )}
               {/* The name, for the tabs that show only their icon; the
                 * current one says it in its pill already. */}

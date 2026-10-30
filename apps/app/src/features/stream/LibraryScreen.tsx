@@ -16,10 +16,10 @@ import {
   removeFromList,
   renameList,
   setCover,
+  toItem,
   TRAKT_LIST,
   type UserList,
 } from "./lists";
-import type { ListEntry } from "./myList";
 import {
   clearReturnList,
   peekReturnList,
@@ -33,6 +33,7 @@ import {
   clearWatching,
   loadWatching,
   retiredFromContinue,
+  WATCHING_CHANGED,
   type WatchEntry,
 } from "./watching";
 import {
@@ -44,6 +45,9 @@ import { BackButton } from "../../ui/BackButton";
 import { LibraryIcon, PlusIcon } from "../../ui/icons";
 import { StateCard } from "../../ui/StateCard";
 import { TRAKT_SYNCED } from "../trakt/store";
+import { RecordingList } from "../recordings/RecordingList";
+import { requestPlayRecording } from "../recordings/playRequest";
+import { useRecordings } from "../recordings/store";
 
 /**
  * Library (plan 009): Discover's shape, with Continue Watching where the
@@ -57,24 +61,6 @@ import { TRAKT_SYNCED } from "../trakt/store";
  * Playback lives in StreamScreen, so both card kinds ask rather than play:
  * titles through the item mailbox, resumes through the resume mailbox.
  */
-
-/** A stored snapshot re-shaped for the shared Card. Opening resolves fresh
- * full meta exactly like a Discover pick. */
-const toItem = (e: ListEntry): VodItem => ({
-  id: e.id,
-  ...(e.from ? { from: e.from } : {}),
-  title: e.title,
-  kind: e.kind,
-  ...(e.poster ? { poster: e.poster } : {}),
-  ...(e.backdrop ? { backdrop: e.backdrop } : {}),
-  ...(e.logo ? { logo: e.logo } : {}),
-  ...(e.year != null ? { year: e.year } : {}),
-  ...(e.rating != null ? { rating: e.rating } : {}),
-  ...(e.runtimeMin != null ? { runtimeMin: e.runtimeMin } : {}),
-  genres: [],
-  cast: [],
-  seasons: [],
-});
 
 /** The built-in card's id. Not a real list, so it can never be renamed,
  * deleted, or collide with a generated list id (which are `l`-prefixed). */
@@ -112,6 +98,8 @@ function toCover(file: File): Promise<string> {
 export function LibraryScreen({ home }: { home?: number } = {}) {
   const [lists, setLists] = useState<UserList[]>(loadLists);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
+  // Recordings (plan 029): a section of their own, only once there is one.
+  const hasRecordings = useRecordings().length > 0;
   // A Trakt sync can change the Trakt Watchlist and Continue Watching
   // (plan 015).
   useEffect(() => {
@@ -119,8 +107,14 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
       setLists(loadLists());
       setWatching(loadWatching());
     };
+    // VLC's reports move Continue Watching without a Trakt sync.
+    const rereadWatching = () => setWatching(loadWatching());
     window.addEventListener(TRAKT_SYNCED, reread);
-    return () => window.removeEventListener(TRAKT_SYNCED, reread);
+    window.addEventListener(WATCHING_CHANGED, rereadWatching);
+    return () => {
+      window.removeEventListener(TRAKT_SYNCED, reread);
+      window.removeEventListener(WATCHING_CHANGED, rereadWatching);
+    };
   }, []);
   const {
     view,
@@ -489,6 +483,14 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
           )}
         </div>
       </section>
+
+      {/* Played in Live TV, in Recordings mode: one player for recordings. */}
+      {hasRecordings && (
+        <section className="library__recordings">
+          <h3 className="media-row__title">Recordings</h3>
+          <RecordingList onPlay={requestPlayRecording} />
+        </section>
+      )}
     </div>
   );
 }

@@ -508,6 +508,8 @@ function vodAnswer(action, params) {
   return undefined;
 }
 
+let LAPSED = false;
+
 const LINES = { dups: DUPS, pins: PINS, fix: FIX, fixev: FIXEV, extra: EXTRA, redzone: REDZONE };
 
 // Every request the panel has answered, with the User-Agent it came with, so a
@@ -538,6 +540,13 @@ http
     }
     // A play route carries the user in its path, not a query (/movie/<user>/...).
     const playUser = unescapeSafe(/^\/(?:movie|series)\/([^/]+)\//.exec(url.pathname)?.[1]);
+    // The user "vodlapse" is "vod" until /__lapse?on=1: then, like a lapsed
+    // account on Xtream Codes or XUI, it answers EVERY call with the sign-in
+    // object and a 200 (verify-xtvod). /__lapse?on=0 gives the account back.
+    if (url.pathname === "/__lapse") {
+      LAPSED = url.searchParams.get("on") === "1";
+      return res.end("ok");
+    }
     LOG.push({
       path: url.pathname,
       action: url.searchParams.get("action"),
@@ -548,6 +557,8 @@ http
     if (url.pathname === "/player_api.php") {
       const action = url.searchParams.get("action");
       res.setHeader("Content-Type", "application/json");
+      if (LAPSED && url.searchParams.get("username") === "vodlapse")
+        return res.end(JSON.stringify({ user_info: { auth: 0 } }));
       if (!action)
         return res.end(
           JSON.stringify({
@@ -566,7 +577,7 @@ http
             server_info: {},
           }),
         );
-      if (url.searchParams.get("username") === "vod") {
+      if (["vod", "vodlapse"].includes(url.searchParams.get("username"))) {
         const answer = vodAnswer(action, url.searchParams);
         if (answer !== undefined) return res.end(JSON.stringify(answer));
       }

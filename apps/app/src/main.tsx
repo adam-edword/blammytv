@@ -22,6 +22,7 @@ import { installSportsProbe } from "./features/sports/probe";
 import { installPlayerProbes } from "./features/live/probe";
 import { applyAccent, loadAccent } from "./features/settings/accent";
 import { applyThemePref, loadThemePref } from "./features/settings/theme";
+import { applyThemePack, loadThemePack } from "./features/settings/themePack";
 
 // The page's warnings and errors go to the log file as well as the console
 // (plan 025, P4b; lib/appLog.ts). First, so the ones from the lines below are
@@ -53,6 +54,10 @@ if (accent) applyAccent(accent);
 // surfaces and Settings → Appearance is the control, so a
 // stored choice, 0.9.0's included, applies again. Dark is the default.
 applyThemePref(loadThemePref());
+// The theme pack (plan 035), after the above because it also puts the right
+// accent on the root and that depends on light or dark. No pack stored is no
+// attribute: the base palette.
+applyThemePack(loadThemePack());
 // UI Scale is gone (v0.10.24, Adam: "remove it entirely"): it zoomed the
 // whole page, and every screen that measures itself carried arithmetic to
 // undo it. Its stored notch goes with it.

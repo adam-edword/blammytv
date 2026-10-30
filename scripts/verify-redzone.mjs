@@ -18,6 +18,8 @@
 //   and the tile picked is swapped for RedZone;
 // - and on Sports, the same rule puts "Watch RedZone" at the end of Today's
 //   Games' toolbar, and a click plays the channel in the Guide's player;
+// - a RedZone playlist switched off in Settings, over Sports, takes the button
+//   away at once and not when the catalog next reloads (Sports stays mounted);
 // - the Guide's right-click menu sets a channel as RedZone ("Use for
 //   RedZone", on names that say NFL or RedZone), and Sports then plays it;
 // - a channel you set, in a folder you then hid: Multi-View still offers it
@@ -37,6 +39,7 @@ const { chromium } = req("playwright-core");
 import { goTo } from "./nav-settle.mjs";
 
 const URL = process.env.APP_URL ?? "http://localhost:4173/";
+const PANEL = process.env.PANEL ?? "http://localhost:8081";
 const W = 1600;
 const H = 900;
 let fail = 0;
@@ -116,7 +119,7 @@ const panel = (id, user, enabled = true) => ({
   id,
   name: `Panel ${id}`,
   enabled,
-  server: "http://localhost:8081",
+  server: PANEL,
   username: user,
   password: "p",
 });
@@ -128,6 +131,9 @@ const FULL_GRID = [filler(2, "RZ Filler One"), filler(3, "RZ Filler Two"), fille
  * RedZone. */
 async function open({ events, playlists, grid = [], dest = "multiview", pick = null }) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
+  // Offline: the fakes and the app are all this talks to. Registered first,
+  // so the fulfils below (tried first) win for their hosts.
+  await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
   await ctx.route(/strem\.io/, (r) => r.abort());
   await ctx.route(/a\.espncdn\.com/, (r) => r.fulfill({ status: 200, contentType: "image/png", body: PIXEL }));
   await ctx.route(/site\.api\.espn\.com/, (route) => {
@@ -171,7 +177,7 @@ async function open({ events, playlists, grid = [], dest = "multiview", pick = n
         },
       };
       window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
       localStorage.setItem(
@@ -418,6 +424,68 @@ async function sportsBar(page, games) {
     JSON.stringify({ games, bar }),
   );
   check("no page errors (Sports, no channel)", errors.length === 0, errors.slice(0, 2).join(" | "));
+  await ctx.close();
+}
+
+// ---- Sports: a playlist switched off in Settings, over Sports --------------
+// Settings opens over Sports, which stays mounted, and the catalog follows a
+// playlist change a moment later (800ms, then a load). The button used to wait
+// for that: it read the playlists inside a memo that only re-ran with the
+// catalog. The reload is held here, so what is measured is the gap before it
+// lands, and not how fast the fake panel answers.
+{
+  const { page, ctx, errors } = await open({
+    events: TWO,
+    playlists: [panel("t", "u"), panel("r", "redzone")],
+    dest: "sports",
+  });
+  const first = await sportsBar(page, 2);
+  const held = [];
+  await page.route((u) => u.href.startsWith(`${PANEL}/player_api.php`) && u.href.includes("get_live_streams"), (r) => void held.push(r));
+  // Sports' own node, marked before Settings opens: a remount would lose it.
+  await page.evaluate(() => {
+    document.querySelector(".sports__head--today").__kept = true;
+  });
+  const barNow = () =>
+    page.evaluate(() => {
+      const head = document.querySelector(".sports__head--today");
+      return {
+        kept: head?.__kept === true,
+        bar: [...document.querySelectorAll(".sports__head--today .sports__bar button")].map((b) => b.textContent.trim()),
+      };
+    });
+
+  await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+  await page.getByRole("switch", { name: "Panel r enabled" }).click();
+  await page.keyboard.press("Escape");
+  await page.locator('[role="dialog"]').first().waitFor({ state: "detached", timeout: 5000 });
+  await page
+    .waitForFunction(
+      () => ![...document.querySelectorAll(".sports__head--today .sports__bar button")].some((b) => b.textContent.trim() === "Watch RedZone"),
+      null,
+      { timeout: 5000 },
+    )
+    .catch(() => {});
+  const gone = await barNow();
+  // The reload the playlist change starts: it is asked for, and held.
+  const end = Date.now() + 5000;
+  while (Date.now() < end && held.length === 0) await page.waitForTimeout(100);
+  const asked = held.length;
+  const still = await barNow();
+  check(
+    "Sports, RedZone's playlist switched off in Settings over it: Watch RedZone is gone before the catalog reloads, and Sports didn't remount",
+    first.bar.at(-1) === "Watch RedZone" && gone.kept && !gone.bar.includes("Watch RedZone") && asked > 0 && still.kept && !still.bar.includes("Watch RedZone"),
+    JSON.stringify({ before: first.bar, gone, asked, still }),
+  );
+  for (const r of held) await r.continue().catch(() => {});
+  await page.waitForTimeout(1500);
+  const landed = await barNow();
+  check(
+    "  and once the reload lands it stays gone, on the same Sports",
+    landed.kept && !landed.bar.includes("Watch RedZone"),
+    JSON.stringify(landed),
+  );
+  check("no page errors (playlist switched off over Sports)", errors.length === 0, errors.slice(0, 2).join(" | "));
   await ctx.close();
 }
 

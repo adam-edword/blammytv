@@ -1,13 +1,14 @@
-// E2E: Settings in five pages (plan 025, P1: the move; v0.11.26).
+// E2E: Settings in six pages (plan 025, P1: the move; v0.11.26; Home, plan 033).
 //
-// Settings was two tabs, General and Customize. It is five pages in a rail
+// Settings was two tabs, General and Customize. It is six pages in a rail
 // down the left of the card: Sources (what you watch), Playback (how it
-// plays), Appearance (how it looks), Accounts (who you are) and App (the app
-// itself). P1 moves what was there and adds no setting, so the checks are
+// plays), Appearance (how it looks), Home (what is on it), Accounts (who you
+// are) and App (the app itself). Home, the sixth, moves nothing; its own
+// checks are verify-home. P1 moves what was there and adds no setting, so the checks are
 // about a row having MOVED and not been lost, and about everything that
 // names a page still going to the right one:
 //
-//   - the rail: five pages in order, each with its line, a vertical tablist;
+//   - the rail: six pages in order, each with its line, a vertical tablist;
 //   - every page's rows, by label, and none anywhere twice;
 //   - the arrows and Home/End between pages, and the page following;
 //   - Settings opens where it was left, and an old stored "general" or
@@ -40,7 +41,7 @@ const check = (n, ok, d = "") => {
 
 const XTREAM = { v: 1, data: [{ kind: "xtream", id: "t", name: "Test", enabled: true, server: "http://localhost:8081", username: "u", password: "p" }] };
 const AIO = { v: 1, data: "http://localhost:8084/manifest.json" };
-const PAGES = ["Sources", "Playback", "Appearance", "Accounts", "App"];
+const PAGES = ["Home", "Sources", "Playback", "Appearance", "Accounts", "App"];
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const errors = [];
@@ -58,7 +59,7 @@ async function open({ store = {}, raw = {}, width = 1440, height = 900, tauri = 
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(
     ({ store, raw, tauri }) => {
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       // Once: a reload in a check must see what the check left.
       if (!sessionStorage.getItem("seeded")) {
@@ -142,7 +143,7 @@ const closeSettings = async (page) => {
       stops: tabs.map((t) => t.tabIndex),
     };
   });
-  check("the rail lists the five pages in order", JSON.stringify(shape.names) === JSON.stringify(PAGES), JSON.stringify(shape.names));
+  check("the rail lists the six pages in order", JSON.stringify(shape.names) === JSON.stringify(PAGES), JSON.stringify(shape.names));
   check("  each its name alone, with no line under it (v0.11.56)", JSON.stringify(shape.text) === JSON.stringify(PAGES), JSON.stringify(shape.text));
   check(
     "  and a mark and a name, in a vertical tablist with one tab stop",
@@ -205,9 +206,9 @@ const closeSettings = async (page) => {
   // 0.12 renamed three by plain words: Auto Source Failover is Switch Sources
   // When One Fails, Audio Channels is Speaker Setup and Pop-out is Pop-Out Window.
   check(
-    "Playback: One-Click Play, Switch Sources When One Fails, Autoplay Next Episode, Up Next Card, Skipping, Preferred Language, then the Player group: Speaker Setup, Subtitle Size, Pop-Out Window, and nothing else",
+    "Playback: One-Click Play, Switch Sources When One Fails, Autoplay Next Episode, Up Next Card, Skipping, Preferred Language, then the Player group: Speaker Setup, Subtitle Size, Pop Out Films and Shows In, Pop-Out Window, and nothing else",
     JSON.stringify(play) ===
-      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop-Out Window"]),
+      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop Out Films and Shows In", "Pop-Out Window"]),
     JSON.stringify(play),
   );
   const playCtl = await page.evaluate(() => {
@@ -247,9 +248,9 @@ const closeSettings = async (page) => {
   await page.waitForTimeout(300);
   const look = await titles(page);
   check(
-    "Appearance, on Stream: the interface, the carousel, the cards, the playing info, the row size, and Reset Appearance last",
+    "Appearance, on Stream: the interface, the carousel and its style, the cards, the playing info, the row size, and Reset Appearance last",
     JSON.stringify(look) ===
-      JSON.stringify(["Accent Color", "Appearance", "Startup Tab", "Clock Format", "Featured Carousel", "Carousel Catalogs", "Card Details", "Info While Playing", "Titles per Row", "Reset Appearance"]),
+      JSON.stringify(["Accent Color", "Appearance", "Theme", "Startup Tab", "Clock Format", "Featured Carousel", "Carousel Style", "Carousel Catalogs", "Card Details", "Info While Playing", "Titles per Row", "Reset Appearance"]),
     JSON.stringify(look),
   );
   const lookNotes = await notesByRow(page);
@@ -270,7 +271,7 @@ const closeSettings = async (page) => {
   check("  and on Live TV, Channel Numbers is its label alone", liveNotes["channel-numbers"]?.length === 0, JSON.stringify(liveNotes));
   check(
     "  and on Live TV: Channel Numbers, between the interface and Reset Appearance",
-    JSON.stringify(lookLive) === JSON.stringify(["Accent Color", "Appearance", "Startup Tab", "Clock Format", "Channel Numbers", "Reset Appearance"]),
+    JSON.stringify(lookLive) === JSON.stringify(["Accent Color", "Appearance", "Theme", "Startup Tab", "Clock Format", "Channel Numbers", "Reset Appearance"]),
     JSON.stringify(lookLive),
   );
   // Nothing of Playback's is on Appearance, nor the other way.
@@ -302,7 +303,7 @@ const closeSettings = async (page) => {
   const afterHome = await current(page);
   check(
     "the arrows move between pages, Home and End jump",
-    afterDown === "Playback" && afterDown2 === "Appearance" && afterUp === "Playback" && afterEnd === "App" && afterHome === "Sources",
+    afterDown === "Playback" && afterDown2 === "Appearance" && afterUp === "Playback" && afterEnd === "App" && afterHome === "Home",
     JSON.stringify({ afterDown, afterDown2, afterUp, afterEnd, afterHome }),
   );
   await page.keyboard.press("End");
@@ -341,16 +342,17 @@ const closeSettings = async (page) => {
   // and data, before the last row in P4b, and Export and Import Settings after
   // it in P4c; verify-settings-app is theirs.
   check(
-    "App: the update row, Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, and Clear All Login Info last",
-    app.length === 8 &&
+    "App: the update row, What’s New, Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, and Clear All Login Info last",
+    app.length === 9 &&
       /^BlammyTV v/.test(app[0]) &&
-      app[1] === "Keyboard Shortcuts" &&
-      app[2] === "About" &&
-      app[3] === "Replay Setup" &&
-      app[4] === "Copy Diagnostics" &&
-      app[5] === "Export Settings" &&
-      app[6] === "Import Settings" &&
-      app[7] === "Clear All Login Info",
+      app[1] === "What’s New" &&
+      app[2] === "Keyboard Shortcuts" &&
+      app[3] === "About" &&
+      app[4] === "Replay Setup" &&
+      app[5] === "Copy Diagnostics" &&
+      app[6] === "Export Settings" &&
+      app[7] === "Import Settings" &&
+      app[8] === "Clear All Login Info",
     JSON.stringify(app),
   );
   await closeSettings(page);
@@ -413,7 +415,7 @@ for (const [old, want] of [
   const at = places.indexOf("Settings");
   check(
     "the palette has a place for Settings, then one for each page in the rail's order",
-    at >= 0 && JSON.stringify(places.slice(at, at + 6)) === JSON.stringify(["Settings", ...PAGES]),
+    at >= 0 && JSON.stringify(places.slice(at, at + 1 + PAGES.length)) === JSON.stringify(["Settings", ...PAGES]),
     JSON.stringify(places),
   );
   await page.keyboard.press("Escape");
@@ -468,7 +470,7 @@ for (const [old, want] of [
     };
   });
   check(
-    "at a narrow card the rail is the segmented row: five pages, side by side, names only",
+    "at a narrow card the rail is the segmented row: six pages, side by side, names only",
     row.isSeg && row.rail === 0 && row.names.join() === PAGES.join() && row.words.join() === PAGES.join() && row.level && row.leftToRight && row.inCard && row.card < 640,
     JSON.stringify(row),
   );

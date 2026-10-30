@@ -33,7 +33,7 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 await ctx.route((u) => u.hostname !== "localhost", (r) => r.abort());
 const page = await ctx.newPage();
 await page.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
 });
@@ -150,8 +150,10 @@ check(
 await hoverCard(page);
 const cw = await cardLean(page);
 check(
-  "hovering it leans the picture with the pointer inside the 5° clamp, scales it a hair, catches the sheen and swells the shadow, beside the card's lift",
-  Math.abs(cw.x) > 0.5 && Math.abs(cw.x) < 4.9 && Math.abs(cw.y) > 0.5 && Math.abs(cw.y) < 4.9 && cw.scale === "1.03" && cw.glare > 0 && cw.shadow !== "none" && /matrix\(1, 0, 0, 1, 0, -3\)/.test(cw.cardTransform),
+  // The card itself stays put: its 3px lift went in 1.0.16 (Adam: "remove
+  // the slight shift upwards when hovering a CW card").
+  "hovering it leans the picture with the pointer inside the 5° clamp, scales it a hair, catches the sheen and swells the shadow, and the card itself doesn't lift",
+  Math.abs(cw.x) > 0.5 && Math.abs(cw.x) < 4.9 && Math.abs(cw.y) > 0.5 && Math.abs(cw.y) < 4.9 && cw.scale === "1.03" && cw.glare > 0 && cw.shadow !== "none" && cw.cardTransform === "none",
   JSON.stringify(cw),
 );
 await page.mouse.move(2, 2);
@@ -162,7 +164,7 @@ await page.mouse.move(2, 2);
   await rctx.route((u) => u.hostname !== "localhost", (r) => r.abort());
   const rp = await rctx.newPage();
   await rp.addInitScript((w) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     sessionStorage.setItem("btv:welcome-played", "1");
     localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
     localStorage.setItem("blammytv.watching", JSON.stringify(w));

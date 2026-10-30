@@ -63,7 +63,7 @@ const instrument = () => {
     invoke: (cmd, args) => (cmd === "http_get" ? fetch(args.url).then((r) => r.arrayBuffer()) : Promise.resolve(undefined)),
   };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.settingsTab", JSON.stringify({ v: 1, data: "customize" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));

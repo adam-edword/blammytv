@@ -70,10 +70,19 @@ export const KEY_GROUPS = {
     "accent",
     "accent-custom",
     "theme",
+    // Theme packs (plan 035): the pack, and the accent each remembers.
+    "themePack",
+    "themeAccents",
     "clockFormat",
     "startupTab",
     "showChannelNumber",
     "showHero",
+    "heroStyle",
+    // Home's rows (plan 033): their order, switches and names. A catalog row's
+    // id can name a playlist or a server of this PC; on another it matches no
+    // row and draws nothing, which does no harm. A Saved row names its Library
+    // list by id: the list is in "yours" and the row hides if the list is not.
+    "homeRows",
     "cardMeta",
     "overlayMeta",
     "rowCap",
@@ -98,6 +107,14 @@ export const KEY_GROUPS = {
     "subtitleSize",
     "popoutSize",
     "popoutCorner",
+    // Which player a film or an episode pops out to (plan 032).
+    "popoutApp",
+    // The reminders before a recording: the player's buffer (plan 029, D3)
+    // and a connection of its own (D5).
+    "recordingWarning",
+    "recordingNotice",
+    // Original Quality or Smaller Files (plan 029, Phase 4).
+    "recordingQuality",
     // Settings → Sources → Content: what the app shows, not a login.
     "showAdult",
   ],
@@ -169,6 +186,11 @@ export const KEY_GROUPS = {
     "sportsTheaterRailShut",
     "sportsTheaterSideWidth",
     "guideCardW",
+    // Where recordings go (plan 029): a folder on this PC.
+    "recordingsFolder",
+    // The newest release What's New has shown on this PC. An import must not
+    // hide it on one that has not seen it, nor show it again on one that has.
+    "whatsNewSeen",
     // Diagnostic records kept for support, not settings.
     "sportsPairingLog",
     "fullscreenChecks",
