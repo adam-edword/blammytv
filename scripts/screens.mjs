@@ -576,7 +576,7 @@ for (const theme of ["dark", "light"]) {
         if (sessionStorage.getItem("seeded")) return;
         sessionStorage.setItem("seeded", "1");
         sessionStorage.setItem("btv:welcome-played", "1");
-        if (store.onboarded !== false) localStorage.setItem("btv:onboarded", "1");
+        if (store.onboarded !== false) localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
         localStorage.setItem("blammytv.theme", JSON.stringify({ v: 1, data: theme }));
         for (const [k, v] of Object.entries(store)) {
           if (k === "onboarded") continue;

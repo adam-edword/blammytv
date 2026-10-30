@@ -33,7 +33,7 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 await ctx.route((u) => u.hostname !== "localhost", (r) => r.abort());
 const page = await ctx.newPage();
 await page.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
 });
@@ -164,7 +164,7 @@ await page.mouse.move(2, 2);
   await rctx.route((u) => u.hostname !== "localhost", (r) => r.abort());
   const rp = await rctx.newPage();
   await rp.addInitScript((w) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     sessionStorage.setItem("btv:welcome-played", "1");
     localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
     localStorage.setItem("blammytv.watching", JSON.stringify(w));

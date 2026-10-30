@@ -61,7 +61,7 @@ async function open({ store = {}, scheme = "dark", reduced = false } = {}) {
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(
     ({ store, PLAYLISTS, AIO }) => {
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       if (!sessionStorage.getItem("btv:themes-seeded")) {
         sessionStorage.setItem("btv:themes-seeded", "1");

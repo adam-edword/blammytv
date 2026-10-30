@@ -1,0 +1,213 @@
+---
+title: Recording
+description: Record a channel or a programme to your PC and play it back later. Pause or rewind live TV.
+---
+
+BlammyTV can record a live channel to a file on your PC. A recording is a copy
+of the stream your provider sends. It plays later from **Live TV → Recordings**
+or from [Library](/using/library/) and it stays after the channel moves on.
+
+Recording is part of the Windows app. It needs a live TV [playlist](/sources/).
+
+## Record What You're Watching
+
+Press **Record** in the player's controls while a channel plays. The button
+turns into **Stop Recording** with a red dot and a clock counting how long it's
+been running. A red dot also marks the channel's card in the Guide.
+
+A recording runs on its own. Change channel, jump to live or close the player
+and it keeps going. Press **Stop Recording** to end it. It's there whenever you
+come back to that channel and on the recording's row in the Recordings list.
+
+- **Dropped streams.** If your provider drops the stream, BlammyTV reconnects
+  into the same file for up to two minutes. After that the recording ends as
+  **Partial** with **Stream lost.** as the reason.
+- **Quitting BlammyTV** ends every recording and keeps the file. At the next
+  launch it reads **Partial** with **App closed while recording.**
+- **Windows won't go to sleep** while a recording runs.
+- **Install and Restart wait.** An update won't install while a recording runs
+  or is being finished.
+
+### Disk Space
+
+A recording won't start with under 2 GB free on the drive. Record says
+**Couldn't record: not enough free disk space (recording needs 2 GB).** and
+points you to **Settings → Playback**. A recording that's running stops when
+the drive falls under 1 GB free. The file is kept and reads **Partial** with
+**Disk full.**
+
+## The Connection Warning
+
+A recording is a stream of its own. It uses one of the connections your
+provider allows for as long as it runs. The first time you press **Record** in
+the player, a dialog says so:
+
+- **Recording Uses a Connection** names your line's limit ("This recording uses
+  one of the 3 streams your line allows, for as long as it runs."). A playlist
+  that reports no limit says it uses one of your provider's streams.
+- Tick **Don't Show Again** and press **Start Recording** and it won't ask
+  again. **Cancel** backs out.
+
+Multi-View counts your recordings on the line. Its grid keeps inside what's
+left. See [Connection Limits](/troubleshooting/connections/).
+
+### A Line With One Stream
+
+If your line allows one stream there's no connection to spare. Pressing Record
+on the channel you're watching shows **Record What You're Watching** instead.
+It records from the picture on your screen rather than opening a second
+stream. The dialog says what that costs: the recording stops if you change
+channel, go live or the stream reconnects. What it had by then is kept as
+**Partial**. If you switched channel it says **Stopped when the channel
+changed.**
+
+This has its own **Don't Show Again**.
+
+### Bring the Warnings Back
+
+If you ticked **Don't Show Again** on either dialog, **Settings → Playback →
+Recordings** gets a **Show Recording Warnings Again** button. It turns both
+back on. The button only shows while one of them is off.
+
+## Record a Programme From the Guide
+
+Right-click a programme in the Guide and pick **Record**. The Guide's toast says
+what happened.
+
+- **A programme that's on** starts recording straight away.
+- **One that's coming** is scheduled. It starts a minute before it begins.
+- **Both stop a minute after the programme ends** in case the guide runs late.
+
+A scheduled programme has a hollow red ring in its cell in the Guide and a row
+in the Recordings list that reads **Scheduled**. Programmes that are already
+over don't offer Record. There are no series rules yet. Every programme is its
+own recording.
+
+### Scheduled Recordings
+
+Scheduled recordings are kept across restarts but only run while BlammyTV is
+open. If a start goes by while BlammyTV is closed or asleep, the recording shows
+as **Missed** with **The app was not running at the start.** It's never started
+late.
+
+Two programmes back to back on a one-stream line both work. The first stops at
+its programme's end so the second can start.
+
+### Too Many at Once
+
+BlammyTV counts your own recordings against your line's limit when you schedule
+one. If there's no room it says so right away: **Couldn't schedule: 1 other
+recording overlaps this one, and your line allows 1 stream at once.** The same
+check runs for a programme that's on, as **Couldn't record: …**
+
+It only counts recordings made in BlammyTV. If you're watching on the same line
+or another device is using it, your provider decides. A line that reports no
+limit (M3U, Stalker or a panel that doesn't say) is never turned down up front.
+The attempt shows what the provider thinks.
+
+### Cancel a Recording
+
+Right-click the programme again and pick **Cancel Recording**. Or press
+**Cancel Recording** on its row in the Recordings list. Either one removes the
+schedule.
+
+## Where Recordings Go
+
+**Settings → Playback → Recordings → Recordings Folder** shows where new
+recordings are saved. Until you change it, that's `Videos\BlammyTV`. **Change…**
+opens a folder picker.
+
+A new folder applies to recordings from then on. Ones you've already made stay
+where they were.
+
+Files are named with the channel, the date and time and the programme when
+there is one, like `Channel 2026-11-02 2000 - Programme.mkv`. Long names are
+shortened.
+
+## The Recordings List
+
+The Recordings list is in two places. It's the same list:
+
+- **Live TV → Recordings**, the fourth mode in the sidebar beside Playlist,
+  Favorites and Recents.
+- **Library → Recordings**, a section at the bottom once you've made one.
+
+Newest first. Each row shows the programme or channel name, the channel and
+when, the status, the length and the size. Home can show them too. See
+[Home](/using/home/).
+
+| Status | Means |
+|---|---|
+| **Recording** | Running now |
+| **Scheduled** | Waiting for its programme. **Starting** just before it begins |
+| **Done** | Ran to the end |
+| **Partial** | Ended early with what it had kept. A reason follows: **Stream lost.**, **App closed while recording.**, **Disk full.** or **Stopped when the channel changed.** |
+| **Failed** | Nothing was recorded or a scheduled one couldn't start. A reason follows |
+| **Missed** | BlammyTV wasn't running at the start |
+
+A row has these buttons:
+
+- **Play** opens it in Live TV's player. From Library it takes you to the
+  Guide.
+- **Show in Folder** opens the file's folder.
+- **Delete** asks twice. Press it again at **Click Again to Confirm**.
+- **Stop Recording** or **Cancel Recording** replaces Delete while a recording
+  runs or waits.
+
+With nothing recorded the list says **No Recordings Yet**.
+
+## Finishing a Recording
+
+While it records, a recording is a `.ts` file, because that survives a crash or
+a power cut. When it ends, BlammyTV repackages it into an `.mkv` without
+re-encoding. The row says **Waiting to Finish** and then **Finishing 40%**.
+The `.mkv` plays in more apps and seeks better.
+
+The `.ts` is only replaced once the `.mkv` plays through to the end at the
+same length. If it doesn't, the `.ts` stays and the row says why. Older `.ts`
+recordings are repackaged one at a time the first time you launch a version
+that does this.
+
+### Smaller Files
+
+**Settings → Playback → Recordings → Recording Quality** has two choices:
+
+- **Original Quality** keeps each recording as it was recorded. It's the
+  default.
+- **Smaller Files** compresses each recording after it finishes, using HEVC.
+  Audio is copied as it is. BlammyTV uses your graphics card's encoder when
+  there is one (NVIDIA, Intel or AMD) and the processor otherwise. Channels
+  that are interlaced are cleaned up on the way.
+
+The row reads **Waiting to Shrink** and then **Shrinking 70%**. When it's done
+it reads how much it saved, like **Saved 1.2 GB**. It applies to recordings
+that end after you turn it on.
+
+Work happens one recording at a time and never starts while something is
+recording. The original is only replaced once the smaller file checks out. If
+BlammyTV closes partway, the original is kept and the job starts again at the
+next launch. Deleting a recording ends its job. Install and Restart wait while
+one runs.
+
+## Pause and Rewind Live TV
+
+Live TV keeps what you've watched on disk. You can pause a channel or rewind
+it for two hours or more. It isn't recording. Change channel and the buffer is
+gone. Press **Record** if you want to keep something.
+
+- **Pause** with <kbd>Space</kbd> or the pause button.
+- **Go back** with the **Back 10 Seconds** button or <kbd>J</kbd>. <kbd>←</kbd>
+  goes back 5 seconds. Or drag along the bar above the controls. Its left end
+  shows how far back you can go and its right end says **LIVE**.
+- **Jump to Live**, the **LIVE** button, takes you back to the live edge. If
+  the stream has kept up it just seeks. That's instant. If the stream stalled,
+  it reloads the channel as it always did.
+
+You can only go back as far as you've been watching that channel. The buffer
+starts when you tune in.
+
+The buffer lives in a `rewind-cache` folder in BlammyTV's data folder. It's
+emptied at every launch. It stops growing at 12 GB or when the drive has under
+2 GB free. The channel plays on. 12 GB is about two hours at 13 Mbit/s. A
+channel with a higher bitrate reaches the cap sooner. The pop-out window gets
+the same buffer. Movies and shows don't use it.

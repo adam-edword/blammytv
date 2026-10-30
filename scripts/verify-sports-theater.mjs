@@ -118,7 +118,7 @@ const stub = (pos, fixture = FIXTURE, win = null, reading = null) => `
     },
   };
   window.__sportsFixture = ${JSON.stringify(fixture)};
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.playlists", ${JSON.stringify(JSON.stringify(PLAYLIST))});
 `;
 

@@ -33,7 +33,7 @@ const seed = ({ style, extra }) => {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   sessionStorage.setItem("btv:welcome-played", "1");
   // Once: a reload in a check must see what the check left.

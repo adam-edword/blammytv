@@ -1,5 +1,7 @@
 /** Launch gate for first-run onboarding (see Onboarding.tsx). */
 
+import { markWhatsNewSeen } from "../features/whatsnew/whatsNewGate";
+
 const KEY = "btv:onboarded";
 const REPLAY_EVENT = "blammytv:replay-onboarding";
 
@@ -25,6 +27,9 @@ export function shouldShowOnboarding(): boolean {
 }
 
 export function markOnboarded(): void {
+  // Finishing setup counts as having seen this release, so What's New never
+  // follows a first run (whatsNewGate).
+  markWhatsNewSeen();
   try {
     localStorage.setItem(KEY, "1");
   } catch {

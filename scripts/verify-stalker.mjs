@@ -44,7 +44,7 @@ const browser = await chromium.launch({
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 await page.addInitScript((pl) => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
 }, PLAYLIST);
 await page.goto(URL);
@@ -89,7 +89,7 @@ check("EPG listings from get_epg_info render", epg);
   const hiddenCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const hiddenPage = await hiddenCtx.newPage();
   await hiddenPage.addInitScript((pl) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
   }, { v: 1, data: [{ ...PLAYLIST.data[0], hiddenCategories: ["2"] }] });
   await hiddenPage.goto(URL);

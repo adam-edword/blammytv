@@ -288,6 +288,12 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["update", "version", "check for updates", "upgrade", "install"],
   },
   {
+    id: "whats-new",
+    label: "What’s New",
+    page: "app",
+    keywords: ["what's new", "whats new", "changelog", "release notes"],
+  },
+  {
     id: "shortcuts",
     label: "Keyboard Shortcuts",
     page: "app",
@@ -347,14 +353,18 @@ export function findSettings(query: string, limit: number): SettingRow[] {
   if (!q) return [];
   const starts: SettingRow[] = [];
   const has: SettingRow[] = [];
+  // A keyword with a word that starts with the query beats one that only
+  // holds it: "log" is the Diagnostics' "logs" before What's New's "changelog".
+  const keyWord: SettingRow[] = [];
   const keyed: SettingRow[] = [];
   for (const r of SETTINGS_INDEX) {
     const label = r.label.toLowerCase();
     if (label.startsWith(q)) starts.push(r);
     else if (label.includes(q)) has.push(r);
+    else if (r.keywords.some((k) => k.split(/[\s-]+/).some((w) => w.startsWith(q)))) keyWord.push(r);
     else if (r.keywords.some((k) => k.includes(q))) keyed.push(r);
   }
-  return [...starts, ...has, ...keyed].slice(0, limit);
+  return [...starts, ...has, ...keyWord, ...keyed].slice(0, limit);
 }
 
 /**

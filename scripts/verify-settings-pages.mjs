@@ -59,7 +59,7 @@ async function open({ store = {}, raw = {}, width = 1440, height = 900, tauri = 
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(
     ({ store, raw, tauri }) => {
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       // Once: a reload in a check must see what the check left.
       if (!sessionStorage.getItem("seeded")) {
@@ -342,16 +342,17 @@ const closeSettings = async (page) => {
   // and data, before the last row in P4b, and Export and Import Settings after
   // it in P4c; verify-settings-app is theirs.
   check(
-    "App: the update row, Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, and Clear All Login Info last",
-    app.length === 8 &&
+    "App: the update row, What’s New, Keyboard Shortcuts, About, Replay Setup, Copy Diagnostics, Export Settings, Import Settings, and Clear All Login Info last",
+    app.length === 9 &&
       /^BlammyTV v/.test(app[0]) &&
-      app[1] === "Keyboard Shortcuts" &&
-      app[2] === "About" &&
-      app[3] === "Replay Setup" &&
-      app[4] === "Copy Diagnostics" &&
-      app[5] === "Export Settings" &&
-      app[6] === "Import Settings" &&
-      app[7] === "Clear All Login Info",
+      app[1] === "What’s New" &&
+      app[2] === "Keyboard Shortcuts" &&
+      app[3] === "About" &&
+      app[4] === "Replay Setup" &&
+      app[5] === "Copy Diagnostics" &&
+      app[6] === "Export Settings" &&
+      app[7] === "Import Settings" &&
+      app[8] === "Clear All Login Info",
     JSON.stringify(app),
   );
   await closeSettings(page);

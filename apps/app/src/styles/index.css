@@ -117,6 +117,7 @@
 @import "./discover.css" layer(app);
 @import "./boot.css" layer(app);
 @import "./onboarding.css" layer(app);
+@import "./whatsnew.css" layer(app);
 @import "./recordings.css" layer(app);
 
 /**

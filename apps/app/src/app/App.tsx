@@ -15,6 +15,8 @@ import { WelcomeAnimation } from "./WelcomeAnimation";
 import { shouldPlayWelcome } from "./welcome";
 import { Onboarding } from "./Onboarding";
 import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
+import { WhatsNew } from "./WhatsNew";
+import { onWhatsNewRequest, whatsNewDue } from "../features/whatsnew/whatsNewGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { onPlayRecordingRequest } from "../features/recordings/playRequest";
 import { SportsScreen } from "../features/sports/SportsScreen";
@@ -198,9 +200,25 @@ export function App() {
   // boot phase (the boot's actors live inside the overlay, v0.4.36) —
   // it owns that launch's boot, so welcome never follows it.
   const [onboarding, setOnboarding] = useState(shouldShowOnboarding);
+  // What's New (whatsNewGate): the launch after an update shows it before the
+  // app, and Settings → App → What's New shows it again ("settings"). Never on
+  // a first run, which has onboarding. It sits over everything and plays the
+  // boot itself on the launch that shows it, so the welcome does not.
+  const [whatsNew, setWhatsNew] = useState<null | "launch" | "settings">(() =>
+    whatsNewDue(shouldShowOnboarding()) ? "launch" : null,
+  );
+  const [whatsNewBoot] = useState(() => whatsNew === "launch" && shouldPlayWelcome());
   // Boot animation: plays over the shell while it loads, once per launch.
   const [welcome, setWelcome] = useState(
-    () => !shouldShowOnboarding() && shouldPlayWelcome(),
+    () => !shouldShowOnboarding() && whatsNew === null && shouldPlayWelcome(),
+  );
+  useEffect(
+    () =>
+      onWhatsNewRequest(() => {
+        setSettingsOpen(false);
+        setWhatsNew("settings");
+      }),
+    [],
   );
 
   // Settings → App → "Replay Onboarding": mount the flow over the
@@ -221,13 +239,13 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
       if (e.key.toLowerCase() !== "k") return;
-      if (onboarding || settingsOpen) return;
+      if (onboarding || settingsOpen || whatsNew) return;
       e.preventDefault();
       setPaletteOpen((o) => !o);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onboarding, settingsOpen]);
+  }, [onboarding, settingsOpen, whatsNew]);
 
   // Section switches are instant: leaving Live unmounts LiveScreen, whose
   // InvertedPlayer cleanup heals the shell's clip hole SYNCHRONOUSLY (before
@@ -341,20 +359,20 @@ export function App() {
   // doesn't read through the glass (see player.css [data-native-hidden]).
   useEffect(() => {
     const root = document.documentElement;
-    if (settingsOpen) root.dataset.nativeHidden = "1";
+    if (settingsOpen || whatsNew) root.dataset.nativeHidden = "1";
     else delete root.dataset.nativeHidden;
     return () => {
       delete root.dataset.nativeHidden;
     };
-  }, [settingsOpen]);
+  }, [settingsOpen, whatsNew]);
 
   // The screen underneath a modal stays mounted and keeps its own window
   // listeners, so it has to be told to sit still. See lib/modalOpen. The
   // palette too: mouse Back under it walked the page it covers back a step.
   useEffect(() => {
-    setModalOpen(settingsOpen || paletteOpen);
+    setModalOpen(settingsOpen || paletteOpen || whatsNew !== null);
     return () => setModalOpen(false);
-  }, [settingsOpen, paletteOpen]);
+  }, [settingsOpen, paletteOpen, whatsNew]);
 
   /*
    * THE MOUSE'S BACK BUTTON CLOSES THE MODAL.
@@ -637,6 +655,22 @@ export function App() {
         }}
       />
       {welcome && <WelcomeAnimation onDone={() => setWelcome(false)} />}
+      {whatsNew && (
+        <WhatsNew
+          boot={whatsNew === "launch" && whatsNewBoot}
+          onClose={() => {
+            setWhatsNew(null);
+            // From Settings, back to Settings: its App page, on the row, which
+            // lands focus on the button that opened this.
+            if (whatsNew === "settings") {
+              saveSettingsTab("app");
+              setSettingsFrom(null);
+              setSettingsFind({ row: "whats-new", n: ++findCount.current });
+              setSettingsOpen(true);
+            }
+          }}
+        />
+      )}
       {onboarding && (
         <Onboarding
           // Where a launch would open, now that onboarding has set it up.

@@ -68,7 +68,7 @@ const seen = [];
 page.on("request", (r) => seen.push(r.url()));
 await page.addInitScript((pl) => {
   sessionStorage.setItem("btv:welcome-played", "1");
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
 }, PLAYLISTS);
@@ -230,7 +230,7 @@ check("deleting the last playlist drops the copy, with no source left to load", 
   const p2 = await ctx2.newPage();
   await p2.addInitScript((pl) => {
     sessionStorage.setItem("btv:welcome-played", "1");
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
   }, { v: 1, data: [{ kind: "m3u", id: "m", name: "Test M3U", enabled: false, url: "http://localhost:8082/playlist.m3u" }] });
   await p2.goto(URL, { waitUntil: "domcontentloaded" });

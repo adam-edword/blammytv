@@ -21,7 +21,7 @@ const page = await (await browser.newContext({ viewport: { width: 1440, height: 
 const offline = (p) => p.route("**://v3-cinemeta.strem.io/**", (r) => r.abort());
 await offline(page);
 await page.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem(
     "blammytv.aiostreams",
     JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }),
@@ -333,7 +333,7 @@ check("unsave empties the list",
 const page2 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 await offline(page2);
 await page2.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   sessionStorage.setItem("btv:welcome-played", "1");
@@ -368,7 +368,7 @@ await page2.close();
 const page3 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 await offline(page3);
 await page3.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   localStorage.setItem("blammytv.oneClickPlay", JSON.stringify({ v: 1, data: true }));
@@ -393,7 +393,7 @@ await page3.close();
 const page4 = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
 await offline(page4);
 await page4.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: "http://localhost:8084/manifest.json" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] }));
   sessionStorage.setItem("btv:welcome-played", "1");

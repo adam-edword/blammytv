@@ -68,7 +68,7 @@ const init = () => {
     },
   };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
   // K7's tiles: two films part-way (one with art, one without) and a
@@ -970,7 +970,7 @@ const dimmedText = () =>
   const p2 = await bare.newPage();
   p2.on("pageerror", (e) => errors.push(String(e)));
   await p2.addInitScript(() => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     sessionStorage.setItem("btv:welcome-played", "1");
   });
   await p2.goto(APP, { waitUntil: "domcontentloaded" });

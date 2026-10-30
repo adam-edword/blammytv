@@ -123,7 +123,7 @@ async function open({ modes = {}, line = null, seed = {} } = {}) {
         localStorage.setItem("mvpick-seeded", "1");
         for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, JSON.stringify({ v: 1, data: v }));
       }
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
       localStorage.setItem(

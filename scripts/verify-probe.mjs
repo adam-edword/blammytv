@@ -8,10 +8,10 @@ const check = (n, ok, x = "") => { results.push(ok); console.log(`${ok ? "✓" :
 const openTab = async (manifest) => {
   const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   await page.addInitScript((m) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     if (m) localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: m }));
     sessionStorage.setItem("btv:welcome-played", "1");
-    localStorage.setItem("btv:onboarded", "1"); // keep first-run onboarding out of probe tests
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" })); // keep first-run onboarding out of probe tests
   }, manifest);
   await page.goto("http://localhost:4173/");
   await page.locator("button[aria-label='Settings']").click();

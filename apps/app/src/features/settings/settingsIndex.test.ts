@@ -194,10 +194,16 @@ describe("findSettings", () => {
     expect(at("replay-onboarding")).toBeGreaterThan(at("startup-tab"));
   });
 
-  it("holds the three bands in order for any query, and the registry's order inside each", () => {
+  // Four bands since 1.2.0: a keyword WORD that starts with the query now
+  // beats a keyword that only holds it ("log" finds the Diagnostics' "logs"
+  // before What's New's "changelog"). An intended change to the ranking.
+  it("holds the four bands in order for any query, and the registry's order inside each", () => {
     const band = (id: string, q: string) => {
-      const label = settingById(id)!.label.toLowerCase();
-      return label.startsWith(q) ? 0 : label.includes(q) ? 1 : 2;
+      const r = settingById(id)!;
+      const label = r.label.toLowerCase();
+      if (label.startsWith(q)) return 0;
+      if (label.includes(q)) return 1;
+      return r.keywords.some((k) => k.split(/[\s-]+/).some((w) => w.startsWith(q))) ? 2 : 3;
     };
     for (const q of ["a", "c", "up", "hero", "sync", "o", "log", "re", "pla", "time", "set"]) {
       const got = ids(q);
@@ -205,7 +211,7 @@ describe("findSettings", () => {
       const bands = got.map((id) => band(id, q));
       expect(bands, q).toEqual([...bands].sort((a, b) => a - b));
       const order = SETTINGS_INDEX.map((r) => r.id);
-      for (const b of [0, 1, 2]) {
+      for (const b of [0, 1, 2, 3]) {
         const inBand = got.filter((id) => band(id, q) === b).map((id) => order.indexOf(id));
         expect(inBand, `${q} band ${b}`).toEqual([...inBand].sort((x, y) => x - y));
       }

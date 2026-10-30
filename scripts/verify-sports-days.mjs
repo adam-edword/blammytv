@@ -266,7 +266,7 @@ await page.route(/site\.api\.espn\.com/, async (route) => {
 await page.route(/a\.espncdn\.com/, (route) => route.abort());
 
 await page.addInitScript((pl) => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
   sessionStorage.setItem("btv:welcome-played", "1");
   // A league follow is what narrows the board, and a narrowed board is the
@@ -556,7 +556,7 @@ if (process.env.SHOT_DIR)
   });
   await slow.route(/a\.espncdn\.com/, (route) => route.abort());
   await slow.addInitScript((pl) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
     sessionStorage.setItem("btv:welcome-played", "1");
     localStorage.setItem(

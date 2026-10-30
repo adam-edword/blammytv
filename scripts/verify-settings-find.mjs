@@ -58,7 +58,7 @@ async function open({ store = {}, width = 1440, height = 900, tauri = false, red
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(
     ({ store, tauri }) => {
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       // Once: a reload in a check must see what the check left.
       if (!sessionStorage.getItem("seeded")) {

@@ -81,7 +81,7 @@ async function open({ addon = "genrerows", key = true, hold = 0 } = {}) {
   if (hold) await page.route("**/catalog/**", async (r) => { await new Promise((ok) => setTimeout(ok, hold)); r.continue(); });
   await page.addInitScript(
     ({ addon, key, now }) => {
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: `http://localhost:8084/${addon}/manifest.json` }));
       if (key) localStorage.setItem("blammytv.tmdbKey", JSON.stringify({ v: 1, data: "harness-key" }));

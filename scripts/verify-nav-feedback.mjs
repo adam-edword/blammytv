@@ -46,7 +46,7 @@ const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 } })
 await ctx.route(/\.espn(cdn)?\.com\//, (r) => r.abort());
 const page = await ctx.newPage();
 await page.addInitScript((pl) => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
   sessionStorage.setItem("btv:welcome-played", "1");
   // The REC chip only exists with a TMDB key (v0.9.92, plan 016 D8), and
@@ -416,7 +416,7 @@ await ctx.close();
   await rctx.route(/\.espn(cdn)?\.com\//, (r) => r.abort());
   const rp = await rctx.newPage();
   await rp.addInitScript((pl) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
     sessionStorage.setItem("btv:welcome-played", "1");
   }, PLAYLIST);

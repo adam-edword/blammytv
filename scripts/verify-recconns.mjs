@@ -151,7 +151,7 @@ async function open({ max = 3, extra = 0, pending = "", query = "", tab = "live"
       window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
       // What an earlier page left in storage (the "Don't Show Again" flags).
       for (const [k, v] of Object.entries(seed)) if (localStorage.getItem(k) === null) localStorage.setItem(k, v);
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
       localStorage.setItem(

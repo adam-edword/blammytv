@@ -58,7 +58,7 @@ async function open({ store = SEEDED, reducedMotion = "no-preference" } = {}) {
     if (m) asked.push(decodeURIComponent(m[1]));
   });
   await page.addInitScript((store) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     sessionStorage.setItem("btv:welcome-played", "1");
     if (!sessionStorage.getItem("seeded")) {
       sessionStorage.setItem("seeded", "1");

@@ -395,3 +395,22 @@
     animation: none;
   }
 }
+
+/* A scene that mounts FINISHED (BootScene's `settled`, What's New's skipped
+ * and on-demand pages): the same shrink and spring tracks, started 2000ms ago
+ * so the first frame is already their last. A negative delay and not a 1ms
+ * duration, which would show the track's first keyframe (the full-window
+ * frame) for one frame. The sheet is simply there, and the reduced-motion
+ * shadow above would darken the tile's ring, so it goes. */
+.boot-scene.is-settled .boot-frame,
+.boot-scene.is-settled .boot-screen,
+.boot-scene.is-settled .boot-wordmark {
+  animation-delay: -2000ms;
+}
+.boot-scene.is-settled .boot-sheet {
+  transition: none;
+  opacity: 1;
+}
+.boot-scene.is-settled .boot-screen {
+  box-shadow: none;
+}

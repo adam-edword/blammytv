@@ -2,6 +2,17 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.46: What's New, and the docs for 1.2 (unreleased)
+
+- **The first launch after an update shows What's New.** The boot plays,
+  then the logo rises to the top and the new release's highlights fill in
+  below. Click or press any key to skip straight to it.
+- **See Full Changelog** lists every release. **Settings → App → What's
+  New** opens it any time.
+- **Ctrl+K** finds What's New by "changelog" or "release notes".
+- The docs have new Home and Recording pages, and Appearance, Stream and
+  Live TV cover themes, pop-out, genre rows and Ctrl+K.
+
 ## 1.0.45: Fixes from the 1.2 review (unreleased)
 
 - **A programme can't be recorded twice.** Right-clicking one that's

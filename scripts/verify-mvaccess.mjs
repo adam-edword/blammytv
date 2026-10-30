@@ -100,7 +100,7 @@ async function open({ grid = [], sound = null, width = 1600, height = 900, reduc
         localStorage.setItem("blammytv.multiviewGrid", JSON.stringify({ v: 1, data: { picks: grid, sound } }));
         for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, JSON.stringify({ v: 1, data: v }));
       }
-      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
       sessionStorage.setItem("btv:welcome-played", "1");
       localStorage.setItem("blammytv.multiviewNoticeSeen", JSON.stringify({ v: 1, data: true }));
       localStorage.setItem(

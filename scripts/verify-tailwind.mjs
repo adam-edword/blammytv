@@ -39,7 +39,7 @@ const page = await (
   await browser.newContext({ viewport: { width: 1400, height: 900 } })
 ).newPage();
 await page.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
 });
 await page.goto(process.env.APP_URL ?? "http://localhost:4173/", {

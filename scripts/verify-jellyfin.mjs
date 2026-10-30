@@ -159,7 +159,7 @@ const stub = ({ o }) => {
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
   if (sessionStorage.getItem("seeded")) return;
   sessionStorage.setItem("seeded", "1");
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   sessionStorage.setItem("btv:welcome-played", "1");
   localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "stream" }));
   if (o.aio) localStorage.setItem("blammytv.aiostreams", JSON.stringify({ v: 1, data: o.aio }));

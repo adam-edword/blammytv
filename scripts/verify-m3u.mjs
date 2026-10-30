@@ -48,7 +48,7 @@ async function offline() {
 const ctx = await offline();
 const page = await ctx.newPage();
 await page.addInitScript((pl) => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
 }, PLAYLIST);
 await page.goto(URL);
@@ -89,7 +89,7 @@ for (const [label, path] of [
   const c = await offline();
   const p = await c.newPage();
   await p.addInitScript((pl) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
   }, { v: 1, data: [{ ...PLAYLIST.data[0], url: `${SERVER}${path}` }] });
   await p.goto(URL);
@@ -113,7 +113,7 @@ async function openWith(playlists) {
   p.logs = [];
   p.on("console", (m) => p.logs.push(m.text()));
   await p.addInitScript((pl) => {
-    localStorage.setItem("btv:onboarded", "1");
+    localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
     sessionStorage.setItem("btv:welcome-played", "1");
     localStorage.setItem("blammytv.playlists", JSON.stringify(pl));
   }, { v: 1, data: playlists });

@@ -71,7 +71,7 @@ if (!FAST) {
 
 // 3. Gate: completed flag wins.
 if (!FAST) {
-  const page = await newPage({ "btv:onboarded": "1" });
+  const page = await newPage({ "btv:onboarded": "1", "blammytv.whatsNewSeen": JSON.stringify({ v: 1, data: "999.0" }) });
   await page.goto("http://localhost:4173/");
   await page.waitForTimeout(1200);
   check("completed flag: no onboarding", !(await page.$(".onb")));
@@ -765,7 +765,7 @@ if (!FAST) {
 //    paint carries no infinite animation (the hue spin is dead), and
 //    skip-on-input works.
 if (!FAST) {
-  const page = await newPage({ "btv:onboarded": "1" });
+  const page = await newPage({ "btv:onboarded": "1", "blammytv.whatsNewSeen": JSON.stringify({ v: 1, data: "999.0" }) });
   await page.goto("http://localhost:4173/?welcome=1");
   await page.waitForSelector(".boot-overlay", { timeout: 8000 });
   const applied = await page.$eval(".boot-frame", (el) => ({
@@ -800,7 +800,7 @@ if (!FAST) {
 
 // 10. Cold boot skip: any input dismisses it immediately.
 if (!FAST) {
-  const page = await newPage({ "btv:onboarded": "1" });
+  const page = await newPage({ "btv:onboarded": "1", "blammytv.whatsNewSeen": JSON.stringify({ v: 1, data: "999.0" }) });
   await page.goto("http://localhost:4173/?welcome=1");
   await page.waitForSelector(".boot-overlay", { timeout: 8000 });
   await page.waitForTimeout(400);

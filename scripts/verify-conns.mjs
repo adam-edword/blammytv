@@ -7,7 +7,7 @@ const { chromium } = req("playwright-core");
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 await page.addInitScript(() => {
-  localStorage.setItem("btv:onboarded", "1");
+  localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
   localStorage.setItem(
     "blammytv.playlists",
     JSON.stringify({

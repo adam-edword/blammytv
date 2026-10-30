@@ -188,6 +188,9 @@ export const KEY_GROUPS = {
     "guideCardW",
     // Where recordings go (plan 029): a folder on this PC.
     "recordingsFolder",
+    // The newest release What's New has shown on this PC. An import must not
+    // hide it on one that has not seen it, nor show it again on one that has.
+    "whatsNewSeen",
     // Diagnostic records kept for support, not settings.
     "sportsPairingLog",
     "fullscreenChecks",

@@ -1,0 +1,300 @@
+/* What's New (app/WhatsNew.tsx). Onboarding's world, so this file only holds
+ * what onboarding.css does not: the lockup's rise, the page's cards, Also New
+ * and the changelog. The black, the dither, the trailing light, the title, the
+ * line and the button are .onb's own. Dark whatever the theme: every colour
+ * here is a literal white on black, as onboarding.css's are. */
+
+.wn {
+  --wn-strong: rgb(255 255 255 / 0.34);
+  --wn-soft: rgb(255 255 255 / 0.16);
+  --wn-line: rgb(255 255 255 / 0.62);
+  --wn-dim: rgb(255 255 255 / 0.45);
+  --wn-card: rgb(255 255 255 / 0.045);
+  --wn-card-border: rgb(255 255 255 / 0.09);
+  color-scheme: dark;
+  /* A short window scrolls the page; the lockup scrolls with it. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* No scrolling while the boot plays: its geometry is the window's. */
+.wn.is-booting {
+  overflow: hidden;
+}
+.wn:focus {
+  outline: none;
+}
+/* The scroller is the overlay, so the dither and the light stay put. */
+.wn .onb-dither,
+.wn .onb-cursor-glow {
+  position: fixed;
+}
+/* A cold boot's pace (boot.css .boot-overlay .boot-sheet). */
+.wn .boot-sheet {
+  transition-duration: 450ms;
+}
+
+/* THE LOCKUP: the boot's finished tile and wordmark, one window tall so the
+ * scene's own geometry holds. Risen, it is scaled about the window's middle
+ * and moved up until its middle sits 52px plus half its height below the top.
+ * 76 is the tile, --s the window's boot scale, .62 the size at the top.
+ * Absolute inside the scroller, so it goes with the page. */
+.wn-lockup {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+.wn-lockup.is-risen {
+  transform: translateY(calc(52px + 38px * var(--s) * 0.62 - 50%)) scale(0.62);
+  transition: transform 900ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.wn-lockup.is-risen.is-settled {
+  transition: none;
+}
+
+.wn-stage {
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+  max-width: 880px;
+  margin: 0 auto;
+  /* Under the risen lockup: its middle, half its height, then 30px. */
+  padding: calc(82px + 76px * var(--s) * 0.62) 16px 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+/* Not `visibility`: a Button's own `transition-all` eases the inherited value,
+ * so Continue stayed unfocusable for a beat after the page came up, and the
+ * focus that lands on it as it does was lost. */
+.wn-stage.is-booting {
+  display: none;
+}
+.wn-stage.is-in > * {
+  animation: wn-up 600ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.wn-stage.is-in > :nth-child(2) { animation-delay: 60ms; }
+.wn-stage.is-in > :nth-child(3) { animation-delay: 120ms; }
+.wn-stage.is-in > :nth-child(4) { animation-delay: 180ms; }
+.wn-stage.is-in > :nth-child(5) { animation-delay: 260ms; }
+.wn-stage.is-in > :nth-child(6) { animation-delay: 340ms; }
+@keyframes wn-up {
+  from {
+    opacity: 0.001;
+    transform: translateY(10px);
+  }
+}
+
+.wn-eyebrow {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wn-dim);
+}
+.wn-stage .onb-title {
+  font-size: clamp(40px, 5vw, 60px);
+  line-height: 1.05;
+}
+.wn-stage .onb-row {
+  margin-top: 22px;
+}
+
+/* The two headliners. */
+.wn-heads {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  margin-top: 22px;
+  text-align: left;
+}
+.wn-head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--wn-card-border);
+  border-radius: 22px;
+  background: var(--wn-card);
+  backdrop-filter: blur(10px);
+}
+.wn-pic {
+  height: 132px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.03);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.wn-pic svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.wn-head h2 {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: #fff;
+}
+.wn-head p {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--wn-line);
+}
+
+/* Also New. */
+.wn-also {
+  width: 100%;
+  margin-top: 18px;
+  text-align: left;
+}
+.wn-also h2 {
+  margin: 0 0 12px 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wn-dim);
+}
+.wn-also ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 28px;
+}
+.wn-also li {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+.wn-ic {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--wn-card-border);
+  border-radius: 10px;
+  background: var(--wn-card);
+  color: var(--wn-line);
+}
+.wn-also b {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+.wn-line {
+  display: block;
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--wn-line);
+}
+
+/* The changelog: the same stage, a list of releases. */
+.wn-back {
+  align-self: flex-start;
+}
+.wn-log {
+  width: 100%;
+  max-width: 640px;
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  text-align: left;
+}
+.wn-log h2 {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  font-family: var(--font-headline);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #fff;
+}
+.wn-log h2 small {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--wn-dim);
+}
+.wn-tag {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wn-log h3 {
+  margin: 18px 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+.wn-log ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wn-log li {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--wn-line);
+}
+.wn-log li b {
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Skip, over the boot only. */
+.wn-skip {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 3;
+  background: rgb(255 255 255 / 0.1);
+  backdrop-filter: blur(10px);
+}
+
+@media (max-width: 640px) {
+  .wn-heads,
+  .wn-also ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Reduced motion: the page is simply there. The boot is not played (App),
+ * and the light is not drawn (WhatsNew), as onboarding's are not. */
+@media (prefers-reduced-motion: reduce) {
+  .wn-stage.is-in > * {
+    animation: none;
+  }
+  .wn-lockup.is-risen {
+    transition: none;
+  }
+}

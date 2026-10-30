@@ -60,9 +60,13 @@ export const BootScene = forwardRef<
     /** Extra per-frame work on the same clock (Onboarding's
      * cursor-glow lerp rides here — one loop, ever). */
     onTick?: (now: number, dt: number) => void;
+    /** Mount already finished: the lockup as the timeline leaves it, with no
+     * motion and no clock. What's New uses it for a skipped boot and for the
+     * page opened on demand. Read once, at mount. */
+    settled?: boolean;
   }
->(function BootScene({ onTick }, ref) {
-  const [phase, setPhase] = useState<Phase>("idle");
+>(function BootScene({ onTick, settled = false }, ref) {
+  const [phase, setPhase] = useState<Phase>(settled ? "shrink" : "idle");
   const sheetRef = useRef<HTMLDivElement>(null);
   const angleRef = useRef(0);
   const velRef = useRef(BASE_DEG_S);
@@ -105,7 +109,7 @@ export const BootScene = forwardRef<
   }));
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (settled || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     let last = performance.now();
     let lastWrite = "";
@@ -168,10 +172,14 @@ export const BootScene = forwardRef<
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [settled]);
 
   return (
-    <div className={"boot-scene" + (phase !== "idle" ? ` is-${phase}` : "")}>
+    <div
+      className={
+        "boot-scene" + (phase !== "idle" ? ` is-${phase}` : "") + (settled ? " is-settled" : "")
+      }
+    >
       <div className="boot-frame" aria-hidden>
         <div className="boot-sheet" ref={sheetRef}>
           <div className="boot-paint-fit">

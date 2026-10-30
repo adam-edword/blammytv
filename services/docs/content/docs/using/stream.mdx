@@ -6,10 +6,11 @@ description: Browsing and playing movies and shows through AIOStreams, your own 
 The **Stream** tab is movies and shows, served by your own
 [AIOStreams](/sources/aiostreams/) instance, your own [Jellyfin](/sources/jellyfin/)
 server, your IPTV provider's [Xtream](/sources/xtream/#movies-and-shows)
-panel, or any mix of them. It has three views on the rail: **Home**,
-**Discover** and **Library**.
+panel, or any mix of them. It has three pages in the nav bar: **Stream**,
+**Discover** and **Library**. The page behind the logo is [Home](/using/home/),
+the same rows mixed with your live ones.
 
-## Home
+## The Stream Page
 
 Rows of posters, one per browsable catalog your addon exposes, with a featured
 hero at the top.
@@ -26,8 +27,59 @@ hero at the top.
 
 ## Discover
 
-Search across your catalogs. The cards work the same as on Home. Use this when
-you know what you want.
+Search across your catalogs or browse by genre. The cards work the same as on
+the Stream page. Use this when you know what you want or want to see what's
+there.
+
+The field in the nav bar searches while Discover is open. It says what it's
+searching, like **Search Movies & Series…**. The **Any**, **Movies** and
+**Series** buttons beside it narrow the search and the genre pages. Press
+<kbd>/</kbd> or <kbd>Ctrl</kbd> + <kbd>F</kbd> from anywhere to jump to it.
+That works unless you're typing in a field or a player is up.
+
+### Genres
+
+**By Genre** is a row of genre cards at the top. Click one and Discover opens
+that genre as rows, top to bottom. Comedy looks like this:
+
+- **Popular Comedy**, marked **From TMDB**, is TMDB's most popular titles in
+  the genre that one of your catalogs has. It needs six or more matches and it
+  isn't shown under **Series**. A build made without a TMDB key never shows it.
+- **Just Comedy** is titles tagged Comedy and nothing else.
+- **Comedy Series** is the genre's shows. It shows under **Any**.
+- **Mixes** are the rest, like **Romantic Comedy** or **Action Comedy**. A title
+  is in one mix only. A mix needs six titles to get a row and there are at most
+  six.
+
+Each row shows its first 20 titles. **See All** on a row opens all of it as a
+grid with a Back button. **See All Comedy** at the foot opens the whole genre.
+
+Titles that aren't the genre are left out. The rest are ranked by how much of
+the title is the genre. A title that leads with the genre comes first. Ted
+Lasso is above Pulp Fiction on Comedy. After that, titles that more of your
+catalogs list come first. Then the ones nearer the top of their catalogs.
+Format tags like Reality or Talk Show don't make rows.
+
+If a genre's titles say too little about their genres for rows to mean
+anything, the page is one ranked grid instead.
+
+### Ctrl+K Finds Titles Too
+
+<kbd>Ctrl</kbd> + <kbd>K</kbd> searches the whole app from anywhere: channels,
+programmes on later, Settings and the places you can go. With a stream source
+it finds films and shows too.
+
+- Titles your catalogs have already loaded and titles in your lists show under
+  **Films and Series**.
+- Type two letters or more and it also searches the way Discover does. Up to
+  five more titles show under **More Films and Series**, below everything else
+  that matched. **Searching…** shows until the answer lands. If your sources
+  don't answer it says **Couldn't search your sources. Try again in a moment.**
+- Once you've typed two letters, the last line there is always **Search
+  Discover for** what you typed. It opens Discover with the same words in its
+  search field.
+
+The round search button beside Settings opens the same thing.
 
 ## Opening a Title
 
@@ -65,6 +117,34 @@ Only choices you make count. An episode that defaults to a different track
 doesn't become your new preference.
 
 Volume and mute are separate. Those apply to every playback, live included.
+
+## Pop Out
+
+The **Pop Out** button at the top of the player moves a film or an episode out
+of the app. Where it goes is **Settings → Playback → Player → Pop Out Films and
+Shows In**:
+
+- **MPV** is BlammyTV's own player, in a floating window of its own. It's the
+  default. Size and corner come from **Pop-Out Window** just below. You can
+  still drag and resize the window once it's open. The app's player shows
+  **Player popped out.** with a **Bring It Back** button. Close the window or
+  press Bring It Back and playback returns in the app where the window got to.
+- **VLC** opens the film or episode in VLC from your position and closes
+  BlammyTV's player. The title's page is back and **Playing in VLC** shows for a
+  few seconds. VLC's window is VLC's own. The size and corner settings don't
+  apply.
+
+With VLC, BlammyTV follows your position. It goes to Continue Watching and to
+Trakt, AIOStreams and Jellyfin as it does in the app. The title counts as
+watched at the same 90% line. Skipping and the Up Next card aren't there,
+because those belong to BlammyTV's player.
+
+If VLC isn't installed you'll see **VLC isn't installed.** with a **Download
+VLC** button. The film keeps playing in BlammyTV. A VLC that won't start says
+**Couldn't open VLC** and why.
+
+Live TV always pops out in MPV, whatever this is set to. Starting something new
+in VLC replaces the title BlammyTV is following.
 
 ## When a Source Dies Mid-Play
 
