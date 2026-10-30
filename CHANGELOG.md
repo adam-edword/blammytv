@@ -2,6 +2,17 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.36: Fixes for VLC and Home's live rows (unreleased)
+
+- **Starting another episode while VLC plays** no longer has VLC's spot
+  written over it in Continue Watching.
+- **Popping out to VLC past 80%** no longer tells Trakt about the same
+  watch twice.
+- **Switching on a Home live row** shows your current channels, not the
+  ones from before a playlist change.
+- **The Recordings row works with no playlist**, since recordings are
+  files on your PC.
+
 ## 1.0.35: Live TV on Home (unreleased)
 
 - **Four new Home rows:** On Now (your starred channels with what's on and

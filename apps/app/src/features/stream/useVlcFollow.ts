@@ -18,7 +18,7 @@ import { currentVlc, onVlcSession } from "./vlcSession";
 export function useVlcFollow(): void {
   const t = useSyncExternalStore(onVlcSession, currentVlc);
   useTraktScrobble(
-    t ? { itemId: t.itemId, kind: t.kind, title: t.title, year: t.year, episodeId: t.episodeId, followed: true } : null,
+    t && !t.counted ? { itemId: t.itemId, kind: t.kind, title: t.title, year: t.year, episodeId: t.episodeId, followed: true } : null,
   );
   // As StreamScreen: the addon's own plays go to AIOStreams, a Jellyfin's to
   // that Jellyfin, and a playlist's to neither.

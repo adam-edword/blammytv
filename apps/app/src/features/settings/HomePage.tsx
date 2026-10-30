@@ -200,7 +200,7 @@ function useWhyEmpty(live: boolean): (kind: HomeRowKind) => string {
   const games = useSyncExternalStore(onGamesToday, peekGamesToday);
   return (kind) => {
     if (!removable(kind)) return "";
-    if (!live) return "Add a playlist to fill this row.";
+    if (!live && kind !== "recordings") return "Add a playlist to fill this row.";
     switch (kind) {
       case "onnow":
         return loadFavorites().length === 0 ? "Star channels in the Guide to fill this row." : "";

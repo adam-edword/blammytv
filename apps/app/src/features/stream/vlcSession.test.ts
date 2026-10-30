@@ -97,6 +97,17 @@ describe("what a report does", () => {
     expect(loadWatched("tt1").size).toBe(0);
   });
 
+  it("leaves the show's entry alone once it holds another episode, started in the app since", () => {
+    followVlc(ep);
+    applyVlcProgress(progress(600, 3000));
+    recordWatching({ id: "tt2", title: "Show", kind: "series", episodeId: "tt2:1:5", at: 3 });
+    applyVlcProgress(progress(2800, 3000));
+    applyVlcProgress(progress(2900, 3000, "gone"));
+    expect(at("tt2")?.episodeId).toBe("tt2:1:5");
+    expect(at("tt2")?.posSec).toBeUndefined();
+    expect(loadWatched("tt2").has("tt2:1:4")).toBe(false);
+  });
+
   it("does nothing with no title followed", () => {
     applyVlcProgress(progress(5400, 6000));
     expect(at("tt1")).toEqual({ id: "tt1", title: "Film", kind: "movie", at: 1 });

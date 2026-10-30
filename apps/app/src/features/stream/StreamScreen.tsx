@@ -1510,6 +1510,7 @@ export function StreamScreen({
                 season: asked.episodeInfo?.season,
                 from: asked.item.from,
                 streamUrl: asked.url,
+                counted: !!st?.dur && (st.pos ?? 0) / st.dur > 0.8,
               },
               vlcTitle(asked.item.title, asked.episodeInfo),
               playAgent,

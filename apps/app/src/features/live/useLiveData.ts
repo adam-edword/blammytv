@@ -26,7 +26,11 @@ export function useLiveData(enabled = true): LiveData | null {
     // Cold start, which only happens if this tab is the first thing opened.
     // loadLive is single-flighted and cached, so this joins the Live
     // screen's load rather than starting a second one.
-    if (!peekLive()) {
+    // Switched on with a fresh catalog (Home's row turned on): take it, since
+    // a refresh while off was heard by no one.
+    const cached = peekLive();
+    if (cached) setLive(cached);
+    else {
       void loadLive(new Date()).then(() => {
         // Whatever is CURRENT, not what this call resolved with. A
         // playlist edit during a cold load starts a second, forced load

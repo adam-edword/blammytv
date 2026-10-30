@@ -73,7 +73,8 @@ export function useLiveRows(layout: readonly HomeRow[] | undefined, live: boolea
   const wantNow = wants("onnow");
   const wantRecent = wants("recent");
   const wantGames = wants("games");
-  const wantRecs = wants("recordings");
+  // Recordings are files on this PC: they play with no playlist set up.
+  const wantRecs = !!layout?.some((r) => r.kind === "recordings" && r.on);
   const wantChannels = wantNow || wantRecent;
 
   // ---- channels

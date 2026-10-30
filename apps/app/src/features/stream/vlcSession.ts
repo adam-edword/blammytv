@@ -22,7 +22,7 @@ import { scrubbedMessage } from "../../lib/errors";
 import { TRAKT_SYNCED } from "../trakt/store";
 import type { VodFrom } from "./model";
 import { filmWatched, markWatched } from "./watched";
-import { isFinished, updateWatchingProgress } from "./watching";
+import { isFinished, loadWatching, updateWatchingProgress } from "./watching";
 
 /** What the reports need to name the title. */
 export interface VlcTarget {
@@ -37,6 +37,9 @@ export interface VlcTarget {
   from?: VodFrom;
   /** The address VLC plays: a Jellyfin report names the file by it. */
   streamUrl: string;
+  /** Past Trakt's 80% line at the hand-off: the in-app player's stop already
+   * counted the watch, so Trakt is not told again. */
+  counted?: boolean;
 }
 
 let current: VlcTarget | null = null;
@@ -101,7 +104,10 @@ export function applyVlcProgress(p: VlcProgress): void {
   const t = current;
   if (!t) return;
   // A stopped VLC reads 0 (the player's tick skips the same): not a position.
-  if (p.pos > 0) {
+  // And the show's one entry may hold another episode by now (one started in
+  // the app since): VLC's position is not that episode's.
+  const mine = loadWatching().find((e) => e.id === t.itemId);
+  if (p.pos > 0 && (!mine || (mine.episodeId ?? "") === (t.episodeId ?? ""))) {
     const entry = updateWatchingProgress(t.itemId, p.pos, p.len > 0 ? p.len : undefined).find((e) => e.id === t.itemId);
     window.dispatchEvent(new Event(TRAKT_SYNCED));
     if (entry && isFinished(entry)) {
