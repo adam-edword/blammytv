@@ -2,6 +2,17 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.37: Themes (unreleased)
+
+- **Settings → Appearance → Theme:** Default, Prism, Velvet and Lagoon.
+- **Prism** makes the app look like onboarding: true black, white type,
+  faint dots behind everything, and a soft light that follows your mouse
+  between the cards. The rainbow shows in the Guide's now-line, the
+  player's progress bar and the shelf's glow.
+- **Velvet** (oxblood and brass) and **Lagoon** (deep teal and aqua) each
+  keep their own accent colour, and remember your pick.
+- **Themes are dark only.** In Light, the app keeps its own look.
+
 ## 1.0.36: Fixes for VLC and Home's live rows (unreleased)
 
 - **Starting another episode while VLC plays** no longer has VLC's spot

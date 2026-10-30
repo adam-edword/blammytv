@@ -1,4 +1,5 @@
 import { Button } from "../components/ui/button";
+import { useCursorGlow } from "../ui/useCursorGlow";
 import {
   useEffect,
   useRef,
@@ -262,32 +263,9 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
   // The cursor glow lerps toward the pointer ON BOOTSCENE'S CLOCK
   // (onTick — one rAF loop, ever). Reduced-motion never runs the loop,
   // so the glow stays hidden rather than stuck at 0,0.
+  // The lerp is ui/useCursorGlow.ts, which Prism's glow shares.
   const cursorRef = useRef<HTMLDivElement>(null);
-  const pointerRef = useRef<{ x: number; y: number } | null>(null);
-  const glowPosRef = useRef<{ x: number; y: number } | null>(null);
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      pointerRef.current = { x: e.clientX, y: e.clientY };
-    };
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
-  }, []);
-  const cursorTick = (_now: number, dt: number) => {
-    const target = pointerRef.current;
-    if (!target || !cursorRef.current) return;
-    let pos = glowPosRef.current;
-    if (!pos) {
-      // First sighting jumps straight to the pointer — no sweep in
-      // from the corner.
-      pos = { ...target };
-      glowPosRef.current = pos;
-      cursorRef.current.classList.add("is-live");
-    } else {
-      pos.x += (target.x - pos.x) * Math.min(1, dt * 9);
-      pos.y += (target.y - pos.y) * Math.min(1, dt * 9);
-    }
-    cursorRef.current.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
-  };
+  const cursorTick = useCursorGlow(cursorRef);
 
   const think = () => bootRef.current?.think();
   /** Verifications hold the spin the whole time they run. */

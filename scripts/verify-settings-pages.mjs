@@ -250,7 +250,7 @@ const closeSettings = async (page) => {
   check(
     "Appearance, on Stream: the interface, the carousel and its style, the cards, the playing info, the row size, and Reset Appearance last",
     JSON.stringify(look) ===
-      JSON.stringify(["Accent Color", "Appearance", "Startup Tab", "Clock Format", "Featured Carousel", "Carousel Style", "Carousel Catalogs", "Card Details", "Info While Playing", "Titles per Row", "Reset Appearance"]),
+      JSON.stringify(["Accent Color", "Appearance", "Theme", "Startup Tab", "Clock Format", "Featured Carousel", "Carousel Style", "Carousel Catalogs", "Card Details", "Info While Playing", "Titles per Row", "Reset Appearance"]),
     JSON.stringify(look),
   );
   const lookNotes = await notesByRow(page);
@@ -271,7 +271,7 @@ const closeSettings = async (page) => {
   check("  and on Live TV, Channel Numbers is its label alone", liveNotes["channel-numbers"]?.length === 0, JSON.stringify(liveNotes));
   check(
     "  and on Live TV: Channel Numbers, between the interface and Reset Appearance",
-    JSON.stringify(lookLive) === JSON.stringify(["Accent Color", "Appearance", "Startup Tab", "Clock Format", "Channel Numbers", "Reset Appearance"]),
+    JSON.stringify(lookLive) === JSON.stringify(["Accent Color", "Appearance", "Theme", "Startup Tab", "Clock Format", "Channel Numbers", "Reset Appearance"]),
     JSON.stringify(lookLive),
   );
   // Nothing of Playback's is on Appearance, nor the other way.

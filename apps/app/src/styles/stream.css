@@ -140,6 +140,9 @@
     linear-gradient(to right, transparent, #000 90px, #000 calc(100% - 90px), transparent),
     linear-gradient(to bottom, transparent, #000 56px, #000 calc(100% - 56px), transparent);
   mask-composite: intersect;
+  /* --hero-glow is a theme pack's (Prism's ramp), drawn in place of the
+   * copies; unset, none, and the copies are the glow. */
+  background: var(--hero-glow, none);
 }
 .shero__glowtrack {
   margin-top: 56px;

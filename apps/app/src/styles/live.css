@@ -656,7 +656,8 @@
   bottom: 0;
   width: 3px;
   border-radius: 2px;
-  background: var(--accent);
+  /* --nowline-fill is a theme pack's (Prism's ramp); unset, the accent. */
+  background: var(--nowline-fill, var(--accent));
   z-index: 1;
   pointer-events: none;
 }

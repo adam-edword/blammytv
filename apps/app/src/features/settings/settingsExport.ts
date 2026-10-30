@@ -70,6 +70,9 @@ export const KEY_GROUPS = {
     "accent",
     "accent-custom",
     "theme",
+    // Theme packs (plan 035): the pack, and the accent each remembers.
+    "themePack",
+    "themeAccents",
     "clockFormat",
     "startupTab",
     "showChannelNumber",

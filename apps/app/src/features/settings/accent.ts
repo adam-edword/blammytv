@@ -142,3 +142,20 @@ export function applyAccent(hex: string): void {
   // accent (light's is near-black) gives way to dark's, a picked one stays.
   root.dataset.accent = "picked";
 }
+
+/** Where a picker reads and writes its accent and its custom slot. The
+ * default is the pair of keys above; a theme that takes an accent has a store
+ * of its own (themePack.ts), so each remembers its pick. */
+export interface AccentStore {
+  get(): string;
+  set(hex: string): void;
+  getCustom(): string;
+  setCustom(hex: string): void;
+}
+
+export const defaultAccentStore: AccentStore = {
+  get: loadAccent,
+  set: saveAccent,
+  getCustom: loadCustomAccent,
+  setCustom: saveCustomAccent,
+};

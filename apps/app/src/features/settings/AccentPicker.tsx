@@ -13,11 +13,9 @@ import {
   applyAccent,
   clearAccent,
   inkFor,
+  defaultAccentStore,
   isValidHex,
-  loadAccent,
-  loadCustomAccent,
-  saveAccent,
-  saveCustomAccent,
+  type AccentStore,
 } from "./accent";
 import { Hint } from "../../ui/Hint";
 
@@ -54,21 +52,29 @@ const ON_RING = "ring-2 ring-ring ring-offset-2 ring-offset-background";
 
 export function AccentPicker({
   portalContainer,
+  store = defaultAccentStore,
+  theme,
 }: {
+  /** Where the pick is kept. A theme that takes an accent brings its own, so
+   * each remembers its pick (themePack.ts). */
+  store?: AccentStore;
+  /** Under such a theme, its name and own colour: the first swatch is that
+   * colour, in place of Default, and it is what no pick means. */
+  theme?: { name: string; hex: string };
   /** Where the Custom popover portals. Onboarding passes its own root:
    * that overlay sits on the boot layer, above every popover, so one on
    * <body> would open behind it. (It also used to counter-zoom the UI
    * scale, removed in v0.10.24.) */
   portalContainer?: HTMLElement | null;
 } = {}) {
-  const [accent, setAccent] = useState(loadAccent);
-  const [custom, setCustom] = useState(loadCustomAccent);
+  const [accent, setAccent] = useState(store.get);
+  const [custom, setCustom] = useState(store.getCustom);
   // Seeded from whatever the Custom chip will show, for the same reason as
   // `customShown` below.
   const [draft, setDraft] = useState(() => {
-    const a = loadAccent();
+    const a = store.get();
     const shown =
-      a !== "" && !ACCENT_PRESETS.some((p) => p.hex === a) ? a : loadCustomAccent();
+      a !== "" && !ACCENT_PRESETS.some((p) => p.hex === a) ? a : store.getCustom();
     return shown.slice(1);
   });
 
@@ -85,20 +91,20 @@ export function AccentPicker({
   const pick = (hex: string) => {
     const value = hex.toLowerCase();
     setAccent(value);
-    saveAccent(value);
+    store.set(value);
     applyAccent(value);
   };
 
   const pickDefault = () => {
     setAccent("");
-    saveAccent("");
+    store.set("");
     clearAccent();
   };
 
   const pickCustom = (hex: string) => {
     const value = hex.toLowerCase();
     setCustom(value);
-    saveCustomAccent(value);
+    store.setCustom(value);
     setDraft(value.slice(1));
     pick(value);
   };
@@ -123,13 +129,13 @@ export function AccentPicker({
 
   return (
     <div className="flex flex-wrap items-center gap-2.5" role="group" aria-label="Accent color">
-      <Hint label="Default">
+      <Hint label={theme ? theme.name : "Default"}>
       <Button
         variant="outline"
         size="icon"
         type="button"
         aria-pressed={accent === ""}
-        aria-label="Default, follows light and dark"
+        aria-label={theme ? theme.name : "Default, follows light and dark"}
         className={
           "size-8 rounded-full hover:opacity-90" + (accent === "" ? ` ${ON_RING}` : "")
         }
@@ -137,8 +143,9 @@ export function AccentPicker({
         // near-white on dark and near-black on light, and a single fill
         // would claim otherwise.
         style={{
-          background:
-            "linear-gradient(135deg, var(--color-foreground) 50%, var(--color-background) 50%)",
+          background: theme
+            ? theme.hex
+            : "linear-gradient(135deg, var(--color-foreground) 50%, var(--color-background) 50%)",
         }}
         onClick={pickDefault}
       >

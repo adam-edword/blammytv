@@ -1,6 +1,6 @@
 # Plan 035: Themes, colour first
 
-Status: DECIDED (2026-10-30, Adam), building. Canvas:
+Status: BUILT v1.0.37 (Prism, Velvet, Lagoon). Canvas:
 https://claude.ai/artifact/26deGFP4euFfJYkQeEkhcH
 
 Adam: "i really like prism. but i think for the first few we should do
@@ -46,6 +46,11 @@ mostly just color changes".
 - **Accents per theme** (Adam): Prism takes none (its accent is white);
   Velvet and Lagoon show the picker, opening on their own accent, and each
   theme remembers its own choice.
+- **The cursor light hides while any player hole is cut** (the Guide's
+  preview as well as theater and fullscreen): the app has no theater flag,
+  and the clip-path is the one signal every player shares.
+- **The cursor light only animates while it moves**, so a still pointer
+  costs no frames.
 - **Free.** No Themes Pass gate in this round; the paid seam (old/themes,
   license.ts, services/keybox) stays parked until Adam decides.
 

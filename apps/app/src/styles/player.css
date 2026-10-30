@@ -587,7 +587,8 @@
   top: 0;
   bottom: 0;
   width: 100%;
-  background: var(--accent);
+  /* --progress-fill is a theme pack's (Prism's ramp); unset, the accent. */
+  background: var(--progress-fill, var(--accent));
   transform-origin: left center;
   transform: scaleX(var(--pct, 0));
   will-change: transform;

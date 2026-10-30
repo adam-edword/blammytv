@@ -42,6 +42,17 @@ import {
   saveThemePref,
   type ThemePref,
 } from "./theme";
+import { ThemePicker } from "./ThemePicker";
+import {
+  applyThemePack,
+  loadThemePack,
+  packInfo,
+  packShowing,
+  resetThemeAccents,
+  saveThemePack,
+  themeAccentStore,
+  type ThemePack,
+} from "./themePack";
 import {
   CLOCK_TABS,
   loadClockFormat,
@@ -90,6 +101,18 @@ export function AppearancePage({
     saveThemePref(next);
     applyThemePref(next);
   };
+
+  // Theme (plan 035): Default or a pack, dark only. The pack's own accent
+  // picker is the Accent row under Velvet and Lagoon, and gone under Prism,
+  // whose ramp is its accent. Read from the root, so Match Windows counts.
+  const [pack, setPack] = useState<ThemePack>(loadThemePack);
+  const pickPack = (next: ThemePack) => {
+    setPack(next);
+    saveThemePack(next);
+    applyThemePack(next);
+  };
+  const light = document.documentElement.dataset.theme === "light";
+  const themed = packShowing(pack) ? packInfo(pack) : null;
 
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
   const pickStartup = (next: StartupTab) => {
@@ -187,6 +210,8 @@ export function AppearancePage({
     saveCustomAccent("");
     setAccentKey((k) => k + 1);
     pickTheme("dark");
+    resetThemeAccents();
+    pickPack("none");
     pickClock("12h");
     setChanNum(true);
     saveShowChannelNumber(true);
@@ -203,19 +228,42 @@ export function AppearancePage({
         * Appearance PAGE one level up (or the Appearance row below). */}
       <h3 className={`settings__group ${EYEBROW}`}>Interface</h3>
       <section className="settings-section">
-        {/* Stacked, not a row: nine swatches do not fit beside a label. */}
-        <div className="customize-stack" data-setting="accent">
-          <div>
-            <h4 className="customize-row__title">Accent Color</h4>
+        {/* Stacked, not a row: nine swatches do not fit beside a label. A
+          * theme with an accent of its own has its own picker here, and one
+          * without (Prism) has none. */}
+        {!(themed && !themed.accent) && (
+          <div className="customize-stack" data-setting="accent">
+            <div>
+              <h4 className="customize-row__title">Accent Color</h4>
+            </div>
+            <AccentPicker
+              key={`${accentKey}:${themed ? themed.key : "base"}`}
+              store={themed ? themeAccentStore(themed.key) : undefined}
+              theme={themed?.accent ? { name: themed.label, hex: themed.accent } : undefined}
+            />
           </div>
-          <AccentPicker key={accentKey} />
-        </div>
+        )}
 
         <div className="customize-row" data-setting="color-mode">
           <div>
             <h4 className="customize-row__title">Appearance</h4>
           </div>
           <Segmented label="Appearance" options={THEME_TABS} value={theme} onChange={pickTheme} />
+        </div>
+
+        {/* Stacked, not a row: four cards do not fit beside a label. After the
+          * light or dark row it sits under, and the Accent row, which it
+          * decides, stays where it was. */}
+        <div className="customize-stack" data-setting="theme-pack">
+          <div>
+            <h4 className="customize-row__title">Theme</h4>
+            {light && (
+              <p className="settings__section-note settings__section-note--dim">
+                Themes are dark only.
+              </p>
+            )}
+          </div>
+          <ThemePicker value={pack} onChange={pickPack} />
         </div>
 
         {startupOpts.length > 0 && (
@@ -431,8 +479,8 @@ export function AppearancePage({
           <div>
             <h4 className="customize-row__title">Reset Appearance</h4>
             <p className="settings__section-note settings__section-note--dim">
-              The accent color, light or dark mode, clock format and channel
-              numbers go back to their defaults.
+              The theme, accent color, light or dark mode, clock format and
+              channel numbers go back to their defaults.
             </p>
           </div>
           <ConfirmButton label="Reset" onConfirm={reset} />

@@ -179,6 +179,12 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["record", "recording", "recordings", "dvr", "smaller", "smaller files", "original", "size", "space", "disk", "compress", "shrink", "hevc", "h265", "x265", "reencode", "encode", "gpu"],
   },
   {
+    id: "theme-pack",
+    label: "Theme",
+    page: "appearance",
+    keywords: ["prism", "velvet", "lagoon", "palette", "colour", "color", "look", "skin", "dark"],
+  },
+  {
     id: "accent",
     label: "Accent Color",
     page: "appearance",

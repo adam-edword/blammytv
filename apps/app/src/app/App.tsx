@@ -44,6 +44,7 @@ import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { setModalOpen } from "../lib/modalOpen";
 import { setFullscreenChecked } from "../lib/fullscreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
+import { PrismGlow } from "../ui/PrismGlow";
 import { settingById, type SettingsFind } from "../features/settings/settingsIndex";
 import { effectiveStartupTab, hasLivePlaylist, hasStreamSource } from "../features/settings/startupSources";
 import {
@@ -536,6 +537,8 @@ export function App() {
 
   return (
     <div className="app-shell">
+      {/* Inside the shell on purpose: the video hole cuts it (PrismGlow.tsx). */}
+      <PrismGlow />
       <AppHeader
         section={section}
         showLive={hasLiveSource}
