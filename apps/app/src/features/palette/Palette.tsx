@@ -29,6 +29,9 @@ import { loadLists } from "../stream/lists";
 import type { VodItem } from "../stream/model";
 import type { LiveTab, StreamTab } from "../../app/AppHeader";
 import { lastInputWasKey } from "../live/mvMotion";
+import { itemKey } from "../discover/data";
+import { setSearchQuery } from "../discover/searchQuery";
+import { pickTitles, TITLE_MIN, useTitleSearch } from "./titleSearch";
 
 /**
  * The app's palette (plan 019, K11): multi-view's channel picker, grown to
@@ -47,8 +50,11 @@ import { lastInputWasKey } from "../live/mvMotion";
  * stock look"), Multi-view's picker since v0.10.26.
  *
  * It reads what the app already has in hand (the last live load, the last
- * catalog, your lists) and fetches nothing: a palette that waits on the
- * network is a search page.
+ * catalog, your lists) and fetches nothing for those: a palette that waits on
+ * the network is a search page. The one exception comes last and apart: the
+ * titles Discover's search finds, in "More Films and Series" under everything the app
+ * already matched, asked after a pause in typing (titleSearch.ts) while a
+ * "Searching…" row says so. The last row there takes the query to Discover.
  */
 
 export type GoTarget =
@@ -63,16 +69,22 @@ type Row =
   | { key: string; kind: "channel"; label: string; channel: Channel }
   | { key: string; kind: "later"; label: string; channel: Channel; prog: Programme }
   | { key: string; kind: "title"; label: string; item: VodItem; saved: boolean }
-  | { key: string; kind: "go"; label: string; sub: string; icon: ReactNode; to: GoTarget };
+  // `search`: the query to fill into Discover's search before going there.
+  | { key: string; kind: "go"; label: string; sub: string; icon: ReactNode; to: GoTarget; search?: string };
 
 interface Section {
   value: string;
   items: Row[];
+  /** The title search is out: a "Searching…" line under the heading, ahead of
+   * the rows. Not a row: it is not a choice, and a keyboard never lands on it. */
+  busy?: boolean;
 }
 
 const CHANNELS = 6;
 const LATER = 4;
 const TITLES = 6;
+/** The group the titles Discover's search finds come in. */
+const FOUND = "More Films and Series";
 /** The most rows of Settings one query lists. */
 const SETTINGS = 5;
 /** What "On later" looks ahead over. */
@@ -202,8 +214,13 @@ export function Palette({
     ];
   }, [hasLive, hasStream]);
 
-  const sections = useMemo((): Section[] => {
-    if (!open) return [];
+  // The title search runs for a stream source and two letters. `typed` is the
+  // field's text as typed, trimmed: what Discover is asked, and what its row quotes.
+  const typed = query.trim();
+  const { searching, items: askedItems } = useTitleSearch(open && hasStream && typed.length >= TITLE_MIN ? typed : "");
+
+  const { sections, nothing } = useMemo((): { sections: Section[]; nothing: boolean } => {
+    if (!open) return { sections: [], nothing: false };
     const live: LiveData | null = hasLive ? lookupLive() : null;
     const q = query.trim().toLowerCase();
     const out: Section[] = [];
@@ -219,7 +236,7 @@ export function Palette({
         if (recent.length) out.push({ value: "Recent", items: recent });
       }
       out.push({ value: "Go To", items: places });
-      return out;
+      return { sections: out, nothing: false };
     }
 
     if (live) {
@@ -242,6 +259,8 @@ export function Palette({
       if (later.length) out.push({ value: "On Later", items: later });
     }
 
+    // The titles above, so the search below does not list them twice.
+    const listed = new Set<string>();
     if (hasStream) {
       // The catalog you have loaded, then anything in your lists it lacks.
       // Titles that start with what you typed come first.
@@ -278,15 +297,18 @@ export function Palette({
             seasons: [],
           });
         }
-      const hits = pool
+      const top = pool
         .filter((it) => it.title.toLowerCase().includes(q))
         .sort((a, b) => {
           const pa = a.title.toLowerCase().startsWith(q) ? 0 : 1;
           const pb = b.title.toLowerCase().startsWith(q) ? 0 : 1;
           return pa - pb;
         })
-        .slice(0, TITLES)
-        .map((it): Row => ({ key: `t:${it.id}`, kind: "title", label: it.title, item: it, saved: saved.has(it.id) }));
+        .slice(0, TITLES);
+      for (const it of top) listed.add(itemKey(it));
+      const hits = top.map(
+        (it): Row => ({ key: `t:${it.id}`, kind: "title", label: it.title, item: it, saved: saved.has(it.id) }),
+      );
       if (hits.length) out.push({ value: "Films and Series", items: hits });
     }
 
@@ -310,14 +332,47 @@ export function Palette({
       };
     });
     if (rows.length) out.push({ value: "Settings", items: rows });
-    return out;
-  }, [open, query, hasLive, hasStream, places]);
+
+    // What the app matched is above. Below it, the titles Discover's search
+    // finds, and always the way into Discover with the same words.
+    const appMatched = out.length > 0;
+    let found = 0;
+    if (hasStream && typed.length >= TITLE_MIN) {
+      const own = pickTitles(askedItems, listed).map(
+        (it): Row => ({ key: `f:${itemKey(it)}`, kind: "title", label: it.title, item: it, saved: false }),
+      );
+      found = own.length;
+      out.push({
+        value: FOUND,
+        busy: searching,
+        items: [
+          ...own,
+          {
+            key: "discover",
+            kind: "go",
+            label: `Search Discover for “${typed}”`,
+            sub: "Movies and Shows",
+            icon: <DiscoverIcon size={16} />,
+            to: { kind: "stream", tab: "discover" },
+            search: typed,
+          },
+        ],
+      });
+    }
+    // Only once there is nothing to show and nothing still on its way.
+    return { sections: out, nothing: !appMatched && found === 0 && !searching };
+  }, [open, query, typed, hasLive, hasStream, places, searching, askedItems]);
 
   const choose = (row: Row) => {
     onOpenChange(false);
     if (row.kind === "channel" || row.kind === "later") onChannel(row.channel.id);
     else if (row.kind === "title") onTitle(row.item);
-    else onGo(row.to, opener.current);
+    else {
+      // Discover reads the query when it opens, from the store the header's
+      // search field writes to.
+      if (row.search) setSearchQuery(row.search);
+      onGo(row.to, opener.current);
+    }
   };
 
   const now = new Date();
@@ -356,13 +411,27 @@ export function Palette({
           </div>
 
           <div className="mvpick__body">
-            <Autocomplete.Empty>
-              <p className="mvpick__empty">Nothing matches that.</p>
-            </Autocomplete.Empty>
+            {/* Not Autocomplete.Empty: that shows only with no rows at all, and
+              * the Discover row is always there once there is a stream source. */}
+            <div role="status" aria-live="polite" aria-atomic>
+              {nothing && <p className="mvpick__empty">Nothing matches that.</p>}
+            </div>
             <Autocomplete.List>
               {(section: Section) => (
                 <Autocomplete.Group key={section.value} items={section.items} className="mvpick__group">
                   <Autocomplete.GroupLabel className="mvpick__sec">{section.value}</Autocomplete.GroupLabel>
+                  {section.busy && (
+                    <div className="mvpick__row" data-kind="busy" data-disabled="" role="status">
+                      <span className="mvpick__fillicon" aria-hidden>
+                        <span className="buffering__dot" />
+                      </span>
+                      <span className="mvpick__meta">
+                        <span className="mvpick__name">
+                          <span className="mvpick__nametext">Searching…</span>
+                        </span>
+                      </span>
+                    </div>
+                  )}
                   <Autocomplete.Collection>
                     {(row: Row) => (
                       <Autocomplete.Item

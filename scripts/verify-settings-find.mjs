@@ -210,6 +210,8 @@ const alpha = (c) => {
   await closePalette(page);
 
   await ask(page, "zzzz");
+  // The title search has to come back empty before the palette says so.
+  await page.locator(".palette .mvpick__empty").waitFor({ timeout: 5000 }).catch(() => {});
   const none = await sections(page);
   const emptyNote = await page.locator(".palette .mvpick__empty").count();
   check("  and none for a word no row has", !none.some((s) => s.name === "Settings") && emptyNote === 1, JSON.stringify(none.map((s) => s.name)));

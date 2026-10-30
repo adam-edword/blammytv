@@ -145,23 +145,25 @@ check("and neither row overflows it",
 check("and the mark still holds the midline with both rows open",
   Math.abs(geo.off) < 1.5, `${geo.off}px`);
 
-// Both rows hang off the SAME left edge. Nothing else in here would
-// notice if row 2 drifted: every check above is about width.
+// Both rows share a CENTRE (Adam, 1.0.41 and 1.0.42): the narrower one sits
+// centred in the capsule instead of hanging off the left edge with a gap on
+// the right. It used to assert a shared left rail; that is what changed.
+// Nothing else in here would notice if row 2 drifted: every check above is
+// about width.
 const rail = await p.evaluate(() => {
   const n = document.querySelector(".navcap");
   const L = n.getBoundingClientRect().left;
-  const edge = (sel) => {
-    const row = n.querySelector(sel);
-    const b = Array.from(row.children).find((c) => c.tagName === "BUTTON");
-    return [+(b.getBoundingClientRect().left - L).toFixed(2),
-            +(row.getBoundingClientRect().right - L).toFixed(2)];
+  const mid = (sel) => {
+    const kids = Array.from(n.querySelector(sel).children)
+      .filter((c) => !c.classList.contains("navcap__pill"))
+      .map((c) => c.getBoundingClientRect())
+      .filter((r) => r.width > 0);
+    return +((Math.min(...kids.map((r) => r.left)) + Math.max(...kids.map((r) => r.right))) / 2 - L).toFixed(2);
   };
-  return { one: edge(".navcap__row--nav"), two: edge(".navcap__row--sub") };
+  return { one: mid(".navcap__row--nav"), two: mid(".navcap__row--sub"), cap: +(n.getBoundingClientRect().width / 2).toFixed(2) };
 });
-check("the two rows share a left rail",
-  Math.abs(rail.one[0] - rail.two[0]) < 0.5, `${rail.one[0]} vs ${rail.two[0]}`);
-check("  and a right one", Math.abs(rail.one[1] - rail.two[1]) < 0.5,
-  `${rail.one[1]} vs ${rail.two[1]}`);
+check("the two rows share a centre, the capsule's",
+  Math.abs(rail.one - rail.two) < 1.5 && Math.abs(rail.two - rail.cap) < 1.5, JSON.stringify(rail));
 
 // THE THUMB SITS ON THE ITEM IT IS MARKING.
 //

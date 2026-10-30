@@ -2,6 +2,14 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.43: Find films and shows from Ctrl+K (unreleased)
+
+- **Type a title into Ctrl+K** and it searches the way Discover does. Up to
+  five results show under More Films and Series, below anything else that
+  matched.
+- **"Searching…"** shows while the search runs.
+- **The last line is always Search Discover for what you typed.**
+
 ## 1.0.42: Both nav rows centred, with or without TV (unreleased)
 
 - **Discover's search row centres under the tabs** when you have a TV
