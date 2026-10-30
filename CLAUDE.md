@@ -90,13 +90,13 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **85/85 harnesses clean, 2933 checks** (1.0.41), or one
+Baseline is **85/85 harnesses clean, 2934 checks** (1.0.42), or one
 fewer: verify-cw-sources' last check only runs when the catalog is still
 loading at the click; the script says so and it is not a failure. verify-kit
 (plan 019) has one section per shared primitive, so a later change that
 undoes one fails there. If playwright-core is not installed, point `PW_FROM` at somewhere
 that can require it. verify-fetchvulkan needs 7-Zip (CI has it): without
-it that one reads `0✓ 1✗` and the total is 2910.
+it that one reads `0✓ 1✗` and the total is 2911.
 
 It refuses to start if anything is already on one of its ports, and that
 refusal is load-bearing: a leftover `vite preview` on 4173 binds first, our

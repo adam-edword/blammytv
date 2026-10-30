@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.42: Both nav rows centred, with or without TV (unreleased)
+
+- **Discover's search row centres under the tabs** when you have a TV
+  playlist, instead of sitting at the left. The logo stays in the middle.
+
 ## 1.0.41: The tabs centre over Discover's search (unreleased)
 
 - **With no TV playlist**, the tabs now sit centred over Discover's search

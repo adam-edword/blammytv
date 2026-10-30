@@ -669,6 +669,31 @@ const stream = async (page) => {
   await ctx.close();
 }
 
+{
+  // With a playlist the mark holds the midline, and on Discover the tabs are
+  // the wider row: the search row centres under them (Adam, 1.0.42).
+  const { ctx, page } = await open({ store: SEEDED });
+  await goTo(page, "discover");
+  await page.waitForTimeout(900);
+  const live2 = await page.evaluate(() => {
+    const span = (sel) => {
+      const kids = [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0);
+      const l = Math.min(...kids.map((r) => r.left));
+      const r = Math.max(...kids.map((r) => r.right));
+      return { mid: (l + r) / 2, w: r - l };
+    };
+    const cap = document.querySelector(".navcap").getBoundingClientRect();
+    const m = document.querySelector(".navcap__mark").getBoundingClientRect();
+    return { tabs: span(".navcap__row--nav > :not(.navcap__pill)"), sub: span(".navcap__row--sub > :not(.navcap__pill)"), cap: cap.left + cap.width / 2, mark: m.left + m.width / 2, mid: innerWidth / 2 };
+  });
+  check(
+    "with a playlist, Discover's search row centres under the wider tabs, and the mark stays on the midline",
+    live2.tabs.w > live2.sub.w + 40 && Math.abs(live2.sub.mid - live2.cap) < 2 && Math.abs(live2.mark - live2.mid) < 1.5,
+    JSON.stringify(live2),
+  );
+  await ctx.close();
+}
+
 // ======================================================== phase 2: live rows
 const ESPN = "t:101"; // Fake ESPN 4K: a guide of one hour blocks, "ESPN Hour N"
 const SKY = "t:102"; // Fake Sky Sports FHD: 90 minute blocks, "Sky Block N"

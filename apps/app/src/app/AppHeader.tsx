@@ -487,14 +487,19 @@ export function AppHeader({
      * Its width is max(row 1, row 2 when open), the rule base.css states
      * for .navcap--open, from the same target widths, so it holds centre
      * through the unfold on the same clock. */
+    /* THE NARROWER ROW CENTRES IN THE CAPSULE (Adam, 1.0.41 and 1.0.42),
+     * instead of sitting at its left with a gap on the right. Each row's
+     * items move as one, thumb included; margin-left, so on the capsule's
+     * own clock. Row 1 only with no live half: with one, the mark holds the
+     * midline and row 1 is what places the capsule. */
     const rowNav = rowNavRef.current;
+    const rowSub = rowSubRef.current;
+    const gap = subOpen ? row2.width - row1.width : 0;
+    if (rowSub) rowSub.style.marginLeft = `${Math.max(0, -gap / 2)}px`;
     if (markMid === null || !showLive) {
       const width = Math.max(row1.width, subOpen ? row2.width : 0) + 2 * from;
       nav.style.marginLeft = `${-width / 2}px`;
-      // And row 1 centres over a wider row 2 (Discover's), instead of sitting
-      // at its left with a gap on the right (Adam, 1.0.41). Its items move as
-      // one, thumb included; margin-left, so on the capsule's own clock.
-      if (rowNav) rowNav.style.marginLeft = `${subOpen ? Math.max(0, (row2.width - row1.width) / 2) : 0}px`;
+      if (rowNav) rowNav.style.marginLeft = `${Math.max(0, gap / 2)}px`;
       return;
     }
     if (rowNav) rowNav.style.marginLeft = "0px";
