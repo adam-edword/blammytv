@@ -229,10 +229,12 @@
   --accent: #e8bb6c;
   --accent-ink: #1b1008;
   --plate: #352227;
+  /* The pack's own brass, pick or no pick: a dark pick on the plate would
+   * fail 4.5:1. */
   --plate-ink: #e8bb6c;
   --rating: #e8bb6c;
-  --focus-ring: #e8bb6c;
-  --tint-on: rgb(232 187 108 / 0.18);
+  --focus-ring: var(--accent);
+  --tint-on: color-mix(in srgb, var(--accent) 18%, transparent);
   --glass-lift: inset 0 1px 0 rgb(246 236 229 / 0.06), 0 18px 50px rgb(20 4 6 / 0.6);
 }
 
@@ -261,8 +263,8 @@
   --accent: #5fe1c1;
   --accent-ink: #03201a;
   --plate: #243438;
-  --focus-ring: #5fe1c1;
-  --tint-on: rgb(95 225 193 / 0.2);
+  --focus-ring: var(--accent);
+  --tint-on: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* A PICTURE IN A PACK. tokens.css remaps the page's ink to dark's on a

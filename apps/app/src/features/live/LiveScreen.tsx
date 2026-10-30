@@ -1119,7 +1119,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         {/* The whole tab's states are the StateCard (plan 019, K8). An
           * error keeps its Try again with the message, as plan 016 3.3
           * asked. */}
-        {live.status === "loading" && (
+        {live.status === "loading" && mode !== "recordings" && (
           <StateCard
             className="live-status"
             role="status"
@@ -1128,8 +1128,9 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             title={stage ?? "Loading Channels…"}
           />
         )}
-        {(live.status === "error" ||
-          (ready && !shownChannel && ready.groups.some((g) => g.error))) && (
+        {mode !== "recordings" &&
+          (live.status === "error" ||
+            (ready && !shownChannel && ready.groups.some((g) => g.error))) && (
           <StateCard
             className="live-status live-status--error"
             role="alert"
@@ -1155,7 +1156,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             }
           />
         )}
-        {ready && !shownChannel && !ready.groups.some((g) => g.error) && (
+        {mode !== "recordings" && ready && !shownChannel && !ready.groups.some((g) => g.error) && (
           <StateCard
             className="live-status"
             role="status"
@@ -1164,24 +1165,29 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             sub="Add a playlist in Settings → Sources."
           />
         )}
-        {ready && shownChannel && (
+        {/* The recordings need no channel catalog: Library's Play lands here
+          * with no playlist, a provider error or a catalog still loading, and
+          * the file plays all the same. Only the channel parts wait for it. */}
+        {(recId || (ready && shownChannel)) && (
           <>
-            <Hero
-              channel={recHero?.channel ?? shownChannel}
-              programmes={recHero ? NO_PROGRAMMES : shownProgrammes}
-              programme={recHero?.programme ?? preview?.programme ?? undefined}
-              // Theater only: clicking the black space around the picture
-              // drops back to mini (clicks ON the picture hit the inline
-              // chrome, which owns play/pause). Fullscreen has no space to
-              // click, mini's hero space is normal UI.
-              onBackdropClick={
-                theater && !fullscreen ? () => setTheater(false) : undefined
-              }
-            />
+            {(recHero || (ready && shownChannel)) && (
+              <Hero
+                channel={(recHero?.channel ?? shownChannel)!}
+                programmes={recHero ? NO_PROGRAMMES : shownProgrammes}
+                programme={recHero?.programme ?? preview?.programme ?? undefined}
+                // Theater only: clicking the black space around the picture
+                // drops back to mini (clicks ON the picture hit the inline
+                // chrome, which owns play/pause). Fullscreen has no space to
+                // click, mini's hero space is normal UI.
+                onBackdropClick={
+                  theater && !fullscreen ? () => setTheater(false) : undefined
+                }
+              />
+            )}
             {/* Headless: opens mpv into #player-slot and follows the box.
              * Only in Tauri with a real stream URL, so the browser build
              * is untouched. */}
-            {playUrl && (
+            {ready && shownChannel && playUrl && (
               <InvertedPlayer
                 url={playUrl}
                 live
@@ -1202,6 +1208,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
             )}
             {INV &&
               feedKey &&
+              (recId || (ready && shownChannel)) &&
               chromeHostRef.current &&
               createPortal(
                 <TheaterOverlay
@@ -1247,7 +1254,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                   }
                 />
               </div>
-            ) : visible.length === 0 ? (
+            ) : !ready || !shownChannel ? null : visible.length === 0 ? (
               <StateCard
                 className="guide-empty"
                 icon={
@@ -1292,7 +1299,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
              * screen of "No Information" lanes reads as a provider with no
              * guide at all. Clears itself when the programmes land and the
              * refresh event re-reads. */}
-            {live.status === "ready" && live.data.guidePending && (
+            {live.status === "ready" && !!shownChannel && live.data.guidePending && (
               <p className="guide-pending" role="status">
                 <span className="guide-pending__dot" aria-hidden />
                 Guide Still Downloading…

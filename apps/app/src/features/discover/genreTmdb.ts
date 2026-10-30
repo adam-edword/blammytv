@@ -44,17 +44,22 @@ const REAL: TmdbDeps = {
   resolve: (kind, imdb) => resolveVodItem(kind, imdb),
 };
 
+/** `live` says whether anyone still wants the answer. The page's 8s wait only
+ * drops the result, so without it a genre the user has left keeps asking for
+ * its forty-odd lookups; once it reads false no further request goes out
+ * (those already on the wire finish). */
 export async function popularInGenre(
   genre: string,
   filter: TypeFilter,
   deps: TmdbDeps = REAL,
+  live: () => boolean = () => true,
 ): Promise<VodItem[]> {
   if (filter === "series" || !deps.enabled()) return [];
   const kinds: ("movie" | "series")[] = filter === "movie" ? ["movie"] : ["movie", "series"];
   const lists = await Promise.all(
     kinds.map(async (kind) => {
       const id = (await deps.genreIds(kind).catch(() => null))?.get(genre.trim().toLowerCase());
-      return id == null ? [] : await deps.popular(id, kind).catch(() => []);
+      return id == null || !live() ? [] : await deps.popular(id, kind).catch(() => []);
     }),
   );
   const first = interleave(...lists).slice(0, TMDB_ROW);
@@ -64,7 +69,7 @@ export async function popularInGenre(
   const found: (VodItem | null)[] = first.map(() => null);
   let next = 0;
   const worker = async () => {
-    for (let at = next++; at < first.length; at = next++) {
+    for (let at = next++; at < first.length && live(); at = next++) {
       const imdb = await deps.imdbId(first[at]).catch(() => null);
       if (imdb) found[at] = await deps.resolve(first[at].kind, imdb).catch(() => null);
     }

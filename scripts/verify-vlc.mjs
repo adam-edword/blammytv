@@ -374,6 +374,20 @@ const barPct = (page) =>
   await note2.waitFor({ timeout: 8000 }).catch(() => {});
   const text2 = await note2.innerText().catch(() => "");
   check("another refusal shows its words", /Couldn’t open VLC: only http and https urls can be played\./.test(text2) && !/Download VLC/.test(text2), text2.replace(/\n/g, " | "));
+
+  // The failure belongs to that play. Close the player and play the same
+  // address again: nothing has been tried yet, so nothing is said.
+  await wake(page);
+  await page.locator(".theater-topleft button[aria-label=Back]").click();
+  await page.locator(".theater-overlay").waitFor({ state: "detached", timeout: 8000 });
+  await goTo(page, "home");
+  await page.waitForTimeout(800);
+  const opens = (await page.evaluate(() => window.__tauriCalls.filter((c) => c[0] === "inv_open").length));
+  await page.locator(".continue-card").first().click({ timeout: 5000 });
+  await page.waitForFunction((n) => window.__tauriCalls.filter((c) => c[0] === "inv_open").length > n, opens, { timeout: 25_000 });
+  await page.waitForSelector(".theater-overlay", { timeout: 15_000 });
+  await page.waitForTimeout(500);
+  check("playing the same address again shows no VLC failure from before", (await page.locator(".vlc-note").count()) === 0, await page.locator(".vlc-note").innerText().catch(() => ""));
   await ctx.close();
 }
 

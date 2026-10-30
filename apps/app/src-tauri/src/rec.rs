@@ -266,6 +266,23 @@ pub struct Plan {
     pub end: u64,
 }
 
+/// Whether `r` already records the programme `plan` names: the same channel
+/// (a scheduled record by its channel id, a running one, which keeps none, by
+/// its playlist and name) with times that meet the programme's. A running
+/// record with no end covers only a programme that is on, so a later one is
+/// still worth keeping. The page's `programmeAction` asks the same question.
+fn covers(r: &Record, plan: &Plan, now: u64) -> bool {
+    if r.status != Status::Scheduled && r.status != Status::Recording {
+        return false;
+    }
+    let same = match &r.channel_id {
+        Some(id) => *id == plan.channel_id,
+        None => r.playlist_id == plan.playlist_id && r.channel == plan.channel,
+    };
+    let to = r.stop_at.map_or(u64::MAX, |s| s.saturating_sub(PAD_MS));
+    same && r.started_at < plan.end && plan.start < to && (r.stop_at.is_some() || plan.start <= now)
+}
+
 /// What `buffer_start` is given.
 pub struct BufferSpec {
     pub channel: String,
@@ -1175,6 +1192,8 @@ impl Rec {
         programme: Option<&str>,
     ) -> Result<PathBuf, String> {
         // The page sends this; a relative one would be the app's own folder.
+        // A share (\\server\share) is allowed on purpose: recording to a NAS
+        // is a real use, and reaching this needs script in the page already.
         if !folder.is_absolute() {
             return Err("the recordings folder must be a full path".into());
         }
@@ -1607,6 +1626,12 @@ impl Rec {
             });
             if let Some(r) = same {
                 return Ok(r.clone());
+            }
+            // A record of this channel whose times meet the programme's is
+            // this programme again (its start moved, or native began it a
+            // minute early and it is running): a second would record it twice.
+            if records.iter().any(|r| covers(r, &plan, now)) {
+                return Err("this channel is already being recorded then".into());
             }
             let mut record = self.new_record(
                 plan.channel,
@@ -5551,6 +5576,14 @@ mod tests {
         }
     }
 
+    /// `plan` on another channel, so a test that needs a second record is not
+    /// asking for the same channel twice at overlapping times.
+    fn elsewhere(mut plan: Plan, n: u32) -> Plan {
+        plan.channel_id = format!("p1:{n}");
+        plan.channel = format!("Channel {n}");
+        plan
+    }
+
     fn events_of(b: &Bench, id: &str) -> Vec<Record> {
         lock(&b.events)
             .iter()
@@ -5590,7 +5623,10 @@ mod tests {
         // Its end still counts a minute late.
         assert!(on.stop_at.unwrap() > after + 39 * MIN);
         // Over, but inside the extra minute: still worth a try.
-        assert!(b.rec.schedule(programme(-61 * MIN as i64, 60 * MIN + 30_000)).is_ok());
+        assert!(b
+            .rec
+            .schedule(elsewhere(programme(-61 * MIN as i64, 60 * MIN + 30_000), 43))
+            .is_ok());
         // Over.
         let over = b.rec.schedule(programme(-90 * MIN as i64, 20 * MIN)).unwrap_err();
         assert_eq!(over, "that programme is over");
@@ -5622,6 +5658,49 @@ mod tests {
     }
 
     #[test]
+    fn a_programme_that_meets_a_record_of_its_channel_is_refused() {
+        let b = Bench::new("sched-overlap", |_| {});
+        let first = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        // The guide moved the start: the same programme, not a second one.
+        let moved = b.rec.schedule(programme(15 * MIN as i64, 30 * MIN)).unwrap_err();
+        assert_eq!(moved, "this channel is already being recorded then");
+        // The next programme starts where this one ends: its own.
+        let mut next = programme(0, 30 * MIN);
+        next.start = first.stop_at.unwrap() - MIN;
+        next.end = next.start + 30 * MIN;
+        assert!(b.rec.schedule(next).is_ok());
+        // Another channel at the same time is free.
+        let mut other = programme(10 * MIN as i64, 30 * MIN);
+        other.channel_id = "p1:43".into();
+        other.channel = "Other".into();
+        assert!(b.rec.schedule(other).is_ok());
+    }
+
+    #[test]
+    fn a_running_recording_covers_its_programme_by_the_channel_name() {
+        let b = Bench::new("sched-running", |_| {});
+        // Native began it a minute before the programme: a running record with
+        // no channel id and an end.
+        let now = now_ms();
+        let mut run = record("run", Status::Recording, Path::new("x.ts"));
+        run.channel = "News: HD/1".into();
+        run.started_at = now;
+        run.stop_at = Some(now + 31 * MIN);
+        lock(&b.rec.records).push(run);
+        let soon = b.rec.schedule(programme(30_000, 30 * MIN)).unwrap_err();
+        assert_eq!(soon, "this channel is already being recorded then");
+        // One with no end (Record in the player) covers a programme that is on,
+        // and not one still to come.
+        lock(&b.rec.records).clear();
+        let mut open = record("open", Status::Recording, Path::new("x.ts"));
+        open.channel = "News: HD/1".into();
+        open.started_at = now;
+        lock(&b.rec.records).push(open);
+        assert!(b.rec.schedule(programme(-5 * MIN as i64, 30 * MIN)).is_err());
+        assert!(b.rec.schedule(programme(60 * MIN as i64, 30 * MIN)).is_ok());
+    }
+
+    #[test]
     fn the_page_is_told_when_a_start_is_due_and_not_before() {
         let b = Bench::new("sched-due", |_| {});
         let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
@@ -5638,7 +5717,10 @@ mod tests {
         b.rec.sched_tick(at + 10_000);
         assert_eq!(events_of(&b, &r.id).len(), 2);
         // Late by the limit is still on time.
-        let late = b.rec.schedule(programme(11 * MIN as i64, 30 * MIN)).unwrap();
+        let late = b
+            .rec
+            .schedule(elsewhere(programme(11 * MIN as i64, 30 * MIN), 43))
+            .unwrap();
         b.rec.sched_tick(late.start_at.unwrap() + LATE_MS);
         assert!(b.rec.get(&late.id).unwrap().due);
     }

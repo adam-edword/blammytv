@@ -540,6 +540,45 @@ const openCustom = async (page) => {
   });
 };
 const underChip = (at) => Math.abs(at.dx) <= 1 && at.gap >= 2 && at.gap <= 6;
+
+// 5c2. Replayed under a theme (plan 035). Velvet takes an accent of its own,
+//      so the picker writes Velvet's store (and leads with Velvet's brass);
+//      before, it wrote the default store, and the pick vanished at the next
+//      boot. Prism has no accent, so the row is not there at all.
+if (!FAST) {
+  const page = await newPage({ "blammytv.themePack": JSON.stringify({ v: 1, data: "velvet" }) });
+  await toAccentStep(page);
+  const group = page.getByRole("group", { name: "Accent color" });
+  check("replayed under Velvet, the accent picker leads with Velvet's brass",
+    (await group.locator("button").first().getAttribute("aria-label")) === "Velvet");
+  await group.getByRole("button", { name: "Blue", exact: true }).click();
+  await page.waitForTimeout(150);
+  const kept = await page.evaluate(() => ({
+    own: JSON.parse(localStorage.getItem("blammytv.themeAccents") ?? "{}")?.data?.velvet?.accent,
+    dflt: localStorage.getItem("blammytv.accent"),
+    inline: document.documentElement.style.getPropertyValue("--accent"),
+  }));
+  check("  a pick goes in Velvet's store and not the default one, and is on the page",
+    kept.own === "#3730ff" && kept.dflt === null && kept.inline === "#3730ff", JSON.stringify(kept));
+  await page.close();
+
+  const prism = await newPage({ "blammytv.themePack": JSON.stringify({ v: 1, data: "prism" }) });
+  await toAccentStep(prism);
+  const row = await prism.evaluate(() => ({
+    picker: document.querySelectorAll("[aria-label='Accent color']").length,
+    labels: [...document.querySelectorAll(".onb-prefs .onb-chips__label")].map((e) => e.textContent),
+  }));
+  check("replayed under Prism, which paints its own ramp, there is no accent row, and the clock row stays",
+    row.picker === 0 && row.labels.join() === "Clock", JSON.stringify(row));
+  await prism.close();
+
+  const plain = await newPage();
+  await toAccentStep(plain);
+  const none = await plain.evaluate(() => [...document.querySelectorAll(".onb-prefs .onb-chips__label")].map((e) => e.textContent));
+  check("with no theme the step is as it was: Accent, then Clock", none.join() === "Accent,Clock", none.join());
+  await plain.close();
+}
+
 if (!FAST) {
   const page = await newPage();
   await toAccentStep(page);

@@ -48,6 +48,7 @@ import { discoverEndpoint } from "../data/stalker";
 import { httpGetText } from "../lib/http";
 import { scrubbedMessage } from "../lib/errors";
 import { AccentPicker } from "../features/settings/AccentPicker";
+import { loadThemePack, packInfo, packShowing, themeAccentStore } from "../features/settings/themePack";
 import { TraktSection } from "../features/settings/TraktSection";
 import { MalSection } from "../features/settings/MalSection";
 import { readSignIn } from "../features/aiojf/account";
@@ -673,6 +674,11 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     saveClockFormat(next);
   };
 
+  // Replayed from Settings, the app may wear a theme (plan 035): the accent
+  // picker then writes that theme's store, as Appearance's does, and a theme
+  // with no accent of its own (Prism) has no picker. Read when the step shows.
+  const themed = step === STEP.look && packShowing(loadThemePack()) ? packInfo(loadThemePack()) : null;
+
   // --- Startup tab step ---------------------------------------------------
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
   // Read when the step shows: the sources are added on the steps before it.
@@ -1066,8 +1072,16 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
             v0.9.79, so this is the same component, not a copy.
             One grid for both rows so the labels share a column. */}
         <div className="onb-prefs" style={idx(1)}>
-          <span className="onb-chips__label">Accent</span>
-          <AccentPicker portalContainer={root} />
+          {!(themed && !themed.accent) && (
+            <>
+              <span className="onb-chips__label">Accent</span>
+              <AccentPicker
+                portalContainer={root}
+                store={themed ? themeAccentStore(themed.key) : undefined}
+                theme={themed?.accent ? { name: themed.label, hex: themed.accent } : undefined}
+              />
+            </>
+          )}
           <span className="onb-chips__label">Clock</span>
           <div className="onb-chips">
             <Segmented label="Clock format" options={CLOCK_TABS} value={clock} onChange={pickClock} />

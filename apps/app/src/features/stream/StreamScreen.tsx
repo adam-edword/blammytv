@@ -130,6 +130,7 @@ import {
   rolledForward,
   updateWatchingProgress,
   updateWatchingSource,
+  WATCHING_CHANGED,
   type WatchEntry,
 } from "./watching";
 import {
@@ -302,11 +303,16 @@ export function StreamScreen({
     return () => window.clearTimeout(t);
   }, [inVlc]);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
-  // A Trakt sync can move Continue Watching (plan 015, T4).
+  // A Trakt sync can move Continue Watching (plan 015, T4), and so can VLC's
+  // reports (plan 032), which are no sync.
   useEffect(() => {
     const reread = () => setWatching(loadWatching());
     window.addEventListener(TRAKT_SYNCED, reread);
-    return () => window.removeEventListener(TRAKT_SYNCED, reread);
+    window.addEventListener(WATCHING_CHANGED, reread);
+    return () => {
+      window.removeEventListener(TRAKT_SYNCED, reread);
+      window.removeEventListener(WATCHING_CHANGED, reread);
+    };
   }, []);
   const {
     view,
@@ -1475,6 +1481,12 @@ export function StreamScreen({
   // Identity of the CURRENT stream. reloadTick rides it so a Retry counts
   // as a new stream even when the re-resolve returned the identical url.
   const streamKey = playing ? `${playing.url}#${playing.reloadTick ?? 0}` : null;
+  // A VLC failure belongs to the stream it came from. Once that one is gone
+  // (the player closed, another picked) the note goes too, or playing the same
+  // address again would show it before any attempt.
+  useEffect(() => {
+    setVlcNote((n) => (n && n.key === streamKey ? n : null));
+  }, [streamKey]);
   const directApi = useDirectOverlay(
     isTauri() && !!playing && !playing.popped,
     streamKey,

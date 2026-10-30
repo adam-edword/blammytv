@@ -33,6 +33,7 @@ import {
   clearWatching,
   loadWatching,
   retiredFromContinue,
+  WATCHING_CHANGED,
   type WatchEntry,
 } from "./watching";
 import {
@@ -106,8 +107,14 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
       setLists(loadLists());
       setWatching(loadWatching());
     };
+    // VLC's reports move Continue Watching without a Trakt sync.
+    const rereadWatching = () => setWatching(loadWatching());
     window.addEventListener(TRAKT_SYNCED, reread);
-    return () => window.removeEventListener(TRAKT_SYNCED, reread);
+    window.addEventListener(WATCHING_CHANGED, rereadWatching);
+    return () => {
+      window.removeEventListener(TRAKT_SYNCED, reread);
+      window.removeEventListener(WATCHING_CHANGED, rereadWatching);
+    };
   }, []);
   const {
     view,

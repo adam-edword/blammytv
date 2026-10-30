@@ -454,7 +454,11 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           // POOL_PAGES deep at most. TMDB's popular titles are asked for at
           // the same time, and waited for only so long.
           const tmdb = Promise.race([
-            popularInGenre(genre, filter).catch(() => [] as VodItem[]),
+            // Live while this is the current request: a hop to another genre,
+            // or leaving the page, stops the lookups and not only the wait.
+            popularInGenre(genre, filter, undefined, () => reqId === reqIdRef.current).catch(
+              () => [] as VodItem[],
+            ),
             new Promise<VodItem[]>((r) => window.setTimeout(() => r([]), TMDB_WAIT_MS)),
           ]);
           const pool: VodItem[] = [];
@@ -621,6 +625,14 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
   phaseRef.current = phase;
   const viewRef = useRef(view);
   viewRef.current = view;
+  // Leaving the page ends the request in flight: it stops pooling and asking
+  // TMDB, and writes nothing to the shared genre log once the page is gone.
+  useEffect(
+    () => () => {
+      reqIdRef.current++;
+    },
+    [],
+  );
   useEffect(
     () => () => {
       // Mid-pool there is no coherent state to keep: the last snapshot stands.

@@ -103,12 +103,34 @@ export function handOver(
 
 /** What the right-click menu says about a programme: Record, Cancel Recording
  * for one that is scheduled, a disabled "Recording" for the channel being
- * recorded right now, or nothing for a programme that is over. */
+ * recorded during it, or nothing for a programme that is over. */
 export type ProgrammeAction =
   | { kind: "record"; label: "Record" }
   | { kind: "cancel"; label: "Cancel Recording"; id: string }
   | { kind: "recording"; label: "Recording" }
   | null;
+
+/**
+ * A record of this channel covers the programme when its own times meet the
+ * programme's, not when the starts match: native starts a scheduled one a
+ * minute early (the record then has no channel id, only the name), and a guide
+ * refresh can move a programme's start. Both used to offer Record again and
+ * record it twice. One with no end (Record in the player) covers only a
+ * programme that is on, so a later programme is still worth keeping.
+ */
+function covers(
+  r: Recording,
+  p: { channelId: string; playlistId: string; channel: string; start: number; end: number },
+  now: number,
+): boolean {
+  const same =
+    r.channelId != null
+      ? r.channelId === p.channelId
+      : r.playlistId === p.playlistId && r.channel === p.channel;
+  const open = r.stopAt == null;
+  const to = r.stopAt == null ? Infinity : r.stopAt - PAD_MS;
+  return same && r.startedAt < p.end && p.start < to && (!open || p.start <= now);
+}
 
 export function programmeAction(
   list: readonly Recording[],
@@ -116,14 +138,10 @@ export function programmeAction(
   now: number,
 ): ProgrammeAction {
   if (p.end <= now) return null;
-  const scheduled = list.find(
-    (r) => r.status === "scheduled" && r.channelId === p.channelId && r.startedAt === p.start,
-  );
+  const scheduled = list.find((r) => r.status === "scheduled" && covers(r, p, now));
   if (scheduled) return { kind: "cancel", label: "Cancel Recording", id: scheduled.id };
-  const on = p.start <= now;
-  const running = list.some(
-    (r) => r.status === "recording" && r.playlistId === p.playlistId && r.channel === p.channel,
-  );
-  if (on && running) return { kind: "recording", label: "Recording" };
+  if (list.some((r) => r.status === "recording" && covers(r, p, now))) {
+    return { kind: "recording", label: "Recording" };
+  }
   return { kind: "record", label: "Record" };
 }

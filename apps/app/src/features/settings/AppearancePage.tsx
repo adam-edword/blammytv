@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "../../components/ui/button";
 import { EYEBROW } from "../../ui/eyebrow";
 import { Segmented } from "../../ui/Segmented";
@@ -47,9 +47,9 @@ import {
   applyThemePack,
   loadThemePack,
   packInfo,
-  packShowing,
   resetThemeAccents,
   saveThemePack,
+  subscribeShowing,
   themeAccentStore,
   type ThemePack,
 } from "./themePack";
@@ -111,8 +111,13 @@ export function AppearancePage({
     saveThemePack(next);
     applyThemePack(next);
   };
-  const light = document.documentElement.dataset.theme === "light";
-  const themed = packShowing(pack) ? packInfo(pack) : null;
+  // Light is read from the root through a subscription: Match Windows can flip
+  // it with this page open, and nothing here sets state when it does.
+  const light = useSyncExternalStore(
+    subscribeShowing,
+    () => document.documentElement.dataset.theme === "light",
+  );
+  const themed = pack !== "none" && !light ? packInfo(pack) : null;
 
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
   const pickStartup = (next: StartupTab) => {

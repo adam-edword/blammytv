@@ -89,6 +89,26 @@ const root = (page, names) =>
     return Object.fromEntries(names.map((n) => [n, cs.getPropertyValue(n).trim()]));
   }, names);
 
+/** A token as a colour, [r, g, b, a], whichever form the browser resolves it
+ * to (rgb(), or color(srgb ...) for a color-mix). Painted on a probe, so it is
+ * what the page would draw. */
+const tokenColor = (page, token, prop = "color") =>
+  page.evaluate(
+    ({ token, prop }) => {
+      const probe = document.createElement("i");
+      probe.style[prop] = `var(${token})`;
+      document.body.append(probe);
+      const s = getComputedStyle(probe)[prop];
+      probe.remove();
+      const n = (s.match(/-?\d*\.?\d+(?:e-?\d+)?/g) ?? []).map(Number);
+      const scale = s.startsWith("color(") ? 255 : 1;
+      return [0, 1, 2].map((i) => Math.round(n[i] * scale)).concat(Math.round((n[3] ?? 1) * 100) / 100);
+    },
+    { token, prop },
+  );
+const near = (a, b) => a.length === b.length && a.every((x, i) => Math.abs(x - b[i]) <= 1 / (i === 3 ? 50 : 1));
+const hexRgb = (hex, a = 1) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).concat(a);
+
 /** Every custom property the root has, resolved: the whole palette at once. */
 const rootTokens = (page) =>
   page.evaluate(() => {
@@ -607,10 +627,23 @@ for (const [key, want] of Object.entries(PACKS)) {
   );
   const first = await accentGroup().locator("button").first().evaluate((e) => getComputedStyle(e).backgroundColor);
   check("Velvet's swatch is the brass", first === rgb(PACKS.velvet.accent), first);
+  // With no pick the derived tokens are the sheet's own values, as they were.
+  const velvetOwn = [await tokenColor(page, "--focus-ring"), await tokenColor(page, "--plate-ink"), await tokenColor(page, "--tint-on", "backgroundColor")];
+  check(
+    "Velvet, no pick: the focus ring and the plate ink are the brass, the selection tint is the brass at 18%",
+    near(velvetOwn[0], hexRgb("#e8bb6c")) && near(velvetOwn[1], hexRgb("#e8bb6c")) && near(velvetOwn[2], hexRgb("#e8bb6c", 0.18)),
+    JSON.stringify(velvetOwn),
+  );
   await accentGroup().getByRole("button", { name: "Blue", exact: true }).click();
   await page.waitForTimeout(100);
   const blue = await live();
   check("a pick under Velvet is on the page, with white ink on it", blue["--accent"] === "#3730ff" && blue["--accent-ink"] === "oklch(0.985 0 0)", JSON.stringify(blue));
+  const velvetBlue = [await tokenColor(page, "--focus-ring"), await tokenColor(page, "--plate-ink"), await tokenColor(page, "--tint-on", "backgroundColor")];
+  check(
+    "  and the focus ring and the selection tint follow it; the plate ink keeps the brass (a dark pick would fail 4.5:1 on the plate)",
+    near(velvetBlue[0], hexRgb("#3730ff")) && near(velvetBlue[1], hexRgb("#e8bb6c")) && near(velvetBlue[2], hexRgb("#3730ff", 0.18)),
+    JSON.stringify(velvetBlue),
+  );
 
   await pick("Lagoon");
   check(
@@ -618,9 +651,21 @@ for (const [key, want] of Object.entries(PACKS)) {
     (await accentGroup().locator("button").first().getAttribute("aria-label")) === "Lagoon" && (await pressed()) === "Lagoon" && (await live())["--accent"] === PACKS.lagoon.accent,
     `${await pressed()} ${(await live())["--accent"]}`,
   );
+  const lagoonOwn = [await tokenColor(page, "--focus-ring"), await tokenColor(page, "--tint-on", "backgroundColor")];
+  check(
+    "Lagoon, no pick: the focus ring is the aqua, the selection tint the aqua at 20%",
+    near(lagoonOwn[0], hexRgb("#5fe1c1")) && near(lagoonOwn[1], hexRgb("#5fe1c1", 0.2)),
+    JSON.stringify(lagoonOwn),
+  );
   await accentGroup().getByRole("button", { name: "Green", exact: true }).click();
   await page.waitForTimeout(100);
   check("a pick under Lagoon is on the page", (await live())["--accent"] === "#2cad57");
+  const lagoonGreen = [await tokenColor(page, "--focus-ring"), await tokenColor(page, "--tint-on", "backgroundColor")];
+  check(
+    "  and Lagoon's focus ring and selection tint follow it",
+    near(lagoonGreen[0], hexRgb("#2cad57")) && near(lagoonGreen[1], hexRgb("#2cad57", 0.2)),
+    JSON.stringify(lagoonGreen),
+  );
 
   await pick("Velvet");
   check("Velvet again gives back the blue it was given", (await pressed()) === "Blue" && (await live())["--accent"] === "#3730ff", `${await pressed()} ${(await live())["--accent"]}`);
@@ -683,6 +728,30 @@ async function pickAndSave(page) {
     return ["theme", "velvet", "palette"].map((q) => findSettings(q).some((r) => r.id === "theme-pack"));
   });
   check("Ctrl+K finds the row by Theme, a pack's name or palette", found.every(Boolean), JSON.stringify(found));
+}
+
+// ---------------------------------- Match Windows flips with Appearance open
+// The page read Light from the root while it drew, and nothing told it when
+// Windows changed: the Accent row kept a Velvet swatch in Light, and "Themes
+// are dark only." never showed.
+{
+  const { ctx, page, errors } = await open({ store: { theme: { data: "system" }, themePack: { data: "velvet" } } });
+  await page.locator("button[aria-label='Settings']").click();
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  const accent = page.locator('[data-setting="accent"]');
+  await accent.waitFor({ timeout: 10_000 });
+  const firstSwatch = () => accent.getByRole("group", { name: "Accent color" }).locator("button").first().getAttribute("aria-label");
+  check("Match Windows, dark, Velvet: the Accent row leads with Velvet and there is no dark-only note", (await firstSwatch()) === "Velvet" && (await page.getByText("Themes are dark only.").count()) === 0);
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.waitForFunction(() => document.documentElement.dataset.theme === "light");
+  await page.getByText("Themes are dark only.").waitFor({ timeout: 3000 }).catch(() => {});
+  check("  Windows goes Light: the note shows without leaving the page", (await page.getByText("Themes are dark only.").count()) === 1);
+  check("  and the Accent row is the default one, not Velvet's", /^Default/.test((await firstSwatch()) ?? ""), String(await firstSwatch()));
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.getByText("Themes are dark only.").waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+  check("  and back to dark, Velvet's again", (await page.getByText("Themes are dark only.").count()) === 0 && (await firstSwatch()) === "Velvet");
+  check("Match Windows: no page errors", errors.length === 0, errors.join(" | "));
+  await ctx.close();
 }
 
 // ----------------------------------------------------- it survives a reload

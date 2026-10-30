@@ -49,6 +49,10 @@ export interface WatchEntry {
   at: number;
 }
 
+/** Continue Watching moved with no Trakt sync behind it (VLC's 5s reports): the
+ * screens that show the list read it again, and Home's Trakt readers do not. */
+export const WATCHING_CHANGED = "blammytv:watching-changed";
+
 const KEY = "watching";
 const VERSION = 1;
 const CAP = 20;

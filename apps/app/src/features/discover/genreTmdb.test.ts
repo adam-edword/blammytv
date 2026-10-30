@@ -107,4 +107,26 @@ describe("popularInGenre", () => {
     };
     expect(await popularInGenre("Comedy", "all", deps)).toEqual([]);
   });
+
+  it("sends no further request once nobody wants the answer", async () => {
+    // Liveness drops after the first lookups have gone out: the ones on the
+    // wire finish, the other twenty-odd are never asked.
+    const { deps, asked } = fake(30);
+    let started = 0;
+    const imdbId = deps.imdbId;
+    deps.imdbId = (c) => {
+      started++;
+      return imdbId(c);
+    };
+    await popularInGenre("Comedy", "movie", deps, () => started < TMDB_PARALLEL);
+    expect(started).toBe(TMDB_PARALLEL);
+    expect(asked.resolve.length).toBeLessThanOrEqual(TMDB_PARALLEL);
+  });
+
+  it("asks nothing at all when it is dead before TMDB answers", async () => {
+    const { deps, asked } = fake(5);
+    expect(await popularInGenre("Comedy", "all", deps, () => false)).toEqual([]);
+    expect(asked.popular).toEqual([]);
+    expect(asked.resolve).toEqual([]);
+  });
 });

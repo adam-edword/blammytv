@@ -40,7 +40,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(String(e)));
 
-await page.addInitScript(() => {
+const stub = () => {
   window.__calls = [];
   window.__native = { recs: [], n: 0 };
   // What the next rec_start does: "ok", or a reason to refuse with. `gate`
@@ -137,7 +137,8 @@ await page.addInitScript(() => {
   localStorage.setItem("blammytv.startupTab", JSON.stringify({ v: 1, data: "live" }));
   // Record's heads-up (D5) is verify-recconns' subject: here it is off, as after its Don't Show Again.
   localStorage.setItem("blammytv.recordingNotice", JSON.stringify({ v: 1, data: false }));
-});
+};
+await page.addInitScript(stub);
 
 const calls = (cmd) => page.evaluate((c) => window.__calls.filter((x) => x[0] === c).map((x) => x[1]), cmd);
 const put = (rec) => page.evaluate((r) => window.__put(r), rec);
@@ -482,6 +483,41 @@ await page.waitForFunction((n) => window.__calls.filter((c) => c[0] === "rec_pla
 const lib = (await calls("rec_play")).at(-1);
 check("  and plays it there, by id, with a real rect", lib?.id === "p1" && lib.w > 0 && lib.h > 0, JSON.stringify(lib));
 check("  the same player: no second one for recordings", (await page.locator("#player-slot").count()) === 1);
+
+// ------------------------------------- Play, with no channel catalog behind it
+// Library's Play lands in Live TV Recordings. With no playlist, or one the
+// provider refuses, there is no channel list, and the recording has to play
+// anyway: its list, its hero and its player do not wait for the catalog.
+for (const [name, lists] of [
+  ["no playlist", []],
+  [
+    "a playlist the provider refuses",
+    [{ kind: "xtream", id: "t", name: "Dead", enabled: true, server: "http://localhost:9", username: "u", password: "p" }],
+  ],
+]) {
+  const bare = await ctx.newPage();
+  bare.on("pageerror", (e) => errors.push(String(e)));
+  await bare.addInitScript(stub);
+  await bare.addInitScript((pl) => {
+    localStorage.setItem("blammytv.playlists", JSON.stringify({ v: 1, data: pl }));
+    window.__native.recs.push({
+      id: "solo", channel: "Lonely Channel", programme: "Lonely Show", playlistId: "t", startedAt: Date.now() - 3600_000,
+      endedAt: Date.now() - 1800_000, path: "C:\\Videos\\solo.ts", bytes: 1024 ** 3, status: "done", reason: null, buffer: false,
+    });
+  }, lists);
+  await bare.goto(URL, { waitUntil: "domcontentloaded" });
+  await goTo(bare, "mylist");
+  await bare.locator('.library__recordings .rec-row[data-id="solo"]').waitFor({ timeout: 15_000 });
+  await bare.locator('.library__recordings .rec-row[data-id="solo"] button', { hasText: "Play" }).click();
+  await bare.locator(".live-sidebar").waitFor({ timeout: 10_000 });
+  await bare.waitForFunction(() => window.__calls.some((c) => c[0] === "rec_play"), null, { timeout: 8000 });
+  const bp = await bare.evaluate(() => window.__calls.filter((c) => c[0] === "rec_play").map((c) => c[1]));
+  check(`${name}: Play in Library plays the recording, by id, with a real rect`, bp[0]?.id === "solo" && bp[0].w > 0 && bp[0].h > 0, JSON.stringify(bp));
+  check(`  and Live TV lists it in Recordings mode`, (await bare.locator(".rec-row").count()) === 1 && (await bare.locator(`.live-sidebar [role=tab][aria-label="Recordings"]`).getAttribute("aria-selected")) === "true");
+  check(`  the hero says what it is`, /Lonely Show/.test(await bare.locator(".hero__details").innerText()));
+  check(`  and no channel error or empty card sits over it`, (await bare.locator(".live-status").count()) === 0);
+  await bare.close();
+}
 
 check("no page errors", errors.length === 0, errors.slice(0, 2).join(" | "));
 await browser.close();

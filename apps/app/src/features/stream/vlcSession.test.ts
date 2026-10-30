@@ -34,7 +34,7 @@ vi.stubGlobal("window", {
 const { applyVlcProgress, currentVlc, followVlc, onVlcSession, openInVlc, vlcTitle } = await import("./vlcSession");
 const { loadWatching, recordWatching } = await import("./watching");
 const { loadWatched, FILM_WATCHED } = await import("./watched");
-const { TRAKT_SYNCED } = await import("../trakt/store");
+const { WATCHING_CHANGED } = await import("./watching");
 
 const film = { itemId: "tt1", kind: "movie" as const, title: "Film", streamUrl: "http://h/a.mkv" };
 const ep = {
@@ -66,8 +66,10 @@ describe("what a report does", () => {
     expect(at("tt1")).toMatchObject({ posSec: 600, durSec: 6000 });
     applyVlcProgress(progress(900, 6000, "paused"));
     expect(at("tt1")).toMatchObject({ posSec: 900, durSec: 6000 });
-    // And tells the screens that read the list.
-    expect(heard).toEqual([TRAKT_SYNCED, TRAKT_SYNCED]);
+    // And tells the screens that read the list, not the Trakt ones (it was
+    // TRAKT_SYNCED once, so every 5s report made Home re-read Trakt).
+    expect(heard).toEqual([WATCHING_CHANGED, WATCHING_CHANGED]);
+    expect(heard).not.toContain("blammytv:trakt-synced");
   });
 
   it("keeps the length it had when VLC does not know it yet, and ignores a stopped 0", () => {

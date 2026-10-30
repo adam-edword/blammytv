@@ -2,6 +2,22 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.45: Fixes from the 1.2 review (unreleased)
+
+- **A programme can't be recorded twice.** Right-clicking one that's
+  scheduled or already recording offers Cancel Recording or shows
+  Recording, even in the minute before it starts or after the guide moves
+  its time.
+- **Recordings play from Live TV with no playlist**, or while the channels
+  are still loading.
+- **The VLC note doesn't come back** when you play the same title again.
+- **Switching genres in Discover** stops the old genre's searches.
+- **Replaying onboarding** saves your accent to the theme you're using, and
+  Prism doesn't get one.
+- **Velvet and Lagoon's focus ring and selection** follow the accent you
+  pick.
+- **Settings → Appearance notices** when Match Windows switches to Light.
+
 ## 1.0.44: Ctrl+K search fixes (unreleased)
 
 - **A search that can't reach your sources says so** instead of "Nothing

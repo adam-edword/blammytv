@@ -19,10 +19,9 @@
 
 import { onVlcProgress, tauriVlcOpen, VLC_NOT_INSTALLED, type VlcProgress } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
-import { TRAKT_SYNCED } from "../trakt/store";
 import type { VodFrom } from "./model";
 import { filmWatched, markWatched } from "./watched";
-import { isFinished, loadWatching, updateWatchingProgress } from "./watching";
+import { isFinished, loadWatching, updateWatchingProgress, WATCHING_CHANGED } from "./watching";
 
 /** What the reports need to name the title. */
 export interface VlcTarget {
@@ -109,7 +108,7 @@ export function applyVlcProgress(p: VlcProgress): void {
   const mine = loadWatching().find((e) => e.id === t.itemId);
   if (p.pos > 0 && (!mine || (mine.episodeId ?? "") === (t.episodeId ?? ""))) {
     const entry = updateWatchingProgress(t.itemId, p.pos, p.len > 0 ? p.len : undefined).find((e) => e.id === t.itemId);
-    window.dispatchEvent(new Event(TRAKT_SYNCED));
+    window.dispatchEvent(new Event(WATCHING_CHANGED));
     if (entry && isFinished(entry)) {
       if (t.episodeId) markWatched(t.itemId, t.episodeId);
       else if (t.kind === "movie") filmWatched(t.itemId);

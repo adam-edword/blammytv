@@ -190,11 +190,34 @@ describe("what the menu offers for a programme", () => {
     });
   });
 
-  it("matches the programme by its channel and its start, not by its channel alone", () => {
+  it("matches the programme by its channel and its times, not by its channel alone", () => {
     const list = [planned("s1", later.start, later.end)];
     const next = { ...later, start: later.end, end: later.end + 30 * MIN };
     expect(programmeAction(list, next, NOW)?.kind).toBe("record");
     expect(programmeAction(list, { ...later, channelId: "p1:8" }, NOW)?.kind).toBe("record");
+  });
+
+  it("still offers Cancel Recording when a guide refresh moved the programme's start", () => {
+    const list = [planned("s1", later.start, later.end)];
+    const moved = { ...later, start: later.start + 5 * MIN, end: later.end + 5 * MIN };
+    expect(programmeAction(list, moved, NOW)).toEqual({ kind: "cancel", label: "Cancel Recording", id: "s1" });
+  });
+
+  it("says Recording, not Record, in the minute before a scheduled start, once native has begun it", () => {
+    // Native began it a minute early: it is a running record with no channel id, and the
+    // programme has not started yet.
+    const soon = { ...p, start: NOW + 30_000, end: NOW + 30 * MIN };
+    const running = rec({
+      id: "r",
+      startedAt: NOW - 30_000,
+      stopAt: soon.end + PAD_MS,
+      channel: "BBC One",
+      playlistId: "p1",
+    });
+    expect(programmeAction([running], soon, NOW)).toEqual({ kind: "recording", label: "Recording" });
+    // The programme after it is its own.
+    const next = { ...soon, start: soon.end, end: soon.end + 30 * MIN };
+    expect(programmeAction([running], next, NOW)?.kind).toBe("record");
   });
 
   it("does not offer Cancel Recording for a missed or failed one", () => {

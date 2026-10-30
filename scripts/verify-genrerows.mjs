@@ -354,6 +354,29 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true });
   await ctx.close();
 }
 
+// ---- Leaving mid-lookup stops the lookups ---------------------------------
+// TMDB's row is ten lookups, five at a time. The page only waits so long for
+// it, and a tab flip used to leave the rest running for a page that was gone.
+// Each IMDb-id answer takes 800ms here, so five are on the wire when the page
+// is left, and no sixth may go out.
+{
+  const { ctx, page } = await open();
+  let sent = 0;
+  await page.route(/api\.themoviedb\.org.*external_ids/, async (r) => {
+    sent++;
+    await new Promise((ok) => setTimeout(ok, 800));
+    r.fallback();
+  });
+  await pickComedy(page);
+  for (let i = 0; i < 100 && sent < 5; i++) await page.waitForTimeout(50);
+  const onWire = sent;
+  await goTo(page, "home");
+  await page.waitForTimeout(3000);
+  check("five lookups were on the wire when the page was left (so the next check is not vacuous)", onWire === 5, String(onWire));
+  check("and leaving the page sent no more of the other five", sent === 5, `${sent} sent`);
+  await ctx.close();
+}
+
 // ---- A later batch ranks by the pool's rule -------------------------------
 // The first pool decides whether the order of a card's genres means anything
 // (orderMeaningful), and every row agrees. A batch scrolled in later used to
