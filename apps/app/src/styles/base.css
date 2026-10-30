@@ -655,6 +655,8 @@ button {
 }
 .navcap__row--nav {
   gap: 7px;
+  /* With no live half, place() centres it over a wider row 2. */
+  transition: margin-left var(--nav-dur) var(--nav-spring);
   /* Content width: this row is what the capsule measures itself against. */
   align-self: flex-start;
 }
@@ -1170,6 +1172,7 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .navcap,
+  .navcap__row--nav,
   .navcap__pill,
   .navcap__lbl,
   .navcap__lbl > i,

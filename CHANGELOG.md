@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.41: The tabs centre over Discover's search (unreleased)
+
+- **With no TV playlist**, the tabs now sit centred over Discover's search
+  row, instead of at its left with a gap on the right.
+
 ## 1.0.40: A picture of each Home row (unreleased)
 
 - **Settings → Home shows a small picture of each row** beside its name:

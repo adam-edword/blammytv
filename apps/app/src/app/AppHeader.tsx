@@ -487,11 +487,17 @@ export function AppHeader({
      * Its width is max(row 1, row 2 when open), the rule base.css states
      * for .navcap--open, from the same target widths, so it holds centre
      * through the unfold on the same clock. */
+    const rowNav = rowNavRef.current;
     if (markMid === null || !showLive) {
       const width = Math.max(row1.width, subOpen ? row2.width : 0) + 2 * from;
       nav.style.marginLeft = `${-width / 2}px`;
+      // And row 1 centres over a wider row 2 (Discover's), instead of sitting
+      // at its left with a gap on the right (Adam, 1.0.41). Its items move as
+      // one, thumb included; margin-left, so on the capsule's own clock.
+      if (rowNav) rowNav.style.marginLeft = `${subOpen ? Math.max(0, (row2.width - row1.width) / 2) : 0}px`;
       return;
     }
+    if (rowNav) rowNav.style.marginLeft = "0px";
     /* The mark holds the midline; the capsule breathes around it.
      *
      * ONE CLOCK. These used to travel on `transform`, which the browser

@@ -647,6 +647,25 @@ const stream = async (page) => {
   await page.locator("[data-dest='hub']").click();
   await page.locator("main[data-screen='hub']").waitFor({ timeout: 10_000 }).catch(() => {});
   check("  pressed from Stream it goes Home", away.current === null && (await screen(page)) === "hub" && (await mark(page)).current === "page", JSON.stringify({ away: away.current, screen: await screen(page) }));
+  // Discover, still no playlist: its search row is wider than the tabs, and
+  // the tabs sit centred over it, not at its left (Adam, 1.0.41).
+  await goTo(page, "discover");
+  await page.waitForTimeout(900);
+  const rows2 = await page.evaluate(() => {
+    const span = (sel) => {
+      const kids = [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0);
+      const l = Math.min(...kids.map((r) => r.left));
+      const r = Math.max(...kids.map((r) => r.right));
+      return { mid: (l + r) / 2, w: r - l };
+    };
+    const cap = document.querySelector(".navcap").getBoundingClientRect();
+    return { tabs: span(".navcap__row--nav > :not(.navcap__pill)"), sub: span(".navcap__row--sub > :not(.navcap__pill)"), cap: cap.left + cap.width / 2 };
+  });
+  check(
+    "  on Discover the tabs sit centred over the wider search row, and both on the capsule's centre",
+    rows2.sub.w > rows2.tabs.w + 40 && Math.abs(rows2.tabs.mid - rows2.cap) < 2 && Math.abs(rows2.sub.mid - rows2.cap) < 2,
+    JSON.stringify(rows2),
+  );
   await ctx.close();
 }
 
