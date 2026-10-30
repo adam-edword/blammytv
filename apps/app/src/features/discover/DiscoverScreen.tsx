@@ -45,6 +45,7 @@ import {
 } from "./searchQuery";
 import { scrubbedMessage } from "../../lib/errors";
 import { useMouseNav } from "../../lib/mouseNav";
+import { returnFocus } from "../../lib/returnFocus";
 import { useViewStack } from "../../lib/viewStack";
 import { Recommender } from "./Recommender";
 import {
@@ -366,6 +367,13 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
   const appearRef = useRef<Appearances>(new Map(session?.appear ?? []));
   const busyRef = useRef(false);
   const reqIdRef = useRef(0);
+  // A genre's pool is still loading: the cursors and seen keys are ahead of
+  // anything on screen, so a snapshot taken now would restore a page with no
+  // first titles. Set by each reset, cleared when the current request ends.
+  const poolingRef = useRef(false);
+  // orderMeaningful of the first pool. Every later batch of the page ranks by
+  // it, so a card does not read differently from one batch to the next.
+  const orderedRef = useRef(session?.ordered ?? false);
 
   const loadMore = useCallback(
     async (reset: boolean) => {
@@ -379,6 +387,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         doneRef.current = {};
         seenRef.current = new Set();
         appearRef.current = new Map();
+        poolingRef.current = !!genre;
         setRows(null);
         // The UNFILTERED grid seeds instantly from the Stream tab's cache
         // (same catalogs, already fetched); each catalog's skip cursor
@@ -467,7 +476,8 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           // there are no rows to make (too few cards say anything), the page
           // is today's grid, ranked.
           const pin = genreArtTitle(genre);
-          const order = { genre, ordered: orderMeaningful(pool) };
+          orderedRef.current = orderMeaningful(pool);
+          const order = { genre, ordered: orderedRef.current };
           const shown = pinFirst(rankCards(dropOffGenre(pool, genre), appearRef.current, order), pin);
           const made = buildRows(pool, genre, filter, appearRef.current, { tmdb: popular, pin });
           logGridShown(shown);
@@ -489,7 +499,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         const merged = genre
           ? rankCards(dropOffGenre(got.fresh, genre), appearRef.current, {
               genre,
-              ordered: orderMeaningful(got.fresh),
+              ordered: orderedRef.current,
             })
           : got.fresh;
         logGridShown(merged);
@@ -503,7 +513,10 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         // Only the CURRENT request may unlatch: a superseded flight's
         // finally otherwise opened a concurrent same-generation load
         // (double-advanced cursors = a silently skipped page).
-        if (reqId === reqIdRef.current) busyRef.current = false;
+        if (reqId === reqIdRef.current) {
+          busyRef.current = false;
+          poolingRef.current = false;
+        }
       }
     },
     [cfg, filter, genre],
@@ -543,6 +556,23 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
     (see: string) => navigate({ filter, genre, see }),
     [navigate, filter, genre],
   );
+  // Focus follows the page change, as the draw's does (TournamentDraw): into
+  // the See All page on its Back button, and back out onto the See All button
+  // it was opened from. That button is a new node by then, so it is found
+  // again by what it opened.
+  const backRef = useRef<HTMLButtonElement>(null);
+  const seenFrom = useRef<string | null>(null);
+  const inSeeAll = !!seeing;
+  const wasSeeAll = useRef(inSeeAll);
+  useEffect(() => {
+    if (inSeeAll === wasSeeAll.current) return;
+    wasSeeAll.current = inSeeAll;
+    if (inSeeAll) returnFocus(backRef.current);
+    else if (seenFrom.current)
+      returnFocus(
+        scrollRef.current?.querySelector<HTMLElement>(`[data-see-all="${seenFrom.current}"]`),
+      );
+  }, [inSeeAll, scrollRef]);
 
   // Infinite scroll: one sentinel under the grid.
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -593,6 +623,8 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
   viewRef.current = view;
   useEffect(
     () => () => {
+      // Mid-pool there is no coherent state to keep: the last snapshot stands.
+      if (poolingRef.current) return;
       saveDiscoverSession({
         key: discoverKey(),
         filter: viewRef.current.filter,
@@ -606,6 +638,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         scroll: viewRef.current.see ? 0 : lastScroll.current,
         rows: rowsRef.current,
         appear: new Map(appearRef.current),
+        ordered: orderedRef.current,
       });
     },
     [],
@@ -775,7 +808,11 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
                     type="button"
                     className="genre-rows__all"
                     aria-label={`See All ${row.title}`}
-                    onClick={() => seeAll(row.id)}
+                    data-see-all={row.id}
+                    onClick={() => {
+                      seenFrom.current = row.id;
+                      seeAll(row.id);
+                    }}
                   >
                     See All
                   </Button>
@@ -795,7 +832,15 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           </div>
           {items.length > 0 && (
             <div className="genre-rows__foot">
-              <Button variant="secondary" type="button" onClick={() => seeAll("all")}>
+              <Button
+                variant="secondary"
+                type="button"
+                data-see-all="all"
+                onClick={() => {
+                  seenFrom.current = "all";
+                  seeAll("all");
+                }}
+              >
                 See All {genre}
               </Button>
             </div>
@@ -805,7 +850,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
       <section className="discover__gridwrap">
         {seeing ? (
           <div className="library__bar">
-            <BackButton className="vod-back" onClick={goBack} />
+            <BackButton ref={backRef} className="vod-back" onClick={goBack} />
             <h2 className="library__heading">
               {seeing === "all" ? `All ${genre}` : seeing.title}
             </h2>

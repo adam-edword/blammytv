@@ -302,6 +302,92 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true });
   await ctx.close();
 }
 
+// ---- See All moves focus there, and Back puts it back --------------------
+// Both buttons used to leave focus on a node the page change threw away, which
+// is <body>: a keyboard user's next Tab restarted from the top. The keyboard
+// does all of it here, because a click that lands on a button would not show it.
+{
+  const { ctx, page } = await open();
+  await pickComedy(page);
+  await rowsUp(page);
+  const where = () =>
+    page.evaluate(() => {
+      const a = document.activeElement;
+      return { tag: a?.tagName ?? "", label: a?.getAttribute("aria-label") ?? "", from: a?.getAttribute("data-see-all") ?? "" };
+    });
+  for (const [what, button, from] of [
+    ["a row's", page.getByRole("button", { name: "See All Just Comedy", exact: true }), "just"],
+    ["the foot's", page.getByRole("button", { name: "See All Comedy", exact: true }), "all"],
+  ]) {
+    await button.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForSelector(".library__heading");
+    const onPage = await where();
+    check(`${what} See All puts focus on the page's Back button`, onPage.tag === "BUTTON" && onPage.label === "Back", JSON.stringify(onPage));
+    await page.keyboard.press("Enter");
+    await rowsUp(page);
+    const onRows = await where();
+    check(`and Back puts it on ${what} See All again`, onRows.tag === "BUTTON" && onRows.from === from, JSON.stringify(onRows));
+  }
+  await ctx.close();
+}
+
+// ---- A tab flip while the pool is loading ---------------------------------
+// The pool is several rounds of pages, and each moves the cursors and the
+// seen keys before the cards are shown. Leaving mid-pool saved those with no
+// cards, and coming back restored a page that had skipped its first titles.
+// The catalogs answer after 1.5s, so 2.2s in is round one landed and round two
+// out.
+{
+  const { ctx, page } = await open();
+  await page.route("**/catalog/**", async (r) => { await new Promise((ok) => setTimeout(ok, 1500)); r.continue(); });
+  await pickComedy(page);
+  await page.waitForTimeout(2200);
+  await goTo(page, "home");
+  await page.waitForSelector(".stream__rows .stream-card", { timeout: 20_000 });
+  await goTo(page, "discover");
+  const firstUp = await page
+    .waitForFunction(() => [...document.querySelectorAll(".stream-card__name")].some((e) => e.textContent === "GR Pure Two"), null, { timeout: 20_000 })
+    .then(() => true, () => false);
+  const back = await allNames(page);
+  check("coming back from a flip mid-pool shows the first titles", firstUp && back.includes("GR Pure One"), `${back.length} cards: ${back.slice(0, 6).join(", ")}`);
+  await ctx.close();
+}
+
+// ---- A later batch ranks by the pool's rule -------------------------------
+// The first pool decides whether the order of a card's genres means anything
+// (orderMeaningful), and every row agrees. A batch scrolled in later used to
+// ask of itself. Here the pool is alphabetical, so the rule is the count of
+// genres, and the batch lists three of its four titles out of order, which
+// read alone would turn the rule over: the one with Comedy first would lead.
+{
+  const { ctx, page } = await open({ key: false });
+  const late = (id, name, genres) => ({
+    id, type: "movie", name, poster: `http://localhost:8084/poster/${id}.png`, releaseInfo: "2024", genres,
+  });
+  const batch = [
+    late("tt69001", "GR Late A1", ["Romance", "Comedy"]),
+    late("tt69002", "GR Late A2", ["Romance", "Comedy"]),
+    late("tt69003", "GR Late A3", ["Romance", "Comedy"]),
+    late("tt69004", "GR Late B", ["Comedy", "Kids", "Romance"]),
+  ];
+  await page.route(/\/genrerows\/catalog\/movie\/gr-top\/.*skip=24/, (r) =>
+    r.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ metas: batch }) }),
+  );
+  await pickComedy(page);
+  await rowsUp(page);
+  await scrollTo(page, 99999);
+  await page.getByRole("button", { name: "See All Comedy", exact: true }).click();
+  await page.waitForSelector(".library__heading");
+  await page.waitForTimeout(700);
+  await scrollTo(page, 99999);
+  await page.waitForFunction(() => document.querySelectorAll(".disc-grid .stream-card").length >= 34, null, { timeout: 10_000 }).catch(() => {});
+  const grid = await gridNames(page);
+  check("the late batch ranks by the pool's rule: fewest genres first, whatever order they list them in",
+    same(grid.slice(30), ["GR Late A1", "GR Late A2", "GR Late A3", "GR Late B"]), `${grid.length} cards, tail ${grid.slice(30).join(", ")}`);
+  await ctx.close();
+}
+
 await browser.close();
 const pass = results.filter(([, ok]) => ok).length;
 console.log(`\n${pass}/${results.length} checks passed`);

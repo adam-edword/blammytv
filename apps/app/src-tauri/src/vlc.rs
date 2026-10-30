@@ -261,9 +261,12 @@ pub struct Timing {
     pub max_fails: u32,
 }
 
+/// The grace is 45 seconds because a cold VLC can take 30 to 40 before its web
+/// interface binds (antivirus scanning the first launch, a slow disk), and one
+/// that is given up on is never followed again.
 pub const TIMING: Timing = Timing {
     every: Duration::from_secs(5),
-    grace: Duration::from_secs(20),
+    grace: Duration::from_secs(45),
     max_fails: 3,
 };
 
@@ -1021,6 +1024,12 @@ mod tests {
             );
             assert_eq!(got.last().unwrap().state, "gone");
         });
+    }
+
+    #[test]
+    fn the_grace_outlasts_a_cold_start_of_forty_seconds() {
+        assert!(TIMING.grace >= Duration::from_secs(45), "{:?}", TIMING.grace);
+        assert_eq!(TIMING.max_fails, 3);
     }
 
     #[test]

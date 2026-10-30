@@ -74,6 +74,8 @@ const FIXTURE = {
 const stub = (pos, fixture = FIXTURE, win = null, reading = null) => `
   window.__tauriCalls = [];
   const t0 = performance.now();
+  // A reload (mpv_go_live) brings a dead reader back, as a real one does.
+  let stopAfter = ${reading ? reading.stopAfter : 0};
   let cb = 0;
   window.__TAURI_INTERNALS__ = {
     transformCallback: (f) => { const id = ++cb; window["_" + id] = f; return id; },
@@ -88,17 +90,20 @@ const stub = (pos, fixture = FIXTURE, win = null, reading = null) => `
       // with the page's own fetch (fake-m3u serves CORS-open) so the
       // playlist really loads and the matcher has real channels.
       if (cmd === "http_get") return fetch(args.url).then((r) => r.text());
+      if (cmd === "mpv_go_live") stopAfter = Infinity;
       if (cmd === "mpv_status") {
         return Promise.resolve(JSON.stringify({
           pos: ${pos}, dur: 24.745,   // a live feed DOES report a duration
-          presenting: true, ended: false,
+          // \`window.__idle\` is a player between files: nothing on screen
+          // and the core idle, which re-arms loading.
+          presenting: !window.__idle, ended: !!window.__idle,
           buffering: false, seekable: true,
           // With \`reading\`, the buffer's end advances a second a second, as a
           // live feed's does, and stops after \`stopAfter\` seconds (a reader
           // that died). Without it, a flat 100, which every scenario but
           // Go Live's relies on.
           cacheDur: 18, dvrStart: 0,
-          dvrEnd: ${reading ? `100 + Math.min((performance.now() - t0) / 1000, ${reading.stopAfter})` : 100},
+          dvrEnd: ${reading ? `100 + Math.min((performance.now() - t0) / 1000, stopAfter)` : 100},
           audio: [], subs: [], chapters: [],
         }));
       }
@@ -269,6 +274,66 @@ async function open(pos, fixture, win, reading) {
     named(dead, "mpv_seek_abs").length === 0,
     JSON.stringify(named(dead, "mpv_seek_abs")),
   );
+}
+
+// ---- Go Live after a reload starts a fresh watch ------------------------
+// A stall is sticky, and a reload is what clears it. But Go Live's reload
+// reloads the same URL, which is no stream change, so the watch kept its old
+// peak and the stall stayed latched: every later press reloaded again and Go
+// Live never sought on that channel. The reader here dies at 3s, the first
+// press (at ~26s) reloads and brings it back, and the second must seek.
+{
+  const { page, ctx } = await open(40, undefined, undefined, { stopAfter: 3 });
+  await page.waitForTimeout(14_000);
+  const press = async () => {
+    await page.mouse.move(700, 400);
+    await page.mouse.move(720, 420);
+    await page.waitForTimeout(250);
+    const before = await page.evaluate(() => window.__tauriCalls.length);
+    await page.getByLabel("Jump to Live").click();
+    await page.waitForTimeout(400);
+    return page.evaluate(
+      (n) => window.__tauriCalls.slice(n).map((c) => c[0]),
+      before,
+    );
+  };
+  const first = await press();
+  check("the stalled reader: the first press reloads", first.includes("mpv_go_live"), JSON.stringify(first));
+  // Reading is back, and the new watch needs a few polls to see it.
+  await page.waitForTimeout(2_000);
+  const second = await press();
+  check(
+    "and once the reload has brought it back, the next press seeks",
+    second.includes("mpv_seek_abs") && !second.includes("mpv_go_live"),
+    JSON.stringify(second),
+  );
+  await ctx.close();
+}
+
+// ---- Go Live while the player is reconnecting reloads ---------------------
+// Between files the core is idle and loading is up again. There is no buffer
+// to land a seek in, so LIVE reloads. (The poll drops the edge while loading,
+// so this holds with or without goLiveAction's own buffering test.)
+{
+  const { page, ctx } = await open(40, undefined, undefined, { stopAfter: 1e9 });
+  await page.evaluate(() => (window.__idle = true));
+  await page.waitForTimeout(700);
+  await page.mouse.move(700, 400);
+  await page.mouse.move(720, 420);
+  await page.waitForTimeout(250);
+  const before = await page.evaluate(() => window.__tauriCalls.length);
+  await page.getByLabel("Jump to Live").dispatchEvent("click");
+  await page.waitForTimeout(400);
+  const sent = await page.evaluate(
+    (n) => window.__tauriCalls.slice(n).map((c) => c[0]),
+    before,
+  );
+  check(
+    "reconnecting: LIVE reloads and sends no seek",
+    sent.includes("mpv_go_live") && !sent.includes("mpv_seek_abs"),
+    JSON.stringify(sent),
+  );
+  await ctx.close();
 }
 
 // ---- Stopping the feed must not strand you ----------------------------

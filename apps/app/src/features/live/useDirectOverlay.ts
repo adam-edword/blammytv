@@ -514,6 +514,11 @@ export function useDirectOverlay(
       multiview: hasMultiview ? () => h.current.onMultiview?.() : undefined,
       toggleFavorite: () => h.current.onToggleFavorite(),
       goLive: () => {
+        // A reload is a new buffer, and it changes no stream key, so the reset
+        // block above never runs: the watch would carry the old peak over and
+        // latch a stall that the reload already cured. The watchdog and Retry
+        // come through here too.
+        s.readWatch = null;
         if (h.current.onGoLive) h.current.onGoLive();
         else void tauriMpvGoLive().catch(() => {});
       },

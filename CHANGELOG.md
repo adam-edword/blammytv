@@ -2,6 +2,22 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.34: Fixes from the code review (unreleased)
+
+- **Go Live after a stalled channel reloads once, then seeks** like it
+  should, instead of reloading on every press.
+- **Record on a programme that's on can't start it twice** if you click it
+  again while the first is starting. The menu reads Recording meanwhile.
+- **Flipping tabs while a genre loads** no longer brings you back to an
+  empty genre page.
+- **A genre's later titles rank by the same rule as its first.**
+- **See All moves keyboard focus** to the page's Back button, and Back
+  returns it to See All.
+- **VLC gets 45 seconds to start**, not 20, so a slow first launch is still
+  followed.
+- **Cancelling a scheduled recording that can't be saved** says so and keeps
+  it, instead of quietly coming back at the next launch.
+
 ## 1.0.33: Pop out films and shows in VLC (unreleased)
 
 - **Settings → Playback → Pop Out Films and Shows In** picks BlammyTV or

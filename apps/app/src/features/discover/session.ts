@@ -34,6 +34,8 @@ export type DiscoverSession = {
   rows: GenreRow[] | null;
   /** Where each card was seen, which ranks the next batch the grid loads. */
   appear: Appearances;
+  /** orderMeaningful of the genre page's first pool, which ranks its later batches. */
+  ordered: boolean;
 };
 
 let held: DiscoverSession | null = null;

@@ -13,6 +13,12 @@ import {
   startRecording,
 } from "./store";
 
+/** Channels whose "on now" recording is being started: the link is resolved
+ * before `rec_start`, and the list only gains the recording once that returns,
+ * so a second Record in that gap would start the channel twice. */
+const starting = new Set<string>();
+export const isStarting = (channelId: string): boolean => starting.has(channelId);
+
 /**
  * Right-click a programme in the Guide → Record (plan 029, Phase 3). Each
  * answers with the line the Guide's toast says, and never rejects.
@@ -39,8 +45,11 @@ export async function recordProgramme(
   const end = programme.end.getTime();
   const on = start <= now;
   const verb = on ? "record" : "schedule";
+  // A second Record while one is starting says nothing: the first will.
+  if (on && starting.has(channel.id)) return "";
   const why = clash(listNow(), line, playlistId, on ? now : start, end);
   if (why) return `Couldn’t ${verb}: ${why}.`;
+  if (on) starting.add(channel.id);
   try {
     if (on) {
       const url = await resolveStreamUrl(channel);
@@ -69,6 +78,8 @@ export async function recordProgramme(
   } catch (e) {
     const reason = plainError(e);
     return on ? startFailure(reason) : `Couldn’t schedule: ${reason.replace(/\.+$/, "")}.`;
+  } finally {
+    starting.delete(channel.id);
   }
 }
 

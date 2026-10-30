@@ -1787,8 +1787,21 @@ impl Rec {
                 }
             }
         }
-        lock(&self.records).retain(|r| r.id != id);
-        self.save();
+        let gone = {
+            let mut records = lock(&self.records);
+            let at = records.iter().position(|r| r.id == id);
+            at.map(|i| records.remove(i))
+        };
+        // An entry whose removal cannot be saved would come back at the next
+        // launch, a cancelled schedule with it, so it stays and the page is
+        // told, as in `schedule`. A file already deleted is not put back: the
+        // next try finds it gone and gets here again.
+        if !self.save() {
+            if let Some(r) = gone {
+                lock(&self.records).push(r);
+            }
+            return Err("the list couldn't be saved".into());
+        }
         Ok(())
     }
 }
@@ -5702,6 +5715,29 @@ mod tests {
         let again = Rec::open(index, cfg_quiet());
         assert_eq!(again.list(), r.list());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_cancel_that_cannot_be_saved_leaves_the_schedule_and_says_so() {
+        let b = Bench::new("sched-cancel-unsaved", |_| {});
+        let r = b.rec.schedule(programme(10 * MIN as i64, 30 * MIN)).unwrap();
+        // A directory where the index goes: the save cannot move its temp file
+        // over it.
+        let index = b.root.join("recordings.json");
+        std::fs::remove_file(&index).unwrap();
+        std::fs::create_dir(&index).unwrap();
+        let why = b.rec.delete(&r.id).unwrap_err();
+        assert_eq!(why, "the list couldn't be saved");
+        // Still there, still waiting, so what the page lists is what the next
+        // launch will find.
+        assert_eq!(b.rec.get(&r.id).unwrap().status, Status::Scheduled);
+        assert_eq!(b.rec.list().len(), 1);
+        // The disk comes back, and the same cancel goes through.
+        std::fs::remove_dir(&index).unwrap();
+        b.rec.delete(&r.id).unwrap();
+        assert!(b.rec.list().is_empty());
+        let again = Rec::open(index, cfg_quiet());
+        assert!(again.list().is_empty());
     }
 
     #[test]

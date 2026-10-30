@@ -151,6 +151,8 @@ async function open({ max = 3 } = {}) {
             return Promise.resolve(undefined);
           }
           if (cmd === "rec_delete") {
+            // Native could not save the index: it keeps the record and says so.
+            if (window.__deleteFails) return Promise.reject(window.__deleteFails);
             if (find(args.id)?.status === "recording") return Promise.reject("stop the recording first");
             window.__native.recs = window.__native.recs.filter((x) => x.id !== args.id);
             return Promise.resolve(undefined);
@@ -291,10 +293,21 @@ async function pick(page, id, c, name) {
   check("  with no length or size (it has no file)", !/KB|MB|GB|\d:\d\d/.test(meta), meta);
   const buttons = (await r.getByRole("button").allInnerTexts()).map((t) => t.trim());
   check("  and Cancel Recording, with no Play, Show in Folder or Delete", buttons.length === 1 && buttons[0] === "Cancel Recording", buttons.join(" | "));
+  // A cancel native cannot save is refused, and the row says why beside it.
+  await page.evaluate(() => (window.__deleteFails = "the list couldn't be saved"));
+  await r.getByRole("button", { name: "Cancel Recording" }).click();
+  await r.locator("[role=alert]").waitFor({ timeout: 5000 });
+  check(
+    "a cancel native could not save keeps the row, with the reason beside it",
+    (await r.locator("[role=alert]").innerText()) === "Couldn’t cancel: the list couldn't be saved." &&
+      (await r.getByRole("button", { name: "Cancel Recording" }).count()) === 1 &&
+      (await natives(page)).length === 1,
+  );
+  await page.evaluate(() => (window.__deleteFails = null));
   await r.getByRole("button", { name: "Cancel Recording" }).click();
   await page.waitForFunction((id) => !document.querySelector(`.rec-row[data-id="${id}"]`), sid);
   const del = await calls(page, "rec_delete");
-  check("Cancel Recording in the list deletes the record by id", del.length === 1 && del[0].id === sid, JSON.stringify(del));
+  check("Cancel Recording in the list deletes the record by id", del.length === 2 && del[1].id === sid, JSON.stringify(del));
   await page.locator(".guide-empty").waitFor({ timeout: 5000 });
   check("  and the list is empty again", (await page.locator(".rec-row").count()) === 0);
   await modeTab(page, "Playlist").click();
@@ -308,7 +321,7 @@ async function pick(page, id, c, name) {
   await pick(page, ESPN, later, "Cancel Recording");
   await page.waitForFunction(([c, s]) => !document.querySelector(`.guide__row[data-channel="${c}"] .guide__cell[data-start="${s}"] .guide__rec--sched`), [ESPN, later.start]);
   const del2 = await calls(page, "rec_delete");
-  check("Cancel Recording in the menu deletes it too, and the dot goes", del2.length === 2 && del2[1].id === id2 && (await natives(page)).length === 0);
+  check("Cancel Recording in the menu deletes it too, and the dot goes", del2.length === 3 && del2[2].id === id2 && (await natives(page)).length === 0);
   const gone = await said(page, /^Recording canceled\.$/);
   check("  and says so", gone === "Recording canceled.", gone);
   await rightClick(page, cell(page, ESPN, later.start));

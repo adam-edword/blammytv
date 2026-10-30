@@ -25,7 +25,7 @@ vi.mock("../live/stream", () => ({
 vi.mock("../settings/recordingsFolder", () => ({ loadRecordingsFolder: () => "D:\\TV" }));
 vi.mock("../settings/clockFormat", () => ({ loadClockFormat: () => "24h" }));
 
-import { cancelProgramme, recordProgramme } from "./recordProgramme";
+import { cancelProgramme, isStarting, recordProgramme } from "./recordProgramme";
 
 const channel: Channel = { id: "p1:7", name: "BBC One", quality: null, folderId: "", archiveDays: 0 };
 const prog = (from: number, len: number): Programme => ({
@@ -160,6 +160,53 @@ describe("Record on a programme that is on", () => {
     expect(said).toBe(
       "Couldn’t record: not enough free disk space (recording needs 2 GB). Pick another folder in Settings → Playback.",
     );
+  });
+});
+
+describe("Record twice on a programme that is on", () => {
+  /** A link that resolves when told to, so a second Record can land while the
+   * first is still starting. */
+  const slowLink = () => {
+    let open: (u: string) => void = () => {};
+    resolveStreamUrl.mockReturnValue(new Promise((r) => (open = r)));
+    return (u = "http://x/live/u/p/7.ts") => open(u);
+  };
+
+  it("starts the channel once, and says nothing for the second", async () => {
+    const open = slowLink();
+    const p = prog(-10 * MIN, 30 * MIN);
+    const first = recordProgramme(channel, p, null, NOW);
+    expect(isStarting("p1:7")).toBe(true);
+    expect(await recordProgramme(channel, p, null, NOW)).toBe("");
+    open();
+    expect(await first).toBe("Recording News.");
+    expect(startRecording).toHaveBeenCalledTimes(1);
+    expect(isStarting("p1:7")).toBe(false);
+  });
+
+  it("lets another channel start meanwhile", async () => {
+    const open = slowLink();
+    const first = recordProgramme(channel, prog(-10 * MIN, 30 * MIN), null, NOW);
+    resolveStreamUrl.mockResolvedValue("http://x/live/u/p/8.ts");
+    const other: Channel = { ...channel, id: "p1:8", name: "ITV" };
+    expect(await recordProgramme(other, prog(-10 * MIN, 30 * MIN), null, NOW)).toBe("Recording News.");
+    open();
+    await first;
+    expect(startRecording).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets the channel start again once a failed start has been said", async () => {
+    startRecording.mockRejectedValueOnce("the provider refused");
+    const p = prog(-10 * MIN, 30 * MIN);
+    expect(await recordProgramme(channel, p, null, NOW)).toMatch(/^Couldn’t record/);
+    expect(isStarting("p1:7")).toBe(false);
+    expect(await recordProgramme(channel, p, null, NOW)).toBe("Recording News.");
+  });
+
+  it("does not hold a programme to come", async () => {
+    const p = prog(60 * MIN, 30 * MIN);
+    await Promise.all([recordProgramme(channel, p, null, NOW), recordProgramme(channel, p, null, NOW)]);
+    expect(scheduleRecording).toHaveBeenCalledTimes(2);
   });
 });
 

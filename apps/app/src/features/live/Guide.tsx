@@ -42,7 +42,7 @@ import {
 } from "../settings/clockFormat";
 import { ChannelLogo } from "../../ui/ChannelLogo";
 import { isTauri } from "../../lib/tauri";
-import { cancelProgramme, recordProgramme } from "../recordings/recordProgramme";
+import { cancelProgramme, isStarting, recordProgramme } from "../recordings/recordProgramme";
 import { programmeAction, scheduleKey, type ProgrammeAction } from "../recordings/schedule";
 import {
   listNow,
@@ -730,7 +730,7 @@ export const Guide = memo(function Guide({
           .find((c) => c.channel.id === ch.id)
           ?.programmes.find((p) => p.start.getTime() === from && p.end.getTime() === to)
       : undefined;
-    const action =
+    let action: ProgrammeAction =
       programme && isTauri()
         ? programmeAction(
             listNow(),
@@ -738,6 +738,10 @@ export const Guide = memo(function Guide({
             Date.now(),
           )
         : null;
+    // One that is on and still being started reads as recording already.
+    if (action?.kind === "record" && from <= Date.now() && isStarting(ch.id)) {
+      action = { kind: "recording", label: "Recording" };
+    }
     setMenuRec(programme && action ? { action, programme } : null);
   };
   const onRecordItem = (ch: Channel, rec: NonNullable<typeof menuRec>) => {
@@ -747,7 +751,7 @@ export const Guide = memo(function Guide({
       a.kind === "cancel"
         ? cancelProgramme(a.id)
         : recordProgramme(ch, rec.programme, lineFor?.(playlistOf(ch.id)) ?? null);
-    void done.then((m) => onNotice?.(m));
+    void done.then((m) => m && onNotice?.(m));
   };
 
   return (
