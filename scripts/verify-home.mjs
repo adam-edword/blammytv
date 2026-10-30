@@ -1427,12 +1427,12 @@ const VOD_ONLY = { v: 1, data: [{ kind: "xtream", id: "vod1", name: "Vod Panel",
   await ctx.close();
 }
 
-// ======================================== review fixes (1.2.0) and sport rows
+// ======================================== review fixes (1.2.0) and Today's Games' sport menu
 const FOLLOW_TWO = env({ leagues: ["baseball/mlb", "football/nfl"], teams: [], conferences: [] });
 const NFL = { "football/nfl": [["f1", "live"], ["f2", "pre"]] };
-/** A layout holding these rows exactly as given (a games row with a sport is { id, kind: "games", sport }). */
+/** A layout holding these rows exactly as given (a games row with a sport is { id: "games", kind: "games", sport }). */
 const rowsOf = (rows) => env({ rows: rows.map((r) => ({ on: true, ...r })), offered: ["onnow", "games"] });
-const row = (id) => ({ id, kind: id.includes(":") && !id.startsWith("games:") ? "catalog" : id.startsWith("games:") ? "games" : id, ...(id.startsWith("games:") ? { sport: id.slice(6) } : {}) });
+const row = (id) => ({ id, kind: id.includes(":") ? "catalog" : id });
 /** The document's focused element, as a user could name it. */
 const focused = (page) => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.tagName ?? null);
 
@@ -1552,74 +1552,94 @@ const focused = (page) => page.evaluate(() => document.activeElement?.getAttribu
   await ctx.close();
 }
 
-// ---- one row for each sport (plan 033, after phase 3)
-const SPORT_LAYOUT = rowsOf(["continue", "upnext", "games", "games:baseball", "games:football"].map(row));
+// ---- Today's Games has a sport menu on the row (plan 033, after phase 3)
+const PLAIN_LAYOUT = rowsOf(["continue", "upnext", "games"].map(row));
+const sportButton = (page) => page.locator(".homegames").getByRole("button", { name: /^Sport, / });
+const gameIds = (page) => page.locator(".homegames .gamecard").evaluateAll((els) => els.map((e) => e.dataset.game));
+const gamesRow = async (page) => (await stored(page)).filter((r) => r.kind === "games");
 {
+  // One row, whatever is followed: Add Row offers Today's Games and no row for a sport.
   const { ctx, page } = await open({ store: { ...SEEDED, "sports-follows": FOLLOW_TWO, homeRows: layoutOf(["continue", "upnext"]) }, games: GAMES, more: NFL });
   await goTo(page, "hub");
   await rowsReady(page);
   await openSettings(page);
   await page.getByRole("button", { name: "Add Row", exact: true }).click();
   const sports = await page.getByRole("menu").getByRole("group", { name: "Sports" }).locator("[role=menuitem]").allInnerTexts();
-  check("Add Row, Sports, offers Today's Games and a row for each sport you follow, by the app's names", JSON.stringify(sports) === JSON.stringify(["Today’s Games", "American Football Today", "Baseball Today"]), JSON.stringify(sports));
-  await page.getByRole("menu").getByRole("menuitem", { name: "Baseball Today", exact: true }).click();
+  check("Add Row, Sports, offers Today's Games alone, with two sports followed", JSON.stringify(sports) === JSON.stringify(["Today’s Games"]), JSON.stringify(sports));
+  await page.getByRole("menu").getByRole("menuitem", { name: "Today’s Games", exact: true }).click();
   await page.waitForTimeout(500);
   const ed = await editor(page);
-  const added = ed.find((r) => r.name === "Baseball Today");
-  check("adding one puts it in the editor, on, as a Sports row with the games picture", !!added && added.on && added.kind === "Sports" && added.glyph === "games", JSON.stringify(ed.at(-1)));
-  const saved = (await stored(page)).find((r) => r.id === "games:baseball");
-  check("  and stores it as its own row, with its sport", saved?.kind === "games" && saved.sport === "baseball", JSON.stringify(saved));
-  await page.locator(".homegames .gamecard").first().waitFor({ timeout: 20_000 });
-  const cards = await page.locator(".homegames[data-sport='baseball'] .gamecard").evaluateAll((els) => els.map((e) => e.dataset.game));
-  check("  Home draws it behind Settings with the baseball games only", (await titles(page)).includes("Baseball Today") && cards.length === 3 && cards.every((g) => g.startsWith("espn-baseball/mlb-")), JSON.stringify(cards));
-  await page.getByRole("button", { name: "Add Row", exact: true }).click();
-  const left = await page.getByRole("menu").getByRole("group", { name: "Sports" }).locator("[role=menuitem]").allInnerTexts();
-  check("  and it is no longer offered, nor are the others gone", JSON.stringify(left) === JSON.stringify(["Today’s Games", "American Football Today"]), JSON.stringify(left));
-  await page.keyboard.press("Escape");
-  // Renamed, switched off and removed like any row.
-  await page.getByRole("textbox", { name: "Name of Baseball Today", exact: true }).fill("Ballgames");
-  await page.waitForTimeout(300);
-  check("a sport row can be renamed, and Home follows", (await titles(page)).includes("Ballgames") && !(await titles(page)).includes("Baseball Today"), JSON.stringify(await titles(page)));
-  await page.getByRole("switch", { name: "Ballgames", exact: true }).click();
-  await page.waitForTimeout(300);
-  check("  switched off, it leaves Home", !(await titles(page)).includes("Ballgames") && (await page.locator(".homegames[data-sport='baseball']").count()) === 0);
-  await page.getByRole("button", { name: "Remove Ballgames", exact: true }).click();
-  await page.waitForTimeout(300);
-  check("  and removed, it leaves the layout", !(await ids(page)).includes("games:baseball"), JSON.stringify(await ids(page)));
+  const added = ed.find((r) => r.name === "Today’s Games");
+  check("  adding it puts the one row in the editor, on, with no sport of its own there", !!added && added.on && added.kind === "Sports" && (await page.locator(".xtrow:has(.homerows__title[aria-label='Name of Today’s Games'])").count()) === 1 && (await page.locator(".xtrow:has(.homerows__title[aria-label='Name of Today’s Games'])").getByRole("button", { name: /sport/i }).count()) === 0, JSON.stringify(ed.at(-1)));
+  const rows = await gamesRow(page);
+  check("  and stores it with the id games and no sport", rows.length === 1 && rows[0].id === "games" && rows[0].sport === undefined, JSON.stringify(rows));
   await ctx.close();
 }
-const askedBy = {};
-for (const [label, layout] of [["one", rowsOf(["continue", "upnext", "games"].map(row))], ["all", SPORT_LAYOUT]]) {
-  const { ctx, page, asked } = await open({ store: { ...SEEDED, "sports-follows": FOLLOW_TWO, homeRows: layout }, games: GAMES, more: NFL });
+{
+  const { ctx, page, asked } = await open({ store: { ...SEEDED, "sports-follows": FOLLOW_TWO, homeRows: PLAIN_LAYOUT }, games: GAMES, more: NFL });
   await goTo(page, "hub");
   await page.locator(".homegames .gamecard").first().waitFor({ timeout: 20_000 });
   // Dev mounts an effect twice, so each league is asked for twice; wait for both rounds.
   await page.waitForTimeout(3000);
-  askedBy[label] = asked.espn;
-  if (label === "all") {
-    const by = await page.locator(".homegames").evaluateAll((secs) => secs.map((s) => ({ sport: s.dataset.sport ?? null, title: s.querySelector(".media-row__title")?.textContent, games: [...s.querySelectorAll(".gamecard")].map((c) => c.dataset.game) })));
-    const todays = by.find((r) => r.sport === null);
-    const base = by.find((r) => r.sport === "baseball");
-    const foot = by.find((r) => r.sport === "football");
-    check("Today's Games draws everything followed, and each sport's row only its own", todays?.games.length === 5 && base?.games.length === 3 && base.games.every((g) => g.startsWith("espn-baseball/mlb-")) && foot?.games.length === 2 && foot.games.every((g) => g.startsWith("espn-football/nfl-")), JSON.stringify(by));
-    check("  titled for the sport, in the order they sit", JSON.stringify(by.map((r) => r.title)) === JSON.stringify(["Today’s Games", "Baseball Today", "American Football Today"]), JSON.stringify(by.map((r) => r.title)));
-  }
+  const sport = sportButton(page);
+  const head = await page.locator(".homegames__head").evaluate((h) => [...h.children].map((c) => c.tagName + ":" + (c.textContent ?? "")));
+  check("Today's Games has a Sport button beside its title, reading All Sports", (await sport.count()) === 1 && (await sport.getAttribute("aria-label")) === "Sport, All Sports" && JSON.stringify(head) === JSON.stringify(["H3:Today’s Games", "BUTTON:All Sports"]), JSON.stringify(head));
+  check("  and the row draws everything followed", (await gameIds(page)).length === 5, JSON.stringify(await gameIds(page)));
+  await sport.click();
+  const menu = page.getByRole("menu");
+  const items = await menu.getByRole("menuitemradio").allInnerTexts();
+  check("  its menu is All Sports, then each sport with games today and its count", JSON.stringify(items) === JSON.stringify(["All Sports", "American Football (2)", "Baseball (3)"]), JSON.stringify(items));
+  check("  All Sports is the one checked", (await menu.getByRole("menuitemradio", { checked: true }).allInnerTexts()).join() === "All Sports");
+  const askedBefore = asked.espn;
+  await menu.getByRole("menuitemradio", { name: "Baseball (3)", exact: true }).click();
+  await page.waitForTimeout(500);
+  let cards = await gameIds(page);
+  check("picking Baseball filters the row on Home in place: three games, all baseball", cards.length === 3 && cards.every((g) => g.startsWith("espn-baseball/mlb-")), JSON.stringify(cards));
+  check("  the button reads Baseball, and the title is still Today's Games", (await sport.getAttribute("aria-label")) === "Sport, Baseball" && (await sport.innerText()) === "Baseball" && (await page.locator(".homegames .media-row__title").innerText()) === "Today’s Games");
+  check("  focus is back on the button", (await focused(page)) === "Sport, Baseball", await focused(page));
+  const rows = await gamesRow(page);
+  check("  saved on the one row: id games, sport baseball", rows.length === 1 && rows[0].id === "games" && rows[0].sport === "baseball", JSON.stringify(rows));
+  check("  and ESPN is asked for nothing more", asked.espn === askedBefore, JSON.stringify({ askedBefore, asked: asked.espn }));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await goTo(page, "hub");
+  await page.locator(".homegames .gamecard").first().waitFor({ timeout: 20_000 });
+  cards = await gameIds(page);
+  check("  after a reload it is still Baseball: three games, and the button says so", cards.length === 3 && cards.every((g) => g.startsWith("espn-baseball/mlb-")) && (await sport.getAttribute("aria-label")) === "Sport, Baseball", JSON.stringify(cards));
+  await sport.click();
+  await page.getByRole("menu").getByRole("menuitemradio", { name: "All Sports", exact: true }).click();
+  await page.waitForTimeout(500);
+  check("  All Sports puts everything back, and the row keeps no sport", (await gameIds(page)).length === 5 && (await sport.getAttribute("aria-label")) === "Sport, All Sports" && (await gamesRow(page))[0].sport === undefined, JSON.stringify(await gamesRow(page)));
   await ctx.close();
 }
-check("three games rows ask ESPN for no more than one does: one read serves them all", askedBy.one > 0 && askedBy.all === askedBy.one, JSON.stringify(askedBy));
 {
-  // What the editor says under an empty sport row.
-  const layout = rowsOf(["continue", "upnext", "games:baseball", "games:football", "games:hockey"].map(row));
-  const { ctx, page } = await open({ store: { ...SEEDED, "sports-follows": FOLLOW_TWO, homeRows: layout }, games: GAMES, more: { "football/nfl": [] } });
+  // A saved sport with no games today (hockey is not followed): everything shows, the row and its menu stay, the save is left alone.
+  const layout = rowsOf([row("continue"), row("upnext"), { id: "games", kind: "games", sport: "hockey" }]);
+  const { ctx, page } = await open({ store: { ...SEEDED, "sports-follows": FOLLOW_TWO, homeRows: layout }, games: GAMES, more: NFL });
   await goTo(page, "hub");
-  await rowsReady(page);
-  await page.waitForTimeout(1500);
+  // A row that wrongly hid itself must read as a failed check below, not a timeout here.
+  await page.locator(".homegames .gamecard").first().waitFor({ timeout: 8_000 }).catch(() => {});
+  const sport = sportButton(page);
+  check("a saved sport with no games today shows all of today's games", (await gameIds(page)).length === 5, JSON.stringify(await gameIds(page)));
+  const here = (await page.locator(".homegames").count()) === 1 && (await sport.count()) === 1;
+  check("  the row keeps its title and its Sport button, which reads All Sports", here && (await page.locator(".homegames .media-row__title").innerText()) === "Today’s Games" && (await sport.getAttribute("aria-label")) === "Sport, All Sports", String(here));
+  check("  the saved sport is left as it was", (await gamesRow(page))[0].sport === "hockey", JSON.stringify(await gamesRow(page)));
+  if (here) await sport.click();
+  const items = here ? await page.getByRole("menu").getByRole("menuitemradio").allInnerTexts() : [];
+  check("  and the menu still lists the sports that have games", JSON.stringify(items) === JSON.stringify(["All Sports", "American Football (2)", "Baseball (3)"]), JSON.stringify(items));
+  await page.keyboard.press("Escape");
+  await ctx.close();
+}
+{
+  // A renamed row keeps its name; the sport is the button's. Settings → Home has no sport of its own.
+  const layout = rowsOf([row("continue"), row("upnext"), { id: "games", kind: "games", sport: "baseball", title: "Sundays" }]);
+  const { ctx, page } = await open({ store: { ...SEEDED, "sports-follows": FOLLOW_TWO, homeRows: layout }, games: GAMES, more: NFL });
+  await goTo(page, "hub");
+  await page.locator(".homegames .gamecard").first().waitFor({ timeout: 20_000 });
+  check("a renamed Today's Games keeps its name, with the sport on the button", (await page.locator(".homegames .media-row__title").innerText()) === "Sundays" && (await sportButton(page).getAttribute("aria-label")) === "Sport, Baseball" && (await gameIds(page)).length === 3);
   await openSettings(page);
-  const why = (name) => page.locator(`.xtrow:has(.homerows__title[aria-label='Name of ${name}']) .homerows__why`).innerText().catch(() => "");
-  check("a followed sport with no game today says so", (await why("American Football Today")) === "No games today.", await why("American Football Today"));
-  check("  a sport with games says nothing", (await why("Baseball Today")) === "", await why("Baseball Today"));
-  check("  a sport nothing is followed in says to follow a league", (await why("Ice Hockey Today")) === "Follow a league in Sports to fill this row.", await why("Ice Hockey Today"));
-  check("  and Home draws only the baseball row", JSON.stringify((await titles(page)).filter((t) => /Today/.test(t))) === JSON.stringify(["Baseball Today"]), JSON.stringify(await titles(page)));
+  const ed = await editor(page);
+  const mine = ed.find((r) => r.name === "Sundays");
+  check("  Settings → Home lists it as the one row, with no sport control", !!mine && mine.kind === "Sports" && (await page.locator(".xtrow:has(.homerows__title[aria-label='Name of Today’s Games'])").count()) === 1 && (await page.locator(".xtrow:has(.homerows__title[aria-label='Name of Today’s Games'])").getByRole("button", { name: /sport/i }).count()) === 0, JSON.stringify(ed));
   await ctx.close();
 }
 

@@ -2,6 +2,14 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.48: Pick a sport on Today's Games (unreleased)
+
+- **Today's Games has a sport menu beside its title** on Home: All Sports,
+  or a sport you follow that has games today, with how many. Your pick
+  stays. On a day your sport has no games the row shows everything.
+- **This replaces 1.0.47's row per sport.** Add Row → Sports offers Today's
+  Games again.
+
 ## 1.0.47: One games row per sport, and Home fixes (unreleased)
 
 - **Add Row → Sports** offers a row for each sport you follow, like

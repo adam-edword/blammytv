@@ -54,22 +54,22 @@ export function homeGames(games: readonly Game[], follows: Follows, rankedOnly: 
  * league's path ("football" for "football/nfl"). */
 const sportKeyOf = (path: string): string => path.slice(0, path.indexOf("/"));
 
-/** The games of one sport, or all of them with none named. The Today's Games
- * row is the second and a sport's row the first, both from the one read. */
-export const gamesOfSport = (games: readonly Fixture[], sport?: string): Fixture[] =>
-  sport ? games.filter((g) => sportKeyOf(g.leagueKey) === sport) : [...games];
-
-/** The sports something is followed in (a league, a team or a conference),
- * as catalog keys in the catalog's order. A key the catalog dropped is not one. */
-export function followedSports(f: Follows): string[] {
-  const keys = new Set([...f.leagues, ...f.teams, ...f.conferences].map((k) => sportKeyOf(k)));
-  return SPORTS.filter((s) => keys.has(s.key)).map((s) => s.key);
+/** The sports that have games in these, in the catalog's order, each with its
+ * count and the app's own name (so soccer is Fútbol): what the Today's Games
+ * row's sport menu offers. */
+export function sportsToday(games: readonly Fixture[]): { key: string; name: string; count: number }[] {
+  const n = new Map<string, number>();
+  for (const g of games) n.set(sportKeyOf(g.leagueKey), (n.get(sportKeyOf(g.leagueKey)) ?? 0) + 1);
+  return SPORTS.filter((s) => n.has(s.key)).map((s) => ({ key: s.key, name: s.name, count: n.get(s.key)! }));
 }
 
-/** What a games row is called: Today's Games, or "Football Today" for one
- * sport (the app's own name for it, so soccer is Fútbol). */
-export const gamesTitle = (sport?: string): string =>
-  sport ? `${SPORTS.find((s) => s.key === sport)?.name ?? sport} Today` : "Today’s Games";
+/** The games of one sport, or all of them with none named. A saved sport with
+ * no games today is all of them too, so the filter never empties the row
+ * (tomorrow it filters again). */
+export const gamesOfSport = (games: readonly Fixture[], sport?: string): Fixture[] => {
+  const some = sport ? games.filter((g) => sportKeyOf(g.leagueKey) === sport) : [];
+  return some.length > 0 ? some : [...games];
+};
 
 /** Whether anything is followed, since nothing followed is every league on
  * the Sports board and would be 151 requests on Home. */
@@ -85,35 +85,21 @@ export function playable(list: readonly Recording[], max = 20): Recording[] {
 // ---- what Settings → Home says about Today's Games ----
 
 /**
- * How many games Home has today, in all and by sport, as Home last counted:
- * null until it has, and while no games row is on. Settings → Home reads it
- * for the line under an empty row. Held here, beside the rows, because Home is
- * the only thing that fetches the games and the editor must not start a second
- * read.
+ * How many games the row has, as Home last counted: null until it has, and
+ * while the row is off. Settings → Home reads it for the line under an empty
+ * row. Held here, beside the row, because Home is the only thing that
+ * fetches the games and the editor must not start a second read.
  */
-export interface GamesCount {
-  all: number;
-  bySport: Record<string, number>;
-}
-let gamesToday: GamesCount | null = null;
+let gamesToday: number | null = null;
 const GAMES_EVENT = "blammytv:home-games";
 
-export function publishGamesToday(games: readonly Fixture[] | null): void {
-  const next: GamesCount | null = games && {
-    all: games.length,
-    bySport: games.reduce<Record<string, number>>((n, g) => {
-      const k = sportKeyOf(g.leagueKey);
-      n[k] = (n[k] ?? 0) + 1;
-      return n;
-    }, {}),
-  };
-  // The same counts are the same snapshot, so nothing re-renders for them.
-  if (JSON.stringify(gamesToday) === JSON.stringify(next)) return;
-  gamesToday = next;
+export function publishGamesToday(n: number | null): void {
+  if (gamesToday === n) return;
+  gamesToday = n;
   if (typeof window !== "undefined") window.dispatchEvent(new Event(GAMES_EVENT));
 }
 
-export const peekGamesToday = (): GamesCount | null => gamesToday;
+export const peekGamesToday = (): number | null => gamesToday;
 
 export function onGamesToday(cb: () => void): () => void {
   window.addEventListener(GAMES_EVENT, cb);

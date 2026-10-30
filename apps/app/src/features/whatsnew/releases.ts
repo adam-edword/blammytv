@@ -56,7 +56,7 @@ export const RELEASES: readonly Release[] = [
         bullets: [
           [
             { b: "Click the logo for Home" },
-            ": Continue Watching, Up Next, your catalogs, On Now, Recent Channels, Today’s Games (all your sports or a row each), Recordings, Saved lists and Trakt’s Trending and Popular.",
+            ": Continue Watching, Up Next, your catalogs, On Now, Recent Channels, Today’s Games (pick a sport right on the row), Recordings, Saved lists and Trakt’s Trending and Popular.",
           ],
           [
             { b: "Settings → Home" },

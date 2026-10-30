@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { channelCards, followedSports, followsAny, gamesOfSport, gamesTitle, homeGames, playable } from "./liveData";
+import { channelCards, followsAny, gamesOfSport, homeGames, playable, sportsToday } from "./liveData";
 import type { Channel, LiveData, Programme } from "../live/model";
 import type { Recording } from "../recordings/store";
 import { toGames } from "../sports/espn";
@@ -113,7 +113,7 @@ describe("playable", () => {
   });
 });
 
-describe("the sport rows' share of the games", () => {
+describe("Today's Games by sport", () => {
   const games = [...toGames(mlb, "baseball/mlb"), ...toGames(cfb, "football/college-football")];
   const all = homeGames(games, { leagues: ["baseball/mlb", "football/college-football"], teams: [], conferences: [] }, false);
 
@@ -127,35 +127,16 @@ describe("the sport rows' share of the games", () => {
     expect(baseball.length + football.length).toBe(all.length);
   });
 
-  it("is every game with no sport named (Today's Games), and nothing for a sport with none", () => {
+  it("is every game with no sport named, and with one that has no games today", () => {
     expect(gamesOfSport(all)).toEqual(all);
-    expect(gamesOfSport(all, "hockey")).toEqual([]);
-  });
-});
-
-describe("followedSports", () => {
-  const none = { leagues: [], teams: [], conferences: [] };
-
-  it("is the sports a league, a club or a conference is followed in, in the catalog's order, once each", () => {
-    expect(followedSports(none)).toEqual([]);
-    const got = followedSports({
-      leagues: ["soccer/eng.1", "soccer/esp.1"],
-      teams: ["baseball/mlb:1", "football/nfl:2"],
-      conferences: ["football/college-football:5"],
-    });
-    expect(got.sort()).toEqual(["baseball", "football", "soccer"]);
+    expect(gamesOfSport(all, "hockey")).toEqual(all);
   });
 
-  it("leaves out a sport the catalog does not carry", () => {
-    expect(followedSports({ ...none, leagues: ["curling/world"] })).toEqual([]);
-  });
-});
-
-describe("gamesTitle", () => {
-  it("is Today's Games with no sport, and the app's own name for a sport with one", () => {
-    expect(gamesTitle()).toBe("Today’s Games");
-    expect(gamesTitle("basketball")).toBe("Basketball Today");
-    expect(gamesTitle("football")).toBe("American Football Today");
-    expect(gamesTitle("soccer")).toBe("Fútbol Today");
+  it("lists the sports with games, in the catalog's order, with their counts and the app's names", () => {
+    const got = sportsToday(all);
+    expect(got.map((s) => s.key).sort()).toEqual(["baseball", "football"]);
+    expect(got.find((s) => s.key === "football")?.name).toBe("American Football");
+    expect(got.reduce((n, s) => n + s.count, 0)).toBe(all.length);
+    expect(sportsToday([])).toEqual([]);
   });
 });

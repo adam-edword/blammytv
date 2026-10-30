@@ -1,7 +1,15 @@
 import { useCallback } from "react";
 import { Button } from "../../components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 import { formatClock, formatWhen } from "../../lib/time";
 import { ChannelLogo } from "../../ui/ChannelLogo";
+import { ChevronIcon } from "../../ui/icons";
 import { QualityBadge } from "../../ui/QualityBadge";
 import { RowScroller } from "../../ui/RowScroller";
 import { requestWatchInPlayer } from "../live/multiviewEntry";
@@ -12,7 +20,7 @@ import type { ClockFormat } from "../settings/clockFormat";
 import { GameCard } from "../sports/GameCard";
 import { requestOpenGame } from "../sports/gameRequest";
 import { isFixture, type Fixture, type Game } from "../sports/model";
-import type { ChannelCard } from "./liveData";
+import { gamesOfSport, sportsToday, type ChannelCard } from "./liveData";
 
 /**
  * Home's live rows (plan 033, phase 2): On Now, Recent Channels, Today's
@@ -77,19 +85,58 @@ function ChannelTile({ card, clock }: { card: ChannelCard; clock: ClockFormat })
   );
 }
 
-/** Today's Games, or one sport's ("Football Today"): the Sports board's own
- * wide cards, opened the way it opens them. A game too far out to open is
- * disabled by the card itself. */
-export function GamesRow({ title, games, sport }: { title: string; games: readonly Fixture[]; sport?: string }) {
+/** The menu's value for every sport (a sport's own value is its catalog key). */
+const ALL = "all";
+
+/** Today's Games: the Sports board's own wide cards, opened the way it opens
+ * them. A game too far out to open is disabled by the card itself.
+ *
+ * A menu beside the title picks the sport (All Sports, or one that has games
+ * today, with its count). `sport` is the one saved on the row; one with no
+ * games today shows all of them and reads All Sports, without being unsaved. */
+export function GamesRow({
+  title,
+  games,
+  sport,
+  onSport,
+}: {
+  title: string;
+  games: readonly Fixture[];
+  sport?: string;
+  onSport: (sport?: string) => void;
+}) {
   const open = useCallback((g: Game) => {
     if (isFixture(g)) requestOpenGame(g);
   }, []);
   if (games.length === 0) return null;
+  const sports = sportsToday(games);
+  const shown = sports.find((s) => s.key === sport);
+  const label = shown?.name ?? "All Sports";
   return (
-    <section className="media-row homegames" data-row="games" data-sport={sport}>
-      <h3 className="media-row__title">{title}</h3>
+    <section className="media-row homegames" data-row="games" data-sport={shown?.key}>
+      <div className="homegames__head">
+        <h3 className="media-row__title">{title}</h3>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" type="button" className="homegames__sport" aria-label={`Sport, ${label}`}>
+              {label}
+              <ChevronIcon size={14} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuRadioGroup value={shown?.key ?? ALL} onValueChange={(v) => onSport(v === ALL ? undefined : v)}>
+              <DropdownMenuRadioItem value={ALL}>All Sports</DropdownMenuRadioItem>
+              {sports.map((s) => (
+                <DropdownMenuRadioItem key={s.key} value={s.key}>
+                  {s.name} ({s.count})
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <RowScroller>
-        {games.map((g) => (
+        {gamesOfSport(games, shown?.key).map((g) => (
           <GameCard key={g.id} game={g} onOpen={open} />
         ))}
       </RowScroller>

@@ -18,10 +18,9 @@ import { Toggle } from "../../ui/Toggle";
 import { EYEBROW } from "../../ui/eyebrow";
 import { loadFavorites } from "../live/favorites";
 import { loadRecents } from "../live/recents";
-import { followedSports, followsAny, gamesTitle, onGamesToday, peekGamesToday, playable } from "../home/liveData";
+import { followsAny, onGamesToday, peekGamesToday, playable } from "../home/liveData";
 import { peekCatalogRows } from "../home/catalogRows";
 import {
-  gamesId,
   homeRows,
   onHomeRowsChange,
   removable,
@@ -118,10 +117,9 @@ export function HomePage() {
     };
   }, []);
   const own = useMemo(() => new Map(catalog.map((r) => [r.id, r.title])), [catalog]);
-  // The Library's lists, and what is followed, read once per visit: nothing
-  // saves to either while Settings is up.
+  // The Library's lists, read once per visit: nothing saves to one while
+  // Settings is up.
   const lists = useMemo(() => loadLists(), []);
-  const sports = useMemo(() => followedSports(loadFollows()), []);
   const live = hasLivePlaylist();
   const [stored, setRows] = useState<HomeRow[]>(() =>
     homeRows(catalog.map((r) => r.id), live),
@@ -175,7 +173,7 @@ export function HomePage() {
   const add = (row: HomeRow) => {
     focusNext.current = row.id;
     addedFromMenu.current = true;
-    setSaid(`${row.kind === "games" ? gamesTitle(row.sport) : ownName(row, own, lists)} added.`);
+    setSaid(`${ownName(row, own, lists)} added.`);
     setRows(saveHomeRows([...rows, row]));
   };
 
@@ -186,11 +184,6 @@ export function HomePage() {
   const have = new Set(rows.map((r) => r.id));
   const liveOffers = (kinds: LiveKind[]): Offer[] =>
     kinds.filter((k) => !have.has(k)).map((k) => ({ label: OWN[k], row: { id: k, kind: k, on: true } }));
-  // Today's Games, then a row for each sport followed (a sport's own row is its
-  // own: it can be on Home beside Today's Games).
-  const sportOffers: Offer[] = sports
-    .filter((s) => !have.has(gamesId(s)))
-    .map((s) => ({ label: gamesTitle(s), row: { id: gamesId(s), kind: "games", sport: s, on: true } }));
   const savedOffers: Offer[] = lists
     .filter((l) => !have.has(savedId(l.id)))
     .map((l) => ({ label: l.name, row: { id: savedId(l.id), kind: "saved", list: l.id, on: true } }));
@@ -205,7 +198,7 @@ export function HomePage() {
       saved: [] as Offer[],
       offers: [...(live ? liveOffers(["onnow", "recent"]) : []), ...liveOffers(["recordings"])],
     },
-    { label: "Sports", saved: [] as Offer[], offers: live ? [...liveOffers(["games"]), ...sportOffers] : [] },
+    { label: "Sports", saved: [] as Offer[], offers: live ? liveOffers(["games"]) : [] },
     { label: "Films & Shows", saved: [] as Offer[], offers: traktOffers },
   ].filter((g) => g.saved.length > 0 || g.offers.length > 0);
 
@@ -343,8 +336,6 @@ function ownName(r: HomeRow, own: ReadonlyMap<string, string>, lists: readonly U
       return TRAKT_NAMES[r.list];
     case "needs":
       return r.title;
-    case "games":
-      return gamesTitle(r.sport);
     default:
       return OWN[r.kind];
   }
@@ -399,19 +390,9 @@ function useWhyEmpty(live: boolean, lists: readonly UserList[], signedIn: boolea
         return loadRecents().length === 0 ? "Channels you watch show here." : "";
       case "recordings":
         return recordings.length === 0 ? "Recordings you make show here." : "";
-      case "games": {
-        const follows = loadFollows();
-        if (!followsAny(follows) || (row.sport && !followedSports(follows).includes(row.sport)))
-          return "Follow a league in Sports to fill this row.";
-        if (games === null) return "";
-        return row.sport
-          ? (games.bySport[row.sport] ?? 0) === 0
-            ? "No games today."
-            : ""
-          : games.all === 0
-            ? "No games today for your leagues."
-            : "";
-      }
+      case "games":
+        if (!followsAny(loadFollows())) return "Follow a league in Sports to fill this row.";
+        return games === 0 ? "No games today for your leagues." : "";
     }
   };
 }

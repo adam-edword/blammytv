@@ -175,6 +175,20 @@ div.sports__bar:not(.sports__head *) {
 .homegames .media-row__scroller {
   padding-right: var(--gut, 28px);
 }
+/* The title and its sport menu: a quiet button beside it, as See All sits
+ * beside a genre row's (discover.css .genre-rows__head). */
+.homegames__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.homegames__sport {
+  color: var(--text-muted);
+}
+.homegames__sport:hover,
+.homegames__sport[data-state="open"] {
+  color: var(--text);
+}
 
 /* Done, and reading as done. Half a stop of black over the whole card,
  * text included: in a grid where most of the day is finished, the ones

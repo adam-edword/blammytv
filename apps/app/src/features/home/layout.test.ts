@@ -406,49 +406,71 @@ describe("the list rows", () => {
   });
 });
 
-describe("the sport rows", () => {
+describe("Today's Games' sport", () => {
   beforeEach(() => store.clear());
 
-  it("are kept with their sport, under an id made from it, beside Today's Games", () => {
-    const rows: HomeRow[] = [
-      { id: "games", kind: "games", on: true },
-      { id: "games:football", kind: "games", sport: "football", on: true, title: "Sundays" },
-      { id: "games:soccer", kind: "games", sport: "soccer", on: false },
-    ];
+  it("is kept on the one row, which stays `games`", () => {
+    const rows: HomeRow[] = [{ id: "games", kind: "games", sport: "football", on: true, title: "Sundays" }];
     saveHomeRows(rows);
     expect(loadHomeRows()).toEqual(rows);
   });
 
-  it("hold one sport once, whatever id was stored", () => {
+  it("is dropped when the catalog does not carry it or it is not a word, and the row stays", () => {
     put([
-      { id: "x", kind: "games", sport: "hockey", on: true },
-      { id: "games:hockey", kind: "games", sport: "hockey", on: false },
+      { id: "games", kind: "games", sport: "curling", on: true },
+      { id: "continue", kind: "continue", on: true },
     ]);
-    expect(loadHomeRows()).toEqual([{ id: "games:hockey", kind: "games", sport: "hockey", on: true }]);
+    expect(loadHomeRows()).toEqual([
+      { id: "games", kind: "games", on: true },
+      { id: "continue", kind: "continue", on: true },
+    ]);
+    put([{ id: "games", kind: "games", sport: 4, on: true }]);
+    expect(loadHomeRows()).toEqual([{ id: "games", kind: "games", on: true }]);
   });
 
-  it("drop a sport the catalog does not carry, and one that is not a word, rather than become Today's Games", () => {
-    put([
-      { id: "games:curling", kind: "games", sport: "curling", on: true },
-      { id: "g", kind: "games", sport: 4, on: true },
-      { id: "games", kind: "games", sport: "", on: true },
+  it("does not count as a second Today's Games, and a layout holding the row has been offered it", () => {
+    const rows: HomeRow[] = [
       { id: "continue", kind: "continue", on: true },
+      { id: "games", kind: "games", sport: "hockey", on: true },
+    ];
+    saveHomeRows(rows);
+    expect(loadOffered()).toEqual(["games"]);
+    expect(ids(withAutoRows(rows, [], true))).toEqual(["continue", "games", "onnow"]);
+  });
+});
+
+describe("v1.0.47's row for each sport (dev builds only)", () => {
+  beforeEach(() => store.clear());
+
+  it("is dropped when there is a Today's Games row", () => {
+    put([
+      { id: "games:football", kind: "games", sport: "football", on: true },
+      { id: "games", kind: "games", on: false },
+      { id: "games:soccer", kind: "games", sport: "soccer", on: true },
+    ]);
+    expect(loadHomeRows()).toEqual([{ id: "games", kind: "games", on: false }]);
+  });
+
+  it("becomes the row, in its place, when there is none and it was on: the first one on", () => {
+    put([
+      { id: "continue", kind: "continue", on: true },
+      { id: "games:football", kind: "games", sport: "football", on: false },
+      { id: "games:hockey", kind: "games", sport: "hockey", on: true, title: "Pucks" },
+      { id: "games:soccer", kind: "games", sport: "soccer", on: true },
+    ]);
+    expect(loadHomeRows()).toEqual([
+      { id: "continue", kind: "continue", on: true },
+      { id: "games", kind: "games", sport: "hockey", on: true, title: "Pucks" },
+    ]);
+  });
+
+  it("is dropped, and no row made, when none was on or its sport is not carried", () => {
+    put([
+      { id: "continue", kind: "continue", on: true },
+      { id: "games:football", kind: "games", sport: "football", on: false },
+      { id: "games:curling", kind: "games", sport: "curling", on: true },
     ]);
     expect(ids(loadHomeRows()!)).toEqual(["continue"]);
-  });
-
-  it("can be removed, are live rows, and do not count as Today's Games having been offered", () => {
-    expect(removable("games")).toBe(true);
-    expect(isLive("games")).toBe(true);
-    const sportOnly: HomeRow[] = [
-      { id: "continue", kind: "continue", on: true },
-      { id: "games:football", kind: "games", sport: "football", on: true },
-    ];
-    // A layout holding only a sport row has not been offered Today's Games...
-    saveHomeRows(sportOnly);
-    expect(loadOffered()).toEqual([]);
-    // ...so it still gets it, once, when there is a live source.
-    expect(ids(withAutoRows(sportOnly, [], true))).toEqual(["continue", "games:football", "onnow", "games"]);
   });
 });
 

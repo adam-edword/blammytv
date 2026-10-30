@@ -75,7 +75,6 @@ import {
 import { ChannelRow, GamesRow, RecordingsRow } from "../home/LiveRows";
 import { NeedsRow, TitlesRow } from "../home/ListRows";
 import { TRAKT_NAMES } from "../home/traktRows";
-import { gamesOfSport, gamesTitle } from "../home/liveData";
 import { liveHas, useLiveRows, useLiveSource, type LiveRowsData } from "../home/useLiveRows";
 import { useTraktRows } from "../home/useTraktRows";
 import { hasLivePlaylist } from "../settings/startupSources";
@@ -2498,6 +2497,13 @@ function Home({
   }, [layout, catalogIds, liveSource]);
   // The live rows' data, read only for a row that is on (and only on Home).
   const live = useLiveRows(layout, liveSource);
+  // The sport menu on Today's Games saves its pick on the row (none is All Sports).
+  const pickSport = useCallback(
+    (sport?: string) => {
+      if (layout) saveHomeRows(layout.map((r) => (r.kind === "games" ? { ...r, sport } : r)));
+    },
+    [layout],
+  );
   // And Up Next's rows draw themselves from what the last sync stored, so
   // whether Home has anything at all has to hear one land. So does a Saved row,
   // since a Trakt sync can change the Trakt Watchlist.
@@ -2538,7 +2544,7 @@ function Home({
   // the catalogs are doing. And a setup with no stream source at all but live
   // rows on (live TV only) is Home's own "Nothing on Home", not a prompt to
   // add a catalog. The states below are for a page with nothing else to show.
-  const liveAny = !!layout && layout.some((r) => r.on && liveHas(r, live));
+  const liveAny = !!layout && layout.some((r) => r.on && liveHas(r.kind, live));
   const liveOnly = !!layout && liveSource && !aioOn && !jfOn && !xtOn && layout.some((r) => r.on && isLive(r.kind));
   const skipStates = liveAny || liveOnly;
   if (!aioOn && !jfOn && !xtOn && !skipStates) {
@@ -2660,7 +2666,7 @@ function Home({
         case "needs":
           return true;
         default:
-          return liveHas(r, live);
+          return liveHas(r.kind, live);
       }
     });
     // A live row that is on and has not answered yet (the channel catalog, ESPN)
@@ -2700,7 +2706,7 @@ function Home({
             ) : r.kind === "recent" ? (
               <ChannelRow key={r.id} title={r.title ?? "Recent Channels"} cards={live.recent} clock={live.clock} />
             ) : r.kind === "games" ? (
-              <GamesRow key={r.id} title={r.title ?? gamesTitle(r.sport)} sport={r.sport} games={gamesOfSport(live.games, r.sport)} />
+              <GamesRow key={r.id} title={r.title ?? "Today’s Games"} games={live.games} sport={r.sport} onSport={pickSport} />
             ) : r.kind === "recordings" ? (
               <RecordingsRow key={r.id} title={r.title ?? "Recordings"} recordings={live.recordings} now={live.now} clock={live.clock} />
             ) : r.kind === "saved" ? (

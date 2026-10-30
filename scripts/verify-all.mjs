@@ -183,11 +183,15 @@ const all = readdirSync(path.join(ROOT, "scripts"))
   .filter((_, i) => !SHARD || i % SHARD.n === SHARD.k - 1);
 
 const SHOT_DIR = path.join(ROOT, ".verify-shots");
+// The default is five minutes a harness. verify-home has grown past it under
+// a loaded board (plan 033's three phases and the 1.2 review: ~210 checks).
+const LONG = { "verify-home": 600_000 };
 const rows = [];
 console.log(`\nrunning ${all.length} harnesses${SHARD ? `, slice ${SHARD.k} of ${SHARD.n}` : ""}…\n`);
 for (const n of all) {
   const r = await run(process.execPath, [path.join("scripts", `${n}.mjs`)], {
     env: { SHOT_DIR },
+    timeout: LONG[n],
   });
   // Three tick styles are in use across these files, and verify-version
   // indents its own — hence the leading \s*, without which it reported a

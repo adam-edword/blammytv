@@ -14,7 +14,7 @@ import { ALL_LEAGUES } from "../sports/leagues";
 import type { Fixture } from "../sports/model";
 import { useGames, withChannels } from "../sports/useGames";
 import type { HomeRow, LiveKind } from "./layout";
-import { channelCards, followsAny, gamesOfSport, homeGames, playable, publishGamesToday, type ChannelCard } from "./liveData";
+import { channelCards, followsAny, homeGames, playable, publishGamesToday, type ChannelCard } from "./liveData";
 
 /**
  * The data behind Home's live rows (plan 033, phase 2), read only for a row
@@ -37,14 +37,14 @@ export interface LiveRowsData {
 }
 
 /** Whether a live row has anything to draw. Only a row that is on has data. */
-export function liveHas(row: HomeRow, d: LiveRowsData): boolean {
-  switch (row.kind) {
+export function liveHas(kind: HomeRow["kind"], d: LiveRowsData): boolean {
+  switch (kind) {
     case "onnow":
       return d.onNow.length > 0;
     case "recent":
       return d.recent.length > 0;
     case "games":
-      return gamesOfSport(d.games, row.sport).length > 0;
+      return d.games.length > 0;
     case "recordings":
       return d.recordings.length > 0;
     default:
@@ -66,8 +66,6 @@ const never = () => () => {};
  * a kind is read only when its row is on, and none at all without a live
  * source, so on Stream, off, or with no playlist this is inert.
  *
- * One read serves every games row (Today's Games and the per-sport ones):
- * `games` is all of it and a sport's row takes its share (liveData.ts).
  * Today's Games follows the Sports board: what you follow is what is asked
  * for. The board with nothing followed is every league in the catalog, which
  * on Home would be 151 requests for a row, so nothing followed is no row.
@@ -134,9 +132,9 @@ export function useLiveRows(layout: readonly HomeRow[] | undefined, live: boolea
   // not known (null) until the board has answered, and not while it is off.
   const answered = asking && !!today;
   useEffect(() => {
-    publishGamesToday(answered ? games : null);
+    publishGamesToday(answered ? games.length : null);
     return () => publishGamesToday(null);
-  }, [answered, games]);
+  }, [answered, games.length]);
 
   const pending = (wantChannels && !data && !settled) || (asking && boardState === "loading");
 

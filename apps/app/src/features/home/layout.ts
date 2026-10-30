@@ -26,14 +26,12 @@ import { SPORTS } from "../sports/leagues";
  * what decides what a load keeps, so a kind this build does not know is
  * dropped, never trusted.
  *
- * TODAY'S GAMES CAN ALSO BE ONE ROW PER SPORT. A `games` row with a `sport`
- * (the catalog's key: "football", "soccer") draws only that sport's games, and
- * its id is `games:<sport>`, so it is its own row: renamed, switched, ordered
- * and removed like any other. It stays kind `games` because everything a games
- * row needs (the live source, the one ESPN read, the glyph, removal) is the
- * same; only the filter differs. A sport the catalog does not carry is not a
- * row. The auto-offered Today's Games is the one with no sport and the id
- * `games`, which is why "was it offered" asks for that id and not the kind.
+ * TODAY'S GAMES KEEPS ITS SPORT. The row has a menu for it on Home, and a
+ * `games` row's optional `sport` (the catalog's key: "football", "soccer") is
+ * what that menu last picked. It is one row, id `games`; a sport the catalog
+ * does not carry is dropped from it, not the row. v1.0.47 had a row per sport
+ * (id `games:<sport>`, dev builds only): one of those is read as the row's
+ * sport when there is no `games` row, else dropped (normalize).
  *
  * A NEEDS ROW KEEPS STRAND'S JSON, SO A LATER VERSION CAN FILL IT, but only
  * an object of at most STRAND_MAX characters: a Strand row is about 250, and
@@ -74,7 +72,6 @@ export const STRAND_MAX = 4000;
 /** The ids of the rows that come from a list: one row for each list. */
 export const savedId = (list: string) => `saved:${list}`;
 export const traktId = (list: TraktList) => `trakt:${list}`;
-export const gamesId = (sport: string) => `games:${sport}`;
 
 const SPORT_KEYS: ReadonlySet<string> = new Set(SPORTS.map((s) => s.key));
 
@@ -103,12 +100,14 @@ function parseRow(x: unknown): HomeRow | null {
   const r = x as Record<string, unknown>;
   if (typeof r.kind !== "string" || typeof r.on !== "boolean") return null;
   const title = typeof r.title === "string" && r.title.trim() ? { title: r.title.trim() } : {};
-  // A sport row is its sport's: an unknown sport is dropped, not turned into
-  // Today's Games (which would be a second copy of it).
-  if (r.kind === "games" && r.sport !== undefined)
-    return typeof r.sport === "string" && SPORT_KEYS.has(r.sport)
-      ? { id: gamesId(r.sport), kind: "games", sport: r.sport, on: r.on, ...title }
-      : null;
+  if (r.kind === "games")
+    return {
+      id: "games",
+      kind: "games",
+      ...(typeof r.sport === "string" && SPORT_KEYS.has(r.sport) ? { sport: r.sport } : {}),
+      on: r.on,
+      ...title,
+    };
   if (SINGLES.has(r.kind)) return { id: r.kind, kind: r.kind as SingleKind, on: r.on, ...title };
   if (r.kind === "catalog" && typeof r.id === "string" && r.id) return { id: r.id, kind: "catalog", on: r.on, ...title };
   // A list row's id is made from its list, so one list is one row whatever id was stored.
@@ -134,8 +133,16 @@ export function fitsStrand(x: unknown): boolean {
 function normalize(list: unknown): HomeRow[] {
   const seen = new Set<string>();
   const rows: HomeRow[] = [];
-  for (const x of Array.isArray(list) ? list : []) {
-    const row = parseRow(x);
+  const items: unknown[] = Array.isArray(list) ? list : [];
+  // v1.0.47's per-sport rows: dropped, except that the first one that was on
+  // stands in for the row when there is none, so a tester's pick survives.
+  const old = (x: unknown): x is Record<string, unknown> =>
+    typeof x === "object" && x !== null && (x as { kind?: unknown }).kind === "games" && /^games:./.test(String((x as { id?: unknown }).id));
+  const keep = items.some((x) => !old(x) && parseRow(x)?.kind === "games")
+    ? undefined
+    : items.find((x) => old(x) && x.on === true && SPORT_KEYS.has(String(x.sport)));
+  for (const x of items) {
+    const row = old(x) && x !== keep ? null : parseRow(x);
     // One id once: a catalog id is the catalog's own, a single's is its kind.
     if (!row || seen.has(row.id)) continue;
     seen.add(row.id);

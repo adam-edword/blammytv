@@ -194,6 +194,13 @@ the box: "This isn't a layout exported from Strand."
   an id of its own (`games:<sport>`), renamed, switched and ordered like
   any row. No filter chips on Home: rows take zero clicks once set up.
   After the 1.2.0 review fixes, which touch the same files.
+  **Reversed the same day** (Adam: "i think the sports row needs a dropdown
+  on the actual row, not its own unique selector per sport"). One Today's
+  Games row (`games`), with a Sport menu beside its title: All Sports, or a
+  sport with games today and its count. The pick is saved on the row
+  (`sport`); a saved sport with no games today shows all and reads All
+  Sports. A stored `games:<sport>` row (dev builds only) is dropped, or
+  becomes the `games` row's sport when there is none.
 
 ## Phases
 
