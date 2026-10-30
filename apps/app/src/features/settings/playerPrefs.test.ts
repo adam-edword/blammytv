@@ -271,7 +271,7 @@ describe("Pop Out Films and Shows In (plan 032)", () => {
   });
 
   it("offers BlammyTV and VLC, in that order", () => {
-    expect(POPOUT_APP_TABS.map((t) => t.label)).toEqual(["BlammyTV", "VLC"]);
+    expect(POPOUT_APP_TABS.map((t) => t.label)).toEqual(["MPV", "VLC"]);
     expect(POPOUT_APP_TABS.map((t) => t.key)).toEqual(["blammytv", "vlc"]);
   });
 

@@ -373,7 +373,7 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
           <div>
             <h4 className="customize-row__title">Pop Out Films and Shows In</h4>
             <p className="settings__section-note settings__section-note--dim">
-              Live TV always pops out in BlammyTV.
+              Live TV always pops out in MPV.
             </p>
           </div>
           <Segmented

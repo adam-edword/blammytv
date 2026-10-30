@@ -1040,6 +1040,14 @@ const traktCalls = (page) => page.evaluate(() => window.__calls.filter((c) => c[
   await menu.getByRole("menuitem", { name: "Saved", exact: true }).click();
   const subs = await page.getByRole("menu").last().getByRole("menuitem").allInnerTexts();
   check("  Saved asks which list, and offers the ones not on Home: the Trakt Watchlist", JSON.stringify(subs) === JSON.stringify(["Trakt Watchlist"]), JSON.stringify(subs));
+  // The sub-menu draws whole: inside the parent menu, its blur and scroll box
+  // cut it off at the edge (1.0.38, Adam's screenshot).
+  const shown = await page.getByRole("menuitem", { name: "Trakt Watchlist", exact: true }).evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { hit: !!hit && el.contains(hit), nested: !!el.closest("[data-slot=dropdown-menu-content]") };
+  });
+  check("  the list sub-menu is drawn whole, outside the menu it opens from", shown.hit && !shown.nested, JSON.stringify(shown));
   await page.getByRole("menuitem", { name: "Trakt Watchlist", exact: true }).click();
   await page.waitForTimeout(500);
   check("  picking one adds its row, on, at the end of the editor, and Home draws it", (await editor(page)).at(-1).name === "Trakt Watchlist" && (await titles(page)).includes("Trakt Watchlist") && (await shelfNames(page, "saved")).includes("Watch Three"), JSON.stringify((await editor(page)).map((r) => r.name)));

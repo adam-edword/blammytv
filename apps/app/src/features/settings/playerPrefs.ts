@@ -145,12 +145,13 @@ export function popoutPlace(): { size: PopoutSize; corner: PopoutCorner } {
 }
 
 /** Which player a film or an episode pops out to (plan 032). Live TV always
- * pops out in BlammyTV: only the Stream screen's pop-out reads this. */
+ * pops out in the app's own player (mpv): only the Stream screen's pop-out
+ * reads this. The key stays "blammytv", which is what is stored. */
 export type PopoutApp = "blammytv" | "vlc";
 
 /** The picker options. BlammyTV is what a pop-out always was. */
 export const POPOUT_APP_TABS: Array<{ key: PopoutApp; label: string }> = [
-  { key: "blammytv", label: "BlammyTV" },
+  { key: "blammytv", label: "MPV" },
   { key: "vlc", label: "VLC" },
 ];
 

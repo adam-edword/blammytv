@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.39: Saved's list menu, and MPV (unreleased)
+
+- **Add Row → Saved** shows its list of Library lists in full, instead of
+  cut off at the menu's edge.
+- **Pop Out Films and Shows In** offers MPV and VLC. MPV is the app's own
+  player, as before.
+
 ## 1.0.38: Saved and Trakt rows on Home, and Strand import (unreleased)
 
 - **Settings → Home → Add Row** now offers Saved (any Library list) and

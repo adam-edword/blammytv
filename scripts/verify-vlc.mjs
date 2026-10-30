@@ -3,14 +3,14 @@
 // in this process.
 //
 // What it holds:
-//   - Settings → Playback → Pop Out Films and Shows In: BlammyTV by default,
+//   - Settings → Playback → Pop Out Films and Shows In: MPV by default,
 //     nothing stored until VLC is picked, and VLC stored when it is;
 //   - a film or an episode popped out with VLC chosen calls `vlc_open` with the
 //     source address, the title ("Show · S1 E4 · Episode" for an episode), no
 //     User-Agent for a source that has none, and the position as `start`; it
 //     does not call `popout_open`; the player closes and the toast says
 //     "Playing in VLC";
-//   - with BlammyTV chosen the same button still calls `popout_open`, and a
+//   - with MPV chosen the same button still calls `popout_open`, and a
 //     LIVE pop-out calls it with VLC chosen too (live is not VLC's);
 //   - `vlc-progress` events, sent the way Tauri sends them, move Continue
 //     Watching's card and send Trakt a start, a pause and a stop; "gone" saves
@@ -235,8 +235,8 @@ const barPct = (page) =>
   const group = page.locator('.settings__body [role=group][aria-label="Pop out films and shows in"]');
   const names = await group.locator("button").allInnerTexts();
   const pressed = () => group.locator("button[aria-pressed=true]").allInnerTexts();
-  check("  offering BlammyTV and VLC", names.join() === "BlammyTV,VLC", names.join());
-  check("  BlammyTV by default, and nothing stored", (await pressed()).join() === "BlammyTV" && (await stored(page, "popoutApp")) === null, (await pressed()).join());
+  check("  offering MPV and VLC", names.join() === "MPV,VLC", names.join());
+  check("  MPV by default, and nothing stored", (await pressed()).join() === "MPV" && (await stored(page, "popoutApp")) === null, (await pressed()).join());
   await group.getByRole("button", { name: "VLC", exact: true }).click();
   check("  picking VLC keeps it", (await pressed()).join() === "VLC" && (await stored(page, "popoutApp")) === "vlc", JSON.stringify(await stored(page, "popoutApp")));
   await ctx.close();
@@ -377,14 +377,14 @@ const barPct = (page) =>
   await ctx.close();
 }
 
-// ---------------------------------------------------- BlammyTV, which is what it did
+// ---------------------------------------------------- MPV, which is what it did
 {
   const { ctx, page } = await playing({ watching: EPISODE });
   await page.evaluate(() => window.__tauriCalls.splice(0));
   await popOut(page);
   await page.waitForFunction(() => window.__tauriCalls.some((c) => c[0] === "popout_open"), null, { timeout: 8000 }).catch(() => {});
   const pop = await calls(page, "popout_open");
-  check("BlammyTV chosen (the default): a pop-out calls popout_open and not vlc_open", pop.length === 1 && pop[0].live === false && (await calls(page, "vlc_open")).length === 0, JSON.stringify(pop.map((p) => ({ ...p, url: "…" }))));
+  check("MPV chosen (the default): a pop-out calls popout_open and not vlc_open", pop.length === 1 && pop[0].live === false && (await calls(page, "vlc_open")).length === 0, JSON.stringify(pop.map((p) => ({ ...p, url: "…" }))));
   await ctx.close();
 }
 
