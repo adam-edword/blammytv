@@ -77,15 +77,16 @@ function ChannelTile({ card, clock }: { card: ChannelCard; clock: ClockFormat })
   );
 }
 
-/** Today's Games: the Sports board's own wide cards, opened the way it opens
- * them. A game too far out to open is disabled by the card itself. */
-export function GamesRow({ title, games }: { title: string; games: readonly Fixture[] }) {
+/** Today's Games, or one sport's ("Football Today"): the Sports board's own
+ * wide cards, opened the way it opens them. A game too far out to open is
+ * disabled by the card itself. */
+export function GamesRow({ title, games, sport }: { title: string; games: readonly Fixture[]; sport?: string }) {
   const open = useCallback((g: Game) => {
     if (isFixture(g)) requestOpenGame(g);
   }, []);
   if (games.length === 0) return null;
   return (
-    <section className="media-row homegames" data-row="games">
+    <section className="media-row homegames" data-row="games" data-sport={sport}>
       <h3 className="media-row__title">{title}</h3>
       <RowScroller>
         {games.map((g) => (

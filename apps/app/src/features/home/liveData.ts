@@ -2,6 +2,7 @@ import { progress } from "../live/epg";
 import type { Channel, LiveData, Programme } from "../live/model";
 import { airing } from "../live/mvTile";
 import { isFollowed, isRankable, isRanked, type Follows } from "../sports/follows";
+import { SPORTS } from "../sports/leagues";
 import { isFixture, type Fixture, type Game } from "../sports/model";
 import type { Recording } from "../recordings/store";
 
@@ -49,6 +50,27 @@ export function homeGames(games: readonly Game[], follows: Follows, rankedOnly: 
   );
 }
 
+/** The catalog's key for the sport a game is in: the first segment of its
+ * league's path ("football" for "football/nfl"). */
+const sportKeyOf = (path: string): string => path.slice(0, path.indexOf("/"));
+
+/** The games of one sport, or all of them with none named. The Today's Games
+ * row is the second and a sport's row the first, both from the one read. */
+export const gamesOfSport = (games: readonly Fixture[], sport?: string): Fixture[] =>
+  sport ? games.filter((g) => sportKeyOf(g.leagueKey) === sport) : [...games];
+
+/** The sports something is followed in (a league, a team or a conference),
+ * as catalog keys in the catalog's order. A key the catalog dropped is not one. */
+export function followedSports(f: Follows): string[] {
+  const keys = new Set([...f.leagues, ...f.teams, ...f.conferences].map((k) => sportKeyOf(k)));
+  return SPORTS.filter((s) => keys.has(s.key)).map((s) => s.key);
+}
+
+/** What a games row is called: Today's Games, or "Football Today" for one
+ * sport (the app's own name for it, so soccer is Fútbol). */
+export const gamesTitle = (sport?: string): string =>
+  sport ? `${SPORTS.find((s) => s.key === sport)?.name ?? sport} Today` : "Today’s Games";
+
 /** Whether anything is followed, since nothing followed is every league on
  * the Sports board and would be 151 requests on Home. */
 export const followsAny = (f: Follows): boolean => f.leagues.length + f.teams.length + f.conferences.length > 0;
@@ -63,21 +85,35 @@ export function playable(list: readonly Recording[], max = 20): Recording[] {
 // ---- what Settings → Home says about Today's Games ----
 
 /**
- * How many games the row has, as Home last counted: null until it has, and
- * while the row is off. Settings → Home reads it for the line under an empty
- * row. Held here, beside the row, because Home is the only thing that
- * fetches the games and the editor must not start a second read.
+ * How many games Home has today, in all and by sport, as Home last counted:
+ * null until it has, and while no games row is on. Settings → Home reads it
+ * for the line under an empty row. Held here, beside the rows, because Home is
+ * the only thing that fetches the games and the editor must not start a second
+ * read.
  */
-let gamesToday: number | null = null;
+export interface GamesCount {
+  all: number;
+  bySport: Record<string, number>;
+}
+let gamesToday: GamesCount | null = null;
 const GAMES_EVENT = "blammytv:home-games";
 
-export function publishGamesToday(n: number | null): void {
-  if (gamesToday === n) return;
-  gamesToday = n;
+export function publishGamesToday(games: readonly Fixture[] | null): void {
+  const next: GamesCount | null = games && {
+    all: games.length,
+    bySport: games.reduce<Record<string, number>>((n, g) => {
+      const k = sportKeyOf(g.leagueKey);
+      n[k] = (n[k] ?? 0) + 1;
+      return n;
+    }, {}),
+  };
+  // The same counts are the same snapshot, so nothing re-renders for them.
+  if (JSON.stringify(gamesToday) === JSON.stringify(next)) return;
+  gamesToday = next;
   if (typeof window !== "undefined") window.dispatchEvent(new Event(GAMES_EVENT));
 }
 
-export const peekGamesToday = (): number | null => gamesToday;
+export const peekGamesToday = (): GamesCount | null => gamesToday;
 
 export function onGamesToday(cb: () => void): () => void {
   window.addEventListener(GAMES_EVENT, cb);

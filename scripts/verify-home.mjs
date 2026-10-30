@@ -86,7 +86,7 @@ const errors = [];
  * machine. `store` is { key: envelope } under blammytv.*, written once: a
  * reload in a check must see what the check left.
  */
-async function open({ store = SEEDED, width = 1440, height = 900, reduced = false, games = null, recs = null, native = false, trakt = null, hold = null } = {}) {
+async function open({ store = SEEDED, width = 1440, height = 900, reduced = false, games = null, more = {}, probe = false, recs = null, native = false, trakt = null, hold = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: "dark", reducedMotion: reduced ? "reduce" : "no-preference" });
   await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
   // ESPN is routed, never reached: `games` is [[id, state]] for today's MLB.
@@ -97,15 +97,34 @@ async function open({ store = SEEDED, width = 1440, height = 900, reduced = fals
     // `hold`: a promise ESPN's answer waits for (phase 3: Home while it has not answered).
     if (hold) await hold;
     const url = new URL(route.request().url());
-    const hit = games && url.pathname.includes("baseball/mlb") && url.searchParams.get("dates") === ymd(new Date());
+    // `games` is today's MLB; `more` is { "football/nfl": [[id, state]] } for other leagues.
+    const byLeague = { ...(games ? { "baseball/mlb": games } : {}), ...more };
+    const league = Object.keys(byLeague).find((k) => url.pathname.includes(k));
+    const hit = league && url.searchParams.get("dates") === ymd(new Date());
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(hit ? { leagues: [{ id: "10", name: "MLB", abbreviation: "MLB", slug: "mlb" }], events: games.map(([id, state]) => event(id, state)) } : { events: [] }),
+      body: JSON.stringify(hit ? { leagues: [{ id: "10", name: league, abbreviation: league, slug: league.split("/")[1] }], events: byLeague[league].map(([id, state]) => event(id, state)) } : { events: [] }),
     });
   });
   const page = await ctx.newPage();
   page.on("pageerror", (e) => errors.push(String(e)));
+  // `probe`: counts what the games reader (useGames) arms: a 90-second timer,
+  // and a listener for the tab being shown again.
+  if (probe)
+    await page.addInitScript(() => {
+      window.__armed = { timers: 0, visible: 0 };
+      const st = window.setTimeout.bind(window);
+      window.setTimeout = (fn, ms, ...a) => {
+        if (ms === 90_000) window.__armed.timers++;
+        return st(fn, ms, ...a);
+      };
+      const on = document.addEventListener.bind(document);
+      document.addEventListener = (type, ...r) => {
+        if (type === "visibilitychange") window.__armed.visible++;
+        return on(type, ...r);
+      };
+    });
   // `recs`: native answered at the IPC boundary (isTauri() is then true),
   // with these recordings in its index. verify-recordings' stub, trimmed.
   // `native`: the same stub with no recordings (the Xtream panel's calls need
@@ -601,12 +620,17 @@ const stream = async (page) => {
   await ctx.close();
 }
 {
-  // Only a playlist: Live TV alone.
+  // Only a playlist: Home (its live rows work with one) and Live TV.
   const { ctx, page } = await open({ store: { playlists: XTREAM } });
   await openSettings(page, "Appearance");
   const start = page.getByRole("group", { name: "Start on", exact: true });
   const names = await start.getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  check("with only a playlist, Start On offers Live TV alone", JSON.stringify(names) === JSON.stringify(["Live TV"]), JSON.stringify(names));
+  check("with only a playlist, Start On offers Home and Live TV", JSON.stringify(names) === JSON.stringify(["Home", "Live TV"]), JSON.stringify(names));
+  await start.getByRole("button", { name: "Home", exact: true }).click();
+  await page.waitForTimeout(200);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator("main[data-screen='hub']").waitFor({ timeout: 10_000 }).catch(() => {});
+  check("  and Home picked launches on Home with only a playlist", (await screen(page)) === "hub", await screen(page));
   await ctx.close();
 }
 {
@@ -966,14 +990,15 @@ const REC = (id, status, startedAt, more = {}) => ({
   await ctx.close();
 }
 {
-  // No playlist: no live row can be added, so Add Row offers Trakt's rows alone.
+  // No playlist: no channel or game row can be added, but Recordings can (they
+  // are files on this PC, and play with no playlist), so Add Row offers it and Trakt's rows.
   const { ctx, page } = await open({ store: { aiostreams: AIO } });
   await goTo(page, "hub");
   await rowsReady(page);
   await openSettings(page);
   await page.getByRole("button", { name: "Add Row", exact: true }).click();
-  const groups = await page.getByRole("menu").getByRole("group").evaluateAll((gs) => gs.map((g) => g.getAttribute("aria-label")));
-  check("with no playlist, Add Row offers no live row: Films & Shows alone", JSON.stringify(groups) === JSON.stringify(["Films & Shows"]) && (await editor(page)).length > 0, JSON.stringify(groups));
+  const groups = await page.getByRole("menu").getByRole("group").evaluateAll((gs) => gs.map((g) => ({ name: g.getAttribute("aria-label"), items: [...g.querySelectorAll("[role=menuitem]")].map((i) => i.textContent) })));
+  check("with no playlist, Add Row offers Recordings and Films & Shows, and no channel or game row", JSON.stringify(groups) === JSON.stringify([{ name: "Live TV", items: ["Recordings"] }, { name: "Films & Shows", items: TRAKT_ROWS }]) && (await editor(page)).length > 0, JSON.stringify(groups));
   await ctx.close();
 }
 
@@ -1399,6 +1424,202 @@ const VOD_ONLY = { v: 1, data: [{ kind: "xtream", id: "vod1", name: "Vod Panel",
   await page.waitForFunction(() => /Nothing on Home/.test(document.querySelector(".stream__note")?.textContent ?? ""), null, { timeout: 15_000 }).catch(() => {});
   const done = (await page.locator(".stream__note").innerText()).replace(/\n/g, " ");
   check("  and once it has, with no game today, Nothing on Home", /Nothing on Home/.test(done) && !/Loading Home/.test(done), done);
+  await ctx.close();
+}
+
+// ======================================== review fixes (1.2.0) and sport rows
+const FOLLOW_TWO = env({ leagues: ["baseball/mlb", "football/nfl"], teams: [], conferences: [] });
+const NFL = { "football/nfl": [["f1", "live"], ["f2", "pre"]] };
+/** A layout holding these rows exactly as given (a games row with a sport is { id, kind: "games", sport }). */
+const rowsOf = (rows) => env({ rows: rows.map((r) => ({ on: true, ...r })), offered: ["onnow", "games"] });
+const row = (id) => ({ id, kind: id.includes(":") && !id.startsWith("games:") ? "catalog" : id.startsWith("games:") ? "games" : id, ...(id.startsWith("games:") ? { sport: id.slice(6) } : {}) });
+/** The document's focused element, as a user could name it. */
+const focused = (page) => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.tagName ?? null);
+
+// ---- Settings → Home shows a catalog row Home has not appended yet
+{
+  const { ctx, page } = await open({ store: SEEDED });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await goTo(page, "guide");
+  // As after a new source: the layout has not met "More Movies" yet, and Home is not up to add it.
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem("blammytv.homeRows"));
+    raw.data.rows = raw.data.rows.filter((r) => r.id !== "aio:more-movies");
+    localStorage.setItem("blammytv.homeRows", JSON.stringify(raw));
+  });
+  await openSettings(page);
+  const ed = await editor(page);
+  check("Settings → Home lists a catalog row Home has not appended yet, switched on, last", ed.at(-1)?.name === "More Movies" && ed.at(-1).on, JSON.stringify(ed.map((r) => r.name)));
+  await page.getByRole("switch", { name: "Top Movies", exact: true }).click();
+  await page.waitForTimeout(250);
+  check("  and the first change saves it with the rest", (await ids(page)).includes("aio:more-movies"), JSON.stringify(await ids(page)));
+  await ctx.close();
+}
+// ---- a drag keeps a hidden catalog row in its slot
+{
+  // "aio:ghost" is a source signed out of: no catalog has it, so the editor does not list it.
+  const { ctx, page } = await open({ store: { ...SEEDED, homeRows: rowsOf(["continue", "upnext", "aio:top-movies", "aio:ghost", "aio:top-series", "aio:more-movies"].map(row)) } });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await openSettings(page);
+  check("a catalog row of a source that is gone is not listed", !(await editor(page)).some((r) => /ghost/.test(r.name)), JSON.stringify((await editor(page)).map((r) => r.name)));
+  await liftAndMove(page, "Top Series", ["ArrowUp"]);
+  const order = await ids(page);
+  check("dragging a row leaves a hidden row in its slot, not at the end", JSON.stringify(order) === JSON.stringify(["continue", "upnext", "aio:top-series", "aio:ghost", "aio:top-movies", "aio:more-movies"]), JSON.stringify(order));
+  await ctx.close();
+}
+// ---- the games reader is inert unless a games row is on, on Home
+{
+  const store = { ...SEEDED, "sports-follows": FOLLOW_MLB, homeRows: layoutOf(["continue", "upnext", "games"]) };
+  const armed = (page) => page.evaluate(() => window.__armed);
+  const on = await open({ store, games: GAMES, probe: true });
+  await goTo(on.page, "hub");
+  await on.page.locator(".homegames .gamecard").first().waitFor({ timeout: 20_000 });
+  const control = await armed(on.page);
+  check("with Today's Games on, Home arms the 90-second refresh and a listener for the tab coming back", control.timers >= 1 && control.visible >= 1, JSON.stringify(control));
+  await on.ctx.close();
+
+  const stream_ = await open({ store, games: GAMES, probe: true });
+  await stream(stream_.page);
+  await stream_.page.waitForTimeout(1200);
+  const onStream = await armed(stream_.page);
+  check("on Stream's own page, with the same layout stored, nothing is armed and ESPN is not asked", onStream.timers === 0 && onStream.visible < control.visible && stream_.asked.espn === 0, JSON.stringify({ onStream, control, asked: stream_.asked.espn }));
+  await stream_.ctx.close();
+
+  const off = await open({ store: { ...store, homeRows: layoutOf(["continue", "upnext", "games"], { off: ["games"] }) }, games: GAMES, probe: true });
+  await goTo(off.page, "hub");
+  await rowsReady(off.page);
+  await off.page.waitForTimeout(1200);
+  const offArmed = await armed(off.page);
+  check("with Today's Games switched off, Home arms nothing either", offArmed.timers === 0 && offArmed.visible < control.visible && off.asked.espn === 0, JSON.stringify({ offArmed, control, asked: off.asked.espn }));
+  await off.ctx.close();
+}
+// ---- focus after a row is added or removed in the editor
+{
+  const store = { ...SEEDED, favorites: env([ESPN]), homeRows: layoutOf(["continue", "upnext", "onnow", "recordings", "aio:top-movies"]) };
+  const { ctx, page } = await open({ store });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await openSettings(page);
+  const status = () => page.locator("section.homerows > p[role=status]").innerText();
+  await page.getByRole("button", { name: "Remove On Now", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("removing a row puts focus on the next row's handle, not on the page", (await focused(page)) === "Reorder Recordings", await focused(page));
+  check("  and says so", (await status()) === "On Now removed.", await status());
+  await page.getByRole("button", { name: "Add Row", exact: true }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: "Recent Channels", exact: true }).click();
+  await page.waitForTimeout(400);
+  check("adding a row puts focus on its handle", (await focused(page)) === "Reorder Recent Channels", await focused(page));
+  check("  and says so", (await status()) === "Recent Channels added.", await status());
+  await page.getByRole("button", { name: "Remove Recent Channels", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("removing the last row puts focus on the one before it", (await focused(page)) === "Reorder More Movies", await focused(page));
+  await ctx.close();
+}
+{
+  // The only row listed: nothing to hand focus to, so Add Row has it.
+  const { ctx, page } = await open({ store: { playlists: XTREAM, homeRows: rowsOf([{ id: "recordings", kind: "recordings" }]) } });
+  await goTo(page, "hub");
+  await page.waitForTimeout(800);
+  await openSettings(page);
+  await page.getByRole("button", { name: "Remove Recordings", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("removing the only row puts focus on Add Row", (await focused(page)) === "BUTTON" && (await page.evaluate(() => document.activeElement?.classList.contains("homerows__add"))), await focused(page));
+  await ctx.close();
+}
+// ---- Continue Watching hears WATCHING_CHANGED, and so still TRAKT_SYNCED
+{
+  const { ctx, page } = await open({ store: { ...SEEDED, watching: WATCHING } });
+  await stream(page);
+  const cards = () => page.locator(".media-row:has(h3:text-is('Continue Watching'))").innerText();
+  const put = (id) =>
+    page.evaluate((id) => {
+      const k = "blammytv.watching";
+      const raw = JSON.parse(localStorage.getItem(k));
+      raw.data = [{ id, title: id, kind: "movie", at: Date.now(), posSec: 600, durSec: 6000 }, ...raw.data];
+      localStorage.setItem(k, JSON.stringify(raw));
+    }, id);
+  const before = await cards();
+  await put("tt777");
+  await page.evaluate(() => window.dispatchEvent(new Event("blammytv:watching-changed")));
+  await page.waitForTimeout(300);
+  check("a WATCHING_CHANGED re-reads Continue Watching", /Odd Movie/.test(before) && !/tt777/.test(before) && /tt777/.test(await cards()), JSON.stringify({ before, after: await cards() }));
+  await put("tt888");
+  await page.evaluate(() => window.dispatchEvent(new Event("blammytv:trakt-synced")));
+  await page.waitForTimeout(300);
+  check("  and a Trakt sync still does", /tt888/.test(await cards()), String(await cards()));
+  await ctx.close();
+}
+
+// ---- one row for each sport (plan 033, after phase 3)
+const SPORT_LAYOUT = rowsOf(["continue", "upnext", "games", "games:baseball", "games:football"].map(row));
+{
+  const { ctx, page } = await open({ store: { ...SEEDED, "sports-follows": FOLLOW_TWO, homeRows: layoutOf(["continue", "upnext"]) }, games: GAMES, more: NFL });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await openSettings(page);
+  await page.getByRole("button", { name: "Add Row", exact: true }).click();
+  const sports = await page.getByRole("menu").getByRole("group", { name: "Sports" }).locator("[role=menuitem]").allInnerTexts();
+  check("Add Row, Sports, offers Today's Games and a row for each sport you follow, by the app's names", JSON.stringify(sports) === JSON.stringify(["Today’s Games", "American Football Today", "Baseball Today"]), JSON.stringify(sports));
+  await page.getByRole("menu").getByRole("menuitem", { name: "Baseball Today", exact: true }).click();
+  await page.waitForTimeout(500);
+  const ed = await editor(page);
+  const added = ed.find((r) => r.name === "Baseball Today");
+  check("adding one puts it in the editor, on, as a Sports row with the games picture", !!added && added.on && added.kind === "Sports" && added.glyph === "games", JSON.stringify(ed.at(-1)));
+  const saved = (await stored(page)).find((r) => r.id === "games:baseball");
+  check("  and stores it as its own row, with its sport", saved?.kind === "games" && saved.sport === "baseball", JSON.stringify(saved));
+  await page.locator(".homegames .gamecard").first().waitFor({ timeout: 20_000 });
+  const cards = await page.locator(".homegames[data-sport='baseball'] .gamecard").evaluateAll((els) => els.map((e) => e.dataset.game));
+  check("  Home draws it behind Settings with the baseball games only", (await titles(page)).includes("Baseball Today") && cards.length === 3 && cards.every((g) => g.startsWith("espn-baseball/mlb-")), JSON.stringify(cards));
+  await page.getByRole("button", { name: "Add Row", exact: true }).click();
+  const left = await page.getByRole("menu").getByRole("group", { name: "Sports" }).locator("[role=menuitem]").allInnerTexts();
+  check("  and it is no longer offered, nor are the others gone", JSON.stringify(left) === JSON.stringify(["Today’s Games", "American Football Today"]), JSON.stringify(left));
+  await page.keyboard.press("Escape");
+  // Renamed, switched off and removed like any row.
+  await page.getByRole("textbox", { name: "Name of Baseball Today", exact: true }).fill("Ballgames");
+  await page.waitForTimeout(300);
+  check("a sport row can be renamed, and Home follows", (await titles(page)).includes("Ballgames") && !(await titles(page)).includes("Baseball Today"), JSON.stringify(await titles(page)));
+  await page.getByRole("switch", { name: "Ballgames", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("  switched off, it leaves Home", !(await titles(page)).includes("Ballgames") && (await page.locator(".homegames[data-sport='baseball']").count()) === 0);
+  await page.getByRole("button", { name: "Remove Ballgames", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("  and removed, it leaves the layout", !(await ids(page)).includes("games:baseball"), JSON.stringify(await ids(page)));
+  await ctx.close();
+}
+const askedBy = {};
+for (const [label, layout] of [["one", rowsOf(["continue", "upnext", "games"].map(row))], ["all", SPORT_LAYOUT]]) {
+  const { ctx, page, asked } = await open({ store: { ...SEEDED, "sports-follows": FOLLOW_TWO, homeRows: layout }, games: GAMES, more: NFL });
+  await goTo(page, "hub");
+  await page.locator(".homegames .gamecard").first().waitFor({ timeout: 20_000 });
+  // Dev mounts an effect twice, so each league is asked for twice; wait for both rounds.
+  await page.waitForTimeout(3000);
+  askedBy[label] = asked.espn;
+  if (label === "all") {
+    const by = await page.locator(".homegames").evaluateAll((secs) => secs.map((s) => ({ sport: s.dataset.sport ?? null, title: s.querySelector(".media-row__title")?.textContent, games: [...s.querySelectorAll(".gamecard")].map((c) => c.dataset.game) })));
+    const todays = by.find((r) => r.sport === null);
+    const base = by.find((r) => r.sport === "baseball");
+    const foot = by.find((r) => r.sport === "football");
+    check("Today's Games draws everything followed, and each sport's row only its own", todays?.games.length === 5 && base?.games.length === 3 && base.games.every((g) => g.startsWith("espn-baseball/mlb-")) && foot?.games.length === 2 && foot.games.every((g) => g.startsWith("espn-football/nfl-")), JSON.stringify(by));
+    check("  titled for the sport, in the order they sit", JSON.stringify(by.map((r) => r.title)) === JSON.stringify(["Today’s Games", "Baseball Today", "American Football Today"]), JSON.stringify(by.map((r) => r.title)));
+  }
+  await ctx.close();
+}
+check("three games rows ask ESPN for no more than one does: one read serves them all", askedBy.one > 0 && askedBy.all === askedBy.one, JSON.stringify(askedBy));
+{
+  // What the editor says under an empty sport row.
+  const layout = rowsOf(["continue", "upnext", "games:baseball", "games:football", "games:hockey"].map(row));
+  const { ctx, page } = await open({ store: { ...SEEDED, "sports-follows": FOLLOW_TWO, homeRows: layout }, games: GAMES, more: { "football/nfl": [] } });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await page.waitForTimeout(1500);
+  await openSettings(page);
+  const why = (name) => page.locator(`.xtrow:has(.homerows__title[aria-label='Name of ${name}']) .homerows__why`).innerText().catch(() => "");
+  check("a followed sport with no game today says so", (await why("American Football Today")) === "No games today.", await why("American Football Today"));
+  check("  a sport with games says nothing", (await why("Baseball Today")) === "", await why("Baseball Today"));
+  check("  a sport nothing is followed in says to follow a league", (await why("Ice Hockey Today")) === "Follow a league in Sports to fill this row.", await why("Ice Hockey Today"));
+  check("  and Home draws only the baseball row", JSON.stringify((await titles(page)).filter((t) => /Today/.test(t))) === JSON.stringify(["Baseball Today"]), JSON.stringify(await titles(page)));
   await ctx.close();
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { channelCards, followsAny, homeGames, playable } from "./liveData";
+import { channelCards, followedSports, followsAny, gamesOfSport, gamesTitle, homeGames, playable } from "./liveData";
 import type { Channel, LiveData, Programme } from "../live/model";
 import type { Recording } from "../recordings/store";
 import { toGames } from "../sports/espn";
@@ -110,5 +110,52 @@ describe("playable", () => {
     const many = Array.from({ length: 30 }, (_, i) => rec(`r${i}`, "done", 100 - i));
     expect(playable(many)).toHaveLength(20);
     expect(playable(many, 3).map((r) => r.id)).toEqual(["r0", "r1", "r2"]);
+  });
+});
+
+describe("the sport rows' share of the games", () => {
+  const games = [...toGames(mlb, "baseball/mlb"), ...toGames(cfb, "football/college-football")];
+  const all = homeGames(games, { leagues: ["baseball/mlb", "football/college-football"], teams: [], conferences: [] }, false);
+
+  it("holds only that sport's games: baseball's are not football's", () => {
+    const baseball = gamesOfSport(all, "baseball");
+    const football = gamesOfSport(all, "football");
+    expect(baseball.length).toBeGreaterThan(0);
+    expect(football.length).toBeGreaterThan(0);
+    expect(baseball.every((g) => g.leagueKey === "baseball/mlb")).toBe(true);
+    expect(football.every((g) => g.leagueKey === "football/college-football")).toBe(true);
+    expect(baseball.length + football.length).toBe(all.length);
+  });
+
+  it("is every game with no sport named (Today's Games), and nothing for a sport with none", () => {
+    expect(gamesOfSport(all)).toEqual(all);
+    expect(gamesOfSport(all, "hockey")).toEqual([]);
+  });
+});
+
+describe("followedSports", () => {
+  const none = { leagues: [], teams: [], conferences: [] };
+
+  it("is the sports a league, a club or a conference is followed in, in the catalog's order, once each", () => {
+    expect(followedSports(none)).toEqual([]);
+    const got = followedSports({
+      leagues: ["soccer/eng.1", "soccer/esp.1"],
+      teams: ["baseball/mlb:1", "football/nfl:2"],
+      conferences: ["football/college-football:5"],
+    });
+    expect(got.sort()).toEqual(["baseball", "football", "soccer"]);
+  });
+
+  it("leaves out a sport the catalog does not carry", () => {
+    expect(followedSports({ ...none, leagues: ["curling/world"] })).toEqual([]);
+  });
+});
+
+describe("gamesTitle", () => {
+  it("is Today's Games with no sport, and the app's own name for a sport with one", () => {
+    expect(gamesTitle()).toBe("Today’s Games");
+    expect(gamesTitle("basketball")).toBe("Basketball Today");
+    expect(gamesTitle("football")).toBe("American Football Today");
+    expect(gamesTitle("soccer")).toBe("Fútbol Today");
   });
 });

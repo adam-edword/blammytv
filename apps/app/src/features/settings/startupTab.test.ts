@@ -53,8 +53,11 @@ describe("startupChoices", () => {
     expect(keys(true, true)).toEqual(STARTUP_TABS.map((t) => t.key));
   });
 
-  it("offers Live TV alone with only a playlist", () => {
-    expect(keys(true, false)).toEqual(["live"]);
+  // Changed on purpose (1.2.0 review): Home works with only a playlist now
+  // (its live rows, StreamScreen's liveOnly), so Start On offers it there. This
+  // used to pin ["live"], from before Home had any live row.
+  it("offers Home and Live TV with only a playlist", () => {
+    expect(keys(true, false)).toEqual(["home", "live"]);
   });
 
   it("offers Home, Stream and Discover without Live TV with only a stream source", () => {
@@ -77,8 +80,15 @@ describe("shownStartup", () => {
     expect(shownStartup("live", stream)).toBe("stream");
   });
 
+  // Was stored "home" with ["live"] on offer. Home is on offer with a playlist
+  // alone now (see startupChoices above), so the stored tab here is Discover,
+  // which still is not.
   it("shows the first choice when neither the stored tab nor Stream is on offer", () => {
-    expect(shownStartup("home", startupChoices({ live: true, stream: false }))).toBe("live");
+    expect(shownStartup("discover", startupChoices({ live: true, stream: false }))).toBe("home");
+  });
+
+  it("keeps Home for a playlist-only setup", () => {
+    expect(shownStartup("home", startupChoices({ live: true, stream: false }))).toBe("home");
   });
 
   it("shows the stored tab when there are no choices at all", () => {

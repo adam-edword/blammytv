@@ -1,5 +1,6 @@
 import { load, save } from "../../lib/storage";
 import { loadShowHero } from "../settings/showHero";
+import { SPORTS } from "../sports/leagues";
 
 /**
  * Home's rows (plan 033): which rows the page behind the logo draws, in what
@@ -25,6 +26,15 @@ import { loadShowHero } from "../settings/showHero";
  * what decides what a load keeps, so a kind this build does not know is
  * dropped, never trusted.
  *
+ * TODAY'S GAMES CAN ALSO BE ONE ROW PER SPORT. A `games` row with a `sport`
+ * (the catalog's key: "football", "soccer") draws only that sport's games, and
+ * its id is `games:<sport>`, so it is its own row: renamed, switched, ordered
+ * and removed like any other. It stays kind `games` because everything a games
+ * row needs (the live source, the one ESPN read, the glyph, removal) is the
+ * same; only the filter differs. A sport the catalog does not carry is not a
+ * row. The auto-offered Today's Games is the one with no sport and the id
+ * `games`, which is why "was it offered" asks for that id and not the kind.
+ *
  * A NEEDS ROW KEEPS STRAND'S JSON, SO A LATER VERSION CAN FILL IT, but only
  * an object of at most STRAND_MAX characters: a Strand row is about 250, and
  * what is stored sits in localStorage beside everything else. A bigger one,
@@ -41,7 +51,8 @@ import { loadShowHero } from "../settings/showHero";
 export type HomeRow =
   | { id: string; kind: "carousel" | "continue" | "upnext"; on: boolean; title?: string }
   | { id: string; kind: "catalog"; on: boolean; title?: string }
-  | { id: string; kind: LiveKind; on: boolean; title?: string }
+  | { id: string; kind: Exclude<LiveKind, "games">; on: boolean; title?: string }
+  | { id: string; kind: "games"; sport?: string; on: boolean; title?: string }
   | { id: string; kind: "saved"; list: string; on: boolean; title?: string }
   | { id: string; kind: "trakt"; list: TraktList; on: boolean; title?: string }
   | { id: string; kind: "needs"; on: boolean; title: string; strand: unknown };
@@ -63,6 +74,9 @@ export const STRAND_MAX = 4000;
 /** The ids of the rows that come from a list: one row for each list. */
 export const savedId = (list: string) => `saved:${list}`;
 export const traktId = (list: TraktList) => `trakt:${list}`;
+export const gamesId = (sport: string) => `games:${sport}`;
+
+const SPORT_KEYS: ReadonlySet<string> = new Set(SPORTS.map((s) => s.key));
 
 /** The two a layout is offered once, on its own. */
 const AUTO_KINDS: readonly LiveKind[] = ["onnow", "games"];
@@ -89,6 +103,12 @@ function parseRow(x: unknown): HomeRow | null {
   const r = x as Record<string, unknown>;
   if (typeof r.kind !== "string" || typeof r.on !== "boolean") return null;
   const title = typeof r.title === "string" && r.title.trim() ? { title: r.title.trim() } : {};
+  // A sport row is its sport's: an unknown sport is dropped, not turned into
+  // Today's Games (which would be a second copy of it).
+  if (r.kind === "games" && r.sport !== undefined)
+    return typeof r.sport === "string" && SPORT_KEYS.has(r.sport)
+      ? { id: gamesId(r.sport), kind: "games", sport: r.sport, on: r.on, ...title }
+      : null;
   if (SINGLES.has(r.kind)) return { id: r.kind, kind: r.kind as SingleKind, on: r.on, ...title };
   if (r.kind === "catalog" && typeof r.id === "string" && r.id) return { id: r.id, kind: "catalog", on: r.on, ...title };
   // A list row's id is made from its list, so one list is one row whatever id was stored.
@@ -126,7 +146,7 @@ function normalize(list: unknown): HomeRow[] {
 }
 
 /** The auto rows that are in these rows, which have by that been offered. */
-const autoIn = (rows: readonly HomeRow[]): LiveKind[] => AUTO_KINDS.filter((k) => rows.some((r) => r.kind === k));
+const autoIn = (rows: readonly HomeRow[]): LiveKind[] => AUTO_KINDS.filter((k) => rows.some((r) => r.id === k));
 
 /** The offered list as it was stored: the auto kinds only, once each, and
  * any that are in the rows (one that is there was offered, whatever was
@@ -191,6 +211,18 @@ export function seedHomeRows(opts: { carousel: boolean; catalogIds: readonly str
   ]);
 }
 
+/** The rows with those named by `ids` put in that order, each into a slot one
+ * of them held; every other row (the pinned carousel, a catalog row Settings
+ * does not list) keeps its place. A drag in the editor reorders only what it
+ * shows, and a row it hides must not move. */
+export function reorderWithin(rows: readonly HomeRow[], ids: readonly string[]): HomeRow[] {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const order = ids.flatMap((id) => byId.get(id) ?? []);
+  const moving = new Set(order.map((r) => r.id));
+  let next = 0;
+  return rows.map((r) => (moving.has(r.id) ? order[next++] : r));
+}
+
 /** The rows with any catalog row they lack added at the end, switched on.
  * The same array back when there is none, so a caller can tell. */
 export function withNewCatalogRows(rows: readonly HomeRow[], catalogIds: readonly string[]): readonly HomeRow[] {
@@ -210,7 +242,7 @@ export function withNewCatalogRows(rows: readonly HomeRow[], catalogIds: readonl
  * records the offer (`saveHomeRows`). */
 export function withAutoRows(rows: readonly HomeRow[], offered: readonly string[], live: boolean): readonly HomeRow[] {
   if (!live) return rows;
-  const fresh: HomeRow[] = AUTO_KINDS.filter((k) => !offered.includes(k) && !rows.some((r) => r.kind === k)).map(
+  const fresh: HomeRow[] = AUTO_KINDS.filter((k) => !offered.includes(k) && !rows.some((r) => r.id === k)).map(
     (kind) => ({ id: kind, kind, on: true }),
   );
   return fresh.length > 0 ? [...rows, ...fresh] : rows;

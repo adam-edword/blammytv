@@ -74,3 +74,36 @@ export async function fetchTraktRow(list: TraktList, limit: number): Promise<Lis
     return null;
   }
 }
+
+// ---- what is kept between visits
+
+const TTL = 10 * 60_000;
+const kept = new Map<string, { at: number; entries: Promise<ListEntry[] | null> }>();
+
+/**
+ * A list's titles, asked for once in ten minutes. Kept by list AND Row Cap,
+ * so a changed cap is a new request and not the old answer. What is kept is
+ * the request itself, so two readers at once share it. One that failed is not
+ * kept: the next ask goes out again.
+ */
+export function keptRow(
+  list: TraktList,
+  limit: number,
+  ask: (list: TraktList, limit: number) => Promise<ListEntry[] | null> = fetchTraktRow,
+  now = Date.now(),
+): Promise<ListEntry[] | null> {
+  const slot = `${list}:${limit}`;
+  let hit = kept.get(slot);
+  if (!hit || now - hit.at >= TTL) {
+    hit = { at: now, entries: ask(list, limit) };
+    kept.set(slot, hit);
+  }
+  const mine = hit;
+  return mine.entries.then((entries) => {
+    if (!entries && kept.get(slot) === mine) kept.delete(slot);
+    return entries;
+  });
+}
+
+/** Forget every answer: signed out, what was kept goes with the sign-in. */
+export const forgetRows = (): void => kept.clear();

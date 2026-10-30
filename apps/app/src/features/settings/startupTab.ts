@@ -19,11 +19,11 @@ export const STARTUP_TABS: Array<{ key: StartupTab; label: string }> = [
 /**
  * The places worth offering, given what is set up: Live TV needs a playlist,
  * and the Stream pages need something to stream from. In STARTUP_TABS' order.
- * Home sits with Stream because in phase 1 every row on it is a film or a
- * show; phase 2's live rows widen it to `live || stream`.
+ * Home is there with either: its live rows (On Now, Today's Games, Recordings)
+ * work with only a playlist, and so does its page (StreamScreen's `liveOnly`).
  */
 export function startupChoices({ live, stream }: { live: boolean; stream: boolean }) {
-  return STARTUP_TABS.filter((t) => (t.key === "live" ? live : stream));
+  return STARTUP_TABS.filter((t) => (t.key === "live" ? live : t.key === "home" ? live || stream : stream));
 }
 
 /** Where a launch opens, and so what the picker shows as chosen: the stored

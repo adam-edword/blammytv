@@ -112,6 +112,30 @@ describe("importStrand, rows that are not the sample's", () => {
     ]);
   });
 
+  it("fills a watchlist's Needs row in place when a list exists by the second import, not a second copy of it", () => {
+    const file = text([{ id: "W", sortOrder: 0, source: { localWatchlist: {} }, title: "Watchlist" }]);
+    // First, with no list: a Needs row. Then the person moves and switches it off, and a list appears.
+    const first = importStrand(file, HOME, [])!.rows;
+    const tuned = first.map((r) => (r.id === "needs:W" ? { ...r, on: false, title: "Mine" } : r));
+    const rows = [...tuned.slice(0, 4), { id: "trakt:popular_movies", kind: "trakt", list: "popular_movies", on: true } as HomeRow, tuned[4]];
+    const out = importStrand(file, rows, LISTS)!;
+    expect(out.added).toBe(0);
+    expect(ids(out.rows)).toEqual([...ids(HOME), "trakt:popular_movies", "saved:l1"]);
+    expect(out.rows.at(-1)).toEqual({ id: "saved:l1", kind: "saved", list: "l1", on: false, title: "Mine" });
+  });
+
+  it("leaves a Needs row alone when the list's Saved row is already on Home", () => {
+    const file = text([{ id: "W", source: { localWatchlist: {} }, title: "Watchlist" }]);
+    const rows: HomeRow[] = [
+      ...HOME,
+      { id: "needs:W", kind: "needs", on: true, title: "Watchlist", strand: {} },
+      { id: "saved:l1", kind: "saved", list: "l1", on: true },
+    ];
+    const out = importStrand(file, rows, LISTS)!;
+    expect(ids(out.rows)).toEqual(ids(rows));
+    expect(out.added).toBe(0);
+  });
+
   it("gives a row with no title a name, and one with no id an id of its own", () => {
     const out = importStrand(text([{ source: { x: {} } }, { source: { y: {} } }]), HOME, LISTS)!;
     const added = out.rows.slice(HOME.length);

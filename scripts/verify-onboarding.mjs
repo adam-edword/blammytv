@@ -709,13 +709,18 @@ if (!FAST) {
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForSelector(".onb-prefs", { timeout: 10000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
+  // Home works with a playlist alone (its live rows), so Start On has two
+  // places to choose between here and is shown (changed in the 1.2.0 review;
+  // it used to be skipped with Live TV as the one place).
+  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
+  const names = await page.locator(".onb-stage > .onb-chips").getByRole("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
+  check("with only a playlist added, Start On is shown with Home and Live TV", JSON.stringify(names) === JSON.stringify(["Home", "Live TV"]), JSON.stringify(names));
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   const toured = await page.waitForSelector(".onb-tour", { timeout: 8000 }).then(() => true).catch(() => false);
-  check("with only a playlist added, Start On is skipped: Accent and clock goes straight to the tour", toured);
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("blammytv.startupTab") ?? "null")?.data ?? null);
-  check("  and its one place, Live TV, is saved as the startup tab", saved === "live", String(saved));
+  check("  and Continue goes on to the tour", toured);
   await page.getByRole("button", { name: "← Back" }).click();
-  await page.waitForSelector(".onb-prefs", { timeout: 8000 }).catch(() => null);
-  check("  Back from the tour skips it too: Accent and clock", (await page.$eval(".onb-title", (el) => el.textContent).catch(() => "")) === "Accent and Clock");
+  await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 }).catch(() => null);
+  check("  Back from the tour lands on Start On", (await page.$eval(".onb-title", (el) => el.textContent).catch(() => "")) === "Where should we start?");
   await page.close();
 }
 if (!FAST) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Button } from "../../components/ui/button";
 import {
@@ -18,16 +18,19 @@ import { Toggle } from "../../ui/Toggle";
 import { EYEBROW } from "../../ui/eyebrow";
 import { loadFavorites } from "../live/favorites";
 import { loadRecents } from "../live/recents";
-import { followsAny, onGamesToday, peekGamesToday, playable } from "../home/liveData";
+import { followedSports, followsAny, gamesTitle, onGamesToday, peekGamesToday, playable } from "../home/liveData";
 import { peekCatalogRows } from "../home/catalogRows";
 import {
+  gamesId,
   homeRows,
   onHomeRowsChange,
   removable,
+  reorderWithin,
   saveHomeRows,
   savedId,
   traktId,
   TRAKT_LISTS,
+  withNewCatalogRows,
   type HomeRow,
   type HomeRowKind,
   type LiveKind,
@@ -36,6 +39,10 @@ import { RowGlyph } from "../home/RowGlyph";
 import { importStrand } from "../home/strand";
 import { TRAKT_NAMES } from "../home/traktRows";
 import { useRecordings } from "../recordings/store";
+import { AIO_CONN_CHANGED } from "./aiostreams";
+import { JF_CHANGED } from "../jellyfin/store";
+import { XT_CHANGED } from "../xtvod/store";
+import { XT_LOADED } from "../xtvod/vod";
 import { loadFollows } from "../sports/follows";
 import { loadLists, type UserList } from "../stream/lists";
 import { traktStatus } from "../trakt/client";
@@ -67,11 +74,8 @@ const KIND: Record<HomeRowKind, string> = {
   needs: "Needs a Source",
 };
 
-/** The Add Row menu's live groups: the kinds that can be added, by where they come from. */
-const LIVE_GROUPS: { label: string; kinds: LiveKind[] }[] = [
-  { label: "Live TV", kinds: ["onnow", "recent", "recordings"] },
-  { label: "Sports", kinds: ["games"] },
-];
+/** Where focus goes when there is no row to give it to: the Add Row button. */
+const ADD = "#add";
 
 /** A row Add Row can add, and what the menu calls it. */
 interface Offer {
@@ -99,20 +103,49 @@ interface Offer {
  * leave rows here you cannot remove.
  */
 export function HomePage() {
-  // Read once per visit: the catalogs are the last builds kept (nothing is
-  // fetched), and Home appends a row it has not seen as its catalogs load.
-  const catalog = useMemo(() => peekCatalogRows(), []);
+  // The catalogs are the last builds kept (nothing is fetched). Read again when
+  // a source changes or its catalog lands, so a new source's rows are here as
+  // they are on Home (Home appends them as its catalogs load).
+  const [catalog, setCatalog] = useState(peekCatalogRows);
+  useEffect(() => {
+    const again = () => setCatalog(peekCatalogRows());
+    const events = [AIO_CONN_CHANGED, JF_CHANGED, XT_CHANGED, XT_LOADED];
+    for (const e of events) window.addEventListener(e, again);
+    const off = onHomeRowsChange(again);
+    return () => {
+      for (const e of events) window.removeEventListener(e, again);
+      off();
+    };
+  }, []);
   const own = useMemo(() => new Map(catalog.map((r) => [r.id, r.title])), [catalog]);
-  // The Library's lists, read once per visit too: nothing saves to one while
-  // Settings is up.
+  // The Library's lists, and what is followed, read once per visit: nothing
+  // saves to either while Settings is up.
   const lists = useMemo(() => loadLists(), []);
+  const sports = useMemo(() => followedSports(loadFollows()), []);
   const live = hasLivePlaylist();
-  const [rows, setRows] = useState<HomeRow[]>(() =>
+  const [stored, setRows] = useState<HomeRow[]>(() =>
     homeRows(catalog.map((r) => r.id), live),
   );
   useEffect(() => onHomeRowsChange(setRows), []);
+  // The rows Home would draw: a catalog row it has not met yet comes last,
+  // switched on, as Home appends it.
+  const rows = useMemo(() => withNewCatalogRows(stored, catalog.map((r) => r.id)) as HomeRow[], [stored, catalog]);
   const signedIn = useTraktSignedIn();
   const why = useWhyEmpty(live, lists, signedIn);
+
+  // After a row is removed or added the page moves focus to a row (or Add Row),
+  // so it is not left on the <body>, and says what happened.
+  const root = useRef<HTMLElement>(null);
+  const focusNext = useRef<string | null>(null);
+  const addedFromMenu = useRef(false);
+  const [said, setSaid] = useState("");
+  useEffect(() => {
+    const id = focusNext.current;
+    if (!id) return;
+    focusNext.current = null;
+    const grip = root.current?.querySelector<HTMLElement>(`[data-grip="${CSS.escape(id)}"]`);
+    (grip ?? root.current?.querySelector<HTMLElement>(".homerows__add"))?.focus();
+  }, [rows]);
 
   const nameOf = (r: HomeRow) => r.title ?? ownName(r, own, lists);
   const edit = (id: string, patch: Partial<Pick<HomeRow, "on" | "title">>) =>
@@ -131,15 +164,33 @@ export function HomePage() {
   const hidden = rows.filter((r) => r.kind === "catalog" && !own.has(r.id));
   const listed = rows.filter((r) => r.kind !== "carousel" && !hidden.includes(r));
   const items = listed.map((r) => ({ id: r.id, label: nameOf(r) }));
-  const remove = (id: string) => setRows(saveHomeRows(rows.filter((r) => r.id !== id)));
-  const add = (row: HomeRow) => setRows(saveHomeRows([...rows, row]));
+  const remove = (id: string) => {
+    const at = listed.findIndex((r) => r.id === id);
+    const near = listed[at + 1] ?? listed[at - 1];
+    // The next row's handle, else the one before, else Add Row (the row removed is offered there).
+    focusNext.current = near?.id ?? ADD;
+    setSaid(`${items[at].label} removed.`);
+    setRows(saveHomeRows(rows.filter((r) => r.id !== id)));
+  };
+  const add = (row: HomeRow) => {
+    focusNext.current = row.id;
+    addedFromMenu.current = true;
+    setSaid(`${row.kind === "games" ? gamesTitle(row.sport) : ownName(row, own, lists)} added.`);
+    setRows(saveHomeRows([...rows, row]));
+  };
 
   // What Add Row offers: what is not on Home yet. The live rows only with a
   // live source (they play through the Guide or open the Sports board, which
-  // are not there without one); Saved and Trakt need none.
+  // are not there without one), except Recordings, which are files on this PC;
+  // Saved and Trakt need none.
   const have = new Set(rows.map((r) => r.id));
   const liveOffers = (kinds: LiveKind[]): Offer[] =>
     kinds.filter((k) => !have.has(k)).map((k) => ({ label: OWN[k], row: { id: k, kind: k, on: true } }));
+  // Today's Games, then a row for each sport followed (a sport's own row is its
+  // own: it can be on Home beside Today's Games).
+  const sportOffers: Offer[] = sports
+    .filter((s) => !have.has(gamesId(s)))
+    .map((s) => ({ label: gamesTitle(s), row: { id: gamesId(s), kind: "games", sport: s, on: true } }));
   const savedOffers: Offer[] = lists
     .filter((l) => !have.has(savedId(l.id)))
     .map((l) => ({ label: l.name, row: { id: savedId(l.id), kind: "saved", list: l.id, on: true } }));
@@ -149,14 +200,22 @@ export function HomePage() {
   }));
   const offered = [
     { label: "Watching", saved: savedOffers, offers: [] as Offer[] },
-    ...LIVE_GROUPS.map((g) => ({ label: g.label, saved: [] as Offer[], offers: live ? liveOffers(g.kinds) : [] })),
+    {
+      label: "Live TV",
+      saved: [] as Offer[],
+      offers: [...(live ? liveOffers(["onnow", "recent"]) : []), ...liveOffers(["recordings"])],
+    },
+    { label: "Sports", saved: [] as Offer[], offers: live ? [...liveOffers(["games"]), ...sportOffers] : [] },
     { label: "Films & Shows", saved: [] as Offer[], offers: traktOffers },
   ].filter((g) => g.saved.length > 0 || g.offers.length > 0);
 
   return (
     <>
       <h3 className={`settings__group ${EYEBROW}`}>Home</h3>
-      <section className="settings-section homerows" data-setting="home-rows">
+      <section ref={root} className="settings-section homerows" data-setting="home-rows">
+        <p className="sr-only" role="status" aria-live="polite">
+          {said}
+        </p>
         <div className="xtedit__minehead">
           <h4 className="customize-row__title">Home Rows</h4>
           {listed.length > 1 && <p className="xtedit__hint">Drag to change the order.</p>}
@@ -175,7 +234,15 @@ export function HomePage() {
                   Add Row
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent
+                align="end"
+                className="w-56"
+                // A row just added takes focus (the menu would give it back to its button).
+                onCloseAutoFocus={(e) => {
+                  if (addedFromMenu.current) e.preventDefault();
+                  addedFromMenu.current = false;
+                }}
+              >
                 {offered.map((g, i) => (
                   <div key={g.label} role="group" aria-label={g.label}>
                     {i > 0 && <DropdownMenuSeparator />}
@@ -227,16 +294,15 @@ export function HomePage() {
           vertical
           label="Rows"
           className="xtdrawer__list"
-          onReorder={(ids) => {
-            const byId = new Map(rows.map((r) => [r.id, r]));
-            setRows(saveHomeRows([...pinned, ...ids.map((id) => byId.get(id)!), ...hidden]));
-          }}
+          // Only the rows shown move, each into a slot one of them held: the
+          // carousel and any catalog row hidden here keep theirs.
+          onReorder={(ids) => setRows(saveHomeRows(reorderWithin(rows, ids)))}
         >
           {listed.map((r, i) => (
             <SortableRow key={r.id} id={r.id} className="xtrow">
               {(grip) => (
                 <>
-                  <button type="button" className="xtrow__grip" {...grip} aria-label={`Reorder ${items[i].label}`}>
+                  <button type="button" className="xtrow__grip" {...grip} data-grip={r.id} aria-label={`Reorder ${items[i].label}`}>
                     <GripIcon size={16} />
                   </button>
                   <RowGlyph kind={r.kind} />
@@ -277,6 +343,8 @@ function ownName(r: HomeRow, own: ReadonlyMap<string, string>, lists: readonly U
       return TRAKT_NAMES[r.list];
     case "needs":
       return r.title;
+    case "games":
+      return gamesTitle(r.sport);
     default:
       return OWN[r.kind];
   }
@@ -331,9 +399,19 @@ function useWhyEmpty(live: boolean, lists: readonly UserList[], signedIn: boolea
         return loadRecents().length === 0 ? "Channels you watch show here." : "";
       case "recordings":
         return recordings.length === 0 ? "Recordings you make show here." : "";
-      case "games":
-        if (!followsAny(loadFollows())) return "Follow a league in Sports to fill this row.";
-        return games === 0 ? "No games today for your leagues." : "";
+      case "games": {
+        const follows = loadFollows();
+        if (!followsAny(follows) || (row.sport && !followedSports(follows).includes(row.sport)))
+          return "Follow a league in Sports to fill this row.";
+        if (games === null) return "";
+        return row.sport
+          ? (games.bySport[row.sport] ?? 0) === 0
+            ? "No games today."
+            : ""
+          : games.all === 0
+            ? "No games today for your leagues."
+            : "";
+      }
     }
   };
 }

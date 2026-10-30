@@ -4,20 +4,16 @@ import { traktStatus } from "../trakt/client";
 import { TRAKT_SYNCED } from "../trakt/store";
 import type { ListEntry } from "../stream/myList";
 import { TRAKT_LISTS, type HomeRow, type TraktList } from "./layout";
-import { fetchTraktRow } from "./traktRows";
+import { forgetRows, keptRow } from "./traktRows";
 
 /**
  * The titles behind Home's Trakt rows (plan 033, phase 3), asked for only
  * while Home is up and only for a row that is on, and only when signed in to
- * Trakt: no row, no request. No polling. An answer is kept for ten minutes, so
- * Back from a title (which draws Home again) does not ask four more times; one
- * that failed is not kept, and the next visit asks again. What is kept is the
- * request itself, so two readers at once (StrictMode's second effect, a Home
- * drawn again) share one.
+ * Trakt: no row, no request. No polling. An answer is kept for ten minutes
+ * (`keptRow`), so Back from a title (which draws Home again) does not ask four
+ * more times, and two readers at once (StrictMode's second effect, a Home
+ * drawn again) share one request.
  */
-
-const TTL = 10 * 60_000;
-const kept = new Map<TraktList, { at: number; entries: Promise<ListEntry[] | null> }>();
 
 export type TraktRows = Partial<Record<TraktList, ListEntry[]>>;
 
@@ -40,7 +36,7 @@ export function useTraktRows(layout: readonly HomeRow[] | undefined, onHome: boo
       const s = await traktStatus();
       if (!s.configured || !s.connected) {
         // Signed out since the last visit: what was kept goes with the sign-in.
-        kept.clear();
+        forgetRows();
         if (live) setData({});
         return;
       }
@@ -48,14 +44,7 @@ export function useTraktRows(layout: readonly HomeRow[] | undefined, onHome: boo
       await Promise.all(
         key.split(",").map(async (l) => {
           const list = l as TraktList;
-          let hit = kept.get(list);
-          if (!hit || Date.now() - hit.at >= TTL) {
-            hit = { at: Date.now(), entries: fetchTraktRow(list, limit) };
-            kept.set(list, hit);
-          }
-          const entries = await hit.entries;
-          // A failure is not kept: the next visit asks again.
-          if (!entries && kept.get(list) === hit) kept.delete(list);
+          const entries = await keptRow(list, limit);
           if (live) setData((d) => ({ ...d, [list]: entries ?? [] }));
         }),
       );

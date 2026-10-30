@@ -30,7 +30,9 @@ import { TRAKT_NAMES } from "./traktRows";
  *
  * With no Library list at all, a watchlist has nothing to point at (a list is
  * only made by saving the first title), so it becomes a Needs a Source row,
- * and so keeps its place.
+ * and so keeps its place. Importing the same file again once a list exists
+ * fills that row: the Saved row takes the Needs row's slot, title and switch,
+ * so the watchlist is not on Home twice.
  */
 
 export interface StrandImport {
@@ -100,7 +102,17 @@ export function importStrand(
     let own = "";
     if (kind === "localWatchlist" && target) {
       own = target.name;
-      made = { id: savedId(target.id), kind: "saved", list: target.id, on: !off };
+      const saved: HomeRow = { id: savedId(target.id), kind: "saved", list: target.id, on: !off };
+      made = saved;
+      // This watchlist came in before as a Needs row (there was no list yet):
+      // the Saved row replaces it where it stands.
+      const at = next.findIndex((r) => r.kind === "needs" && r.id === needsId(row, i, title));
+      if (at >= 0 && !next.some((r) => r.id === saved.id) && !fresh.some((r) => r.id === saved.id)) {
+        const old = next[at];
+        next[at] = { ...saved, on: old.on, title: old.title } as HomeRow;
+        already++;
+        continue;
+      }
     } else if (kind === "traktBuiltIn") {
       const list = (row.source.traktBuiltIn as { _0?: unknown } | null)?._0;
       if (TRAKT_LISTS.includes(list as TraktList)) {
@@ -112,8 +124,7 @@ export function importStrand(
       // Strand's row, kept whole. One too big to keep is left out (a real
       // row is about 250 characters).
       if (!fitsStrand(row)) continue;
-      const id = `needs:${typeof row.id === "string" && row.id ? row.id : `${i}:${title ?? ""}`}`;
-      made = { id, kind: "needs", on: !off, title: title ?? "Untitled Row", strand: row };
+      made = { id: needsId(row, i, title), kind: "needs", on: !off, title: title ?? "Untitled Row", strand: row };
     } else if (title && title !== own) {
       made = { ...made, title };
     }
@@ -133,6 +144,10 @@ export function importStrand(
 
   return { rows: [...next, ...fresh], added: fresh.length, already };
 }
+
+/** The id of the Needs a Source row for a Strand row: its own id, else its place and title. */
+const needsId = (row: StrandRow, i: number, title: string | undefined): string =>
+  `needs:${typeof row.id === "string" && row.id ? row.id : `${i}:${title ?? ""}`}`;
 
 /** Strand's order: `sortOrder`, and a row with none goes last. */
 const sortKey = (r: StrandRow): number => (typeof r.sortOrder === "number" && Number.isFinite(r.sortOrder) ? r.sortOrder : Infinity);

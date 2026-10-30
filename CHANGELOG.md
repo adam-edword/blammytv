@@ -2,6 +2,18 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.47: One games row per sport, and Home fixes (unreleased)
+
+- **Add Row → Sports** offers a row for each sport you follow, like
+  Basketball Today, beside Today's Games.
+- **Startup Tab can open on Home** with only a TV playlist.
+- **Settings → Home lists a new source's rows** right away, and dragging a
+  row keeps the others in their places.
+- **Removing or adding a row** keeps your place for the keyboard.
+- **Recordings can be added back** with no playlist.
+- **Importing a Strand layout twice** no longer doubles its watchlist.
+- **A Trakt row picks up a new Titles per Row** on your next visit.
+
 ## 1.0.46: What's New, and the docs for 1.2 (unreleased)
 
 - **The first launch after an update shows What's New.** The boot plays,

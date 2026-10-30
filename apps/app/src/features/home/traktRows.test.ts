@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { shapeTrakt } from "./traktRows";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { forgetRows, keptRow, shapeTrakt } from "./traktRows";
 
 const movie = (title: string, year: number | null, imdb: string | null) => ({ title, year, ids: { trakt: 1, imdb } });
 
@@ -49,5 +49,39 @@ describe("shapeTrakt", () => {
     expect(shapeTrakt("popular_movies", { error: "x" })).toEqual([]);
     expect(shapeTrakt("popular_movies", null)).toEqual([]);
     expect(shapeTrakt("popular_movies", [null, 4, "x", {}])).toEqual([]);
+  });
+});
+
+describe("keptRow", () => {
+  const entry = [{ id: "tt1", title: "A", kind: "movie" as const, at: 0 }];
+  beforeEach(forgetRows);
+
+  it("asks once for the same list and cap within ten minutes", async () => {
+    const ask = vi.fn(async () => entry);
+    await keptRow("popular_movies", 40, ask, 1000);
+    await keptRow("popular_movies", 40, ask, 1000 + 9 * 60_000);
+    expect(ask).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks again after ten minutes", async () => {
+    const ask = vi.fn(async () => entry);
+    await keptRow("popular_movies", 40, ask, 1000);
+    await keptRow("popular_movies", 40, ask, 1000 + 10 * 60_000);
+    expect(ask).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks again when the Row Cap changed, and does not hand back the old cap's answer", async () => {
+    const ask = vi.fn(async (_l: string, limit: number) => entry.slice(0, limit === 1 ? 1 : 0));
+    expect(await keptRow("popular_movies", 1, ask, 1000)).toHaveLength(1);
+    expect(await keptRow("popular_movies", 2, ask, 2000)).toHaveLength(0);
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(ask).toHaveBeenLastCalledWith("popular_movies", 2);
+  });
+
+  it("does not keep a failure", async () => {
+    const ask = vi.fn(async () => null);
+    await keptRow("popular_shows", 40, ask, 1000);
+    await keptRow("popular_shows", 40, ask, 1001);
+    expect(ask).toHaveBeenCalledTimes(2);
   });
 });

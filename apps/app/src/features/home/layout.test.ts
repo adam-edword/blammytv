@@ -16,6 +16,7 @@ import {
   loadHomeRows,
   loadOffered,
   onHomeRowsChange,
+  reorderWithin,
   fitsStrand,
   isLive,
   removable,
@@ -402,5 +403,75 @@ describe("the list rows", () => {
     ];
     saveHomeRows(rows);
     expect(loadHomeRows()).toEqual(rows);
+  });
+});
+
+describe("the sport rows", () => {
+  beforeEach(() => store.clear());
+
+  it("are kept with their sport, under an id made from it, beside Today's Games", () => {
+    const rows: HomeRow[] = [
+      { id: "games", kind: "games", on: true },
+      { id: "games:football", kind: "games", sport: "football", on: true, title: "Sundays" },
+      { id: "games:soccer", kind: "games", sport: "soccer", on: false },
+    ];
+    saveHomeRows(rows);
+    expect(loadHomeRows()).toEqual(rows);
+  });
+
+  it("hold one sport once, whatever id was stored", () => {
+    put([
+      { id: "x", kind: "games", sport: "hockey", on: true },
+      { id: "games:hockey", kind: "games", sport: "hockey", on: false },
+    ]);
+    expect(loadHomeRows()).toEqual([{ id: "games:hockey", kind: "games", sport: "hockey", on: true }]);
+  });
+
+  it("drop a sport the catalog does not carry, and one that is not a word, rather than become Today's Games", () => {
+    put([
+      { id: "games:curling", kind: "games", sport: "curling", on: true },
+      { id: "g", kind: "games", sport: 4, on: true },
+      { id: "games", kind: "games", sport: "", on: true },
+      { id: "continue", kind: "continue", on: true },
+    ]);
+    expect(ids(loadHomeRows()!)).toEqual(["continue"]);
+  });
+
+  it("can be removed, are live rows, and do not count as Today's Games having been offered", () => {
+    expect(removable("games")).toBe(true);
+    expect(isLive("games")).toBe(true);
+    const sportOnly: HomeRow[] = [
+      { id: "continue", kind: "continue", on: true },
+      { id: "games:football", kind: "games", sport: "football", on: true },
+    ];
+    // A layout holding only a sport row has not been offered Today's Games...
+    saveHomeRows(sportOnly);
+    expect(loadOffered()).toEqual([]);
+    // ...so it still gets it, once, when there is a live source.
+    expect(ids(withAutoRows(sportOnly, [], true))).toEqual(["continue", "games:football", "onnow", "games"]);
+  });
+});
+
+describe("reorderWithin", () => {
+  const rows: HomeRow[] = [
+    { id: "carousel", kind: "carousel", on: true },
+    { id: "continue", kind: "continue", on: true },
+    { id: "aio:gone", kind: "catalog", on: true },
+    { id: "upnext", kind: "upnext", on: true },
+    { id: "aio:b", kind: "catalog", on: true },
+  ];
+
+  it("puts the named rows in the new order, in the slots those rows held", () => {
+    expect(ids(reorderWithin(rows, ["aio:b", "upnext", "continue"]))).toEqual(["carousel", "aio:b", "aio:gone", "upnext", "continue"]);
+  });
+
+  it("leaves a row that was not named (a hidden catalog row, the carousel) exactly where it was", () => {
+    const out = reorderWithin(rows, ["aio:b", "upnext", "continue"]);
+    expect(out.indexOf(rows[0])).toBe(0);
+    expect(out[2]).toBe(rows[2]);
+  });
+
+  it("is the same order for the same order", () => {
+    expect(ids(reorderWithin(rows, ["continue", "upnext", "aio:b"]))).toEqual(ids(rows));
   });
 });
