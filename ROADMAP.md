@@ -356,6 +356,12 @@ Not in 1.0: recording, anything else below.
 
 ## After 1.0
 
+**The next release is 1.2.0** (Adam, 2026-10-30), headlined by Home and
+recording (rewind under it), with VLC pop-out, themes and genre rows as
+supporting notes. Skipping 1.1 is on purpose: each would have been its own
+minor (Home 1.1, recording 1.2), and both land together. Before it: Adam's
+pass on Windows, a fresh-eyes review since 1.0, the full board, docs.
+
 - **Recording to disk.** Named as the post-1.0 headliner since July.
 - **Themes, the concept, with new looks** (decision 1). New packs as
   overlays on the settled tokens, under `[data-theme-pack]`, with no default
