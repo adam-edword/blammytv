@@ -136,7 +136,7 @@ No rebuild. In the app's console on a live channel:
   bound the disk. A file cap was added beside the 2 GB free rule:
   `MAX_FILE_BYTES` 12 GiB, about 2 hours at 13 Mbit/s. At the cap or under 2 GB
   free, `cache-on-disk=no` at runtime and the stream carries on in memory.
-  The cap's value is Adam's to confirm.
+  Adam confirmed 12 GiB (2026-10-30).
 - Go Live seeks to the buffer's end unless the seekable end fell more than 20s
   behind the clock (a stall, sticky until a reload), and reloads then.
 
