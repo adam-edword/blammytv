@@ -11,9 +11,15 @@ mostly just color changes".
 - **The first themes change colour only.** No fonts, corner radii, grain or
   shapes yet; those were the canvas's other half and can come later.
 - **Three themes, plus the app as it is today ("Default"):**
-  - **Prism:** neutral greys, a pink accent (#ff8bc9), and the brand's
-    rainbow in three places it already glows: the focus ring, the Guide's
-    now-line and the glow behind the Stream hero.
+  - **Prism: the app in onboarding's look** (Adam, 2026-10-30, mockup
+    https://claude.ai/artifact/KRZtmMwWTcVveQKokdVTBJ v7): true black, white
+    type, a white accent, onboarding's dot dither behind the content, and its
+    cursor glow (brighter, 0.16 at the centre) shining through the dots in
+    the gaps between cards. The rainbow stays in the logo, the shelf glow,
+    the Guide's now-line and the player's progress and LIVE dot. Rejected on
+    the way: a rainbow focus ring, a rainbow nav pill (solid, then a 20%
+    wash), a 640px glow. The dither and glow sit inside .app-shell so the
+    player's clip hole cuts them; no glow under reduced motion or touch.
   - **Velvet:** oxblood surfaces and a brass accent (#e8bb6c), without its
     Bodoni type, its grain or its sharp corners.
   - **Lagoon:** deep teal and an aqua accent (#5fe1c1), opaque surfaces
@@ -37,8 +43,9 @@ mostly just color changes".
 
 - **Dark only.** The three are dark palettes. In Light, the app keeps its own
   light look, and the Theme picker says so.
-- **A theme brings its own accent.** While one is on, the Accent picker is
-  hidden, so a theme looks as it was designed.
+- **Accents per theme** (Adam): Prism takes none (its accent is white);
+  Velvet and Lagoon show the picker, opening on their own accent, and each
+  theme remembers its own choice.
 - **Free.** No Themes Pass gate in this round; the paid seam (old/themes,
   license.ts, services/keybox) stays parked until Adam decides.
 
