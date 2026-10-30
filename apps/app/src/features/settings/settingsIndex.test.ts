@@ -91,8 +91,15 @@ describe("findSettings", () => {
       expect(ids(q), q).toContain("popout");
   });
 
+  it("finds Pop Out Films and Shows In by what a person would type (plan 032)", () => {
+    for (const q of ["vlc", "videolan", "external player", "pop out films"]) expect(ids(q), q).toContain("popout-app");
+    expect(ids("vlc")).toEqual(["popout-app"]);
+    // The pop-out's window still comes first for "pop-out".
+    expect(ids("pop-out")[0]).toBe("popout");
+  });
+
   it("files the player rows on Playback, under no pill", () => {
-    for (const id of ["audio-channels", "subtitle-size", "popout"]) {
+    for (const id of ["audio-channels", "subtitle-size", "popout", "popout-app"]) {
       const r = settingById(id);
       expect(r?.page, id).toBe("playback");
       expect(r?.world, id).toBeUndefined();

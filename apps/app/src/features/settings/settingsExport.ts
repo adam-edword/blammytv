@@ -103,6 +103,8 @@ export const KEY_GROUPS = {
     "subtitleSize",
     "popoutSize",
     "popoutCorner",
+    // Which player a film or an episode pops out to (plan 032).
+    "popoutApp",
     // The reminders before a recording: the player's buffer (plan 029, D3)
     // and a connection of its own (D5).
     "recordingWarning",

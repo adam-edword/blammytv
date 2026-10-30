@@ -41,7 +41,7 @@ import {
   ItemHeader,
   ItemTitle,
 } from "../../components/ui/item";
-import { isTauri, tauriSetFullscreen } from "../../lib/tauri";
+import { isTauri, openExternal, tauriSetFullscreen } from "../../lib/tauri";
 import { scrubbedMessage } from "../../lib/errors";
 import { dayLabel } from "../../lib/time";
 import { setOverlayApiOverride } from "../live/overlayApi";
@@ -141,6 +141,8 @@ import { useJfReport } from "../jellyfin/report";
 import { rememberForMal } from "../mal/sync";
 import { useMalTicks } from "../mal/ticks";
 import { loadTrakt, TRAKT_SYNCED } from "../trakt/store";
+import { loadPopoutApp } from "../settings/playerPrefs";
+import { openInVlc, vlcTitle, type VlcOpenFailure } from "./vlcSession";
 import { Hint } from "../../ui/Hint";
 import { Card } from "../../ui/Card";
 import { RowScroller } from "../../ui/RowScroller";
@@ -279,6 +281,15 @@ export function StreamScreen({
   // has it without each passing one.
   const agentFor = playing?.item.from === "xt" ? playing.item.id : null;
   const playAgent = useMemo(() => (agentFor ? xtUserAgent(agentFor) : undefined), [agentFor]);
+  // Pop-out to VLC (plan 032): why it did not start, for the stream it was
+  // asked on, and the toast once it has (the player is closed by then).
+  const [vlcNote, setVlcNote] = useState<(VlcOpenFailure & { key: string }) | null>(null);
+  const [inVlc, setInVlc] = useState(false);
+  useEffect(() => {
+    if (!inVlc) return;
+    const t = window.setTimeout(() => setInVlc(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [inVlc]);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
   // A Trakt sync can move Continue Watching (plan 015, T4).
   useEffect(() => {
@@ -1471,6 +1482,36 @@ export function StreamScreen({
       // playback returns in-app at the popout's final position.
       onPopout: () => {
         if (!playing) return;
+        // VLC (Settings → Playback): it plays from here on, and the app only
+        // follows it (vlcSession.ts), so the player closes and the title's
+        // page is back. Not started (no VLC, or refused): the player plays on.
+        if (loadPopoutApp() === "vlc") {
+          const asked = playing;
+          setVlcNote(null);
+          void (async () => {
+            const st = await tauriMpvStatus().catch(() => null);
+            const fail = await openInVlc(
+              {
+                itemId: asked.item.id,
+                kind: asked.item.kind,
+                title: asked.item.title,
+                year: asked.item.year,
+                episodeId: asked.episodeId,
+                season: asked.episodeInfo?.season,
+                from: asked.item.from,
+                streamUrl: asked.url,
+              },
+              vlcTitle(asked.item.title, asked.episodeInfo),
+              playAgent,
+              st?.pos ?? asked.resumeAt,
+            );
+            if (fail) return setVlcNote({ ...fail, key: `${asked.url}#${asked.reloadTick ?? 0}` });
+            // Still that stream: a pick made while VLC started is not closed.
+            if (playingRef.current?.url === asked.url) stop();
+            setInVlc(true);
+          })();
+          return;
+        }
         const shell = document.querySelector<HTMLElement>(".app-shell");
         if (shell) shell.style.clipPath = "";
         void tauriPopoutOpen(playing.url, false, undefined, playAgent).catch(() => {});
@@ -2084,6 +2125,38 @@ export function StreamScreen({
             </div>,
             chromeHostRef.current,
           )}
+        {vlcNote &&
+          vlcNote.key === streamKey &&
+          !playing.popped &&
+          chromeHostRef.current &&
+          createPortal(
+            <div className="vlc-note" role="alert" data-interactive>
+              <span className="vlc-note__msg">
+                {vlcNote.missing
+                  ? "VLC isn’t installed."
+                  : `Couldn’t open VLC: ${vlcNote.why.replace(/\.+$/, "")}.`}
+              </span>
+              {vlcNote.missing && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  type="button"
+                  onClick={() => openExternal("https://www.videolan.org/vlc/")}
+                >
+                  Download VLC
+                </Button>
+              )}
+              <Button variant="chip" size="icon-chip"
+                type="button"
+                className="player__btn"
+                aria-label="Dismiss"
+                onClick={() => setVlcNote(null)}
+              >
+                <CloseIcon className="size-3.5" />
+              </Button>
+            </div>,
+            chromeHostRef.current,
+          )}
         {playing.popped && (
           <div className="vod-pip">
             {(playing.item.logo ?? playing.item.poster) && (
@@ -2220,6 +2293,13 @@ export function StreamScreen({
           }
         />
       )}
+      {inVlc &&
+        createPortal(
+          <div className="live-toast" role="status">
+            <span className="live-toast__msg">Playing in VLC</span>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

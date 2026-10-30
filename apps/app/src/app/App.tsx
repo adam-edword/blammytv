@@ -24,6 +24,7 @@ import { useAiojfSync } from "../features/aiojf/sync";
 import { useJfSync } from "../features/jellyfin/sync";
 import { useMalSync } from "../features/mal/sync";
 import { useTraktSync } from "../features/trakt/sync";
+import { useVlcFollow } from "../features/stream/useVlcFollow";
 import {
   onAddRequest,
   onMultiviewRequest,
@@ -81,6 +82,9 @@ export function App() {
   useMalSync();
   useAiojfSync();
   useJfSync();
+  // A film or an episode playing in VLC is reported as one in the app is
+  // (plan 032). Here, not in StreamScreen: the player is closed by then.
+  useVlcFollow();
   // Nav is two facts, not one: which SIDE of the app (Live TV vs Stream)
   // and which Stream PAGE (the pill rail). streamTab survives a trip to
   // Live TV — coming back lands where you were; the startup setting only

@@ -143,3 +143,23 @@ export const onPopoutCornerChange = POP_CORNER.on;
 export function popoutPlace(): { size: PopoutSize; corner: PopoutCorner } {
   return { size: loadPopoutSize(), corner: loadPopoutCorner() };
 }
+
+/** Which player a film or an episode pops out to (plan 032). Live TV always
+ * pops out in BlammyTV: only the Stream screen's pop-out reads this. */
+export type PopoutApp = "blammytv" | "vlc";
+
+/** The picker options. BlammyTV is what a pop-out always was. */
+export const POPOUT_APP_TABS: Array<{ key: PopoutApp; label: string }> = [
+  { key: "blammytv", label: "BlammyTV" },
+  { key: "vlc", label: "VLC" },
+];
+
+const POP_APP = choice<PopoutApp>(
+  "popoutApp",
+  "blammytv:popout-app",
+  POPOUT_APP_TABS.map((t) => t.key),
+  "blammytv",
+);
+export const loadPopoutApp = POP_APP.load;
+export const savePopoutApp = POP_APP.save;
+export const onPopoutAppChange = POP_APP.on;

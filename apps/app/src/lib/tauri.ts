@@ -646,6 +646,29 @@ export function onPopoutClosed(cb: (pos?: number) => void): () => void {
   return () => void un.then((f) => f());
 }
 
+/** What native answers `vlc_open` with when VLC is not on this PC (vlc.rs
+ * NOT_INSTALLED). Any other rejection is a short word on what was refused. */
+export const VLC_NOT_INSTALLED = "vlc not installed";
+
+/** Play a film or an episode in VLC (plan 032). Resolves once VLC has started,
+ * from `start` seconds in. The address is never logged here or there. */
+export function tauriVlcOpen(url: string, title: string, userAgent?: string, start?: number): Promise<void> {
+  return invoke("vlc_open", { url, title, ...agentArg(userAgent), ...(start && start >= 1 ? { start } : {}) });
+}
+
+/** Where VLC is, every few seconds, until it ends with state "gone" (the last
+ * position VLC gave is on that one). `len` is 0 until VLC knows it. */
+export interface VlcProgress {
+  pos: number;
+  len: number;
+  state: "playing" | "paused" | "stopped" | "gone";
+}
+
+/** Told each `vlc-progress`. Resolves once it is listening, with the way to stop. */
+export function onVlcProgress(cb: (p: VlcProgress) => void): Promise<() => void> {
+  return listen<VlcProgress>("vlc-progress", (e) => cb(e.payload));
+}
+
 /** Ask GitHub Releases (via tauri-plugin-updater) whether a newer signed
  * build exists. Resolves with its version string, or null when current. */
 export function tauriCheckUpdate(): Promise<string | null> {

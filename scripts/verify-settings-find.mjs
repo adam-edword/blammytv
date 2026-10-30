@@ -584,7 +584,7 @@ async function registryMatches(page, positions, label, absent = []) {
 // ====================================================================
 {
   // No AIOStreams: Playback shows the sign-in note where Stream's rows would be.
-  // The Player group (Speaker Setup, Subtitle Size, Pop-Out Window; Audio Channels and Pop-out until 0.12) is for
+  // The Player group (Speaker Setup, Subtitle Size, Pop Out Films and Shows In, Pop-Out Window; Audio Channels and Pop-out until 0.12) is for
   // Live TV too and is drawn without one: that is what a find can still land
   // on. The query was "subtitle" until Subtitle Size took that word.
   const errorsBefore = errors.length;
@@ -608,8 +608,8 @@ async function registryMatches(page, positions, label, absent = []) {
     JSON.stringify({ s: s?.rows[0], text: note.text.slice(0, 100) }),
   );
   check(
-    "  nothing lit, none of Stream's rows drawn, the Player group's three there, and focus left on the card",
-    note.lit === 0 && note.stream === 0 && note.player.join() === "audio-channels,subtitle-size,popout" && note.onCard,
+    "  nothing lit, none of Stream's rows drawn, the Player group's four there, and focus left on the card",
+    note.lit === 0 && note.stream === 0 && note.player.join() === "audio-channels,subtitle-size,popout-app,popout" && note.onCard,
     JSON.stringify(note),
   );
   await closeSettings(page);

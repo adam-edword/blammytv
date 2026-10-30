@@ -206,9 +206,9 @@ const closeSettings = async (page) => {
   // 0.12 renamed three by plain words: Auto Source Failover is Switch Sources
   // When One Fails, Audio Channels is Speaker Setup and Pop-out is Pop-Out Window.
   check(
-    "Playback: One-Click Play, Switch Sources When One Fails, Autoplay Next Episode, Up Next Card, Skipping, Preferred Language, then the Player group: Speaker Setup, Subtitle Size, Pop-Out Window, and nothing else",
+    "Playback: One-Click Play, Switch Sources When One Fails, Autoplay Next Episode, Up Next Card, Skipping, Preferred Language, then the Player group: Speaker Setup, Subtitle Size, Pop Out Films and Shows In, Pop-Out Window, and nothing else",
     JSON.stringify(play) ===
-      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop-Out Window"]),
+      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop Out Films and Shows In", "Pop-Out Window"]),
     JSON.stringify(play),
   );
   const playCtl = await page.evaluate(() => {

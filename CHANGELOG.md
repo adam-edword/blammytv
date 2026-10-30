@@ -2,6 +2,16 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.33: Pop out films and shows in VLC (unreleased)
+
+- **Settings → Playback → Pop Out Films and Shows In** picks BlammyTV or
+  VLC. With VLC, Pop Out closes the player and VLC carries on from your
+  position.
+- **VLC's position comes back** to Continue Watching, Trakt, AIOStreams and
+  Jellyfin, and a title counts as watched at the same 90% line.
+- **No VLC on the PC:** the player keeps playing, and a note offers
+  Download VLC. Live TV always pops out in BlammyTV.
+
 ## 1.0.32: Genre rows tuned on a real library (unreleased)
 
 - **A title that leads with the genre ranks first.** Forrest Gump and Ted

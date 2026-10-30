@@ -2486,3 +2486,29 @@
 .tune__vodcancel {
   margin-top: 10px;
 }
+
+/* A pop-out to VLC that did not start (plan 032): under the player's top
+ * right buttons, where the Pop Out button was. The player plays on. */
+.vlc-note {
+  position: fixed;
+  top: 68px;
+  right: 20px;
+  z-index: var(--z-player-over);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(440px, calc(100vw - 40px));
+  padding: 8px 8px 8px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--float-border);
+  background: var(--float-bg);
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+  box-shadow: var(--float-shadow);
+  color: var(--text);
+}
+.vlc-note__msg {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 13.5px;
+}

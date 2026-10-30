@@ -40,18 +40,22 @@ import {
 } from "./upNext";
 import {
   AUDIO_CHANNEL_TABS,
+  POPOUT_APP_TABS,
   POPOUT_CORNERS,
   POPOUT_SIZE_TABS,
   SUBTITLE_SIZE_TABS,
   loadAudioChannels,
+  loadPopoutApp,
   loadPopoutCorner,
   loadPopoutSize,
   loadSubtitleSize,
   saveAudioChannels,
+  savePopoutApp,
   savePopoutCorner,
   savePopoutSize,
   saveSubtitleSize,
   type AudioChannels,
+  type PopoutApp,
   type PopoutCorner,
   type PopoutSize,
   type SubtitleSize,
@@ -125,6 +129,7 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
   const [subSize, setSubSize] = useState<SubtitleSize>(loadSubtitleSize);
   const [popSize, setPopSize] = useState<PopoutSize>(loadPopoutSize);
   const [popCorner, setPopCorner] = useState<PopoutCorner>(loadPopoutCorner);
+  const [popApp, setPopApp] = useState<PopoutApp>(loadPopoutApp);
 
   // Recordings Folder: the one picked, else the default native names. Only
   // the app records, so only the app draws it.
@@ -360,6 +365,24 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
             onChange={(k: SubtitleSize) => {
               setSubSize(k);
               saveSubtitleSize(k);
+            }}
+          />
+        </div>
+
+        <div className="customize-row" data-setting="popout-app">
+          <div>
+            <h4 className="customize-row__title">Pop Out Films and Shows In</h4>
+            <p className="settings__section-note settings__section-note--dim">
+              Live TV always pops out in BlammyTV.
+            </p>
+          </div>
+          <Segmented
+            label="Pop out films and shows in"
+            options={POPOUT_APP_TABS}
+            value={popApp}
+            onChange={(k: PopoutApp) => {
+              setPopApp(k);
+              savePopoutApp(k);
             }}
           />
         </div>

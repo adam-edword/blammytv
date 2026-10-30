@@ -1,6 +1,6 @@
 # Plan 032: Pop out films and shows in VLC
 
-Status: DECIDED (2026-10-28, Adam and Chad). Native half built in v1.0.20; the page half waits on Home phase 1 (plan 033), which is splitting StreamScreen.
+Status: BUILT. Native half in v1.0.20, the page half in v1.0.33. Not yet run against a real VLC on Windows.
 
 Chad's request: watch films and episodes in VLC instead of BlammyTV's own
 player.

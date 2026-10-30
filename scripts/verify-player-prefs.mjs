@@ -166,9 +166,9 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
   await openPlayback(page);
   const rows = await titles(page);
   check(
-    "Playback: Stream's rows, then the Player group: Speaker Setup, Subtitle Size, Pop-Out Window, then Recordings Folder and Recording Quality",
+    "Playback: Stream's rows, then the Player group: Speaker Setup, Subtitle Size, Pop Out Films and Shows In, Pop-Out Window, then Recordings Folder and Recording Quality",
     JSON.stringify(rows) ===
-      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop-Out Window", "Recordings Folder", "Recording Quality"]),
+      JSON.stringify(["One-Click Play Movies", "Switch Sources When One Fails", "Autoplay Next Episode", "Up Next Card", "Skipping", "Preferred Language", "Speaker Setup", "Subtitle Size", "Pop Out Films and Shows In", "Pop-Out Window", "Recordings Folder", "Recording Quality"]),
     JSON.stringify(rows),
   );
   const groups = await page.locator(".settings__body .settings__group").allInnerTexts();
@@ -244,7 +244,7 @@ const titles = (page) => page.locator(".settings__body .customize-row__title").a
   const ids = await page.evaluate(() => [...document.querySelectorAll(".settings__body [data-setting]")].map((e) => e.dataset.setting));
   check(
     "with no AIOStreams the Player group is still there, and Stream's rows are not",
-    JSON.stringify(rows) === JSON.stringify(["Speaker Setup", "Subtitle Size", "Pop-Out Window", "Recordings Folder", "Recording Quality"]) && JSON.stringify(ids) === JSON.stringify(["audio-channels", "subtitle-size", "popout", "recordings-folder", "recording-quality"]),
+    JSON.stringify(rows) === JSON.stringify(["Speaker Setup", "Subtitle Size", "Pop Out Films and Shows In", "Pop-Out Window", "Recordings Folder", "Recording Quality"]) && JSON.stringify(ids) === JSON.stringify(["audio-channels", "subtitle-size", "popout-app", "popout", "recordings-folder", "recording-quality"]),
     JSON.stringify({ rows, ids }),
   );
   check("  under the sign-in note for the rest", /Sign in to AIOStreams or Jellyfin to see these settings/.test(note), note.slice(0, 120));

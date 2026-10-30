@@ -161,6 +161,12 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     keywords: ["pop-out", "popout", "pop out", "pip", "picture in picture", "window", "corner", "floating", "position", "size"],
   },
   {
+    id: "popout-app",
+    label: "Pop Out Films and Shows In",
+    page: "playback",
+    keywords: ["vlc", "external player", "other player", "video player", "videolan", "open in vlc", "pop out", "pop-out", "popout"],
+  },
+  {
     id: "recordings-folder",
     label: "Recordings Folder",
     page: "playback",

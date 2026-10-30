@@ -39,6 +39,11 @@ export interface ScrobbleTarget {
   episodeId?: string;
   /** In the pop-out: the in-app player is not the one playing. */
   popped?: boolean;
+  /** In VLC (stream/vlcSession.ts): nothing here plays it, and Continue
+   * Watching holds the position VLC last reported. The 10s look goes there
+   * instead of at the player, and the pop-out's silence does not apply: VLC's
+   * start, pause and stop are the ones Trakt hears. */
+  followed?: boolean;
 }
 
 /** Percent through, or null without a duration. Clamped to 0..100. */
@@ -132,6 +137,9 @@ export function useTraktScrobble(t: ScrobbleTarget | null): void {
       return item != null;
     })().catch(() => false);
 
+    const entry = () =>
+      loadWatching().find((w) => w.id === target.itemId && (w.episodeId ?? "") === (target.episodeId ?? ""));
+
     const send = (action: "start" | "pause" | "stop", pct: number) =>
       traktJson<{ action?: string }>("POST", `/scrobble/${action}`, { ...item, progress: Math.round(pct * 100) / 100 });
 
@@ -166,10 +174,15 @@ export function useTraktScrobble(t: ScrobbleTarget | null): void {
     };
 
     const tick = async () => {
-      if (!alive || done || popped.current) return;
+      if (!alive || done || (popped.current && !target.followed)) return;
       const ok = await ready;
       if (!connected) return;
-      const st = await tauriMpvStatus().catch(() => null);
+      const e = entry();
+      const st = target.followed
+        ? e?.posSec != null
+          ? { pos: e.posSec, dur: e.durSec ?? null, buffering: false }
+          : null
+        : await tauriMpvStatus().catch(() => null);
       if (!alive || done || !st || st.buffering) return;
       const pct = percent(st.pos, st.dur);
       if (pct == null) return;
@@ -197,7 +210,7 @@ export function useTraktScrobble(t: ScrobbleTarget | null): void {
       // The end of this item: the watch entry has the last position from
       // either player (the in-app tick and the pop-out's both write it),
       // and a natural end sets it to the full duration.
-      const e = loadWatching().find((w) => w.id === target.itemId && (w.episodeId ?? "") === (target.episodeId ?? ""));
+      const e = entry();
       const pct = percent(e?.posSec, e?.durSec) ?? lastPct;
       void ready.then(async () => {
         if (done || !connected || pct == null || pct < 1) return;
