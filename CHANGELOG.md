@@ -2,6 +2,17 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.35: Live TV on Home (unreleased)
+
+- **Four new Home rows:** On Now (your starred channels with what's on and
+  a progress bar), Recent Channels, Today's Games (for the leagues and
+  teams you follow) and Recordings.
+- **Settings → Home → Add Row** adds them, and the x takes one off.
+- **On Now and Today's Games show up once on their own** when you have a
+  playlist. Take one off and it stays off.
+- **A click on a channel** opens it in the Guide's player, a game opens in
+  the Sports theater, and a recording plays.
+
 ## 1.0.34: Fixes from the code review (unreleased)
 
 - **Go Live after a stalled channel reloads once, then seeks** like it

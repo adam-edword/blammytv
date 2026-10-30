@@ -1325,6 +1325,47 @@
   transition: opacity var(--dur-hover) ease;
 }
 
+/* Home's channel tile (On Now, Recent Channels; features/home/LiveRows.tsx):
+ * the tile of ui.css (a 16:9 picture, progress under it, the caption under
+ * that) with the channel's logo on its plate where the art would be. A fixed
+ * width, so a row of them lines up whatever the names are. */
+.chan-tile {
+  flex: 0 0 auto;
+  width: 320px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.chan-tile__pic {
+  display: grid;
+  place-items: center;
+}
+.chan-tile__quality {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.chan-tile__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+/* The caption's lines are single lines in the tile's width. */
+.chan-tile .stream-card__name,
+.chan-tile .stream-card__meta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+.chan-tile:hover .stream-card__name { color: var(--accent); }
+
 /* Cast line: quiet credit under the meta. */
 .vod-detail__castline {
   font-size: 13px;

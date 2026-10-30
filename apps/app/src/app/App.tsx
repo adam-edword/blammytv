@@ -18,6 +18,7 @@ import { onOnboardingReplay, shouldShowOnboarding } from "./onboardingGate";
 import { LiveScreen } from "../features/live/LiveScreen";
 import { onPlayRecordingRequest } from "../features/recordings/playRequest";
 import { SportsScreen } from "../features/sports/SportsScreen";
+import { onOpenGameRequest } from "../features/sports/gameRequest";
 import { MultiviewTab } from "../features/live/MultiviewTab";
 import { watchPlaylists } from "../features/live/source";
 import { useAiojfSync } from "../features/aiojf/sync";
@@ -305,6 +306,16 @@ export function App() {
       onPlayRecordingRequest(() => {
         setSection("live");
         setLiveTab("guide");
+      }),
+    [],
+  );
+  // Home's Today's Games → the Sports board, which opens the game as it
+  // mounts (SportsScreen drains the mailbox itself).
+  useEffect(
+    () =>
+      onOpenGameRequest(() => {
+        setSection("live");
+        setLiveTab("sports");
       }),
     [],
   );

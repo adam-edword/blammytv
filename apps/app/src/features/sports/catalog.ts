@@ -116,10 +116,10 @@ export function catalogFor(live: LiveData): Catalog {
   return built;
 }
 
-export function useCatalog(): Catalog | null {
+export function useCatalog(enabled = true): Catalog | null {
   // Loaded when cold, followed after. See useLiveData, which is where this
   // tab's own copy of that logic went.
-  const live = useLiveData();
+  const live = useLiveData(enabled);
   return useMemo(() => (live ? catalogFor(live) : null), [live]);
 }
 

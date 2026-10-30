@@ -166,6 +166,22 @@
   gap: 8px;
 }
 
+/* Home's Recordings row (features/home/LiveRows.tsx): the list's row, as a
+ * card in a row of them. Its lines are spans there, not a heading and
+ * paragraphs. */
+.home-rec {
+  flex: 0 0 auto;
+  width: 360px;
+}
+.home-rec .rec-row__title,
+.home-rec .rec-row__sub,
+.home-rec .rec-row__meta {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The Live TV mode rail has four modes now, and the chosen one is as wide as
  * the longest word (Recordings), which the 252px sidebar had no room for at
  * the kit's padding: the chosen word ran past its pill. A few pixels back

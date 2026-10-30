@@ -63,11 +63,17 @@ import { readStreamScroll, saveStreamScroll } from "./session";
 import { peekCatalogRows } from "../home/catalogRows";
 import {
   homeRows,
+  loadOffered,
   onHomeRowsChange,
+  removable,
   saveHomeRows,
+  withAutoRows,
   withNewCatalogRows,
   type HomeRow,
 } from "../home/layout";
+import { ChannelRow, GamesRow, RecordingsRow } from "../home/LiveRows";
+import { liveHas, useLiveRows, useLiveSource, type LiveRowsData } from "../home/useLiveRows";
+import { hasLivePlaylist } from "../settings/startupSources";
 import { loadAiojf, AIOJF_SYNCED } from "../aiojf/store";
 import { SaveButton } from "./SaveButton";
 import { isOut, nextEpisode, nextUpEpisode, openingSeason, pickCachedIndex, pickResumeIndex } from "./mapper";
@@ -330,9 +336,13 @@ export function StreamScreen({
   // Home's rows: what Settings → Home has, kept as it changes so the page
   // moves behind Settings. Seeded the first time it is opened (layout.ts).
   const [layout, setLayout] = useState<HomeRow[] | undefined>(() =>
-    hub ? homeRows(peekCatalogRows().map((r) => r.id)) : undefined,
+    hub ? homeRows(peekCatalogRows().map((r) => r.id), hasLivePlaylist()) : undefined,
   );
-  useEffect(() => (hub ? onHomeRowsChange(setLayout) : undefined), [hub]);
+  // A layout effect: Home (a child) saves rows the moment it mounts when its
+  // catalogs or live source are already known (a row new since the seed, On
+  // Now), and a child's effect runs before this one's, so listening in a
+  // passive effect missed that save and the row did not draw until the next visit.
+  useLayoutEffect(() => (hub ? onHomeRowsChange(setLayout) : undefined), [hub]);
   // Between "user clicked play" and "sources resolved": the player-style
   // black screen with the art breathing, INSTANTLY — a quick-resume /
   // Watch Now click must never sit on a dead screen for seconds.
@@ -2322,6 +2332,8 @@ interface RowData {
   onClearWatching: (id: string) => void;
   onOpenWatching: (e: WatchEntry) => void;
   onSourcesWatching: (e: WatchEntry) => void;
+  /** Home's live rows (plan 033, phase 2). Empty on Stream's own page. */
+  live: LiveRowsData;
 }
 
 /** The carousel, in the style Appearance picks. Whether it is wanted at all is
@@ -2452,16 +2464,20 @@ function Home({
   const xtData = xtOn && xt.status === "ready" ? xt.data : null;
 
   // Home only. A catalog row it has not seen is added at the end, switched on
-  // (layout.ts), as the catalogs land.
+  // (layout.ts), as the catalogs land. So are On Now and Today's Games, once,
+  // when there is a live source.
   const catalogIds = useMemo(
     () => [aio, jfData, xtData].flatMap((data) => data?.rows.map((r) => r.id) ?? []),
     [aio, jfData, xtData],
   );
+  const liveSource = useLiveSource();
   useEffect(() => {
     if (!layout) return;
-    const next = withNewCatalogRows(layout, catalogIds);
+    const next = withAutoRows(withNewCatalogRows(layout, catalogIds), loadOffered(), liveSource);
     if (next !== layout) saveHomeRows(next);
-  }, [layout, catalogIds]);
+  }, [layout, catalogIds, liveSource]);
+  // The live rows' data, read only for a row that is on (and only on Home).
+  const live = useLiveRows(layout, liveSource);
   // And Up Next's rows draw themselves from what the last sync stored, so
   // whether Home has anything at all has to hear one land.
   const [, setSynced] = useState(0);
@@ -2477,7 +2493,14 @@ function Home({
     };
   }, [onHome]);
 
-  if (!aioOn && !jfOn && !xtOn) {
+  // Home with a live row that has something: the page is that row, whatever
+  // the catalogs are doing. And a setup with no stream source at all but live
+  // rows on (live TV only) is Home's own "Nothing on Home", not a prompt to
+  // add a catalog. The states below are for a page with nothing else to show.
+  const liveAny = !!layout && layout.some((r) => r.on && liveHas(r.kind, live));
+  const liveOnly = !!layout && liveSource && !aioOn && !jfOn && !xtOn && layout.some((r) => r.on && removable(r.kind));
+  const skipStates = liveAny || liveOnly;
+  if (!aioOn && !jfOn && !xtOn && !skipStates) {
     return (
       <StateCard
         className="stream__note"
@@ -2487,7 +2510,7 @@ function Home({
       />
     );
   }
-  if (!aio && !jfData && !xtData) {
+  if (!aio && !jfData && !xtData && !skipStates) {
     if ((aioOn && load.status === "loading") || jf.status === "loading" || xt.status === "loading")
       return (
         <StateCard
@@ -2559,6 +2582,7 @@ function Home({
     onClearWatching,
     onOpenWatching,
     onSourcesWatching,
+    live,
   };
 
   if (layout) {
@@ -2580,6 +2604,8 @@ function Home({
           return upNext > 0;
         case "catalog":
           return (byId.get(r.id)?.row.itemIds.length ?? 0) > 0;
+        default:
+          return liveHas(r.kind, live);
       }
     });
     if (drawn.length === 0)
@@ -2610,6 +2636,14 @@ function Home({
               <UpNextBlock key={r.id} d={d} title={r.title} />
             ) : r.kind === "catalog" ? (
               <CatalogRow key={r.id} d={d} b={byId.get(r.id)!} title={r.title} />
+            ) : r.kind === "onnow" ? (
+              <ChannelRow key={r.id} title={r.title ?? "On Now"} cards={live.onNow} clock={live.clock} />
+            ) : r.kind === "recent" ? (
+              <ChannelRow key={r.id} title={r.title ?? "Recent Channels"} cards={live.recent} clock={live.clock} />
+            ) : r.kind === "games" ? (
+              <GamesRow key={r.id} title={r.title ?? "Today’s Games"} games={live.games} />
+            ) : r.kind === "recordings" ? (
+              <RecordingsRow key={r.id} title={r.title ?? "Recordings"} recordings={live.recordings} now={live.now} clock={live.clock} />
             ) : null,
           )}
         </div>

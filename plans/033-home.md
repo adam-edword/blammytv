@@ -1,6 +1,6 @@
 # Plan 033: Home, behind the logo
 
-Status: Phase 1 built in v1.0.26. Phases 2 and 3 not built.
+Status: Phase 1 built in v1.0.26, phase 2 (live rows) in v1.0.35. Phase 3 not built.
 
 Open from phase 1: with no live source the mark isn't drawn (it divides the
 live tabs from Stream's), so Home is reachable only through Start On. Mockup (v9):

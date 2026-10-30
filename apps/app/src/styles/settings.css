@@ -1122,6 +1122,31 @@ input.rowcap__value--edit:focus-visible {
 .homerows__pinned {
   margin-bottom: 2px;
 }
+/* The x that takes a live row off Home (the pill's x, xtpill__x), and the
+ * space it would take on the rows that stay, so the switches line up. */
+.homerows__x,
+.homerows__nox {
+  flex: none;
+  width: 26px;
+  height: 26px;
+}
+.homerows__x {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-muted);
+}
+.homerows__x:hover {
+  background: var(--tint-on);
+  color: var(--text);
+}
+/* Why a row is empty: under the kind, in the same grey. */
+.homerows__why {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
 
 /* A field that cannot be saved as it stands says so in the danger voice. */
 .settings-field__error {

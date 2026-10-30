@@ -17,29 +17,50 @@ import { loadShowHero } from "../settings/showHero";
  * also what makes "new since Home was set up" simple: a catalog id that is not
  * in the list is new, and `withNewCatalogRows` appends it once, switched on.
  *
- * Phase 1 has the four kinds below. The live, saved and Trakt rows join the
- * union as their phases land; `parseRow` is what decides what a load keeps, so
- * a kind this build does not know is dropped, never trusted.
+ * The live rows (On Now, Recent Channels, Today's Games, Recordings) are the
+ * first that can be removed, and added again from Settings → Home. The saved
+ * and Trakt rows join the union as their phase lands; `parseRow` is what
+ * decides what a load keeps, so a kind this build does not know is dropped,
+ * never trusted.
+ *
+ * ON NOW AND TODAY'S GAMES ARE OFFERED ONCE. A layout that was set up before
+ * they existed, or before there was a live source, gets each appended the
+ * first time there is one, switched on. `offered` is what remembers that it
+ * happened, so taking one off Home does not bring it back at the next launch.
+ * It is a field beside the rows rather than a version bump, which `load`
+ * would answer by dropping the rows themselves; a layout stored as the bare
+ * list (phase 1) reads as having been offered nothing.
  */
 export type HomeRow =
   | { id: string; kind: "carousel" | "continue" | "upnext"; on: boolean; title?: string }
-  | { id: string; kind: "catalog"; on: boolean; title?: string };
+  | { id: string; kind: "catalog"; on: boolean; title?: string }
+  | { id: string; kind: LiveKind; on: boolean; title?: string };
 
 export type HomeRowKind = HomeRow["kind"];
+
+/** The rows that need a live source: each exists once and may be removed. */
+export type LiveKind = "onnow" | "recent" | "games" | "recordings";
+export const LIVE_KINDS: readonly LiveKind[] = ["onnow", "recent", "recordings", "games"];
+
+/** The two a layout is offered once, on its own. */
+const AUTO_KINDS: readonly LiveKind[] = ["onnow", "games"];
+
+/** Whether a row can be taken off the list, and not only switched off. */
+export const removable = (kind: HomeRowKind): kind is LiveKind => (LIVE_KINDS as readonly string[]).includes(kind);
 
 const KEY = "homeRows";
 const VERSION = 1;
 const EVENT = "blammytv:home-rows";
 
 /** The kinds that exist once, whose id is the kind. */
-const SINGLES: ReadonlySet<string> = new Set(["carousel", "continue", "upnext"]);
+const SINGLES: ReadonlySet<string> = new Set(["carousel", "continue", "upnext", ...LIVE_KINDS]);
 
 function parseRow(x: unknown): HomeRow | null {
   if (typeof x !== "object" || x === null) return null;
   const r = x as Record<string, unknown>;
   if (typeof r.kind !== "string" || typeof r.on !== "boolean") return null;
   const title = typeof r.title === "string" && r.title.trim() ? { title: r.title.trim() } : {};
-  if (SINGLES.has(r.kind)) return { id: r.kind, kind: r.kind as "carousel" | "continue" | "upnext", on: r.on, ...title };
+  if (SINGLES.has(r.kind)) return { id: r.kind, kind: r.kind as Exclude<HomeRowKind, "catalog">, on: r.on, ...title };
   if (r.kind === "catalog" && typeof r.id === "string" && r.id) return { id: r.id, kind: "catalog", on: r.on, ...title };
   return null;
 }
@@ -60,16 +81,49 @@ function normalize(list: unknown): HomeRow[] {
   return at > 0 ? [rows[at], ...rows.slice(0, at), ...rows.slice(at + 1)] : rows;
 }
 
-/** What is stored, or null when Home has never been set up. */
-export function loadHomeRows(): HomeRow[] | null {
-  const rows = normalize(load<unknown>(KEY, VERSION, null));
-  return rows.length > 0 ? rows : null;
+/** The auto rows that are in these rows, which have by that been offered. */
+const autoIn = (rows: readonly HomeRow[]): LiveKind[] => AUTO_KINDS.filter((k) => rows.some((r) => r.kind === k));
+
+/** The offered list as it was stored: the auto kinds only, once each, and
+ * any that are in the rows (one that is there was offered, whatever was
+ * written). */
+function parseOffered(x: unknown, rows: readonly HomeRow[]): LiveKind[] {
+  const said = new Set<unknown>([...(Array.isArray(x) ? x : []), ...autoIn(rows)]);
+  return AUTO_KINDS.filter((k) => said.has(k));
 }
 
-/** Store these rows and tell Home, which is drawn behind Settings. */
+interface Stored {
+  rows: HomeRow[];
+  offered: LiveKind[];
+}
+
+/** What is stored, or null when Home has never been set up. The bare list
+ * phase 1 wrote is rows with nothing offered. */
+function read(): Stored | null {
+  const raw = load<unknown>(KEY, VERSION, null);
+  const boxed = typeof raw === "object" && raw !== null && !Array.isArray(raw);
+  const body = boxed ? (raw as { rows?: unknown; offered?: unknown }) : null;
+  const rows = normalize(body ? body.rows : raw);
+  return rows.length > 0 ? { rows, offered: parseOffered(body?.offered, rows) } : null;
+}
+
+const write = (rows: readonly HomeRow[], offered: readonly LiveKind[]) => save(KEY, VERSION, { rows, offered });
+
+/** What is stored, or null when Home has never been set up. */
+export function loadHomeRows(): HomeRow[] | null {
+  return read()?.rows ?? null;
+}
+
+/** The auto rows this layout has been offered, for `withAutoRows`. */
+export function loadOffered(): readonly LiveKind[] {
+  return read()?.offered ?? [];
+}
+
+/** Store these rows and tell Home, which is drawn behind Settings. A live row
+ * in them counts as offered from then on, so one taken off again stays off. */
 export function saveHomeRows(rows: readonly HomeRow[]): HomeRow[] {
   const next = normalize(rows);
-  save(KEY, VERSION, next);
+  write(next, parseOffered(loadOffered(), next));
   window.dispatchEvent(new CustomEvent(EVENT, { detail: next }));
   return next;
 }
@@ -81,13 +135,14 @@ export function onHomeRowsChange(cb: (rows: HomeRow[]) => void): () => void {
 }
 
 /** The first set of rows: the carousel (on as Appearance's Featured Carousel
- * is), Continue Watching, Up Next, then every catalog row in the order given
- * (Stream's own). */
-export function seedHomeRows(opts: { carousel: boolean; catalogIds: readonly string[] }): HomeRow[] {
+ * is), Continue Watching, Up Next, On Now and Today's Games when there is a
+ * live source, then every catalog row in the order given (Stream's own). */
+export function seedHomeRows(opts: { carousel: boolean; catalogIds: readonly string[]; live?: boolean }): HomeRow[] {
   return normalize([
     { id: "carousel", kind: "carousel", on: opts.carousel },
     { id: "continue", kind: "continue", on: true },
     { id: "upnext", kind: "upnext", on: true },
+    ...(opts.live ? AUTO_KINDS.map((kind) => ({ id: kind, kind, on: true })) : []),
     ...opts.catalogIds.map((id) => ({ id, kind: "catalog", on: true })),
   ]);
 }
@@ -105,15 +160,27 @@ export function withNewCatalogRows(rows: readonly HomeRow[], catalogIds: readonl
   return fresh.length > 0 ? [...rows, ...fresh] : rows;
 }
 
+/** The rows with On Now and Today's Games added at the end, switched on, when
+ * there is a live source and the layout has not been offered them. The same
+ * array back when there is nothing to add. Saving what comes back is what
+ * records the offer (`saveHomeRows`). */
+export function withAutoRows(rows: readonly HomeRow[], offered: readonly string[], live: boolean): readonly HomeRow[] {
+  if (!live) return rows;
+  const fresh: HomeRow[] = AUTO_KINDS.filter((k) => !offered.includes(k) && !rows.some((r) => r.kind === k)).map(
+    (kind) => ({ id: kind, kind, on: true }),
+  );
+  return fresh.length > 0 ? [...rows, ...fresh] : rows;
+}
+
 /**
  * The rows to use now: what is stored, else the seed, written down so the
  * first set is the one that stays. Not announced (no event): this runs while
  * a screen renders, and nothing else has drawn from rows that were not there.
  */
-export function homeRows(catalogIds: readonly string[]): HomeRow[] {
+export function homeRows(catalogIds: readonly string[], live = false): HomeRow[] {
   const stored = loadHomeRows();
   if (stored) return stored;
-  const seeded = seedHomeRows({ carousel: loadShowHero(), catalogIds });
-  save(KEY, VERSION, seeded);
+  const seeded = seedHomeRows({ carousel: loadShowHero(), catalogIds, live });
+  write(seeded, autoIn(seeded));
   return seeded;
 }

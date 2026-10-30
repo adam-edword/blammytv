@@ -40,6 +40,7 @@ import { loadRedzoneChannel } from "../settings/redzoneChannel";
 import { redzoneChannel, redzoneOn } from "./redzone";
 import { UpcomingCard } from "./UpcomingCard";
 import { useCatalog } from "./catalog";
+import { onOpenGameRequest, takeOpenGameRequest } from "./gameRequest";
 import { ALL_LEAGUES, league as byPath } from "./leagues";
 import { byKey as confByKey } from "./conferences";
 import type { CatalogLeague } from "./leagues";
@@ -653,6 +654,16 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     invoker.current = g.id;
     setOpen(g);
   }, []);
+  // A game Home's Today's Games row asked for: opened as a click on its card
+  // would, on mount and on the event (gameRequest.ts).
+  useEffect(() => {
+    const take = () => {
+      const g = takeOpenGameRequest();
+      if (g) openGame(g);
+    };
+    take();
+    return onOpenGameRequest(take);
+  }, [openGame]);
   /** The same, for a day of a tournament. Focus comes back to the card. */
   const openTournament = useCallback((t: Tournament) => {
     invoker.current = t.id;

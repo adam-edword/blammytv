@@ -7,7 +7,8 @@
  * past the point where one number moved them together, and it forced a
  * copy of itself in TypeScript because the tilt library takes its glare
  * radius as a string prop that cannot read CSS. */
-.sports {
+.sports,
+.homegames {
   /* Team names are pinned, not scaled, and both cards share this: they
    * read against the header's "Live TV | Stream" (21px) rather than
    * against their own card, so a card resize must not drift them apart or
@@ -154,7 +155,8 @@ div.sports__bar:not(.sports__head *) {
  * spread. overflow-x:auto forces overflow-y to clip (spec quirk, already
  * noted on the shared rule), so anything past the padding is guillotined.
  * Scoped here rather than widened globally: every other row is correct. */
-.sports .media-row__scroller {
+.sports .media-row__scroller,
+.homegames .media-row__scroller {
   padding-top: 19.88px;
   /* Sized for the LIVE card's shadow, which is the deeper of the two. Both
    * rows share this rule; the upcoming card simply has room to spare. */
@@ -168,6 +170,10 @@ div.sports__bar:not(.sports__head *) {
    * less one card, less the lead" — exactly the slack needed and no more,
    * floored at the row's normal padding for short days. */
   padding-right: max(28px, calc(100% - 783.84px - var(--sports-lead)));
+}
+/* Home's row has no anchor game to scroll to: the page's own gutter. */
+.homegames .media-row__scroller {
+  padding-right: var(--gut, 28px);
 }
 
 /* Done, and reading as done. Half a stop of black over the whole card,
@@ -384,6 +390,7 @@ div.sports__bar:not(.sports__head *) {
  * scrims — keeps working because `--card-ink` is what changed, not the
  * relationships built on it. */
 .sports,
+.homegames,
 .tourndraw,
 .sportstheater,
 .mvscores {
@@ -427,6 +434,7 @@ div.sports__bar:not(.sports__head *) {
 }
 
 :root[data-theme="light"] .sports,
+:root[data-theme="light"] .homegames,
 :root[data-theme="light"] .tourndraw,
 :root[data-theme="light"] .sportstheater,
 :root[data-theme="light"] .mvscores {
