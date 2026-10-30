@@ -305,9 +305,9 @@ for (const [key, want] of Object.entries(PACKS)) {
   if (key === "prism") {
     const ramp = stops(line["background-image"]);
     check(
-      "prism: the now-line is the brand ramp, top to bottom, and has a soft glow of it",
+      "prism: the now-line is the brand ramp, top to bottom, with no glow beside it (Adam, 1.2)",
       ramp.length === 7 && ramp[0] === "rgb(255, 155, 155)" && ramp[6] === "rgb(255, 229, 127)" &&
-        stops(lineGlow["background-image"]).join() === ramp.join() && lineGlow.filter.startsWith("blur(") && Number(lineGlow.opacity) <= 0.5,
+        lineGlow["background-image"] === "none" && lineGlow.filter === "none",
       JSON.stringify({ line, lineGlow }),
     );
     const fill = stops(h.fill.image);
@@ -527,7 +527,7 @@ for (const [key, want] of Object.entries(PACKS)) {
   check(
     "prism with transparency effects off: no dot glow, no line glow, and the fills are the accent",
     blank(h.dotGlow) && h.fill.image === "none" && h.fill.color === rgb(accent) &&
-      h.probeLine.image === "none" && h.probeLine.color === rgb(accent) && h.probeLineGlow.display === "none",
+      h.probeLine.image === "none" && h.probeLine.color === rgb(accent) && blank(h.probeLineGlow),
     JSON.stringify({ fill: h.fill, line: h.probeLine, accent }),
   );
   await page.mouse.move(500, 400);

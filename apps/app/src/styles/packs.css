@@ -107,30 +107,17 @@
   );
 }
 
-/* THE NOW-LINE'S GLOW: a soft copy of its fill beside it. Here and not in
- * live.css, because a pseudo-element with a filter on every now-line, painting
- * nothing, still moved three pixels of its rounded end in the screenshots. */
-/* The ramp is pinned to the window, not the line: the line runs the whole
- * channel list, thousands of pixels, and stretched over that only its red
- * start ever showed (Adam, 1.2). Now the window's height holds the full ramp,
- * wherever the list is scrolled. */
-:root[data-theme-pack="prism"]:not([data-theme="light"]) .guide__nowline,
-:root[data-theme-pack="prism"]:not([data-theme="light"]) .guide__nowline::before {
+/* The now-line's ramp is pinned to the window, not the line: the line runs
+ * the whole channel list, thousands of pixels, and stretched over that only
+ * its red start ever showed (Adam, 1.2). No glow beside it (Adam, 1.2: "i
+ * dont think i like the glow"). */
+:root[data-theme-pack="prism"]:not([data-theme="light"]) .guide__nowline {
   background-attachment: fixed;
-}
-:root[data-theme-pack="prism"]:not([data-theme="light"]) .guide__nowline::before {
-  content: "";
-  position: absolute;
-  inset: 0 -3px;
-  z-index: -1;
-  border-radius: inherit;
-  background: var(--nowline-fill);
-  filter: blur(5px);
-  opacity: 0.5;
 }
 
 /* THE LIVE DOT'S GLOW: a faint ring of the mark's own stops round it, dimming
- * with the dot (player.css). Here for the same reason as the now-line's. */
+ * with the dot (player.css). Here and not in player.css, so the other themes
+ * carry no pseudo-element for it. */
 :root[data-theme-pack="prism"]:not([data-theme="light"]) .theater-live__dot {
   position: relative;
 }
@@ -198,8 +185,7 @@
     --nowline-fill: var(--accent);
     --progress-fill: var(--accent);
   }
-  .prism-glow,
-  :root[data-theme-pack="prism"]:not([data-theme="light"]) .guide__nowline::before {
+  .prism-glow {
     display: none;
   }
   :root[data-theme-pack="prism"]:not([data-theme="light"]) .shero__glowtrack {

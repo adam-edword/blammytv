@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "BlammyTV",
   "mainBinaryName": "BlammyTV",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "identifier": "com.blammytv.app",
   "build": {
     "frontendDist": "../dist",

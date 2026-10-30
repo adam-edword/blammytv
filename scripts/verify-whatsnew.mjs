@@ -235,13 +235,14 @@ const atTop = (l) => {
   check(
     "headings: h1, an h2 per release (newest first), an h3 per section",
     outline[0] === "H1:Changelog" &&
-      outline[1] === "H2:1.2New" &&
+      outline[1] === "H2:1.2NewOctober 30, 2026" &&
       outline.includes("H3:Record Live TV") &&
       outline.indexOf("H2:1.0October 21, 2026") > outline.indexOf("H3:Also New") &&
       outline.at(-1) === "H3:Signed",
     outline.join("|"),
   );
-  check("the newest release is tagged New and carries no date yet", (await page.locator(".wn-tag").count()) === 1 && (await page.locator(".wn-log h2 small").count()) === 1);
+  // 1.2 carries its date since release day (it had none before).
+  check("the newest release is tagged New, and both releases carry their dates", (await page.locator(".wn-tag").count()) === 1 && (await page.locator(".wn-log h2 small").count()) === 2);
   check(
     "a bullet’s lead-in is bold, as structure",
     (await page.locator(".wn-log li b").first().textContent()) === "Click the logo for Home" &&
@@ -291,8 +292,9 @@ const atTop = (l) => {
   await ctx.close();
 }
 {
-  // A dev build below the release: the real 1.0.x version.ts.
-  const { ctx, page } = await open({ version: null, wait: false, store: SEEN_1_0 });
+  // A dev build below the release. It used the real version.ts while that
+  // read 1.0.x; at 1.2.0 the real one is the release, so a 1.0.x is served.
+  const { ctx, page } = await open({ version: "1.0.49", wait: false, store: SEEN_1_0 });
   await page.locator(".navcap").waitFor({ timeout: 20_000 });
   await sleep(1500);
   check("a 1.0.x build does not show 1.2’s screen", (await page.locator(".wn").count()) === 0);

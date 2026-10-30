@@ -2,6 +2,49 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.0: Home and recording (2026-10-30)
+
+This one runs the installer. There's no 1.1: Home and recording would each
+have been one, and they land together.
+
+### Home
+
+- **Click the logo for Home**: one page of Continue Watching, Up Next, your
+  catalogs, On Now, Recent Channels, Today's Games, Recordings, Saved lists
+  and Trakt's Trending and Popular.
+- **Settings → Home** puts the rows in your order, renames them and switches
+  them off, with a picture of each. **Import Layout** takes a layout exported
+  from Strand.
+- **Today's Games** has a sport menu beside its title.
+- **Startup Tab** can open the app on Home.
+
+### Record Live TV
+
+- **Record what you're watching** or right-click a programme in the Guide to
+  record it later. Cancel it the same way.
+- **Pause and rewind live TV** for hours. LIVE jumps back to now.
+- **Recordings play from Library and Live TV** and can be saved smaller.
+  Pick where they go in Settings → Playback → Recordings Folder.
+
+### Also New
+
+- **Pop out films and shows in VLC** from Settings → Playback. Your place
+  still syncs to Continue Watching and Trakt.
+- **Themes**: Prism, Velvet and Lagoon in Settings → Appearance → Theme.
+- **Genres in Discover open as rows**: what's popular, then the mixes your
+  catalogs hold.
+- **Ctrl+K finds films and shows** and can send a search to Discover.
+- **What's New** shows after an update like this one, and Settings → App
+  opens it any time.
+
+### Fixes
+
+- Alt no longer freezes the app or mutes it.
+- Go Live after a stalled channel reloads once, then jumps to live.
+- The nav centres its rows with or without a TV playlist.
+
+The 1.0.1 to 1.0.49 entries below are the builds that became 1.2.0.
+
 ## 1.0.49: Prism's now-line shows its colours (unreleased)
 
 - **The Guide's now-line in Prism** shows the whole rainbow down the

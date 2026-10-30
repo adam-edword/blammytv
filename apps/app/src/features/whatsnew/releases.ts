@@ -49,7 +49,7 @@ export interface Release {
 export const RELEASES: readonly Release[] = [
   {
     version: "1.2",
-    // TODO(release day): set the date, as 1.0's below ("October 21, 2026").
+    date: "October 30, 2026",
     sections: [
       {
         title: "Home",
