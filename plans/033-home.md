@@ -186,6 +186,15 @@ The dialog: a box to paste into, an "Add Rows" button, and a line saying
 how many were added. Text that isn't a Strand layout gets an error under
 the box: "This isn't a layout exported from Strand."
 
+## After phase 3
+
+- **Today's Games, one row per sport** (Adam, 2026-10-30: "is nice"). Add
+  Row → Sports offers Today's Games (everything followed, as now) and one
+  row per followed sport ("Football Today", "Basketball Today"), each with
+  an id of its own (`games:<sport>`), renamed, switched and ordered like
+  any row. No filter chips on Home: rows take zero clicks once set up.
+  After the 1.2.0 review fixes, which touch the same files.
+
 ## Phases
 
 1. **The frame.** The hub destination, the glow, StreamScreen's second root
