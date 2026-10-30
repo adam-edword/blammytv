@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.49: Prism's now-line shows its colours (unreleased)
+
+- **The Guide's now-line in Prism** shows the whole rainbow down the
+  window instead of only red. The colours stay put as you scroll the list.
+
 ## 1.0.48: Pick a sport on Today's Games (unreleased)
 
 - **Today's Games has a sport menu beside its title** on Home: All Sports,

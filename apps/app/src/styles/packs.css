@@ -110,6 +110,14 @@
 /* THE NOW-LINE'S GLOW: a soft copy of its fill beside it. Here and not in
  * live.css, because a pseudo-element with a filter on every now-line, painting
  * nothing, still moved three pixels of its rounded end in the screenshots. */
+/* The ramp is pinned to the window, not the line: the line runs the whole
+ * channel list, thousands of pixels, and stretched over that only its red
+ * start ever showed (Adam, 1.2). Now the window's height holds the full ramp,
+ * wherever the list is scrolled. */
+:root[data-theme-pack="prism"]:not([data-theme="light"]) .guide__nowline,
+:root[data-theme-pack="prism"]:not([data-theme="light"]) .guide__nowline::before {
+  background-attachment: fixed;
+}
 :root[data-theme-pack="prism"]:not([data-theme="light"]) .guide__nowline::before {
   content: "";
   position: absolute;
