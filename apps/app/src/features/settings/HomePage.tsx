@@ -7,6 +7,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { CloseIcon, GripIcon, PlusIcon } from "../../ui/icons";
@@ -17,14 +20,30 @@ import { loadFavorites } from "../live/favorites";
 import { loadRecents } from "../live/recents";
 import { followsAny, onGamesToday, peekGamesToday, playable } from "../home/liveData";
 import { peekCatalogRows } from "../home/catalogRows";
-import { homeRows, onHomeRowsChange, removable, saveHomeRows, type HomeRow, type HomeRowKind, type LiveKind } from "../home/layout";
+import {
+  homeRows,
+  onHomeRowsChange,
+  removable,
+  saveHomeRows,
+  savedId,
+  traktId,
+  TRAKT_LISTS,
+  type HomeRow,
+  type HomeRowKind,
+  type LiveKind,
+} from "../home/layout";
+import { importStrand } from "../home/strand";
+import { TRAKT_NAMES } from "../home/traktRows";
 import { useRecordings } from "../recordings/store";
 import { loadFollows } from "../sports/follows";
+import { loadLists, type UserList } from "../stream/lists";
+import { traktStatus } from "../trakt/client";
+import { ImportLayoutDialog } from "./ImportLayoutDialog";
 import { hasLivePlaylist } from "./startupSources";
 
 /** A row's own name, for the kinds that have one of their own, and what the
  * grey line under it says it is. A catalog row's name is the catalog's. */
-const OWN: Record<Exclude<HomeRowKind, "catalog">, string> = {
+const OWN: Record<"carousel" | "continue" | "upnext" | LiveKind, string> = {
   carousel: "Featured Carousel",
   continue: "Continue Watching",
   upnext: "Up Next",
@@ -42,13 +61,22 @@ const KIND: Record<HomeRowKind, string> = {
   recent: "Live TV",
   recordings: "Live TV",
   games: "Sports",
+  saved: "Watching",
+  trakt: "Films & Shows",
+  needs: "Needs a Source",
 };
 
-/** The Add Row menu's groups: the kinds that can be added, by where they come from. */
-const GROUPS: { label: string; kinds: LiveKind[] }[] = [
+/** The Add Row menu's live groups: the kinds that can be added, by where they come from. */
+const LIVE_GROUPS: { label: string; kinds: LiveKind[] }[] = [
   { label: "Live TV", kinds: ["onnow", "recent", "recordings"] },
   { label: "Sports", kinds: ["games"] },
 ];
+
+/** A row Add Row can add, and what the menu calls it. */
+interface Offer {
+  label: string;
+  row: HomeRow;
+}
 
 /**
  * Home: what is on the page behind the logo (plan 033). The rows in the order
@@ -59,42 +87,70 @@ const GROUPS: { label: string; kinds: LiveKind[] }[] = [
  * it moves as you go (layout.ts fires the event Home listens to).
  *
  * The carousel is pinned to the top and only switches. Continue Watching, Up
- * Next and the catalog rows switch but are not removed. The live rows (On Now,
- * Recent Channels, Today's Games, Recordings) are removed with the x and come
- * back from Add Row, which offers the ones not on Home. A row with nothing to
- * draw says why under its name. A catalog row is listed only while a build of
- * its catalog is known, so a source you signed out of does not leave rows here
- * you cannot remove.
+ * Next and the catalog rows switch but are not removed. The rest are removed
+ * with the x and come back from Add Row, which offers the ones not on Home:
+ * the live rows (On Now, Recent Channels, Today's Games, Recordings, which
+ * need a playlist), Saved (one for each Library list, picked from a submenu
+ * of the lists not on Home yet) and Trakt's four lists. A Needs a Source row
+ * is only ever made by Import Layout, so Add Row never offers one. A row with
+ * nothing to draw says why under its name. A catalog row is listed only while
+ * a build of its catalog is known, so a source you signed out of does not
+ * leave rows here you cannot remove.
  */
 export function HomePage() {
   // Read once per visit: the catalogs are the last builds kept (nothing is
   // fetched), and Home appends a row it has not seen as its catalogs load.
   const catalog = useMemo(() => peekCatalogRows(), []);
   const own = useMemo(() => new Map(catalog.map((r) => [r.id, r.title])), [catalog]);
+  // The Library's lists, read once per visit too: nothing saves to one while
+  // Settings is up.
+  const lists = useMemo(() => loadLists(), []);
   const live = hasLivePlaylist();
   const [rows, setRows] = useState<HomeRow[]>(() =>
     homeRows(catalog.map((r) => r.id), live),
   );
   useEffect(() => onHomeRowsChange(setRows), []);
-  const why = useWhyEmpty(live);
+  const signedIn = useTraktSignedIn();
+  const why = useWhyEmpty(live, lists, signedIn);
 
-  const nameOf = (r: HomeRow) => r.title ?? ownName(r, own);
+  const nameOf = (r: HomeRow) => r.title ?? ownName(r, own, lists);
   const edit = (id: string, patch: Partial<Pick<HomeRow, "on" | "title">>) =>
-    setRows(saveHomeRows(rows.map((r) => (r.id === id ? ({ ...r, ...patch } as HomeRow) : r))));
+    setRows(
+      saveHomeRows(
+        rows.map((r) => {
+          if (r.id !== id) return r;
+          // A Needs a Source row is its title: emptying the field keeps the old one.
+          if (r.kind === "needs") return { ...r, ...patch, title: patch.title || r.title };
+          return { ...r, ...patch } as HomeRow;
+        }),
+      ),
+    );
 
   const pinned = rows.filter((r) => r.kind === "carousel");
   const hidden = rows.filter((r) => r.kind === "catalog" && !own.has(r.id));
   const listed = rows.filter((r) => r.kind !== "carousel" && !hidden.includes(r));
   const items = listed.map((r) => ({ id: r.id, label: nameOf(r) }));
   const remove = (id: string) => setRows(saveHomeRows(rows.filter((r) => r.id !== id)));
-  const add = (kind: LiveKind) => setRows(saveHomeRows([...rows, { id: kind, kind, on: true }]));
-  // Only with a live source: every live row plays through the Guide or opens
-  // the Sports board, which are not there without one.
-  const offered = live
-    ? GROUPS.map((g) => ({ ...g, kinds: g.kinds.filter((k) => !rows.some((r) => r.kind === k)) })).filter(
-        (g) => g.kinds.length > 0,
-      )
-    : [];
+  const add = (row: HomeRow) => setRows(saveHomeRows([...rows, row]));
+
+  // What Add Row offers: what is not on Home yet. The live rows only with a
+  // live source (they play through the Guide or open the Sports board, which
+  // are not there without one); Saved and Trakt need none.
+  const have = new Set(rows.map((r) => r.id));
+  const liveOffers = (kinds: LiveKind[]): Offer[] =>
+    kinds.filter((k) => !have.has(k)).map((k) => ({ label: OWN[k], row: { id: k, kind: k, on: true } }));
+  const savedOffers: Offer[] = lists
+    .filter((l) => !have.has(savedId(l.id)))
+    .map((l) => ({ label: l.name, row: { id: savedId(l.id), kind: "saved", list: l.id, on: true } }));
+  const traktOffers: Offer[] = TRAKT_LISTS.filter((l) => !have.has(traktId(l))).map((l) => ({
+    label: TRAKT_NAMES[l],
+    row: { id: traktId(l), kind: "trakt", list: l, on: true },
+  }));
+  const offered = [
+    { label: "Watching", saved: savedOffers, offers: [] as Offer[] },
+    ...LIVE_GROUPS.map((g) => ({ label: g.label, saved: [] as Offer[], offers: live ? liveOffers(g.kinds) : [] })),
+    { label: "Films & Shows", saved: [] as Offer[], offers: traktOffers },
+  ].filter((g) => g.saved.length > 0 || g.offers.length > 0);
 
   return (
     <>
@@ -103,6 +159,13 @@ export function HomePage() {
         <div className="xtedit__minehead">
           <h4 className="customize-row__title">Home Rows</h4>
           {listed.length > 1 && <p className="xtedit__hint">Drag to change the order.</p>}
+          <ImportLayoutDialog
+            onImport={(text) => {
+              const out = importStrand(text, rows, loadLists());
+              if (out) setRows(saveHomeRows(out.rows));
+              return out && { added: out.added, already: out.already };
+            }}
+          />
           {offered.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -116,9 +179,21 @@ export function HomePage() {
                   <div key={g.label} role="group" aria-label={g.label}>
                     {i > 0 && <DropdownMenuSeparator />}
                     <DropdownMenuLabel>{g.label}</DropdownMenuLabel>
-                    {g.kinds.map((k) => (
-                      <DropdownMenuItem key={k} onSelect={() => add(k)}>
-                        {OWN[k]}
+                    {g.saved.length > 0 && (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>Saved</DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {g.saved.map((o) => (
+                            <DropdownMenuItem key={o.row.id} onSelect={() => add(o.row)}>
+                              {o.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    )}
+                    {g.offers.map((o) => (
+                      <DropdownMenuItem key={o.row.id} onSelect={() => add(o.row)}>
+                        {o.label}
                       </DropdownMenuItem>
                     ))}
                   </div>
@@ -163,9 +238,13 @@ export function HomePage() {
                     <GripIcon size={16} />
                   </button>
                   <span className="xtrow__text">
-                    <RowTitle name={ownName(r, own)} title={r.title} onChange={(title) => edit(r.id, { title })} />
+                    <RowTitle
+                      name={ownName(r, own, lists)}
+                      title={r.kind === "needs" ? undefined : r.title}
+                      onChange={(title) => edit(r.id, { title })}
+                    />
                     <span className="xtrow__kind">{KIND[r.kind]}</span>
-                    {removable(r.kind) && why(r.kind) && <span className="homerows__why">{why(r.kind)}</span>}
+                    {why(r) && <span className="homerows__why">{why(r)}</span>}
                   </span>
                   <Toggle on={r.on} onChange={(on) => edit(r.id, { on })} label={items[i].label} />
                   {removable(r.kind) ? (
@@ -185,23 +264,64 @@ export function HomePage() {
   );
 }
 
-function ownName(r: HomeRow, own: ReadonlyMap<string, string>): string {
-  return r.kind === "catalog" ? (own.get(r.id) ?? r.id) : OWN[r.kind];
+function ownName(r: HomeRow, own: ReadonlyMap<string, string>, lists: readonly UserList[]): string {
+  switch (r.kind) {
+    case "catalog":
+      return own.get(r.id) ?? r.id;
+    case "saved":
+      return lists.find((l) => l.id === r.list)?.name ?? "Saved";
+    case "trakt":
+      return TRAKT_NAMES[r.list];
+    case "needs":
+      return r.title;
+    default:
+      return OWN[r.kind];
+  }
+}
+
+/** Whether Trakt is signed in: null until it has answered. Asked once per visit. */
+function useTraktSignedIn(): boolean | null {
+  const [on, setOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    void traktStatus().then((s) => live && setOn(s.configured && s.connected));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return on;
 }
 
 /**
- * Why a live row has nothing to draw, as one line, or "" when it has
- * something or that is not known yet. Read from the same places Home draws
- * from, so the two agree: favourites, recents, the recordings store, and, for
- * the games, what Home counted (liveData.ts), since only Home fetches them.
+ * Why a row has nothing to draw, as one line, or "" when it has something or
+ * that is not known yet. Read from the same places Home draws from, so the two
+ * agree: favourites, recents, the recordings store, the Library's lists, the
+ * Trakt sign-in, and, for the games, what Home counted (liveData.ts), since
+ * only Home fetches them.
  */
-function useWhyEmpty(live: boolean): (kind: HomeRowKind) => string {
+function useWhyEmpty(live: boolean, lists: readonly UserList[], signedIn: boolean | null): (row: HomeRow) => string {
   const recordings = playable(useRecordings());
   const games = useSyncExternalStore(onGamesToday, peekGamesToday);
-  return (kind) => {
-    if (!removable(kind)) return "";
-    if (!live && kind !== "recordings") return "Add a playlist to fill this row.";
-    switch (kind) {
+  return (row) => {
+    switch (row.kind) {
+      case "saved": {
+        const list = lists.find((l) => l.id === row.list);
+        if (!list) return "This list is gone.";
+        return list.entries.length === 0 ? "Save titles to this list to fill this row." : "";
+      }
+      case "trakt":
+        return signedIn === false ? "Sign in to Trakt to fill this row." : "";
+      case "needs":
+        return "Imported from Strand. Nothing fills this row yet.";
+      case "carousel":
+      case "continue":
+      case "upnext":
+      case "catalog":
+        return "";
+    }
+    // Recordings are files on this PC: they need no playlist.
+    if (!live && row.kind !== "recordings") return "Add a playlist to fill this row.";
+    switch (row.kind) {
       case "onnow":
         return loadFavorites().length === 0 ? "Star channels in the Guide to fill this row." : "";
       case "recent":

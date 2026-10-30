@@ -2,6 +2,20 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.38: Saved and Trakt rows on Home, and Strand import (unreleased)
+
+- **Settings → Home → Add Row** now offers Saved (any Library list) and
+  Trakt's Trending and Popular movies and shows.
+- **Import Layout** takes a layout exported from Strand: paste it, and its
+  rows join yours in Strand's order. A row Home can't fill yet shows as
+  Needs a Source.
+- **A playlist-only Home** shows the playlist's Movies and Shows folders,
+  as Stream does, instead of "Nothing on Home".
+- **Renaming Up Next** no longer gives both Next Up rows the same name:
+  Jellyfin's adds "on Jellyfin".
+- **Back from a title found with Ctrl+K on Home** returns to Home.
+- **Home with only live rows** says it's loading until they answer.
+
 ## 1.0.37: Themes (unreleased)
 
 - **Settings → Appearance → Theme:** Default, Prism, Velvet and Lagoon.

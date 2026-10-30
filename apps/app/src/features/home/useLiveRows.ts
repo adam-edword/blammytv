@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { loadFavorites } from "../live/favorites";
 import { loadRecents } from "../live/recents";
+import { loadLive } from "../live/source";
 import { useLiveData } from "../live/useLiveData";
 import { listNow, watch as watchRecordings, type Recording } from "../recordings/store";
 import { loadClockFormat, onClockFormatChange, type ClockFormat } from "../settings/clockFormat";
@@ -29,6 +30,10 @@ export interface LiveRowsData {
   recordings: Recording[];
   now: Date;
   clock: ClockFormat;
+  /** A row that is on has not answered yet: the channel catalog is still
+   * loading, or ESPN has not replied. Home says it is loading rather than
+   * that it is empty, until every row that is on has answered. */
+  pending: boolean;
 }
 
 /** Whether a live row has anything to draw. Only a row that is on has data. */
@@ -79,6 +84,19 @@ export function useLiveRows(layout: readonly HomeRow[] | undefined, live: boolea
 
   // ---- channels
   const data = useLiveData(wantChannels);
+  // Whether the catalog's load has settled, if it failed too: without it
+  // `data` stays null and a failure reads as "still loading" for good.
+  // loadLive is single-flighted, so this joins the load useLiveData started.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    if (!wantChannels) return;
+    let alive = true;
+    const done = () => alive && setSettled(true);
+    void loadLive(new Date()).then(done, done);
+    return () => {
+      alive = false;
+    };
+  }, [wantChannels]);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     if (!wantChannels && !wantRecs) return;
@@ -102,7 +120,7 @@ export function useLiveRows(layout: readonly HomeRow[] | undefined, live: boolea
   const follows = useMemo(() => resolvable(loadFollows(), ALL_LEAGUES.map((l) => l.path)), []);
   const asking = wantGames && followsAny(follows);
   const leagues = useMemo(() => (asking ? fetchList(follows) : []), [asking, follows]);
-  const { days } = useGames(leagues, 1, asking ? follows.teams : [], false, false);
+  const { days, state: boardState } = useGames(leagues, 1, asking ? follows.teams : [], false, false);
   const catalog = useCatalog(wantGames);
   const rankedOnly = useMemo(loadRankedOnly, []);
   const today = days[0]?.games;
@@ -118,5 +136,7 @@ export function useLiveRows(layout: readonly HomeRow[] | undefined, live: boolea
     return () => publishGamesToday(null);
   }, [answered, games.length]);
 
-  return { onNow, recent, games, recordings, now, clock };
+  const pending = (wantChannels && !data && !settled) || (asking && boardState === "loading");
+
+  return { onNow, recent, games, recordings, now, clock, pending };
 }

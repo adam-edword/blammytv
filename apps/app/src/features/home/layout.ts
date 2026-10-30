@@ -18,10 +18,17 @@ import { loadShowHero } from "../settings/showHero";
  * in the list is new, and `withNewCatalogRows` appends it once, switched on.
  *
  * The live rows (On Now, Recent Channels, Today's Games, Recordings) are the
- * first that can be removed, and added again from Settings → Home. The saved
- * and Trakt rows join the union as their phase lands; `parseRow` is what
- * decides what a load keeps, so a kind this build does not know is dropped,
- * never trusted.
+ * first that can be removed, and added again from Settings → Home. So are the
+ * lists (phase 3): Saved (one per Library list, its id `saved:<list>`), Trakt
+ * (one per Trakt list, `trakt:<list>`) and Needs a Source, a row an import
+ * could not fill, which keeps Strand's own JSON in `strand`. `parseRow` is
+ * what decides what a load keeps, so a kind this build does not know is
+ * dropped, never trusted.
+ *
+ * A NEEDS ROW KEEPS STRAND'S JSON, SO A LATER VERSION CAN FILL IT, but only
+ * an object of at most STRAND_MAX characters: a Strand row is about 250, and
+ * what is stored sits in localStorage beside everything else. A bigger one,
+ * or one that is not an object, is not a row.
  *
  * ON NOW AND TODAY'S GAMES ARE OFFERED ONCE. A layout that was set up before
  * they existed, or before there was a live source, gets each appended the
@@ -34,7 +41,10 @@ import { loadShowHero } from "../settings/showHero";
 export type HomeRow =
   | { id: string; kind: "carousel" | "continue" | "upnext"; on: boolean; title?: string }
   | { id: string; kind: "catalog"; on: boolean; title?: string }
-  | { id: string; kind: LiveKind; on: boolean; title?: string };
+  | { id: string; kind: LiveKind; on: boolean; title?: string }
+  | { id: string; kind: "saved"; list: string; on: boolean; title?: string }
+  | { id: string; kind: "trakt"; list: TraktList; on: boolean; title?: string }
+  | { id: string; kind: "needs"; on: boolean; title: string; strand: unknown };
 
 export type HomeRowKind = HomeRow["kind"];
 
@@ -42,27 +52,61 @@ export type HomeRowKind = HomeRow["kind"];
 export type LiveKind = "onnow" | "recent" | "games" | "recordings";
 export const LIVE_KINDS: readonly LiveKind[] = ["onnow", "recent", "recordings", "games"];
 
+/** Trakt's four lists (`/movies/trending` and so on), in the order Add Row offers them. */
+export type TraktList = "trending_movies" | "trending_shows" | "popular_movies" | "popular_shows";
+export const TRAKT_LISTS: readonly TraktList[] = ["trending_movies", "trending_shows", "popular_movies", "popular_shows"];
+const isTraktList = (x: unknown): x is TraktList => (TRAKT_LISTS as readonly unknown[]).includes(x);
+
+/** The most JSON a Needs a Source row keeps of Strand's row. */
+export const STRAND_MAX = 4000;
+
+/** The ids of the rows that come from a list: one row for each list. */
+export const savedId = (list: string) => `saved:${list}`;
+export const traktId = (list: TraktList) => `trakt:${list}`;
+
 /** The two a layout is offered once, on its own. */
 const AUTO_KINDS: readonly LiveKind[] = ["onnow", "games"];
 
-/** Whether a row can be taken off the list, and not only switched off. */
-export const removable = (kind: HomeRowKind): kind is LiveKind => (LIVE_KINDS as readonly string[]).includes(kind);
+/** Whether a row needs a live source (and so is not Saved, Trakt or Needs a Source). */
+export const isLive = (kind: HomeRowKind): kind is LiveKind => (LIVE_KINDS as readonly string[]).includes(kind);
+
+/** Whether a row can be taken off the list, and not only switched off: the
+ * live rows and the lists, which Add Row offers again (Needs a Source rows
+ * are not offered: only an import makes one). */
+export const removable = (kind: HomeRowKind): boolean =>
+  kind !== "carousel" && kind !== "continue" && kind !== "upnext" && kind !== "catalog";
 
 const KEY = "homeRows";
 const VERSION = 1;
 const EVENT = "blammytv:home-rows";
 
 /** The kinds that exist once, whose id is the kind. */
-const SINGLES: ReadonlySet<string> = new Set(["carousel", "continue", "upnext", ...LIVE_KINDS]);
+type SingleKind = "carousel" | "continue" | "upnext" | LiveKind;
+const SINGLES: ReadonlySet<string> = new Set<SingleKind>(["carousel", "continue", "upnext", ...LIVE_KINDS]);
 
 function parseRow(x: unknown): HomeRow | null {
   if (typeof x !== "object" || x === null) return null;
   const r = x as Record<string, unknown>;
   if (typeof r.kind !== "string" || typeof r.on !== "boolean") return null;
   const title = typeof r.title === "string" && r.title.trim() ? { title: r.title.trim() } : {};
-  if (SINGLES.has(r.kind)) return { id: r.kind, kind: r.kind as Exclude<HomeRowKind, "catalog">, on: r.on, ...title };
+  if (SINGLES.has(r.kind)) return { id: r.kind, kind: r.kind as SingleKind, on: r.on, ...title };
   if (r.kind === "catalog" && typeof r.id === "string" && r.id) return { id: r.id, kind: "catalog", on: r.on, ...title };
+  // A list row's id is made from its list, so one list is one row whatever id was stored.
+  if (r.kind === "saved" && typeof r.list === "string" && r.list) return { id: savedId(r.list), kind: "saved", list: r.list, on: r.on, ...title };
+  if (r.kind === "trakt" && isTraktList(r.list)) return { id: traktId(r.list), kind: "trakt", list: r.list, on: r.on, ...title };
+  if (r.kind === "needs" && typeof r.id === "string" && r.id && title.title && fitsStrand(r.strand))
+    return { id: r.id, kind: "needs", on: r.on, title: title.title, strand: r.strand };
   return null;
+}
+
+/** Whether this is something a Needs a Source row may keep: an object, and a small one. */
+export function fitsStrand(x: unknown): boolean {
+  if (typeof x !== "object" || x === null || Array.isArray(x)) return false;
+  try {
+    return JSON.stringify(x).length <= STRAND_MAX;
+  } catch {
+    return false;
+  }
 }
 
 /** Rows that are valid, once each, with the carousel on top (it is pinned

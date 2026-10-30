@@ -266,6 +266,11 @@ export function App() {
   useEffect(
     () =>
       onReturnRequest((from) => {
+        // Home is a section of its own, not a Stream tab.
+        if (from === "hub") {
+          setSection("home");
+          return;
+        }
         setSection("stream");
         setStreamTab(from);
       }),
@@ -610,7 +615,7 @@ export function App() {
         // Backing out of it returns to the grid it was found over, like a
         // pick made in that grid; from anywhere else, Stream's own rows.
         onTitle={(item) =>
-          requestOpenInStream(item, dest === "discover" || dest === "mylist" ? dest : "home")
+          requestOpenInStream(item, dest === "discover" || dest === "mylist" || dest === "hub" ? dest : "home")
         }
         onGo={(to: GoTarget, from) => {
           if (to.kind === "live") {

@@ -14,8 +14,10 @@ import { JF_SYNCED, loadJf } from "./store";
  * empty row does not render.
  *
  * `shared`: AIOStreams is signed in as well, and has a row of the same name, so
- * this one says whose it is. `title` is Home's name for it (plan 033), which the
- * person may have changed; it replaces both.
+ * this one says whose it is. `title` is Home's name for the Next Up rows (plan
+ * 033), which the person may have changed. It names AIOStreams' row as it is,
+ * and this one with the same words and whose it is, so a rename does not show
+ * the one name twice.
  */
 export function JfUpNextRow({
   catalog,
@@ -57,7 +59,7 @@ export function JfUpNextRow({
   if (cards.length === 0) return null;
   return (
     <section className="media-row">
-      <h3 className="media-row__title">{title ?? (shared ? "Next Up on Jellyfin" : "Next Up")}</h3>
+      <h3 className="media-row__title">{`${title ?? "Next Up"}${shared ? " on Jellyfin" : ""}`}</h3>
       <RowScroller>
         {cards.map((c) => (
           <Card key={c.key} item={c.item} metaFields={metaFields} meta={c.meta} onOpen={onOpen} />

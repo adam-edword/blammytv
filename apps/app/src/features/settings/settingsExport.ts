@@ -80,7 +80,8 @@ export const KEY_GROUPS = {
     "heroStyle",
     // Home's rows (plan 033): their order, switches and names. A catalog row's
     // id can name a playlist or a server of this PC; on another it matches no
-    // row and draws nothing, which does no harm.
+    // row and draws nothing, which does no harm. A Saved row names its Library
+    // list by id: the list is in "yours" and the row hides if the list is not.
     "homeRows",
     "cardMeta",
     "overlayMeta",

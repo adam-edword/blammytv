@@ -1,6 +1,6 @@
 # Plan 033: Home, behind the logo
 
-Status: Phase 1 built in v1.0.26, phase 2 (live rows) in v1.0.35. Phase 3 not built.
+Status: BUILT. Phase 1 in v1.0.26, phase 2 (live rows) in v1.0.35, phase 3 (Saved, Trakt, Needs a Source, Strand import) in v1.0.38. Trakt cards have no posters yet (Trakt sends none).
 
 Open from phase 1: with no live source the mark isn't drawn (it divides the
 live tabs from Stream's), so Home is reachable only through Start On. Mockup (v9):

@@ -1,4 +1,4 @@
-// E2E: Home, the page behind the logo (plan 033, phases 1 and 2).
+// E2E: Home, the page behind the logo (plan 033, phases 1, 2 and 3).
 //
 // The mark in the middle of the nav goes Home and still spins. Home is a second
 // root of StreamScreen: the same rows as Stream's page, in the order Settings
@@ -33,6 +33,17 @@
 //     tunes the channel, opens the game, plays the recording; Add Row adds a
 //     row and x removes it; a layout from phase 1 gets On Now and Today's
 //     Games once and not again after a remove; Stream's own page has none.
+//   - phase 3, lists and import: a Saved row draws a Library list's titles and
+//     hides when the list is empty or gone; a Trakt row draws a stubbed
+//     trending or popular list, and is not drawn (or asked for) when signed
+//     out, failing or switched off; Add Row's Watching and Films & Shows;
+//     Import Layout takes Adam's sample to the right rows in Strand's order,
+//     not a second Continue Watching, junk gets the error, and a row we cannot
+//     fill is a Needs a Source row, drawn quietly and removable;
+//   - and four findings from review: an Xtream library alone shows its folders
+//     on Home, two Next Up rows are not both given one name, Ctrl+K from Home
+//     then Back lands on Home, and Home says it is loading (not empty) while a
+//     live row has not answered (ESPN held).
 //
 //   node scripts/fake-panel.mjs   # :8081
 //   node scripts/fake-aio.mjs     # :8084
@@ -41,6 +52,7 @@
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
+import { readFileSync } from "node:fs";
 import { goTo } from "./nav-settle.mjs";
 
 const APP = process.env.APP_URL ?? "http://localhost:4173/";
@@ -54,6 +66,8 @@ const XTREAM = { v: 1, data: [{ kind: "xtream", id: "t", name: "Test", enabled: 
 const AIO = { v: 1, data: "http://localhost:8084/manifest.json" };
 /** The fake addon's browse rows, in its manifest's order. */
 const AIO_ROWS = ["Top Movies", "Top Series", "More Movies"];
+/** Trakt's four lists, as Add Row names them. */
+const TRAKT_ROWS = ["Trending Movies", "Trending Shows", "Popular Movies", "Popular Shows"];
 const SEEDED = { aiostreams: AIO, playlists: XTREAM };
 const WATCHING = { v: 1, data: [{ id: "tt555", title: "Odd Movie", kind: "movie", at: Date.now() - 3 * 86400_000, posSec: 1200, durSec: 6000 }] };
 const UP_NEXT = {
@@ -72,14 +86,16 @@ const errors = [];
  * machine. `store` is { key: envelope } under blammytv.*, written once: a
  * reload in a check must see what the check left.
  */
-async function open({ store = SEEDED, width = 1440, height = 900, reduced = false, games = null, recs = null } = {}) {
+async function open({ store = SEEDED, width = 1440, height = 900, reduced = false, games = null, recs = null, native = false, trakt = null, hold = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, colorScheme: "dark", reducedMotion: reduced ? "reduce" : "no-preference" });
   await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
   // ESPN is routed, never reached: `games` is [[id, state]] for today's MLB.
   // Registered after the catch-all, so it answers first.
   const asked = { espn: 0 };
-  await ctx.route(/site\.api\.espn\.com/, (route) => {
+  await ctx.route(/site\.api\.espn\.com/, async (route) => {
     asked.espn++;
+    // `hold`: a promise ESPN's answer waits for (phase 3: Home while it has not answered).
+    if (hold) await hold;
     const url = new URL(route.request().url());
     const hit = games && url.pathname.includes("baseball/mlb") && url.searchParams.get("dates") === ymd(new Date());
     return route.fulfill({
@@ -92,8 +108,11 @@ async function open({ store = SEEDED, width = 1440, height = 900, reduced = fals
   page.on("pageerror", (e) => errors.push(String(e)));
   // `recs`: native answered at the IPC boundary (isTauri() is then true),
   // with these recordings in its index. verify-recordings' stub, trimmed.
-  if (recs)
-    await page.addInitScript((recs) => {
+  // `native`: the same stub with no recordings (the Xtream panel's calls need
+  // http_get). `trakt`: { connected, replies: { path: body | status } }, answered
+  // at the same boundary, so no request leaves the machine.
+  if (recs || native || trakt)
+    await page.addInitScript(({ recs, trakt }) => {
       window.__calls = [];
       let cb = 0;
       const listeners = {};
@@ -112,12 +131,19 @@ async function open({ store = SEEDED, width = 1440, height = 900, reduced = fals
             (listeners[args.event] ??= []).push(args.handler);
             return Promise.resolve(++cb);
           }
-          if (cmd === "rec_list") return Promise.resolve(recs);
+          if (cmd === "rec_list") return Promise.resolve(recs ?? []);
+          if (cmd === "trakt_status") return Promise.resolve(trakt ? { configured: true, connected: trakt.connected } : { configured: false, connected: false });
+          // Answers whether or not signed in: a page that asks when it should not gets data it must not draw.
+          if (cmd === "trakt_request") {
+            const path = args.path.split("?")[0];
+            const r = trakt?.replies?.[path];
+            return Promise.resolve(typeof r === "number" ? { status: r, body: "" } : r ? { status: 200, body: JSON.stringify(r) } : { status: 404, body: "" });
+          }
           return Promise.resolve(undefined);
         },
       };
       window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
-    }, recs);
+    }, { recs, trakt });
   await page.addInitScript((store) => {
     localStorage.setItem("btv:onboarded", "1");
     sessionStorage.setItem("btv:welcome-played", "1");
@@ -845,7 +871,7 @@ const REC = (id, status, startedAt, more = {}) => ({
   const menu = page.getByRole("menu");
   await menu.waitFor();
   const groups = await menu.getByRole("group").evaluateAll((gs) => gs.map((g) => ({ name: g.getAttribute("aria-label"), items: [...g.querySelectorAll("[role=menuitem]")].map((i) => i.textContent) })));
-  check("Add Row offers the live rows not on Home, by where they come from", JSON.stringify(groups) === JSON.stringify([{ name: "Live TV", items: ["On Now", "Recent Channels", "Recordings"] }, { name: "Sports", items: ["Today\u2019s Games"] }]), JSON.stringify(groups));
+  check("Add Row offers the live rows not on Home, by where they come from", JSON.stringify(groups) === JSON.stringify([{ name: "Live TV", items: ["On Now", "Recent Channels", "Recordings"] }, { name: "Sports", items: ["Today\u2019s Games"] }, { name: "Films & Shows", items: TRAKT_ROWS }]), JSON.stringify(groups));
   await menu.getByRole("menuitem", { name: "Recent Channels", exact: true }).click();
   await page.waitForTimeout(500);
   const ed = await editor(page);
@@ -854,7 +880,7 @@ const REC = (id, status, startedAt, more = {}) => ({
   check("  and it is stored", (await ids(page)).at(-1) === "recent");
   await addBtn.click();
   const again = await page.getByRole("menu").getByRole("menuitem").allInnerTexts();
-  check("  and is no longer offered", JSON.stringify(again) === JSON.stringify(["On Now", "Recordings", "Today\u2019s Games"]), JSON.stringify(again));
+  check("  and is no longer offered", JSON.stringify(again) === JSON.stringify(["On Now", "Recordings", "Today\u2019s Games", ...TRAKT_ROWS]), JSON.stringify(again));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
   check("  Escape closes the menu and leaves Settings up", (await page.getByRole("menu").count()) === 0 && (await settingsUp(page)));
@@ -867,7 +893,7 @@ const REC = (id, status, startedAt, more = {}) => ({
   check("the x takes the row off the editor, Home and the layout, behind Settings, which stays open", (await settingsUp(page)) && !(await editor(page)).some((r) => r.name === "Recent Channels") && !(await titles(page)).includes("Recent Channels") && !(await ids(page)).includes("recent"), JSON.stringify(await ids(page)));
   await addBtn.click();
   const back = await page.getByRole("menu").getByRole("menuitem").allInnerTexts();
-  check("  and offers it again", JSON.stringify(back) === JSON.stringify(["On Now", "Recent Channels", "Recordings", "Today\u2019s Games"]), JSON.stringify(back));
+  check("  and offers it again", JSON.stringify(back) === JSON.stringify(["On Now", "Recent Channels", "Recordings", "Today\u2019s Games", ...TRAKT_ROWS]), JSON.stringify(back));
   await page.getByRole("menu").getByRole("menuitem", { name: "On Now", exact: true }).click();
   await page.waitForTimeout(500);
   check("  and On Now added by hand draws, with its card", (await titles(page)).includes("On Now") && (await page.locator(".chan-tile[data-channel='t:101']").count()) === 1);
@@ -877,16 +903,21 @@ const REC = (id, status, startedAt, more = {}) => ({
     await page.getByRole("menu").getByRole("menuitem", { name, exact: true }).click();
     await page.waitForTimeout(250);
   }
-  check("with all four on Home, there is no Add Row", (await addBtn.count()) === 0);
+  await addBtn.click();
+  const rest = await page.getByRole("menu").getByRole("group").evaluateAll((gs) => gs.map((g) => g.getAttribute("aria-label")));
+  check("with all four live rows on Home, Add Row offers only Films & Shows", JSON.stringify(rest) === JSON.stringify(["Films & Shows"]), JSON.stringify(rest));
+  await page.keyboard.press("Escape");
   await ctx.close();
 }
 {
-  // No playlist: no live row can be added, so no Add Row.
+  // No playlist: no live row can be added, so Add Row offers Trakt's rows alone.
   const { ctx, page } = await open({ store: { aiostreams: AIO } });
   await goTo(page, "hub");
   await rowsReady(page);
   await openSettings(page);
-  check("with no playlist, Settings → Home has no Add Row", (await page.getByRole("button", { name: "Add Row", exact: true }).count()) === 0 && (await editor(page)).length > 0);
+  await page.getByRole("button", { name: "Add Row", exact: true }).click();
+  const groups = await page.getByRole("menu").getByRole("group").evaluateAll((gs) => gs.map((g) => g.getAttribute("aria-label")));
+  check("with no playlist, Add Row offers no live row: Films & Shows alone", JSON.stringify(groups) === JSON.stringify(["Films & Shows"]) && (await editor(page)).length > 0, JSON.stringify(groups));
   await ctx.close();
 }
 
@@ -946,6 +977,364 @@ const REC = (id, status, startedAt, more = {}) => ({
   await page.waitForTimeout(800);
   const twice = await box(page);
   check("  and not again at the launch after", twice.rows.length === once.rows.length, JSON.stringify(twice.rows.map((r) => r.id)));
+  await ctx.close();
+}
+
+// ================================================ phase 3: lists and import
+const entry = (id, title, kind, year) => ({ id, title, kind, year, at: 1 });
+const LISTS = env([
+  { id: "l1", name: "Weekend Watch", at: 1, entries: [entry("tt7000001", "Saved One", "movie", 2020), entry("tt7000002", "Saved Two", "series", 2021)] },
+  { id: "l2", name: "Empty Shelf", at: 2, entries: [] },
+  { id: "__trakt", name: "Trakt Watchlist", at: 3, entries: [entry("tt7000003", "Watch Three", "movie", 2019)] },
+]);
+/** A layout as stored now, from raw rows. */
+const rowsEnv = (rows) => env({ rows, offered: ["onnow", "games"] });
+const R = (id, kind, extra = {}) => ({ id, kind, on: true, ...extra });
+const savedRow = (list, extra = {}) => R(`saved:${list}`, "saved", { list, ...extra });
+const traktRow = (list, extra = {}) => R(`trakt:${list}`, "trakt", { list, ...extra });
+const FRONT = [R("continue", "continue"), R("upnext", "upnext")];
+/** One catalog row, so there are always cards to wait for. */
+const CATALOG = R("aio:top-movies", "catalog");
+const shelf = (page, kind) => page.locator(`.media-row[data-row='${kind}']`);
+const shelfNames = (page, kind) => shelf(page, kind).locator(".stream-card__name").allInnerTexts();
+const traktCalls = (page) => page.evaluate(() => window.__calls.filter((c) => c[0] === "trakt_request").map((c) => c[1].path));
+
+// ---------------------------------------------------------------- Saved
+{
+  const rows = [...FRONT, savedRow("l1"), savedRow("l2"), savedRow("gone"), CATALOG];
+  const { ctx, page } = await open({ store: { ...SEEDED, lists: LISTS, homeRows: rowsEnv(rows) } });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  const t = await titles(page);
+  check("a Saved row draws a Library list's titles under the list's name", t.includes("Weekend Watch") && (await shelfNames(page, "saved")).join() === "Saved One,Saved Two", JSON.stringify({ t, cards: await shelfNames(page, "saved") }));
+  check("  an empty list's row, and a row for a list that is gone, are not drawn", !t.includes("Empty Shelf") && (await page.locator(".media-row[data-row='saved']").count()) === 1, JSON.stringify(t));
+
+  // A click opens the title's page, there, and Back is Home again.
+  await shelf(page, "saved").locator(".stream-card", { hasText: "Saved Two" }).click();
+  await page.locator(".stream--full").waitFor({ timeout: 10_000 });
+  check("a click on a saved title opens its page, on Home", (await screen(page)) === "hub" && /Saved Two/.test(await page.locator(".stream--full").innerText()), await screen(page));
+  await page.getByRole("button", { name: "Back", exact: true }).first().click({ timeout: 5000 });
+  await rowsReady(page);
+  check("  and Back is Home again, the row still there", (await screen(page)) === "hub" && (await shelfNames(page, "saved")).length === 2);
+
+  // Settings → Home: the names, and why a row is empty.
+  await openSettings(page);
+  const ed = await editor(page);
+  check("Settings → Home lists a Saved row under its list's name, as Watching", ed.some((r) => r.name === "Weekend Watch" && r.kind === "Watching") && ed.some((r) => r.name === "Empty Shelf"), JSON.stringify(ed.map((r) => r.name)));
+  const why = (name) => page.locator(`.xtrow:has(.homerows__title[aria-label='Name of ${name}']) .homerows__why`).innerText();
+  check("  an empty list says to save titles to it", (await why("Empty Shelf")) === "Save titles to this list to fill this row.", await why("Empty Shelf"));
+  check("  a list that is gone says so, under a name of its own", (await why("Saved")) === "This list is gone.", await why("Saved"));
+  check("  every Saved row has an x, and the one with titles has no reason", (await page.getByRole("button", { name: /^Remove (Weekend Watch|Empty Shelf|Saved)$/ }).count()) === 3 && (await page.locator(".xtrow:has(.homerows__title[aria-label='Name of Weekend Watch']) .homerows__why").count()) === 0);
+
+  // Rename it.
+  await page.getByRole("textbox", { name: "Name of Weekend Watch", exact: true }).fill("Friday Night");
+  await page.waitForTimeout(250);
+  check("renaming a Saved row retitles it on Home, behind Settings", (await titles(page)).includes("Friday Night") && !(await titles(page)).includes("Weekend Watch"), JSON.stringify(await titles(page)));
+
+  // Add Row → Watching → Saved → a list not on Home yet.
+  await page.getByRole("button", { name: "Add Row", exact: true }).click();
+  const menu = page.getByRole("menu").first();
+  await menu.waitFor();
+  const groups = await menu.getByRole("group").evaluateAll((gs) => gs.map((g) => ({ name: g.getAttribute("aria-label"), items: [...g.querySelectorAll("[role=menuitem]")].map((i) => i.textContent) })));
+  check("Add Row has a Watching group, with Saved in it, first", groups[0]?.name === "Watching" && groups[0].items.join() === "Saved", JSON.stringify(groups));
+  await menu.getByRole("menuitem", { name: "Saved", exact: true }).click();
+  const subs = await page.getByRole("menu").last().getByRole("menuitem").allInnerTexts();
+  check("  Saved asks which list, and offers the ones not on Home: the Trakt Watchlist", JSON.stringify(subs) === JSON.stringify(["Trakt Watchlist"]), JSON.stringify(subs));
+  await page.getByRole("menuitem", { name: "Trakt Watchlist", exact: true }).click();
+  await page.waitForTimeout(500);
+  check("  picking one adds its row, on, at the end of the editor, and Home draws it", (await editor(page)).at(-1).name === "Trakt Watchlist" && (await titles(page)).includes("Trakt Watchlist") && (await shelfNames(page, "saved")).includes("Watch Three"), JSON.stringify((await editor(page)).map((r) => r.name)));
+  const savedIds = (await ids(page)).filter((i) => i.startsWith("saved:"));
+  check("  each Saved row has an id of its own, made from its list", JSON.stringify(savedIds) === JSON.stringify(["saved:l1", "saved:l2", "saved:gone", "saved:__trakt"]), JSON.stringify(savedIds));
+  await page.getByRole("button", { name: "Add Row", exact: true }).click();
+  const left = await page.getByRole("menu").first().getByRole("group").evaluateAll((gs) => gs.map((g) => g.getAttribute("aria-label")));
+  check("  and with every list on Home, there is no Saved to pick", !left.includes("Watching"), JSON.stringify(left));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+
+  // The x.
+  await page.getByRole("button", { name: "Remove Trakt Watchlist", exact: true }).click();
+  await page.waitForTimeout(400);
+  check("the x takes a Saved row off the editor, Home and the layout", !(await titles(page)).includes("Trakt Watchlist") && !(await ids(page)).includes("saved:__trakt"));
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- Trakt
+const TREND = [
+  { watchers: 9, movie: { title: "Trending One", year: 2025, ids: { imdb: "tt9000001" } } },
+  { watchers: 5, movie: { title: "Trending Two", year: 2024, ids: { imdb: "tt9000002" } } },
+];
+const POP_SHOWS = [{ title: "Popular Show", year: 2018, ids: { imdb: "tt9000003" } }];
+/** What the stub answers: two lists with titles, one that fails, and one switched off below. */
+const REPLIES = { "/movies/trending": TREND, "/shows/popular": POP_SHOWS, "/shows/trending": 500, "/movies/popular": POP_SHOWS };
+const TRAKT_LAYOUT = [...FRONT, traktRow("trending_movies"), traktRow("trending_shows"), traktRow("popular_shows"), traktRow("popular_movies", { on: false }), CATALOG];
+{
+  const { ctx, page } = await open({ store: { ...SEEDED, homeRows: rowsEnv(TRAKT_LAYOUT) }, trakt: { connected: true, replies: REPLIES } });
+  await goTo(page, "hub");
+  await page.waitForSelector(".media-row[data-row='trakt'] .stream-card", { timeout: 20_000 });
+  await page.waitForTimeout(600);
+  const t = (await titles(page)).filter((x) => TRAKT_ROWS.includes(x));
+  check("signed in, a Trakt row draws what Trakt sent, in its order, under its name", JSON.stringify(t) === JSON.stringify(["Trending Movies", "Popular Shows"]) && (await shelfNames(page, "trakt")).join() === "Trending One,Trending Two,Popular Show", JSON.stringify({ t, cards: await shelfNames(page, "trakt") }));
+  check("  a list that failed is not drawn, and nor is one switched off", !t.includes("Trending Shows") && !t.includes("Popular Movies"));
+  const asked = (await traktCalls(page)).map((p) => p.split("?")[0]);
+  check("  only the rows that are on were asked for, once each: no request for the one switched off", JSON.stringify(asked.filter((p) => p !== "/sync/last_activities").sort()) === JSON.stringify(["/movies/trending", "/shows/popular", "/shows/trending"]), JSON.stringify(asked));
+
+  // Back from a title is not four more requests; Stream's page asks for none.
+  await shelf(page, "trakt").first().locator(".stream-card", { hasText: "Trending Two" }).click();
+  await page.locator(".stream--full").waitFor({ timeout: 10_000 });
+  check("a click on a Trakt title opens its page, on Home", (await screen(page)) === "hub" && /Trending Two/.test(await page.locator(".stream--full").innerText()));
+  await page.getByRole("button", { name: "Back", exact: true }).first().click({ timeout: 5000 });
+  await rowsReady(page);
+  await page.waitForTimeout(500);
+  const before = (await traktCalls(page)).length;
+  await goTo(page, "home");
+  await rowsReady(page);
+  await page.waitForTimeout(500);
+  check("  Back from a title, and Stream's own page, ask Trakt for nothing more, and Stream has no Trakt row", (await traktCalls(page)).length === before && (await page.locator(".media-row[data-row='trakt']").count()) === 0, JSON.stringify({ before, now: (await traktCalls(page)).length }));
+  await ctx.close();
+}
+{
+  // Not signed in: no row, and no request, though the stub would have answered.
+  const { ctx, page } = await open({ store: { ...SEEDED, homeRows: rowsEnv(TRAKT_LAYOUT) }, trakt: { connected: false, replies: REPLIES } });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await page.waitForTimeout(1500);
+  check("signed out, no Trakt row is drawn", (await page.locator(".media-row[data-row='trakt']").count()) === 0 && !(await titles(page)).some((x) => TRAKT_ROWS.includes(x)), JSON.stringify(await titles(page)));
+  check("  and Trakt is not asked for anything", (await traktCalls(page)).length === 0, JSON.stringify(await traktCalls(page)));
+  await openSettings(page);
+  const why = await page.locator(".xtrow:has(.homerows__title[aria-label='Name of Trending Movies']) .homerows__why").innerText();
+  check("  Settings → Home says to sign in, under the row", why === "Sign in to Trakt to fill this row.", why);
+  await ctx.close();
+}
+{
+  // Add Row → Films & Shows: each list once.
+  const { ctx, page } = await open({ store: { ...SEEDED, homeRows: rowsEnv([...FRONT, CATALOG]) }, trakt: { connected: true, replies: REPLIES } });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await openSettings(page);
+  await page.getByRole("button", { name: "Add Row", exact: true }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: "Popular Shows", exact: true }).click();
+  await page.waitForTimeout(700);
+  check("Add Row → Films & Shows adds the list, on, once, and Home draws it behind Settings", (await ids(page)).at(-1) === "trakt:popular_shows" && (await titles(page)).includes("Popular Shows") && (await shelfNames(page, "trakt")).join() === "Popular Show", JSON.stringify({ ids: await ids(page), titles: await titles(page) }));
+  await page.getByRole("button", { name: "Add Row", exact: true }).click();
+  const left = await page.getByRole("menu").getByRole("menuitem").allInnerTexts();
+  check("  and it is no longer offered", JSON.stringify(left) === JSON.stringify(["On Now", "Recent Channels", "Recordings", "Today’s Games", "Trending Movies", "Trending Shows", "Popular Movies"]), JSON.stringify(left));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+  check("  the x takes it off again", (await page.getByRole("button", { name: "Remove Popular Shows", exact: true }).count()) === 1);
+  await page.getByRole("button", { name: "Remove Popular Shows", exact: true }).click();
+  await page.waitForTimeout(400);
+  check("  and it is gone from the layout and Home", !(await ids(page)).includes("trakt:popular_shows") && !(await titles(page)).includes("Popular Shows"));
+  await ctx.close();
+}
+
+// ---------------------------------------------------------- Import Layout
+const SAMPLE_TEXT = readFileSync(new URL("../apps/app/src/features/home/fixtures/strand-sample.json", import.meta.url), "utf8");
+const SAMPLE = JSON.parse(SAMPLE_TEXT);
+const dialog = (page) => page.getByRole("dialog", { name: "Import Layout", exact: true });
+const importText = async (page, text) => {
+  await dialog(page).getByRole("textbox", { name: "Strand Layout", exact: true }).fill(text);
+  await dialog(page).getByRole("button", { name: "Add Rows", exact: true }).click();
+  await page.waitForTimeout(500);
+};
+{
+  const { ctx, page } = await open({ store: { ...SEEDED, lists: LISTS }, trakt: { connected: true, replies: REPLIES } });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await openSettings(page);
+  const seeded = await ids(page);
+  await page.getByRole("button", { name: "Import Layout", exact: true }).click();
+  await dialog(page).waitFor({ timeout: 5000 });
+  check("Import Layout opens a dialog with a box and an Add Rows button that waits for something pasted", (await dialog(page).getByRole("textbox", { name: "Strand Layout", exact: true }).count()) === 1 && (await dialog(page).getByRole("button", { name: "Add Rows", exact: true }).isDisabled()));
+
+  await importText(page, SAMPLE_TEXT);
+  const line = await dialog(page).getByRole("status").innerText();
+  check("the sample says how many rows it added, and that Continue Watching was already there", line === "Added 5 rows. 1 already on Home.", line);
+  const after = await ids(page);
+  check(
+    "  the rows are the Watchlist (on the Trakt Watchlist) and Trakt's four, in Strand's order, after the existing ones",
+    JSON.stringify(after) === JSON.stringify([...seeded, "saved:__trakt", "trakt:trending_movies", "trakt:trending_shows", "trakt:popular_movies", "trakt:popular_shows"]),
+    JSON.stringify(after),
+  );
+  const stored5 = (await stored(page)).slice(seeded.length);
+  check("  titled and switched as Strand has them: the Watchlist is titled, the others keep their own names, all on", stored5[0].title === "Watchlist" && stored5.slice(1).every((r) => r.title === undefined) && stored5.every((r) => r.on === true), JSON.stringify(stored5));
+  check("  Continue Watching is not added a second time", (await stored(page)).filter((r) => r.kind === "continue").length === 1 && (await ids(page)).filter((i) => i === "continue").length === 1);
+  await page.keyboard.press("Escape");
+  await dialog(page).waitFor({ state: "detached", timeout: 5000 });
+  check("Escape closes the dialog and leaves Settings up", await settingsUp(page));
+  const ed = await editor(page);
+  check("  the editor lists them: one Continue Watching, then the Watchlist and Trakt's four", ed.filter((r) => r.name === "Continue Watching").length === 1 && JSON.stringify(ed.slice(-5).map((r) => r.name)) === JSON.stringify(["Watchlist", "Trending Movies", "Trending Shows", "Popular Movies", "Popular Shows"]), JSON.stringify(ed.map((r) => r.name)));
+  await page.waitForTimeout(600);
+  const home = (await titles(page)).filter((x) => ["Watchlist", ...TRAKT_ROWS].includes(x));
+  check("  and Home draws the ones with titles in them, behind Settings, in that order (Trending Shows fails)", JSON.stringify(home) === JSON.stringify(["Watchlist", "Trending Movies", "Popular Movies", "Popular Shows"]), JSON.stringify(home));
+
+  // The same file again adds nothing.
+  await page.getByRole("button", { name: "Import Layout", exact: true }).click();
+  await importText(page, SAMPLE_TEXT);
+  const again = await dialog(page).getByRole("status").innerText();
+  check("the same layout a second time adds nothing", again === "Added 0 rows. 6 already on Home." && (await ids(page)).length === after.length, again);
+
+  // Strand has Continue Watching off: ours goes off.
+  await importText(page, JSON.stringify([{ ...SAMPLE[0], isEnabled: false }]));
+  check("Strand's Continue Watching switched off switches ours off, and adds no row", (await stored(page)).find((r) => r.kind === "continue").on === false && (await ids(page)).length === after.length);
+
+  // Junk: an error under the box, and nothing changes.
+  const count = (await ids(page)).length;
+  await importText(page, "this is not a layout");
+  const err = await dialog(page).getByRole("alert").innerText().catch(() => "");
+  check("text that is not a Strand layout says so under the box, and changes nothing", err === "This isn't a layout exported from Strand." && (await ids(page)).length === count && (await dialog(page).getByRole("status").count()) === 0, err);
+  await importText(page, JSON.stringify({ rows: SAMPLE }));
+  check("  a Strand layout wrapped in something else is junk too", (await dialog(page).getByRole("alert").count()) === 1 && (await ids(page)).length === count);
+  await ctx.close();
+}
+{
+  // Anything else: Needs a Source, kept whole, drawn quietly, removable.
+  const odd = { id: "ZZZ-1", isEnabled: true, sortOrder: 0, source: { collection: { _0: "marvel" } }, style: "row_large", title: "Marvel" };
+  const { ctx, page } = await open({ store: SEEDED });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await openSettings(page);
+  await page.getByRole("button", { name: "Import Layout", exact: true }).click();
+  await importText(page, JSON.stringify([odd]));
+  const line = await dialog(page).getByRole("status").innerText();
+  check("a row Strand has that we do not fill is added, and counted as one row", line === "Added 1 row.", line);
+  const kept = (await stored(page)).at(-1);
+  check("  as a Needs a Source row that keeps Strand's row whole, and its title", kept.kind === "needs" && kept.title === "Marvel" && JSON.stringify(kept.strand) === JSON.stringify(odd) && kept.on === true, JSON.stringify(kept));
+  await page.keyboard.press("Escape");
+  await dialog(page).waitFor({ state: "detached", timeout: 5000 });
+  const ed = (await editor(page)).at(-1);
+  const why = await page.locator(".xtrow:has(.homerows__title[aria-label='Name of Marvel']) .homerows__why").innerText();
+  check("  the editor lists it as Needs a Source, with a line that nothing fills it yet", ed.name === "Marvel" && ed.kind === "Needs a Source" && why === "Imported from Strand. Nothing fills this row yet.", JSON.stringify({ ed, why }));
+  const row = page.locator(".media-row[data-row='needs']");
+  check("  Home draws it, behind Settings: its name and one line, and nothing to click", (await row.count()) === 1 && (await row.locator("h3").innerText()) === "Marvel" && (await row.locator(".home-needs__note").innerText()) === "This row needs a source." && (await row.locator("button, a").count()) === 0);
+  // Rename it: the title is the row.
+  await page.getByRole("textbox", { name: "Name of Marvel", exact: true }).fill("Superheroes");
+  await page.waitForTimeout(250);
+  check("  renaming it retitles it on Home", (await row.locator("h3").innerText()) === "Superheroes" && (await stored(page)).at(-1).title === "Superheroes");
+  // Switched off: gone from Home, still listed. Back on, and removed.
+  await page.getByRole("switch", { name: "Superheroes", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("  switched off it leaves Home and stays in the editor", (await row.count()) === 0 && (await editor(page)).some((r) => r.name === "Superheroes" && !r.on));
+  await page.getByRole("switch", { name: "Superheroes", exact: true }).click();
+  await page.waitForTimeout(300);
+  check("  switched on it comes back, even with a source behind it that is nothing", (await row.count()) === 1);
+  await page.getByRole("button", { name: "Remove Superheroes", exact: true }).click();
+  await page.waitForTimeout(400);
+  check("  the x removes it from the editor, Home and the layout", (await row.count()) === 0 && !(await editor(page)).some((r) => r.name === "Superheroes") && !(await stored(page)).some((r) => r.kind === "needs"));
+  await ctx.close();
+}
+{
+  // Needs a Source rows survive a reload (the JSON is kept), with no sources at all.
+  const needs = { id: "needs:Q", kind: "needs", on: true, title: "Quiet One", strand: { source: { x: {} } } };
+  const { ctx, page } = await open({ store: { aiostreams: AIO, homeRows: rowsEnv([...FRONT, needs, CATALOG]) } });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  check("a Needs a Source row is still drawn after a reload", (await page.locator(".media-row[data-row='needs'] h3").innerText()) === "Quiet One" && (await stored(page)).some((r) => r.kind === "needs" && r.strand?.source));
+  await ctx.close();
+}
+
+// ------------------------------------------------- finding (a): Xtream alone
+const VOD_ONLY = { v: 1, data: [{ kind: "xtream", id: "vod1", name: "Vod Panel", enabled: true, server: "http://localhost:8081", username: "vod", password: "p" }] };
+{
+  const { ctx, page } = await open({ store: { playlists: VOD_ONLY }, native: true });
+  await goTo(page, "home");
+  await page.locator("[data-xtcoll]").waitFor({ timeout: 20_000 });
+  const onStream = await page.locator("[data-xtcoll] .xtcard__name").allInnerTexts();
+  await goTo(page, "hub");
+  await page.locator("[data-xtcoll]").waitFor({ timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  const onHome = await page.locator("[data-xtcoll] .xtcard__name").allInnerTexts();
+  const note = await page.locator(".stream__note").innerText().catch(() => "");
+  check("a profile whose only stream source is an Xtream library: Home shows the Movies and Shows folders, as Stream does", onStream.length === 3 && JSON.stringify(onHome) === JSON.stringify(onStream) && !/Nothing on Home/.test(note), JSON.stringify({ onStream, onHome, note }));
+  // Picking a folder makes it a row on Home, and the folders go.
+  await page.locator("[data-xtcoll] .xtcard", { hasText: /^Action$/ }).click();
+  await page.locator("[data-xtcoll]").getByRole("button", { name: /^Show 1 Row$/ }).click();
+  await page.waitForSelector(".media-row .stream-card", { timeout: 15_000 });
+  await page.waitForTimeout(500);
+  check("  a folder picked on Home is a row on Home, and the folders step aside", (await titles(page)).includes("Action") && (await page.locator("[data-xtcoll]").count()) === 0, JSON.stringify(await titles(page)));
+  await ctx.close();
+}
+
+// ------------------------------------------- finding (b): two Next Up rows
+{
+  const jellyfin = env({
+    signedIn: { base: "http://localhost:8196", userId: "u1", userName: "u" },
+    nextUp: [{ seriesId: "tt300001", episodeId: "tt300001:1:1", seriesTitle: "Jelly Series", label: "S1 · E1: Pilot" }],
+  });
+  const { ctx, page } = await open({ store: { ...SEEDED, aiojf: UP_NEXT, jellyfin } });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  await page.waitForTimeout(500);
+  check("with AIOStreams and Jellyfin both signed in, Home draws both Next Up rows, each under its own name", (await titles(page)).includes("Next Up") && (await titles(page)).includes("Next Up on Jellyfin"), JSON.stringify(await titles(page)));
+  await openSettings(page);
+  await page.getByRole("textbox", { name: "Name of Up Next", exact: true }).fill("Coming Up");
+  await page.waitForTimeout(300);
+  const t = await titles(page);
+  check("a rename gives AIOStreams' row the name and Jellyfin's the same name with whose it is: never the one name twice", t.includes("Coming Up") && t.includes("Coming Up on Jellyfin") && t.filter((x) => x === "Coming Up").length === 1, JSON.stringify(t));
+  await closeSettings(page);
+  await stream(page);
+  const s = await titles(page);
+  check("  Stream's own page keeps Next Up and Next Up on Jellyfin", s.includes("Next Up") && s.includes("Next Up on Jellyfin") && !s.includes("Coming Up"), JSON.stringify(s));
+  await ctx.close();
+}
+
+// ------------------------------- finding (c): Ctrl+K from Home, then Back
+{
+  const { ctx, page } = await open({ store: { ...SEEDED, watching: WATCHING } });
+  await goTo(page, "hub");
+  await rowsReady(page);
+  const card = page.locator(".media-row:has(h3:text-is('Top Series')) .stream-card").first();
+  await card.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  const at = await page.locator(".stream").evaluate((e) => e.scrollTop);
+  await page.keyboard.press("Control+k");
+  await page.locator(".palette").waitFor({ timeout: 5000 });
+  await page.keyboard.type("series one");
+  await page.waitForTimeout(500);
+  await page.keyboard.press("Enter");
+  await page.locator(".vod-detail").first().waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Back", exact: true }).first().click({ timeout: 5000 });
+  await page.locator("main[data-screen='hub']").waitFor({ timeout: 10_000 }).catch(() => {});
+  await rowsReady(page);
+  await page.waitForTimeout(500);
+  const back = await page.locator(".stream").evaluate((e) => ({ top: e.scrollTop, full: e.classList.contains("stream--full") }));
+  const m = await mark(page);
+  check("Ctrl+K from Home, a title picked, Back: Home again, at its scroll, the mark current", (await screen(page)) === "hub" && m.current === "page" && !back.full && at > 100 && Math.abs(back.top - at) <= 2, JSON.stringify({ screen: await screen(page), at, ...back, current: m.current }));
+  await ctx.close();
+}
+{
+  // And from Stream's own page, Back still lands on Stream (the palette's old answer).
+  const { ctx, page } = await open({ store: SEEDED });
+  await stream(page);
+  await page.keyboard.press("Control+k");
+  await page.locator(".palette").waitFor({ timeout: 5000 });
+  await page.keyboard.type("series one");
+  await page.waitForTimeout(500);
+  await page.keyboard.press("Enter");
+  await page.locator(".vod-detail").first().waitFor({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Back", exact: true }).first().click({ timeout: 5000 });
+  await rowsReady(page);
+  check("Ctrl+K from Stream, a title picked, Back: Stream, not Home", (await screen(page)) === "home", await screen(page));
+  await ctx.close();
+}
+
+// ---------------------------- finding (d): live rows that have not answered
+{
+  // A playlist and no stream source, Today's Games on, ESPN held: Home is loading, not empty.
+  let release;
+  const hold = new Promise((r) => (release = r));
+  const { ctx, page, asked } = await open({ store: { playlists: XTREAM, "sports-follows": FOLLOW_MLB, homeRows: layoutOf(["games"]) }, games: [], hold });
+  await goTo(page, "hub");
+  await page.waitForSelector(".stream__note", { timeout: 20_000 });
+  await page.waitForTimeout(1500);
+  const waiting = (await page.locator(".stream__note").innerText()).replace(/\n/g, " ");
+  check("while ESPN has not answered, Home says it is loading, not that there is nothing", asked.espn > 0 && /Loading Home/.test(waiting) && !/Nothing on Home/.test(waiting), JSON.stringify({ asked: asked.espn, waiting }));
+  release();
+  await page.waitForFunction(() => /Nothing on Home/.test(document.querySelector(".stream__note")?.textContent ?? ""), null, { timeout: 15_000 }).catch(() => {});
+  const done = (await page.locator(".stream__note").innerText()).replace(/\n/g, " ");
+  check("  and once it has, with no game today, Nothing on Home", /Nothing on Home/.test(done) && !/Loading Home/.test(done), done);
   await ctx.close();
 }
 

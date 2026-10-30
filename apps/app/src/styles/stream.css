@@ -639,6 +639,13 @@
    * over it, not under. No new stacking context. */
   position: relative;
 }
+/* An imported Home row there is nothing to fill yet (features/home/ListRows.tsx):
+ * its name, and one quiet line under it. */
+.home-needs__note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
 /* shadcn's largest heading in a dashboard is `text-2xl font-semibold`, and
  * a row title is a section heading, not a page. 41px was competing with the
  * poster art it was labelling. */

@@ -203,6 +203,25 @@ export function removeFromList(listId: string, itemId: string): void {
   traktListChanged(listId);
 }
 
+/** A stored snapshot re-shaped for the shared Card (Library's lists and
+ * Home's Saved and Trakt rows). Opening resolves fresh full meta exactly like
+ * a Discover pick. */
+export const toItem = (e: ListEntry): VodItem => ({
+  id: e.id,
+  ...(e.from ? { from: e.from } : {}),
+  title: e.title,
+  kind: e.kind,
+  ...(e.poster ? { poster: e.poster } : {}),
+  ...(e.backdrop ? { backdrop: e.backdrop } : {}),
+  ...(e.logo ? { logo: e.logo } : {}),
+  ...(e.year != null ? { year: e.year } : {}),
+  ...(e.rating != null ? { rating: e.rating } : {}),
+  ...(e.runtimeMin != null ? { runtimeMin: e.runtimeMin } : {}),
+  genres: [],
+  cast: [],
+  seasons: [],
+});
+
 /** Every list holding this title. Drives the save button's label. */
 export function listsContaining(itemId: string): UserList[] {
   return loadLists().filter((l) => l.entries.some((e) => e.id === itemId));

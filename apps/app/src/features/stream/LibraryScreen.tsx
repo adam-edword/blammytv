@@ -16,10 +16,10 @@ import {
   removeFromList,
   renameList,
   setCover,
+  toItem,
   TRAKT_LIST,
   type UserList,
 } from "./lists";
-import type { ListEntry } from "./myList";
 import {
   clearReturnList,
   peekReturnList,
@@ -60,24 +60,6 @@ import { useRecordings } from "../recordings/store";
  * Playback lives in StreamScreen, so both card kinds ask rather than play:
  * titles through the item mailbox, resumes through the resume mailbox.
  */
-
-/** A stored snapshot re-shaped for the shared Card. Opening resolves fresh
- * full meta exactly like a Discover pick. */
-const toItem = (e: ListEntry): VodItem => ({
-  id: e.id,
-  ...(e.from ? { from: e.from } : {}),
-  title: e.title,
-  kind: e.kind,
-  ...(e.poster ? { poster: e.poster } : {}),
-  ...(e.backdrop ? { backdrop: e.backdrop } : {}),
-  ...(e.logo ? { logo: e.logo } : {}),
-  ...(e.year != null ? { year: e.year } : {}),
-  ...(e.rating != null ? { rating: e.rating } : {}),
-  ...(e.runtimeMin != null ? { runtimeMin: e.runtimeMin } : {}),
-  genres: [],
-  cast: [],
-  seasons: [],
-});
 
 /** The built-in card's id. Not a real list, so it can never be renamed,
  * deleted, or collide with a generated list id (which are `l`-prefixed). */

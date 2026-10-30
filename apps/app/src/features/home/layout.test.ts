@@ -16,8 +16,12 @@ import {
   loadHomeRows,
   loadOffered,
   onHomeRowsChange,
+  fitsStrand,
+  isLive,
   removable,
   saveHomeRows,
+  savedId,
+  STRAND_MAX,
   seedHomeRows,
   withAutoRows,
   withNewCatalogRows,
@@ -177,7 +181,7 @@ describe("the live rows", () => {
     ]);
   });
 
-  it("are the only kinds that can be removed", () => {
+  it("can be removed, and the four kinds Home always has cannot", () => {
     expect(["onnow", "recent", "games", "recordings"].every((k) => removable(k as HomeRowKind))).toBe(true);
     expect(["carousel", "continue", "upnext", "catalog"].some((k) => removable(k as HomeRowKind))).toBe(false);
   });
@@ -299,5 +303,104 @@ describe("onHomeRowsChange", () => {
     off();
     saveHomeRows([{ id: "upnext", kind: "upnext", on: true }]);
     expect(seen).toEqual([["continue"]]);
+  });
+});
+
+describe("the list rows", () => {
+  beforeEach(() => store.clear());
+
+  it("Saved: one row for each Library list, under an id made from the list", () => {
+    put([
+      { id: "x", kind: "saved", list: "l1", on: true, title: " Weekend " },
+      { id: "y", kind: "saved", list: "l2", on: false },
+      { id: "z", kind: "saved", list: "l1", on: false },
+    ]);
+    expect(loadHomeRows()).toEqual([
+      { id: "saved:l1", kind: "saved", list: "l1", on: true, title: "Weekend" },
+      { id: "saved:l2", kind: "saved", list: "l2", on: false },
+    ]);
+    expect(savedId("l1")).toBe("saved:l1");
+  });
+
+  it("Saved: a row with no list is dropped", () => {
+    put([
+      { id: "a", kind: "saved", on: true },
+      { id: "b", kind: "saved", list: "", on: true },
+      { id: "c", kind: "saved", list: 7, on: true },
+      { id: "continue", kind: "continue", on: true },
+    ]);
+    expect(ids(loadHomeRows()!)).toEqual(["continue"]);
+  });
+
+  it("Trakt: the four lists, once each, under an id made from the list", () => {
+    put([
+      { id: "a", kind: "trakt", list: "trending_movies", on: true },
+      { id: "b", kind: "trakt", list: "trending_shows", on: false, title: "Hot" },
+      { id: "c", kind: "trakt", list: "popular_movies", on: true },
+      { id: "d", kind: "trakt", list: "popular_shows", on: true },
+      { id: "e", kind: "trakt", list: "trending_movies", on: false },
+    ]);
+    expect(loadHomeRows()).toEqual([
+      { id: "trakt:trending_movies", kind: "trakt", list: "trending_movies", on: true },
+      { id: "trakt:trending_shows", kind: "trakt", list: "trending_shows", on: false, title: "Hot" },
+      { id: "trakt:popular_movies", kind: "trakt", list: "popular_movies", on: true },
+      { id: "trakt:popular_shows", kind: "trakt", list: "popular_shows", on: true },
+    ]);
+  });
+
+  it("Trakt: a list that is not one of the four is dropped", () => {
+    put([
+      { id: "a", kind: "trakt", list: "anticipated_movies", on: true },
+      { id: "b", kind: "trakt", on: true },
+      { id: "c", kind: "trakt", list: "__proto__", on: true },
+      { id: "continue", kind: "continue", on: true },
+    ]);
+    expect(ids(loadHomeRows()!)).toEqual(["continue"]);
+  });
+
+  it("Needs a Source: kept with its id, its title and Strand's row", () => {
+    const strand = { id: "S-1", source: { smartList: { _0: "x" } }, title: "Mystery" };
+    put([{ id: "needs:S-1", kind: "needs", on: true, title: " Mystery ", strand }]);
+    expect(loadHomeRows()).toEqual([{ id: "needs:S-1", kind: "needs", on: true, title: "Mystery", strand }]);
+  });
+
+  it("Needs a Source: dropped without an id, a title, or an object of reasonable size", () => {
+    const ok = { source: {} };
+    put([
+      { kind: "needs", on: true, title: "A", strand: ok },
+      { id: "needs:b", kind: "needs", on: true, strand: ok },
+      { id: "needs:c", kind: "needs", on: true, title: "C" },
+      { id: "needs:d", kind: "needs", on: true, title: "D", strand: "text" },
+      { id: "needs:e", kind: "needs", on: true, title: "E", strand: [1] },
+      { id: "needs:f", kind: "needs", on: true, title: "F", strand: { pad: "x".repeat(STRAND_MAX) } },
+      { id: "needs:g", kind: "needs", on: true, title: "G", strand: ok },
+    ]);
+    expect(ids(loadHomeRows()!)).toEqual(["needs:g"]);
+  });
+
+  it("Needs a Source: the cap is on the JSON, and an object that cannot be written is not kept", () => {
+    expect(fitsStrand({ a: "x".repeat(STRAND_MAX - 10) })).toBe(true);
+    expect(fitsStrand({ a: "x".repeat(STRAND_MAX) })).toBe(false);
+    const loop: Record<string, unknown> = {};
+    loop.me = loop;
+    expect(fitsStrand(loop)).toBe(false);
+    expect(fitsStrand(null)).toBe(false);
+  });
+
+  it("can all be removed, and are not live rows", () => {
+    expect(["saved", "trakt", "needs"].every((k) => removable(k as HomeRowKind))).toBe(true);
+    expect(["saved", "trakt", "needs", "continue", "catalog"].some((k) => isLive(k as HomeRowKind))).toBe(false);
+    expect(["onnow", "recent", "games", "recordings"].every((k) => isLive(k as HomeRowKind))).toBe(true);
+  });
+
+  it("are kept, in order, through a save and a load", () => {
+    const rows: HomeRow[] = [
+      { id: "continue", kind: "continue", on: true },
+      { id: "saved:l1", kind: "saved", list: "l1", on: true },
+      { id: "trakt:popular_shows", kind: "trakt", list: "popular_shows", on: false },
+      { id: "needs:S-2", kind: "needs", on: true, title: "Spotlight", strand: { source: {} } },
+    ];
+    saveHomeRows(rows);
+    expect(loadHomeRows()).toEqual(rows);
   });
 });

@@ -60,19 +60,23 @@ import {
   resolveVodSources,
 } from "./source";
 import { readStreamScroll, saveStreamScroll } from "./session";
+import { loadLists, toItem } from "./lists";
 import { peekCatalogRows } from "../home/catalogRows";
 import {
   homeRows,
+  isLive,
   loadOffered,
   onHomeRowsChange,
-  removable,
   saveHomeRows,
   withAutoRows,
   withNewCatalogRows,
   type HomeRow,
 } from "../home/layout";
 import { ChannelRow, GamesRow, RecordingsRow } from "../home/LiveRows";
+import { NeedsRow, TitlesRow } from "../home/ListRows";
+import { TRAKT_NAMES } from "../home/traktRows";
 import { liveHas, useLiveRows, useLiveSource, type LiveRowsData } from "../home/useLiveRows";
+import { useTraktRows } from "../home/useTraktRows";
 import { hasLivePlaylist } from "../settings/startupSources";
 import { loadAiojf, AIOJF_SYNCED } from "../aiojf/store";
 import { SaveButton } from "./SaveButton";
@@ -191,6 +195,7 @@ type JfLoad = Load | { status: "off" };
 type XtLoad = JfLoad;
 
 const NO_ITEMS: ReadonlyMap<string, VodItem> = new Map();
+const NO_CARDS: readonly VodItem[] = [];
 
 /** One row of the Stream home after Continue Watching, and the items it names. */
 interface Shown {
@@ -2371,7 +2376,8 @@ function ContinueRow({ d, title }: { d: RowData; title?: string }) {
 
 /** What AIOStreams has next for you (plan 023, A5): its own rows, empty ones
  * not drawn, and your Jellyfin's own (plan 027, D5). `title` is Home's name
- * for the Next Up row(s). */
+ * for the Next Up row(s): AIOStreams' takes it, and your Jellyfin's adds "on
+ * Jellyfin" when both are signed in, so the two rows never share a name. */
 function UpNextBlock({ d, title }: { d: RowData; title?: string }) {
   return (
     <>
@@ -2480,26 +2486,47 @@ function Home({
   // The live rows' data, read only for a row that is on (and only on Home).
   const live = useLiveRows(layout, liveSource);
   // And Up Next's rows draw themselves from what the last sync stored, so
-  // whether Home has anything at all has to hear one land.
-  const [, setSynced] = useState(0);
+  // whether Home has anything at all has to hear one land. So does a Saved row,
+  // since a Trakt sync can change the Trakt Watchlist.
+  const [synced, setSynced] = useState(0);
   const onHome = !!layout;
   useEffect(() => {
     if (!onHome) return;
     const again = () => setSynced((n) => n + 1);
     window.addEventListener(AIOJF_SYNCED, again);
     window.addEventListener(JF_SYNCED, again);
+    window.addEventListener(TRAKT_SYNCED, again);
     return () => {
       window.removeEventListener(AIOJF_SYNCED, again);
       window.removeEventListener(JF_SYNCED, again);
+      window.removeEventListener(TRAKT_SYNCED, again);
     };
   }, [onHome]);
+  // Phase 3's rows. Saved: the Library's lists, read only while a Saved row is
+  // on, as the Library draws them. Trakt: asked for only for a Trakt row that
+  // is on, and only signed in (useTraktRows). Both as the cards the Library
+  // draws, made once, so the memoized cards do not redraw with Home.
+  const wantsSaved = !!layout?.some((r) => r.kind === "saved" && r.on);
+  const saved = useMemo(
+    () =>
+      new Map(
+        wantsSaved ? loadLists().map((l) => [l.id, { name: l.name, items: l.entries.map(toItem) }] as const) : [],
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `synced` is the reread
+    [wantsSaved, synced],
+  );
+  const traktRaw = useTraktRows(layout, onHome);
+  const traktItems = useMemo(
+    () => new Map(Object.entries(traktRaw).map(([list, entries]) => [list, entries.map(toItem)] as const)),
+    [traktRaw],
+  );
 
   // Home with a live row that has something: the page is that row, whatever
   // the catalogs are doing. And a setup with no stream source at all but live
   // rows on (live TV only) is Home's own "Nothing on Home", not a prompt to
   // add a catalog. The states below are for a page with nothing else to show.
   const liveAny = !!layout && layout.some((r) => r.on && liveHas(r.kind, live));
-  const liveOnly = !!layout && liveSource && !aioOn && !jfOn && !xtOn && layout.some((r) => r.on && removable(r.kind));
+  const liveOnly = !!layout && liveSource && !aioOn && !jfOn && !xtOn && layout.some((r) => r.on && isLive(r.kind));
   const skipStates = liveAny || liveOnly;
   if (!aioOn && !jfOn && !xtOn && !skipStates) {
     return (
@@ -2586,9 +2613,17 @@ function Home({
     live,
   };
 
+  // The playlists' end of the page (plan 028). With no other source and no row
+  // picked, the folders ARE the page; otherwise one button opens the Rows
+  // drawer, whether or not a row is picked yet. Home shows the folders too: a
+  // setup with only a playlist's library has nothing else to draw.
+  const xtRows = !!xtData && xtData.rows.length > 0;
+  const folderPage = libs.length > 0 && !aioOn && !jfOn && !xtRows;
+
   if (layout) {
     // Home. A row is drawn when it is on and has something in it, the way Up
-    // Next has always been: an empty one is not an empty heading.
+    // Next has always been: an empty one is not an empty heading. Needs a
+    // Source is the exception, and is drawn whatever is behind it.
     const byId = new Map(shown.map((b) => [b.row.id, b]));
     const stored = aio ? loadAiojf() : null;
     const upNext =
@@ -2605,11 +2640,21 @@ function Home({
           return upNext > 0;
         case "catalog":
           return (byId.get(r.id)?.row.itemIds.length ?? 0) > 0;
+        case "saved":
+          return (saved.get(r.list)?.items.length ?? 0) > 0;
+        case "trakt":
+          return (traktItems.get(r.list)?.length ?? 0) > 0;
+        case "needs":
+          return true;
         default:
           return liveHas(r.kind, live);
       }
     });
-    if (drawn.length === 0)
+    // A live row that is on and has not answered yet (the channel catalog, ESPN)
+    // is not an empty one: say it is loading, not that Home has nothing.
+    if (drawn.length === 0 && !folderPage && live.pending)
+      return <StateCard className="stream__note" role="status" busy title="Loading Home…" />;
+    if (drawn.length === 0 && !folderPage)
       return (
         <StateCard
           className="stream__note"
@@ -2645,18 +2690,36 @@ function Home({
               <GamesRow key={r.id} title={r.title ?? "Today’s Games"} games={live.games} />
             ) : r.kind === "recordings" ? (
               <RecordingsRow key={r.id} title={r.title ?? "Recordings"} recordings={live.recordings} now={live.now} clock={live.clock} />
+            ) : r.kind === "saved" ? (
+              <TitlesRow
+                key={r.id}
+                kind="saved"
+                title={r.title ?? saved.get(r.list)?.name ?? "Saved"}
+                items={saved.get(r.list)?.items ?? NO_CARDS}
+                metaFields={metaFields}
+                onOpen={onOpen}
+              />
+            ) : r.kind === "trakt" ? (
+              <TitlesRow
+                key={r.id}
+                kind="trakt"
+                title={r.title ?? TRAKT_NAMES[r.list]}
+                items={traktItems.get(r.list) ?? NO_CARDS}
+                metaFields={metaFields}
+                onOpen={onOpen}
+              />
+            ) : r.kind === "needs" ? (
+              <NeedsRow key={r.id} title={r.title} />
             ) : null,
           )}
+          {folderPage && <XtCollections />}
         </div>
       </>
     );
   }
 
-  // After the rows, the playlists' end of the page (plan 028). With no other
-  // source and no row picked, the folders ARE the page; otherwise one button
-  // opens the Rows drawer, whether or not a row is picked yet.
-  const xtRows = !!xtData && xtData.rows.length > 0;
-  const folderPage = libs.length > 0 && !aioOn && !jfOn && !xtRows;
+  // After the rows, the playlists' end of the page (plan 028): the folders
+  // (`folderPage`, above) or the button that opens the Rows drawer.
   // A "ready" catalog can still be EMPTY (buildVod swallows per-catalog
   // failures into empty rows) — without this branch that rendered a
   // completely blank tab. Discover and Live both narrate the same state. A

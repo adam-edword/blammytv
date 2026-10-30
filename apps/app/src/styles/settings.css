@@ -1148,6 +1148,27 @@ input.rowcap__value--edit:focus-visible {
   color: var(--text-muted);
 }
 
+/* Import Layout's box: a layout pasted in, a long line of JSON. */
+.homerows__paste {
+  width: 100%;
+  min-height: 140px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-chip);
+  background: none;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  resize: vertical;
+}
+.homerows__paste:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 1px;
+}
+.homerows__paste[aria-invalid="true"] {
+  border-color: var(--danger-text);
+}
+
 /* A field that cannot be saved as it stands says so in the danger voice. */
 .settings-field__error {
   color: var(--danger-text);

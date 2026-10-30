@@ -267,7 +267,7 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     id: "home-rows",
     label: "Home Rows",
     page: "home",
-    keywords: ["home", "rows", "order", "reorder", "drag", "rename", "layout"],
+    keywords: ["home", "rows", "order", "reorder", "drag", "rename", "layout", "strand", "import layout", "needs a source"],
   },
   {
     id: "trakt",
