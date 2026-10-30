@@ -8,20 +8,14 @@ function ThemeShortcut() {
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // WCAG 2.1.4: a bare key only fires when nothing (link, button, field) has focus.
       if (
         (e.key === "d" || e.key === "D") &&
         !e.metaKey &&
         !e.ctrlKey &&
         !e.altKey
       ) {
-        if (
-          (e.target instanceof HTMLElement && e.target.isContentEditable) ||
-          e.target instanceof HTMLInputElement ||
-          e.target instanceof HTMLTextAreaElement ||
-          e.target instanceof HTMLSelectElement
-        ) {
-          return
-        }
+        if (e.target !== document.body) return
 
         e.preventDefault()
         setTheme(resolvedTheme === "dark" ? "light" : "dark")

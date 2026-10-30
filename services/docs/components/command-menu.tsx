@@ -180,8 +180,11 @@ export function CommandMenu({
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || e.key === "/") {
+      // WCAG 2.1.4: "/" alone only fires when nothing (link, button, field) has focus.
+      const bare = e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey
+      if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || bare) {
         if (
+          (bare && e.target !== document.body) ||
           (e.target instanceof HTMLElement && e.target.isContentEditable) ||
           e.target instanceof HTMLInputElement ||
           e.target instanceof HTMLTextAreaElement ||
