@@ -65,14 +65,16 @@ describe("runTitleSearch", () => {
     expect(got).toEqual([{ q: "la la", items: [vod("new")] }]);
   });
 
-  it("answers with nothing when the ask fails", async () => {
+  // A failed ask says it failed (1.2.0 review), so the palette never reads an
+  // unreachable source as "Nothing matches that."
+  it("answers with nothing, marked failed, when the ask fails", async () => {
     const ask = vi.fn(async () => {
       throw new Error("offline");
     });
     const done = vi.fn();
     runTitleSearch("la", ask, done);
     await vi.advanceTimersByTimeAsync(TITLE_DELAY_MS);
-    expect(done).toHaveBeenCalledWith({ q: "la", items: [] });
+    expect(done).toHaveBeenCalledWith({ q: "la", items: [], failed: true });
   });
 });
 

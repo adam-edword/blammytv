@@ -46,10 +46,12 @@ function config(): Promise<DiscoverConfig> {
 
 const askDiscover = (q: string): Promise<VodItem[]> => config().then((cfg) => searchDiscover(cfg, "all", q));
 
-/** What one query came back with. A failed ask is an empty one. */
+/** What one query came back with. A failed ask has no items and says so, so
+ * the palette never reads a source it couldn't reach as "nothing matches". */
 export interface TitleAnswer {
   q: string;
   items: VodItem[];
+  failed?: boolean;
 }
 
 /**
@@ -68,7 +70,7 @@ export function runTitleSearch(
   const t = setTimeout(() => {
     ask(q).then(
       (items) => !stale && done({ q, items }),
-      () => !stale && done({ q, items: [] }),
+      () => !stale && done({ q, items: [], failed: true }),
     );
   }, delay);
   return () => {
@@ -90,9 +92,14 @@ const NONE: VodItem[] = [];
  * first key until the answer FOR THIS QUERY lands: the answer is held with the
  * query it was asked for, so a late one for another query is never shown.
  */
-export function useTitleSearch(q: string): { searching: boolean; items: VodItem[] } {
+export function useTitleSearch(q: string): { searching: boolean; failed: boolean; items: VodItem[] } {
   const [got, setGot] = useState<TitleAnswer | null>(null);
-  useEffect(() => (q ? runTitleSearch(q, askDiscover, setGot) : undefined), [q]);
+  useEffect(() => {
+    // An answer is for this ask only: cleared when the query changes or the
+    // palette closes ("" is closed), so reopening never shows an old one.
+    setGot(null);
+    return q ? runTitleSearch(q, askDiscover, setGot) : undefined;
+  }, [q]);
   const answer = q && got?.q === q ? got : null;
-  return { searching: !!q && !answer, items: answer?.items ?? NONE };
+  return { searching: !!q && !answer, failed: !!answer?.failed, items: answer?.items ?? NONE };
 }

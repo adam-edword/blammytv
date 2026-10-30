@@ -78,6 +78,8 @@ interface Section {
   /** The title search is out: a "Searching…" line under the heading, ahead of
    * the rows. Not a row: it is not a choice, and a keyboard never lands on it. */
   busy?: boolean;
+  /** The title search couldn't reach a source: said in the same place. */
+  failed?: boolean;
 }
 
 const CHANNELS = 6;
@@ -217,7 +219,7 @@ export function Palette({
   // The title search runs for a stream source and two letters. `typed` is the
   // field's text as typed, trimmed: what Discover is asked, and what its row quotes.
   const typed = query.trim();
-  const { searching, items: askedItems } = useTitleSearch(open && hasStream && typed.length >= TITLE_MIN ? typed : "");
+  const { searching, failed, items: askedItems } = useTitleSearch(open && hasStream && typed.length >= TITLE_MIN ? typed : "");
 
   const { sections, nothing } = useMemo((): { sections: Section[]; nothing: boolean } => {
     if (!open) return { sections: [], nothing: false };
@@ -261,11 +263,12 @@ export function Palette({
 
     // The titles above, so the search below does not list them twice.
     const listed = new Set<string>();
+    // Titles in your lists, for the saved mark here and on the titles found below.
+    const saved = new Set<string>();
     if (hasStream) {
       // The catalog you have loaded, then anything in your lists it lacks.
       // Titles that start with what you typed come first.
       const seen = new Set<string>();
-      const saved = new Set<string>();
       const pool: VodItem[] = [];
       // Read once: it is parsed from storage on every call.
       const lists = loadLists();
@@ -339,12 +342,13 @@ export function Palette({
     let found = 0;
     if (hasStream && typed.length >= TITLE_MIN) {
       const own = pickTitles(askedItems, listed).map(
-        (it): Row => ({ key: `f:${itemKey(it)}`, kind: "title", label: it.title, item: it, saved: false }),
+        (it): Row => ({ key: `f:${itemKey(it)}`, kind: "title", label: it.title, item: it, saved: saved.has(it.id) }),
       );
       found = own.length;
       out.push({
         value: FOUND,
         busy: searching,
+        failed,
         items: [
           ...own,
           {
@@ -360,8 +364,8 @@ export function Palette({
       });
     }
     // Only once there is nothing to show and nothing still on its way.
-    return { sections: out, nothing: !appMatched && found === 0 && !searching };
-  }, [open, query, typed, hasLive, hasStream, places, searching, askedItems]);
+    return { sections: out, nothing: !appMatched && found === 0 && !searching && !failed };
+  }, [open, query, typed, hasLive, hasStream, places, searching, failed, askedItems]);
 
   const choose = (row: Row) => {
     onOpenChange(false);
@@ -428,6 +432,15 @@ export function Palette({
                       <span className="mvpick__meta">
                         <span className="mvpick__name">
                           <span className="mvpick__nametext">Searching…</span>
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                  {section.failed && (
+                    <div className="mvpick__row" data-kind="busy" data-disabled="" role="status">
+                      <span className="mvpick__meta">
+                        <span className="mvpick__name">
+                          <span className="mvpick__nametext">Couldn’t search your sources. Try again in a moment.</span>
                         </span>
                       </span>
                     </div>

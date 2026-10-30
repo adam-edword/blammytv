@@ -327,6 +327,23 @@ const back = (page) => page.getByRole("button", { name: "Back", exact: true }).f
   await ctx.close();
 }
 
+// ------------------------------------------------- a source it can't reach
+{
+  // The addon's manifest refused: Discover's config can't load, so the search
+  // fails. The palette says so instead of "Nothing matches that." (1.2.0 review).
+  const { ctx, page } = await open();
+  await ctx.route(/localhost:8084\/manifest\.json/, (r) => r.fulfill({ status: 500, body: "" }));
+  await ask(page, "zzqx nothing");
+  await page.waitForTimeout(1200);
+  const row = await page.evaluate(() => [...document.querySelectorAll(".palette .mvpick__row[data-kind='busy']")].map((r) => r.textContent));
+  check(
+    "a search that can't reach the source says so, and not that nothing matches",
+    row.some((t) => /Couldn’t search your sources/.test(t)) && (await note(page)) === 0,
+    JSON.stringify({ row, note: await note(page) }),
+  );
+  await ctx.close();
+}
+
 check("no page errors", errors.length === 0, errors.join(" | "));
 await browser.close();
 console.log(fail ? `${fail} FAILED` : "ALL PASSED");

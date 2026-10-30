@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.0.44: Ctrl+K search fixes (unreleased)
+
+- **A search that can't reach your sources says so** instead of "Nothing
+  matches that."
+- **Reopening Ctrl+K** no longer flashes the last search's answer.
+- **Titles in your lists** show their saved mark in the search results too.
+
 ## 1.0.43: Find films and shows from Ctrl+K (unreleased)
 
 - **Type a title into Ctrl+K** and it searches the way Discover does. Up to
