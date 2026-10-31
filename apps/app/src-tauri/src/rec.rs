@@ -5968,7 +5968,11 @@ mod tests {
         let b = Bench::new("sched-clock", |c| c.sched_tick = Duration::from_millis(30));
         let r = b.rec.schedule(programme(-(MIN as i64) / 2, 30 * MIN)).unwrap();
         until("the start to be found due", 10, || b.rec.get(&r.id).unwrap().due);
-        assert!(events_of(&b, &r.id).last().unwrap().due);
+        // The page is told after the list is saved, so wait for the telling
+        // too: asserted at once, a slow disk lost the race (CI, 1.2.0).
+        until("the page to be told it is due", 10, || {
+            events_of(&b, &r.id).last().is_some_and(|e| e.due)
+        });
         // And the thread goes when the recorder does.
         let weak = Arc::downgrade(&b.rec);
         let rec = b.rec.clone();

@@ -60,7 +60,7 @@ jobs:
   # The headless harnesses, the same board as `pnpm verify` locally
   # (CLAUDE.md, "Running the headless harnesses").
   verify:
-    name: pnpm verify (${{ matrix.shard }}/2)
+    name: pnpm verify (${{ matrix.shard }}/6)
     # Not ubuntu-latest: that became 26.04 by 2026-10-21, and the pinned
     # Playwright 1.56.1 won't install Chromium there ("does not support
     # chromium on ubuntu26.04-x64"), so the board never started.
