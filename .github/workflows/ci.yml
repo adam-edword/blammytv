@@ -6,8 +6,17 @@ name: CI
 # a branch in this repo shows the push run's checks, since they attach to
 # the same commit, so there is no separate pull_request trigger to run
 # everything twice.
+#
+# A push that only touches words (plans, markdown, the docs and website
+# sources) runs nothing: there is no code in it to check, and the board alone
+# is ~75 machine-minutes. A push with any code in it runs everything.
 on:
   push:
+    paths-ignore:
+      - "plans/**"
+      - "**/*.md"
+      - "services/docs/content/**"
+      - "services/site/**"
   workflow_dispatch:
 
 # Nothing here writes to the repo.
@@ -59,16 +68,18 @@ jobs:
     # The board outgrew 35 (v0.11.28: cut off at 34m39s on verify-version,
     # every harness green to there; v0.11.27 took 32), then nearly outgrew 50
     # (v0.11.36: 45m55s for 73). So it runs as two jobs at once, each with
-    # its own fakes and vite on the same ports (they are separate machines),
-    # every other harness each (verify-all.mjs SHARD). About 23 minutes a
-    # slice, and the limit stays where it was.
+    # its own fakes and vite on the same ports (they are separate machines).
+    # Six slices since 1.2.0, filled by each harness's measured time
+    # (scripts/verify-times.json) rather than every other one: two
+    # alternating slices had reached 31 and 44 minutes; six balanced come to
+    # about 12.5 each.
     timeout-minutes: 50
     strategy:
       # One slice going red must not cancel the other: the whole board is
       # what a push is read by.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v4
 
@@ -103,7 +114,7 @@ jobs:
       - name: Verify
         env:
           PW_FROM: /tmp/pw/x.js
-          SHARD: ${{ matrix.shard }}/2
+          SHARD: ${{ matrix.shard }}/6
         run: pnpm verify
 
   # The native layer, on the platform it is written for. CLAUDE.md's

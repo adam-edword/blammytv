@@ -90,7 +90,7 @@ servers on the ports the harnesses hard-code, starts vite on 4173, runs every
 `verify-*.mjs`, and prints a board. `pnpm verify discover nav` filters by
 name; `KEEP=1` leaves the servers up afterwards.
 
-Baseline is **89/89 harnesses clean, 3314 checks** (1.0.48, CI: 1542 + 1772), or one
+Baseline is **89/89 harnesses clean, 3314 checks** (1.0.48, CI's two slices then: 1542 + 1772), or one
 fewer: verify-cw-sources' last check only runs when the catalog is still
 loading at the click; the script says so and it is not a failure. verify-kit
 (plan 019) has one section per shared primitive, so a later change that
@@ -144,12 +144,17 @@ then checks the click took.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push to every branch: typecheck,
-lint and unit tests; `pnpm verify` (the board above), as two jobs at once,
-"pnpm verify (1/2)" and "(2/2)", each every other harness (`SHARD=k/n`,
-v0.11.37: one job had reached 45m55s of its 50); and on `windows-latest`,
+`.github/workflows/ci.yml` runs on every push to every branch that touches
+code (a push of only plans, markdown, `services/docs/content` or
+`services/site` runs nothing, 1.2.0): typecheck, lint and unit tests;
+`pnpm verify` (the board above) as six jobs at once, "pnpm verify (1/6)" to
+"(6/6)" (`SHARD=k/n`), each slice filled by measured time from
+`scripts/verify-times.json` (about 12.5 minutes a slice at 1.2.0; two
+alternating slices had reached 31 and 44); and on `windows-latest`,
 `cargo test` plus clippy held to the 9-warning baseline. The board's
-baseline is the two slices' boards added together.
+baseline is the six slices' boards added together. **A new harness, or one
+that grows a lot, gets its CI seconds into `verify-times.json`**, or the
+slices drift apart again; one missing from the table counts as 60s.
 That Windows job is the only place the Rust tests run at all. A push that
 turns it red is yours to fix before the next one.
 

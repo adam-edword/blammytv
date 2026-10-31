@@ -20,7 +20,7 @@
  *   node scripts/verify-all.mjs              # everything
  *   node scripts/verify-all.mjs discover nav # only matching names
  *   KEEP=1 node scripts/verify-all.mjs       # leave the servers running
- *   SHARD=1/2 node scripts/verify-all.mjs    # every other harness (CI's two jobs)
+ *   SHARD=1/6 node scripts/verify-all.mjs    # one of CI's six slices
  *
  * Needs playwright-core reachable. Either install it, or point PW_FROM at a
  * module path that can require it (the same variable the harnesses take):
@@ -28,7 +28,7 @@
  *   PW_FROM=/tmp/pw/x.js node scripts/verify-all.mjs
  */
 import { spawn } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -52,12 +52,14 @@ const SERVERS = [
 /** Harnesses that are not browser runs and take arguments of their own. */
 const NOT_BROWSER = new Set(["verify-release"]);
 
-/** SHARD=k/n: the kth of n slices of the board, every nth harness of the
- * sorted list starting at the kth. CI runs the board as two jobs at once
- * (ci.yml), because one had grown to 45m55s of a 50 minute limit at
- * v0.11.36, with two more harnesses coming. Round robin over the names split
- * those timings 21.9 / 23.9 minutes, close enough that no table of
- * durations is kept. Unset: the whole board. */
+/** SHARD=k/n: the kth of n slices of the board. CI runs it as six jobs at
+ * once (ci.yml). Round robin over the names was close enough for two slices
+ * at v0.11.36 (21.9 / 23.9 minutes) and had drifted to 31 / 44 by 1.0.48, so
+ * the slices are now filled by measured time: scripts/verify-times.json, each
+ * harness's seconds on CI, longest first into the emptiest slice. A harness
+ * not in the table counts as a minute. Every slice is worked out from the
+ * whole list, so a name filter doesn't move a harness to another slice.
+ * Unset: the whole board. */
 const SHARD = (() => {
   const raw = process.env.SHARD;
   if (!raw) return null;
@@ -173,14 +175,28 @@ if (dead.length) {
 
 // ---------------------------------------------------------------- harnesses
 const filters = process.argv.slice(2);
-const all = readdirSync(path.join(ROOT, "scripts"))
+const every = readdirSync(path.join(ROOT, "scripts"))
   .filter((f) => f.startsWith("verify-") && f.endsWith(".mjs"))
   .filter((f) => f !== "verify-all.mjs")
   .map((f) => f.slice(0, -4))
   .filter((n) => !NOT_BROWSER.has(n))
+  .sort();
+const sliceOf = (() => {
+  if (!SHARD) return () => 0;
+  const times = JSON.parse(readFileSync(path.join(ROOT, "scripts", "verify-times.json"), "utf8"));
+  const secs = (n) => times[n] ?? 60;
+  const load = Array(SHARD.n).fill(0);
+  const at = new Map();
+  for (const n of [...every].sort((a, b) => secs(b) - secs(a) || a.localeCompare(b))) {
+    const i = load.indexOf(Math.min(...load));
+    load[i] += secs(n);
+    at.set(n, i);
+  }
+  return (n) => at.get(n);
+})();
+const all = every
   .filter((n) => !filters.length || filters.some((q) => n.includes(q)))
-  .sort()
-  .filter((_, i) => !SHARD || i % SHARD.n === SHARD.k - 1);
+  .filter((n) => !SHARD || sliceOf(n) === SHARD.k - 1);
 
 const SHOT_DIR = path.join(ROOT, ".verify-shots");
 // The default is five minutes a harness. verify-home has grown past it under
