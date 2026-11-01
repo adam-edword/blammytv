@@ -126,13 +126,13 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
 .feat--light .feat__copy li svg { stroke: #0a0a0a; }
 .shot { flex: 1.7 1 520px; min-width: 0; padding: 6px; border-radius: 14px; background: #171717; border: 1px solid rgba(255, 255, 255, 0.10); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55); }
 .feat--light .shot { box-shadow: 0 30px 80px rgba(0, 0, 0, 0.22); }
-.shot > img { display: block; width: 100%; height: auto; border-radius: 9px; }
+.shot > img, .shot > svg { display: block; width: 100%; height: auto; border-radius: 9px; }
 /* Stream's three screens stack and crossfade; the script moves the "on" class. */
 .shots { position: relative; overflow: hidden; border-radius: 9px; aspect-ratio: 1700 / 910; background: #000; }
 .shots img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 900ms ease; }
 .shots img.on { opacity: 1; }
 
-/* ---- Your Colors card: its own Appearance control themes it, not the page. ---- */
+/* ---- Themes and Colors card: its own Theme and Appearance rows skin it, not the page. ---- */
 .card {
   --bg: #171717; --border: rgba(255, 255, 255, 0.10); --shadow: rgba(0, 0, 0, 0.55); --muted: #a1a1a1; --strong: #fafafa;
   --seg-track: #101010; --seg-border: rgba(255, 255, 255, 0.10); --seg-on: #2a2a2a; --seg-shadow: none;
@@ -141,14 +141,64 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
   flex: 1.7 1 520px; min-width: 0; padding: 40px clamp(20px, 4vw, 48px); border-radius: 14px;
   background: var(--bg); border: 1px solid var(--border); box-shadow: 0 30px 80px var(--shadow);
   transition: background-color 300ms ease, border-color 300ms ease;
+  position: relative; overflow: hidden;
   display: flex; flex-direction: column; align-items: center; gap: 28px;
 }
+/* Everything but the Prism dither and glow sits above them. */
+.card > :not(.card__fx) { position: relative; z-index: 1; }
+.card__group { display: flex; flex-direction: column; align-items: center; gap: 28px; }
 .card[data-theme="light"] {
   --bg: #ffffff; --border: #e5e5e5; --shadow: rgba(0, 0, 0, 0.18); --muted: #525252; --strong: #0a0a0a;
   --seg-track: #ebebeb; --seg-border: transparent; --seg-on: #ffffff; --seg-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   --track: rgba(0, 0, 0, 0.12); --time: #737373; --panel-bg: #ffffff; --panel-shadow: rgba(0, 0, 0, 0.14);
   --input-border: #e5e5e5; --input-bg: #fafafa; --drop-bg: rgba(0, 0, 0, 0.06);
 }
+/* Theme packs, from the app's packs.css (bg, surface, raised, text, muted, accent) onto the card's variables.
+   Dark only, as in the app: the same `:not` keeps them inert in Light. */
+.card[data-pack="prism"]:not([data-theme="light"]) {
+  --bg: #000000; --border: rgba(255, 255, 255, 0.08); --shadow: rgba(0, 0, 0, 0.55); --muted: #b5b5b5; --strong: #ffffff;
+  --seg-track: #000000; --seg-border: rgba(255, 255, 255, 0.08); --seg-on: #1c1c1c;
+  --track: rgba(255, 255, 255, 0.14); --time: #8a8a8a; --panel-bg: #111111;
+  --input-border: rgba(255, 255, 255, 0.14); --input-bg: rgba(255, 255, 255, 0.04); --drop-bg: rgba(255, 255, 255, 0.10);
+  --accent: #ffffff;
+  /* The brand ramp, as the app's Prism paints the player's progress fill. */
+  --progress-fill: linear-gradient(90deg, #ff9b9b, #ff7bf6, #c388fb, #8696ff, #85cbd4, #84ffa9, #ffe57f);
+}
+.card[data-pack="velvet"]:not([data-theme="light"]) {
+  --bg: #170d10; --border: rgba(246, 236, 229, 0.10); --shadow: rgba(20, 4, 6, 0.6); --muted: #d6c3b9; --strong: #f6ece5;
+  --seg-track: #120a0c; --seg-border: rgba(246, 236, 229, 0.10); --seg-on: #352227;
+  --track: rgba(246, 236, 229, 0.14); --time: #a48f86; --panel-bg: #251619;
+  --input-border: rgba(246, 236, 229, 0.16); --input-bg: rgba(246, 236, 229, 0.04); --drop-bg: rgba(246, 236, 229, 0.10);
+  --pack-accent: #e8bb6c; --accent: var(--pack-accent);
+}
+.card[data-pack="lagoon"]:not([data-theme="light"]) {
+  --bg: #08191e; --border: rgba(238, 251, 248, 0.12); --shadow: rgba(0, 0, 0, 0.55); --muted: #acd3cc; --strong: #eefbf8;
+  --seg-track: #06151a; --seg-border: rgba(238, 251, 248, 0.12); --seg-on: #163940;
+  --track: rgba(238, 251, 248, 0.14); --time: #86b1aa; --panel-bg: #102d34;
+  --input-border: rgba(238, 251, 248, 0.18); --input-bg: rgba(238, 251, 248, 0.04); --drop-bg: rgba(238, 251, 248, 0.10);
+  --pack-accent: #5fe1c1; --accent: var(--pack-accent);
+}
+/* The pack's own colour is the first swatch. The script hides it elsewhere. */
+.sw--pack { --c: var(--pack-accent); }
+
+/* Prism's onboarding dither and the light that trails the pointer (the script moves it). */
+.card__fx { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity 400ms ease; }
+.card[data-pack="prism"]:not([data-theme="light"]) .card__fx { opacity: 1; }
+.card__dither {
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 1.3px),
+    radial-gradient(circle at 3px 3px, rgba(255, 255, 255, 0.022) 1px, transparent 1.3px);
+  background-size: 4px 4px, 8px 8px;
+}
+.card__glow {
+  position: absolute; top: -60px; left: -60px; width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05) 42%, transparent 66%);
+  opacity: 0; transition: opacity 700ms ease; will-change: transform;
+}
+.card__glow.is-live { opacity: 1; }
+.card__note { margin: -14px 0 0; font-size: 12px; color: var(--muted); }
+
 .card__label { font-size: 13px; font-weight: 600; color: var(--muted); }
 .swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 22px; }
 .sw { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 500; }
@@ -185,7 +235,17 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
 .look button[aria-checked="true"] { background: var(--seg-on); color: var(--strong); box-shadow: var(--seg-shadow); }
 .scrub { width: 100%; max-width: 420px; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--time); }
 .scrub__bar { flex: 1; height: 4px; border-radius: 2px; background: var(--track); }
-.scrub__fill { width: 38%; height: 100%; border-radius: 2px; background: var(--accent, #3730ff); }
+.scrub__fill { width: 38%; height: 100%; border-radius: 2px; background: var(--progress-fill, var(--accent, #3730ff)); }
+
+/* ---- Also New: the smaller 1.2 features, a row of three ---------------------- */
+.also { background: #101010; padding: 0 clamp(16px, 4vw, 48px) 120px; }
+.also__in { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.also__label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8a8a; }
+.also__list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.also__item { padding: 24px; border-radius: 14px; background: #171717; border: 1px solid rgba(255, 255, 255, 0.10); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.also__ic { width: 36px; height: 36px; margin-bottom: 4px; display: grid; place-items: center; border-radius: 50%; background: rgba(250, 250, 250, 0.08); color: #fafafa; }
+.also__item h3 { margin: 0; font-family: var(--head); font-weight: 700; font-size: 20px; letter-spacing: -0.01em; }
+.also__item p { margin: 0; font-size: 15px; line-height: 1.55; color: #a1a1a1; }
 
 /* ---- FAQ -------------------------------------------------------------- */
 .faq { background: #fafafa; color: #0a0a0a; padding: 112px clamp(16px, 4vw, 48px); }
@@ -229,10 +289,13 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
 /* The full nav is 539px plus the 16px gutters: below 600 it would crowd the edges. */
 @media (max-width: 599px) { .nav-opt, .nav-dl { display: none; } }
 @media (max-width: 560px) { .seg-tab { padding: 0 10px; font-size: 12px; } }
+/* Four Theme options in a phone-wide card: the padding gives a little. */
+@media (max-width: 420px) { .card { padding-inline: 16px; } .look button { padding: 0 clamp(8px, 3vw, 16px); } }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .halo { animation: none; }
+  .card__fx { transition: none; }
 }
 </style>
 </head>
@@ -255,7 +318,7 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
   <div class="hero__dots" aria-hidden="true"></div>
   <div class="hero__copy">
     <h1>Finally, an Elegant Media Hub</h1>
-    <p class="hero__sub">Watch live TV, movies, shows and sports in one free app for Windows. Add your own playlists, AIOStreams or Jellyfin server.</p>
+    <p class="hero__sub">Home brings your films, shows, channels and games together in one free app for Windows. Add your own playlists, AIOStreams or Jellyfin server.</p>
     <div class="hero__cta">
       <a class="btn-default" href="https://github.com/adam-edword/blammytv/releases/latest"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg>Download for Windows</a>
       <a class="btn-outline" href="https://github.com/adam-edword/blammytv">View on GitHub</a>
@@ -266,10 +329,12 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
   <div class="stage">
     <div class="tabs-wrap">
       <div class="tabs" role="tablist" aria-label="Screens">
-        <button class="seg-tab" id="tab-live" type="button" role="tab" aria-selected="true" aria-controls="screen" tabindex="0" data-src="assets/Guide.webp" data-alt="BlammyTV's Live TV guide">Live TV</button>
+        <!-- TODO(Home.webp): Adam's screenshot, 1700x910 -->
+        <button class="seg-tab" id="tab-home" type="button" role="tab" aria-selected="true" aria-controls="screen" tabindex="0" data-src="assets/Stream_Home.webp" data-alt="BlammyTV's Home page">Home</button>
+        <button class="seg-tab" id="tab-live" type="button" role="tab" aria-selected="false" aria-controls="screen" tabindex="-1" data-src="assets/Guide.webp" data-alt="BlammyTV's Live TV guide">Live TV</button>
         <button class="seg-tab" id="tab-mv" type="button" role="tab" aria-selected="false" aria-controls="screen" tabindex="-1" data-src="assets/Multi_View.webp" data-alt="Four channels playing at once in Multi-View">Multi-View</button>
         <button class="seg-tab" id="tab-sports" type="button" role="tab" aria-selected="false" aria-controls="screen" tabindex="-1" data-src="assets/Sports.webp" data-alt="Today's games on the Sports board">Sports</button>
-        <button class="seg-tab" id="tab-stream" type="button" role="tab" aria-selected="false" aria-controls="screen" tabindex="-1" data-src="assets/Stream_Home.webp" data-alt="Movies and shows on the Stream home page">Movies and Shows</button>
+        <button class="seg-tab" id="tab-stream" type="button" role="tab" aria-selected="false" aria-controls="screen" tabindex="-1" data-src="assets/Stream_Home.webp" data-alt="Movies and shows on the Stream page">Movies and Shows</button>
       </div>
     </div>
 
@@ -277,8 +342,9 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
       <div class="monitor__body">
         <div class="halo" aria-hidden="true"></div>
         <div class="bezel">
-          <div class="display" id="screen" role="tabpanel" aria-labelledby="tab-live">
-            <img id="screen-img" src="assets/Guide.webp" alt="BlammyTV's Live TV guide">
+          <div class="display" id="screen" role="tabpanel" aria-labelledby="tab-home">
+            <!-- TODO(Home.webp): Adam's screenshot, 1700x910 -->
+            <img id="screen-img" src="assets/Stream_Home.webp" alt="BlammyTV's Home page">
             <div class="glare" aria-hidden="true"></div>
           </div>
           <div class="chin" aria-hidden="true"><span></span></div>
@@ -321,6 +387,25 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
 <section class="feat feat--light" id="features">
   <div class="feat__in">
     <div class="feat__copy">
+      <span class="chip">Home</span>
+      <h2>A Home of Your Own</h2>
+      <p>Click the logo for one page of your rows in your order: Continue Watching, your catalogs, starred channels, today's games, recordings and saved lists.</p>
+      <ul>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Arrange, rename or switch off rows in Settings → Home.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Add Trakt's Trending and Popular lists.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Import a layout from Strand.</li>
+      </ul>
+    </div>
+    <div class="shot">
+      <!-- TODO(Home.webp): Adam's screenshot, 1700x910 -->
+      <img src="assets/Stream_Home.webp" width="1700" height="910" decoding="async" alt="Home, one page of rows in the order you set">
+    </div>
+  </div>
+</section>
+
+<section class="feat feat--flip">
+  <div class="feat__in">
+    <div class="feat__copy">
       <span class="chip">Live TV</span>
       <h2>Live TV with a Real Guide</h2>
       <p>Every channel you add lands in one guide. See what's on now and next, scroll a whole day ahead, and star the channels you watch most.</p>
@@ -332,6 +417,52 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
     </div>
     <div class="shot">
       <img src="assets/Guide.webp" width="1700" height="910" decoding="async" alt="The Guide, with channels down the side and what's on across a timeline">
+    </div>
+  </div>
+</section>
+
+<section class="feat feat--light">
+  <div class="feat__in">
+    <div class="feat__copy">
+      <span class="chip">Record</span>
+      <h2>Record Live TV</h2>
+      <p>Record what's on or right-click a programme in the Guide to record it later. Pause live TV and rewind it for hours.</p>
+      <ul>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>LIVE jumps back to now.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Recordings play from Library and Live TV.</li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Save recordings smaller to free up space.</li>
+      </ul>
+    </div>
+    <div class="shot">
+      <svg viewBox="0 0 1700 910" width="1700" height="910" role="img" aria-label="A channel playing with a red recording dot, and a bar showing live TV rewound a little behind the LIVE edge">
+        <defs>
+          <linearGradient id="rec-screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#262633"/><stop offset="1" stop-color="#0f0f14"/></linearGradient>
+          <filter id="rec-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="90"/></filter>
+          <clipPath id="rec-clip"><rect width="1700" height="910"/></clipPath>
+        </defs>
+        <rect width="1700" height="910" fill="#000"/>
+        <g clip-path="url(#rec-clip)">
+          <rect width="1700" height="910" fill="url(#rec-screen)"/>
+          <ellipse cx="520" cy="360" rx="330" ry="190" fill="#8696ff" opacity=".35" filter="url(#rec-blur)"/>
+          <ellipse cx="1180" cy="430" rx="300" ry="170" fill="#ff7bf6" opacity=".28" filter="url(#rec-blur)"/>
+          <path d="M790 250l180 100-180 100z" fill="#fff" opacity=".22"/>
+        </g>
+        <circle cx="116" cy="108" r="22" fill="#ff6b6b"/>
+        <circle cx="116" cy="108" r="36" fill="none" stroke="#ff6b6b" stroke-opacity=".35" stroke-width="6"/>
+        <text x="176" y="124" fill="#fff" font-family="Geist, sans-serif" font-size="46" font-weight="650" letter-spacing="2">REC 0:12:08</text>
+        <rect x="1360" y="70" width="240" height="76" rx="38" fill="#fff" fill-opacity=".14"/>
+        <rect x="1398" y="102" width="164" height="12" rx="6" fill="#fff" fill-opacity=".6"/>
+        <rect x="0" y="620" width="1700" height="290" fill="#000" fill-opacity=".55"/>
+        <rect x="80" y="700" width="1540" height="14" rx="7" fill="#fff" fill-opacity=".18"/>
+        <rect x="80" y="700" width="1180" height="14" rx="7" fill="#fff" fill-opacity=".34"/>
+        <rect x="80" y="700" width="900" height="14" rx="7" fill="#fff"/>
+        <circle cx="980" cy="707" r="26" fill="#fff"/>
+        <path d="M112 800v50M148 800v50" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+        <text x="220" y="843" fill="#fff" fill-opacity=".75" font-family="Geist, sans-serif" font-size="40" font-weight="600">-0:42</text>
+        <rect x="1390" y="792" width="230" height="68" rx="34" fill="#fff" fill-opacity=".16"/>
+        <circle cx="1434" cy="826" r="11" fill="#ff6b6b"/>
+        <text x="1462" y="840" fill="#fff" font-family="Geist, sans-serif" font-size="38" font-weight="700" letter-spacing="3">LIVE</text>
+      </svg>
     </div>
   </div>
 </section>
@@ -377,7 +508,7 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
     <div class="feat__copy">
       <span class="chip">Stream</span>
       <h2>Movies and Shows</h2>
-      <p>Bring in your Xtream provider's movies and shows, sign in to AIOStreams, or add your own Jellyfin server. It all lands on one home page, and Continue Watching keeps your place.</p>
+      <p>Bring in your Xtream provider's movies and shows, sign in to AIOStreams, or add your own Jellyfin server. It all lands on the Stream page and Continue Watching keeps your place.</p>
       <ul>
         <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Browse your catalogs by genre, or see what's popular.</li>
         <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Keep what you've watched in sync with Trakt.</li>
@@ -386,7 +517,7 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
     </div>
     <div class="shot">
       <div class="shots">
-        <img class="on" src="assets/Stream_Home.webp" decoding="async" alt="The Stream home page with rows of movies and shows">
+        <img class="on" src="assets/Stream_Home.webp" decoding="async" alt="The Stream page with rows of movies and shows">
         <img src="assets/Stream_Title.webp" decoding="async" aria-hidden="true" alt="A show's page with its episodes and where to watch it">
         <img src="assets/Stream_Discover.webp" decoding="async" aria-hidden="true" alt="Discover, browsing a catalog by genre">
       </div>
@@ -416,31 +547,45 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
   <div class="feat__in">
     <div class="feat__copy">
       <span class="chip">Appearance</span>
-      <h2>Your Colors</h2>
-      <p>Pick an accent color, or grab any color with the eyedropper. Use it in dark or light mode, or follow Windows.</p>
+      <h2>Themes and Colors</h2>
+      <p>Pick a theme: Prism, Velvet or Lagoon. Then pick an accent color or grab any color with the eyedropper.</p>
     </div>
     <div class="card" id="colors" data-theme="dark">
-      <span class="card__label">Accent</span>
-      <div class="swatches">
-        <button class="sw" type="button" aria-pressed="false" data-name="Red" style="--c:#c22727"><span class="sw__dot"></span><span>Red</span></button>
-        <button class="sw" type="button" aria-pressed="false" data-name="Yellow" style="--c:#ffd500"><span class="sw__dot"></span><span>Yellow</span></button>
-        <button class="sw" type="button" aria-pressed="false" data-name="Green" style="--c:#2cad57"><span class="sw__dot"></span><span>Green</span></button>
-        <button class="sw" type="button" aria-pressed="true" data-name="Blue" style="--c:#3730ff"><span class="sw__dot"></span><span>Blue</span></button>
-        <button class="sw" type="button" aria-pressed="false" data-name="Purple" style="--c:#a200ff"><span class="sw__dot"></span><span>Purple</span></button>
-        <button class="sw" type="button" aria-pressed="false" data-name="Pink" style="--c:#ff2773"><span class="sw__dot"></span><span>Pink</span></button>
-        <button class="sw" type="button" aria-pressed="false" data-name="Grey" style="--c:#9aa0b1"><span class="sw__dot"></span><span>Grey</span></button>
-        <button class="sw sw--custom" type="button" aria-pressed="false" aria-expanded="false" aria-controls="picker" data-name="Custom" style="--c:#ff8a3d"><span class="sw__dot"></span><span>Custom</span></button>
+      <div class="card__fx" aria-hidden="true"><div class="card__dither"></div><div class="card__glow"></div></div>
+      <div class="card__group">
+        <span class="card__label">Theme</span>
+        <div class="look" id="theme-look" role="radiogroup" aria-label="Theme">
+          <button type="button" role="radio" aria-checked="true" tabindex="0" data-theme="default">Default</button>
+          <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme="prism">Prism</button>
+          <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme="velvet">Velvet</button>
+          <button type="button" role="radio" aria-checked="false" tabindex="-1" data-theme="lagoon">Lagoon</button>
+        </div>
+        <p class="card__note" id="theme-note" hidden>Themes are dark only.</p>
       </div>
-      <div class="picker" id="picker" hidden>
-        <div class="sv" role="slider" aria-label="Color" aria-valuetext="#ff8a3d" tabindex="0"><span class="sv__thumb"></span></div>
-        <input class="hue" type="range" min="0" max="360" step="1" value="25" aria-label="Hue">
-        <div class="picker__row">
-          <button class="drop" type="button" hidden aria-label="Pick a color from the screen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 22 1-1h3l9-9"></path><path d="M3 21v-3l9-9"></path><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"></path></svg></button>
-          <label class="hex">#<input type="text" value="FF8A3D" spellcheck="false" aria-label="Hex color"></label>
+      <div class="card__group" id="accent-group">
+        <span class="card__label">Accent</span>
+        <div class="swatches">
+          <button class="sw sw--pack" type="button" aria-pressed="false" data-name="Pack" hidden><span class="sw__dot"></span><span class="sw__name">Velvet</span></button>
+          <button class="sw" type="button" aria-pressed="false" data-name="Red" style="--c:#c22727"><span class="sw__dot"></span><span>Red</span></button>
+          <button class="sw" type="button" aria-pressed="false" data-name="Yellow" style="--c:#ffd500"><span class="sw__dot"></span><span>Yellow</span></button>
+          <button class="sw" type="button" aria-pressed="false" data-name="Green" style="--c:#2cad57"><span class="sw__dot"></span><span>Green</span></button>
+          <button class="sw" type="button" aria-pressed="true" data-name="Blue" style="--c:#3730ff"><span class="sw__dot"></span><span>Blue</span></button>
+          <button class="sw" type="button" aria-pressed="false" data-name="Purple" style="--c:#a200ff"><span class="sw__dot"></span><span>Purple</span></button>
+          <button class="sw" type="button" aria-pressed="false" data-name="Pink" style="--c:#ff2773"><span class="sw__dot"></span><span>Pink</span></button>
+          <button class="sw" type="button" aria-pressed="false" data-name="Grey" style="--c:#9aa0b1"><span class="sw__dot"></span><span>Grey</span></button>
+          <button class="sw sw--custom" type="button" aria-pressed="false" aria-expanded="false" aria-controls="picker" data-name="Custom" style="--c:#ff8a3d"><span class="sw__dot"></span><span>Custom</span></button>
+        </div>
+        <div class="picker" id="picker" hidden>
+          <div class="sv" role="slider" aria-label="Color" aria-valuetext="#ff8a3d" tabindex="0"><span class="sv__thumb"></span></div>
+          <input class="hue" type="range" min="0" max="360" step="1" value="25" aria-label="Hue">
+          <div class="picker__row">
+            <button class="drop" type="button" hidden aria-label="Pick a color from the screen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2 22 1-1h3l9-9"></path><path d="M3 21v-3l9-9"></path><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"></path></svg></button>
+            <label class="hex">#<input type="text" value="FF8A3D" spellcheck="false" aria-label="Hex color"></label>
+          </div>
         </div>
       </div>
       <span class="card__label">Appearance</span>
-      <div class="look" role="radiogroup" aria-label="Appearance">
+      <div class="look" id="appearance-look" role="radiogroup" aria-label="Appearance">
         <button type="button" role="radio" aria-checked="true" tabindex="0">Dark</button>
         <button type="button" role="radio" aria-checked="false" tabindex="-1">Light</button>
         <button type="button" role="radio" aria-checked="false" tabindex="-1">Match Windows</button>
@@ -451,6 +596,29 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
         <span>42:15</span>
       </div>
     </div>
+  </div>
+</section>
+
+<section class="also" aria-label="Also New">
+  <div class="also__in">
+    <span class="also__label">Also New</span>
+    <ul class="also__list">
+      <li class="also__item">
+        <span class="also__ic"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2" y="3.5" width="14" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.5 7l4 2-4 2z" fill="currentColor"/></svg></span>
+        <h3>Pop Out in VLC</h3>
+        <p>Films and shows can open in VLC and your place still syncs.</p>
+      </li>
+      <li class="also__item">
+        <span class="also__ic"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 12l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+        <h3>Find Titles with Ctrl+K</h3>
+        <p>Type a film or show's name and open it right from there.</p>
+      </li>
+      <li class="also__item">
+        <span class="also__ic"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="2.5" y="3" width="13" height="3" rx="1.5" fill="currentColor"/><rect x="2.5" y="7.5" width="13" height="3" rx="1.5" fill="currentColor" opacity=".6"/><rect x="2.5" y="12" width="13" height="3" rx="1.5" fill="currentColor" opacity=".35"/></svg></span>
+        <h3>Genres as Rows</h3>
+        <p>Pick a genre in Discover to see what's popular in it, then mixes like Romantic Comedy.</p>
+      </li>
+    </ul>
   </div>
 </section>
 
@@ -465,6 +633,10 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
       <details class="qa" name="faq">
         <summary>What can I add?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></summary>
         <p>Xtream Codes logins, M3U playlists, Stalker portals, AIOStreams and your own Jellyfin server. Add as many as you like. An Xtream login brings its movies and shows too. Stalker portals haven't been tested much yet.</p>
+      </details>
+      <details class="qa" name="faq">
+        <summary>Can I record live TV?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></summary>
+        <p>Yup. Press Record while a channel plays or right-click a programme in the Guide. Recordings save to your PC and use one of your provider's streams while they run.</p>
       </details>
       <details class="qa" name="faq">
         <summary>Do I need an account?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></summary>
@@ -561,7 +733,7 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
     }, 4000);
   }
 
-  /* ---- Your Colors ---- */
+  /* ---- Themes and Colors ---- */
   const hsvToHex = (h, s, v) => {
     const f = (n) => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
     const to = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
@@ -589,7 +761,12 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
   const picker = $("#picker"), sv = $(".sv", card), thumb = $(".sv__thumb", card);
   const hueIn = $(".hue", card), hexIn = $(".hex input", card), drop = $(".drop", card);
   const lightMq = matchMedia("(prefers-color-scheme: light)");
-  let accent = "Blue", look = "Dark", pickerOpen = false, draft = null, hsv = hexToHsv("#ff8a3d");
+  const packSw = $(".sw--pack", card), accentGroup = $("#accent-group"), themeNote = $("#theme-note");
+  const THEME_NAMES = { velvet: "Velvet", lagoon: "Lagoon" };
+  // Each theme keeps its own accent, like the app. "Pack" is the theme's own colour; Prism has no picker.
+  const picks = { default: "Blue", velvet: "Pack", lagoon: "Pack", prism: null };
+  let theme = "default", shown = "default";   // shown: the theme on screen (Light shows Default)
+  let accent = picks.default, look = "Dark", pickerOpen = false, draft = null, hsv = hexToHsv("#ff8a3d");
 
   function render() {
     const hex = hsvToHex(hsv.h, hsv.s, hsv.v);
@@ -597,7 +774,13 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
     customBtn.style.setProperty("--c", hex);
     customBtn.setAttribute("aria-expanded", pickerOpen);
     picker.hidden = !pickerOpen;
-    card.style.setProperty("--accent", swatches.find((b) => b.dataset.name === accent).style.getPropertyValue("--c"));
+    accentGroup.hidden = shown === "prism";
+    packSw.hidden = !THEME_NAMES[shown];
+    if (THEME_NAMES[shown]) $(".sw__name", packSw).textContent = THEME_NAMES[shown];
+    // The theme's own colour comes from the stylesheet; a swatch pick is written over it.
+    const picked = swatches.find((b) => b.dataset.name === accent && b !== packSw);
+    if (picked) card.style.setProperty("--accent", picked.style.getPropertyValue("--c"));
+    else card.style.removeProperty("--accent");
     sv.style.setProperty("--hue-color", "hsl(" + Math.round(hsv.h) + ", 100%, 50%)");
     sv.setAttribute("aria-valuetext", hex);
     thumb.style.left = hsv.s * 100 + "%";
@@ -608,8 +791,17 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
     if (hexIn.value !== text) hexIn.value = text;
   }
   const setHsv = (next) => { hsv = next; accent = "Custom"; draft = null; render(); };
-  // The card follows its own Appearance control: Dark, Light, or Windows' setting.
-  const applyTheme = () => { card.dataset.theme = look === "Light" || (look === "Match Windows" && lightMq.matches) ? "light" : "dark"; };
+  // The card follows its own Theme and Appearance controls: Dark, Light, or Windows' setting.
+  // Themes are dark only, as in the app: in Light the card shows Default and says so.
+  const applyTheme = () => {
+    const light = look === "Light" || (look === "Match Windows" && lightMq.matches);
+    const next = light ? "default" : theme;
+    if (next !== shown) { picks[shown] = accent; accent = picks[next]; shown = next; pickerOpen = false; }
+    card.dataset.theme = light ? "light" : "dark";
+    card.dataset.pack = theme === "default" ? "" : theme;
+    themeNote.hidden = !(light && theme !== "default");
+    render();
+  };
 
   swatches.forEach((b) => b.addEventListener("click", () => {
     if (b === customBtn) pickerOpen = accent === "Custom" ? !pickerOpen : true;
@@ -655,8 +847,34 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
     });
   }
 
-  roving($(".look", card), "aria-checked", (b) => { look = b.textContent; applyTheme(); });
+  roving($("#theme-look"), "aria-checked", (b) => { theme = b.dataset.theme; applyTheme(); });
+  roving($("#appearance-look"), "aria-checked", (b) => { look = b.textContent; applyTheme(); });
   lightMq.addEventListener("change", applyTheme);
+
+  // Prism's light trails the pointer inside the card, eased the way onboarding's is. Mouse only.
+  const glow = $(".card__glow", card);
+  if (!reduceMotion) {
+    let target = null, pos = null, raf = 0, last = 0;
+    const place = () => { glow.style.transform = "translate3d(" + pos.x + "px, " + pos.y + "px, 0)"; };
+    const frame = (now) => {
+      raf = 0;
+      if (!pos) return;
+      const k = Math.min(1, Math.min(0.1, (now - last) / 1000) * 9);
+      last = now;
+      pos.x += (target.x - pos.x) * k;
+      pos.y += (target.y - pos.y) * k;
+      place();
+      if (Math.abs(target.x - pos.x) > 0.1 || Math.abs(target.y - pos.y) > 0.1) raf = requestAnimationFrame(frame);
+    };
+    card.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse" || card.dataset.pack !== "prism") return;
+      const r = card.getBoundingClientRect();
+      target = { x: e.clientX - r.left, y: e.clientY - r.top };
+      if (!pos) { pos = { ...target }; place(); glow.classList.add("is-live"); }
+      if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); }
+    });
+    card.addEventListener("pointerleave", () => { glow.classList.remove("is-live"); pos = null; });
+  }
   render();
 })();
 </script>
