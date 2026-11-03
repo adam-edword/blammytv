@@ -360,6 +360,36 @@ export function PanelIcon({ size = 18, className }: IconProps) {
   );
 }
 
+/** The mini-guide's button (plan 036): a guide's grid, a header row over a
+ * channel column. */
+export function MiniGuideIcon({ size = 20, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M3 10h18M9.5 10v10" />
+    </Svg>
+  );
+}
+
+/** The mini-guide's two shapes (plan 036): cards side by side, rows stacked. */
+export function StripShapeIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="2.5" y="7" width="5" height="10" rx="1.5" />
+      <rect x="9.5" y="7" width="5" height="10" rx="1.5" />
+      <rect x="16.5" y="7" width="5" height="10" rx="1.5" />
+    </Svg>
+  );
+}
+
+export function ListShapeIcon({ size = 16, className }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </Svg>
+  );
+}
+
 /* ---------------------------------------------------------------- nav
  * Fluent System Icons 16 (github.com/microsoft/fluentui-system-icons, MIT),
  * exported by Adam. The SVGs are kept verbatim in ./icons/ so the next one

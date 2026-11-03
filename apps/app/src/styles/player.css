@@ -554,6 +554,295 @@
   gap: 7px;
 }
 
+/* ---- The mini-guide (plan 036; features/live/MiniGuide.tsx). Change channel
+ * from the player: a strip of cards where the logo and title sit, or a list down
+ * the left, and a switch for which. Glass can't blur the video (mpv is a native
+ * window under the page), so it wears the capsules' chip paint, as
+ * .theater-controls__group does. The card and row sizes come from the
+ * component, which places a long list's window by them. ---- */
+.theater-overlay {
+  /* The list's width, and where the bar's seek line and controls start while it is open. */
+  --mg-list-w: clamp(440px, 38vw, 600px);
+}
+
+.mg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mg-name {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.4px;
+  color: var(--on-image);
+}
+.mg-name span {
+  font-weight: 500;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--on-image) 50%, transparent);
+}
+
+/* The Strip and List switch, in the chip's paint. */
+.mg-seg {
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-edge);
+  backdrop-filter: var(--chip-fx);
+}
+
+/* The strip: in the bar where the meta sat. A peek leaves the heading's room
+ * and not the heading, so the cards don't jump. */
+.mg-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--on-image);
+}
+.mg-strip[data-peek] .mg-head,
+.mg-strip[data-peek] .mg-head * {
+  /* The switch's thumb sets its own visibility inline, so it takes the !important. */
+  visibility: hidden !important;
+}
+
+/* The padding is the ring's and the lift's room, which the clip would cut. */
+.mg-cards {
+  display: flex;
+  gap: var(--mg-gap);
+  overflow: hidden;
+  padding: 6px 4px 8px;
+  margin: -6px -4px -8px;
+}
+.mg-spacer {
+  flex: none;
+}
+
+.mg-card {
+  flex: none;
+  width: var(--mg-card-w);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-edge);
+  backdrop-filter: var(--chip-fx);
+  color: var(--on-image);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+.mg-card:hover {
+  background: var(--chip-bg-hover);
+}
+.mg-card.is-sel {
+  background: var(--chip-bg-hover);
+  box-shadow: 0 0 0 2px var(--on-image);
+  transform: translateY(-4px);
+}
+.mg-card__art {
+  display: grid;
+  place-items: center;
+  height: 96px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--on-image) 8%, transparent);
+}
+.mg-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 16px;
+}
+.mg-card__name,
+.mg-row__name {
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  color: color-mix(in srgb, var(--on-image) 72%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mg-card__now,
+.mg-row__now {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mg-card__left,
+.mg-row__next {
+  min-height: 15px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--on-image) 50%, transparent);
+}
+
+.mg-prog {
+  position: relative;
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--on-image) 18%, transparent);
+}
+.mg-prog i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--on-image);
+}
+
+/* The channel playing: the theater's own live dot, so a theme that moves the
+ * accent moves this. */
+.mg-watching {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-headline);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.mg-watching__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 7px var(--accent);
+}
+
+/* The list: down the left over a scrim that fades into the picture. It starts
+ * below the top corner's buttons. It shows and hides with the chrome. */
+.mg-list {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  /* Above the bar, whose bottom scrim otherwise dimmed the last rows. Its
+   * top is masked off so the Back and star chips (also z 3) stay clear. */
+  z-index: 3;
+  mask-image: linear-gradient(to bottom, transparent 56px, #000 76px);
+  width: calc(var(--mg-list-w) + 120px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 76px 160px 30px 40px;
+  color: var(--on-image);
+  background: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 0.9) 0%,
+    rgb(0 0 0 / 0.84) 55%,
+    rgb(0 0 0 / 0.5) 76%,
+    rgb(0 0 0 / 0.16) 90%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-enter) ease;
+}
+.player--active .mg-list {
+  opacity: 1;
+}
+/* Only its content takes the pointer: the fade on its right sits over the
+ * bar's first buttons. */
+.player--active .mg-list > * {
+  pointer-events: auto;
+}
+.theater-bar--list {
+  padding-left: var(--mg-list-w);
+}
+.theater-bar--list .theater-bar__meta {
+  visibility: hidden;
+}
+
+.mg-rows {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mg-row-gap);
+  overflow: hidden;
+  padding: 3px;
+  margin: -3px;
+}
+.mg-row {
+  flex: none;
+  box-sizing: border-box;
+  height: var(--mg-row-h);
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--on-image);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mg-row:hover {
+  background: color-mix(in srgb, var(--on-image) 6%, transparent);
+}
+.mg-row.is-sel {
+  background: color-mix(in srgb, var(--on-image) 10%, transparent);
+  box-shadow: inset 0 0 0 2px var(--on-image);
+}
+.mg-row__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mg-row__line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.mg-row__name {
+  flex: none;
+}
+.mg-row__now {
+  min-width: 0;
+}
+.mg-row__next {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mg-card {
+    transition: none;
+  }
+  .mg-card.is-sel {
+    transform: none;
+  }
+}
+
 /* 4px at white 20% (plan 020, P5): a hair lighter than the 5px it was, next
  * to capsules that now carry the weight. */
 .theater-seek__track {

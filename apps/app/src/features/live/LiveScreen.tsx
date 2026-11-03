@@ -69,6 +69,7 @@ import { loadFavorites, toggleFavorite } from "./favorites";
 import { Hint } from "../../ui/Hint";
 import { Guide } from "./Guide";
 import { Hero } from "./Hero";
+import type { MiniGuideData } from "./miniGuideModel";
 import type { Channel, GuideChannel, LiveData, Programme } from "./model";
 import { resumesGuide } from "./popoutBack";
 import { loadRecents, recordRecent } from "./recents";
@@ -711,6 +712,21 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         : undefined,
     [ready, channelId],
   );
+  // The mini-guide's list (plan 036): what the Guide shows, in its order, under
+  // the name the Guide gives it: the mode's tab, or the folder's name as the
+  // sidebar writes it.
+  const miniGuide = useMemo<MiniGuideData>(() => {
+    const folderName = ready?.groups
+      .flatMap((g) => g.folders)
+      .find((f) => f.id === folder)?.name;
+    const listName =
+      mode === "favorites" || mode === "recents"
+        ? (MODES.find((m) => m.key === mode)?.label ?? "")
+        : folderName
+          ? splitTitleEmoji(folderName).label
+          : "Playlist";
+    return { channels: visible, listName, playingId: heroChannel?.id, onTune: selectChannel };
+  }, [visible, ready, folder, mode, heroChannel, selectChannel]);
   // A hover preview shows that channel's own listings, so the hero can
   // find its airing programme when the cursor is on the card (no cell).
   const shownChannel = preview?.channel ?? heroChannel;
@@ -1221,6 +1237,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                   playbackKey={feedKey}
                   vod={!!recId}
                   file={!!recId}
+                  miniGuide={miniGuide}
                   recordSlot={
                     !recId && heroChannel ? (
                       <RecordButton

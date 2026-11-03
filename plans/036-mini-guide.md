@@ -1,6 +1,6 @@
 # Plan 036: The mini-guide
 
-Status: MOCK APPROVED 2026-11-03 (https://claude.ai/artifact/Rp3rFRxDmK1P6fQqe9VrPt), building.
+Status: BUILT v1.2.3 (mock: https://claude.ai/artifact/Rp3rFRxDmK1P6fQqe9VrPt).
 
 On the roadmap since 1.0 ("Timeshift, the mini-guide strip"). Live TV in
 theater or fullscreen is a dead end today: the player has no way to change

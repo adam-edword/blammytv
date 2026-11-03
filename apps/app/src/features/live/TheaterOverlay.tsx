@@ -53,6 +53,8 @@ import {
   type PlayerFault,
 } from "./playerFault";
 import { Hint } from "../../ui/Hint";
+import { useMiniGuide } from "./useMiniGuide";
+import type { MiniGuideData } from "./miniGuideModel";
 import { EYEBROW_ON_IMAGE } from "../../ui/eyebrow";
 import { StatsOverlay } from "./StatsOverlay";
 import { livePctFor } from "./liveEdge";
@@ -74,6 +76,7 @@ import {
   ExitFullscreenIcon,
   FullscreenIcon,
   LanguageIcon,
+  MiniGuideIcon,
   MuteIcon,
   PauseIcon,
   PlayIcon,
@@ -217,6 +220,7 @@ export function TheaterOverlay({
   vod: vodProp,
   file = false,
   recordSlot,
+  miniGuide,
 }: {
   frame?: OverlayFrame;
   /** VOD only: the TITLE this playback belongs to, so track and speed
@@ -243,6 +247,9 @@ export function TheaterOverlay({
    * owns it because only it knows the stream; drawn in the controls beside
    * Stats for Nerds. */
   recordSlot?: ReactNode;
+  /** The Guide's current list, for the mini-guide (plan 036): live only, so
+   * the hosts of films and games pass none and its keys fall through. */
+  miniGuide?: MiniGuideData;
 } = {}) {
   const [meta, setMeta] = useState<TheaterMeta | null>(null);
   // The title logo lines up with the text under it by its ink (lib/logoInk).
@@ -873,11 +880,13 @@ export function TheaterOverlay({
   // stable); closing it restarts the idle timer the menu was holding.
   const menuRef = useRef(menu);
   menuRef.current = menu;
+  // The mini-guide holds it the same way while it is up.
+  const guideUpRef = useRef(false);
   const wake = useCallback(() => {
     setActive(true);
     window.clearTimeout(idleRef.current);
     idleRef.current = window.setTimeout(() => {
-      if (!menuRef.current) setActive(false);
+      if (!menuRef.current && !guideUpRef.current) setActive(false);
     }, 2400);
   }, []);
   useEffect(() => {
@@ -1241,6 +1250,19 @@ export function TheaterOverlay({
   // legacy no-host entry.
   const vod = vodProp ?? meta?.live === false;
   vodRef.current = vod;
+  // Live, in theater or fullscreen. The hook is called always (hooks can't be
+  // conditional): given nothing it is shut and takes no key.
+  const mg = useMiniGuide(miniGuide && !vod && !file && !mini ? miniGuide : undefined);
+  const guideKey = mg.key;
+  guideUpRef.current = mg.shown !== null;
+  useEffect(() => {
+    if (mg.shown === null) wake();
+  }, [mg.shown, wake]);
+  // Like an open menu, it goes when the chrome does (the pointer left).
+  const closeGuide = mg.close;
+  useEffect(() => {
+    if (!active) closeGuide();
+  }, [active, closeGuide]);
 
   // VOD continuity, apply side: once per FILE, when its track list first
   // lands, re-select the remembered languages and speed (every stream is
@@ -1506,6 +1528,12 @@ export function TheaterOverlay({
   // preventDefault without eating unrelated keys).
   const handleKey = useCallback(
     (key: string): boolean => {
+      // The mini-guide first: its Escape must close it, not leave full screen,
+      // and its arrows are the guide's while it is open.
+      if (guideKey(key)) {
+        wake();
+        return true;
+      }
       switch (key.toLowerCase()) {
         case " ":
         case "k":
@@ -1579,7 +1607,7 @@ export function TheaterOverlay({
       wake();
       return true;
     },
-    [doSeek, fsNow, miniNow, nudgeDelay, toggleFullscreen, togglePlay, vod, wake],
+    [doSeek, fsNow, guideKey, miniNow, nudgeDelay, toggleFullscreen, togglePlay, vod, wake],
   );
 
   useEffect(() => {
@@ -1837,9 +1865,10 @@ export function TheaterOverlay({
         * middle and its own bar along the bottom, and this one put a second
         * logo and a dead scrubber under it (Adam, v0.10.21: "that way when
         * loading there aren't 2 visible logos"). */}
+      {mg.shown === "list" && mg.node}
       {!(vod && loading) && (
-      <div className="theater-bar">
-        {meta && (
+      <div className={"theater-bar" + (mg.shown === "list" ? " theater-bar--list" : "")}>
+        {mg.shown === "strip" ? mg.node : meta && (
           <div className="theater-bar__meta">
             {meta.logo && (!vod || overlayFields.includes("logo")) && (
               <img
@@ -2340,6 +2369,26 @@ export function TheaterOverlay({
                 </div>
               )}
             </div>
+            {mg.available && (
+              <Hint side="top" label="Mini-Guide">
+                <Button variant="ghost" size="icon"
+                  type="button"
+                  className={"player__btn " + IN_CAPSULE}
+                  aria-label="Mini-Guide"
+                  aria-pressed={mg.open}
+                  // A focused button keeps the arrows and Enter for itself, and
+                  // these are the guide's: a click must not leave it focused,
+                  // nor must a key press that opened the guide (detail 0).
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    mg.toggle();
+                    if (e.detail === 0) e.currentTarget.blur();
+                  }}
+                >
+                  <MiniGuideIcon className="size-5" />
+                </Button>
+              </Hint>
+            )}
             <div className="theater-vol">
               <Hint side="top" label={muted ? "Unmute" : "Mute"}>
                 <Button variant="ghost" size="icon"

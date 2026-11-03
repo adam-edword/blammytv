@@ -2,6 +2,15 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.3: The mini-guide
+
+- **Change channel without leaving the player.** On live TV in theater or
+  full screen, G (or the new Mini-Guide button) opens the Guide's channels
+  as a strip along the bottom or a list down the left, with what's on now
+  and next. The arrows browse, Enter watches, Esc closes.
+- **Page Up and Page Down** change channel straight away and show the strip
+  for a moment. ↑ and ↓ stay volume.
+
 ## 1.2.2: Fluent, and Velvet and Lagoon in full
 
 - **Fluent**, a new theme in Settings → Appearance: Windows 11's Mica behind

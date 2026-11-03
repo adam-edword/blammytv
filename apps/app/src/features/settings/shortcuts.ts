@@ -76,7 +76,12 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     title: "Live TV Player",
     shortcuts: [
       { keys: [["T"]], what: "Switch Between the Mini Player and Theater" },
-      { keys: [["Esc"]], what: "Close a Menu, Leave Full Screen, Then Drop to the Mini Player" },
+      // useMiniGuide.tsx `key`, which TheaterOverlay.tsx `handleKey` asks first.
+      // Live in theater and full screen only: a recording or a film has none.
+      { keys: [["G"]], what: "Open or Close the Mini-Guide" },
+      { keys: [["PageUp"]], what: "Previous Channel" },
+      { keys: [["PageDown"]], what: "Next Channel" },
+      { keys: [["Esc"]], what: "Close the Mini-Guide or a Menu, Leave Full Screen, Then Drop to the Mini Player" },
     ],
   },
   {
