@@ -184,6 +184,16 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
 /* Prism's onboarding dither and the light that trails the pointer (the script moves it). */
 .card__fx { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity 400ms ease; }
 .card[data-pack="prism"]:not([data-theme="light"]) .card__fx { opacity: 1; }
+/* Onboarding's frame: the brand conic behind a blur-softened black screen, so
+   the rainbow glows in only at the edges and lights the dots there. */
+.card__edge {
+  position: absolute; inset: 0; opacity: 0.6;
+  background: conic-gradient(from 320deg, #ff9b9b, #ff8bc9, #ff7bf6, #c388fb, #8696ff, #85cbd4, #84ffa9, #c1f294, #ffe57f, #ff9b9b);
+}
+.card__edge::after {
+  content: ""; position: absolute; inset: 18px; border-radius: 12px;
+  background: #000; filter: blur(20px);
+}
 .card__dither {
   position: absolute; inset: 0;
   background-image:
@@ -551,7 +561,7 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
       <p>Pick a theme: Prism, Velvet or Lagoon. Then pick an accent color or grab any color with the eyedropper.</p>
     </div>
     <div class="card" id="colors" data-theme="dark">
-      <div class="card__fx" aria-hidden="true"><div class="card__dither"></div><div class="card__glow"></div></div>
+      <div class="card__fx" aria-hidden="true"><div class="card__edge"></div><div class="card__dither"></div><div class="card__glow"></div></div>
       <div class="card__group">
         <span class="card__label">Theme</span>
         <div class="look" id="theme-look" role="radiogroup" aria-label="Theme">
