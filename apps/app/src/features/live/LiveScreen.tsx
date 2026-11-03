@@ -286,6 +286,20 @@ const SidebarSources = memo(function SidebarSources({
 export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   const [mode, setMode] = useState<Mode>("playlist");
   const [collapsed, setCollapsed] = useState(false);
+  const collapsedRef = useRef(collapsed);
+  collapsedRef.current = collapsed;
+  // The mini-guide folds the sidebar while it is open and gives it back when
+  // it shuts, unless it was folded already (Adam, 1.2.4).
+  const foldedForGuide = useRef(false);
+  const onGuideOpen = useCallback((open: boolean) => {
+    if (open) {
+      foldedForGuide.current = !collapsedRef.current;
+      setCollapsed(true);
+    } else if (foldedForGuide.current) {
+      foldedForGuide.current = false;
+      setCollapsed(false);
+    }
+  }, []);
   const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
   const [folder, setFolder] = useState<string | null>(null);
   /** Source-name tooltip for the folded rail (fixed-position so the
@@ -725,8 +739,8 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         : folderName
           ? splitTitleEmoji(folderName).label
           : "Playlist";
-    return { channels: visible, listName, playingId: heroChannel?.id, onTune: selectChannel };
-  }, [visible, ready, folder, mode, heroChannel, selectChannel]);
+    return { channels: visible, listName, playingId: heroChannel?.id, onTune: selectChannel, onOpenChange: onGuideOpen };
+  }, [visible, ready, folder, mode, heroChannel, selectChannel, onGuideOpen]);
   // A hover preview shows that channel's own listings, so the hero can
   // find its airing programme when the cursor is on the card (no cell).
   const shownChannel = preview?.channel ?? heroChannel;

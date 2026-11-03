@@ -20,6 +20,9 @@ export interface MiniGuideData {
   listName: string;
   playingId: string | undefined;
   onTune: (id: string) => void;
+  /** Told when the guide opens and closes (not for a PageUp/PageDown peek).
+   * Live TV folds its sidebar for it. Keep it stable: it is read at open. */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export type MiniShape = "strip" | "list";

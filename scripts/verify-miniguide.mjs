@@ -142,6 +142,11 @@ const strip = page.locator(".mg-strip");
 const list = page.locator(".mg-list");
 const sel = () => page.locator(".mg-card[data-sel], .mg-row[data-sel]");
 const selName = async () => (await sel().locator(".mg-card__name, .mg-row__name").first().innerText()).trim();
+const folded = () => page.locator(".live-sidebar").evaluate((el) => el.classList.contains("live-sidebar--collapsed"));
+// The fold follows the guide by an effect, a frame or two behind it.
+const foldsTo = (want) =>
+  page.waitForFunction((w) => document.querySelector(".live-sidebar")?.classList.contains("live-sidebar--collapsed") === w, want, { timeout: 2000 })
+    .then(() => true, () => false);
 const watchingName = async () =>
   (await page.locator("[aria-current=true] .mg-card__name, [aria-current=true] .mg-row__name").first().innerText()).trim();
 /** Tune a channel from the Guide, and go to theater. */
@@ -187,9 +192,11 @@ await page.locator(".mini-overlay").click({ position: { x: 200, y: 140 } });
 await page.locator(".theater-overlay").waitFor({ timeout: 5000 });
 await wake();
 check("shut in the theater, there is no strip", (await strip.count()) === 0);
+check("  and the sidebar is open", !(await folded()));
 await page.keyboard.press("g");
 await strip.waitFor({ timeout: 3000 });
 check("G opens the strip", (await strip.count()) === 1 && (await list.count()) === 0);
+check("  and folds the sidebar", await foldsTo(true));
 check("  on the channel playing, selected", (await selName()) === "Pin Channel 3");
 check("  and marked Watching, once", (await watchingName()) === "Pin Channel 3" && (await page.locator(".mg-watching").count()) === 1 && /watching/i.test(await page.locator(".mg-watching").innerText()));
 const heading = (await page.locator(".mg-name").innerText()).replace(/\s+/g, " ").trim();
@@ -271,6 +278,7 @@ await page.waitForFunction(() => !document.querySelector(".mg-strip"));
 check("Enter tunes the selected channel", (await opens()) === before + 1 && (await tunedId()) === "6023", String(await tunedId()));
 check("  and closes the guide, the player staying in the theater", (await strip.count()) === 0 && (await page.locator(".theater-overlay").count()) === 1);
 check("  and the bar has the channel's title again", (await page.locator(".theater-bar__meta").count()) === 1);
+check("  and the sidebar is back open", await foldsTo(false));
 
 // ------------------------------------------------------------ PageDown / Up
 await page.keyboard.press("PageDown");
@@ -283,6 +291,7 @@ await shot("peek");
 await page.waitForFunction(() => !document.querySelector(".mg-strip"), null, { timeout: 6000 });
 const shownFor = Date.now() - peekAt;
 check("  the strip lets go by itself after about two and a half seconds", shownFor > 2000 && shownFor < 4500, `${shownFor}ms`);
+check("  and a peek leaves the sidebar alone", !(await folded()));
 check("  and the channel stays tuned", (await tunedId()) === "6024");
 await page.keyboard.press("PageUp");
 await strip.waitFor({ timeout: 3000 });
@@ -374,6 +383,20 @@ await strip.waitFor();
 await page.locator('.mg-card[data-channel="p:6006"]').click();
 await page.waitForFunction(() => !document.querySelector(".mg-strip"));
 check("a click on a card tunes it and closes", (await tunedId()) === "6006", String(await tunedId()));
+
+// A sidebar folded by hand stays folded when the guide shuts.
+await page.locator('button[aria-label="Collapse Sidebar"]').click();
+await page.evaluate(() => document.activeElement?.blur());
+await wake();
+await page.keyboard.press("g");
+await strip.waitFor();
+await page.keyboard.press("Escape");
+await page.waitForFunction(() => !document.querySelector(".mg-strip"));
+await page.waitForTimeout(300);
+check("a sidebar folded before the guide opened stays folded after", await folded());
+await page.locator('button[aria-label="Expand Sidebar"]').click();
+// The theater's keys skip a focused control, and the next checks press arrows.
+await page.evaluate(() => document.activeElement?.blur());
 
 // ------------------------------------------------------------------- Escape
 await page.keyboard.press("f");

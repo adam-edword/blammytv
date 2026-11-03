@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.4: More room for the mini-guide
+
+- **Opening the mini-guide folds Live TV's sidebar**, and closing it opens
+  the sidebar again. A sidebar you folded yourself stays folded.
+
 ## 1.2.3: The mini-guide
 
 - **Change channel without leaving the player.** On live TV in theater or

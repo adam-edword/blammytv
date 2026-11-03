@@ -76,6 +76,15 @@ export function useMiniGuide(data: MiniGuideData | undefined): MiniGuideHandle {
     setModeNow(null);
   }, [setModeNow]);
   useEffect(() => () => window.clearTimeout(peekTimer.current), []);
+  // Open and shut, for the host. The callback is the one from the open, so
+  // the close still reaches it when the list has already gone (gone mini).
+  const isOpen = mode === "open";
+  useEffect(() => {
+    if (!isOpen) return;
+    const told = dataRef.current?.onOpenChange;
+    told?.(true);
+    return () => told?.(false);
+  }, [isOpen]);
   // Gone with the list: the player went mini, or became a film.
   useEffect(() => {
     if (!data) close();
