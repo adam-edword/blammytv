@@ -1,6 +1,7 @@
 # Plan 035: Themes, colour first
 
-Status: BUILT v1.0.37 (Prism, Velvet, Lagoon). Canvas:
+Status: BUILT v1.0.37 (Prism, Velvet, Lagoon). Round 2 (1.3) DECIDED
+2026-11-03, below. Canvas:
 https://claude.ai/artifact/26deGFP4euFfJYkQeEkhcH
 
 Adam: "i really like prism. but i think for the first few we should do
@@ -64,3 +65,42 @@ mostly just color changes".
   settings export; applied at boot before first paint, as the accent is.
 - Prism's three rainbow spots are new hooks: a focus ring image, the
   now-line fill and the hero glow, each falling back to today's look.
+
+## Round 2, for 1.3 (decided 2026-11-03)
+
+Adam: Fluent, Velvet full and Lagoon full, and "I don't want to edit the
+corner radius of elements. I think the themes should still be Shadcn at the
+core for now. We can experiment with more intense themes with actual
+element changes later on". So a theme may change colour, type, texture,
+light and transparency. It never changes a radius, a shape, a layout or a
+component. Signal stays out (its identity is square corners).
+
+- **Fluent** (new): Windows 11's look on shadcn's shapes.
+  - Real Mica behind the app, through Tauri's window effects (tauri 2.11),
+    on only while Fluent is on. The mpv child is sized to the video rect
+    (inv.rs), so Mica shows wherever the page is see-through and no video
+    is. Where Mica can't apply (Windows 10, or the call fails) the page
+    keeps a solid Fluent base, #202020.
+  - Segoe UI Variable (Display for headings, Text for the rest), a system
+    font on Windows 11, so no new dependency; Segoe UI after it.
+  - Fluent's dark tokens: layers as light washes over Mica, text at
+    100/78.6/54.4% white, accent #60cdff (Windows' default dark accent),
+    with the picker, like Velvet and Lagoon.
+  - Fluent's focus visual: a 2px white outer ring over a 1px black inner.
+- **Velvet, full:** Bodoni Moda headings and Figtree text (two fontsource
+  packages, the canvas's choice), the film grain (a 160px tile at about
+  15%), darkened picture corners and the footlight under the Stream hero.
+  Not its sharp corners.
+- **Lagoon, full:** see-through panels (the canvas's glass: blur 24px,
+  saturate 1.6, an rgb(238 251 248 / 0.10) wash) and the page lit by the
+  picture (`--page-ambient`: the hero art sampled into soft light behind
+  the page). Opaque again under prefers-reduced-transparency.
+
+### Calls made here (Adam can overrule)
+
+- **Fluent is dark only**, like the others: Mica is forced dark. A light
+  Fluent can follow if it's wanted.
+- **Fluent's accent is Windows' default blue, not your Windows accent.**
+  Reading the system accent is another native call; the picker covers it.
+- **Lagoon's light comes from the hero art, not the live picture.** mpv
+  draws natively, so the page can't sample the video.
