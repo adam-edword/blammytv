@@ -2,6 +2,17 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.2: Fluent, and Velvet and Lagoon in full
+
+- **Fluent**, a new theme in Settings → Appearance: Windows 11's Mica behind
+  the app, Segoe UI Variable and Fluent's focus ring. On Windows 10 it's a
+  solid dark grey.
+- **Velvet** gets Bodoni headings, Figtree text, film grain, darkened picture
+  corners and a footlight under the Stream hero.
+- **Lagoon** gets see-through menus, dialogs and header, and Stream's hero
+  art lights the page.
+- No theme changes a corner or a shape.
+
 ## 1.2.1: Ctrl+K in onboarding
 
 - **Onboarding** has a step for Ctrl+K before Done: two keycaps that press

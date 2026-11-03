@@ -38,6 +38,19 @@ export function openExternal(url: string): void {
   }
 }
 
+/** Mica behind the window for the Fluent theme (lib.rs window_mica). Resolves
+ * true when the window now has it. False is Windows 10, an older build, a
+ * failed call, or no native side at all (the browser build): the page keeps a
+ * solid base then. Never rejects: a native build from before the command
+ * answers as a no. */
+export function tauriMica(on: boolean): Promise<boolean> {
+  if (typeof window === "undefined" || !isTauri()) return Promise.resolve(false);
+  return invoke<boolean>("window_mica", { on }).then(
+    (applied) => applied === true,
+    () => false,
+  );
+}
+
 /**
  * The native player (Windows, inv.rs). mpv renders into a child HWND at a
  * rect we supply, parked below the transparent webview. Rust never scales,

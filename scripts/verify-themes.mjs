@@ -1,5 +1,7 @@
-// E2E: Settings → Appearance → Theme (plan 035). Three dark, colour-only
-// packs laid over the app's palette: Prism, Velvet and Lagoon.
+// E2E: Settings → Appearance → Theme (plan 035). Four dark packs laid over the
+// app's palette: Prism, Velvet, Lagoon and Fluent. A pack changes colour, type,
+// texture, light and transparency, and NEVER a radius, a shape or a layout
+// (Adam, 1.3): "no pack changes a radius" below is that rule, tested.
 //
 // What can go wrong here is quiet, and none of it throws:
 //   - a pack that leaks. No pack must be the base palette, token for token;
@@ -14,6 +16,11 @@
 //     and remembers its own pick; Prism has none; the default store is
 //     untouched by all of it.
 //   - first paint. The pack is on the root before React mounts.
+//   - round 2 (1.3): Velvet's type, grain and footlight, Lagoon's see-through
+//     floats (and plain cards) going opaque under reduced transparency, and
+//     Fluent's Segoe stack and its Mica: native's answer at the IPC boundary
+//     decides whether the base is #202020 or see-through, and leaving Fluent
+//     asks native to take Mica off.
 //
 // The player's progress fill and LIVE dot are drawn by TheaterOverlay, which
 // needs a player; they are probed here as the classes the overlay renders.
@@ -40,7 +47,8 @@ const AIO = { v: 1, data: "http://localhost:8084/manifest.json" };
 const PACKS = {
   prism: { bg: "#000000", surface: "#111111", text: "#ffffff", accent: "#ffffff" },
   velvet: { bg: "#170d10", surface: "#251619", text: "#f6ece5", accent: "#e8bb6c" },
-  lagoon: { bg: "#08191e", surface: "#102d34", text: "#eefbf8", accent: "#5fe1c1" },
+  lagoon: { bg: "#08191e", surface: "rgb(22 62 70 / 0.55)", text: "#eefbf8", accent: "#5fe1c1" },
+  fluent: { bg: "#202020", surface: "rgb(255 255 255 / 0.0512)", text: "#ffffff", accent: "#60cdff" },
 };
 const rgb = (hex) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")})`;
 
@@ -342,9 +350,16 @@ for (const [key, want] of Object.entries(PACKS)) {
     check(
       `${key}: none of the ramp's hooks is set`,
       h.fill.image === "none" && blank(h.dotGlow) && line["background-image"] === "none" &&
-        glow["background-image"] === "none" && track.display === "flex",
+        (key === "velvet" || (glow["background-image"] === "none" && track.display === "flex")),
       JSON.stringify({ fill: h.fill.image, line, glow }),
     );
+    if (key === "velvet")
+      check(
+        "velvet: the hero's glow is the warm footlight, a radial and not the ramp, in place of the art's copies",
+        /^radial-gradient/.test(glow["background-image"]) && glow["background-image"].includes("rgba(232, 150, 80, 0.85)") &&
+          !/conic/.test(glow["background-image"]) && track.display === "none" && glow.filter === "blur(36px)",
+        JSON.stringify({ glow, track }),
+      );
     check(`${key}: its tokens beyond the four are the pack's (a sidebar, a plate on the card)`, (await root(page, ["--sidebar"]))["--sidebar"] !== base.tokens["--sidebar"]);
     await page.mouse.move(500, 400);
     await page.waitForTimeout(300);
@@ -545,6 +560,392 @@ for (const [key, want] of Object.entries(PACKS)) {
   await ctx.close();
 }
 
+// ------------------------------------------------ round 2 (1.3), shared bits
+/** What a page reports of the things the rule says no pack may change. A card
+ * (the poster), a button, a menu (Ctrl+K's panel) and a dialog, read where the
+ * app draws them. */
+async function radii(page) {
+  return page.evaluate(async () => {
+    const r = (el) => (el ? getComputedStyle(el).borderRadius : null);
+    const out = {};
+    out.card = r(document.querySelector(".stream-card__poster"));
+    out.tilt = r(document.querySelector(".stream-card__tilt"));
+    out.button = r(document.querySelector(".navcap__search") ?? document.querySelector("button"));
+    // A menu and a dialog the way the components draw them: Ctrl+K is a dialog
+    // with the popover glass, and a bare dialog-content is the plain one.
+    const probe = document.createElement("div");
+    probe.innerHTML = '<div data-slot="dialog-content" class="rounded-lg" id="p-dialog"></div><div class="rounded-md bg-popover" id="p-menu"></div>';
+    document.body.append(probe);
+    out.dialog = r(probe.querySelector("#p-dialog"));
+    out.menu = r(probe.querySelector("#p-menu"));
+    probe.remove();
+    return out;
+  });
+}
+const flatten = (o) => JSON.stringify(Object.entries(o).sort());
+
+/** A page with native answering at the IPC boundary (isTauri() is then true)
+ * and recording what it was asked: window_mica gets `mica` for an answer. */
+async function nativePage({ store = {}, mica = true, scheme = "dark" } = {}) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: scheme });
+  await ctx.route((u) => u.hostname !== "localhost", (r) => r.abort());
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.addInitScript(
+    ({ store, PLAYLISTS, AIO, mica }) => {
+      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
+      sessionStorage.setItem("btv:welcome-played", "1");
+      if (!sessionStorage.getItem("btv:themes-seeded")) {
+        sessionStorage.setItem("btv:themes-seeded", "1");
+        localStorage.setItem("blammytv.playlists", JSON.stringify(PLAYLISTS));
+        localStorage.setItem("blammytv.aiostreams", JSON.stringify(AIO));
+        for (const [k, v] of Object.entries(store)) localStorage.setItem(`blammytv.${k}`, JSON.stringify({ v: v.v ?? 1, data: v.data }));
+      }
+      window.__calls = [];
+      let cb = 0;
+      const listeners = {};
+      window.__TAURI_INTERNALS__ = {
+        transformCallback: (f) => { const id = ++cb; window["_" + id] = f; return id; },
+        convertFileSrc: (p) => p,
+        metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main", windowLabel: "main" } },
+        invoke: (cmd, args) => {
+          window.__calls.push([cmd, args]);
+          if (cmd === "http_get") return fetch(args.url).then((r) => r.arrayBuffer());
+          if (cmd === "plugin:event|listen") { (listeners[args.event] ??= []).push(args.handler); return Promise.resolve(++cb); }
+          if (cmd === "window_mica") return Promise.resolve(args.on ? mica : false);
+          return Promise.resolve(undefined);
+        },
+      };
+      window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+    },
+    { store, PLAYLISTS, AIO, mica },
+  );
+  await page.goto(APP, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".navcap", { timeout: 20_000 });
+  return { ctx, page, errors };
+}
+const micaCalls = (page) => page.evaluate(() => window.__calls.filter((c) => c[0] === "window_mica").map((c) => c[1].on));
+const bodyBg = (page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+/** What paints the page's base: the body, or the shell where the inverted player is on (base.css). */
+const paintBg = (page) =>
+  page.evaluate(() => getComputedStyle(document.documentElement.classList.contains("invert-player") ? document.querySelector(".app-shell") : document.body).backgroundColor);
+const shellBg = (page) => page.evaluate(() => getComputedStyle(document.querySelector(".app-shell")).backgroundColor);
+/** The families a page has actually loaded, by name. */
+const loadedFaces = (page) =>
+  page.evaluate(() => [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")));
+const fontOf = (page, token) =>
+  page.evaluate((token) => {
+    const probe = document.createElement("i");
+    probe.style.fontFamily = `var(${token})`;
+    document.body.append(probe);
+    const f = getComputedStyle(probe).fontFamily;
+    probe.remove();
+    return f;
+  }, token);
+
+// ----------------------------------------------- no pack changes a radius
+// The rule (Adam, 1.3): "I don't want to edit the corner radius of elements.
+// I think the themes should still be Shadcn at the core." Default's computed
+// corners are read first, then every pack's, on the same elements.
+{
+  const dflt = await open();
+  await goTo(dflt.page, "discover");
+  await dflt.page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
+  const want = await radii(dflt.page);
+  check(
+    "radii: Default's card, tilt, button, dialog and menu all have a corner to compare",
+    Object.values(want).every((v) => v !== null && v !== "0px"),
+    JSON.stringify(want),
+  );
+  const RADIUS_TOKENS = ["--radius", "--radius-card", "--radius-chip", "--radius-pic", "--radius-track", "--radius-pill"];
+  const wantTok = await root(dflt.page, RADIUS_TOKENS);
+  await dflt.ctx.close();
+  for (const key of Object.keys(PACKS)) {
+    const { ctx, page } = await open({ store: { themePack: { data: key } } });
+    await goTo(page, "discover");
+    await page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
+    const got = await radii(page);
+    check(`radii: ${key} leaves every corner as Default has it`, flatten(got) === flatten(want), JSON.stringify({ got, want }));
+    const tok = await root(page, RADIUS_TOKENS);
+    check(`radii: ${key} leaves the radius tokens alone`, JSON.stringify(tok) === JSON.stringify(wantTok), JSON.stringify({ tok, wantTok }));
+    await ctx.close();
+  }
+}
+
+// ------------------------------------------------------------------ Velvet
+{
+  const { ctx, page, errors } = await open({ store: { themePack: { data: "velvet" } } });
+  await goTo(page, "discover");
+  await page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(400);
+  const head = await fontOf(page, "--font-headline");
+  const text = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+  check(
+    "velvet: headings resolve to Bodoni Moda and text to Figtree",
+    head.startsWith('"Bodoni Moda Variable"') && text.startsWith('"Figtree Variable"'),
+    JSON.stringify({ head, text }),
+  );
+  const faces = await loadedFaces(page);
+  check(
+    "velvet: both files are loaded, because something is set in them",
+    faces.some((f) => f.startsWith("Bodoni Moda")) && faces.some((f) => f.startsWith("Figtree")),
+    faces.join(", "),
+  );
+  const grain = await style(page, ".app-shell", ["background-image", "background-size", "position", "pointer-events", "z-index", "content"], "::after");
+  check(
+    "velvet: the film grain is on the shell, a 160px tile of noise drawn from an inline SVG, and never takes a click",
+    grain["background-image"].startsWith('url("data:image/svg+xml,') && grain["background-image"].includes("feTurbulence") &&
+      grain["background-size"] === "160px 160px" && grain["pointer-events"] === "none" && grain.position === "absolute",
+    JSON.stringify({ ...grain, "background-image": grain["background-image"].slice(0, 60) }),
+  );
+  const tile = await page.evaluate(() => {
+    const m = /url\("data:image\/svg\+xml,([^"]*)"\)/.exec(getComputedStyle(document.querySelector(".app-shell"), "::after").backgroundImage);
+    return m ? decodeURIComponent(m[1]) : "";
+  });
+  check("velvet: the tile is 160px square at 15%", /width='160'/.test(tile) && /height='160'/.test(tile) && /opacity='\.15'/.test(tile), tile.slice(0, 120));
+  const vig = await style(page, ".stream-card__tilt", ["box-shadow", "border-radius"], "::after");
+  check(
+    "velvet: a poster's corners are darkened by an inset shadow of 90px at 0.55 black, and its radius is untouched",
+    /inset/.test(vig["box-shadow"]) && vig["box-shadow"].includes("rgba(0, 0, 0, 0.55)") && vig["box-shadow"].includes("90px") &&
+      vig["border-radius"] === (await style(page, ".stream-card__tilt", ["border-radius"]))["border-radius"],
+    JSON.stringify(vig),
+  );
+  check("velvet: no page errors", errors.length === 0, errors.join(" | "));
+  await ctx.close();
+
+  // Only under Velvet: Default and the others draw no grain, no vignette, and fetch no font.
+  for (const key of ["none", "prism", "lagoon", "fluent"]) {
+    const o = await open({ store: key === "none" ? {} : { themePack: { data: key } } });
+    await goTo(o.page, "discover");
+    await o.page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
+    await o.page.evaluate(() => document.fonts.ready);
+    await o.page.waitForTimeout(300);
+    const g = await style(o.page, ".app-shell", ["content", "background-image"], "::after");
+    const v = await style(o.page, ".stream-card__tilt", ["content", "box-shadow"], "::after");
+    const f = await loadedFaces(o.page);
+    check(
+      `${key}: no film grain, no darkened corners, and neither Velvet font is loaded`,
+      g.content === "none" && v.content === "none" && !f.some((x) => /^(Bodoni Moda|Figtree)/.test(x)),
+      JSON.stringify({ g, v, faces: f.filter((x) => /Bodoni|Figtree/.test(x)) }),
+    );
+    await o.ctx.close();
+  }
+}
+
+// ------------------------------------------------------------------ Lagoon
+{
+  const { ctx, page, errors } = await open({ store: { themePack: { data: "lagoon" } } });
+  await goTo(page, "discover");
+  await page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
+  const fx = (sel) => style(page, sel, ["backdrop-filter", "background-color"]);
+  // The floating layers: the header's capsule, the settings panel, a dialog, a menu's glass.
+  const nav = await fx(".navcap");
+  await page.keyboard.press("Control+k");
+  await page.locator(".palette").waitFor({ timeout: 5000 });
+  const palette = await fx(".palette");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+  await page.locator(".settings").waitFor({ timeout: 10_000 });
+  const sheet = await fx(".settings");
+  const probe = await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.innerHTML = '<div data-slot="dialog-content" class="bg-background" id="d"></div>';
+    document.body.append(host);
+    const cs = getComputedStyle(host.querySelector("#d"));
+    const out = { filter: cs.backdropFilter, bg: cs.backgroundColor };
+    host.remove();
+    return out;
+  });
+  const GLASS = "blur(24px) saturate(1.6)";
+  check(
+    "lagoon: the header, Ctrl+K's menu glass, the settings panel and a dialog all see through, blur 24px and saturate 1.6",
+    [nav["backdrop-filter"], palette["backdrop-filter"], sheet["backdrop-filter"], probe.filter].every((f) => f === GLASS),
+    JSON.stringify({ nav, palette, sheet, probe }),
+  );
+  const alpha = (c) => (/rgba\(.*,\s*([\d.]+)\)$/.exec(c) ? Number(/rgba\(.*,\s*([\d.]+)\)$/.exec(c)[1]) : c.startsWith("color(") ? Number(/\/\s*([\d.]+)\)/.exec(c)?.[1] ?? 1) : 1);
+  check(
+    "lagoon: those layers are translucent (a ground you can see through), the dialog's too",
+    [palette["background-color"], sheet["background-color"], probe.bg].every((c) => alpha(c) < 1),
+    JSON.stringify({ palette: palette["background-color"], sheet: sheet["background-color"], dialog: probe.bg }),
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  await page.locator(".settings").waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+  const card = await style(page, ".stream-card__poster", ["backdrop-filter", "background-color"]);
+  const tilt = await style(page, ".stream-card__tilt", ["backdrop-filter"]);
+  const rowsAny = await page.evaluate(() => [...document.querySelectorAll("*")].filter((e) => {
+    const cs = getComputedStyle(e);
+    return (e.classList.contains("stream-card__poster") || e.classList.contains("stream-card__tilt") || e.classList.contains("stream-card")) && cs.backdropFilter !== "none";
+  }).length);
+  check(
+    "lagoon: a card is the translucent wash with no backdrop blur (rows hold hundreds of posters, and WebView2 pays for each blurred layer while it scrolls)",
+    card["backdrop-filter"] === "none" && tilt["backdrop-filter"] === "none" && rowsAny === 0 && alpha(card["background-color"]) < 1,
+    JSON.stringify({ card, tilt, rowsAny }),
+  );
+  check("lagoon: no page errors", errors.length === 0, errors.join(" | "));
+  await ctx.close();
+}
+{
+  // Windows' "Transparency effects" off reaches the page as this media query.
+  // Playwright's emulateMedia has no reducedTransparency, so it goes through
+  // CDP, as Prism's check above does.
+  const { ctx, page } = await open({ store: { themePack: { data: "lagoon" } } });
+  const cdp = await ctx.newCDPSession(page);
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+  await page.waitForTimeout(100);
+  await goTo(page, "discover");
+  await page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
+  const t = await root(page, ["--surface", "--float-bg", "--float-blur", "--sheet-blur", "--glass-fx", "--page-ambient"]);
+  await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+  await page.locator(".settings").waitFor({ timeout: 10_000 });
+  const sheet = await style(page, ".settings", ["backdrop-filter", "background-color"]);
+  const nav = await style(page, ".navcap", ["backdrop-filter"]);
+  const card = await style(page, ".stream-card__poster", ["background-color"]);
+  const body = await style(page, "body", ["background-image"]);
+  check(
+    "lagoon with transparency effects off: opaque cards and floats, no blur anywhere, and no lit page",
+    t["--surface"] === "#102d34" && t["--float-bg"] === "#102d34" && t["--float-blur"] === "none" && t["--sheet-blur"] === "none" &&
+      t["--glass-fx"] === "none" && t["--page-ambient"] === "none" &&
+      sheet["backdrop-filter"] === "none" && /^rgb\(16, 45, 52\)$/.test(sheet["background-color"]) && nav["backdrop-filter"] === "none" &&
+      card["background-color"] === "rgb(16, 45, 52)" && !/gradient/.test(body["background-image"]),
+    JSON.stringify({ t, sheet, nav, card, body }),
+  );
+  await ctx.close();
+}
+{
+  // The page lit by the picture: Stream publishes the hero's colours to the
+  // root, and only under Lagoon. The fake's art is a flat colour, so the
+  // lights are that colour, in the canvas's four places.
+  const { ctx, page } = await open({ store: { themePack: { data: "lagoon" } } });
+  await goTo(page, "home");
+  await page.waitForSelector(".shero__ambient", { state: "attached", timeout: 20_000 });
+  const inline = () => page.evaluate(() => document.documentElement.style.getPropertyValue("--page-ambient"));
+  await page.waitForTimeout(1500);
+  const lit = await inline();
+  const sheetLights = (await root(page, ["--page-ambient"]))["--page-ambient"];
+  check(
+    "lagoon: the page wears the lights (the canvas's teal and amber until a hero's colours are read, then the picture's own), four of them",
+    (sheetLights.match(/radial-gradient/g) ?? []).length === 4,
+    JSON.stringify({ lit: lit.slice(0, 80), sheetLights: sheetLights.slice(0, 80) }),
+  );
+  // The art is cross-origin to the page: a host that sends no CORS header
+  // leaves the stylesheet's lights, and a host that does gets its colours read.
+  // Which the fake does is not this check's business; what must hold is that
+  // the page never ends up with a half-written value.
+  check("lagoon: what Stream publishes is four radial lights, or nothing at all", lit === "" || (lit.match(/radial-gradient/g) ?? []).length === 4, lit.slice(0, 100));
+  await page.evaluate(() => {
+    document.documentElement.dataset.themePack = "prism";
+  });
+  await page.waitForTimeout(300);
+  check("leaving Lagoon puts nothing on the root", (await inline()) === "");
+  await ctx.close();
+  const d = await open();
+  await goTo(d.page, "home");
+  await d.page.waitForSelector(".shero__ambient", { state: "attached", timeout: 20_000 });
+  await d.page.waitForTimeout(800);
+  check("no pack: Stream publishes no lights", (await d.page.evaluate(() => document.documentElement.style.getPropertyValue("--page-ambient"))) === "");
+  await d.ctx.close();
+}
+
+// ------------------------------------------------------------------ Fluent
+{
+  const { ctx, page, errors } = await open({ store: { themePack: { data: "fluent" } } });
+  const text = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+  const head = await fontOf(page, "--font-headline");
+  check(
+    "fluent: text is Segoe UI Variable Text and headings Segoe UI Variable Display, then Segoe UI, then the app's own stack",
+    text.startsWith('"Segoe UI Variable Text", "Segoe UI", "Geist Variable"') && head.startsWith('"Segoe UI Variable Display", "Segoe UI", "Geist Variable"'),
+    JSON.stringify({ text, head }),
+  );
+  check(
+    "fluent, no Mica (the browser build): the base is a solid #202020 and the page has not been marked",
+    (await bodyBg(page)) === "rgb(32, 32, 32)" && (await page.evaluate(() => document.documentElement.dataset.mica)) === undefined,
+    await bodyBg(page),
+  );
+  const t = await root(page, ["--text", "--text-muted", "--text-dim", "--accent", "--accent-ink", "--focus-ring"]);
+  check(
+    "fluent: text is white, #cfcfcf (78.6%) and #999999 (54.4%), the accent is Windows' blue and the focus ring is white",
+    t["--text"] === "#ffffff" && t["--text-muted"] === "#cfcfcf" && t["--text-dim"] === "#999999" && t["--accent"] === "#60cdff" && t["--accent-ink"] === "#000000" && t["--focus-ring"] === "#ffffff",
+    JSON.stringify(t),
+  );
+  const ring = await ringOf(page);
+  check(
+    "fluent: Tab shows a 2px white ring over a 1px black inner ring",
+    ring && ring.width === "2px" && ring.color === "rgb(255, 255, 255)" && ring.offset === "1px" &&
+      (await page.evaluate(() => getComputedStyle(document.activeElement).boxShadow)).includes("rgb(0, 0, 0) 0px 0px 0px 1px"),
+    JSON.stringify(ring),
+  );
+  check("fluent: no page errors", errors.length === 0, errors.join(" | "));
+  await ctx.close();
+}
+{
+  // With Mica: native answers yes at the IPC boundary.
+  const { ctx, page, errors } = await nativePage({ store: { themePack: { data: "fluent" } }, mica: true });
+  await page.waitForFunction(() => document.documentElement.dataset.mica === "on", null, { timeout: 5000 }).catch(() => {});
+  check("fluent with Mica: native was asked to turn it on, once, and the page is marked", JSON.stringify(await micaCalls(page)) === "[true]" && (await page.evaluate(() => document.documentElement.dataset.mica)) === "on", JSON.stringify(await micaCalls(page)));
+  check(
+    "fluent with Mica: the base is see-through (body and shell), so Mica shows",
+    (await bodyBg(page)) === "rgba(0, 0, 0, 0)" && (await shellBg(page)) === "rgba(0, 0, 0, 0)",
+    JSON.stringify({ body: await bodyBg(page), shell: await shellBg(page) }),
+  );
+  // The in-app mode: the inverted player's flag, which makes the shell the thing that paints.
+  await page.evaluate(() => document.documentElement.classList.add("invert-player"));
+  check("  and in the inverted player's mode the shell is see-through too", (await shellBg(page)) === "rgba(0, 0, 0, 0)", await shellBg(page));
+  await page.evaluate(() => document.documentElement.classList.remove("invert-player"));
+  // Windows' transparency effects off: the OS draws Mica as a colour, so the base is solid again.
+  const cdp = await ctx.newCDPSession(page);
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+  await page.waitForTimeout(100);
+  check("  and with transparency effects off the base is the solid #202020 again", (await paintBg(page)) === "rgb(32, 32, 32)", await paintBg(page));
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "no-preference" }] });
+  // Leaving Fluent: native is asked to take Mica off, and the base is solid at once.
+  await goTo(page, "home");
+  await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  const themes = page.getByRole("group", { name: "Theme" });
+  await themes.waitFor({ timeout: 10_000 });
+  for (const other of ["Velvet", "Lagoon", "Prism", "Default"]) {
+    await themes.getByRole("button", { name: "Fluent", exact: true }).click();
+    await page.waitForFunction(() => document.documentElement.dataset.mica === "on", null, { timeout: 5000 });
+    const before = (await micaCalls(page)).length;
+    await themes.getByRole("button", { name: other, exact: true }).click();
+    await page.waitForTimeout(100);
+    const calls = await micaCalls(page);
+    check(
+      `switching from Fluent to ${other} asks native to take Mica off, and the mark is gone`,
+      calls.length === before + 1 && calls[calls.length - 1] === false && (await page.evaluate(() => document.documentElement.dataset.mica)) === undefined,
+      JSON.stringify(calls),
+    );
+  }
+  check("fluent with Mica: no page errors", errors.length === 0, errors.join(" | "));
+  await ctx.close();
+}
+{
+  // Native says no (Windows 10, or the call failed): the base stays solid.
+  const { ctx, page } = await nativePage({ store: { themePack: { data: "fluent" } }, mica: false });
+  await page.waitForTimeout(500);
+  check(
+    "fluent where Mica can't apply: native was asked, said no, and the base is the solid #202020",
+    JSON.stringify(await micaCalls(page)) === "[true]" && (await paintBg(page)) === "rgb(32, 32, 32)" && (await page.evaluate(() => document.documentElement.dataset.mica)) === undefined,
+    JSON.stringify({ calls: await micaCalls(page), bg: await paintBg(page) }),
+  );
+  await ctx.close();
+  // A profile that never wears Fluent never calls native for Mica at all.
+  for (const key of ["none", "prism", "velvet", "lagoon"]) {
+    const o = await nativePage({ store: key === "none" ? {} : { themePack: { data: key } } });
+    await o.page.waitForTimeout(300);
+    check(`${key}: native is never asked about Mica`, (await micaCalls(o.page)).length === 0, JSON.stringify(await micaCalls(o.page)));
+    await o.ctx.close();
+  }
+  // Light: the pack is inert, so no Mica either.
+  const l = await nativePage({ scheme: "light", store: { theme: { data: "light" }, themePack: { data: "fluent" } } });
+  await l.page.waitForTimeout(300);
+  check("light with Fluent stored: native is not asked for Mica, and the page is Light's own", (await micaCalls(l.page)).length === 0 && (await root(l.page, ["--bg"]))["--bg"] === "oklch(0.965 0 0)", JSON.stringify(await micaCalls(l.page)));
+  await l.ctx.close();
+}
+
 // ------------------------------------------------------------ Light ignores
 {
   const { ctx, page, errors } = await open({ scheme: "light", store: { theme: { data: "light" }, themePack: { data: "prism" } } });
@@ -596,14 +997,14 @@ for (const [key, want] of Object.entries(PACKS)) {
   const themes = page.getByRole("group", { name: "Theme" });
   await themes.waitFor({ timeout: 10_000 });
   const names = await themes.locator("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  check("the Theme row has four cards: Default, Prism, Velvet, Lagoon", names.join() === "Default,Prism,Velvet,Lagoon", names.join());
+  check("the Theme row has five cards: Default, Prism, Velvet, Lagoon, Fluent", names.join() === "Default,Prism,Velvet,Lagoon,Fluent", names.join());
   check("Default is chosen on a fresh profile", (await themes.locator("button[aria-pressed='true']").getAttribute("aria-label")) === "Default");
   const swatches = await page.evaluate(() =>
     Object.fromEntries([...document.querySelectorAll("[data-swatch]")].map((e) => [e.getAttribute("data-swatch"), getComputedStyle(e).backgroundColor])),
   );
   check(
     "each card is drawn in its own page colour",
-    swatches.prism === rgb(PACKS.prism.bg) && swatches.velvet === rgb(PACKS.velvet.bg) && swatches.lagoon === rgb(PACKS.lagoon.bg),
+    swatches.prism === rgb(PACKS.prism.bg) && swatches.velvet === rgb(PACKS.velvet.bg) && swatches.lagoon === rgb(PACKS.lagoon.bg) && swatches.fluent === rgb(PACKS.fluent.bg),
     JSON.stringify(swatches),
   );
   const prismCard = await themes.getByRole("button", { name: "Prism" }).evaluate((el) => el.innerHTML);

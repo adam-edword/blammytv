@@ -1,7 +1,7 @@
 # Plan 035: Themes, colour first
 
-Status: BUILT v1.0.37 (Prism, Velvet, Lagoon). Round 2 (1.3) DECIDED
-2026-11-03, below. Canvas:
+Status: BUILT v1.0.37 (Prism, Velvet, Lagoon). Round 2 (1.3) BUILT
+v1.2.2, below. Canvas:
 https://claude.ai/artifact/26deGFP4euFfJYkQeEkhcH
 
 Adam: "i really like prism. but i think for the first few we should do

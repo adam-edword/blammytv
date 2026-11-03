@@ -1,6 +1,9 @@
 /**
- * Theme packs (plan 035): three dark palettes, colour only, laid over
- * tokens.css. Settings → Appearance → Theme sets `data-theme-pack` on the
+ * Theme packs (plan 035): four dark packs laid over tokens.css. A pack
+ * changes colour, type, texture, light and transparency. It NEVER changes a
+ * border-radius, a shape, a layout, a spacing or a component's markup (Adam,
+ * 1.3: "the themes should still be Shadcn at the core"); verify-themes
+ * compares the computed radii of Default and every pack. Settings → Appearance → Theme sets `data-theme-pack` on the
  * root (features/settings/themePack.ts).
  *
  * OVERLAYS, WITH NO DEFAULT PACK. No attribute is the base palette, byte for
@@ -21,8 +24,9 @@
  * checked for contrast in themePack.test.ts. Lagoon's translucent surfaces
  * are composed over its --bg into solid colours (rgb over #08191e). Borders
  * and tints stay alpha: they are drawn over whatever surface they sit on.
- * Fonts, radii, Velvet's grain and vignette and Lagoon's lit page are left
- * for later.
+ * Round 2 (1.3) added Velvet's type, grain, picture corners and footlight,
+ * Lagoon's see-through panels and lit page, and Fluent. The canvas's own
+ * corner radii (Velvet's sharp, Lagoon's round) are left out on purpose.
  *
  * What a block does not list resolves from tokens.css on the same element:
  * --plate, --menu-highlight and --float-bg read the pack's own surfaces, and
@@ -198,7 +202,8 @@
 }
 
 /* ----------------------------------------------------------------- Velvet
- * Oxblood surfaces, a brass accent. */
+ * Oxblood surfaces, a brass accent, Bodoni Moda over Figtree, film grain,
+ * darkened picture corners and a warm footlight under the Stream hero. */
 :root[data-theme-pack="velvet"]:not([data-theme="light"]) {
   --bg: #170d10;
   --surface: #251619;
@@ -230,18 +235,88 @@
   --focus-ring: var(--accent);
   --tint-on: color-mix(in srgb, var(--accent) 18%, transparent);
   --glass-lift: inset 0 1px 0 rgb(246 236 229 / 0.06), 0 18px 50px rgb(20 4 6 / 0.6);
+
+  /* Type (fonts.ts imports the files, which only download once something is
+   * set in them: nothing outside this block names these families). */
+  --font-headline: "Bodoni Moda Variable", Georgia, serif;
+  --font-text: "Figtree Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+
+  /* Film grain: a 160px tile of fractal noise, warm white, thresholded so only
+   * the brighter specks show, drawn at 15%. An inline SVG so there is no
+   * binary in the repo. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .96 0 0 0 0 .92 0 0 0 1.4 -.55'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='.15'/%3E%3C/svg%3E");
+  /* An inset shadow, not a radius: it follows the corners a picture has. */
+  --pic-vignette: inset 0 0 90px rgb(0 0 0 / 0.55);
+  /* The footlight, read by .shero__glowbox in place of the art's copies. */
+  --hero-glow: radial-gradient(
+    closest-side,
+    rgb(232 150 80 / 0.85),
+    rgb(150 36 48 / 0.5) 60%,
+    transparent
+  );
+}
+
+/* THE GRAIN: over the shell, content and all, as film grain is. In the shell
+ * so the player's hole cuts it (the video is never grained), and below the
+ * sheets and menus (z 60 and up, which sit outside the shell). Static. */
+:root[data-theme-pack="velvet"]:not([data-theme="light"]) .app-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  pointer-events: none;
+  background-image: var(--grain);
+  background-size: 160px 160px;
+}
+
+/* DARKENED PICTURE CORNERS. The picture is an <img>, which paints over its
+ * own inset shadow, so the shadow rides a pseudo-element on the picture's
+ * wrapper: posters, continue cards, "more like this", tiles and the hero's
+ * cards. */
+:root[data-theme-pack="velvet"]:not([data-theme="light"]) :is(.stream-card__tilt, .continue-card__tilt, .vod-more__tilt, .tile__pic) {
+  position: relative;
+}
+:root[data-theme-pack="velvet"]:not([data-theme="light"]) :is(.stream-card__tilt, .continue-card__tilt, .vod-more__tilt, .tile__pic)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: var(--pic-vignette);
+}
+:root[data-theme-pack="velvet"]:not([data-theme="light"]) .shero__tilt::after {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--on-image) 10%, transparent),
+    var(--pic-vignette);
+}
+
+/* THE FOOTLIGHT, in place of the art's blurred copies (the same swap Prism
+ * makes with its ramp). */
+:root[data-theme-pack="velvet"]:not([data-theme="light"]) .shero__glowtrack {
+  display: none;
+}
+:root[data-theme-pack="velvet"]:not([data-theme="light"]) .shero__glowbox {
+  filter: blur(36px);
+  opacity: 0.55;
 }
 
 /* ----------------------------------------------------------------- Lagoon
- * Deep teal, an aqua accent, and solid surfaces. */
+ * Deep teal, an aqua accent, see-through panels, and a page lit by the hero's
+ * picture. The surfaces are the canvas's own translucent colours; over --bg
+ * they compose to the solid hexes this block used to hold (#102d34 and the
+ * rest), which themePack.test.ts still holds to 4.5:1. */
 :root[data-theme-pack="lagoon"]:not([data-theme="light"]) {
   --bg: #08191e;
-  --surface: #102d34;
-  --surface-track: #06151a;
-  --surface-puck: #06151a;
-  --surface-raised: #163940;
-  --sidebar: #0a2228;
-  --sidebar-accent: #163938;
+  /* CARDS: the translucent wash and NO backdrop blur. Rows hold hundreds of
+   * posters and WebView2 pays for every blurred layer while it scrolls, so
+   * only the few floating layers below blur (a performance call, Adam
+   * can overrule). */
+  --surface: rgb(22 62 70 / 0.55);
+  --surface-track: rgb(4 18 22 / 0.55);
+  --surface-puck: rgb(4 18 22 / 0.55);
+  --surface-raised: rgb(31 78 86 / 0.6);
+  --sidebar: rgb(12 40 46 / 0.6);
+  --sidebar-accent: rgb(95 225 193 / 0.16);
   --sidebar-foreground: #eefbf8;
   --sidebar-accent-foreground: #eefbf8;
   --sidebar-border: rgb(238 251 248 / 0.1);
@@ -259,6 +334,157 @@
   --plate: #243438;
   --focus-ring: var(--accent);
   --tint-on: color-mix(in srgb, var(--accent) 20%, transparent);
+
+  /* THE FLOATING LAYERS see through: the header's capsule (--glass-fx, over
+   * the app's own 10% wash), menus, popovers and Ctrl+K (--float-*), the
+   * dialogs below and the settings panel (--sheet-*), all on the canvas's
+   * glass, blur 24px and saturate 1.6, over a wash of the text colour. */
+  --glass-fx: blur(24px) saturate(1.6);
+  --float-blur: blur(24px) saturate(1.6);
+  --sheet-blur: blur(24px) saturate(1.6);
+  --float-bg: color-mix(in srgb, #0a2228 70%, rgb(238 251 248 / 0.1));
+  --sheet-bg: color-mix(in srgb, #0a2228 78%, rgb(238 251 248 / 0.1));
+
+  /* THE PAGE LIT BY THE PICTURE. These are the canvas's own teal and amber
+   * lights, which the page wears until a hero's art gives it its own: Stream
+   * publishes the focused title's colours inline on the root
+   * (lib/pageAmbient.ts), and removes them when it goes. */
+  --page-ambient:
+    radial-gradient(50% 22% at 20% 6%, rgb(64 170 190 / 0.26), transparent 70%),
+    radial-gradient(40% 16% at 85% 36%, rgb(240 170 90 / 0.14), transparent 70%),
+    radial-gradient(55% 18% at 30% 62%, rgb(64 170 190 / 0.18), transparent 70%),
+    radial-gradient(50% 16% at 80% 92%, rgb(240 170 90 / 0.1), transparent 70%);
+}
+
+/* Where the page paints. Body in a browser; in the app the inverted player
+ * leaves body transparent and the shell paints (base.css), so the light goes
+ * on whichever is painting. */
+:root[data-theme-pack="lagoon"]:not([data-theme="light"]):not(.invert-player) body,
+:root.invert-player[data-theme-pack="lagoon"]:not([data-theme="light"]) .app-shell {
+  background: var(--page-ambient, none), var(--bg);
+}
+
+/* A dialog is bg-background, opaque, and a utility outranks this layer (the
+ * theme maps it straight to --bg), so the ground is !important; here it is
+ * the same glass as a menu. */
+:root[data-theme-pack="lagoon"]:not([data-theme="light"]) [data-slot="dialog-content"] {
+  background-color: var(--float-bg) !important;
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+}
+
+/* Over the video there is nothing behind the page to see or blur (the hole,
+ * as tokens.css puts it): solid, as the app's own floats are. */
+:root[data-theme-pack="lagoon"]:not([data-theme="light"]):has(.app-shell[style*="clip-path"]) {
+  --float-bg: #123036;
+  --float-blur: none;
+}
+
+/* OPAQUE AGAIN with Windows' transparency effects off: the card colours are
+ * the solid hexes the translucent ones compose to, the floats are the card
+ * colour, and no blur or light is drawn. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme-pack="lagoon"]:not([data-theme="light"]) {
+    --surface: #102d34;
+    --surface-track: #06151a;
+    --surface-puck: #06151a;
+    --surface-raised: #163940;
+    --sidebar: #0a2228;
+    --sidebar-accent: #163938;
+    --glass: #1f3034;
+    --glass-fx: none;
+    --float-bg: #102d34;
+    --float-blur: none;
+    --sheet-bg: #102d34;
+    --sheet-blur: none;
+    --page-ambient: none;
+  }
+}
+
+/* ----------------------------------------------------------------- Fluent
+ * Windows 11's dark look on shadcn's shapes. Layers are light washes over
+ * Mica (the window's own material, asked for in themePack.ts); where Mica
+ * can't show, the page is a solid #202020 and the washes sit on that. Text is
+ * white at 100%, 78.6% and 54.4%, written as the solid they make over
+ * #202020 (#cfcfcf, #999999), so a tier doesn't change with the layer under
+ * it. Fluent has three tiers, so ghost and faint are the third. */
+:root[data-theme-pack="fluent"]:not([data-theme="light"]) {
+  --bg: #202020;
+  --surface: rgb(255 255 255 / 0.0512);
+  --surface-track: rgb(0 0 0 / 0.1);
+  --surface-puck: rgb(0 0 0 / 0.1);
+  --surface-raised: rgb(255 255 255 / 0.0605);
+  --mix-base: #202020;
+  --sidebar: rgb(255 255 255 / 0.0326);
+  --sidebar-accent: rgb(255 255 255 / 0.0837);
+  --sidebar-foreground: #ffffff;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.0837);
+  --border: rgb(255 255 255 / 0.0837);
+  --border-strong: rgb(255 255 255 / 0.0837);
+  --border-raised: rgb(255 255 255 / 0.0837);
+  --border-input: rgb(255 255 255 / 0.14);
+  --text: #ffffff;
+  --text-muted: #cfcfcf;
+  --text-dim: #999999;
+  --text-ghost: #999999;
+  --text-faint: #999999;
+  --accent: #60cdff;
+  --accent-ink: #000000;
+  --plate: #3a3a3a;
+
+  /* Segoe UI Variable is a system font on Windows 11, so no file ships. Then
+   * Segoe UI (Windows 10), then the app's own stack. */
+  --font-headline: "Segoe UI Variable Display", "Segoe UI", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-text: "Segoe UI Variable Text", "Segoe UI", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* Flyouts are Fluent's acrylic: #2c2c2c at 96%. */
+  --float-bg: rgb(44 44 44 / 0.96);
+  --sheet-bg: rgb(43 43 43 / 0.97);
+  --glass-lift:
+    inset 0 1px 0 rgb(255 255 255 / 0.06), 0 8px 16px rgb(0 0 0 / 0.26), 0 0 2px rgb(0 0 0 / 0.24);
+
+  /* The focus visual: a 2px white ring over a 1px black one. The colour is
+   * the hook; the black inner ring is the rule below. */
+  --focus-ring: #ffffff;
+}
+
+/* The black inner ring, directly under the white one (the offset closes to
+ * 1px). The inset ones keep their white ring alone: they sit inside a clip
+ * the shadow would not clear. */
+:root[data-theme-pack="fluent"]:not([data-theme="light"]) :focus-visible:not(.row, .guide-resize, .sportstheater__edge) {
+  outline-offset: 1px;
+  box-shadow: 0 0 0 1px #000000;
+}
+
+/* MICA SHOWS: native has put it behind the window (data-mica, themePack.ts),
+ * so the page's base goes see-through and the layers wash over it. Without
+ * Mica the base stays the solid --bg above. The video is untouched: the page
+ * is see-through only where no mpv is. */
+:root[data-theme-pack="fluent"][data-mica="on"]:not([data-theme="light"]) body,
+:root[data-theme-pack="fluent"][data-mica="on"]:not([data-theme="light"]) .app-shell {
+  background: transparent;
+}
+
+/* Over the video, solid floats (the hole, as above). */
+:root[data-theme-pack="fluent"]:not([data-theme="light"]):has(.app-shell[style*="clip-path"]) {
+  --float-bg: #2c2c2c;
+  --float-blur: none;
+}
+
+/* With Windows' transparency effects off the OS draws Mica as a plain colour,
+ * so the base is Fluent's own solid again. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme-pack="fluent"][data-mica="on"]:not([data-theme="light"]) body,
+  :root[data-theme-pack="fluent"][data-mica="on"]:not([data-theme="light"]) .app-shell {
+    background: var(--bg);
+  }
+  :root[data-theme-pack="fluent"]:not([data-theme="light"]) {
+    --float-bg: #2c2c2c;
+    --float-blur: none;
+    --sheet-bg: #2b2b2b;
+    --sheet-blur: none;
+  }
 }
 
 /* A PICTURE IN A PACK. tokens.css remaps the page's ink to dark's on a

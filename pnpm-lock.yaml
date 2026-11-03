@@ -44,6 +44,12 @@ importers:
       '@dnd-kit/utilities':
         specifier: 3.2.2
         version: 3.2.2(react@18.3.1)
+      '@fontsource-variable/bodoni-moda':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/figtree':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource-variable/geist':
         specifier: ^5.3.0
         version: 5.3.0
@@ -477,6 +483,12 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@fontsource-variable/bodoni-moda@5.3.0':
+    resolution: {integrity: sha512-yTDXk4+/J8I20KjtkHBbXDQNeE5PR3BZa0gv/YRza+kyxsz+mmg0la/n/hsr6+WvSfVP7Lc8lRTjHGIYwBW43A==}
+
+  '@fontsource-variable/figtree@5.3.0':
+    resolution: {integrity: sha512-VRVodD7OiG7apQwE8/2fMjaqpY/a0qRJqL5HtYj8CKIVps+9amaFcdfKmDIf7iqYQx6iPLlArVXAfKeIZmVcNQ==}
 
   '@fontsource-variable/geist-mono@5.3.0':
     resolution: {integrity: sha512-vBbuwDEo9AkrqADMXOrlAR3DFcJi4/JxeuU43FoiQERnNwsfXNnvxvReZG02cQKmyk4DZkZdBZX3oTDvy2zBAw==}
@@ -3106,6 +3118,10 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
 
   '@floating-ui/utils@0.2.12': {}
+
+  '@fontsource-variable/bodoni-moda@5.3.0': {}
+
+  '@fontsource-variable/figtree@5.3.0': {}
 
   '@fontsource-variable/geist-mono@5.3.0': {}
 

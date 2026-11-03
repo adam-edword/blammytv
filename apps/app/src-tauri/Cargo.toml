@@ -84,6 +84,11 @@ flate2 = "1"
 # which is not churned for it: inv.rs and the rest stay on 0.61. It needs Rust
 # 1.85; time and others in the tree already need 1.88.
 cpal = "0.18"
+# Fluent's Mica (plan 035, window_mica in lib.rs). The crate tauri's own
+# set_effects calls, already in the tree. Used directly because set_effects
+# throws the result away (`let _ =`), and the page must know whether Mica took
+# (Windows 10 and older builds say no) to choose its solid base.
+window-vibrancy = "0.6"
 windows = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",

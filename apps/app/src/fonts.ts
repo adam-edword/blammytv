@@ -52,3 +52,11 @@ import "@fontsource-variable/geist";
  * hand-rolling `ui-monospace, "SFMono-Regular", "Consolas", "Menlo"` on
  * their own instead. */
 import "@fontsource-variable/geist-mono";
+/* Velvet's type (plan 035, round 2): Bodoni Moda for headings, Figtree for
+ * text. Imported always, painted only under Velvet: the stylesheets name
+ * these families nowhere else, and a browser fetches a font file only when
+ * something is set in it (each file has its own unicode-range too). Default
+ * and the other themes never download them. "Bodoni Moda Variable" and
+ * "Figtree Variable" are Fontsource's family names, as Geist's is. */
+import "@fontsource-variable/bodoni-moda";
+import "@fontsource-variable/figtree";

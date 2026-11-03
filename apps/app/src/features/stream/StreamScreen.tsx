@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type PointerEvent,
 } from "react";
@@ -24,6 +25,8 @@ import { Segmented } from "../../ui/Segmented";
 import { Tilt } from "../../ui/Tilt";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { artLoaded } from "../../lib/artIn";
+import { clearPageAmbient, lagoonShowing, publishPageAmbient } from "../../lib/pageAmbient";
+import { subscribeShowing } from "../settings/themePack";
 import { wantsEpisodeList } from "./backTarget";
 import { useMouseNav } from "../../lib/mouseNav";
 import { useViewStack } from "../../lib/viewStack";
@@ -3205,6 +3208,15 @@ function HeroAmbient({ src, fallback }: { src: string | null; fallback: string |
     // fallback changes with src (the same title), and a layer already showing
     // its picture is not repainted (the dataset check), so this costs nothing.
   }, [slot, fallback]);
+  // Lagoon lights the whole page from this art (lib/pageAmbient.ts). Any other
+  // theme does nothing here, and the page's own lights come back when the
+  // shelf goes or the theme changes.
+  const lit = useSyncExternalStore(subscribeShowing, lagoonShowing);
+  useEffect(() => {
+    if (lit) publishPageAmbient(src ?? fallback);
+    else clearPageAmbient();
+  }, [lit, src, fallback]);
+  useEffect(() => clearPageAmbient, []);
   return (
     <div className="shero__ambient" aria-hidden>
       {slot.urls.map((_, i) => (

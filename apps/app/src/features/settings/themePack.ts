@@ -6,17 +6,20 @@ import {
   isValidHex,
   type AccentStore,
 } from "./accent";
+import { tauriMica } from "../../lib/tauri";
 
 /**
- * Theme packs (plan 035): Prism, Velvet and Lagoon, colour only, dark only.
- * The palettes are styles/packs.css; this is the choice, and which accent is
- * on the root while it is made.
+ * Theme packs (plan 035): Prism, Velvet, Lagoon and Fluent, dark only. A pack
+ * changes colour, type, texture, light and transparency, never a radius, a
+ * shape or a layout (Adam, 1.3). The palettes are styles/packs.css; this is
+ * the choice, which accent is on the root while it is made, and Fluent's
+ * Mica.
  *
  * "none" is Default and the base palette: it removes `data-theme-pack`
  * rather than naming a pack (old/themes/README.md is why there is no default
  * pack). Stored like accent.ts, validated on the way in.
  */
-export type ThemePack = "none" | "prism" | "velvet" | "lagoon";
+export type ThemePack = "none" | "prism" | "velvet" | "lagoon" | "fluent";
 
 export interface PackInfo {
   key: ThemePack;
@@ -53,6 +56,14 @@ export const THEME_PACKS: readonly PackInfo[] = [
     label: "Lagoon",
     swatch: { bg: "#08191e", surface: "#102d34", accent: "#5fe1c1" },
     accent: "#5fe1c1",
+  },
+  {
+    // Windows 11's dark layers on Mica (#202020 where Mica can't show), and
+    // Windows' default dark accent.
+    key: "fluent",
+    label: "Fluent",
+    swatch: { bg: "#202020", surface: "#2b2b2b", accent: "#60cdff" },
+    accent: "#60cdff",
   },
 ];
 
@@ -157,15 +168,45 @@ export const prismShowing = (): boolean =>
 
 let watching = false;
 
-/** Apply a pack, and keep the accent right as light and dark change. */
+/** Whether the window was last asked to have Mica. Starts false: a window
+ * opens without it, so a profile that never wore Fluent never calls native. */
+let micaAsked = false;
+/** Orders the answers: the last question decides the root, not the last reply. */
+let micaSeq = 0;
+
+/**
+ * Fluent's Mica: asked for while Fluent is showing (chosen, and dark; the
+ * packs are inert in Light), taken off the moment anything else is. Only a
+ * change calls native. `data-mica="on"` goes on the root when native says the
+ * window has it, and packs.css lets the page go see-through on that; without
+ * it (Windows 10, a failed call, the browser build) Fluent's base stays a
+ * solid #202020. Off is synchronous, so the base is solid before Mica goes.
+ */
+function syncMica(): void {
+  const root = document.documentElement;
+  const want = root.dataset.themePack === "fluent" && root.dataset.theme !== "light";
+  if (!want) delete root.dataset.mica;
+  if (want === micaAsked) return;
+  micaAsked = want;
+  const seq = ++micaSeq;
+  void tauriMica(want).then((applied) => {
+    if (seq === micaSeq && want && applied) root.dataset.mica = "on";
+  });
+}
+
+/** Apply a pack, and keep the accent and Mica right as light and dark change. */
 export function applyThemePack(pack: ThemePack): void {
   const root = document.documentElement;
   if (pack === "none") delete root.dataset.themePack;
   else root.dataset.themePack = pack;
   syncAccent();
+  syncMica();
   if (!watching && typeof MutationObserver !== "undefined") {
     watching = true;
-    new MutationObserver(syncAccent).observe(root, {
+    new MutationObserver(() => {
+      syncAccent();
+      syncMica();
+    }).observe(root, {
       attributes: true,
       attributeFilter: ["data-theme"],
     });

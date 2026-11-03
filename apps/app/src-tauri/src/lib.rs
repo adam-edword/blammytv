@@ -272,6 +272,51 @@ fn inv_stop(window: tauri::WebviewWindow) -> Result<(), String> {
     }
 }
 
+/// Mica behind the main window, on while the Fluent theme is (plan 035). True
+/// when the window now has it, so the page can let it show; false when it
+/// could not (Windows 10 and builds before 22000 have no Mica, and a failed
+/// call is a no), and the page then keeps Fluent's solid base. `on: false`
+/// takes it off. The window is already transparent (tauri.conf), which Mica
+/// needs. The mpv child (inv.rs) is untouched: the page is see-through only
+/// where no video is.
+///
+/// window-vibrancy directly, not Window::set_effects: that discards the
+/// result, and the answer is the point.
+#[tauri::command]
+fn window_mica(window: tauri::WebviewWindow, on: bool) -> bool {
+    #[cfg(windows)]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let w = window.clone();
+        if window
+            .run_on_main_thread(move || {
+                let res = if on {
+                    window_vibrancy::apply_mica(&w, Some(true))
+                } else {
+                    // apply_mica(Some(true)) also darkened the title bar;
+                    // hand it back to the system theme.
+                    let r = window_vibrancy::clear_mica(&w);
+                    let _ = w.set_theme(None);
+                    r
+                };
+                if let Err(e) = &res {
+                    log::warn!("window_mica(on={on}): {e}");
+                }
+                let _ = tx.send(on && res.is_ok());
+            })
+            .is_err()
+        {
+            return false;
+        }
+        rx.recv().unwrap_or(false)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, on);
+        false
+    }
+}
+
 // ---- Direct mpv control for the inverted player's in-tree chrome (the
 // overlay webview's postMessage bridge doesn't exist on this path — these
 // are its verbs as plain commands). mpv calls are mutex-guarded and safe
@@ -2202,6 +2247,7 @@ pub fn run() {
             inv_open,
             inv_set_rect,
             inv_stop,
+            window_mica,
             mpv_pause,
             mpv_mute,
             mpv_volume,
