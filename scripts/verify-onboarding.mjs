@@ -177,6 +177,53 @@ if (!FAST) {
     JSON.stringify({ tourTitle, tour }));
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 
+  // The Ctrl+K step sits between the tour and Done: keycaps, a title, a sub,
+  // three example rows. Ctrl+K presses the caps and opens nothing.
+  await page.waitForSelector(".onb-keys", { timeout: 8000 });
+  const keysTitle = await page.$eval(".onb-title", (el) => el.textContent);
+  const keysSub = await page.$eval(".onb-sub", (el) => el.textContent);
+  const keyCaps = await page.$$eval(".onb-key", (els) => els.map((e) => e.textContent));
+  const exRows = await page.$$eval(".onb-ex__row", (rows) =>
+    rows.map((r) => [...r.children].map((c) => c.textContent)));
+  check("the Ctrl+K step has its title, sub and two keycaps",
+    keysTitle === "Get Anywhere with Ctrl+K" && keysSub === "Type what you want and press Enter." &&
+      JSON.stringify(keyCaps) === JSON.stringify(["Ctrl", "K"]),
+    JSON.stringify({ keysTitle, keysSub, keyCaps }));
+  check("  and three example rows, a query, an arrow, a result and its kind",
+    JSON.stringify(exRows) === JSON.stringify([
+      ["espn", "\u2192", "ESPN", "Channel"],
+      ["la la land", "\u2192", "La La Land", "Film"],
+      ["subtitles", "\u2192", "Subtitle Size", "Setting"],
+    ]), JSON.stringify(exRows));
+  check("  the decoration is hidden from a screen reader, with one sentence for it",
+    (await page.$eval(".onb-keys", (e) => e.getAttribute("aria-hidden"))) === "true" &&
+      (await page.$eval(".onb-ex", (e) => e.getAttribute("aria-hidden"))) === "true" &&
+      (await page.$eval(".onb-sr", (e) => e.textContent)) === "For example, type a channel\u2019s name, a film or a setting.");
+  await page.waitForTimeout(900); // the entrance settles
+  await page.keyboard.down("Control");
+  await page.keyboard.down("KeyK");
+  await page.waitForTimeout(150);
+  const pressed = await page.$$eval(".onb-key", (els) => els.map((e) => e.classList.contains("is-down")));
+  const lit = await page.$$eval(".onb-keys__glow", (els) => els.length);
+  if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT.replace(".png", "-press.png") });
+  await page.keyboard.up("KeyK");
+  await page.keyboard.up("Control");
+  await page.waitForTimeout(200);
+  const keysUp = await page.$$eval(".onb-key", (els) => els.map((e) => e.classList.contains("is-down")));
+  check("Ctrl+K presses both caps and lights them, then lets go",
+    pressed.every(Boolean) && lit === 1 && keysUp.every((d) => !d), JSON.stringify({ pressed, lit, keysUp }));
+  check("  and opens no palette, and the step stays put",
+    !(await page.$(".mvpick__input")) && (await page.$(".onb-keys")) !== null);
+  if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
+  // Back returns to the tour, Continue comes back here.
+  await page.getByRole("button", { name: "\u2190 Back" }).click();
+  check("  Back returns to the tour", await page.waitForSelector(".onb-tour", { timeout: 8000 }).then(() => true, () => false));
+  await page.waitForTimeout(900); // the swap settles before the next press
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-keys", { timeout: 8000 });
+  await page.waitForTimeout(900);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+
   // Done: the Settings nudge, then the hand-off.
   await page.getByRole("button", { name: "Enter BlammyTV" }).waitFor({ timeout: 8000 });
   const nudge = await page.$$eval(".onb-sub", (els) => els.map((e) => e.textContent).join(" "));
@@ -673,6 +720,8 @@ if (!FAST) {
   // Neither source was added, so there is no place to choose: Start On is
   // skipped and the tour is next.
   await page.waitForSelector(".onb-tour", { timeout: 8000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-keys", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
   // No timeline for reduced motion: the finale is a quick fade to the app.
@@ -1199,6 +1248,8 @@ const finishOnboarding = async (page) => {
   await page.waitForSelector(".onb-stage > .onb-chips", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.waitForSelector(".onb-tour", { timeout: 8000 });
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.waitForSelector(".onb-keys", { timeout: 8000 });
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Enter BlammyTV" }).click();
   return page.waitForFunction(() => !document.querySelector(".onb"), null, { timeout: 15000 }).then(() => true, () => false);

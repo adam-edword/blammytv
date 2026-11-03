@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.1: Ctrl+K in onboarding
+
+- **Onboarding** has a step for Ctrl+K before Done: two keycaps that press
+  when you do, and three examples (a channel, a film and a setting).
+
 ## 1.2.0: Home and recording (2026-10-30)
 
 This one runs the installer. There's no 1.1: Home and recording would each

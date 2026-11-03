@@ -416,6 +416,111 @@
   color: rgba(255, 255, 255, 0.62);
 }
 
+/* The Ctrl+K step: two physical keycaps above the title, and three static
+ * palette rows as examples. Pressing Ctrl+K presses the caps (Onboarding.tsx
+ * toggles .is-down and remounts the glow for each press). */
+.onb-keys {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+.onb-key {
+  display: grid;
+  place-items: center;
+  min-width: 96px;
+  height: 96px;
+  padding: 0 16px;
+  border-radius: 20px;
+  font-family: var(--font-headline);
+  font-size: 30px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #26262b, #151518);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+    0 6px 0 #0a0a0c,
+    0 14px 24px rgba(0, 0, 0, 0.6);
+  transition:
+    transform 90ms ease-out,
+    box-shadow 90ms ease-out;
+}
+.onb-key.is-down {
+  transform: translateY(5px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+    0 1px 0 #0a0a0c,
+    0 4px 10px rgba(0, 0, 0, 0.6);
+}
+.onb-keys__glow {
+  position: absolute;
+  inset: -24px;
+  border-radius: 40px;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.28), transparent);
+  animation: onb-keys-glow 520ms ease-out both;
+}
+@keyframes onb-keys-glow {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.onb-ex {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(480px, 82vw);
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.onb-ex__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 15px;
+  text-align: left;
+}
+.onb-ex__query {
+  flex: none;
+  width: 8.5em;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.onb-ex__arrow {
+  flex: none;
+  color: rgba(255, 255, 255, 0.35);
+}
+.onb-ex__result {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  color: #fff;
+}
+.onb-ex__kind {
+  flex: none;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+/* Said once to a screen reader in place of the decorative rows. */
+.onb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* The startup-tab rail: the shared segmented control, given a touch of
  * air. Its glass reads right on black as it is. */
 .onb-chips {
@@ -471,6 +576,12 @@
  * timers run near-instant). Everything here is on plain timers now —
  * nothing waits on transitionend. */
 @media (prefers-reduced-motion: reduce) {
+  /* The keys light up and do not move. */
+  .onb-key,
+  .onb-key.is-down {
+    transform: none;
+    transition: none;
+  }
   .onb-stage.is-in > *,
   .onb-stage.is-out > *,
   /* Restated: these rules are MORE specific than the wildcard above. */

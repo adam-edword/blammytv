@@ -88,8 +88,8 @@ import { BootScene, BOOT_TIMELINE_MS, type BootSceneHandle } from "./BootScene";
  *
  * Steps: 0 logo · 1 sign in to AIOStreams · 2 live tv · 3 follow what you
  * watch (Trakt, MyAnimeList; skipped both ways when this build has neither
- * key) · 4 accent+clock · 5 startup tab · 6 tour · 7 done (go-explore-
- * Settings nudge).
+ * key) · 4 accent+clock · 5 startup tab · 6 tour · 7 Ctrl+K · 8 done
+ * (go-explore-Settings nudge).
  *
  * Unlike a cold boot, the finale is NOT input-skippable (Adam's call:
  * it's the earned finale, not a wait).
@@ -119,7 +119,8 @@ const STEP = {
   look: 4,
   start: 5,
   tour: 6,
-  done: 7,
+  keys: 7,
+  done: 8,
 } as const;
 const LAST_STEP = STEP.done;
 
@@ -130,6 +131,15 @@ const TOUR = [
   { name: "Multi-View", line: "Up to four channels at once. Right-click a channel in the Guide to add it." },
   { name: "Discover", line: "Search your catalogs, or browse them by genre." },
   { name: "Sports", line: "Today’s games, with the channels showing them." },
+] as const;
+
+/** The Ctrl+K step's three examples: what is typed, what it finds, and the
+ * palette's own word for the kind (its groups are Channels, Films and Series,
+ * and a Settings row says "Settings"). */
+const KEYS_EXAMPLES = [
+  { query: "espn", result: "ESPN", kind: "Channel" },
+  { query: "la la land", result: "La La Land", kind: "Film" },
+  { query: "subtitles", result: "Subtitle Size", kind: "Setting" },
 ] as const;
 
 const idx = (i: number) => ({ "--i": String(i) }) as CSSProperties;
@@ -299,6 +309,32 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // The Ctrl+K step presses its two keycaps. App's own Ctrl+K stays shut
+  // while onboarding is up (App.tsx), so this only draws the press. Matched
+  // by code, so a layout where K is elsewhere still works.
+  const [keysDown, setKeysDown] = useState(false);
+  const [keysFlash, setKeysFlash] = useState(0);
+  useEffect(() => {
+    if (step !== STEP.keys) return;
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== "KeyK" || !(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      setKeysDown(true);
+      setKeysFlash((n) => n + 1);
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "KeyK" || e.key === "Control" || e.key === "Meta") setKeysDown(false);
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      setKeysDown(false);
+    };
+  }, [step]);
 
   /** Whether this build has a Trakt or MyAnimeList app key to connect with.
    * A ref: the swap reads it 400ms after the press, long after the status
@@ -692,7 +728,7 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
     step === STEP.logo ? advance
     : step === STEP.signIn ? (signInMode ? continueSignIn : continueStreams)
     : step === STEP.tv ? continueTv
-    : step === STEP.follow || step === STEP.look || step === STEP.start || step === STEP.tour ? advance
+    : step === STEP.follow || step === STEP.look || step === STEP.start || step === STEP.tour || step === STEP.keys ? advance
     : finish;
 
   const quick = flow.phase.at === "code" ? flow.phase.start : null;
@@ -1135,6 +1171,39 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
           type="button"
           className="onb-btn"
           style={idx(2)}
+          onClick={advance}
+        >
+          Continue
+        </Button>
+      </>
+    ) : step === STEP.keys ? (
+      <>
+        <div className="onb-keys" style={idx(0)} aria-hidden>
+          <span className={"onb-key" + (keysDown ? " is-down" : "")}>Ctrl</span>
+          <span className={"onb-key" + (keysDown ? " is-down" : "")}>K</span>
+          {keysFlash > 0 && <span key={keysFlash} className="onb-keys__glow" />}
+        </div>
+        <h1 className="onb-title" style={idx(1)}>
+          Get Anywhere with Ctrl+K
+        </h1>
+        <p className="onb-sub" style={idx(2)}>
+          Type what you want and press Enter.
+        </p>
+        <ul className="onb-ex" style={idx(3)} aria-hidden>
+          {KEYS_EXAMPLES.map((x) => (
+            <li key={x.query} className="onb-ex__row">
+              <span className="onb-ex__query">{x.query}</span>
+              <span className="onb-ex__arrow">&rarr;</span>
+              <span className="onb-ex__result">{x.result}</span>
+              <span className="onb-ex__kind">{x.kind}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="onb-sr">For example, type a channel&rsquo;s name, a film or a setting.</p>
+        <Button variant="default" size="lg"
+          type="button"
+          className="onb-btn"
+          style={idx(4)}
           onClick={advance}
         >
           Continue
