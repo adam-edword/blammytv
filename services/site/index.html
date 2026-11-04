@@ -91,8 +91,8 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
 .bezel { position: relative; z-index: 2; padding: 10px; border-radius: 20px; background: linear-gradient(#1c1c1f, #0e0e10); border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 50px 120px rgba(0, 0, 0, 0.65); }
 .display { position: relative; overflow: hidden; border-radius: 9px; background: #000; aspect-ratio: 1700 / 910; }
 .display img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.display .home-alt { position: absolute; inset: 0; opacity: 0; transition: opacity 900ms ease; }
-.display .home-alt.on { opacity: 1; }
+.display .tab-alt { position: absolute; inset: 0; opacity: 0; transition: opacity 900ms ease; }
+.display .tab-alt.on { opacity: 1; }
 .glare { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(118deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.015) 34%, rgba(255, 255, 255, 0) 52%); }
 .stand__neck { position: relative; z-index: 2; width: 12%; aspect-ratio: 1.25; margin: 0 auto; background: linear-gradient(90deg, #111113, #2b2b2f 46%, #18181b); clip-path: polygon(16% 0, 84% 0, 100% 100%, 0 100%); }
 .stand__base { position: relative; z-index: 2; width: 32%; height: 14px; margin: 0 auto; border-radius: 6px 6px 14px 14px; background: linear-gradient(#2d2d31, #141416); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 22px 36px rgba(0, 0, 0, 0.7); }
@@ -353,9 +353,12 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
         <div class="bezel">
           <div class="display" id="screen" role="tabpanel" aria-labelledby="tab-home">
             <img id="screen-img" src="assets/Home.webp" alt="BlammyTV's Home page">
-            <!-- Home's tab fades through two more layouts of the same page (Adam). -->
-            <img class="home-alt" src="assets/Home_2.webp" alt="" aria-hidden="true" decoding="async">
-            <img class="home-alt" src="assets/Home_3.webp" alt="" aria-hidden="true" decoding="async">
+            <!-- Home's tab fades through two more layouts of the page, and Movies
+                 and Shows through Discover and a title's sources (Adam). -->
+            <img class="tab-alt" data-tab="tab-home" src="assets/Home_2.webp" alt="" aria-hidden="true" decoding="async">
+            <img class="tab-alt" data-tab="tab-home" src="assets/Home_3.webp" alt="" aria-hidden="true" decoding="async">
+            <img class="tab-alt" data-tab="tab-stream" src="assets/Stream_Discover.webp" alt="" aria-hidden="true" decoding="async">
+            <img class="tab-alt" data-tab="tab-stream" src="assets/Stream_Title.webp" alt="" aria-hidden="true" decoding="async">
             <div class="glare" aria-hidden="true"></div>
           </div>
         </div>
@@ -398,7 +401,7 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
   <div class="feat__in">
     <div class="feat__copy">
       <span class="chip">Home</span>
-      <h2>A Home of Your Own</h2>
+      <h2>A Home of<br>Your Own</h2>
       <p>Click the logo for one page of your rows in your order: Continue Watching, your catalogs, starred channels, today's games, recordings and saved lists.</p>
       <ul>
         <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Arrange, rename or switch off rows in Settings → Home.</li>
@@ -727,26 +730,28 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
   hero.addEventListener("pointerleave", () => hero.style.setProperty("--ga", "0"));
 
   const screen = $("#screen"), screenImg = $("#screen-img");
-  // Home's tab cycles its layouts every 4s; any other tab stops it on the first.
-  const homeAlts = $$(".home-alt", screen);
-  let homeTimer = 0;
-  const homeCycle = (on) => {
-    clearInterval(homeTimer);
-    homeAlts.forEach((im) => im.classList.remove("on"));
-    if (!on || reduceMotion) return;
+  // A tab with more pictures (Home, Movies and Shows) fades through them
+  // every 4s from its own; switching tabs starts over. Still for reduced motion.
+  const tabAlts = $$(".tab-alt", screen);
+  let altTimer = 0;
+  const cycleFor = (id) => {
+    clearInterval(altTimer);
+    tabAlts.forEach((im) => im.classList.remove("on"));
+    const alts = tabAlts.filter((im) => im.dataset.tab === id);
+    if (!alts.length || reduceMotion) return;
     let n = 0;
-    homeTimer = setInterval(() => {
-      n = (n + 1) % (homeAlts.length + 1);
-      homeAlts.forEach((im, i) => im.classList.toggle("on", i === n - 1));
+    altTimer = setInterval(() => {
+      n = (n + 1) % (alts.length + 1);
+      alts.forEach((im, i) => im.classList.toggle("on", i === n - 1));
     }, 4000);
   };
   roving($("[role=tablist]"), "aria-selected", (b) => {
     screenImg.src = b.dataset.src;
     screenImg.alt = b.dataset.alt;
     screen.setAttribute("aria-labelledby", b.id);
-    homeCycle(b.id === "tab-home");
+    cycleFor(b.id);
   });
-  homeCycle(true);
+  cycleFor("tab-home");
 
   /* ---- Stream: three screens crossfade, held still for reduced motion ---- */
   const slides = $$(".shots img");
