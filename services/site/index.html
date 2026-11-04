@@ -91,6 +91,8 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
 .bezel { position: relative; z-index: 2; padding: 10px; border-radius: 20px; background: linear-gradient(#1c1c1f, #0e0e10); border: 1px solid rgba(255, 255, 255, 0.09); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 50px 120px rgba(0, 0, 0, 0.65); }
 .display { position: relative; overflow: hidden; border-radius: 9px; background: #000; aspect-ratio: 1700 / 910; }
 .display img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.display .home-alt { position: absolute; inset: 0; opacity: 0; transition: opacity 900ms ease; }
+.display .home-alt.on { opacity: 1; }
 .glare { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(118deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.015) 34%, rgba(255, 255, 255, 0) 52%); }
 .stand__neck { position: relative; z-index: 2; width: 12%; aspect-ratio: 1.25; margin: 0 auto; background: linear-gradient(90deg, #111113, #2b2b2f 46%, #18181b); clip-path: polygon(16% 0, 84% 0, 100% 100%, 0 100%); }
 .stand__base { position: relative; z-index: 2; width: 32%; height: 14px; margin: 0 auto; border-radius: 6px 6px 14px 14px; background: linear-gradient(#2d2d31, #141416); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 22px 36px rgba(0, 0, 0, 0.7); }
@@ -351,6 +353,9 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
         <div class="bezel">
           <div class="display" id="screen" role="tabpanel" aria-labelledby="tab-home">
             <img id="screen-img" src="assets/Home.webp" alt="BlammyTV's Home page">
+            <!-- Home's tab fades through two more layouts of the same page (Adam). -->
+            <img class="home-alt" src="assets/Home_2.webp" alt="" aria-hidden="true" decoding="async">
+            <img class="home-alt" src="assets/Home_3.webp" alt="" aria-hidden="true" decoding="async">
             <div class="glare" aria-hidden="true"></div>
           </div>
         </div>
@@ -722,11 +727,26 @@ h2 { margin: 0; font-family: var(--head); font-weight: 700; font-size: clamp(34p
   hero.addEventListener("pointerleave", () => hero.style.setProperty("--ga", "0"));
 
   const screen = $("#screen"), screenImg = $("#screen-img");
+  // Home's tab cycles its layouts every 4s; any other tab stops it on the first.
+  const homeAlts = $$(".home-alt", screen);
+  let homeTimer = 0;
+  const homeCycle = (on) => {
+    clearInterval(homeTimer);
+    homeAlts.forEach((im) => im.classList.remove("on"));
+    if (!on || reduceMotion) return;
+    let n = 0;
+    homeTimer = setInterval(() => {
+      n = (n + 1) % (homeAlts.length + 1);
+      homeAlts.forEach((im, i) => im.classList.toggle("on", i === n - 1));
+    }, 4000);
+  };
   roving($("[role=tablist]"), "aria-selected", (b) => {
     screenImg.src = b.dataset.src;
     screenImg.alt = b.dataset.alt;
     screen.setAttribute("aria-labelledby", b.id);
+    homeCycle(b.id === "tab-home");
   });
+  homeCycle(true);
 
   /* ---- Stream: three screens crossfade, held still for reduced motion ---- */
   const slides = $$(".shots img");
