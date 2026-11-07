@@ -269,6 +269,9 @@
    * opened behind it. */
   --z-header: 20;
   --z-bar: 21;
+  /* Velvet's film grain (packs.css): over the header and the bar, under
+   * panels, sheets and menus. */
+  --z-grain: 25;
   --z-panel: 30;
   --z-tip: 40;
   --z-player: 45;
