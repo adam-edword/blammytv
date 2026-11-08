@@ -87,7 +87,7 @@ async function open({ store = {}, scheme = "dark", reduced = false } = {}) {
     { store, PLAYLISTS, AIO },
   );
   await page.goto(APP, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".navcap", { timeout: 20_000 });
+  await page.waitForSelector(".navcap, .flc-title", { timeout: 20_000 });
   return { ctx, page, errors };
 }
 
@@ -140,7 +140,8 @@ const style = (page, sel, props, pseudo) =>
  * pills are read too: no theme puts anything on them. */
 async function hooks(page) {
   const pills = await page.evaluate(() =>
-    [".navcap__row--nav .navcap__pill", ".navcap__row--sub .navcap__pill"].map((sel) => {
+    // Fluent has no capsule (its title bar and pane replace it), so no pills.
+    [".navcap__row--nav .navcap__pill", ".navcap__row--sub .navcap__pill"].filter((sel) => document.querySelector(sel)).map((sel) => {
       const cs = getComputedStyle(document.querySelector(sel));
       return { image: cs.backgroundImage, color: cs.backgroundColor };
     }),
@@ -304,7 +305,8 @@ for (const [key, want] of Object.entries(PACKS)) {
   const line = await style(page, ".guide__nowline", ["background-image"]);
   const lineGlow = await style(page, ".guide__nowline", ["background-image", "filter", "opacity"], "::before");
   await goTo(page, "home");
-  await page.waitForSelector(".shero__glowbox", { state: "attached", timeout: 20_000 });
+  // Fluent draws its own banner on Stream, not the hero's halo (so no glowbox).
+  await page.waitForSelector(key === "fluent" ? ".fls-banner" : ".shero__glowbox", { state: "attached", timeout: 20_000 });
   await seen("Stream");
   const glow = await style(page, ".shero__glowbox", ["background-image", "filter", "opacity"]);
   const track = await style(page, ".shero__glowtrack", ["display"]);
@@ -350,7 +352,7 @@ for (const [key, want] of Object.entries(PACKS)) {
     check(
       `${key}: none of the ramp's hooks is set`,
       h.fill.image === "none" && blank(h.dotGlow) && line["background-image"] === "none" &&
-        (key === "velvet" || (glow["background-image"] === "none" && track.display === "flex")),
+        (key === "fluent" ? glow === null && track === null : key === "velvet" || (glow["background-image"] === "none" && track.display === "flex")),
       JSON.stringify({ fill: h.fill.image, line, glow }),
     );
     if (key === "velvet")
@@ -365,9 +367,10 @@ for (const [key, want] of Object.entries(PACKS)) {
     await page.waitForTimeout(300);
     check(`${key}: no dither field and no cursor light`, noDither(await dither(page)) && (await glowOf(page)).count === 0);
   }
+  // Fluent has no capsule to carry pills; the others keep both.
   check(
     `${key}: the nav's pills are the app's own, with no image on either`,
-    h.pills.length === 2 && h.pills.every((p) => p.image === "none"),
+    key === "fluent" ? h.pills.length === 0 : h.pills.length === 2 && h.pills.every((p) => p.image === "none"),
     JSON.stringify(h.pills),
   );
   check(`${key}: no page errors`, errors.length === 0, errors.join(" | "));
@@ -622,7 +625,7 @@ async function nativePage({ store = {}, mica = true, scheme = "dark" } = {}) {
     { store, PLAYLISTS, AIO, mica },
   );
   await page.goto(APP, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".navcap", { timeout: 20_000 });
+  await page.waitForSelector(".navcap, .flc-title", { timeout: 20_000 });
   return { ctx, page, errors };
 }
 const micaCalls = (page) => page.evaluate(() => window.__calls.filter((c) => c[0] === "window_mica").map((c) => c[1].on));
@@ -666,7 +669,10 @@ const fontOf = (page, token) =>
     await goTo(page, "discover");
     await page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
     const got = await radii(page);
-    check(`radii: ${key} leaves every corner as Default has it`, flatten(got) === flatten(want), JSON.stringify({ got, want }));
+    // Fluent is the Windows 11 app now (8px cards, 4px controls): the plan
+    // (035, "Tier 3") exempts a tier-3 pack from the corner check. Its tokens
+    // are still held to Default's below. themePack.ts still lists it as tier 2.
+    if (key !== "fluent") check(`radii: ${key} leaves every corner as Default has it`, flatten(got) === flatten(want), JSON.stringify({ got, want }));
     const tok = await root(page, RADIUS_TOKENS);
     check(`radii: ${key} leaves the radius tokens alone`, JSON.stringify(tok) === JSON.stringify(wantTok), JSON.stringify({ tok, wantTok }));
     await ctx.close();
@@ -1163,7 +1169,7 @@ async function pickAndSave(page) {
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Velvet", exact: true }).click();
   await page.getByRole("group", { name: "Accent color" }).getByRole("button", { name: "Blue", exact: true }).click();
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".navcap", { timeout: 20_000 });
+  await page.waitForSelector(".navcap, .flc-title", { timeout: 20_000 });
   const t0 = await page.evaluate(() => window.__t);
   const t = await root(page, ["--bg", "--accent"]);
   check(

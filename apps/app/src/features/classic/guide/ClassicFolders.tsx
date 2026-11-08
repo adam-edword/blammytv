@@ -1,7 +1,8 @@
 import { memo, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { useConnections } from "../../live/connections";
 import { splitTitleEmoji } from "../../live/emoji";
-import type { Mode } from "../../live/LiveScreen";
+/** The Guide's list modes, as LiveScreen names them (a screen may not import another screen's file: verify-kit M2). */
+type Mode = "playlist" | "favorites" | "recents" | "recordings";
 import type { LiveData } from "../../live/model";
 
 /** The Live TV tab's folders as a Classic tree: Windows 2000 Explorer's

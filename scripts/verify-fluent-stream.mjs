@@ -117,10 +117,7 @@ async function open(face, { tauri = false, store = {}, streams = null, tmdb = fa
   await page.goto(APP, { waitUntil: "domcontentloaded" });
   const skip = page.getByRole("button", { name: /skip setup/i }).first();
   if (await skip.isVisible().catch(() => false)) await skip.click();
-  await page.waitForSelector(".navcap", { timeout: 20_000 });
-  // The chrome's title bar replaces the old header's clock and version, which
-  // sit where the page's own top-left controls are; they take no clicks here.
-  await page.addStyleTag({ content: ".header__brand, .header__clock, .header__version { pointer-events: none; }" });
+  await page.waitForSelector(".navcap, .flc-title", { timeout: 20_000 });
   return { ctx, page };
 }
 

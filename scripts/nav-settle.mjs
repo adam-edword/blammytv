@@ -50,7 +50,7 @@ export async function settleNav(page, dest) {
           (a) =>
             a.playState === "running" &&
             a.effect?.target instanceof Element &&
-            a.effect.target.closest(".navcap"),
+            a.effect.target.closest(".navcap, .flc-pane"),
         );
       return !moving && now - seen[sel].since >= still;
     },

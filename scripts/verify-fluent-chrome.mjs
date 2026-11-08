@@ -156,15 +156,15 @@ async function suite(face) {
   // Press the one you are on: a title's page goes back to the rows. Back
   // (the title bar's arrow) walks the same stack.
   await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
-  await page.waitForSelector(".vod-detail", { timeout: 15_000 });
+  await page.waitForSelector(".fls-title", { timeout: 15_000 });
   await page.locator('.flc-title button[aria-label="Back"]').click();
-  await page.waitForFunction(() => !document.querySelector(".vod-detail"), null, { timeout: 5000 }).catch(() => {});
-  check(T("Back in the title bar does Back: a title's page closes"), (await page.locator(".vod-detail").count()) === 0);
+  await page.waitForFunction(() => !document.querySelector(".fls-title"), null, { timeout: 5000 }).catch(() => {});
+  check(T("Back in the title bar does Back: a title's page closes"), (await page.locator(".fls-title").count()) === 0);
   await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
-  await page.waitForSelector(".vod-detail", { timeout: 15_000 });
+  await page.waitForSelector(".fls-title", { timeout: 15_000 });
   await page.locator('.flc-pane [data-dest="home"]').click();
-  await page.waitForFunction(() => !document.querySelector(".vod-detail"), null, { timeout: 5000 }).catch(() => {});
-  check(T("pressing Stream while on Stream goes home: the title's page closes"), (await page.locator(".vod-detail").count()) === 0);
+  await page.waitForFunction(() => !document.querySelector(".fls-title"), null, { timeout: 5000 }).catch(() => {});
+  check(T("pressing Stream while on Stream goes home: the title's page closes"), (await page.locator(".fls-title").count()) === 0);
 
   // ------------------------------------------------------ Ctrl+K, the pill
   await page.keyboard.press("Control+k");

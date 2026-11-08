@@ -125,9 +125,9 @@ const boardFor = (path, dates) => {
 // -------------------------------------------------------------- the page
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 
-async function open({ face, tab, follows }) {
+async function open({ face, tab, follows, width = 1440 }) {
   const ctx = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
+    viewport: { width, height: 900 },
     colorScheme: face,
     reducedMotion: "reduce",
   });
@@ -162,7 +162,7 @@ async function open({ face, tab, follows }) {
     { PLAYLISTS, tab, follows },
   );
   await page.goto(APP, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".navcap", { timeout: 20_000 });
+  await page.waitForSelector(".navcap, .flc-title", { timeout: 20_000 });
   // The chrome builder's work is not here, so the pack is also set straight
   // on the root, in the face under test.
   await page.evaluate((face) => {
@@ -346,8 +346,10 @@ async function live(face) {
 // =================================================================== SPORTS
 async function sports(face) {
   const tag = `sports ${face}`;
-  const { ctx, page, errors } = await open({ face, tab: "live", follows: ["football/nfl"] });
-  await page.waitForSelector(".navcap");
+  // 1600 wide: the title bar's pane takes 280px, so at 1440 the grid holds two
+  // 300px cards a row, not three.
+  const { ctx, page, errors } = await open({ face, tab: "live", follows: ["football/nfl"], width: 1600 });
+  await page.waitForSelector(".navcap, .flc-title");
   await goTo(page, "sports");
   await page.waitForSelector(".fl-game", { timeout: 20_000 });
   // The channel list lands after the schedule: the links appear with it.

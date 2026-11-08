@@ -2,6 +2,19 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.6: Classic, and Fluent as a real Windows 11 app
+
+- **Classic**, a new theme in Settings → Appearance: BlammyTV as a Windows
+  2000 app. A toolbar of icon buttons, an address bar and a status bar;
+  grey bevels and Tahoma; the Guide as a folders tree beside the grid,
+  Sports with LED scoreboards, films and series as Details lists, Discover
+  as Thumbnails, Ctrl+K as a Go To box and Settings as Display Properties.
+- **Fluent** now looks like a Windows 11 app: a title bar with the search
+  (it's Ctrl+K), a navigation pane that folds to a rail, Settings laid out
+  like Windows Settings, and Live TV and Sports with a folders or leagues
+  column beside the page.
+- Switching themes on the Guide no longer blanks the screen.
+
 ## 1.2.5: Away team first
 
 - **Sports cards list the visiting team first** in football, basketball,
