@@ -244,3 +244,8 @@ Discover with a SelectorBar, a Genre ComboBox, its own page search and a
 "Find Something to Watch" button; the player as Windows 11 Media Player
 (video full under the title bar, a floating rounded acrylic transport bar).
 Builds after Aero and Classic settle themePack's tier field.
+Navigation (Adam: "maybe we have both, where the collapsible button in the
+top left of pane makes it look like rail"): the full pane (Photos) by
+default, and its hamburger collapses it to the Store's rail (icons with
+small labels under them) and back, remembered. The page sits on a rounded
+content layer, as the Store and Photos have it (Settings is the exception).
