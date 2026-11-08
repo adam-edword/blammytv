@@ -266,3 +266,10 @@ caption headers with their leagues and today's counts) beside a day
 SelectorBar and game cards three across, grouped Live Now / Later Today /
 Final, the away team first, the loser dimmed on finals, status in accent
 with a live dot, "Live on N channels" as a hyperlink button.
+
+## Rule: the logo never changes (Adam, 2026-11-08)
+
+"the logo is a box, the logo should never change no matter what." Every
+theme, every tier, draws the BlammyTV mark with the app's own logo
+component, same shape, colours and animation. Only its size may differ.
+No theme paint (square corners, bevels, filters) may reach it.
