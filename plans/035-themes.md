@@ -224,3 +224,9 @@ button row: ⏪10, play, 10⏩, prev/next channel, Live, then Record, Audio,
 Subtitles, Mini-Guide, Stats, Full Screen, and VLC's volume wedge with a
 percentage). The mini-guide is a floating Classic tool window over the left
 of the video (Channel / Now / Next) and never shrinks the picture.
+Fading: in theater the menu strip and control bar stay, like VLC's window
+(they sit outside the picture, so hiding them only leaves black bands and a
+jump); in full screen the picture fills the screen and the same Classic
+control bar floats over its bottom and fades after a few idle seconds, as
+today, like VLC's full-screen controller. The mini-guide window stays until
+closed or G.
