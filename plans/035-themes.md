@@ -210,16 +210,17 @@ for these settings is in the BlammyTV docs, in your browser") with an "Open
 Help in Browser" link; only the link leaves the app (Adam: "clicking the
 question mark shouldn't automatically take you to the docs"). Multi-View follows the same parts and needs no mock.
 
-### Classic's player (mocked 2026-11-08)
+### Classic's player (mocked 2026-11-08, reworked VLC-style)
 
-Windows Media Player 6.4 as BlammyTV: the app's chrome stays, a strip of
-"◀ Back to Guide / ☆ Add to Favorites / Send to Multi-View" sits above the
-video, the video in a sunken black frame, and the controls OUT of the
-overlay in a grey panel below it: a tick-marked seek trackbar ("Started
-7:00 PM … LIVE", or elapsed and remaining with chapter ticks for a film),
-square raised transport buttons, a volume trackbar, Record and the other
-icon buttons on the right, and a black info panel ("Channel / Now / Next /
-About", or "Title / Source / Chapter"). The mini-guide's list docks as a
-pane left of the video, a Channel / Now / Next Details list, the video
-narrowing beside it. Full screen keeps today's overlay controls (only the
-picture fills the screen there; noted, not mocked).
+Adam on the first, WMP-6.4 version: "the video is cropped waaaay too much
+... more of a vlc-like layout ... way less cramped. we can lose the whole nav
+bar and address too". So in the player: no app toolbar, address or status
+bar. A thin grey strip on top with a VLC-style text menu ("◀ Guide /
+Channel / Audio / Subtitles / View / Help", or "◀ Back / Playback / ..." for
+a film) and the channel and programme on the right; black video edge to
+edge, the picture ~91% of the height; a slim two-row Classic control bar
+(seek row: "Started 7:00 PM ... LIVE" or elapsed, chapters and remaining;
+button row: ⏪10, play, 10⏩, prev/next channel, Live, then Record, Audio,
+Subtitles, Mini-Guide, Stats, Full Screen, and VLC's volume wedge with a
+percentage). The mini-guide is a floating Classic tool window over the left
+of the video (Channel / Now / Next) and never shrinks the picture.
