@@ -230,3 +230,17 @@ jump); in full screen the picture fills the screen and the same Classic
 control bar floats over its bottom and fades after a few idle seconds, as
 today, like VLC's full-screen controller. The mini-guide window stays until
 closed or G.
+
+## Fluent to tier 3 (Adam, 2026-11-08: "move it into a t3 theme ... to make it truly a fluent app")
+
+Mocked in the same file (Fluent, both faces): BlammyTV as a Windows 11 WinUI
+app. A custom title bar on the Mica with a centred search box that IS Ctrl+K
+(results flyout grouped Channels / Films / Settings); a left NavigationView
+(Home, Live TV, Multi-View, Sports | Stream, Discover, Library; Settings at
+the foot; the selected item with WinUI's 3px accent pill); content on a
+rounded 8px page layer; 4px controls, 8px cards; Settings as the Windows 11
+Settings app (SettingsCards with the control on the right, ToggleSwitches);
+Discover with a SelectorBar, a Genre ComboBox, its own page search and a
+"Find Something to Watch" button; the player as Windows 11 Media Player
+(video full under the title bar, a floating rounded acrylic transport bar).
+Builds after Aero and Classic settle themePack's tier field.
