@@ -177,6 +177,9 @@ layout or padding if it makes sense"). Settled in the mock:
   genre dropdown, Movies and Series toggle buttons), and the address bar
   turns into Discover's search field with a Go button: it shows where you
   are everywhere else and takes typing on Discover (Adam: "dope i like it").
+- Two searches on Discover (Adam: "there is search in discover though"):
+  the toolbar's button is "Go To (Ctrl+K)", the jump-anywhere palette;
+  Discover's field is "Search" and searches the catalog only.
 - Ctrl+K is the Run box: a small grey dialog titled "Go To" with a navy
   title bar, an "Open:" field, a sunken list of results with navy
   selection, OK and Cancel.
