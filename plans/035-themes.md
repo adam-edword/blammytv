@@ -142,3 +142,20 @@ page, white cards, blue Aqua gel on what's chosen); Dark is Front Row
 (black, dark silver bars, Cover Flow reflections under posters). Lucida
 Sans Unicode (built into Windows, Lucida Grande's twin). The band is paint
 behind the header, not a layout change. Yosemite and Phosphor undecided.
+
+## Tiers (Adam, 2026-11-08)
+
+"we should make some 'tiers' of themes":
+- **Tier 1:** colours only.
+- **Tier 2:** colours, effects and fonts (Prism, Velvet, Lagoon, Frutiger
+  Aero, Phosphor). The radius rule holds: no corner, shape or layout change.
+- **Tier 3:** a full design overhaul, the OS themes (Snow Leopard, Vista,
+  Classic, maybe Yosemite and a tier-3 Fluent). These may change corners,
+  borders and bevels (Adam: "i think you can change corner radii on other os
+  themes"). The layout still never moves ("yeah no layout moving").
+The radius checks in verify-themes and themePack.test.ts stay for tiers 1
+and 2; a tier-3 pack declares its tier and is exempt from the radius check
+but not from a layout check (a card's box and position stay as Default's).
+
+Classic (Windows 2000, from Adam's screenshot of XP's Classic look) is in
+the mock: grey bevels, square corners, a navy title bar, Tahoma.
