@@ -180,6 +180,13 @@ layout or padding if it makes sense"). Settled in the mock:
 - Two searches on Discover (Adam: "there is search in discover though"):
   the toolbar's button is "Go To (Ctrl+K)", the jump-anywhere palette;
   Discover's field is "Search" and searches the catalog only.
+- REC, the recommender (Discover's sparkle; only with a TMDB key), is a
+  "Find Something to Watch…" toggle button at the right of Discover's band.
+  Its page is a Windows wizard: a navy side panel of posters, "What are you
+  in the mood for?", the keyword field with Add, keyword chips as small
+  raised tags, "Your pick" with poster and details, and Find Again / Watch
+  Now / Close along the bottom. The drifting poster wall is off: the era was
+  static.
 - Ctrl+K is the Run box: a small grey dialog titled "Go To" with a navy
   title bar, an "Open:" field, a sunken list of results with navy
   selection, OK and Cancel.
