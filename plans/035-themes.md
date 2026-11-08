@@ -132,3 +132,13 @@ dresses BlammyTV as an app of that system (its toolbars, controls,
 selection, type, materials), not the system's wallpaper behind the app.
 Mock of the next candidates (Snow Leopard, Yosemite, Phosphor):
 https://claude.ai/artifact/9HwDXazCP9e3P4hGm7tsc4
+
+## Next: Snow Leopard (Adam, 2026-11-08)
+
+Built after Aero, on Aero's light-face mechanism. "Like Apple's apps"
+(Adam: "I like the Apple app version better"): Light is iTunes 10 and the
+Finder (a full-width grey toolbar band painted behind the header, white
+page, white cards, blue Aqua gel on what's chosen); Dark is Front Row
+(black, dark silver bars, Cover Flow reflections under posters). Lucida
+Sans Unicode (built into Windows, Lucida Grande's twin). The band is paint
+behind the header, not a layout change. Yosemite and Phosphor undecided.
