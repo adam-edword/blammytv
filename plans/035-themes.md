@@ -173,4 +173,13 @@ layout or padding if it makes sense"). Settled in the mock:
 - An address bar ("BlammyTV › Stream › Home") and a status bar along the
   bottom ("Ready", what's live, games on now, the clock).
 - The chrome is solid grey, so pages scroll behind it; content starts lower.
-Open: whether the address bar is display-only or takes typing.
+- Discover's sub-nav becomes a second band under the toolbar ("Show:" a
+  genre dropdown, Movies and Series toggle buttons), and the address bar
+  turns into Discover's search field with a Go button: it shows where you
+  are everywhere else and takes typing on Discover (Adam: "dope i like it").
+- Ctrl+K is the Run box: a small grey dialog titled "Go To" with a navy
+  title bar, an "Open:" field, a sunken list of results with navy
+  selection, OK and Cancel.
+- The other tier-3 themes follow the same idea in their era: Snow Leopard's
+  palette is Spotlight (categories in a grey column on the left), Vista's is
+  the Start menu's search. Tier 1 and 2 keep today's palette, restyled.
