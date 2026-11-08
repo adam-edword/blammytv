@@ -209,3 +209,17 @@ you go). Its "?" button shows a yellow balloon tip ("Appearance Help: help
 for these settings is in the BlammyTV docs, in your browser") with an "Open
 Help in Browser" link; only the link leaves the app (Adam: "clicking the
 question mark shouldn't automatically take you to the docs"). Multi-View follows the same parts and needs no mock.
+
+### Classic's player (mocked 2026-11-08)
+
+Windows Media Player 6.4 as BlammyTV: the app's chrome stays, a strip of
+"◀ Back to Guide / ☆ Add to Favorites / Send to Multi-View" sits above the
+video, the video in a sunken black frame, and the controls OUT of the
+overlay in a grey panel below it: a tick-marked seek trackbar ("Started
+7:00 PM … LIVE", or elapsed and remaining with chapter ticks for a film),
+square raised transport buttons, a volume trackbar, Record and the other
+icon buttons on the right, and a black info panel ("Channel / Now / Next /
+About", or "Title / Source / Chapter"). The mini-guide's list docks as a
+pane left of the video, a Channel / Now / Next Details list, the video
+narrowing beside it. Full screen keeps today's overlay controls (only the
+picture fills the screen there; noted, not mocked).
