@@ -193,3 +193,16 @@ layout or padding if it makes sense"). Settled in the mock:
 - The other tier-3 themes follow the same idea in their era: Snow Leopard's
   palette is Spotlight (categories in a grey column on the left), Vista's is
   the Start menu's search. Tier 1 and 2 keep today's palette, restyled.
+
+### Classic across the app (mocked 2026-11-08, Adam: "that's super epic")
+
+In the same mock: a film's page as a Properties sheet with sources in an
+Explorer Details list; a series as a seasons folder tree beside an episodes
+Details list; the Guide as a channel-folder tree, a sunken preview with now
+and next, and a grid with raised time and channel headers and a red now
+line; Sports as a leagues tree, days as group boxes, away team first, the
+score in a sunken green LED display; Discover's genres as raised buttons and
+posters in Explorer's Thumbnails view; Settings as Display Properties
+(property-sheet tabs, a Theme combo over a Sample box, radio buttons, square
+swatches, checkboxes for toggles, one Close button because changes save as
+you go). Multi-View follows the same parts and needs no mock.
