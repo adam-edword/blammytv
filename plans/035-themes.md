@@ -249,3 +249,13 @@ top left of pane makes it look like rail"): the full pane (Photos) by
 default, and its hamburger collapses it to the Store's rail (icons with
 small labels under them) and back, remembered. The page sits on a rounded
 content layer, as the Store and Photos have it (Settings is the exception).
+Fluent's Guide (Adam: the folder ComboBox "in the top right" was the wrong
+UX): a folders column inside the page, WinUI's list/details (Mail's folder
+list): a "Filter folders" box, Favorites, Recents, Recordings, All Channels,
+then each source as a caption header ("My Playlist · 2 of 3 streams") with
+its folders and channel counts; the selected folder has the accent pill.
+The preview card and grid fill the rest. Mocked for Fluent's other screens
+too: Home, Discover, Settings, Ctrl+K, Player, a film with its sources (a
+ListView with quality badges, a Cached pill, filter pills and a sort), and
+a series (a season SelectorBar over episode rows with thumbnails, watched
+ticks and a progress bar).
