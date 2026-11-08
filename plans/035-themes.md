@@ -104,3 +104,22 @@ component. Signal stays out (its identity is square corners).
   Reading the system accent is another native call; the picker covers it.
 - **Lagoon's light comes from the hero art, not the live picture.** mpv
   draws natively, so the page can't sample the video.
+
+## Round 3: Frutiger Aero (decided 2026-11-08)
+
+Adam: "can you work on a frutiger aero theme? like the old apple/windows
+bubbly theme". Mock: https://claude.ai/artifact/GKVDu66CSS3Hetg5U95c8c.
+
+- **Both faces** (Adam picked it): Daylight when Appearance is Light (a summer
+  sky to a green horizon, white glass, navy ink), Night when it is Dark
+  (Windows 7 glass over a deep ocean with an aurora). The first pack that is
+  not inert in Light.
+- **All the effects** (Adam: "All of it!"): the gloss (a bright top half on
+  buttons, the nav, chips and switches), bubbles drifting up behind
+  everything, and the swoosh of light (by day) and aurora (by night).
+- Still shadcn at core: no radius, shape or layout changes. The gloss is
+  paint. Segoe UI, the font Vista and 7 used. Aqua accent with a green
+  second colour, and the Accent picker.
+- Calls made here: bubbles are a composited transform on one layer, still
+  under reduced motion and hidden while a player hole is cut, as Prism's
+  light is. Cards get the glass wash without a blur (Lagoon's reason).
