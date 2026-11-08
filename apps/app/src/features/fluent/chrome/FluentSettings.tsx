@@ -240,7 +240,7 @@ export function FluentSettings({
           <span aria-hidden>›</span>
           <span>{label}</span>
         </h1>
-        <div className="flc-sx__page" role="tabpanel" aria-label={label} ref={page}>
+        <div className="flc-sx__page" role="tabpanel" aria-label={label} data-tab={tab} ref={page}>
           {tab === "sources" && <SourcesPage key={`s${seed ?? ""}`} initialWorld={seed} />}
           {tab === "playback" && <PlaybackPage onSignIn={toStreamSources} />}
           {tab === "appearance" && <AppearancePage key={`a${seed ?? ""}`} initialWorld={seed} onSignIn={toStreamSources} />}

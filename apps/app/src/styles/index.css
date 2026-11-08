@@ -113,10 +113,14 @@
 @import "./classic-guide.css" layer(app);
 @import "./classic-sports.css" layer(app);
 @import "./classic-title.css" layer(app);
+@import "./classic-chrome.css" layer(app);
+@import "./classic-settings.css" layer(app);
 @import "./fluent-tokens.css" layer(app);
 @import "./fluent-lists.css" layer(app);
 @import "./fluent-chrome.css" layer(app);
 @import "./fluent-stream.css" layer(app);
+@import "./fluent-settings.css" layer(app);
+@import "./fluent-multiview.css" layer(app);
 @import "./base.css" layer(app);
 @import "./ui.css" layer(app);
 @import "./settings.css" layer(app);

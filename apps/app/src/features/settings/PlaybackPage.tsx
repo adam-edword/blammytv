@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { isTauri, tauriRecDefaultFolder, tauriRecPickFolder } from "../../lib/tauri";
-import { EYEBROW } from "../../ui/eyebrow";
+import { SettingsGroup } from "./SettingsGroup";
 import { Segmented } from "../../ui/Segmented";
 import { Combobox, type ComboboxOption } from "../../ui/Combobox";
 import { Toggle } from "../../ui/Toggle";
@@ -165,7 +165,7 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
 
   return (
     <>
-      <h3 className={`settings__group ${EYEBROW}`}>Stream</h3>
+      <SettingsGroup title="Stream">
       {!hasStream && <SignInNote onSignIn={onSignIn} />}
 
       {hasStream && (
@@ -329,7 +329,9 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
         </section>
       )}
 
-      <h3 className={`settings__group ${EYEBROW}`}>Player</h3>
+      </SettingsGroup>
+
+      <SettingsGroup title="Player">
       <section className="settings-section">
         <div className="customize-stack" data-setting="audio-channels">
           <div>
@@ -423,10 +425,10 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
           </div>
         </div>
       </section>
+      </SettingsGroup>
 
       {isTauri() && (
-        <>
-          <h3 className={`settings__group ${EYEBROW}`}>Recordings</h3>
+        <SettingsGroup title="Recordings">
           <section className="settings-section">
             <div className="customize-stack" data-setting="recordings-folder">
               <div>
@@ -478,7 +480,7 @@ export function PlaybackPage({ onSignIn }: { onSignIn: () => void }) {
               />
             </div>
           </section>
-        </>
+        </SettingsGroup>
       )}
     </>
   );

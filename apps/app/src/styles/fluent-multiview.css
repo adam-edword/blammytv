@@ -1,0 +1,64 @@
+/* Multi-View's bar, in Fluent (plan 035, "Fluent to tier 3"): 32px WinUI
+ * controls on the page, not the capsule's pills. The bar is a row of its own
+ * above the stage: Fluent has no floating header (--header-h is 0), and the
+ * stage hangs from that, so under it the bar sat on the first tile and the
+ * streams chip straddled the outline. The buttons (mute, scores, Add Channel,
+ * full screen) are Buttons, painted by fluent-chrome.css; this is the rest. */
+
+:root[data-theme-pack="fluent"] .mvbar {
+  top: 12px;
+  height: 32px;
+}
+:root[data-theme-pack="fluent"] .mvtab__stage {
+  top: 56px;
+}
+
+/* The streams chip and the "pick a tile" chip: a standard control's fill and
+ * stroke at 32px, 4px corners, no blur. */
+:root[data-theme-pack="fluent"] .mvmeter,
+:root[data-theme-pack="fluent"] .mvchoose {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--fl-stroke);
+  border-bottom-color: var(--fl-stroke-bt);
+  border-radius: var(--fl-r-control);
+  background: var(--fl-fill);
+  backdrop-filter: none;
+  font: 400 13px var(--fl-font);
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .mvchoose {
+  gap: 8px;
+  padding-right: 4px;
+}
+:root[data-theme-pack="fluent"] .mvchoose__cancel {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--fl-r-control);
+  background: var(--fl-sub);
+  font-family: var(--fl-font);
+}
+:root[data-theme-pack="fluent"] .mvchoose__cancel:hover {
+  background: color-mix(in srgb, var(--fl-ink) 10%, var(--fl-sub));
+}
+
+/* Grid and Focus: the segmented control, at the bar's height. */
+:root[data-theme-pack="fluent"] .mvbar .seg {
+  height: 32px;
+}
+:root[data-theme-pack="fluent"] .mvbar .seg__opt {
+  height: 24px;
+  font-size: 13px;
+}
+
+/* The volume slider takes the accent. */
+:root[data-theme-pack="fluent"] .mvvol__slider {
+  accent-color: var(--accent);
+}
+
+/* A ring for the keyboard only: a click, or a script giving a button focus
+ * on load, shows none (FluentChrome keeps data-fl-kbd). */
+:root[data-theme-pack="fluent"]:not([data-fl-kbd]) .mvbar :focus-visible {
+  outline: none;
+  box-shadow: none;
+}

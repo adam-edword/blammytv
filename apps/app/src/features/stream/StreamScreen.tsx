@@ -32,6 +32,7 @@ import { clearPageAmbient, lagoonShowing, publishPageAmbient } from "../../lib/p
 import { subscribeShowing } from "../settings/themePack";
 import { wantsEpisodeList } from "./backTarget";
 import { useMouseNav } from "../../lib/mouseNav";
+import { setAddress } from "../../lib/address";
 import { useViewStack } from "../../lib/viewStack";
 
 // Fixed-at-mount OS motion preference (the Onboarding pattern): read ONCE at
@@ -339,6 +340,12 @@ export function StreamScreen({
     restore: restoreScroll,
     restoreTo,
   } = useViewStack<View>({ at: "home" });
+  // Classic's address bar names the open title.
+  const openTitle = view.at === "home" ? null : view.item.title;
+  useEffect(() => {
+    setAddress({ title: openTitle });
+    return () => setAddress({ title: null });
+  }, [openTitle]);
   // Home's scroll offset outlives this screen: a tab flip unmounts it, and
   // landing back at the top of the rows every time is the same annoyance
   // that back used to have. Mirrored on scroll rather than read at cleanup,

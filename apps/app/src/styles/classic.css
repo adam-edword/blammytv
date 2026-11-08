@@ -78,9 +78,9 @@
 }
 
 /* ------------------------------------------------------------- shapes */
-:root[data-theme-pack="classic"] *,
-:root[data-theme-pack="classic"] *::before,
-:root[data-theme-pack="classic"] *::after {
+:root[data-theme-pack="classic"] :not(.brand-mark, .brand-mark *, .boot-scene, .boot-scene *, .onb-mark, .onb-mark *),
+:root[data-theme-pack="classic"] :not(.brand-mark, .brand-mark *, .boot-scene, .boot-scene *, .onb-mark, .onb-mark *)::before,
+:root[data-theme-pack="classic"] :not(.brand-mark, .brand-mark *, .boot-scene, .boot-scene *, .onb-mark, .onb-mark *)::after {
   border-radius: 0 !important;
 }
 /* Radios stay round. */
@@ -300,19 +300,6 @@
   border-bottom: 1px solid var(--cl-lo);
   box-shadow: 0 1px var(--cl-hi);
 }
-:root[data-theme-pack="classic"] .cl-mark {
-  display: block;
-  width: 16px;
-  height: 16px;
-  background: conic-gradient(from 200deg, #5ad1ff, #8af07a, #ffe36b, #ff8bd1, #8f8cff, #5ad1ff);
-}
-:root[data-theme-pack="classic"] .cl-logo {
-  display: block;
-  width: 22px;
-  height: 22px;
-  background: conic-gradient(from 200deg, #5ad1ff, #8af07a, #ffe36b, #ff8bd1, #8f8cff, #5ad1ff);
-  box-shadow: inset 0 0 0 5px var(--cl-face), inset 0 0 0 6px #000;
-}
 :root[data-theme-pack="classic"] .cl-tools {
   display: flex;
   align-items: center;
@@ -322,7 +309,7 @@
   border-bottom: 1px solid var(--cl-lo);
   box-shadow: 0 1px var(--cl-hi);
 }
-:root[data-theme-pack="classic"] .cl-btn {
+:root[data-theme-pack="classic"] .cl-tb {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -332,19 +319,19 @@
   background: none;
   font: 13px var(--cl-font);
 }
-:root[data-theme-pack="classic"] .cl-btn svg {
+:root[data-theme-pack="classic"] .cl-tb svg {
   width: 22px;
   height: 22px;
 }
-:root[data-theme-pack="classic"] .cl-btn:hover {
+:root[data-theme-pack="classic"] .cl-tb:hover {
   box-shadow: var(--cl-raised-thin);
 }
-:root[data-theme-pack="classic"] .cl-btn:active {
+:root[data-theme-pack="classic"] .cl-tb:active {
   box-shadow: var(--cl-pressed);
 }
 /* The tab you're on: pressed in, as a toggled toolbar button was. */
-:root[data-theme-pack="classic"] .cl-btn--on,
-:root[data-theme-pack="classic"] .cl-btn--on:hover {
+:root[data-theme-pack="classic"] .cl-tb--on,
+:root[data-theme-pack="classic"] .cl-tb--on:hover {
   box-shadow: var(--cl-pressed);
   background: var(--cl-checker);
   font-weight: 700;
@@ -580,12 +567,6 @@
   margin: 0;
   padding: 14px 14px 0;
   line-height: 1.4;
-}
-:root[data-theme-pack="classic"] .palette--classic .palette__intro .cl-logo {
-  flex: none;
-  width: 34px;
-  height: 34px;
-  box-shadow: inset 0 0 0 8px var(--cl-face), inset 0 0 0 9px #000;
 }
 :root[data-theme-pack="classic"] .palette--classic .mvpick__head {
   gap: 10px;

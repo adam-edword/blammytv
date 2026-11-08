@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { setAddress } from "../../lib/address";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { Button } from "../../components/ui/button";
 import {
@@ -254,6 +255,11 @@ export function SettingsModal({
   }, []);
 
   const label = SETTINGS_PAGES.find((p) => p.key === tab)?.label;
+  // Classic's address bar reads "Settings > <page>" while this is open.
+  useEffect(() => {
+    setAddress({ settings: label ?? null });
+    return () => setAddress({ settings: null });
+  }, [label]);
   // Classic: Display Properties. The pages are the same; the frame is a
   // title bar, property-sheet tabs and one Close (classic.css).
   const classic = useClassic();

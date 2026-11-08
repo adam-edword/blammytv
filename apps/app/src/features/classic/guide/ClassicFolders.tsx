@@ -185,7 +185,15 @@ export const ClassicFolders = memo(function ClassicFolders({
                 title={node.title}
                 tabIndex={node.id === tabId ? 0 : -1}
                 onFocus={() => setFocusId(node.id)}
-                onClick={() => activate(node)}
+                // Explorer's rule: a click on a label selects it, and only the box
+                // or a double-click opens a folder. A source and the root hold
+                // nothing to pick, so a single click leaves them as they are.
+                onClick={() => {
+                  if (node.mode || node.folder) activate(node);
+                }}
+                onDoubleClick={() => {
+                  if (expandable) toggle(node);
+                }}
                 onContextMenu={(e) => {
                   if (!node.folder) return;
                   e.preventDefault();
@@ -214,6 +222,7 @@ export const ClassicFolders = memo(function ClassicFolders({
                         e.stopPropagation();
                         toggle(node);
                       }}
+                      onDoubleClick={(e) => e.stopPropagation()}
                     />
                   )}
                 </i>

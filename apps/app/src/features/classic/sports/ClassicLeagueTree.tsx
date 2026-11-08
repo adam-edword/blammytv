@@ -8,13 +8,15 @@ import type { Follows } from "../../sports/follows";
  * root, a folder per sport, the leagues under it, +/- boxes and dotted lines.
  *
  * It makes the same selection the Default picker does. A league is picked or
- * not through `onPick`, several at a time, and the board narrows to them; a
- * sport is only a folder that opens and closes. Sports holding a league you
- * follow or have picked start open.
+ * not through `onPick`, several at a time, and the board narrows to them.
+ * Explorer's rule for the folders: a click on a LABEL selects it (a sport is
+ * all of its leagues, picked through the same `onPick`; Sports clears the
+ * filter) and only the +/- box or a double-click on the label opens and
+ * closes it. Sports holding a league you follow or have picked start open.
  *
  * Arrow keys walk the visible rows, Right opens a folder (or steps into it),
- * Left closes it (or steps out), Enter and Space pick a league or toggle a
- * folder. One row is in the tab order at a time.
+ * Left closes it (or steps out), Enter and Space select. One row is in the
+ * tab order at a time.
  */
 export function ClassicLeagueTree({
   follows,
@@ -63,11 +65,23 @@ export function ClassicLeagueTree({
     el.focus();
   };
 
-  const act = (el: HTMLElement) => {
-    const id = el.dataset.id ?? "";
+  /** A sport is selected when every one of its leagues is picked. */
+  const sportOn = (leagues: { path: string }[]) =>
+    leagues.length > 0 && leagues.every((l) => picked.includes(l.path));
+  /** Select a row: Sports clears the filter, a sport narrows to exactly its
+   * leagues (clear, then pick each: the same `onPick` a league uses), a league
+   * toggles as it always did. */
+  const select = (id: string) => {
+    if (id === "root") onClearPicks();
+    else if (id.startsWith("s:")) {
+      onClearPicks();
+      sports.find((s) => s.key === id.slice(2))?.leagues.forEach((l) => onPick(l.path));
+    } else onPick(id.slice(2));
+  };
+  /** Open or close a folder row. */
+  const flip = (id: string) => {
     if (id === "root") setRootOpen((o) => !o);
-    else if (id.startsWith("s:")) toggle(id.slice(2));
-    else onPick(id.slice(2));
+    else toggle(id.slice(2));
   };
 
   const onKey = (e: KeyboardEvent<HTMLUListElement>) => {
@@ -90,16 +104,16 @@ export function ClassicLeagueTree({
         go(all[all.length - 1]);
         break;
       case "ArrowRight":
-        if (expanded === "false") act(el);
+        if (expanded === "false") flip(el.dataset.id ?? "");
         else if (expanded === "true") go(all[i + 1]);
         break;
       case "ArrowLeft":
-        if (expanded === "true") act(el);
+        if (expanded === "true") flip(el.dataset.id ?? "");
         else go(el.parentElement?.closest<HTMLElement>('[role="treeitem"]'));
         break;
       case "Enter":
       case " ":
-        act(el);
+        select(el.dataset.id ?? "");
         break;
       default:
         return;
@@ -113,6 +127,19 @@ export function ClassicLeagueTree({
     go(e.currentTarget.parentElement);
     run();
   };
+  /** The +/- box: opens or closes without touching the selection. */
+  const box = (id: string, on: boolean) => (
+    <b
+      className={"cl-tv__bx" + (on ? "" : " is-closed")}
+      aria-hidden
+      onClick={(e) => {
+        e.stopPropagation();
+        go(e.currentTarget.closest<HTMLElement>('[role="treeitem"]'));
+        flip(id);
+      }}
+      onDoubleClick={(e) => e.stopPropagation()}
+    />
+  );
 
   return (
     <div className="cl-sports__tree">
@@ -126,23 +153,45 @@ export function ClassicLeagueTree({
           ref={tree}
           onKeyDown={onKey}
         >
-          <li role="treeitem" aria-expanded={rootOpen} data-id="root" tabIndex={tab("root")}>
-            <div className="cl-tv__n" onClick={(e) => click(e, () => setRootOpen((o) => !o))}>
-              <b className={"cl-tv__bx" + (rootOpen ? "" : " is-closed")} aria-hidden />
+          <li
+            role="treeitem"
+            aria-expanded={rootOpen}
+            aria-selected={picked.length === 0}
+            data-id="root"
+            tabIndex={tab("root")}
+          >
+            <div
+              className="cl-tv__n"
+              onClick={(e) => click(e, () => select("root"))}
+              onDoubleClick={() => flip("root")}
+            >
+              {box("root", rootOpen)}
               <i className={"cl-tv__fd" + (rootOpen ? " is-open" : "")} aria-hidden />
-              <span className="cl-tv__lb">Sports</span>
+              <span className={"cl-tv__lb" + (picked.length === 0 ? " is-sel" : "")}>Sports</span>
             </div>
             {rootOpen && (
               <ul role="group">
                 {sports.map((s) => {
                   const on = open.has(s.key);
                   const id = `s:${s.key}`;
+                  const chosen = sportOn(s.leagues);
                   return (
-                    <li key={s.key} role="treeitem" aria-expanded={on} data-id={id} tabIndex={tab(id)}>
-                      <div className="cl-tv__n" onClick={(e) => click(e, () => toggle(s.key))}>
-                        <b className={"cl-tv__bx" + (on ? "" : " is-closed")} aria-hidden />
+                    <li
+                      key={s.key}
+                      role="treeitem"
+                      aria-expanded={on}
+                      aria-selected={chosen}
+                      data-id={id}
+                      tabIndex={tab(id)}
+                    >
+                      <div
+                        className="cl-tv__n"
+                        onClick={(e) => click(e, () => select(id))}
+                        onDoubleClick={() => flip(id)}
+                      >
+                        {box(id, on)}
                         <i className={"cl-tv__fd" + (on ? " is-open" : "")} aria-hidden />
-                        <span className="cl-tv__lb">{s.name}</span>
+                        <span className={"cl-tv__lb" + (chosen ? " is-sel" : "")}>{s.name}</span>
                       </div>
                       {on && (
                         <ul role="group">
@@ -160,7 +209,7 @@ export function ClassicLeagueTree({
                                 <div
                                   className="cl-tv__n cl-tv__n--leaf"
                                   data-hint={l.name}
-                                  onClick={(e) => click(e, () => onPick(l.path))}
+                                  onClick={(e) => click(e, () => select(lid))}
                                 >
                                   <i className="cl-tv__fd" aria-hidden />
                                   <span className={"cl-tv__lb" + (sel ? " is-sel" : "")}>{l.label}</span>

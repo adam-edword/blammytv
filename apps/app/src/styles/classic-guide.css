@@ -40,7 +40,7 @@
   flex-direction: column;
   gap: 2px;
   margin: 0 0 8px 8px;
-  font: 11px/16px var(--cl-font);
+  font: 12px/18px var(--cl-font);
   color: var(--cl-ink);
 }
 :root[data-theme-pack="classic"] .cl-folders__title {
@@ -71,19 +71,22 @@
 :root[data-theme-pack="classic"] .cl-tv__row {
   display: flex;
   align-items: flex-start;
-  height: 16px;
+  height: 18px;
   white-space: nowrap;
   cursor: default;
   user-select: none;
   outline: none;
 }
-/* One 16px cell per level; the line runs down its middle. */
+/* One 16px cell per level, as tall as a row (18px); the line runs down its
+ * middle. The Sports tree shares these class names and loads after this
+ * sheet, so the box, folder and label rules below carry .cl-folders to win
+ * over its. */
 :root[data-theme-pack="classic"] .cl-tv__g,
 :root[data-theme-pack="classic"] .cl-tv__box {
   position: relative;
   flex: none;
   width: 16px;
-  height: 16px;
+  height: 18px;
 }
 :root[data-theme-pack="classic"] .cl-tv__g::before {
   content: "";
@@ -97,7 +100,7 @@
   display: none;
 }
 :root[data-theme-pack="classic"] .cl-tv__g--ell::before {
-  bottom: 8px;
+  bottom: 9px;
 }
 :root[data-theme-pack="classic"] .cl-tv__g--tee::after,
 :root[data-theme-pack="classic"] .cl-tv__g--ell::after,
@@ -105,7 +108,7 @@
 :root[data-theme-pack="classic"] .cl-tv__box--exp::before {
   content: "";
   position: absolute;
-  top: 8px;
+  top: 9px;
   border-top: 1px dotted var(--cl-lo);
 }
 :root[data-theme-pack="classic"] .cl-tv__g--tee::after,
@@ -122,10 +125,10 @@
   left: 0;
   width: 8px;
 }
-:root[data-theme-pack="classic"] .cl-tv__bx {
+:root[data-theme-pack="classic"] .cl-folders .cl-tv__bx {
   position: absolute;
   left: 3px;
-  top: 3px;
+  top: 5px;
   width: 9px;
   height: 9px;
   box-sizing: border-box;
@@ -150,12 +153,12 @@
   width: 1px;
   height: 5px;
 }
-:root[data-theme-pack="classic"] .cl-tv__fd {
+:root[data-theme-pack="classic"] .cl-folders .cl-tv__fd {
   position: relative;
   flex: none;
   width: 16px;
   height: 11px;
-  margin: 3px 4px 0 0;
+  margin: 4px 4px 0 0;
   background: var(--clg-folder);
   box-shadow: inset 0 0 0 1px var(--clg-folder-edge);
 }
@@ -171,13 +174,14 @@
     inset 1px 1px 0 var(--clg-folder-edge),
     inset -1px 0 0 var(--clg-folder-edge);
 }
-:root[data-theme-pack="classic"] .cl-tv__fd--open {
+:root[data-theme-pack="classic"] .cl-folders .cl-tv__fd--open {
   background: var(--clg-folder-open);
 }
-:root[data-theme-pack="classic"] .cl-tv__lb {
-  height: 16px;
+:root[data-theme-pack="classic"] .cl-folders .cl-tv__lb {
+  height: 18px;
   padding: 0 3px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 18px;
 }
 :root[data-theme-pack="classic"] .cl-tv__row[aria-selected="true"] .cl-tv__lb {
   background: var(--cl-sel);

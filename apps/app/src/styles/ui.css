@@ -850,3 +850,23 @@ select:focus-visible,
 .toggle--sm.toggle--on:active .toggle__thumb {
   transform: translateX(10px) scale(0.94);
 }
+
+/* THE BRAND MARK (ui/BrandMark.tsx): the capsule mark at any size. No theme may
+ * reshape it, so Classic radius reset leaves it alone (classic-chrome.css). */
+.brand-mark {
+  display: block;
+  flex: none;
+  position: relative;
+  width: var(--bm);
+  height: var(--bm);
+  overflow: hidden;
+}
+.brand-mark i {
+  display: block;
+  width: 1143px;
+  height: 1143px;
+  background: conic-gradient(from var(--logo-angle), var(--logo-stops));
+  clip-path: path(evenodd, var(--logo-path));
+  transform: scale(var(--bm-scale));
+  transform-origin: 0 0;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useState, useSyncExternalStore, type ComponentType } from "react";
 import {
   BackArrowIcon,
   DiscoverIcon,
@@ -16,6 +16,7 @@ import { isModalOpen } from "../../../lib/modalOpen";
 import { requestSearchFocus, setSearchQuery } from "../../discover/searchQuery";
 import type { LiveTab, Section, StreamTab } from "../../../app/AppHeader";
 import { loadNavRail, saveNavRail } from "./navPrefs";
+import { BrandMark } from "../../../ui/BrandMark";
 
 /**
  * Fluent's frame (plan 035, "Fluent to tier 3"): a 32px title bar and a left
@@ -72,6 +73,19 @@ export interface FluentChromeProps {
   onOpenSearch: () => void;
 }
 
+/** WinUI's NavigationView folds its pane to the rail when the window is under
+ * 1008px wide (its "compact" threshold). It is the window's doing and not the
+ * hamburger's, so it is read from the width and never saved: the remembered
+ * choice (navPrefs) applies again when the window is wide. The "minimal" mode
+ * below 641px cannot happen, the window's minimum is 1000px (tauri.conf). */
+const NARROW = "(max-width: 1007px)";
+const onNarrow = (cb: () => void) => {
+  const m = window.matchMedia(NARROW);
+  m.addEventListener("change", cb);
+  return () => m.removeEventListener("change", cb);
+};
+const isNarrow = () => window.matchMedia(NARROW).matches;
+
 /** Back is the mouse's Back button, sent: every screen that keeps a view
  * stack already listens for it (lib/mouseNav), and App closes Settings or the
  * palette on it. One path, so the arrow can never disagree with the mouse. */
@@ -90,19 +104,64 @@ function Hamburger() {
 
 export function FluentChrome(p: FluentChromeProps) {
   const [rail, setRail] = useState(loadNavRail);
+  const narrow = useSyncExternalStore(onNarrow, isNarrow, () => false);
+  // Narrow, the hamburger opens the full pane over the page (WinUI's compact
+  // mode) and the page keeps the rail's width; it shuts on a choice, a click
+  // outside or Escape.
+  const [peek, setPeek] = useState(false);
+  const open = narrow && peek;
+  const folded = rail || narrow;
   const collapse = () => {
+    if (narrow) return setPeek((o) => !o);
     const next = !rail;
     setRail(next);
     saveNavRail(next);
   };
+  useEffect(() => {
+    if (!narrow) setPeek(false);
+  }, [narrow]);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: Event) => {
+      if (e.target instanceof Element && !e.target.closest(".flc-pane")) setPeek(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      setPeek(false);
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
 
   // The page and the Settings page read the pane's width from the root, and
   // no screen is to clear a floating header: there isn't one.
   useEffect(() => {
     const root = document.documentElement;
-    root.toggleAttribute("data-fl-rail", rail);
+    root.toggleAttribute("data-fl-rail", folded);
     return () => root.removeAttribute("data-fl-rail");
-  }, [rail]);
+  }, [folded]);
+  // Whether the last input was the keyboard: a ring that has no business
+  // showing for a click or a script's focus() (the Multi-View bar's) waits
+  // on this (fluent-multiview.css).
+  useEffect(() => {
+    const root = document.documentElement;
+    const key = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) root.setAttribute("data-fl-kbd", "");
+    };
+    const pointer = () => root.removeAttribute("data-fl-kbd");
+    window.addEventListener("keydown", key, true);
+    window.addEventListener("pointerdown", pointer, true);
+    return () => {
+      window.removeEventListener("keydown", key, true);
+      window.removeEventListener("pointerdown", pointer, true);
+      root.removeAttribute("data-fl-kbd");
+    };
+  }, []);
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--header-h", "0px");
@@ -138,6 +197,7 @@ export function FluentChrome(p: FluentChromeProps) {
   /** The capsule's own go(), with Settings in front: leaving by a tab closes
    * it, and the tab you were on is not "pressed again" for that. */
   const go = (d: Item) => {
+    setPeek(false);
     const was = p.settingsOpen;
     if (was) p.onCloseSettings();
     if (d.key === "hub") {
@@ -179,7 +239,7 @@ export function FluentChrome(p: FluentChromeProps) {
         <button type="button" className="flc-title__back" aria-label="Back" onClick={goBack}>
           <BackArrowIcon size={14} />
         </button>
-        <span className="flc-title__mark" aria-hidden />
+        <BrandMark size={16} />
         <span className="flc-title__name">BlammyTV</span>
         {/* The search IS Ctrl+K: the palette opens over this pill, its field
           * in the pill's place and its results under it. */}
@@ -200,12 +260,12 @@ export function FluentChrome(p: FluentChromeProps) {
         </div>
       </header>
 
-      <nav className={"flc-pane" + (rail ? " flc-pane--rail" : "")} aria-label="Sections">
+      <nav className={"flc-pane" + (folded && !open ? " flc-pane--rail" : "") + (open ? " flc-pane--peek" : "")} aria-label="Sections">
         <button
           type="button"
           className="flc-burger"
-          aria-label={rail ? "Expand Navigation" : "Collapse Navigation"}
-          aria-expanded={!rail}
+          aria-label={folded && !open ? "Expand Navigation" : "Collapse Navigation"}
+          aria-expanded={!folded || open}
           onClick={collapse}
         >
           <Hamburger />
@@ -220,7 +280,10 @@ export function FluentChrome(p: FluentChromeProps) {
           data-key="settings"
           className="flc-ni flc-ni--bottom"
           aria-current={selected === "settings" ? "page" : undefined}
-          onClick={p.onOpenSettings}
+          onClick={() => {
+            setPeek(false);
+            p.onOpenSettings();
+          }}
         >
           <SettingsIcon />
           <span className="flc-ni__lbl">Settings</span>

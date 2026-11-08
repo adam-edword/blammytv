@@ -268,6 +268,12 @@ async function live(face) {
     (await style(page, ".guide__card .chlogo", "borderRadius")) === "6px" &&
       /Channel 1/.test(await text(page, ".guide__channel"))  );
 
+  // The column opens wide enough for a typical name: "Fake Sky Sports FHD"
+  // read "Fake Sky Sports F" at the Default's 189px.
+  const cut = await page.$$eval(".guide__card-name", (els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
+  const longest = await page.$$eval(".guide__card-name", (els) => Math.max(...els.map((e) => e.textContent.length)));
+  check(`${tag}: no channel name is cut in the channel column`, cut.length === 0 && longest >= 17, `${JSON.stringify(cut)}, longest ${longest} chars`);
+
   // Interaction: a folder.
   const rows = () => page.locator(".guide__row").count();
   const before = await rows();
@@ -479,6 +485,23 @@ async function sports(face) {
   await page.getByRole("button", { name: "Show Earlier Days" }).click();
   await page.getByRole("tab", { name: "Yesterday" }).waitFor({ timeout: 10_000 });
   check(`${tag}: Show Earlier Days adds Yesterday to the bar`, (await page.getByRole("tab").allInnerTexts()).join("|") === "Yesterday|Today|Tomorrow");
+  // One control: a SelectorBar of days (the accent pill under the day you are
+  // on), its ends two subtle icon buttons, not accent links.
+  await page.mouse.move(900, 800);
+  await settle(page);
+  const bar = await page.evaluate(() => {
+    const steps = [...document.querySelectorAll(".fl-tabbar > .fl-tabbar__step")];
+    const tabs = document.querySelector(".fl-tabs").getBoundingClientRect();
+    return {
+      links: document.querySelectorAll(".fl-tabbar .fl-link").length,
+      steps: steps.map((b) => ({ name: b.getAttribute("aria-label"), w: Math.round(b.getBoundingClientRect().width), h: Math.round(b.getBoundingClientRect().height), bg: getComputedStyle(b).backgroundColor, text: b.textContent.trim(), svg: !!b.querySelector("svg"), before: b.getBoundingClientRect().right <= tabs.left + 1, after: b.getBoundingClientRect().left >= tabs.right - 1 })),
+      rule: getComputedStyle(document.querySelector(".fl-tabbar")).borderBottomWidth,
+    };
+  });
+  check(`${tag}: the day bar's ends are subtle icon buttons (earlier before the days, more after), no links`,
+    bar.links === 0 && bar.steps.length === 2 && bar.steps.every((s) => s.w === 28 && s.h === 28 && s.bg === "rgba(0, 0, 0, 0)" && s.svg && s.text === "") &&
+      bar.steps[0].name === "Show Earlier Days" && bar.steps[0].before && bar.steps[1].name === "Show More Days" && bar.steps[1].after && bar.rule === "0px",
+    JSON.stringify(bar));
 
   // A click opens what it opens today.
   await page.getByRole("tab", { name: "Today" }).click();

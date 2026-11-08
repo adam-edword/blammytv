@@ -105,7 +105,7 @@ async function suite(face) {
   const title = await rect(page, ".flc-title");
   check(T("the title bar is 32px across the top"), title && Math.round(title.h) === 32 && title.y === 0 && Math.round(title.w) === 1440, JSON.stringify(title));
   check(T("the capsule header is not rendered"), (await page.locator(".navcap, header.header").count()) === 0);
-  check(T("it holds Back, the mark and BlammyTV"), (await page.locator('.flc-title button[aria-label="Back"]').count()) === 1 && (await page.locator(".flc-title__mark").count()) === 1 && (await page.locator(".flc-title__name").innerText()) === "BlammyTV");
+  check(T("it holds Back, the mark and BlammyTV"), (await page.locator('.flc-title button[aria-label="Back"]').count()) === 1 && (await page.locator(".flc-title .brand-mark").count()) === 1 && (await page.locator(".flc-title__name").innerText()) === "BlammyTV");
   const pill = await rect(page, ".flc-search");
   const pcss = await css(page, ".flc-search", ["border-radius", "border-bottom-color", "border-top-color"]);
   check(T("a centred pill search: Search channels, films and settings, with a Ctrl+K hint"),

@@ -7,7 +7,9 @@ import {
   useSearchShortcut,
   type HeaderProps,
 } from "../../app/headerShared";
+import { useAddress, type Address } from "../../lib/address";
 import { requestNav } from "../../lib/mouseNav";
+import { BrandMark } from "../../ui/BrandMark";
 import { SearchIcon, SettingsIcon, SparkleIcon } from "../../ui/icons";
 import { getGenreChoice, onGenreChoiceChange, requestGenreChoice } from "../discover/genreChoice";
 import { isRecommendOpen, onRecommendChange, requestRecommend } from "../discover/recommend";
@@ -49,8 +51,10 @@ function Arrow({ dir }: { dir: "back" | "forward" }) {
   );
 }
 /** Where you are, as the address bar says it. */
-function addressOf(p: Pick<HeaderProps, "section" | "liveTab" | "streamTab">): string {
+function addressOf(p: Pick<HeaderProps, "section" | "liveTab" | "streamTab"> & Address): string {
+  if (p.settings) return `BlammyTV › Settings › ${p.settings}`;
   if (p.section === "home") return "BlammyTV › Home";
+  if (p.title && p.section === "stream" && p.streamTab === "home") return `BlammyTV › Stream › ${p.title}`;
   const d = DESTS.find((x) => x.key === (p.section === "live" ? p.liveTab : p.streamTab));
   const label = d?.key === "home" ? "Home" : (d?.label ?? "");
   return `BlammyTV › ${p.section === "live" ? "Live TV" : "Stream"} › ${label}`;
@@ -70,6 +74,7 @@ function useStatus(showLive: boolean) {
 export function ClassicHeader(props: HeaderProps) {
   const { section, streamTab, liveTab, showLive, onSection, onStreamTab, onOpenSettings, onOpenSearch } = props;
   const clock = useClock();
+  const { title, settings } = useAddress();
   const status = useStatus(showLive);
   useSearchShortcut(onSection, onStreamTab);
 
@@ -79,15 +84,25 @@ export function ClassicHeader(props: HeaderProps) {
 
   // The chrome's height, for --header-h.
   const ref = useRef<HTMLElement>(null);
+  const toolsRef = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    const publish = () => document.documentElement.style.setProperty("--header-h", `${el.offsetHeight}px`);
+    const tools = toolsRef.current;
+    if (!el || !tools) return;
+    // Labels never wrap. When the row does not fit with them, the buttons
+    // drop to their icons (data-compact; the name stays as aria-label and
+    // tooltip), as Windows' "No text labels" did. Measured with the labels
+    // back on, in the same task, so nothing paints in between.
+    const publish = () => {
+      el.removeAttribute("data-compact");
+      if (tools.scrollWidth > tools.clientWidth) el.setAttribute("data-compact", "");
+      document.documentElement.style.setProperty("--header-h", `${el.offsetHeight}px`);
+    };
     publish();
     const ro = new ResizeObserver(publish);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [showLive]);
 
   const shown = DESTS.filter((d) => showLive || d.side !== "live");
   const goHub = () => {
@@ -99,15 +114,15 @@ export function ClassicHeader(props: HeaderProps) {
     <>
       <header className="header cl-header" ref={ref}>
         <div className="cl-menu">
-          <i className="cl-mark" aria-hidden />
+          <BrandMark size={16} />
           <b>BlammyTV</b>
         </div>
-        <nav className="cl-tools" aria-label="Sections">
-          <button type="button" className="cl-btn" data-cl="back" onClick={() => requestNav("back")}>
+        <nav className="cl-tools" aria-label="Sections" ref={toolsRef}>
+          <button type="button" className="cl-tb" data-cl="back" aria-label="Back" title="Back" onClick={() => requestNav("back")}>
             <Arrow dir="back" />
-            Back
+            <span className="cl-tb__t">Back</span>
           </button>
-          <button type="button" className="cl-btn" data-cl="forward" aria-label="Forward" onClick={() => requestNav("forward")}>
+          <button type="button" className="cl-tb" data-cl="forward" aria-label="Forward" title="Forward" onClick={() => requestNav("forward")}>
             <Arrow dir="forward" />
           </button>
           <span className="cl-sep" aria-hidden />
@@ -122,27 +137,30 @@ export function ClassicHeader(props: HeaderProps) {
                     {prev && <span className="cl-sep" aria-hidden />}
                     <button
                       type="button"
-                      className={"cl-btn" + (onHome ? " cl-btn--on" : "")}
+                      className={"cl-tb" + (onHome ? " cl-tb--on" : "")}
                       data-dest="hub"
                       aria-current={onHome ? "page" : undefined}
+                      aria-label="Home"
+                      title="Home"
                       onClick={goHub}
                     >
-                      <i className="cl-logo" aria-hidden />
-                      Home
+                      <BrandMark size={22} />
+                      <span className="cl-tb__t">Home</span>
                     </button>
                     <span className="cl-sep" aria-hidden />
                   </>
                 )}
                 <button
                   type="button"
-                  className={"cl-btn" + (on ? " cl-btn--on" : "")}
+                  className={"cl-tb" + (on ? " cl-tb--on" : "")}
                   data-dest={d.key}
                   aria-current={on ? "page" : undefined}
                   aria-label={d.key === "guide" ? "Live TV" : d.beta ? `${d.label} (beta)` : d.label}
+                  title={d.key === "guide" ? "Live TV" : d.label}
                   onClick={() => goDest(d, props)}
                 >
                   <d.Icon size={22} filled={on} />
-                  {d.key === "guide" ? "Live TV" : d.label}
+                  <span className="cl-tb__t">{d.key === "guide" ? "Live TV" : d.label}</span>
                 </button>
               </Fragment>
             );
@@ -151,21 +169,24 @@ export function ClassicHeader(props: HeaderProps) {
           <UpdateChip />
           <button
             type="button"
-            className="cl-btn"
+            className="cl-tb"
             data-cl="goto"
             aria-keyshortcuts="Control+K"
             aria-label="Go To"
+            title="Go To (Ctrl+K)"
             onClick={onOpenSearch}
           >
             <SearchIcon size={22} />
-            Go To <span className="cl-keys">(Ctrl+K)</span>
+            <span className="cl-tb__t">
+              Go To <span className="cl-keys">(Ctrl+K)</span>
+            </span>
           </button>
-          <button type="button" className="cl-btn" data-cl="settings" aria-label="Settings" onClick={onOpenSettings}>
+          <button type="button" className="cl-tb" data-cl="settings" aria-label="Settings" title="Settings" onClick={onOpenSettings}>
             <SettingsIcon size={22} />
-            Settings
+            <span className="cl-tb__t">Settings</span>
           </button>
         </nav>
-        <ClassicAddress onDiscover={onDiscover} address={addressOf({ section, liveTab, streamTab })} />
+        <ClassicAddress onDiscover={onDiscover} address={addressOf({ section, liveTab, streamTab, title, settings })} />
         {onDiscover && <ClassicBand />}
       </header>
       <footer className="cl-status" aria-label="Status">
@@ -203,7 +224,7 @@ function ClassicAddress({ onDiscover, address }: { onDiscover: boolean; address:
       <div className="cl-addr">
         <span className="cl-label">Address</span>
         <div className="cl-field" role="status" aria-label="Address" data-cl="address">
-          <i className="cl-mark" aria-hidden />
+          <BrandMark size={16} />
           <span>{address}</span>
         </div>
       </div>

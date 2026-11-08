@@ -102,6 +102,25 @@ await row("All Channels").click();
 await settle();
 check("All Channels: every channel is back", JSON.stringify(await names()) === JSON.stringify(defNames));
 
+// Explorer's rule: a click on a label selects it, only the box or a double click folds.
+check("Tree: labels are 12px on 18px rows", await page.evaluate(() => {
+  const lb = document.querySelector('.cl-tv__row[data-node="m:favorites"] .cl-tv__lb');
+  return getComputedStyle(lb).fontSize === "12px" && lb.closest(".cl-tv__row").getBoundingClientRect().height === 18;
+}));
+const srcRow = () => page.locator(".cl-tv__row", { hasText: "Test (" });
+await srcRow().locator(".cl-tv__lb").click();
+check("Tree: a click on a source's label does not fold it, or take the selection", (await srcRow().getAttribute("aria-expanded")) === "true" && (await row("All Channels").getAttribute("aria-selected")) === "true");
+await row("Live TV").locator(".cl-tv__lb").click();
+check("Tree: nor does a click on Live TV", (await row("Live TV").getAttribute("aria-expanded")) === "true");
+await srcRow().locator(".cl-tv__lb").dblclick();
+check("Tree: a double click on the label folds it", (await srcRow().getAttribute("aria-expanded")) === "false");
+await srcRow().locator(".cl-tv__lb").dblclick();
+check("Tree: and opens it again", (await srcRow().getAttribute("aria-expanded")) === "true");
+await srcRow().locator(".cl-tv__bx").click();
+check("Tree: the box folds it and leaves the selection alone", (await srcRow().getAttribute("aria-expanded")) === "false" && (await row("All Channels").getAttribute("aria-selected")) === "true");
+await srcRow().locator(".cl-tv__bx").click();
+check("Tree: and opens it", (await srcRow().getAttribute("aria-expanded")) === "true");
+
 // Keyboard: arrows move, Enter picks, Left and Right fold.
 await row("All Channels").focus();
 await page.keyboard.press("ArrowDown");
@@ -128,7 +147,61 @@ await settle();
 // The folder's right-click menu is still there.
 await row("News").click({ button: "right" });
 check("Right-click a folder: the Hide menu opens", (await page.locator(".folder-menu").innerText()).includes("Hide “News”"));
+const fmenu = await page.evaluate(() => {
+  const m = document.querySelector(".folder-menu");
+  const it = m.querySelector(".folder-menu__item");
+  const cm = getComputedStyle(m);
+  const ci = getComputedStyle(it);
+  const range = document.createRange();
+  range.selectNodeContents(it);
+  return {
+    shadow: cm.boxShadow,
+    bg: cm.backgroundColor,
+    radius: cm.borderRadius,
+    gap: Math.round(range.getBoundingClientRect().left - it.getBoundingClientRect().left),
+    justify: ci.justifyContent,
+    align: ci.textAlign,
+    itemShadow: ci.boxShadow,
+    itemWidth: Math.round(it.getBoundingClientRect().width),
+    menuWidth: Math.round(m.getBoundingClientRect().width),
+  };
+});
+check("Folder menu: bevelled on the grey face, square corners", fmenu.shadow.includes("inset") && fmenu.shadow.includes("rgb(64, 64, 64)") && fmenu.bg === rgb(212, 208, 200) && fmenu.radius === "0px", JSON.stringify(fmenu));
+check("Folder menu: the item is left-aligned, flat, and runs the menu's width", fmenu.justify === "flex-start" && fmenu.align === "left" && fmenu.gap <= 12 && fmenu.itemShadow === "none" && fmenu.itemWidth >= fmenu.menuWidth - 12, JSON.stringify(fmenu));
+await page.locator(".folder-menu__item").hover();
+await page.waitForTimeout(400);
+check("Folder menu: the item takes the navy highlight under the pointer", (await css(".folder-menu__item", "backgroundColor")) === rgb(10, 36, 106) && (await css(".folder-menu__item", "color")) === rgb(255, 255, 255));
 await page.keyboard.press("Escape");
+
+// The Fix Guide dialog wears the Classic dialog frame, as Settings does.
+await page.locator(".guide__card").first().click({ button: "right" });
+await page.getByRole("menuitem", { name: "Fix Guide…" }).click();
+await page.locator(".cl-dlg").waitFor();
+const fix = await page.evaluate(() => {
+  const d = document.querySelector(".cl-dlg");
+  const t = d.querySelector('[data-slot="dialog-title"]');
+  const x = d.querySelector('[data-slot="dialog-close"]');
+  const ct = getComputedStyle(t);
+  const cx = getComputedStyle(x);
+  const dr = d.getBoundingClientRect();
+  const tr = t.getBoundingClientRect();
+  return {
+    bar: ct.backgroundImage,
+    barH: Math.round(tr.height),
+    ink: ct.color,
+    x: cx.boxShadow,
+    xBg: cx.backgroundColor,
+    xW: Math.round(x.getBoundingClientRect().width),
+    face: getComputedStyle(d).backgroundColor,
+    radius: getComputedStyle(d).borderRadius,
+    inside: [...d.children].every((c) => c.getBoundingClientRect().right <= dr.right + 0.5),
+  };
+});
+check("Fix Guide: a navy gradient title bar, 18px, white text", fix.bar.includes("linear-gradient") && fix.bar.includes("rgb(10, 36, 106)") && fix.barH === 18 && fix.ink === rgb(255, 255, 255), JSON.stringify(fix));
+check("Fix Guide: the close button is a small bevelled button, not a bare glyph", fix.x.includes("inset") && fix.xBg === rgb(212, 208, 200) && fix.xW === 16, JSON.stringify(fix));
+check("Fix Guide: on the grey face, square, with everything inside the frame", fix.face === rgb(212, 208, 200) && fix.radius === "0px" && fix.inside, JSON.stringify(fix));
+await page.keyboard.press("Escape");
+await page.locator(".cl-dlg").waitFor({ state: "detached" });
 
 // Modes.
 await row("Favorites").click();

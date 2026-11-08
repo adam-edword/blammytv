@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Segmented } from "../../ui/Segmented";
-import { EYEBROW } from "../../ui/eyebrow";
+import { SettingsGroup } from "./SettingsGroup";
 import { PlaylistsTab } from "./PlaylistsTab";
 import { AioStreamsTab } from "./AioStreamsTab";
 import { JellyfinTab } from "./JellyfinTab";
@@ -35,7 +35,7 @@ export function SourcesPage({ initialWorld }: { initialWorld?: "live" | "stream"
         * showing, so they read their lists afresh each time you arrive, and
         * a clear made on the App page can never meet a pane still holding
         * the old list. */}
-      <h3 className={`settings__group ${EYEBROW}`}>Sources</h3>
+      <SettingsGroup title="Sources">
       <div className="customize-rail">
         <Segmented role="tabs" label="Sources" options={SOURCE_TABS} value={source} onChange={setSource} />
       </div>
@@ -47,6 +47,7 @@ export function SourcesPage({ initialWorld }: { initialWorld?: "live" | "stream"
           <JellyfinTab />
         </>
       )}
+      </SettingsGroup>
     </>
   );
 }

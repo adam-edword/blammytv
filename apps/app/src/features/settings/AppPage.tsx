@@ -1,6 +1,6 @@
 import { Button } from "../../components/ui/button";
 import { remove as removeStored } from "../../lib/storage";
-import { EYEBROW } from "../../ui/eyebrow";
+import { SettingsGroup } from "./SettingsGroup";
 import { UpdatesSection } from "./UpdatesSection";
 import { ShortcutsSection } from "./ShortcutsSection";
 import { AboutSection } from "./AboutSection";
@@ -59,7 +59,7 @@ export function AppPage() {
 
   return (
     <>
-      <h3 className={`settings__group ${EYEBROW}`}>App</h3>
+      <SettingsGroup title="App">
       <section className="settings-section">
         <UpdatesSection />
         <div className="customize-row" data-setting="whats-new">
@@ -90,7 +90,9 @@ export function AppPage() {
         </div>
       </section>
 
-      <h3 className={`settings__group ${EYEBROW}`}>Privacy and Data</h3>
+      </SettingsGroup>
+
+      <SettingsGroup title="Privacy and Data">
       <section className="settings-section">
         <DiagnosticsSection />
         <SettingsFilesSection />
@@ -108,6 +110,7 @@ export function AppPage() {
           <ConfirmButton label="Clear…" onConfirm={clearLogins} />
         </div>
       </section>
+      </SettingsGroup>
     </>
   );
 }

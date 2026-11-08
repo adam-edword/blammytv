@@ -93,6 +93,12 @@ const CARD_MIN = 189;
 const CARD_MAX = Math.round(CARD_MIN * 2.5);
 const CARD_W_KEY = "guideCardW";
 const CARD_W_VERSION = 1;
+/* Fluent's channel cards open wider (its names are 14px beside a 40px logo
+ * and a 189px card cut "Fake Sky Sports FHD" to "Fake Sky Sports F"), and
+ * keep their own remembered width: every install already stored 189 under
+ * the Default's key, which would pin it. */
+const CARD_W_KEY_FLUENT = "guideCardWFluent";
+const CARD_FLUENT = 232;
 const ROW_H = 60;
 const ROW_GAP = 8;
 /** The ruler's band, which holds Earlier, Now and Later (a 26px capsule) and
@@ -297,15 +303,33 @@ export const Guide = memo(function Guide({
 
   // Resizable channel-card column, remembered (the old build's mechanics:
   // pointer-capture drag, clamped, persisted).
-  const [cardW, setCardW] = useState(() =>
+  // (The keys are named at the calls: settingsExport.test.ts reads them there.)
+  const readCardW = (fl: boolean) =>
     Math.min(
       CARD_MAX,
-      Math.max(CARD_MIN, load<number>(CARD_W_KEY, CARD_W_VERSION, CARD_MIN)),
-    ),
-  );
+      Math.max(
+        CARD_MIN,
+        fl ? load<number>(CARD_W_KEY_FLUENT, CARD_W_VERSION, CARD_FLUENT) : load<number>(CARD_W_KEY, CARD_W_VERSION, CARD_MIN),
+      ),
+    );
+  const [cardW, setCardW] = useState(() => readCardW(fluent));
   const [resizing, setResizing] = useState(false);
   const dragRef = useRef({ x: 0, w: 0 });
-  useEffect(() => save(CARD_W_KEY, CARD_W_VERSION, cardW), [cardW]);
+  // A pack switched while the Guide is up: it is the other pack's width now.
+  const shownPack = useRef(fluent);
+  const switched = useRef(false);
+  useEffect(() => {
+    if (shownPack.current === fluent) return;
+    shownPack.current = fluent;
+    switched.current = true;
+    setCardW(readCardW(fluent));
+  }, [fluent]);
+  useEffect(() => {
+    // The pass that switched has the old width in hand: not for the new key.
+    if (switched.current) switched.current = false;
+    else if (fluent) save(CARD_W_KEY_FLUENT, CARD_W_VERSION, cardW);
+    else save(CARD_W_KEY, CARD_W_VERSION, cardW);
+  }, [fluent, cardW]);
   /** Left edge of the programme lanes: card column + its 8px gutter. */
   const laneX = cardW + 8;
 

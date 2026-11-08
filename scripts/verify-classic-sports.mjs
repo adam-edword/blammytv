@@ -257,14 +257,33 @@ check(
   (await page.locator('li[data-id="s:football"]').getAttribute("aria-expanded")) === "true" &&
     (await page.locator('li[data-id="s:soccer"]').getAttribute("aria-expanded")) === "false",
 );
-await page.locator('li[data-id="s:soccer"] > .cl-tv__n').click();
+await page.locator('li[data-id="s:soccer"] > .cl-tv__n > .cl-tv__bx').click();
 check(
-  "a closed sport opens from its row and lists its leagues",
+  "a closed sport opens from its +/- box and lists its leagues",
   (await page.locator('li[data-id="s:soccer"]').getAttribute("aria-expanded")) === "true" &&
     (await page.locator('li[data-id="s:soccer"] li[role="treeitem"]').count()) > 5,
 );
-await page.locator('li[data-id="s:soccer"] > .cl-tv__n').click();
+check(
+  "the box only opens it: nothing is selected, the Sports root still is",
+  (await page.locator('li[data-id="s:soccer"]').getAttribute("aria-selected")) === "false" &&
+    (await page.locator('li[data-id="root"]').getAttribute("aria-selected")) === "true",
+);
+await page.locator('li[data-id="s:soccer"] > .cl-tv__n > .cl-tv__bx').click();
 check("and closes again", (await page.locator('li[data-id="s:soccer"]').getAttribute("aria-expanded")) === "false");
+await page.locator('li[data-id="s:soccer"] > .cl-tv__n .cl-tv__lb').dblclick();
+check("a double click on the label opens it too", (await page.locator('li[data-id="s:soccer"]').getAttribute("aria-expanded")) === "true");
+await page.locator('li[data-id="s:soccer"] > .cl-tv__n .cl-tv__lb').dblclick();
+check("and closes it", (await page.locator('li[data-id="s:soccer"]').getAttribute("aria-expanded")) === "false");
+await page.locator('li[data-id="root"] > .cl-tv__n .cl-tv__lb').click(); // back to a clean filter: the dblclicks selected Soccer
+await page.waitForTimeout(1500);
+check(
+  "tree labels are 12px on 18px rows",
+  await page.evaluate(() => {
+    const lb = document.querySelector('li[data-id="s:football"] > .cl-tv__n .cl-tv__lb');
+    const n = lb.closest(".cl-tv__n");
+    return getComputedStyle(lb).fontSize === "12px" && n.getBoundingClientRect().height === 18;
+  }),
+);
 
 const games = () => page.locator(".cl-game").count();
 const before = await games();
@@ -292,6 +311,69 @@ check(
   "Clear Filter brings the whole board back",
   (await games()) === before && (await page.locator('li[data-id="l:football/nfl"]').getAttribute("aria-selected")) === "false",
 );
+
+// Explorer's rule for the folders: a click on a LABEL selects, it does not fold.
+const games0 = await games();
+const open0 = await page.locator('li[data-id="s:basketball"]').getAttribute("aria-expanded");
+await page.locator('li[data-id="s:basketball"] > .cl-tv__n .cl-tv__lb').click();
+await page.waitForTimeout(1200);
+const hoops = await page.locator(".cl-game__name").allTextContents();
+check(
+  "a sport label selects it: aria-selected, navy, and the board narrows to that sport's leagues",
+  (await page.locator('li[data-id="s:basketball"]').getAttribute("aria-selected")) === "true" &&
+    hoops.join() === "Heat,Knicks" &&
+    (await page.evaluate(() => getComputedStyle(document.querySelector('li[data-id="s:basketball"] > .cl-tv__n .cl-tv__lb')).backgroundColor)) === "rgb(10, 36, 106)",
+  hoops.join(),
+);
+check(
+  "and does not toggle it",
+  (await page.locator('li[data-id="s:basketball"]').getAttribute("aria-expanded")) === open0,
+  open0,
+);
+check(
+  "the root is not selected while a sport is",
+  (await page.locator('li[data-id="root"]').getAttribute("aria-selected")) === "false" &&
+    (await page.locator('li[data-id="s:football"]').getAttribute("aria-selected")) === "false",
+);
+await page.locator('li[data-id="s:basketball"] > .cl-tv__n > .cl-tv__bx').click();
+check(
+  "the +/- box toggles it and leaves the selection alone",
+  (await page.locator('li[data-id="s:basketball"]').getAttribute("aria-expanded")) !== open0 &&
+    (await page.locator('li[data-id="s:basketball"]').getAttribute("aria-selected")) === "true",
+);
+await page.locator('li[data-id="s:basketball"] > .cl-tv__n > .cl-tv__bx').click(); // as it was
+await page.locator('li[data-id="s:football"] > .cl-tv__n .cl-tv__lb').click();
+await page.waitForTimeout(1200);
+check(
+  "another sport label replaces the selection",
+  (await page.locator('li[data-id="s:basketball"]').getAttribute("aria-selected")) === "false" &&
+    (await page.locator('li[data-id="s:football"]').getAttribute("aria-selected")) === "true" &&
+    !(await page.locator(".cl-game__name").allTextContents()).includes("Heat"),
+);
+await page.locator('li[data-id="root"] > .cl-tv__n .cl-tv__lb').click();
+await page.waitForTimeout(1200);
+check(
+  "the Sports label clears the filter: everything is back and the root is the selection",
+  (await games()) === games0 &&
+    (await page.locator('li[data-id="root"]').getAttribute("aria-selected")) === "true" &&
+    (await page.locator('li[data-id="s:football"]').getAttribute("aria-selected")) === "false",
+);
+check(
+  "and a click on it does not fold the tree",
+  (await page.locator('li[data-id="root"]').getAttribute("aria-expanded")) === "true",
+);
+await page.locator('li[data-id="s:basketball"]').focus();
+await page.keyboard.press("Enter");
+await page.waitForTimeout(1200);
+check(
+  "Enter on a sport selects it",
+  (await page.locator('li[data-id="s:basketball"]').getAttribute("aria-selected")) === "true" &&
+    (await page.locator(".cl-game__name").allTextContents()).join() === "Heat,Knicks",
+);
+await page.locator('li[data-id="root"]').focus();
+await page.keyboard.press("Enter");
+await page.waitForTimeout(1200);
+check("and Enter on Sports clears it", (await games()) === games0);
 
 // Keyboard: the root takes the tab stop, arrows walk, Right opens, Enter picks.
 await page.locator('li[data-id="root"]').focus();

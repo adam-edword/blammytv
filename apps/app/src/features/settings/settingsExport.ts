@@ -190,6 +190,7 @@ export const KEY_GROUPS = {
     "sportsTheaterRailShut",
     "sportsTheaterSideWidth",
     "guideCardW",
+    "guideCardWFluent",
     // Where recordings go (plan 029): a folder on this PC.
     "recordingsFolder",
     // The newest release What's New has shown on this PC. An import must not

@@ -1,0 +1,141 @@
+/*
+ * Classic's chrome (plan 035, tier 3): the toolbar's label rules, the player
+ * overlays' readability and Multi-View's bar. Solid grey, flat bevels; the
+ * pieces classic.css does not already say.
+ */
+
+/* ------------------------------------------------------------- toolbar */
+/* A label is one line, always. When the row cannot hold them the header sets
+ * data-compact (ClassicHeader) and the buttons keep their icons; the name is
+ * their aria-label and tooltip, as Windows' "No text labels" did. */
+:root[data-theme-pack="classic"] .cl-tb,
+:root[data-theme-pack="classic"] .cl-tb__t {
+  white-space: nowrap;
+}
+:root[data-theme-pack="classic"] .cl-tb {
+  flex: none;
+}
+:root[data-theme-pack="classic"] .cl-header[data-compact] .cl-tb__t {
+  display: none;
+}
+
+/* ------------------------------------------------- on a picture (video) */
+/* Packs keep their own ink on a picture (packs.css), which is right for a dark
+ * pack and wrong for a grey face: navy and black text on a dark scrim over
+ * video. The player's overlays and Multi-View's tiles are always over video,
+ * so they take the picture's own light ink back, and the panels that hang
+ * from them (capsules, track menus) go dark with it. */
+:root[data-theme-pack="classic"]:not([data-theme="light"]) :is(.theater-overlay, .mini-overlay, .mvtile).on-picture {
+  --bg: #000000;
+  --text: #ffffff;
+  --text-muted: #e6e6e6;
+  --text-dim: #cfcfcf;
+  --accent: #ffffff;
+  --accent-ink: #000000;
+  --glass: #1c1c1c;
+  --chip-bg: #1c1c1c;
+  --chip-edge: var(--cl-lo);
+  --float-bg: #1c1c1c;
+  --surface: #1c1c1c;
+  --sheet-bg: #1c1c1c;
+  --tint-hover: rgb(255 255 255 / 0.14);
+  --tint-on: rgb(255 255 255 / 0.22);
+  --focus-ring: #ffffff;
+}
+/* Square, as everything else is: the rounded wedges the windowed theater
+ * paints over the picture's corners go. */
+:root[data-theme-pack="classic"] .theater-overlay::before {
+  display: none;
+}
+/* A scrim that holds over bright video, and light text on it. */
+:root[data-theme-pack="classic"] .theater-bar {
+  background: linear-gradient(to top, rgb(0 0 0 / 0.92) 0%, rgb(0 0 0 / 0.8) 60%, transparent 100%);
+}
+:root[data-theme-pack="classic"] .theater-topscrim {
+  background: linear-gradient(to bottom, rgb(0 0 0 / 0.85) 0%, transparent 100%);
+}
+:root[data-theme-pack="classic"] .theater-bar__source,
+:root[data-theme-pack="classic"] .theater-bar__desc {
+  color: var(--text-muted);
+}
+:root[data-theme-pack="classic"] .theater-seek__track {
+  background: rgb(255 255 255 / 0.4);
+}
+/* ---------------------------------------------------------- Multi-View */
+/* The bar was placed for the capsule (27px down, 65px tall, so its flanks
+ * centred on that row). Classic's header is a toolbar and an address row,
+ * so the bar sits under them, and the tiles under it. */
+:root[data-theme-pack="classic"] .mvbar {
+  top: calc(var(--header-h) + 6px);
+  left: 8px;
+  right: 8px;
+  height: 36px;
+  gap: 8px;
+}
+:root[data-theme-pack="classic"] .mvbar__side {
+  gap: 6px;
+}
+:root[data-theme-pack="classic"] .mvtab__stage {
+  top: calc(var(--header-h) + 6px + 36px + 8px);
+}
+:root[data-theme-pack="classic"] .mvtab.has-scores .mvtab__stage {
+  bottom: calc(18px + 52px + 12px);
+}
+/* Chips, the layout switch and the buttons: raised face, black ink. */
+:root[data-theme-pack="classic"] .mvmeter,
+:root[data-theme-pack="classic"] .mvchoose {
+  height: 28px;
+  padding: 0 10px;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  box-shadow: var(--cl-sunken);
+  font: 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .mvchoose__cancel {
+  height: 22px;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  box-shadow: var(--cl-raised);
+  font: 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .mvchoose__cancel kbd {
+  color: var(--cl-ink-2);
+}
+:root[data-theme-pack="classic"] .mvbar .seg {
+  height: 28px;
+}
+:root[data-theme-pack="classic"] .mvbar .seg__opt {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+:root[data-theme-pack="classic"] .mvbar .mvbar__icon,
+:root[data-theme-pack="classic"] .mvbar .mvbar__add {
+  height: 28px !important;
+  min-width: 28px;
+  padding: 0 10px !important;
+  background: var(--cl-face) !important;
+  color: var(--cl-ink) !important;
+  box-shadow: var(--cl-raised) !important;
+}
+:root[data-theme-pack="classic"] .mvbar .mvbar__icon {
+  width: 28px;
+  padding: 0 !important;
+}
+:root[data-theme-pack="classic"] .mvbar .mvbar__icon[aria-pressed="true"] {
+  background: var(--cl-checker) !important;
+  box-shadow: var(--cl-pressed) !important;
+}
+:root[data-theme-pack="classic"] .mvbar .mvbar__add[aria-disabled="true"] {
+  color: var(--cl-lo) !important;
+}
+:root[data-theme-pack="classic"] .mvvol__slider {
+  accent-color: var(--cl-sel);
+}
+
+/* The two control groups: dark bevelled bars, white icons. */
+:root[data-theme-pack="classic"] .theater-controls__group {
+  border: 0;
+  background: #1c1c1c;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #000, 0 0 0 1px #000;
+}

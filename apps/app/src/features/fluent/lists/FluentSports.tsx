@@ -1,5 +1,5 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { MultiviewIcon, PlayIcon } from "../../../ui/icons";
+import { ChevronIcon, MultiviewIcon, PlayIcon } from "../../../ui/icons";
 import { requestMultiview, requestWatchInPlayer } from "../../live/multiviewEntry";
 import { CompactCard } from "../../sports/CompactCard";
 import { GolfCard } from "../../sports/GolfCard";
@@ -165,8 +165,16 @@ export function FluentSports(p: Props) {
 
         <div className="fl-tabbar">
           {p.earlier.show && (
-            <button type="button" className="fl-link" disabled={p.earlier.state === "loading"} onClick={p.earlier.load}>
-              {p.earlier.state === "loading" ? "Loading…" : p.earlier.state === "error" ? "Couldn’t Load That. Try Again" : "Show Earlier Days"}
+            <button
+              type="button"
+              className="fl-btn fl-btn--icon fl-tabbar__step fl-tabbar__step--earlier"
+              disabled={p.earlier.state === "loading"}
+              data-state={p.earlier.state}
+              onClick={p.earlier.load}
+              aria-label={p.earlier.state === "loading" ? "Loading…" : p.earlier.state === "error" ? "Couldn’t Load That. Try Again" : "Show Earlier Days"}
+              title={p.earlier.state === "loading" ? "Loading…" : p.earlier.state === "error" ? "Couldn’t Load That. Try Again" : "Show Earlier Days"}
+            >
+              <ChevronIcon size={14} />
             </button>
           )}
           <div className="fl-tabs" role="tablist" aria-label="Day" onKeyDown={onTabKey}>
@@ -185,8 +193,16 @@ export function FluentSports(p: Props) {
             ))}
           </div>
           {p.more.show && (
-            <button type="button" className="fl-link" disabled={p.more.state === "loading"} onClick={p.more.load}>
-              {p.more.state === "loading" ? "Loading…" : p.more.state === "error" ? "Couldn’t Load Those. Try Again" : "Show More Days"}
+            <button
+              type="button"
+              className="fl-btn fl-btn--icon fl-tabbar__step fl-tabbar__step--more"
+              disabled={p.more.state === "loading"}
+              data-state={p.more.state}
+              onClick={p.more.load}
+              aria-label={p.more.state === "loading" ? "Loading…" : p.more.state === "error" ? "Couldn’t Load Those. Try Again" : "Show More Days"}
+              title={p.more.state === "loading" ? "Loading…" : p.more.state === "error" ? "Couldn’t Load Those. Try Again" : "Show More Days"}
+            >
+              <ChevronIcon size={14} />
             </button>
           )}
         </div>

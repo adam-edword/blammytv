@@ -118,7 +118,7 @@ export function GuideFixDialog({
         // the close X sat mid-title (Adam, v0.11.37). Fixed at the column,
         // nothing inside can widen it. Wider than the stock card too: guide
         // names are long.
-        className="grid-cols-[minmax(0,1fr)] gap-3 sm:max-w-2xl"
+        className="cl-dlg grid-cols-[minmax(0,1fr)] gap-3 sm:max-w-2xl"
         onCloseAutoFocus={onCloseAutoFocus}
       >
         <DialogHeader className="gap-1.5">

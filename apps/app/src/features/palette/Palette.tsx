@@ -31,6 +31,7 @@ import type { LiveTab, StreamTab } from "../../app/AppHeader";
 import { lastInputWasKey } from "../live/mvMotion";
 import { itemKey } from "../discover/data";
 import { setSearchQuery } from "../discover/searchQuery";
+import { BrandMark } from "../../ui/BrandMark";
 import { useClassic } from "../classic/useClassic";
 import { pickTitles, TITLE_MIN, useTitleSearch } from "./titleSearch";
 import { useFluent } from "../fluent/useFluent";
@@ -410,12 +411,17 @@ export function Palette({
           * the rows and the keys below are the palette's own. */}
         {classic && (
           <>
-            <div className="cl-title" aria-hidden>
-              <span className="cl-title__text">Go To</span>
-              <span className="cl-x">✕</span>
+            <div className="cl-title">
+              <span className="cl-title__text" aria-hidden>
+                Go To
+              </span>
+              {/* Off the tab order, as a title bar's x was: the dialog opens with the field focused. */}
+              <button type="button" className="cl-x" aria-label="Close" tabIndex={-1} onClick={() => onOpenChange(false)}>
+                ✕
+              </button>
             </div>
             <p className="palette__intro">
-              <i className="cl-logo" aria-hidden />
+              <BrandMark size={34} />
               Type the name of a channel, a film or a setting, and BlammyTV will open it for you.
             </p>
           </>

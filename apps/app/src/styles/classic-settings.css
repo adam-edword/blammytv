@@ -1,0 +1,606 @@
+/* Classic (Windows 2000), Settings and the dialogs (plan 035, "Classic across
+ * the app"). Settings is Display Properties: one fixed-size dialog, a title
+ * bar, property-sheet tabs, a page that scrolls, group boxes, and Windows 2000
+ * controls. The frame's first pass is in classic.css; this sheet finishes it
+ * and holds the shared dialog frame (.cl-dlg) and the folder menu.
+ *
+ * Built on classic-tokens.css only. Nothing here applies until the root
+ * carries data-theme-pack="classic". Where a rule fights a utility class
+ * (shadcn's Button, DialogContent) it says !important, as classic.css does:
+ * utilities sit above `app` in the layer order. */
+
+/* ------------------------------------------------------- scrollbar arrows */
+/* A scrollbar button's state pseudo-classes (:vertical, :decrement) are
+ * dropped by Chromium when the selector has an ancestor, so classic.css's
+ * `:root[...] ::-webkit-scrollbar-button:single-button:vertical:decrement`
+ * never matched and the bars had no arrows. These are unprefixed, and the
+ * root's --cl-sbb turns them on: every other pack keeps `none`, which is how
+ * a styled scrollbar draws without them. */
+:root[data-theme-pack="classic"] {
+  --cl-sbb: block;
+}
+::-webkit-scrollbar-button:single-button {
+  display: var(--cl-sbb, none);
+  width: 16px;
+  height: 16px;
+  background-color: var(--cl-face);
+  background-repeat: no-repeat;
+  background-position: center;
+  box-shadow: var(--cl-raised);
+}
+::-webkit-scrollbar-button:single-button:vertical:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M4 10l4-4 4 4z'/%3E%3C/svg%3E");
+}
+::-webkit-scrollbar-button:single-button:vertical:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M4 6l4 4 4-4z'/%3E%3C/svg%3E");
+}
+::-webkit-scrollbar-button:single-button:active {
+  box-shadow: var(--cl-pressed);
+}
+
+/* ------------------------------------------------------ the dialog's frame */
+/* One size on every tab: the title bar, the tabs and the Close row keep their
+ * height (flex: none, or the tall tabs squeezed the title bar from 24px to
+ * 16px), and the page between them scrolls. */
+:root[data-theme-pack="classic"] .settings--classic {
+  height: min(640px, calc(100vh - var(--settings-top) - 48px));
+  font: 12px var(--cl-font);
+  /* The page's own tokens, in Windows 2000's ink and face. */
+  --text: var(--cl-ink);
+  --text-muted: var(--cl-ink);
+  --text-faint: var(--cl-ink);
+  --border: var(--cl-lo);
+  --border-strong: var(--cl-lo);
+  --font-text: var(--cl-font);
+  --font-headline: var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic > .cl-title,
+:root[data-theme-pack="classic"] .settings--classic .cl-tabs,
+:root[data-theme-pack="classic"] .settings--classic .cl-foot {
+  flex: none;
+}
+:root[data-theme-pack="classic"] .settings--classic > .cl-title {
+  height: 18px;
+  padding: 0 2px 0 4px;
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-title__text {
+  font: 700 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-x {
+  width: 16px;
+  height: 14px;
+  font-size: 10px;
+  line-height: 1;
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-tabs .rail__opt {
+  font: 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-b {
+  font: 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic .settings__body {
+  padding: 12px;
+  gap: 12px;
+  /* The scrollbar sits in the sunken edge of the page, not under the text. */
+  scrollbar-gutter: auto;
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-balloon {
+  top: 22px;
+}
+
+/* ------------------------------------------------------------- group boxes */
+/* An etched line with the title sitting on it, as the Sports days draw. */
+:root[data-theme-pack="classic"] .settings--classic .cl-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--cl-lo);
+  box-shadow: 1px 1px 0 var(--cl-hi), inset 1px 1px 0 var(--cl-hi);
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-group__title {
+  padding: 0 4px;
+  font: 12px/15px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-group .settings-section {
+  gap: 10px;
+  border: 0;
+  padding: 0;
+}
+
+/* ------------------------------------------------------- rows and their words */
+:root[data-theme-pack="classic"] .settings--classic .customize-row__title,
+:root[data-theme-pack="classic"] .settings--classic .settings-field__label,
+:root[data-theme-pack="classic"] .settings--classic .settings-section__list-title {
+  font: 12px/16px var(--cl-font);
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root[data-theme-pack="classic"] .settings--classic .customize-row__title {
+  margin: 0 0 1px;
+}
+:root[data-theme-pack="classic"] .settings--classic .settings__section-note,
+:root[data-theme-pack="classic"] .settings--classic .update-notes__body,
+:root[data-theme-pack="classic"] .settings--classic .settings-said,
+:root[data-theme-pack="classic"] .settings--classic .xtedit__hint,
+:root[data-theme-pack="classic"] .settings--classic .homerows__why,
+:root[data-theme-pack="classic"] .settings--classic .playlist-row__status,
+:root[data-theme-pack="classic"] .settings--classic .playlist-library__label {
+  font: 11px/14px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .settings--classic .setting-line__label,
+:root[data-theme-pack="classic"] .settings--classic .skip-line__label,
+:root[data-theme-pack="classic"] .settings--classic .settings-check {
+  font: 12px/16px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic .customize-row,
+:root[data-theme-pack="classic"] .settings--classic .setting-line,
+:root[data-theme-pack="classic"] .settings--classic .skip-line {
+  gap: 12px;
+}
+:root[data-theme-pack="classic"] .settings--classic .customize-stack {
+  gap: 6px;
+}
+:root[data-theme-pack="classic"] .settings--classic .setting-lines,
+:root[data-theme-pack="classic"] .settings--classic .skip-lines {
+  gap: 6px;
+}
+:root[data-theme-pack="classic"] .settings--classic .eyebrow,
+:root[data-theme-pack="classic"] .settings--classic .update-notes__title {
+  font: 700 11px/14px var(--cl-font);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--cl-ink);
+}
+
+/* --------------------------------------------------- buttons and fields in it */
+/* Every push button in the dialog is a raised one, ghost and link-less
+ * alike: classic.css flattens a ghost Button until hover, and a Windows 2000
+ * dialog has no flat buttons. Links keep their blue underline below. */
+:root[data-theme-pack="classic"] .settings--classic button[data-variant]:not([data-slot^="combobox"], [data-slot^="input-group"]):not([class*="underline-offset"]),
+:root[data-theme-pack="classic"] .settings--classic button[data-variant]:not([data-slot^="combobox"], [data-slot^="input-group"])[class*="hover:bg-tint-hover"]:not([aria-pressed="true"]) {
+  background: var(--cl-face) !important;
+  box-shadow: var(--cl-raised) !important;
+  font-size: 12px !important;
+  line-height: 14px !important;
+  min-height: 23px;
+  padding: 0 10px !important;
+  border-radius: 0 !important;
+}
+:root[data-theme-pack="classic"] .settings--classic button[data-variant]:not([data-slot^="combobox"], [data-slot^="input-group"])[class*="hover:bg-tint-hover"]:hover:not([aria-pressed="true"]) {
+  box-shadow: var(--cl-raised) !important;
+}
+:root[data-theme-pack="classic"] .settings--classic button[data-variant]:not([data-slot^="combobox"], [data-slot^="input-group"]):not([class*="underline-offset"]):active:not(:disabled) {
+  box-shadow: var(--cl-pressed) !important;
+}
+:root[data-theme-pack="classic"] .settings--classic button[data-variant]:not([data-slot^="combobox"], [data-slot^="input-group"])[class*="underline-offset"] {
+  background: none !important;
+  box-shadow: none !important;
+  color: #0000ee !important;
+  font-size: 12px !important;
+  text-decoration: underline;
+  min-height: 0;
+  padding: 0 !important;
+}
+/* A segmented choice is a row of push buttons, 23px like the rest. */
+:root[data-theme-pack="classic"] .settings--classic .seg__opt {
+  height: 23px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  line-height: 14px !important;
+  border-radius: 0 !important;
+}
+/* The eyebrows (uppercase, tracked) other pages use are a plain bold
+ * caption here. */
+:root[data-theme-pack="classic"] .settings--classic [class*="uppercase"] {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--cl-ink) !important;
+}
+
+/* Text fields. */
+:root[data-theme-pack="classic"] .settings--classic .settings-input,
+:root[data-theme-pack="classic"] .settings--classic input[type="text"],
+:root[data-theme-pack="classic"] .settings--classic input[type="password"],
+:root[data-theme-pack="classic"] .settings--classic input[type="search"],
+:root[data-theme-pack="classic"] .settings--classic input[type="url"],
+:root[data-theme-pack="classic"] .settings--classic input[type="number"] {
+  height: 22px;
+  min-height: 22px;
+  padding: 2px 4px;
+  border-radius: 0;
+  font: 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic textarea {
+  border-radius: 0;
+  font: 12px var(--cl-font);
+}
+/* A combo box: a sunken white field with a raised arrow button on its right. */
+:root[data-theme-pack="classic"] .settings--classic [data-slot="input-group"] {
+  height: 22px !important;
+  min-height: 22px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--cl-field) !important;
+  box-shadow: var(--cl-sunken) !important;
+}
+:root[data-theme-pack="classic"] .settings--classic [data-slot="input-group"] input {
+  height: 100% !important;
+  padding: 0 4px !important;
+  background: none !important;
+  box-shadow: none !important;
+  font: 12px var(--cl-font) !important;
+}
+:root[data-theme-pack="classic"] .settings--classic [data-slot="input-group-addon"] {
+  padding: 2px 2px 2px 0 !important;
+}
+:root[data-theme-pack="classic"] .settings--classic [data-slot="combobox-trigger"] {
+  width: 16px !important;
+  height: 16px !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+  display: block !important;
+  border-radius: 0 !important;
+  background: var(--cl-face) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M4 6l4 4 4-4z'/%3E%3C/svg%3E") no-repeat center !important;
+  box-shadow: var(--cl-raised) !important;
+}
+:root[data-theme-pack="classic"] .settings--classic [data-slot="combobox-trigger"]:active {
+  box-shadow: var(--cl-pressed) !important;
+}
+:root[data-theme-pack="classic"] .settings--classic [data-slot="combobox-trigger"] svg {
+  display: none;
+}
+/* The chips field (Carousel Catalogs): one sunken box holding raised tags
+ * and a bare typing area, not a field inside a field. */
+:root[data-theme-pack="classic"] .settings--classic [data-slot="combobox-chips"] {
+  min-height: 22px !important;
+  padding: 1px 3px !important;
+  gap: 3px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--cl-field) !important;
+  box-shadow: var(--cl-sunken) !important;
+}
+:root[data-theme-pack="classic"] .settings--classic [data-slot="combobox-chips"] input {
+  height: 18px;
+  min-height: 0;
+  padding: 0 2px;
+  background: none !important;
+  box-shadow: none !important;
+}
+:root[data-theme-pack="classic"] .settings--classic [data-slot="combobox-chip"] {
+  height: 18px !important;
+  padding: 0 4px !important;
+  border-radius: 0 !important;
+  background: var(--cl-face) !important;
+  box-shadow: var(--cl-raised-thin);
+  font: 11px var(--cl-font) !important;
+  color: var(--cl-ink) !important;
+}
+:root[data-theme-pack="classic"] .settings--classic [data-slot="combobox-chip-remove"] {
+  min-height: 0 !important;
+  width: 14px !important;
+  height: 14px !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  background: none !important;
+}
+
+/* Check boxes and the trackbar. */
+:root[data-theme-pack="classic"] .settings--classic input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 1px 0 0;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] .settings--classic input[type="checkbox"]:checked {
+  background: no-repeat center / 9px 9px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6l3 3 5-6' fill='none' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E") var(--cl-field);
+}
+:root[data-theme-pack="classic"] .settings--classic input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 24px;
+  background: none;
+  cursor: default;
+}
+:root[data-theme-pack="classic"] .settings--classic input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--cl-face);
+  box-shadow: var(--cl-sunken);
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] .settings--classic input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 21px;
+  margin-top: -9px;
+  background: var(--cl-face);
+  box-shadow: var(--cl-raised);
+  border: 0;
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] .settings--classic .rowcap__value {
+  font: 12px var(--cl-font);
+}
+
+/* ----------------------------------------------------- lists in the pages */
+/* A playlist is a line in a sunken white list box. */
+:root[data-theme-pack="classic"] .settings--classic .playlist-row {
+  min-height: 44px;
+  padding: 4px 8px;
+  border-radius: 0;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .settings--classic .playlist-row__name {
+  font: 700 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic .playlist-row__source {
+  font: 11px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .settings--classic .playlist-row__actions {
+  gap: 6px;
+}
+/* Advanced and its arrow read as one combo: the label in a sunken field, the
+ * arrow a raised button against it. */
+:root[data-theme-pack="classic"] .settings--classic .playlist-advanced__trigger {
+  margin-right: -6px;
+}
+:root[data-theme-pack="classic"] .settings--classic .playlist-advanced__trigger button[data-variant][data-size][class][class] {
+  background: var(--cl-field) !important;
+  box-shadow: var(--cl-sunken) !important;
+  min-width: 82px;
+  height: 22px;
+  min-height: 22px;
+  justify-content: flex-start;
+  text-align: left;
+}
+:root[data-theme-pack="classic"] .settings--classic button[data-variant][data-size][class][class].playlist-row__expand {
+  width: 17px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  background: var(--cl-face) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M4 6l4 4 4-4z'/%3E%3C/svg%3E") no-repeat center !important;
+  transform: none;
+}
+:root[data-theme-pack="classic"] .settings--classic .playlist-row__expand svg {
+  visibility: hidden;
+}
+:root[data-theme-pack="classic"] .settings--classic button[data-variant][data-size][class][class].playlist-row__delete {
+  width: 22px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+}
+:root[data-theme-pack="classic"] .settings--classic .playlist-library {
+  gap: 10px;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--cl-lo);
+  border-radius: 0;
+  background: none;
+  box-shadow: 1px 1px 0 var(--cl-hi), inset 1px 1px 0 var(--cl-hi);
+}
+:root[data-theme-pack="classic"] .settings--classic .playlist-library__name {
+  font: 700 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic .source-list {
+  border: 0;
+  border-radius: 0;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .settings--classic .source-row {
+  border-radius: 0;
+  padding: 2px 6px;
+}
+:root[data-theme-pack="classic"] .settings--classic .source-row:hover {
+  background: var(--cl-sel);
+  color: var(--cl-sel-ink);
+}
+:root[data-theme-pack="classic"] .settings--classic .source-row__name {
+  font: 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic .source-row__type {
+  font: 700 11px var(--cl-font);
+  letter-spacing: 0;
+  color: inherit;
+}
+
+/* Home's rows: a glyph, a name, a switch and a small x. */
+:root[data-theme-pack="classic"] .settings--classic .xtrow {
+  padding: 4px 6px;
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] .settings--classic .xtrow:hover {
+  background: none;
+}
+:root[data-theme-pack="classic"] .settings--classic .xtrow__name,
+:root[data-theme-pack="classic"] .settings--classic .xtfolder__name,
+:root[data-theme-pack="classic"] .settings--classic .homerows__title {
+  font: 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic .xtrow__kind {
+  font: 11px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .settings--classic .homerows__title {
+  padding: 1px 4px;
+  margin: 0;
+}
+:root[data-theme-pack="classic"] .settings--classic .homerows__x,
+:root[data-theme-pack="classic"] .settings--classic .homerows__nox {
+  flex: none;
+  width: 18px;
+  height: 16px;
+}
+:root[data-theme-pack="classic"] .settings--classic .homerows__x {
+  border-radius: 0;
+  background: var(--cl-face);
+  box-shadow: var(--cl-raised-thin);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .settings--classic .homerows__x:hover {
+  background: var(--cl-face);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .settings--classic .homerows__x:active {
+  box-shadow: var(--cl-pressed);
+}
+:root[data-theme-pack="classic"] .settings--classic .homerows__x svg {
+  width: 8px;
+  height: 8px;
+}
+:root[data-theme-pack="classic"] .settings--classic .xtrow__grip {
+  border-radius: 0;
+}
+
+/* --------------------------------------------------------- a dialog's frame */
+/* The shared dialog (shadcn's DialogContent) with a title: a navy gradient
+ * bar over the title, a bevelled close button in it, and the rest inset.
+ * Opt in with .cl-dlg (the Fix Guide dialog); the frame, the face and the
+ * raised edge are classic.css's [data-slot="dialog-content"] rule. */
+:root[data-theme-pack="classic"] .cl-dlg {
+  padding: 3px !important;
+  gap: 8px !important;
+  font: 12px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-header"] {
+  gap: 0 !important;
+  text-align: left;
+}
+:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-title"] {
+  display: block;
+  height: 18px;
+  padding: 0 24px 0 4px !important;
+  background: var(--cl-title);
+  color: #fff;
+  font: 700 12px/18px var(--cl-font) !important;
+}
+:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-description"] {
+  padding: 8px 8px 0;
+  font: 12px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-dlg > :not([data-slot="dialog-header"], [data-slot="dialog-close"]) {
+  margin-inline: 8px;
+}
+:root[data-theme-pack="classic"] .cl-dlg > :nth-last-child(2) {
+  margin-bottom: 8px;
+}
+:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-close"] {
+  top: 5px !important;
+  right: 5px !important;
+  width: 16px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 0 !important;
+  opacity: 1 !important;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  box-shadow: var(--cl-raised-thin);
+}
+:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-close"]:active {
+  box-shadow: var(--cl-pressed);
+}
+:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-close"] svg {
+  width: 8px;
+  height: 8px;
+}
+:root[data-theme-pack="classic"] .cl-dlg [data-slot="input"] {
+  width: calc(100% - 16px) !important;
+  height: 22px;
+  padding: 2px 4px;
+  border-radius: 0;
+  font: 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .cl-dlg [data-slot="button"] {
+  font-size: 12px !important;
+  min-height: 23px;
+  padding: 0 12px !important;
+  border-radius: 0 !important;
+}
+:root[data-theme-pack="classic"] .cl-dlg .mvpick__body {
+  max-height: 240px;
+  padding: 3px;
+  border: 0;
+  border-radius: 0;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .cl-dlg .mvpick__row {
+  color: var(--cl-ink);
+  background: none;
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] .cl-dlg .mvpick__row[data-highlighted] {
+  background: var(--cl-sel);
+  color: var(--cl-sel-ink);
+  outline: 1px dotted #ffff00 !important;
+  outline-offset: -1px;
+}
+:root[data-theme-pack="classic"] .cl-dlg .mvpick__row .mvpick__sub {
+  color: var(--cl-lo);
+}
+:root[data-theme-pack="classic"] .cl-dlg .mvpick__row[data-highlighted] .mvpick__name,
+:root[data-theme-pack="classic"] .cl-dlg .mvpick__row[data-highlighted] .mvpick__nametext,
+:root[data-theme-pack="classic"] .cl-dlg .mvpick__row[data-highlighted] .mvpick__sub {
+  color: var(--cl-sel-ink);
+}
+:root[data-theme-pack="classic"] .cl-dlg p {
+  font-size: 12px;
+  color: var(--cl-ink);
+}
+
+/* --------------------------------------------------------- the folder menu */
+/* The Guide's folders tree, right click: the same bevelled menu as the
+ * programme's, left-aligned, with the navy highlight. */
+:root[data-theme-pack="classic"] .folder-menu {
+  min-width: 160px;
+  padding: 4px;
+  border: 0;
+  border-radius: 0;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  box-shadow: var(--cl-raised), 2px 2px 0 rgb(0 0 0 / 0.3);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  font: 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .folder-menu .folder-menu__item[data-slot="button"] {
+  display: flex !important;
+  justify-content: flex-start !important;
+  width: 100%;
+  height: auto !important;
+  padding: 6px 8px !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--cl-ink) !important;
+  font: 14px/20px var(--cl-font) !important;
+  text-align: left;
+}
+:root[data-theme-pack="classic"] .folder-menu .folder-menu__item[data-slot="button"]:hover,
+:root[data-theme-pack="classic"] .folder-menu .folder-menu__item[data-slot="button"]:focus-visible {
+  background: var(--cl-sel) !important;
+  color: var(--cl-sel-ink) !important;
+}
+:root[data-theme-pack="classic"] .folder-menu__hint {
+  margin: 2px 8px 4px;
+  font: 11px var(--cl-font);
+  color: var(--cl-ink);
+}

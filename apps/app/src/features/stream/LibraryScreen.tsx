@@ -46,6 +46,8 @@ import { LibraryIcon, PlusIcon } from "../../ui/icons";
 import { StateCard } from "../../ui/StateCard";
 import { TRAKT_SYNCED } from "../trakt/store";
 import { RecordingList } from "../recordings/RecordingList";
+import { useFluent } from "../fluent/useFluent";
+import { FlPageTitle } from "../fluent/stream/controls";
 import { requestPlayRecording } from "../recordings/playRequest";
 import { useRecordings } from "../recordings/store";
 
@@ -96,6 +98,7 @@ function toCover(file: File): Promise<string> {
 }
 
 export function LibraryScreen({ home }: { home?: number } = {}) {
+  const fluent = useFluent();
   const [lists, setLists] = useState<UserList[]>(loadLists);
   const [watching, setWatching] = useState<WatchEntry[]>(loadWatching);
   // Recordings (plan 029): a section of their own, only once there is one.
@@ -411,6 +414,7 @@ export function LibraryScreen({ home }: { home?: number } = {}) {
   // ---- root ----
   return (
     <div ref={scrollRef} className="discover library">
+      {fluent && <FlPageTitle>Library</FlPageTitle>}
       {active.length > 0 && (
         <section className="media-row">
           <h3 className="media-row__title">Continue Watching</h3>

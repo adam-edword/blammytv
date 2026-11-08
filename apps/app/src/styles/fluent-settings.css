@@ -1,0 +1,239 @@
+/* Fluent's Settings, made consistent (plan 035, "Fluent to tier 3"): every
+ * setting on every page is one SettingsCard, the Windows 11 Settings app's:
+ * a 4px card with a 1px stroke and the card fill, its title 14px over a 12px
+ * secondary line on the left, the control on the right at one fixed edge (the
+ * card's 16px inset), and 4px between cards. Section headers are 14px
+ * semibold in Title Case. fluent-chrome.css has the page's frame and the
+ * first rules (.customize-row, .customize-stack); this sheet is the rest: the
+ * rows that were not cards (Home's rows, the playlists, the forms) and the
+ * odd ones out.
+ *
+ * Everything is under .flc-sx, so Default and the other packs never see it.
+ * !important only where a utility class sets the property (a Button's
+ * padding, the eyebrow type): the utilities layer outranks `app`. */
+
+/* The page's own name is the breadcrumb above, so a page does not say it
+ * again: the first heading of Home, Sources, Accounts and App is that word.
+ * (Playback and Appearance open on a section of their own, so they keep
+ * theirs.) */
+.flc-sx__page:is([data-tab="home"], [data-tab="sources"], [data-tab="accounts"], [data-tab="app"]) > .settings__group:first-child {
+  display: none;
+}
+
+/* Section headers, every kind: 14px semibold, Title Case, no eyebrow. The
+ * page-level ones are in fluent-chrome.css; these are the ones inside a
+ * section (Add Xtream Playlist, Playlists, Content, a form's title). */
+.flc-sx__page .settings-section__list-title {
+  margin: 12px 0 0;
+  font-family: var(--fl-font) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 20px;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--fl-ink) !important;
+}
+.flc-sx__page .settings-section > .settings-section__list-title:first-child {
+  margin-top: 0;
+}
+
+/* ------------------------------------------------------- one card each */
+
+/* A stack is one card; the row inside it is a layout, not a second card. */
+.flc-sx .customize-stack > .customize-row {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.flc-sx .customize-row__title,
+.flc-sx .playlist-row__name,
+.flc-sx .xtrow__name {
+  font: 400 14px/20px var(--fl-font);
+  color: var(--fl-ink);
+}
+.flc-sx .settings__section-note,
+.flc-sx .playlist-row__source,
+.flc-sx .xtrow__kind,
+.flc-sx .homerows__why,
+.flc-sx .xtedit__hint {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--fl-ink-3);
+}
+.flc-sx .settings-section > [data-slot="button"],
+.flc-sx .settings-section > [data-slot$="-trigger"][data-variant] {
+  align-self: flex-start;
+}
+
+/* Playlists, Content: a playlist is a card. */
+.flc-sx .playlist-row {
+  min-height: 68px;
+  padding: 12px 16px;
+  gap: 16px;
+  border: 1px solid var(--fl-stroke);
+  border-radius: var(--fl-r-control);
+  background: var(--fl-fill);
+}
+.flc-sx .playlist-row__actions {
+  gap: 8px;
+}
+.flc-sx .playlist-item + .playlist-item {
+  margin-top: 4px;
+}
+/* The refresh line is a card too: the words, then the button. */
+.flc-sx .playlists-refresh {
+  width: 100%;
+  min-height: 68px;
+  padding: 12px 16px;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  border: 1px solid var(--fl-stroke);
+  border-radius: var(--fl-r-control);
+  background: var(--fl-fill);
+}
+.flc-sx .playlists-refresh .settings__section-note {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--fl-ink);
+}
+
+/* The add form: compact pill (Xtream, M3U, Stalker) like Live TV / Stream's,
+ * a header, fields with a label above, and a normal button under them. */
+.flc-sx .settings-section[data-setting="add-playlist"],
+.flc-sx .settings-section:has(> .settings-form) {
+  gap: 12px;
+}
+.flc-sx .settings-section > .seg {
+  align-self: flex-start;
+}
+.flc-sx .settings-form {
+  gap: 12px;
+}
+.flc-sx .settings-field {
+  gap: 4px;
+}
+.flc-sx .settings-field__label {
+  padding-left: 0;
+  font: 400 14px/20px var(--fl-font);
+  color: var(--fl-ink);
+}
+.flc-sx .settings-section .settings-input {
+  min-height: 32px;
+  height: 32px;
+}
+
+/* Home's rows: one card each, the handle, the picture, the name over its
+ * kind, the switch and the remove button on one right edge. */
+.flc-sx .homerows {
+  gap: 4px;
+}
+.flc-sx .homerows .xtedit__minehead {
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.flc-sx .homerows .xtedit__minehead .customize-row__title {
+  font-weight: 600;
+}
+.flc-sx .homerows .xtedit__minehead > button:first-of-type,
+.flc-sx .homerows .xtedit__minehead > .xtedit__hint + button {
+  margin-left: auto;
+}
+.flc-sx .homerows .xtedit__hint {
+  margin-left: 4px;
+}
+.flc-sx .homerows .xtdrawer__list {
+  gap: 4px;
+}
+.flc-sx .homerows__pinned {
+  margin-bottom: 4px;
+}
+.flc-sx .homerows .xtrow {
+  min-height: 68px;
+  padding: 8px 16px;
+  gap: 12px;
+  border: 1px solid var(--fl-stroke);
+  border-radius: var(--fl-r-control);
+  background: var(--fl-fill);
+}
+.flc-sx .homerows .xtrow:hover {
+  background: color-mix(in srgb, var(--fl-ink) 3%, var(--fl-fill));
+}
+.flc-sx .homerows .xtrow[data-dragging] {
+  background: var(--fl-fly);
+  box-shadow: var(--fl-shadow);
+}
+.flc-sx .homerows .xtrow .xtrow__grip {
+  height: 32px;
+  border-radius: var(--fl-r-control);
+  color: var(--fl-ink-3);
+}
+.flc-sx .homerows .xtrow .xtrow__grip:hover {
+  background: var(--flc-hover);
+  color: var(--fl-ink);
+}
+.flc-sx .homerows__glyph {
+  border-radius: var(--fl-r-control);
+  background: var(--fl-sub);
+}
+.flc-sx .homerows__title {
+  margin: 0 -6px;
+  padding: 0 6px;
+  border-radius: var(--fl-r-control);
+  font: 400 14px/20px var(--fl-font);
+  color: var(--fl-ink);
+}
+.flc-sx .homerows__title:hover {
+  border-color: var(--fl-stroke);
+}
+.flc-sx .homerows__x,
+.flc-sx .homerows__nox {
+  width: 32px;
+  height: 32px;
+}
+.flc-sx .homerows__x {
+  border-radius: var(--fl-r-control);
+  color: var(--fl-ink-2);
+}
+.flc-sx .homerows__x:hover {
+  background: var(--flc-hover);
+  color: var(--fl-ink);
+}
+
+/* App: About's lines sit on the card's text edge, and a link button owns no
+ * padding (the Button paint gives every small button 16px each side). */
+.flc-sx [data-slot="button"][data-variant="link"] {
+  height: auto !important;
+  padding-inline: 0 !important;
+  font-size: 12px !important;
+  color: var(--fl-accent) !important;
+}
+.flc-sx .about {
+  max-width: none;
+  gap: 4px 24px;
+}
+.flc-sx .about__row > dt,
+.flc-sx .about__row > dd {
+  font-size: 14px;
+  line-height: 20px;
+}
+.flc-sx .about__row > dt {
+  color: var(--fl-ink-3);
+}
+
+/* Appearance: Card Details and Info While Playing are toggle buttons, a
+ * standard button when off and the accent one when on, not bare text. */
+.flc-sx .meta-pick {
+  gap: 8px;
+}
+.flc-sx .meta-pick__chip[aria-pressed="false"] {
+  background: var(--fl-fill) !important;
+  color: var(--fl-ink) !important;
+  border: 1px solid var(--fl-stroke) !important;
+  border-bottom-color: var(--fl-stroke-bt) !important;
+}
+.flc-sx .meta-pick__chip[aria-pressed="false"]:hover {
+  background: color-mix(in srgb, var(--fl-ink) 6%, var(--fl-fill)) !important;
+}

@@ -1,4 +1,4 @@
-import { EYEBROW } from "../../ui/eyebrow";
+import { SettingsGroup } from "./SettingsGroup";
 import { MalSection } from "./MalSection";
 import { TraktSection } from "./TraktSection";
 
@@ -10,11 +10,12 @@ import { TraktSection } from "./TraktSection";
 export function AccountsPage() {
   return (
     <>
-      <h3 className={`settings__group ${EYEBROW}`}>Accounts</h3>
+      <SettingsGroup title="Accounts">
       <section className="settings-section">
         <TraktSection />
         <MalSection />
       </section>
+      </SettingsGroup>
     </>
   );
 }

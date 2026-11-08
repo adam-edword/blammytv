@@ -338,6 +338,7 @@
 :root[data-theme-pack="fluent"] .fl-chip:focus-visible,
 :root[data-theme-pack="fluent"] .fl-link:focus-visible,
 :root[data-theme-pack="fluent"] .fl-tab:focus-visible,
+:root[data-theme-pack="fluent"] .fl-tabbar__step:focus-visible,
 :root[data-theme-pack="fluent"] .fl-caption--toggle:focus-visible,
 :root[data-theme-pack="fluent"] .fl-leaguerow__star:focus-visible,
 :root[data-theme-pack="fluent"] .fl-game__main:focus-visible,
@@ -647,12 +648,43 @@
   font-family: var(--fl-font);
   color: var(--fl-ink);
 }
+/* The day bar is a SelectorBar: the days hug the left with the accent pill
+ * under the one you are on, and the two ends are subtle icon buttons (earlier
+ * days before them, more after), not links. */
 :root[data-theme-pack="fluent"] .fl-tabbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 4px;
-  border-bottom: 1px solid var(--fl-stroke);
+}
+:root[data-theme-pack="fluent"] .fl-tabbar__step {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-color: transparent;
+  border-bottom-color: transparent;
+  background: transparent;
+  color: var(--fl-ink-2);
+}
+:root[data-theme-pack="fluent"] .fl-tabbar__step:hover:not(:disabled) {
+  background: var(--fl-sub);
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-tabbar__step:disabled {
+  color: var(--fl-ink-3);
+  cursor: default;
+}
+:root[data-theme-pack="fluent"] .fl-tabbar__step[data-state="error"] {
+  color: #ff99a4;
+}
+:root[data-theme-pack="fluent"][data-theme="light"] .fl-tabbar__step[data-state="error"] {
+  color: #c42b1c;
+}
+:root[data-theme-pack="fluent"] .fl-tabbar__step--earlier svg {
+  transform: rotate(90deg);
+}
+:root[data-theme-pack="fluent"] .fl-tabbar__step--more svg {
+  transform: rotate(-90deg);
 }
 :root[data-theme-pack="fluent"] .fl-tabs {
   display: flex;

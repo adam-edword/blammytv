@@ -91,12 +91,6 @@
   background: var(--flc-hover);
   color: var(--fl-ink);
 }
-.flc-title__mark {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  background: conic-gradient(from 200deg, #5ad1ff, #8af07a, #ffe36b, #ff8bd1, #8f8cff, #5ad1ff);
-}
 .flc-title__name {
   white-space: nowrap;
 }
@@ -251,6 +245,22 @@
 }
 .flc-pane--rail .flc-sep {
   margin: 6px 10px;
+}
+
+/* Under 1008px the pane is the rail whatever was chosen (FluentChrome), and
+ * its hamburger opens the full pane over the page, as WinUI's compact mode
+ * does: the page keeps the rail's width underneath. */
+.flc-pane--peek {
+  position: fixed;
+  top: var(--flc-title-h);
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  z-index: calc(var(--z-toast) + 1);
+  background: var(--fl-fly);
+  backdrop-filter: var(--flc-blur);
+  border-right: 1px solid var(--fl-stroke);
+  box-shadow: var(--fl-shadow);
 }
 
 /* ------------------------------------------- Ctrl+K: an AutoSuggestBox
@@ -583,8 +593,10 @@
  * Zero specificity, important: see the head of the file. */
 
 /* Buttons: standard (fill, stroke, the elevation border: the bottom edge
- * darker) and accent. */
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"]:not([data-variant="link"])) {
+ * darker) and accent. A Button a Radix trigger took with asChild loses its
+ * data-slot to the trigger's ("dropdown-menu-trigger"), but keeps its
+ * variant and size, so those are what find it. */
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not([data-variant="link"])) {
   border-radius: var(--fl-r-control) !important;
   font-family: var(--fl-font) !important;
   font-size: 14px !important;
@@ -592,42 +604,42 @@
   backdrop-filter: none !important;
   box-shadow: none;
 }
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-size="default"], [data-slot="button"][data-size="lg"], [data-slot="button"][data-size="sm"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-size="default"], :is([data-slot="button"], button[data-variant][data-size])[data-size="lg"], :is([data-slot="button"], button[data-variant][data-size])[data-size="sm"]) {
   height: 32px !important;
   padding-inline: 16px !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-size="icon"], [data-slot="button"][data-size="icon-lg"], [data-slot="button"][data-size="icon-sm"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-size="icon"], :is([data-slot="button"], button[data-variant][data-size])[data-size="icon-lg"], :is([data-slot="button"], button[data-variant][data-size])[data-size="icon-sm"]) {
   width: 32px !important;
   height: 32px !important;
   padding: 0 !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="secondary"], [data-slot="button"][data-variant="outline"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="secondary"], :is([data-slot="button"], button[data-variant][data-size])[data-variant="outline"]) {
   background: var(--fl-fill) !important;
   color: var(--fl-ink) !important;
   border: 1px solid var(--fl-stroke) !important;
   border-bottom-color: var(--fl-stroke-bt) !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="secondary"], [data-slot="button"][data-variant="outline"]):hover {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="secondary"], :is([data-slot="button"], button[data-variant][data-size])[data-variant="outline"]):hover {
   background: color-mix(in srgb, var(--fl-ink) 6%, var(--fl-fill)) !important;
 }
 /* The accent button: the app's "bright thing", one a screen. */
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="default"], [data-slot="button"][aria-pressed="true"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="default"], :is([data-slot="button"], button[data-variant][data-size])[aria-pressed="true"]) {
   background: var(--accent) !important;
   color: var(--accent-ink) !important;
   border: 1px solid transparent !important;
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="default"], [data-slot="button"][aria-pressed="true"]):hover {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="default"], :is([data-slot="button"], button[data-variant][data-size])[aria-pressed="true"]):hover {
   background: color-mix(in srgb, var(--accent) 88%, var(--fl-ink)) !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="ghost"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="ghost"]) {
   background: transparent !important;
   color: var(--fl-ink) !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="ghost"]):hover {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="ghost"]):hover {
   background: var(--flc-hover) !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"]:disabled, [data-slot="button"][aria-disabled="true"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):disabled, :is([data-slot="button"], button[data-variant][data-size])[aria-disabled="true"]) {
   opacity: 0.45 !important;
 }
 
@@ -673,6 +685,65 @@
 :where(:root[data-theme-pack="fluent"]) :where([data-slot$="-menu-item"], [data-slot$="-menu-checkbox-item"], [data-slot$="-menu-radio-item"], [data-slot$="-menu-sub-trigger"], [data-slot="combobox-item"])[data-highlighted] {
   background: var(--fl-sub) !important;
   color: var(--fl-ink) !important;
+}
+
+/* A MenuFlyout's items: 32px, the words left with 12px each side, an icon in
+ * a column of its own when there is one, and the accelerator at the right end
+ * in the secondary ink. A group's label is a small caption. */
+:where(:root[data-theme-pack="fluent"]) :where([data-slot$="-menu-item"], [data-slot$="-menu-checkbox-item"], [data-slot$="-menu-radio-item"], [data-slot$="-menu-sub-trigger"]) {
+  min-height: 32px !important;
+  gap: 12px !important;
+  padding-block: 0 !important;
+  padding-inline: 12px !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot$="-menu-item"], [data-slot$="-menu-sub-trigger"]) svg:not([class*="size-"]) {
+  width: 16px !important;
+  height: 16px !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot$="-menu-shortcut"]) {
+  margin-left: auto !important;
+  font-size: 12px !important;
+  letter-spacing: 0 !important;
+  color: var(--fl-ink-3) !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot$="-menu-label"]) {
+  padding: 6px 12px 4px !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: var(--fl-ink-3) !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot$="-menu-separator"]) {
+  margin: 4px 0 !important;
+  background: var(--fl-stroke) !important;
+}
+
+/* The folder menu (right-click a folder, Hide) is hand-built, not a Radix
+ * menu: the same flyout, its one item left-aligned and its hint under it. */
+:root[data-theme-pack="fluent"] .folder-menu {
+  min-width: 220px;
+  padding: 4px;
+  border: 1px solid var(--fl-stroke);
+  border-radius: var(--fl-r-card);
+  background: var(--fl-fly);
+  backdrop-filter: var(--flc-blur);
+  box-shadow: var(--fl-shadow);
+  color: var(--fl-ink);
+  font-family: var(--fl-font);
+}
+:root[data-theme-pack="fluent"] .folder-menu .folder-menu__item {
+  justify-content: flex-start !important;
+  height: 32px !important;
+  padding-inline: 12px !important;
+  text-align: left;
+  font-family: var(--fl-font) !important;
+}
+:root[data-theme-pack="fluent"] .folder-menu__hint {
+  margin: 2px 12px 6px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--fl-ink-3);
 }
 
 /* Tooltips: small, 4px, the flyout's fill. */

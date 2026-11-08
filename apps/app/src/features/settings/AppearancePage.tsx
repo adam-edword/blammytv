@@ -1,6 +1,6 @@
 import { useRef, useState, useSyncExternalStore } from "react";
 import { Button } from "../../components/ui/button";
-import { EYEBROW } from "../../ui/eyebrow";
+import { SettingsGroup } from "./SettingsGroup";
 import { Segmented } from "../../ui/Segmented";
 import { Toggle } from "../../ui/Toggle";
 import { loadAioConn } from "../aiojf/conn";
@@ -231,7 +231,7 @@ export function AppearancePage({
       {/* Applies everywhere, whichever side of the app you are on. Named
         * Interface rather than Appearance so it does not collide with the
         * Appearance PAGE one level up (or the Appearance row below). */}
-      <h3 className={`settings__group ${EYEBROW}`}>Interface</h3>
+      <SettingsGroup title="Interface">
       <section className="settings-section">
         {/* Stacked, not a row: nine swatches do not fit beside a label. A
           * theme with an accent of its own has its own picker here, and one
@@ -289,9 +289,10 @@ export function AppearancePage({
 
 
       </section>
+      </SettingsGroup>
 
       {/* Per-world look, behind the same pill Sources uses. */}
-      <h3 className={`settings__group ${EYEBROW}`}>Media</h3>
+      <SettingsGroup title="Media">
       <div className="customize-rail">
         <Segmented role="tabs" label="Media" options={WORLD_TABS} value={world} onChange={setWorld} />
       </div>
@@ -491,6 +492,7 @@ export function AppearancePage({
           <ConfirmButton label="Reset" onConfirm={reset} />
         </div>
       </section>
+      </SettingsGroup>
     </>
   );
 }

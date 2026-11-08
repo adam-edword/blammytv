@@ -15,7 +15,7 @@ import {
 import { CloseIcon, GripIcon, PlusIcon } from "../../ui/icons";
 import { SortableList, SortableRow } from "../../ui/Sortable";
 import { Toggle } from "../../ui/Toggle";
-import { EYEBROW } from "../../ui/eyebrow";
+import { SettingsGroup } from "./SettingsGroup";
 import { loadFavorites } from "../live/favorites";
 import { loadRecents } from "../live/recents";
 import { followsAny, onGamesToday, peekGamesToday, playable } from "../home/liveData";
@@ -204,7 +204,7 @@ export function HomePage() {
 
   return (
     <>
-      <h3 className={`settings__group ${EYEBROW}`}>Home</h3>
+      <SettingsGroup title="Home">
       <section ref={root} className="settings-section homerows" data-setting="home-rows">
         <p className="sr-only" role="status" aria-live="polite">
           {said}
@@ -322,6 +322,7 @@ export function HomePage() {
           ))}
         </SortableList>
       </section>
+      </SettingsGroup>
     </>
   );
 }
