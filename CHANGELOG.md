@@ -2,6 +2,12 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.5: Away team first
+
+- **Sports cards list the visiting team first** in football, basketball,
+  baseball and hockey, so a card reads "Miami at Notre Dame" top to bottom.
+  Soccer and the rest keep the home side first, as they're listed.
+
 ## 1.2.4: More room for the mini-guide
 
 - **Opening the mini-guide folds Live TV's sidebar**, and closing it opens

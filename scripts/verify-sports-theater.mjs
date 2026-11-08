@@ -735,7 +735,7 @@ async function open(pos, fixture, win, reading) {
 
   // Nothing sure: the guesses are the rail, and there is no line to fold
   // them under.
-  await page.getByRole("button", { name: /^Dallas/ }).click();
+  await page.getByRole("button", { name: /^Houston/ }).click(); // Houston at Dallas, away first
   await page.waitForTimeout(1500);
   const only = await rail();
   check(
