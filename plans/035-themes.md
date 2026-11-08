@@ -273,3 +273,20 @@ with a live dot, "Live on N channels" as a hyperlink button.
 theme, every tier, draws the BlammyTV mark with the app's own logo
 component, same shape, colours and animation. Only its size may differ.
 No theme paint (square corners, bevels, filters) may reach it.
+
+## Rule: the same piece looks the same everywhere (Adam, 2026-11-08)
+
+"We need that kind of consistency and attention to detail if we want these
+themes to be successful." Found when Classic's Settings title bar measured
+15 to 23px tall depending on the tab, and every builder harness still
+passed: each checked its own feature, none compared one screen with
+another.
+
+In a tier 2 or 3 theme, every repeated piece of chrome measures the same
+wherever it appears: a dialog's title bar, its tab strip, a section
+heading, a setting row's title and description, a push button, a text
+field, a combo box, a menu item, a tree row, the page title. Same height,
+font, weight, colour, padding and radius, on every tab, dialog and screen.
+`scripts/verify-theme-consistency.mjs` measures each piece across every
+place it shows up, per theme, and fails on any difference. A new screen or
+dialog in a themed pack gets added to it in the same change.
