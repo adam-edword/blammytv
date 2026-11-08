@@ -28,6 +28,8 @@ import {
   resolvable,
 } from "./follows";
 import { GameCard } from "./GameCard";
+import { useClassic } from "../classic/useClassic";
+import { ClassicGameCard } from "../classic/sports/ClassicGameCard";
 import { dayLabel, nowish } from "./day";
 import { SportsTheater } from "./SportsTheater";
 import { useConnections } from "../live/connections";
@@ -89,6 +91,11 @@ const LEAD_FALLBACK = 96;
 const enabledPlaylistIds = (): string[] => loadPlaylists().filter((p) => p.enabled).map((p) => p.id);
 
 export function SportsScreen({ home }: { home?: number } = {}) {
+  // Classic draws days as group boxes and games as panels (plan 035). Same
+  // data, same open; the row of wide cards is not drawn there.
+  const classic = useClassic();
+  // A day's wrapper: a section, or Classic's group box.
+  const Wrap = classic ? "fieldset" : "section";
   /**
    * What you follow, and therefore what the board FETCHES and then shows.
    *
@@ -744,7 +751,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   }
 
   return (
-    <div className="sportsboard">
+    <div className={"sportsboard" + (classic ? " cl-sports" : "")}>
       <SportsSidebar
         games={clubPool}
         follows={follows}
@@ -841,7 +848,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
         // pill with it and left no control anywhere that could turn the
         // pill off again.
         const today = rowItems.length > 0 || (hideFinished && rowHasFinals);
-        if (!today)
+        if (!today || classic)
           return (
             <>
               {(mvBtn || earlierBtn || rzBtn) && (
@@ -910,11 +917,17 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       {laidOut.map(
         (day) =>
           day.games.length > 0 && (
-            <section className="media-row" key={day.date.toDateString()}>
+            <Wrap
+              className={classic ? "cl-sports__day" : "media-row"}
+              key={day.date.toDateString()}
+            >
+              {classic && <legend>{dayLabel(day.date)}</legend>}
               <div className="sports__head">
-                <h3 className="media-row__title sports__title">
-                  {dayLabel(day.date)}
-                </h3>
+                {!classic && (
+                  <h3 className="media-row__title sports__title">
+                    {dayLabel(day.date)}
+                  </h3>
+                )}
                 {/* Only where it would do something. A day with nothing
                   * finished on it has no results to compact. */}
                 {day.games.some((g) => g.state === "final") && (
@@ -932,7 +945,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                   </Button>
                 )}
               </div>
-              <div className="sports__grid">
+              <div className={"sports__grid" + (classic ? " cl-sports__games" : "")}>
                 {day.games.map((g) =>
                   isField(g) ? (
                     /* Both are Fields — an ordered list of people — and the
@@ -954,6 +967,13 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                     <WeekendCard key={g.id} weekend={g} />
                   ) : isTournament(g) ? (
                     <TournamentCard key={g.id} event={g} onOpen={openTournament} />
+                  ) : classic ? (
+                    <ClassicGameCard
+                      key={g.id}
+                      game={g}
+                      onOpen={openGame}
+                      compact={compact && g.state === "final"}
+                    />
                   ) : compact && g.state === "final" ? (
                     <CompactCard key={g.id} game={g} onOpen={openGame} />
                   ) : (
@@ -966,7 +986,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
                   ),
                 )}
               </div>
-            </section>
+            </Wrap>
           ),
       )}
 

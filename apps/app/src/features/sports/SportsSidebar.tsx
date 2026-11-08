@@ -26,6 +26,8 @@ import {
 import { conferencesIn, POWER_FOUR } from "./conferences";
 import { Hint } from "../../ui/Hint";
 import { LeaguePicker } from "./LeaguePicker";
+import { useClassic } from "../classic/useClassic";
+import { ClassicLeagueTree } from "../classic/sports/ClassicLeagueTree";
 import { isFixture } from "./model";
 import type { Game } from "./model";
 
@@ -116,6 +118,9 @@ export function SportsSidebar({
   rankedOnly: boolean;
   onToggleRanked: () => void;
 }) {
+  // Classic lists the leagues as a folder tree (plan 035); the rest of the
+  // panel is shared.
+  const classic = useClassic();
   const [mode, setMode] = useState<Mode>("leagues");
   // Read once and written on every toggle. Collapsing this is a statement
   // about how you want to use the screen, so it should outlive the visit.
@@ -202,7 +207,9 @@ export function SportsSidebar({
   return (
     <aside
       className={
-        "live-sidebar sportsside" + (collapsed ? " live-sidebar--collapsed" : "")
+        "live-sidebar sportsside" +
+        (collapsed ? " live-sidebar--collapsed" : "") +
+        (classic ? " sportsside--classic" : "")
       }
     >
       <div className="live-sidebar__top">
@@ -242,7 +249,15 @@ export function SportsSidebar({
         * not changed: a handful of leagues can afford a mark big enough to
         * recognise at a glance, and 146 of them cannot. What changed is
         * that the other 146 now have somewhere to be. See LeaguePicker. */}
-      {!collapsed && mode === "leagues" && (
+      {!collapsed && mode === "leagues" && classic && (
+        <ClassicLeagueTree
+          follows={follows}
+          picked={picked}
+          onPick={onPick}
+          onClearPicks={onClearPicks}
+        />
+      )}
+      {!collapsed && mode === "leagues" && !classic && (
         <LeaguePicker
           follows={follows}
           onFollows={onFollows}

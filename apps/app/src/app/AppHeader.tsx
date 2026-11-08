@@ -1,5 +1,4 @@
 import { Button } from "../components/ui/button";
-import { isModalOpen } from "../lib/modalOpen";
 import { tmdbEnabled } from "../features/discover/tmdb";
 import {
   useCallback,
@@ -13,21 +12,14 @@ import {
 import {
   SearchIcon,
   SparkleIcon,
-  DiscoverIcon,
-  GuideIcon,
-  LibraryIcon,
   MoviesIcon,
-  MultiviewIcon,
   SeriesIcon,
   SettingsIcon,
-  SportsIcon,
-  StreamIcon,
 } from "../ui/icons";
 import {
   getSearchQuery,
   onSearchFocusRequest,
   onSearchQueryChange,
-  requestSearchFocus,
   setSearchQuery,
   takeSearchFocus,
 } from "../features/discover/searchQuery";
@@ -44,59 +36,22 @@ import {
 } from "../features/discover/recommend";
 import { UpdateChip } from "./UpdateChip";
 import { Hint } from "../ui/Hint";
-import { formatClock } from "../lib/time";
 import { APP_VERSION } from "../lib/version";
+import { ClassicHeader } from "../features/classic/ClassicHeader";
+import { useClassic } from "../features/classic/useClassic";
 import {
-  loadClockFormat,
-  onClockFormatChange,
-} from "../features/settings/clockFormat";
+  DESTS,
+  goDest,
+  useClock,
+  useSearchShortcut,
+  type DestKey,
+  type HeaderProps,
+  type LiveTab,
+  type Section,
+  type StreamTab,
+} from "./headerShared";
 
-/** The app's two SIDES, and Home between them. "Stream" in the top nav is a
- * section header, not a page: the pill rail below picks the actual Stream
- * page. "home" is the page behind the logo (plan 033): on no side, so no tab
- * is current while it shows. */
-export type Section = "live" | "stream" | "home";
-/** The Stream section's pages (the pill rail). Adding one = a new entry
- * here + in RAIL + a screen in App's switch — nothing else. */
-export type StreamTab = "home" | "discover" | "mylist";
-
-/** The Live side's pages, mirroring the Stream rail. Sports is plan 010,
- * shipped behind a BETA badge while its data source is still a bet.
- * Multi-view is plan 017: a tab of its own, between the two. */
-export type LiveTab = "guide" | "multiview" | "sports";
-
-/**
- * THE DESTINATIONS, flat.
- *
- * The header used to show two SIDES (Live TV | Stream) with a sub-rail
- * under each. The capsule shows every page at once instead, so the
- * side is no longer something the user navigates — it is just which half
- * of the bar a destination sits in, marked by the app mark between them (or
- * first, with no live half).
- *
- * The two-level state behind it is UNCHANGED: each entry writes both the
- * section and its tab, so App and every screen carry on as before.
- */
-/* The key stays the tab's own id, so App and the screens are untouched.
- * "home" is LABELLED "Stream": it is the VOD landing page, and "Home" was
- * the only name in the bar that described a position rather than content. */
-type DestKey = LiveTab | StreamTab;
-
-const DESTS: Array<{
-  key: DestKey;
-  label: string;
-  side: Section;
-  Icon: ComponentType<{ size?: number; className?: string; filled?: boolean }>;
-  /** Sports is plan 010, still behind a badge while its source is a bet. */
-  beta?: boolean;
-}> = [
-  { key: "guide", label: "Guide", side: "live", Icon: GuideIcon },
-  { key: "multiview", label: "Multi-View", side: "live", Icon: MultiviewIcon },
-  { key: "sports", label: "Sports", side: "live", Icon: SportsIcon, beta: true },
-  { key: "home", label: "Stream", side: "stream", Icon: StreamIcon },
-  { key: "discover", label: "Discover", side: "stream", Icon: DiscoverIcon },
-  { key: "mylist", label: "Library", side: "stream", Icon: LibraryIcon },
-];
+export type { LiveTab, Section, StreamTab };
 
 /**
  * Discover's type filters, in the SECOND row.
@@ -127,32 +82,7 @@ const FILTERS: Array<{
   { key: "series", label: "Series", Icon: SeriesIcon },
 ];
 
-/** Live clock, minute-accurate (the header shows no seconds). Follows the
- * 12h/24h preference immediately when it changes in Settings. */
-function useClock(): string {
-  const [now, setNow] = useState(() => new Date());
-  const [format, setFormat] = useState(loadClockFormat);
-  useEffect(() => {
-    // Tick once per minute, re-aligned to the wall-clock minute boundary (the
-    // header shows no seconds) — not 60 re-renders/min for a string that only
-    // changes once a minute.
-    let id: number;
-    const schedule = () =>
-      window.setTimeout(() => {
-        setNow(new Date());
-        id = schedule();
-      }, 60_000 - (Date.now() % 60_000) + 50);
-    id = schedule();
-    const off = onClockFormatChange(setFormat);
-    return () => {
-      window.clearTimeout(id);
-      off();
-    };
-  }, []);
-  return formatClock(now, format);
-}
-
-export function AppHeader({
+function DefaultHeader({
   section,
   showLive,
   streamTab,
@@ -163,22 +93,7 @@ export function AppHeader({
   onLiveTab,
   onOpenSettings,
   onOpenSearch,
-}: {
-  section: Section;
-  streamTab: StreamTab;
-  liveTab: LiveTab;
-  /** Live tab renders only while a live source is configured. */
-  showLive: boolean;
-  onSection: (s: Section) => void;
-  onStreamTab: (t: StreamTab) => void;
-  /** The Stream, Discover or Library pill pressed while it is the one
-   * showing: take that tab home (App counts it; the screen goes). */
-  onStreamHome: () => void;
-  onLiveTab: (t: LiveTab) => void;
-  onOpenSettings: () => void;
-  /** The app palette (plan 019, K11). */
-  onOpenSearch: () => void;
-}) {
+}: HeaderProps) {
   const clock = useClock();
   /* Mirrors, not owners. The filter's truth is a history entry in
    * DiscoverScreen's view stack (Back can change it), and the query's is
@@ -197,48 +112,7 @@ export function AppHeader({
   const [recAvailable] = useState(tmdbEnabled);
   useEffect(() => onRecommendChange(setRecOpen), []);
   const searchRef = useRef<HTMLInputElement>(null);
-  // `/` and Ctrl+F reach the search field, which lives on Discover
-  // now, so this GOES there first and asks for focus through the mailbox
-  // in searchQuery. (Ctrl+K was one of these until plan 019, K11: it opens
-  // the app palette now, which finds titles as well as everything else.) Dispatching a bare event would not survive the trip:
-  // DiscoverScreen may not be mounted yet, and App holds the swap back by
-  // NAV_SETTLE_MS on top of that.
-  //
-  // Never while typing in another field, and never while a player is up
-  // (its own keys win; #inv-chrome existing = playback chrome mounted).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const slash =
-        e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey;
-      const combo =
-        (e.ctrlKey || e.metaKey) &&
-        !e.altKey &&
-        e.key.toLowerCase() === "f";
-      if (!slash && !combo) return;
-      const t = e.target as HTMLElement | null;
-      if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT" ||
-          t.isContentEditable)
-      )
-        return;
-      if (document.getElementById("inv-chrome")) return;
-      // Nor under Settings or the palette: it switched the tab behind the
-      // modal, which stayed up over it.
-      if (isModalOpen()) return;
-      e.preventDefault();
-      onSection("stream");
-      onStreamTab("discover");
-      // The row is collapsed (and unfocusable) until Discover is the
-      // destination, so the focus waits for it to open — see below.
-      requestSearchFocus();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onSection, onStreamTab]);
-
+  useSearchShortcut(onSection, onStreamTab);
 
   /* ---------------------------------------------------------- capsule
    * The pill is ONE element that travels; the mark is pinned to the
@@ -599,26 +473,8 @@ export function AppHeader({
     };
   }, [measure]);
 
-  /** One click sets BOTH levels, which is what keeps App unchanged. */
-  const go = (d: (typeof DESTS)[number]) => {
-    if (d.side === "live") {
-      onSection("live");
-      onLiveTab(d.key as LiveTab);
-    } else {
-      // The tab you are on, pressed again, goes home: a title's page back to
-      // the rows, a genre back to everything, a list back to the lists. It
-      // did nothing, because the tab was already the tab (Adam, v0.11.37:
-      // "clicking stream should take you back to stream home page"). The
-      // Live tabs have no history to go home from.
-      if (section === "stream" && d.key === streamTab) onStreamHome();
-      onSection("stream");
-      // Pressing the Discover pill means browse, so drop any live query.
-      // The store is the only copy now — the header kept a mirror of it
-      // while the input lived here.
-      if (d.key === "discover") setSearchQuery("");
-      onStreamTab(d.key as StreamTab);
-    }
-  };
+  const go = (d: (typeof DESTS)[number]) =>
+    goDest(d, { section, streamTab, onSection, onStreamTab, onStreamHome, onLiveTab });
 
   /** The mark goes Home, and pressed on Home it goes to the top of it, as
    * the Stream pill does on Stream. */
@@ -873,4 +729,10 @@ export function AppHeader({
       </div>
     </header>
   );
+}
+
+/** Classic (tier 3) restructures the header; every other pack, and Default,
+ * gets the capsule above untouched. */
+export function AppHeader(props: HeaderProps) {
+  return useClassic() ? <ClassicHeader {...props} /> : <DefaultHeader {...props} />;
 }

@@ -31,6 +31,7 @@ import type { LiveTab, StreamTab } from "../../app/AppHeader";
 import { lastInputWasKey } from "../live/mvMotion";
 import { itemKey } from "../discover/data";
 import { setSearchQuery } from "../discover/searchQuery";
+import { useClassic } from "../classic/useClassic";
 import { pickTitles, TITLE_MIN, useTitleSearch } from "./titleSearch";
 
 /**
@@ -145,6 +146,7 @@ export function Palette({
   onGo: (to: GoTarget, from: HTMLElement | null) => void;
 }) {
   const [query, setQuery] = useState("");
+  const classic = useClassic();
   // Mounted for the app's life, so it hears a change rather than reading
   // the setting once: 12h to 24h in Settings reached the header and not
   // the "until 9:00 PM" here.
@@ -389,11 +391,28 @@ export function Palette({
         // of the way down, rounded-xl on the popover ground, a 4px inset,
         // 448px wide, no shadow. The rest of the look is player.css
         // `.mvpick__*`, which Multi-view's picker wears too.
-        className="mvpick palette top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl border-float-border bg-popover p-1 text-popover-foreground shadow-(--float-shadow) [backdrop-filter:var(--float-blur)] sm:max-w-md"
+        className={
+          "mvpick palette top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl border-float-border bg-popover p-1 text-popover-foreground shadow-(--float-shadow) [backdrop-filter:var(--float-blur)] sm:max-w-md" +
+          (classic ? " palette--classic" : "")
+        }
         style={instant ? { animation: "none" } : undefined}
         onCloseAutoFocus={closed}
       >
         <DialogTitle className="sr-only">Search BlammyTV</DialogTitle>
+        {/* Classic: the Run box (classic.css). Presentation only; the field,
+          * the rows and the keys below are the palette's own. */}
+        {classic && (
+          <>
+            <div className="cl-title" aria-hidden>
+              <span className="cl-title__text">Go To</span>
+              <span className="cl-x">✕</span>
+            </div>
+            <p className="palette__intro">
+              <i className="cl-logo" aria-hidden />
+              Type the name of a channel, a film or a setting, and BlammyTV will open it for you.
+            </p>
+          </>
+        )}
         <Autocomplete.Root
           open
           inline
@@ -406,6 +425,7 @@ export function Palette({
           keepHighlight
         >
           <div className="mvpick__head">
+            {classic && <span className="palette__open">Open:</span>}
             <SearchIcon size={16} className="shrink-0 opacity-50" aria-hidden />
             <Autocomplete.Input
               className="mvpick__input"
@@ -463,6 +483,21 @@ export function Palette({
             </Autocomplete.List>
           </div>
         </Autocomplete.Root>
+        {classic && (
+          <div className="palette__btns">
+            {/* OK is Enter on the highlighted row: the row's own click. */}
+            <button
+              type="button"
+              className="cl-b cl-b--def"
+              onClick={() => document.querySelector<HTMLElement>(".palette .mvpick__row[data-highlighted]")?.click()}
+            >
+              OK
+            </button>
+            <button type="button" className="cl-b" onClick={() => onOpenChange(false)}>
+              Cancel
+            </button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

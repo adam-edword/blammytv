@@ -6,6 +6,8 @@ import { findByWords, imdbIdFor, tmdbEnabled } from "./tmdb";
 import { resolveVodItem } from "../stream/source";
 import type { VodItem } from "../stream/model";
 import { CloseIcon, SparkleIcon } from "../../ui/icons";
+import { useClassic } from "../classic/useClassic";
+import { ClassicRecommender } from "../classic/discover/ClassicRecommender";
 
 /**
  * "Give me something to watch."
@@ -46,6 +48,7 @@ export function Recommender({
   kind,
   posters,
   onOpen,
+  onClose,
 }: {
   /** Follows the header's type filter: "Any" searches films. */
   kind: "movie" | "series";
@@ -54,7 +57,10 @@ export function Recommender({
    * decorative backdrop must not cost a request of its own. */
   posters: string[];
   onOpen: (item: VodItem) => void;
+  /** Classic's wizard has a Close; the normal page leaves by Back. */
+  onClose?: () => void;
 }) {
+  const classic = useClassic();
   const [words, setWords] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [state, setState] = useState<State>({ at: "idle" });
@@ -145,6 +151,26 @@ export function Recommender({
   }, [posters]);
 
   const ready = tmdbEnabled();
+
+  // Classic: the Windows wizard, same words, same roll, same result.
+  if (classic)
+    return (
+      <ClassicRecommender
+        words={words}
+        draft={draft}
+        setDraft={setDraft}
+        inputRef={inputRef}
+        state={state}
+        ready={ready}
+        posters={posters}
+        onAdd={addWord}
+        onBackspace={() => setWords((prev) => prev.slice(0, -1))}
+        onDrop={drop}
+        onFind={() => void find()}
+        onOpen={onOpen}
+        onClose={onClose}
+      />
+    );
 
   return (
     <div className="rec">

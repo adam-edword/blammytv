@@ -108,6 +108,11 @@
  * tokens.css only so its reading order is the cascade's. */
 @import "./packs.css" layer(app);
 @import "./classic-tokens.css" layer(app);
+@import "./classic.css" layer(app);
+@import "./classic-discover.css" layer(app);
+@import "./classic-guide.css" layer(app);
+@import "./classic-sports.css" layer(app);
+@import "./classic-title.css" layer(app);
 @import "./fluent-tokens.css" layer(app);
 @import "./base.css" layer(app);
 @import "./ui.css" layer(app);

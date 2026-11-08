@@ -22,6 +22,9 @@ import { returnFocus } from "../../lib/returnFocus";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
 import { liftedRow } from "../../lib/liftedRow";
 import { settingById, type SettingsFind } from "./settingsIndex";
+import { useClassic } from "../classic/useClassic";
+import { helpUrl } from "../classic/helpUrl";
+import { openExternal } from "../../lib/tauri";
 
 /**
  * Six questions, one page each: what you WATCH (Sources), how it PLAYS
@@ -251,6 +254,27 @@ export function SettingsModal({
   }, []);
 
   const label = SETTINGS_PAGES.find((p) => p.key === tab)?.label;
+  // Classic: Display Properties. The pages are the same; the frame is a
+  // title bar, property-sheet tabs and one Close (classic.css).
+  const classic = useClassic();
+  const [help, setHelp] = useState(false);
+
+  const body = (
+    <div
+      className="settings__body"
+      role="tabpanel"
+      aria-label={label}
+      ref={bodyRef}
+      onScroll={(e) => markFades(e.currentTarget)}
+    >
+      {tab === "sources" && <SourcesPage initialWorld={seed} />}
+      {tab === "playback" && <PlaybackPage onSignIn={toStreamSources} />}
+      {tab === "appearance" && <AppearancePage initialWorld={seed} onSignIn={toStreamSources} />}
+      {tab === "home" && <HomePage />}
+      {tab === "accounts" && <AccountsPage />}
+      {tab === "app" && <AppPage />}
+    </div>
+  );
 
   // Portalled OUT of .app-shell, as before: with the inverted player the
   // shell carries a clip-path hole where the video shows, and a modal
@@ -312,7 +336,7 @@ export function SettingsModal({
           >
             <section
               ref={setCard}
-              className={"settings" + (closing ? " settings--closing" : "")}
+              className={"settings" + (classic ? " settings--classic" : "") + (closing ? " settings--closing" : "")}
               aria-label="Settings"
               // The kit's name for an open dialog: Multi-view's keys stand
               // down while one is up (mvKeys.forMultiview). Before this, A,
@@ -320,6 +344,46 @@ export function SettingsModal({
               // underneath.
               data-slot="dialog-content"
             >
+              {classic ? (
+                <>
+                  <header className="cl-title">
+                    <DialogPrimitive.Title className="cl-title__text">Settings</DialogPrimitive.Title>
+                    <span className="cl-title__btns">
+                      <button
+                        type="button"
+                        className="cl-x"
+                        aria-label="Help"
+                        aria-expanded={help}
+                        onClick={() => setHelp((h) => !h)}
+                      >
+                        ?
+                      </button>
+                      <button type="button" className="cl-x" aria-label="Close settings" onClick={requestClose}>
+                        ✕
+                      </button>
+                    </span>
+                  </header>
+                  {help && (
+                    <div className="cl-balloon" role="note">
+                      <b>{label} Help</b>
+                      <span>Help for these settings is in the BlammyTV docs, in your browser.</span>
+                      <button type="button" className="cl-link" onClick={() => openExternal(helpUrl(tab))}>
+                        Open Help in Browser
+                      </button>
+                    </div>
+                  )}
+                  <div className="cl-sheet">
+                    <Rail className="cl-tabs" label="Settings" items={SETTINGS_PAGES} value={tab} onChange={pick} />
+                    {body}
+                  </div>
+                  <div className="cl-foot">
+                    <button type="button" className="cl-b cl-b--def" onClick={requestClose}>
+                      Close
+                    </button>
+                  </div>
+                </>
+              ) : (
+              <>
               <header className="settings__header">
                 <DialogPrimitive.Title className="settings__title">
                   Settings
@@ -348,21 +412,10 @@ export function SettingsModal({
                 ) : (
                   <Rail className="settings__rail" label="Settings" items={RAIL} value={tab} onChange={pick} />
                 )}
-                <div
-                  className="settings__body"
-                  role="tabpanel"
-                  aria-label={label}
-                  ref={bodyRef}
-                  onScroll={(e) => markFades(e.currentTarget)}
-                >
-                  {tab === "sources" && <SourcesPage initialWorld={seed} />}
-                  {tab === "playback" && <PlaybackPage onSignIn={toStreamSources} />}
-                  {tab === "appearance" && <AppearancePage initialWorld={seed} onSignIn={toStreamSources} />}
-                  {tab === "home" && <HomePage />}
-                  {tab === "accounts" && <AccountsPage />}
-                  {tab === "app" && <AppPage />}
-                </div>
+                {body}
               </div>
+              </>
+              )}
             </section>
           </DialogPrimitive.Content>
         </DialogPrimitive.Overlay>

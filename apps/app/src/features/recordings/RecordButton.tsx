@@ -59,6 +59,7 @@ export function RecordButton({
   resolve,
   line,
   className,
+  labelled = false,
 }: {
   playlistId: string;
   channel: string;
@@ -71,6 +72,9 @@ export function RecordButton({
   line?: { max: number } | null;
   /** The capsule's paint (TheaterOverlay's IN_CAPSULE). */
   className?: string;
+  /** A plain button that says what it does, for Classic's Now Playing
+   * (the player's is an icon). Same press, same dialog. */
+  labelled?: boolean;
 }) {
   const recs = useRecordings();
   const mine = recKey(playlistId, channel);
@@ -183,7 +187,21 @@ export function RecordButton({
   const text = why?.key === mine ? why.text : null;
 
   return (
-    <div className="theater-tracks rec-btn">
+    <div className={labelled ? "cl-rec" : "theater-tracks rec-btn"}>
+      {labelled ? (
+        <button
+          type="button"
+          className={"cl-btn " + (className ?? "")}
+          aria-pressed={!!running}
+          aria-busy={!!mineBusy}
+          aria-disabled={!!mineBusy}
+          onClick={() => void press()}
+        >
+          {running && <span className="rec-dot" aria-hidden />}
+          {label}
+          {running && !mineBusy && <span className="rec-btn__time">{formatDuration(now - running.startedAt)}</span>}
+        </button>
+      ) : (
       <Hint side="top" label={label} off={!!text}>
         <Button
           variant="ghost"
@@ -210,8 +228,9 @@ export function RecordButton({
           )}
         </Button>
       </Hint>
+      )}
       {text && (
-        <p className="track-menu rec-btn__why" role="alert">
+        <p className={labelled ? "cl-rec__why" : "track-menu rec-btn__why"} role="alert">
           {text}
         </p>
       )}

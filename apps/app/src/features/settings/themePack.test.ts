@@ -14,6 +14,7 @@ import {
   THEME_PACKS,
   applyThemePack,
   loadThemePack,
+  packShowing,
   saveThemePack,
   syncAccent,
   themeAccentStore,
@@ -64,8 +65,22 @@ describe("themePack store", () => {
     expect(loadThemePack()).toBe("none");
   });
 
-  it("lists Default first, then the four packs", () => {
-    expect(THEME_PACKS.map((p) => p.label)).toEqual(["Default", "Prism", "Velvet", "Lagoon", "Fluent"]);
+  it("lists Default first, then the five packs", () => {
+    expect(THEME_PACKS.map((p) => p.label)).toEqual(["Default", "Prism", "Velvet", "Lagoon", "Fluent", "Classic"]);
+  });
+
+  it("gives each pack a tier, and only Classic is tier 3", () => {
+    expect(THEME_PACKS.map((p) => p.tier)).toEqual([1, 2, 2, 2, 2, 3]);
+  });
+
+  it("shows a tier-3 pack in Light too, and the others only in Dark", () => {
+    const light = { dataset: { theme: "light" } } as unknown as HTMLElement;
+    const dark = { dataset: {} } as unknown as HTMLElement;
+    expect(packShowing("classic", light)).toBe(true);
+    expect(packShowing("classic", dark)).toBe(true);
+    expect(packShowing("prism", light)).toBe(false);
+    expect(packShowing("prism", dark)).toBe(true);
+    expect(packShowing("none", dark)).toBe(false);
   });
 
   it("knows Fluent as a key, with Windows' own blue as its accent", () => {

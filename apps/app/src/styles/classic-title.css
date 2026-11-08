@@ -1,0 +1,119 @@
+/* Classic (Windows 2000): a title's page and a show's episodes (plan 035,
+ * "Classic across the app"). The mock's Title and Episodes screens, on the
+ * shared --cl-* tokens. Own prefix: clt-. */
+:root[data-theme-pack="classic"] .clt {
+  --clt-line: #c8c8c8;
+  --clt-focus: #ffff00;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  font: 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .clt,
+:root[data-theme-pack="classic"] .clt * {
+  box-sizing: border-box;
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] .clt-show { flex-direction: column; }
+
+/* Buttons */
+:root[data-theme-pack="classic"] .clt-b {
+  min-width: 84px;
+  height: 24px;
+  padding: 0 12px;
+  display: grid;
+  place-items: center;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  border: 0;
+  font: inherit;
+  box-shadow: var(--cl-raised);
+  cursor: default;
+}
+:root[data-theme-pack="classic"] .clt-b:active:not(:disabled) { box-shadow: var(--cl-pressed); }
+:root[data-theme-pack="classic"] .clt-b:disabled { color: var(--cl-lo); text-shadow: 1px 1px var(--cl-hi); }
+:root[data-theme-pack="classic"] .clt-def { outline: 1px solid #000; }
+:root[data-theme-pack="classic"] .clt :focus-visible { outline: 1px dotted var(--cl-ink); outline-offset: -4px; }
+
+/* Properties sheet */
+:root[data-theme-pack="classic"] .clt-props { flex: none; width: 540px; display: flex; flex-direction: column; min-height: 0; }
+:root[data-theme-pack="classic"] .clt-tabs { display: flex; padding-left: 4px; height: 24px; align-items: flex-end; margin-bottom: -1px; position: relative; z-index: 1; }
+:root[data-theme-pack="classic"] .clt-tabs span { padding: 5px 16px 4px; background: var(--cl-face); box-shadow: inset 1px 1px var(--cl-hi), inset -1px 0 var(--cl-dk), inset -2px 0 var(--cl-lo); }
+:root[data-theme-pack="classic"] .clt-tbody { flex: 1; min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; background: var(--cl-face); box-shadow: var(--cl-raised); }
+:root[data-theme-pack="classic"] .clt-top { display: flex; gap: 18px; }
+:root[data-theme-pack="classic"] .clt-art { flex: none; width: 160px; height: 240px; object-fit: cover; background: linear-gradient(160deg, #3d5a87, #f4a6a0); box-shadow: inset 1px 1px var(--cl-lo), inset -1px -1px var(--cl-hi); }
+:root[data-theme-pack="classic"] .clt-kv { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+:root[data-theme-pack="classic"] .clt-kv h2 { margin: 0 0 4px; font: 700 20px var(--cl-font); }
+:root[data-theme-pack="classic"] .clt-ep { margin: 0; color: var(--cl-ink-2); }
+:root[data-theme-pack="classic"] .clt-kvrow { display: grid; grid-template-columns: 74px 1fr; }
+:root[data-theme-pack="classic"] .clt-kvrow dt { color: var(--cl-ink-2); }
+:root[data-theme-pack="classic"] .clt-kvrow dd { margin: 0; }
+:root[data-theme-pack="classic"] .clt-gb { position: relative; margin: 0; min-width: 0; border: 1px solid var(--cl-lo); box-shadow: 1px 1px 0 var(--cl-hi), inset 1px 1px 0 var(--cl-hi); padding: 18px 12px 12px; }
+:root[data-theme-pack="classic"] .clt-gb > legend { position: absolute; top: -8px; left: 9px; padding: 0 4px; background: var(--cl-face); line-height: 15px; }
+:root[data-theme-pack="classic"] .clt-gb p { margin: 0; line-height: 1.45; }
+:root[data-theme-pack="classic"] .clt-grow { flex: 1; }
+:root[data-theme-pack="classic"] .clt-cast { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; }
+
+/* Sources */
+:root[data-theme-pack="classic"] .clt-srcs { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+:root[data-theme-pack="classic"] .clt-lbl { padding: 0 2px; }
+:root[data-theme-pack="classic"] .clt-btns { display: flex; justify-content: flex-end; gap: 8px; padding: 2px; margin-top: auto; }
+:root[data-theme-pack="classic"] .clt-state { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: var(--cl-field); box-shadow: var(--cl-sunken); text-align: center; }
+:root[data-theme-pack="classic"] .clt-state > span { color: var(--cl-ink-2); }
+
+/* Details list view */
+:root[data-theme-pack="classic"] .clt-list { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 2px; overflow: hidden; background: var(--cl-field); box-shadow: var(--cl-sunken); }
+:root[data-theme-pack="classic"] .clt-lh,
+:root[data-theme-pack="classic"] .clt-lr { display: grid; grid-template-columns: var(--clt-cols); flex: none; }
+:root[data-theme-pack="classic"] .clt-lh > div { min-width: 0; }
+:root[data-theme-pack="classic"] .clt-lh button,
+:root[data-theme-pack="classic"] .clt-lh span { width: 100%; height: 22px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between; background: var(--cl-face); color: var(--cl-ink); border: 0; font: inherit; text-align: left; box-shadow: var(--cl-raised); cursor: default; }
+:root[data-theme-pack="classic"] .clt-lh button:active { box-shadow: var(--cl-pressed); }
+:root[data-theme-pack="classic"] .clt-lh i { width: 0; height: 0; border: 4px solid transparent; }
+:root[data-theme-pack="classic"] .clt-lh i.up { border-bottom: 5px solid var(--cl-ink); border-top-width: 0; }
+:root[data-theme-pack="classic"] .clt-lh i.down { border-top: 5px solid var(--cl-ink); border-bottom-width: 0; }
+:root[data-theme-pack="classic"] .clt-lbody { flex: 1; min-height: 0; overflow-y: auto; }
+:root[data-theme-pack="classic"] .clt-lr { border-bottom: 1px solid var(--clt-line); user-select: none; }
+:root[data-theme-pack="classic"] .clt-lr > div { height: 32px; line-height: 32px; padding: 0 8px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme-pack="classic"] .clt-lr > div > span:not(.clt-ck) { display: block; overflow: hidden; text-overflow: ellipsis; }
+:root[data-theme-pack="classic"] .clt-lr.is-off { color: var(--cl-lo); }
+:root[data-theme-pack="classic"] .clt-lr.is-sel { background: var(--cl-sel); color: var(--cl-sel-ink); outline: 1px dotted var(--clt-focus); outline-offset: -1px; border-bottom-color: var(--cl-sel); }
+:root[data-theme-pack="classic"] .clt-list:focus-visible { outline: 0; }
+:root[data-theme-pack="classic"] .clt-ck { display: inline-block; vertical-align: middle; width: 13px; height: 13px; background: var(--cl-field); box-shadow: var(--cl-sunken); position: relative; }
+:root[data-theme-pack="classic"] .clt-ck.is-on::after { content: ""; position: absolute; left: 4px; top: 1px; width: 3px; height: 7px; border: solid var(--cl-ink); border-width: 0 2px 2px 0; transform: rotate(40deg); }
+:root[data-theme-pack="classic"] .clt-lr.is-sel .clt-ck { background: var(--cl-field); }
+
+/* Series header strip */
+:root[data-theme-pack="classic"] .clt-strip { flex: none; height: 96px; display: flex; gap: 16px; align-items: center; padding: 0 12px; box-shadow: var(--cl-raised); }
+:root[data-theme-pack="classic"] .clt-strip .clt-art { width: 56px; height: 76px; }
+:root[data-theme-pack="classic"] .clt-strip > div:last-child { min-width: 0; }
+:root[data-theme-pack="classic"] .clt-strip h2 { margin: 0 0 4px; font: 700 18px var(--cl-font); }
+:root[data-theme-pack="classic"] .clt-sub { color: var(--cl-ink-2); }
+:root[data-theme-pack="classic"] .clt-one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-theme-pack="classic"] .clt-panes { flex: 1; display: flex; gap: 10px; min-height: 0; }
+:root[data-theme-pack="classic"] .clt-fill { margin: 0; }
+
+/* TreeView: dotted connectors, +/- boxes */
+:root[data-theme-pack="classic"] .clt-tree { flex: none; width: 270px; display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+:root[data-theme-pack="classic"] .clt-pt { height: 22px; flex: none; display: flex; align-items: center; padding: 0 4px; box-shadow: var(--cl-raised); }
+:root[data-theme-pack="classic"] .clt-treebox { flex: 1; min-height: 0; padding: 6px 4px; overflow: auto; background: var(--cl-field); box-shadow: var(--cl-sunken); }
+:root[data-theme-pack="classic"] .clt-treebox:focus-visible { outline: 0; }
+:root[data-theme-pack="classic"] .clt-tv, :root[data-theme-pack="classic"] .clt-tv ul { list-style: none; margin: 0; padding: 0; }
+:root[data-theme-pack="classic"] .clt-tv ul { margin-left: 4px; padding-left: 14px; }
+:root[data-theme-pack="classic"] .clt-tv li { position: relative; }
+:root[data-theme-pack="classic"] .clt-tv ul > li::before { content: ""; position: absolute; left: -14px; top: 0; height: 100%; border-left: 1px dotted var(--cl-lo); }
+:root[data-theme-pack="classic"] .clt-tv ul > li:last-child::before { height: 10px; }
+:root[data-theme-pack="classic"] .clt-n { position: relative; display: flex; align-items: center; gap: 4px; height: 20px; padding-left: 14px; white-space: nowrap; }
+:root[data-theme-pack="classic"] .clt-tv ul > li > .clt-n::before { content: ""; position: absolute; left: -14px; top: 10px; width: 28px; border-top: 1px dotted var(--cl-lo); }
+:root[data-theme-pack="classic"] .clt-bx { position: absolute; left: 0; top: 5px; width: 9px; height: 9px; padding: 0; background: var(--cl-field); border: 1px solid var(--cl-lo); cursor: default; }
+:root[data-theme-pack="classic"] .clt-bx::before { content: ""; position: absolute; left: 1px; top: 3px; width: 5px; height: 1px; background: var(--cl-ink); }
+:root[data-theme-pack="classic"] .clt-bx[data-open="false"]::after { content: ""; position: absolute; left: 3px; top: 1px; width: 1px; height: 5px; background: var(--cl-ink); }
+:root[data-theme-pack="classic"] .clt-fd { position: relative; flex: none; width: 16px; height: 11px; margin-top: 3px; background: #f3d36b; box-shadow: inset 0 0 0 1px #8a6d00; }
+:root[data-theme-pack="classic"] .clt-fd::before { content: ""; position: absolute; left: 0; top: -3px; width: 7px; height: 3px; background: #f3d36b; box-shadow: inset 1px 1px 0 #8a6d00, inset -1px 0 0 #8a6d00; }
+:root[data-theme-pack="classic"] .clt-fd.is-op { background: #fbe8a0; }
+:root[data-theme-pack="classic"] .clt-lb { padding: 1px 3px; line-height: 16px; }
+:root[data-theme-pack="classic"] .clt-lb.is-sel { background: var(--cl-sel); color: var(--cl-sel-ink); outline: 1px dotted var(--clt-focus); outline-offset: -1px; }

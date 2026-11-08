@@ -117,7 +117,7 @@ export function AppearancePage({
     subscribeShowing,
     () => document.documentElement.dataset.theme === "light",
   );
-  const themed = pack !== "none" && !light ? packInfo(pack) : null;
+  const themed = pack !== "none" && (!light || packInfo(pack).tier === 3) ? packInfo(pack) : null;
 
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
   const pickStartup = (next: StartupTab) => {

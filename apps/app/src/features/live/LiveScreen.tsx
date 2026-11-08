@@ -62,6 +62,9 @@ import {
   savePlaylists,
   toggleHiddenCategory,
 } from "../settings/playlists";
+import { ClassicFolders } from "../classic/guide/ClassicFolders";
+import { ClassicHero } from "../classic/guide/ClassicHero";
+import { useClassic } from "../classic/useClassic";
 import { InvertedPlayer } from "./InvertedPlayer";
 import { useConnections } from "./connections";
 import { splitTitleEmoji } from "./emoji";
@@ -87,7 +90,7 @@ import {
 } from "./source";
 import { buildMeta, resolveStreamUrl, streamUserAgent } from "./stream";
 
-type Mode = "playlist" | "favorites" | "recents" | "recordings";
+export type Mode = "playlist" | "favorites" | "recents" | "recordings";
 
 const MODES: SegOption<Mode>[] = [
   { key: "playlist", label: "Playlist", icon: () => <TvIcon /> },
@@ -284,6 +287,7 @@ const SidebarSources = memo(function SidebarSources({
 });
 
 export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
+  const classic = useClassic();
   const [mode, setMode] = useState<Mode>("playlist");
   const [collapsed, setCollapsed] = useState(false);
   const collapsedRef = useRef(collapsed);
@@ -457,6 +461,16 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     },
     [collapsed],
   );
+  // Classic's folders tree picks a mode or a folder in one move: a folder
+  // means the playlist's list filtered to it, and All Channels clears it.
+  const pickMode = useCallback((m: Mode) => {
+    setMode(m);
+    if (m === "playlist") setFolder(null);
+  }, []);
+  const pickTreeFolder = useCallback((id: string) => {
+    setMode("playlist");
+    setFolder(id);
+  }, []);
   // Resume the last-watched channel (recents[0]) so a tab switch or app
   // restart doesn't dump the selection back on the catalog's first row.
   const [channelId, setChannelId] = useState(() => loadRecents()[0] ?? "");
@@ -741,6 +755,12 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           : "Playlist";
     return { channels: visible, listName, playingId: heroChannel?.id, onTune: selectChannel, onOpenChange: onGuideOpen };
   }, [visible, ready, folder, mode, heroChannel, selectChannel, onGuideOpen]);
+  // The folder's name as the tree writes it, for Classic's "Channel N · Folder".
+  const shownFolderName = useMemo(() => {
+    const id = (preview?.channel ?? heroChannel)?.folderId;
+    const f = ready?.groups.flatMap((g) => g.folders).find((x) => x.id === id);
+    return f ? splitTitleEmoji(f.name).label : undefined;
+  }, [ready, preview, heroChannel]);
   // A hover preview shows that channel's own listings, so the hero can
   // find its airing programme when the cursor is on the card (no cell).
   const shownChannel = preview?.channel ?? heroChannel;
@@ -869,6 +889,12 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     const url = await resolveStreamUrl(ch);
     return url ? { url, userAgent: streamUserAgent(ch.id) } : null;
   }, []);
+  // Classic's Record is for the channel its Now Playing shows, which a
+  // hovered guide row can make another than the one playing.
+  const resolveRecordTargetFor = async (ch: Channel): Promise<RecordTarget> => {
+    const url = await resolveStreamUrl(ch);
+    return url ? { url, userAgent: streamUserAgent(ch.id) } : null;
+  };
 
   // Inline chrome for the inverted player: a direct OverlayApi (mpv commands
   // + a status poll) injected into TheaterOverlay, which renders into a
@@ -1048,6 +1074,19 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         (fullscreen ? " live--fullscreen" : "")
       }
     >
+      {classic ? (
+        <ClassicFolders
+          groups={visibleGroups ?? ready?.groups ?? []}
+          conns={conns}
+          closedGroups={closedGroups}
+          mode={mode}
+          folder={folder}
+          onToggleGroup={toggleGroup}
+          onPickMode={pickMode}
+          onPickFolder={pickTreeFolder}
+          onFolderMenu={openFolderMenu}
+        />
+      ) : (
       <aside
         className={"live-sidebar" + (collapsed ? " live-sidebar--collapsed" : "")}
       >
@@ -1089,6 +1128,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           />
         )}
       </aside>
+      )}
 
       {collapsed && tip && (
         <div className="live-tip" style={{ left: tip.x, top: tip.y }} aria-hidden>
@@ -1201,6 +1241,32 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
         {(recId || (ready && shownChannel)) && (
           <>
             {(recHero || (ready && shownChannel)) && (
+              classic ? (
+                <ClassicHero
+                  channel={(recHero?.channel ?? shownChannel)!}
+                  programmes={recHero ? NO_PROGRAMMES : shownProgrammes}
+                  programme={recHero?.programme ?? preview?.programme ?? undefined}
+                  folderName={shownFolderName}
+                  favorite={!!shownChannel && favorites.includes(shownChannel.id)}
+                  onWatch={recHero || !shownChannel ? undefined : () => selectChannel(shownChannel.id)}
+                  onToggleFavorite={shownChannel ? () => handleToggleFavorite(shownChannel.id) : undefined}
+                  record={
+                    !recHero && shownChannel ? (
+                      <RecordButton
+                        labelled
+                        playlistId={playlistOf(shownChannel.id)}
+                        channel={shownChannel.name}
+                        programme={shownProgrammes.find((p) => p.start <= new Date() && new Date() < p.end)?.title}
+                        resolve={() => resolveRecordTargetFor(shownChannel)}
+                        line={conns.get(playlistOf(shownChannel.id)) ?? null}
+                      />
+                    ) : undefined
+                  }
+                  onBackdropClick={
+                    theater && !fullscreen ? () => setTheater(false) : undefined
+                  }
+                />
+              ) : (
               <Hero
                 channel={(recHero?.channel ?? shownChannel)!}
                 programmes={recHero ? NO_PROGRAMMES : shownProgrammes}
@@ -1213,6 +1279,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                   theater && !fullscreen ? () => setTheater(false) : undefined
                 }
               />
+              )
             )}
             {/* Headless: opens mpv into #player-slot and follows the box.
              * Only in Tauri with a real stream URL, so the browser build

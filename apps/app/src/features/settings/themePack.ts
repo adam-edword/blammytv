@@ -19,7 +19,7 @@ import { tauriMica } from "../../lib/tauri";
  * rather than naming a pack (old/themes/README.md is why there is no default
  * pack). Stored like accent.ts, validated on the way in.
  */
-export type ThemePack = "none" | "prism" | "velvet" | "lagoon" | "fluent";
+export type ThemePack = "none" | "prism" | "velvet" | "lagoon" | "fluent" | "classic";
 
 export interface PackInfo {
   key: ThemePack;
@@ -30,6 +30,11 @@ export interface PackInfo {
    * Default, which has the Accent picker as it always did, and for Prism,
    * whose ramp is its accent and which has no picker. */
   accent: string | null;
+  /** How far a pack may go (plan 035, Tiers): 1 colours only, 2 colours,
+   * effects and fonts with the radius rule, 3 a full overhaul of corners,
+   * borders and bevels (layout moves only where the plan says). A tier-3
+   * pack looks the same in Light and Dark. */
+  tier: 1 | 2 | 3;
 }
 
 export const THEME_PACKS: readonly PackInfo[] = [
@@ -38,24 +43,28 @@ export const THEME_PACKS: readonly PackInfo[] = [
     label: "Default",
     swatch: { bg: "oklch(0.145 0 0)", surface: "oklch(0.205 0 0)", accent: "oklch(0.922 0 0)" },
     accent: null,
+    tier: 1,
   },
   {
     key: "prism",
     label: "Prism",
     swatch: { bg: "#000000", surface: "#111111", accent: "#ffffff" },
     accent: null,
+    tier: 2,
   },
   {
     key: "velvet",
     label: "Velvet",
     swatch: { bg: "#170d10", surface: "#251619", accent: "#e8bb6c" },
     accent: "#e8bb6c",
+    tier: 2,
   },
   {
     key: "lagoon",
     label: "Lagoon",
     swatch: { bg: "#08191e", surface: "#102d34", accent: "#5fe1c1" },
     accent: "#5fe1c1",
+    tier: 2,
   },
   {
     // Windows 11's dark layers on Mica (#202020 where Mica can't show), and
@@ -64,6 +73,15 @@ export const THEME_PACKS: readonly PackInfo[] = [
     label: "Fluent",
     swatch: { bg: "#202020", surface: "#2b2b2b", accent: "#60cdff" },
     accent: "#60cdff",
+    tier: 2,
+  },
+  {
+    // Windows 2000: the grey face, the navy title bar (styles/classic.css).
+    key: "classic",
+    label: "Classic",
+    swatch: { bg: "#d4d0c8", surface: "#ffffff", accent: "#0a246a" },
+    accent: "#0a246a",
+    tier: 3,
   },
 ];
 
@@ -126,12 +144,13 @@ export function resetThemeAccents(): void {
   save(ACCENTS_KEY, VERSION, {});
 }
 
-/** Whether a pack is showing: chosen, and the page is dark. */
+/** Whether a pack is showing: chosen, and the page is dark. A tier-3 pack has
+ * one face and shows in Light too. */
 export function packShowing(
   pack: ThemePack,
   root: { dataset: DOMStringMap } = document.documentElement,
 ): boolean {
-  return pack !== "none" && root.dataset.theme !== "light";
+  return pack !== "none" && (root.dataset.theme !== "light" || packInfo(pack).tier === 3);
 }
 
 /**

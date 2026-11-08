@@ -1,0 +1,744 @@
+/**
+ * Classic (Windows 2000), the first tier-3 theme pack (plan 035, "Tiers").
+ *
+ * A tier-3 pack may change corners, borders and bevels; layout moves only
+ * where the plan says (the header, Discover's band, the Go To and Settings
+ * dialogs). Everything else keeps its boxes. The tokens and the bevels are
+ * classic-tokens.css; this file paints with them.
+ *
+ * ONE FACE. Every selector is `:root[data-theme-pack="classic"]` with no
+ * test for Light, so Classic looks the same in both. The base palette is
+ * restated below because a Light root sets its own tokens at the same weight,
+ * and this file comes after tokens.css.
+ *
+ * THROUGH THE PRIMITIVES. Buttons, inputs, menus, tooltips, toggles and the
+ * segmented control are reached by their data-slot or shared class, not
+ * screen by screen. Tailwind's utilities sit in a later layer than this one,
+ * so the properties they also set are `!important` here.
+ *
+ * Phase 1 paints the chrome, the primitives, the Go To box and Settings. The
+ * screens (title pages, the Guide, Sports, the poster grid) and the player
+ * are later phases and have their own rules.
+ */
+
+/* ------------------------------------------------------------ palette */
+:root[data-theme-pack="classic"] {
+  color-scheme: light;
+  --bg: var(--cl-face);
+  --surface: var(--cl-face);
+  --surface-track: #c4c0b8;
+  --surface-puck: var(--cl-face);
+  --surface-raised: var(--cl-face);
+  --sidebar: var(--cl-face);
+  --sidebar-foreground: var(--cl-ink);
+  --sidebar-accent: var(--cl-sel);
+  --sidebar-accent-foreground: var(--cl-sel-ink);
+  --card-glass: linear-gradient(var(--cl-face), var(--cl-face));
+  --float-bg: var(--cl-face);
+  --float-border: var(--cl-dk);
+  --float-blur: none;
+  --float-shadow: 2px 2px 0 rgb(0 0 0 / 0.3);
+  --sheet-bg: var(--cl-face);
+  --sheet-blur: none;
+  --glass-fx: none;
+  --glass: var(--cl-face);
+  --menu-highlight: var(--cl-sel);
+  --dim: rgb(0 0 0 / 0.12);
+  --border: var(--cl-lo);
+  --border-strong: var(--cl-lo);
+  --border-raised: var(--cl-lo);
+  --border-input: var(--cl-lo);
+  --text: var(--cl-ink);
+  --text-muted: var(--cl-ink-2);
+  --text-dim: var(--cl-ink-2);
+  --text-ghost: var(--cl-lo);
+  --text-faint: var(--cl-lo);
+  --accent: var(--cl-sel);
+  --accent-ink: var(--cl-sel-ink);
+  --mix-base: #ffffff;
+  --danger: #b00000;
+  --danger-text: #b00000;
+  --ok: #006400;
+  --ring: var(--cl-sel);
+  --focus-ring: var(--cl-ink);
+  --plate: var(--cl-face);
+  --plate-ink: var(--cl-ink);
+  --tint-hover: rgb(0 0 0 / 0.08);
+  --tint-on: rgb(0 0 0 / 0.14);
+  --chip-bg: var(--cl-face);
+  --chip-bg-hover: var(--cl-face);
+  --chip-edge: var(--cl-lo);
+  --chip-fx: none;
+  --glass-lift: 2px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-xs: none;
+  --radius: 0px;
+  --radius-pill: 0px;
+  --font-headline: Tahoma, "Segoe UI", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-text: Tahoma, "Segoe UI", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ------------------------------------------------------------- shapes */
+:root[data-theme-pack="classic"] *,
+:root[data-theme-pack="classic"] *::before,
+:root[data-theme-pack="classic"] *::after {
+  border-radius: 0 !important;
+}
+/* Radios stay round. */
+:root[data-theme-pack="classic"] [role="radio"],
+:root[data-theme-pack="classic"] [role="radio"]::after,
+:root[data-theme-pack="classic"] input[type="radio"] {
+  border-radius: 50% !important;
+}
+:root[data-theme-pack="classic"] ::selection {
+  background: var(--cl-sel);
+  color: var(--cl-sel-ink);
+}
+:root[data-theme-pack="classic"] :focus-visible {
+  outline: 1px dotted var(--cl-ink) !important;
+  outline-offset: -3px;
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------- scrollbars */
+:root[data-theme-pack="classic"] ::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+  background: var(--cl-checker);
+}
+:root[data-theme-pack="classic"] ::-webkit-scrollbar-track {
+  background: var(--cl-checker);
+}
+:root[data-theme-pack="classic"] ::-webkit-scrollbar-thumb {
+  background: var(--cl-face);
+  box-shadow: var(--cl-raised);
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--cl-face);
+}
+:root[data-theme-pack="classic"] ::-webkit-scrollbar-button:single-button {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background-color: var(--cl-face);
+  background-repeat: no-repeat;
+  background-position: center;
+  box-shadow: var(--cl-raised);
+}
+:root[data-theme-pack="classic"] ::-webkit-scrollbar-button:single-button:vertical:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M4 10l4-4 4 4z'/%3E%3C/svg%3E");
+}
+:root[data-theme-pack="classic"] ::-webkit-scrollbar-button:single-button:vertical:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M4 6l4 4 4-4z'/%3E%3C/svg%3E");
+}
+:root[data-theme-pack="classic"] ::-webkit-scrollbar-button:active {
+  box-shadow: var(--cl-pressed);
+}
+:root[data-theme-pack="classic"] ::-webkit-scrollbar-corner {
+  background: var(--cl-face);
+}
+
+/* ------------------------------------------------------------ buttons */
+:root[data-theme-pack="classic"] [data-slot="button"] {
+  background: var(--cl-face) !important;
+  color: var(--cl-ink) !important;
+  border: 0 !important;
+  box-shadow: var(--cl-raised) !important;
+  backdrop-filter: none !important;
+  font-family: var(--cl-font) !important;
+  font-weight: 400 !important;
+  text-shadow: none;
+}
+:root[data-theme-pack="classic"] [data-slot="button"]:active:not(:disabled),
+:root[data-theme-pack="classic"] [data-slot="button"][aria-pressed="true"],
+:root[data-theme-pack="classic"] [data-slot="button"][aria-expanded="true"] {
+  box-shadow: var(--cl-pressed) !important;
+}
+:root[data-theme-pack="classic"] [data-slot="button"][aria-pressed="true"] {
+  background: var(--cl-checker) !important;
+}
+:root[data-theme-pack="classic"] [data-slot="button"][class*="bg-foreground"] {
+  outline: 1px solid var(--cl-ink);
+  outline-offset: -1px;
+}
+:root[data-theme-pack="classic"] [data-slot="button"][class*="hover:bg-tint-hover"]:not([aria-pressed="true"]) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+:root[data-theme-pack="classic"] [data-slot="button"][class*="hover:bg-tint-hover"]:hover:not([aria-pressed="true"]) {
+  box-shadow: var(--cl-raised-thin) !important;
+}
+:root[data-theme-pack="classic"] [data-slot="button"]:disabled,
+:root[data-theme-pack="classic"] [data-slot="button"][aria-disabled="true"] {
+  color: var(--cl-lo) !important;
+  text-shadow: 1px 1px 0 var(--cl-hi);
+  opacity: 1 !important;
+}
+
+/* ------------------------------------------------------------- fields */
+:root[data-theme-pack="classic"] input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
+:root[data-theme-pack="classic"] textarea,
+:root[data-theme-pack="classic"] select,
+:root[data-theme-pack="classic"] [data-slot="input"] {
+  background: var(--cl-field) !important;
+  color: var(--cl-ink) !important;
+  border: 0 !important;
+  box-shadow: var(--cl-sunken) !important;
+  font-family: var(--cl-font);
+  backdrop-filter: none !important;
+}
+:root[data-theme-pack="classic"] ::placeholder {
+  color: var(--cl-lo);
+}
+
+/* -------------------------------------------------- menus and floats */
+:root[data-theme-pack="classic"] [data-slot="dropdown-menu-content"],
+:root[data-theme-pack="classic"] [data-slot="dropdown-menu-sub-content"],
+:root[data-theme-pack="classic"] [data-slot="context-menu-content"],
+:root[data-theme-pack="classic"] [data-slot="context-menu-sub-content"],
+:root[data-theme-pack="classic"] [data-slot="popover-content"],
+:root[data-theme-pack="classic"] [data-slot="combobox-content"] {
+  background: var(--cl-face) !important;
+  color: var(--cl-ink) !important;
+  border: 0 !important;
+  box-shadow: var(--cl-raised), 2px 2px 0 rgb(0 0 0 / 0.3) !important;
+  backdrop-filter: none !important;
+  font-family: var(--cl-font);
+}
+:root[data-theme-pack="classic"] [data-slot$="-item"][data-highlighted],
+:root[data-theme-pack="classic"] [data-slot$="-sub-trigger"][data-highlighted],
+:root[data-theme-pack="classic"] [data-slot$="-sub-trigger"][data-state="open"],
+:root[data-theme-pack="classic"] [data-slot="combobox-item"][data-highlighted] {
+  background: var(--cl-sel) !important;
+  color: var(--cl-sel-ink) !important;
+}
+:root[data-theme-pack="classic"] [data-slot$="-label"] {
+  color: var(--cl-ink-2);
+}
+:root[data-theme-pack="classic"] [data-slot$="-separator"] {
+  height: 0 !important;
+  background: none !important;
+  border-top: 1px solid var(--cl-lo);
+  border-bottom: 1px solid var(--cl-hi);
+}
+:root[data-theme-pack="classic"] [data-slot="tooltip-content"] {
+  background: var(--cl-tip) !important;
+  color: var(--cl-ink) !important;
+  border: 1px solid #000 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  font-family: var(--cl-font);
+  font-weight: 400 !important;
+}
+:root[data-theme-pack="classic"] [data-slot="dialog-content"]:not(.settings) {
+  background: var(--cl-face) !important;
+  color: var(--cl-ink);
+  border: 0 !important;
+  box-shadow: var(--cl-raised), 2px 2px 0 rgb(0 0 0 / 0.3) !important;
+  backdrop-filter: none !important;
+}
+
+/* ------------------------------------------- toggles, switches, tabs */
+:root[data-theme-pack="classic"] .toggle {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .toggle--sm {
+  width: 16px;
+  height: 16px;
+}
+:root[data-theme-pack="classic"] .toggle__thumb {
+  display: none;
+}
+:root[data-theme-pack="classic"] .toggle--on::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: no-repeat center / 12px 12px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6l3 3 5-6' fill='none' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E");
+}
+:root[data-theme-pack="classic"] .seg {
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  gap: 2px;
+}
+:root[data-theme-pack="classic"] .seg__thumb {
+  display: none;
+}
+:root[data-theme-pack="classic"] .seg__opt {
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  box-shadow: var(--cl-raised);
+  font-family: var(--cl-font);
+}
+:root[data-theme-pack="classic"] .seg__opt.is-on,
+:root[data-theme-pack="classic"] .seg__opt[aria-selected="true"] {
+  background: var(--cl-checker);
+  box-shadow: var(--cl-pressed);
+  color: var(--cl-ink);
+}
+
+/* ------------------------------------------------------------- header */
+:root[data-theme-pack="classic"] .cl-header {
+  display: block;
+  padding: 0;
+  background: var(--cl-face);
+  box-shadow: inset 0 -1px var(--cl-hi), inset 0 -2px var(--cl-lo);
+  font: 13px var(--cl-font);
+  color: var(--cl-ink);
+  align-items: stretch;
+}
+:root[data-theme-pack="classic"] .cl-menu {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--cl-lo);
+  box-shadow: 0 1px var(--cl-hi);
+}
+:root[data-theme-pack="classic"] .cl-mark {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: conic-gradient(from 200deg, #5ad1ff, #8af07a, #ffe36b, #ff8bd1, #8f8cff, #5ad1ff);
+}
+:root[data-theme-pack="classic"] .cl-logo {
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: conic-gradient(from 200deg, #5ad1ff, #8af07a, #ffe36b, #ff8bd1, #8f8cff, #5ad1ff);
+  box-shadow: inset 0 0 0 5px var(--cl-face), inset 0 0 0 6px #000;
+}
+:root[data-theme-pack="classic"] .cl-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 46px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--cl-lo);
+  box-shadow: 0 1px var(--cl-hi);
+}
+:root[data-theme-pack="classic"] .cl-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 8px;
+  color: var(--cl-ink);
+  background: none;
+  font: 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .cl-btn svg {
+  width: 22px;
+  height: 22px;
+}
+:root[data-theme-pack="classic"] .cl-btn:hover {
+  box-shadow: var(--cl-raised-thin);
+}
+:root[data-theme-pack="classic"] .cl-btn:active {
+  box-shadow: var(--cl-pressed);
+}
+/* The tab you're on: pressed in, as a toggled toolbar button was. */
+:root[data-theme-pack="classic"] .cl-btn--on,
+:root[data-theme-pack="classic"] .cl-btn--on:hover {
+  box-shadow: var(--cl-pressed);
+  background: var(--cl-checker);
+  font-weight: 700;
+}
+:root[data-theme-pack="classic"] .cl-keys {
+  color: var(--cl-ink-2);
+}
+:root[data-theme-pack="classic"] .cl-grow {
+  flex: 1;
+}
+:root[data-theme-pack="classic"] .cl-sep {
+  width: 2px;
+  height: 30px;
+  margin: 0 4px;
+  box-shadow: inset 1px 0 var(--cl-lo), inset -1px 0 var(--cl-hi);
+}
+:root[data-theme-pack="classic"] .cl-addr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+}
+:root[data-theme-pack="classic"] .cl-label {
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-field {
+  flex: 1;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+  min-width: 0;
+}
+:root[data-theme-pack="classic"] .cl-field input {
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  font: 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .cl-field input::-webkit-search-cancel-button {
+  display: none;
+}
+:root[data-theme-pack="classic"] .cl-go,
+:root[data-theme-pack="classic"] .cl-tog {
+  height: 22px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  box-shadow: var(--cl-raised);
+  font: 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .cl-tog {
+  height: 26px;
+}
+:root[data-theme-pack="classic"] .cl-go:active,
+:root[data-theme-pack="classic"] .cl-tog:active,
+:root[data-theme-pack="classic"] .cl-tog[aria-pressed="true"] {
+  box-shadow: var(--cl-pressed);
+}
+:root[data-theme-pack="classic"] .cl-tog[aria-pressed="true"] {
+  background: var(--cl-checker);
+}
+/* Discover's band hangs under the header without counting in --header-h, so
+ * the page does not jump as it comes and goes; Discover clears it below. */
+:root[data-theme-pack="classic"] .cl-band {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 8px;
+  background: var(--cl-face);
+  border-bottom: 1px solid var(--cl-lo);
+  box-shadow: 0 1px var(--cl-hi);
+  font: 13px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-combo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 22px;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .cl-combo select {
+  appearance: none;
+  height: 22px;
+  min-width: 140px;
+  padding: 0 24px 0 6px;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .cl-combo b {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 8px;
+  font-weight: 400;
+  background: var(--cl-face);
+  box-shadow: var(--cl-raised-thin);
+  pointer-events: none;
+}
+/* The Default capsule reserved Discover's top; ours adds the band. */
+:root[data-theme-pack="classic"] .discover {
+  padding-top: calc(var(--header-h, 76px) + 36px + 8px);
+}
+:root[data-theme-pack="classic"] .cl-status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-header);
+  height: 26px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--cl-face);
+  box-shadow: inset 0 1px var(--cl-hi);
+  font: 12px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-status > span {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  box-shadow: inset 1px 1px var(--cl-lo), inset -1px -1px var(--cl-hi);
+}
+:root[data-theme-pack="classic"] .cl-status__grow {
+  flex: 1;
+}
+
+/* ------------------------------------------- dialogs: title and buttons */
+:root[data-theme-pack="classic"] .cl-title {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3px 0 6px;
+  color: #fff;
+  background: var(--cl-title);
+  font: 700 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .cl-title__text {
+  margin: 0;
+  color: #fff;
+  font: 700 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .cl-title__btns {
+  display: flex;
+  gap: 2px;
+}
+:root[data-theme-pack="classic"] .cl-x {
+  width: 18px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  font-size: 11px;
+  box-shadow: var(--cl-raised-thin);
+}
+:root[data-theme-pack="classic"] .cl-x:active,
+:root[data-theme-pack="classic"] .cl-x[aria-expanded="true"] {
+  box-shadow: var(--cl-pressed);
+}
+:root[data-theme-pack="classic"] .cl-b {
+  min-width: 76px;
+  height: 24px;
+  padding: 0 12px;
+  display: grid;
+  place-items: center;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  box-shadow: var(--cl-raised);
+  font: 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .cl-b--def {
+  outline: 1px solid #000;
+  outline-offset: -1px;
+}
+:root[data-theme-pack="classic"] .cl-b:active {
+  box-shadow: var(--cl-pressed);
+}
+
+/* --------------------------------------------------- Go To (Ctrl+K) */
+:root[data-theme-pack="classic"] .palette--classic {
+  width: 520px !important;
+  max-width: calc(100vw - 32px) !important;
+  top: 190px !important;
+  padding: 3px !important;
+  gap: 0 !important;
+  overflow: visible !important;
+  background: var(--cl-face) !important;
+  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-light), inset -2px -2px var(--cl-lo), inset 2px 2px var(--cl-hi), 2px 2px 0 rgb(0 0 0 / 0.3) !important;
+  font: 13px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .palette--classic .palette__intro {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 14px 14px 0;
+  line-height: 1.4;
+}
+:root[data-theme-pack="classic"] .palette--classic .palette__intro .cl-logo {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  box-shadow: inset 0 0 0 8px var(--cl-face), inset 0 0 0 9px #000;
+}
+:root[data-theme-pack="classic"] .palette--classic .mvpick__head {
+  gap: 10px;
+  padding: 12px 14px 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+:root[data-theme-pack="classic"] .palette--classic .mvpick__head > svg {
+  display: none;
+}
+:root[data-theme-pack="classic"] .palette--classic .palette__open {
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .palette--classic .mvpick__input {
+  height: 22px;
+  padding: 0 6px;
+  color: var(--cl-ink) !important;
+}
+:root[data-theme-pack="classic"] .palette--classic .mvpick__body {
+  margin: 12px 14px 0;
+  max-height: 220px;
+  padding: 3px;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .palette--classic .mvpick__sec {
+  color: var(--cl-ink-2);
+}
+:root[data-theme-pack="classic"] .palette--classic .mvpick__row {
+  color: var(--cl-ink);
+  background: none;
+}
+:root[data-theme-pack="classic"] .palette--classic .mvpick__row[data-highlighted] {
+  background: var(--cl-sel);
+  color: var(--cl-sel-ink);
+  outline: 1px dotted #ffff00 !important;
+  outline-offset: -1px;
+}
+:root[data-theme-pack="classic"] .palette--classic .mvpick__row .mvpick__sub {
+  color: var(--cl-lo);
+}
+:root[data-theme-pack="classic"] .palette--classic .mvpick__row[data-highlighted] .mvpick__name,
+:root[data-theme-pack="classic"] .palette--classic .mvpick__row[data-highlighted] .mvpick__nametext,
+:root[data-theme-pack="classic"] .palette--classic .mvpick__row[data-highlighted] .mvpick__sub {
+  color: var(--cl-sel-ink);
+}
+:root[data-theme-pack="classic"] .palette--classic .palette__btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 14px 12px;
+}
+
+/* ----------------------------------- Settings as Display Properties */
+:root[data-theme-pack="classic"] .settings--classic {
+  --settings-pad: 0px;
+  width: min(760px, 100%);
+  padding: 3px;
+  background: var(--cl-face);
+  border: 0;
+  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-light), inset -2px -2px var(--cl-lo), inset 2px 2px var(--cl-hi), 2px 2px 0 rgb(0 0 0 / 0.3);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  position: relative;
+  transform: none;
+  transition: opacity 0ms;
+  font: 13px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .settings--classic > * {
+  transition: none;
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 10px 8px 4px;
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  height: auto;
+  padding: 0 0 0 2px;
+  margin: 0;
+  background: none;
+  box-shadow: none;
+  align-self: flex-start;
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-tabs .rail__thumb {
+  display: none;
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-tabs .rail__opt {
+  position: relative;
+  width: auto;
+  height: auto;
+  margin-top: 2px;
+  padding: 3px 14px;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  box-shadow: inset 1px 1px var(--cl-hi), inset -1px 0 var(--cl-dk), inset -2px 0 var(--cl-lo);
+  font: 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-tabs .rail__opt.is-on {
+  z-index: 2;
+  margin-top: 0;
+  margin-bottom: -2px;
+  margin-inline: -2px;
+  padding: 5px 16px 7px;
+}
+:root[data-theme-pack="classic"] .settings--classic .settings__body {
+  margin: 0;
+  padding: 16px;
+  gap: 24px;
+  background: var(--cl-face);
+  box-shadow: var(--cl-raised);
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+:root[data-theme-pack="classic"] .settings--classic .cl-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 8px 8px;
+}
+:root[data-theme-pack="classic"] .cl-balloon {
+  position: absolute;
+  right: 30px;
+  top: 30px;
+  z-index: 5;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--cl-tip);
+  border: 1px solid #000;
+  box-shadow: 2px 2px 0 rgb(0 0 0 / 0.25);
+  font: 12px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-balloon::before {
+  content: "";
+  position: absolute;
+  right: 22px;
+  top: -10px;
+  border: 5px solid transparent;
+  border-bottom: 5px solid #000;
+}
+:root[data-theme-pack="classic"] .cl-link {
+  background: none;
+  color: #0000ee;
+  text-decoration: underline;
+  font: 12px var(--cl-font);
+}
+
+/* ---------------------------------------------- what Light switches off */
+/* A flat grey page has no use for the hero's coloured light. */
+:root[data-theme-pack="classic"] .shero__glowbox,
+:root[data-theme-pack="classic"] .shero__ambient {
+  display: none;
+}

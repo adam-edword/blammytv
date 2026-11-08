@@ -19,6 +19,9 @@ import {
 } from "../../ui/icons";
 import { StateCard } from "../../ui/StateCard";
 import { EYEBROW_ON_IMAGE } from "../../ui/eyebrow";
+import { ClassicEpisodes } from "../classic/title/ClassicEpisodes";
+import { ClassicTitle } from "../classic/title/ClassicTitle";
+import { useClassic } from "../classic/useClassic";
 import { SourceList } from "./SourceList";
 import { Button } from "../../components/ui/button";
 import { Segmented } from "../../ui/Segmented";
@@ -3803,6 +3806,7 @@ function Detail({
   /** Enables the More Like This strip (movie detail only). */
   onOpenItem?: (i: VodItem) => void;
 }) {
+  const classic = useClassic();
   const [sources, setSources] = useState<StreamSource[] | null | "failed">(
     null,
   );
@@ -3879,6 +3883,18 @@ function Detail({
     };
   }, [item.kind, item.id, item.from, episodeId, sourcesTick]);
 
+  if (classic)
+    return (
+      <ClassicTitle
+        item={item}
+        episodeLabel={episodeLabel}
+        watched={item.kind === "movie" ? watchedOn(item.id) : null}
+        sources={sources}
+        notices={notices}
+        onRetry={() => setSourcesTick((t) => t + 1)}
+        onPick={onPlaySource}
+      />
+    );
   return (
     <div className="vod-detail on-picture">
       {item.backdrop && (
@@ -4055,6 +4071,7 @@ function Episodes({
   // between visits to this screen.
   // MAL's counts tick episodes too (plan 021, D2 b). The hook's number
   // moves when it has written new ones for loadWatched to read.
+  const classic = useClassic();
   const malTicks = useMalTicks(item);
   // And AIOStreams' (plan 023, D3): the union of yours, Trakt's, MAL's and
   // its own, re-read after each of its syncs.
@@ -4098,6 +4115,24 @@ function Episodes({
   const season =
     item.seasons[Math.min(seasonIdx, Math.max(0, item.seasons.length - 1))];
   const now = Date.now();
+  if (classic)
+    return (
+      <ClassicEpisodes
+        item={item}
+        metaState={metaState}
+        onRetryMeta={onRetryMeta}
+        season={season}
+        seasonIdx={seasonIdx}
+        onSeason={(i) => {
+          pickedSeasonRef.current = true; // user override wins
+          setSeasonIdx(i);
+        }}
+        watched={watched}
+        nextUp={nextUp}
+        now={now}
+        onPick={onPick}
+      />
+    );
   return (
     <div className="vod-detail on-picture">
       {item.backdrop && (

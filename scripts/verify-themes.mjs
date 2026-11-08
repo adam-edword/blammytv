@@ -997,7 +997,7 @@ const fontOf = (page, token) =>
   const themes = page.getByRole("group", { name: "Theme" });
   await themes.waitFor({ timeout: 10_000 });
   const names = await themes.locator("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  check("the Theme row has five cards: Default, Prism, Velvet, Lagoon, Fluent", names.join() === "Default,Prism,Velvet,Lagoon,Fluent", names.join());
+  check("the Theme row has six cards: Default, Prism, Velvet, Lagoon, Fluent, Classic", names.join() === "Default,Prism,Velvet,Lagoon,Fluent,Classic", names.join());
   check("Default is chosen on a fresh profile", (await themes.locator("button[aria-pressed='true']").getAttribute("aria-label")) === "Default");
   const swatches = await page.evaluate(() =>
     Object.fromEntries([...document.querySelectorAll("[data-swatch]")].map((e) => [e.getAttribute("data-swatch"), getComputedStyle(e).backgroundColor])),

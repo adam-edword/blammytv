@@ -12,6 +12,15 @@ import { isModalOpen } from "./modalOpen";
  * default action fires on mousedown, so swallowing only mouseup lets the
  * webview navigate the document out from under the app.
  */
+/**
+ * The mouse's Back or Forward, pressed on screen (Classic's toolbar). Sends
+ * the very event the side button does, so whichever screen is up answers it
+ * exactly as it answers the mouse, and a modal still holds it off.
+ */
+export function requestNav(direction: "back" | "forward"): void {
+  window.dispatchEvent(new MouseEvent("mouseup", { button: direction === "back" ? 3 : 4, cancelable: true }));
+}
+
 export function useMouseNav(
   onBack: () => void,
   onForward?: () => void,

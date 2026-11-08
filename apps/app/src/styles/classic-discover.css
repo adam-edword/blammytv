@@ -1,0 +1,341 @@
+/* Classic (Windows 2000), Discover's body and the REC page (plan 035).
+ * The approved mock's discover and rec screens: By Genre as an etched box of
+ * raised buttons, the posters as Explorer's Thumbnails view, REC as the
+ * Windows wizard. Built on classic-tokens.css only. The header's sub-nav
+ * band is not here. */
+
+:root[data-theme-pack="classic"] .discover {
+  font-family: var(--cl-font);
+  color: var(--cl-ink);
+}
+
+/* ---- By Genre ---- */
+:root[data-theme-pack="classic"] .cl-disc-gb {
+  position: relative;
+  margin: 0 0 10px;
+  min-width: 0;
+  padding: 16px 10px 10px;
+  border: 1px solid var(--cl-lo);
+  box-shadow: 1px 1px 0 var(--cl-hi), inset 1px 1px 0 var(--cl-hi);
+  font: 13px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-disc-gb > legend {
+  position: absolute;
+  top: -8px;
+  left: 9px;
+  padding: 0 4px;
+  background: var(--cl-face);
+  line-height: 15px;
+}
+:root[data-theme-pack="classic"] .cl-disc-genres {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+:root[data-theme-pack="classic"] .cl-disc-gbtn {
+  flex: 1 0 auto;
+  min-width: 110px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  font: 13px var(--cl-font);
+  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-hi), inset -2px -2px var(--cl-lo);
+  cursor: default;
+}
+:root[data-theme-pack="classic"] .cl-disc-gbtn i {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+:root[data-theme-pack="classic"] .cl-disc-gbtn:active,
+:root[data-theme-pack="classic"] .cl-disc-gbtn--on {
+  box-shadow: var(--cl-pressed);
+  background: var(--cl-checker);
+  font-weight: 700;
+}
+:root[data-theme-pack="classic"] .cl-disc-gbtn:focus-visible {
+  outline: 1px dotted var(--cl-ink);
+  outline-offset: -5px;
+}
+
+/* ---- Posters: Thumbnails view ---- */
+:root[data-theme-pack="classic"] .discover__gridwrap > .media-row__title {
+  font: 700 13px var(--cl-font);
+  color: var(--cl-ink);
+  margin: 0 0 4px;
+  padding: 0 2px;
+}
+:root[data-theme-pack="classic"] .cl-disc-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  justify-items: center;
+  align-content: start;
+  gap: 8px 0;
+  padding: 14px 10px;
+  min-height: 200px;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 190px;
+  padding: 4px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--cl-ink);
+  font: 13px var(--cl-font);
+  cursor: default;
+  outline: none;
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb__art {
+  position: relative;
+  display: block;
+  width: 148px;
+  height: 216px;
+  border: 3px solid var(--cl-hi);
+  background: var(--cl-face);
+  box-shadow: 0 0 0 1px var(--cl-lo);
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb__mono {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font: 700 40px var(--cl-font);
+  color: var(--cl-lo);
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb__cap {
+  display: block;
+  max-width: 100%;
+  text-align: center;
+  line-height: 16px;
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb__cap b {
+  display: block;
+  padding: 1px 4px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb__cap small {
+  display: block;
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--cl-lo);
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb--sel .cl-disc-thumb__art {
+  border-color: var(--cl-sel);
+  box-shadow: 0 0 0 1px var(--cl-sel);
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb--sel .cl-disc-thumb__art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 36, 106, 0.45);
+}
+:root[data-theme-pack="classic"] .cl-disc-thumb--sel .cl-disc-thumb__cap b {
+  background: var(--cl-sel);
+  color: var(--cl-sel-ink);
+  outline: 1px dotted #ffff00;
+  outline-offset: -1px;
+}
+
+/* ---- REC: the wizard ---- */
+:root[data-theme-pack="classic"] .cl-rec-page {
+  flex-direction: column;
+  gap: 10px;
+  padding: calc(var(--header-h, 76px) + 8px) 20px 20px;
+  font: 13px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-rec-wiz {
+  width: min(760px, 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 3px;
+  background: var(--cl-face);
+  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-light), inset -2px -2px var(--cl-lo), inset 2px 2px var(--cl-hi), 2px 2px 0 rgba(0, 0, 0, 0.3);
+}
+:root[data-theme-pack="classic"] .cl-rec-title {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3px 0 6px;
+  color: #fff;
+  font-weight: 700;
+  background: var(--cl-title);
+}
+:root[data-theme-pack="classic"] .cl-rec-x {
+  width: 18px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  font: 11px var(--cl-font);
+  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-hi);
+  cursor: default;
+}
+:root[data-theme-pack="classic"] .cl-rec-main {
+  display: flex;
+  min-height: 360px;
+}
+:root[data-theme-pack="classic"] .cl-rec-side {
+  flex: none;
+  width: 200px;
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6px;
+  padding: 10px;
+  background: linear-gradient(180deg, #0a246a, #3a6ea5);
+}
+:root[data-theme-pack="classic"] .cl-rec-side img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: cover;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+:root[data-theme-pack="classic"] .cl-rec-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px;
+  background: var(--cl-field);
+}
+:root[data-theme-pack="classic"] .cl-rec-pane h3 {
+  margin: 0;
+  font: 700 18px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .cl-rec-pane p {
+  margin: 0;
+}
+:root[data-theme-pack="classic"] .cl-rec-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+:root[data-theme-pack="classic"] .cl-rec-field {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 0;
+  background: var(--cl-field);
+  color: var(--cl-ink);
+  font: 13px var(--cl-font);
+  box-shadow: var(--cl-sunken);
+  outline: none;
+}
+:root[data-theme-pack="classic"] .cl-rec-btn {
+  min-width: 84px;
+  height: 24px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  font: 13px var(--cl-font);
+  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-hi), inset -2px -2px var(--cl-lo);
+  cursor: default;
+}
+:root[data-theme-pack="classic"] .cl-rec-btn:active:not(:disabled) {
+  box-shadow: var(--cl-pressed);
+}
+:root[data-theme-pack="classic"] .cl-rec-btn--def {
+  outline: 1px solid #000;
+}
+:root[data-theme-pack="classic"] .cl-rec-btn:disabled {
+  color: var(--cl-lo);
+  text-shadow: 1px 1px 0 var(--cl-hi);
+}
+:root[data-theme-pack="classic"] .cl-rec-btn:focus-visible,
+:root[data-theme-pack="classic"] .cl-rec-tag:focus-visible,
+:root[data-theme-pack="classic"] .cl-rec-x:focus-visible {
+  outline: 1px dotted var(--cl-ink);
+  outline-offset: -4px;
+}
+:root[data-theme-pack="classic"] .cl-rec-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+:root[data-theme-pack="classic"] .cl-rec-tag {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 0;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  font: 13px var(--cl-font);
+  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-hi);
+  cursor: default;
+}
+:root[data-theme-pack="classic"] .cl-rec-note--bad {
+  color: #800000;
+}
+:root[data-theme-pack="classic"] .cl-rec-pick {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding-top: 8px;
+  border-top: 1px solid var(--cl-lo);
+  box-shadow: 0 -1px var(--cl-hi) inset;
+}
+:root[data-theme-pack="classic"] .cl-rec-pick img {
+  flex: none;
+  width: 92px;
+  height: 136px;
+  object-fit: cover;
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .cl-rec-pick > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+:root[data-theme-pack="classic"] .cl-rec-pick b {
+  font-size: 15px;
+}
+:root[data-theme-pack="classic"] .cl-rec-label {
+  color: var(--cl-ink-2);
+}
+:root[data-theme-pack="classic"] .cl-rec-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 10px 8px;
+  border-top: 1px solid var(--cl-lo);
+  box-shadow: inset 0 1px var(--cl-hi);
+}
+:root[data-theme-pack="classic"] .cl-rec-credit {
+  margin: 0;
+  font-size: 11px;
+  color: var(--cl-ink-2);
+  text-align: center;
+}

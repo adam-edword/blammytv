@@ -42,6 +42,7 @@ import {
 } from "../settings/clockFormat";
 import { ChannelLogo } from "../../ui/ChannelLogo";
 import { isTauri } from "../../lib/tauri";
+import { useClassic } from "../classic/useClassic";
 import { cancelProgramme, isStarting, recordProgramme } from "../recordings/recordProgramme";
 import { programmeAction, scheduleKey, type ProgrammeAction } from "../recordings/schedule";
 import {
@@ -259,6 +260,8 @@ export const Guide = memo(function Guide({
   // is the same object until one starts or ends, so size updates do not
   // re-render the guide.
   const recording = useRunningKeys();
+  // Classic draws a channel's logo at 16px in its header column.
+  const logoSize = useClassic() ? 16 : 40;
   // Programmes with a recording scheduled (Phase 3): a hollow dot in the cell.
   const planned = useScheduledKeys();
   // The now-line creeps and the window jumps at half-hour boundaries.
@@ -872,7 +875,7 @@ export const Guide = memo(function Guide({
                   onClick={() => onSelect(channel.id)}
                 >
                   {recorded && <span className="guide__rec" aria-hidden />}
-                  <ChannelLogo name={channel.name} logo={channel.logo} size={40} lazy className="guide__logo" />
+                  <ChannelLogo name={channel.name} logo={channel.logo} size={logoSize} lazy className="guide__logo" />
                   <span className="guide__card-meta">
                     <span className="guide__card-name">{channel.name}</span>
                     {channel.quality && (

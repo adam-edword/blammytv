@@ -18,6 +18,12 @@ import {
   takeTypeFilterRequest,
 } from "./typeFilter";
 import {
+  onGenreChoiceRequest,
+  publishGenreChoice,
+  resetGenreChoice,
+  takeGenreChoiceRequest,
+} from "./genreChoice";
+import {
   onGenreRequest,
   requestOpenInStream,
   takeGenreRequest,
@@ -48,6 +54,9 @@ import { useMouseNav } from "../../lib/mouseNav";
 import { returnFocus } from "../../lib/returnFocus";
 import { useViewStack } from "../../lib/viewStack";
 import { Recommender } from "./Recommender";
+import { useClassic } from "../classic/useClassic";
+import { ClassicGenres } from "../classic/discover/ClassicGenres";
+import { ClassicThumbs } from "../classic/discover/ClassicThumbs";
 import {
   TMDB_WAIT_MS,
   POOL_PAGES,
@@ -110,6 +119,7 @@ type Cfg =
 export function DiscoverScreen({ home }: { home?: number } = {}) {
   // Where this tab was when it was last unmounted (a tab flip). Read once,
   // at mount: everything below seeds from it instead of starting over.
+  const classic = useClassic();
   const sessionRef = useRef(readDiscoverSession(discoverKey()));
   const session = sessionRef.current;
   const [cfg, setCfg] = useState<Cfg>({ status: "loading" });
@@ -179,6 +189,18 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
     (next: string | null) => navigate({ filter, genre: next }),
     [navigate, filter],
   );
+  /* Classic's "Show:" dropdown (features/classic/ClassicBand): a request
+   * becomes a navigate() here, as the type chips' does, so Back undoes it. */
+  useEffect(() => {
+    const honour = () => {
+      const want = takeGenreChoiceRequest();
+      if (!want || want.genre === viewRef.current.genre) return;
+      navigate({ filter: viewRef.current.filter, genre: want.genre });
+    };
+    honour();
+    return onGenreChoiceRequest(honour);
+  }, [navigate]);
+  useEffect(() => () => resetGenreChoice(), []);
   useMouseNav(goBack, goForward);
   // The Discover pill, pressed while it is showing, takes it home (App counts
   // the press): everything, no genre, no recommender, scrolled to the top.
@@ -204,6 +226,9 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
     if (match === undefined) replaceView((v) => ({ ...v, genre: null }));
     else if (match !== genre) replaceView((v) => ({ ...v, genre: match }));
   }, [cfg, genre, replaceView]);
+  useEffect(() => {
+    if (cfg.status === "ready") publishGenreChoice({ genres: cfg.cfg.genres, current: genre });
+  }, [cfg, genre]);
   const [items, setItems] = useState<VodItem[]>(session?.items ?? []);
   // The genre page's rows (plan 034), built once when the pool lands. Null is
   // no rows: the unfiltered grid, or a genre whose cards say too little about
@@ -675,6 +700,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         kind={filter === "series" ? "series" : "movie"}
         posters={items.map((i) => i.poster ?? "").filter(Boolean).slice(0, 12)}
         onOpen={open}
+        onClose={goBack}
       />
     );
 
@@ -745,6 +771,8 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
               icon={<SearchIcon size={28} />}
               title={<>No Results for “{q}”</>}
             />
+          ) : classic ? (
+            <ClassicThumbs items={results} onOpen={open} />
           ) : (
             <div className="disc-grid">
               {results.map((item) => (
@@ -760,7 +788,14 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         </section>
       ) : (
         <>
-      {cfg.status === "ready" && cfg.cfg.genres.length > 0 && (
+      {cfg.status === "ready" && cfg.cfg.genres.length > 0 && classic && (
+        <ClassicGenres
+          genres={cfg.cfg.genres}
+          genre={genre}
+          onPick={(g) => setGenre(g)}
+        />
+      )}
+      {cfg.status === "ready" && cfg.cfg.genres.length > 0 && !classic && (
         <section className="media-row discover__genres">
           <h3 className="media-row__title">By Genre</h3>
           <RowScroller>
@@ -919,6 +954,8 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
             icon={<DiscoverIcon size={28} />}
             title="No Titles"
           />
+        ) : classic ? (
+          <ClassicThumbs items={shown} onOpen={open} />
         ) : (
           <div className="disc-grid">
             {shown.map((item) => (

@@ -1,0 +1,500 @@
+/* Classic, the Live TV guide (plan 035, "Classic across the app").
+ *
+ * Three parts, from the approved mock: a folders tree (features/classic/
+ * guide/ClassicFolders), a sunken preview frame with Now and Next beside it
+ * (ClassicHero), and the grid, which is today's Guide drawn differently:
+ * the same cells, rows and scrolling, restyled from here.
+ *
+ * Own tokens, prefixed --clg-: the mock's greys and yellows that the shared
+ * set has no name for. Everything else is --cl-*. */
+:root[data-theme-pack="classic"] {
+  /* The thin grey lines between programmes. */
+  --clg-line: #b4b4b4;
+  /* The red now-line. */
+  --clg-now: #e00000;
+  /* The dotted focus rectangle on a navy cell or row. */
+  --clg-focus: #ffff00;
+  /* A folder's yellow, its edge, and the open one. */
+  --clg-folder: #f3d36b;
+  --clg-folder-open: #fbe8a0;
+  --clg-folder-edge: #8a6d00;
+}
+
+/* ------------------------------------------------------------ layout */
+
+:root[data-theme-pack="classic"] .live:not(.live--theater) {
+  gap: 10px;
+}
+:root[data-theme-pack="classic"] .live:not(.live--theater) .live-main {
+  gap: 12px;
+  padding: 0 8px 8px 0;
+}
+
+/* ------------------------------------------------------ folders tree */
+
+:root[data-theme-pack="classic"] .cl-folders {
+  flex: 0 0 216px;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 8px 8px;
+  font: 11px/16px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-folders__title {
+  flex: none;
+  height: 20px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  background: var(--cl-face);
+  box-shadow: var(--cl-raised);
+}
+:root[data-theme-pack="classic"] .cl-folders__box {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .cl-folders__error {
+  margin: 6px 0 0;
+  color: var(--cl-ink);
+  white-space: normal;
+}
+:root[data-theme-pack="classic"] .cl-tv {
+  min-width: max-content;
+}
+:root[data-theme-pack="classic"] .cl-tv__row {
+  display: flex;
+  align-items: flex-start;
+  height: 16px;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  outline: none;
+}
+/* One 16px cell per level; the line runs down its middle. */
+:root[data-theme-pack="classic"] .cl-tv__g,
+:root[data-theme-pack="classic"] .cl-tv__box {
+  position: relative;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+:root[data-theme-pack="classic"] .cl-tv__g::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dotted var(--cl-lo);
+}
+:root[data-theme-pack="classic"] .cl-tv__g--none::before {
+  display: none;
+}
+:root[data-theme-pack="classic"] .cl-tv__g--ell::before {
+  bottom: 8px;
+}
+:root[data-theme-pack="classic"] .cl-tv__g--tee::after,
+:root[data-theme-pack="classic"] .cl-tv__g--ell::after,
+:root[data-theme-pack="classic"] .cl-tv__box--leaf::before,
+:root[data-theme-pack="classic"] .cl-tv__box--exp::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  border-top: 1px dotted var(--cl-lo);
+}
+:root[data-theme-pack="classic"] .cl-tv__g--tee::after,
+:root[data-theme-pack="classic"] .cl-tv__g--ell::after {
+  left: 7px;
+  right: 0;
+}
+:root[data-theme-pack="classic"] .cl-tv__box--leaf::before {
+  left: 0;
+  right: 0;
+}
+/* An expandable row's line stops at its box. */
+:root[data-theme-pack="classic"] .cl-tv__box--exp::before {
+  left: 0;
+  width: 8px;
+}
+:root[data-theme-pack="classic"] .cl-tv__bx {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  background: var(--cl-field);
+  border: 1px solid var(--cl-lo);
+}
+:root[data-theme-pack="classic"] .cl-tv__bx::before,
+:root[data-theme-pack="classic"] .cl-tv__bx::after {
+  content: "";
+  position: absolute;
+  background: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-tv__bx::before {
+  left: 1px;
+  top: 3px;
+  width: 5px;
+  height: 1px;
+}
+:root[data-theme-pack="classic"] .cl-tv__bx--plus::after {
+  left: 3px;
+  top: 1px;
+  width: 1px;
+  height: 5px;
+}
+:root[data-theme-pack="classic"] .cl-tv__fd {
+  position: relative;
+  flex: none;
+  width: 16px;
+  height: 11px;
+  margin: 3px 4px 0 0;
+  background: var(--clg-folder);
+  box-shadow: inset 0 0 0 1px var(--clg-folder-edge);
+}
+:root[data-theme-pack="classic"] .cl-tv__fd::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -3px;
+  width: 7px;
+  height: 3px;
+  background: var(--clg-folder);
+  box-shadow:
+    inset 1px 1px 0 var(--clg-folder-edge),
+    inset -1px 0 0 var(--clg-folder-edge);
+}
+:root[data-theme-pack="classic"] .cl-tv__fd--open {
+  background: var(--clg-folder-open);
+}
+:root[data-theme-pack="classic"] .cl-tv__lb {
+  height: 16px;
+  padding: 0 3px;
+  line-height: 16px;
+}
+:root[data-theme-pack="classic"] .cl-tv__row[aria-selected="true"] .cl-tv__lb {
+  background: var(--cl-sel);
+  color: var(--cl-sel-ink);
+}
+:root[data-theme-pack="classic"] .cl-tv__row:focus-visible .cl-tv__lb {
+  outline: 1px dotted var(--cl-ink);
+  outline-offset: -1px;
+}
+:root[data-theme-pack="classic"] .cl-tv__row[aria-selected="true"]:focus-visible .cl-tv__lb {
+  outline-color: var(--clg-focus);
+}
+
+/* ----------------------------------------------------------- preview */
+
+/* A fixed height, as Hero's is: hovering the guide must not resize the
+ * player. The frame is 3px of black around a 16:9 slot. */
+:root[data-theme-pack="classic"] .live:not(.live--theater) .cl-hero {
+  flex: none;
+  height: 273px;
+  gap: 18px;
+  padding-right: 0;
+  align-items: flex-start;
+}
+:root[data-theme-pack="classic"] .cl-hero {
+  font: 12px/1.35 var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-pv {
+  flex: none;
+  width: 480px;
+  padding: 3px;
+  background: #000;
+  box-shadow: var(--cl-sunken);
+}
+/* The slot keeps its 10px corner: the native hole and mpv's rect are cut to
+ * it, and black on the frame's black reads square. */
+:root[data-theme-pack="classic"] .cl-pv .hero__preview {
+  width: 100%;
+  background: #000;
+  cursor: default;
+}
+/* Theater and fullscreen use the slot alone, as Hero's: the frame and the
+ * text step aside. */
+:root[data-theme-pack="classic"] .live--theater .cl-pv,
+:root[data-theme-pack="classic"] .live--fullscreen .cl-pv {
+  display: contents;
+}
+:root[data-theme-pack="classic"] .live--theater .cl-hero__info,
+:root[data-theme-pack="classic"] .live--fullscreen .cl-hero__info {
+  display: none;
+}
+:root[data-theme-pack="classic"] .cl-hero__info {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+}
+:root[data-theme-pack="classic"] .cl-hero__name {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 20px/1.3 var(--cl-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:root[data-theme-pack="classic"] .cl-hero__name .chlogo {
+  flex: none;
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] .cl-hero__dim {
+  color: var(--cl-ink-2);
+}
+:root[data-theme-pack="classic"] .cl-hero__gap {
+  margin-top: 6px;
+}
+:root[data-theme-pack="classic"] .cl-hero__syn {
+  max-width: 520px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+:root[data-theme-pack="classic"] .cl-hero__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 2px 0;
+}
+:root[data-theme-pack="classic"] .cl-rec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:root[data-theme-pack="classic"] .cl-rec__why {
+  margin: 0;
+  color: var(--cl-ink);
+}
+
+/* A Classic push button: raised, pressed in while held, with a dotted
+ * rectangle inside when the keyboard is on it. */
+:root[data-theme-pack="classic"] .cl-btn {
+  position: relative;
+  min-width: 84px;
+  height: 24px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: var(--cl-face);
+  color: var(--cl-ink);
+  font: 12px var(--cl-font);
+  box-shadow: var(--cl-raised);
+  cursor: default;
+}
+:root[data-theme-pack="classic"] .cl-btn:active {
+  box-shadow: var(--cl-pressed);
+  padding: 1px 11px 0 13px;
+}
+:root[data-theme-pack="classic"] .cl-btn--def {
+  outline: 1px solid var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-btn:focus-visible {
+  outline: none;
+}
+:root[data-theme-pack="classic"] .cl-btn--def:focus-visible {
+  outline: 1px solid var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .cl-btn:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px dotted var(--cl-ink);
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------------- grid */
+
+/* The sunken box round the whole grid. An overlay, so the cells and the
+ * headers (which touch the edges) cannot paint over its bevel. */
+:root[data-theme-pack="classic"] .guide-wrap {
+  margin-top: 0;
+  background: var(--cl-field);
+}
+:root[data-theme-pack="classic"] .guide-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: var(--cl-sunken);
+}
+
+/* Time headers: one raised button a half hour wide (epg.ts PX_PER_MIN is
+ * 9.5, so 285px: change both together). Full ruler height, so the headers
+ * meet the first row. */
+:root[data-theme-pack="classic"] .guide__tick {
+  top: 0;
+  height: 100%;
+  width: 285px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  background: var(--cl-face);
+  box-shadow: var(--cl-raised);
+  font: 12px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .guide__tick::before {
+  display: none;
+}
+:root[data-theme-pack="classic"] .guide__corner {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 4px 0 8px;
+  justify-content: space-between;
+  background: var(--cl-face);
+  box-shadow: var(--cl-raised);
+  font: 12px var(--cl-font);
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .guide__corner::before {
+  content: "Channel";
+}
+:root[data-theme-pack="classic"] .guide__jump {
+  gap: 2px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  color: var(--cl-ink);
+}
+/* The jump buttons are the shared Button, whose utilities outrank this
+ * layer: !important is the way over them. */
+:root[data-theme-pack="classic"] .guide__jump button {
+  height: 20px !important;
+  min-width: 20px !important;
+  padding: 0 4px !important;
+  border-radius: 0 !important;
+  background: var(--cl-face) !important;
+  box-shadow: var(--cl-raised-thin) !important;
+  color: var(--cl-ink) !important;
+  font: 11px var(--cl-font) !important;
+}
+:root[data-theme-pack="classic"] .guide__jump button:disabled {
+  color: var(--cl-lo) !important;
+  opacity: 1 !important;
+}
+
+/* The channel column: raised header buttons, no gutter. */
+:root[data-theme-pack="classic"] .guide__channel {
+  padding: 0;
+}
+:root[data-theme-pack="classic"] .guide__card {
+  gap: 8px;
+  padding: 0 8px;
+  background: var(--cl-face);
+  border: 0;
+  border-radius: 0;
+  box-shadow: var(--cl-raised);
+  color: var(--cl-ink);
+  font: 12px var(--cl-font);
+  cursor: default;
+}
+:root[data-theme-pack="classic"] .guide__card:active {
+  background-image: none;
+  box-shadow: var(--cl-pressed);
+}
+:root[data-theme-pack="classic"] .guide__card:focus-visible {
+  outline: 1px dotted var(--cl-ink);
+  outline-offset: -4px;
+}
+/* The channel on the preview is pressed in, with the checkered fill. */
+:root[data-theme-pack="classic"] .guide__channel--selected .guide__card {
+  background: var(--cl-checker);
+  box-shadow: var(--cl-pressed);
+  font-weight: 700;
+}
+:root[data-theme-pack="classic"] .guide__card .chlogo {
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] .guide__card-name {
+  font: inherit;
+  color: inherit;
+  text-overflow: ellipsis;
+}
+:root[data-theme-pack="classic"] .guide__card-name.is-clipped,
+:root[data-theme-pack="classic"] .guide__cell-title.is-clipped {
+  mask-image: none;
+}
+
+/* Programmes: white cells, a thin grey line between them and under them.
+ * A cell is 8px short of its slot (the gap the default draws), so the line
+ * is on its left edge and the white lane shows through. The row is 68px
+ * (the virtualization's step), and a cell takes all of it. */
+:root[data-theme-pack="classic"] .guide__lane {
+  background: var(--cl-field);
+}
+:root[data-theme-pack="classic"] .guide__cell {
+  height: calc(100% + 8px);
+  padding: 0;
+  background: var(--cl-field);
+  background-image: none;
+  border: 0;
+  border-left: 1px solid var(--clg-line);
+  border-bottom: 1px solid var(--clg-line);
+  border-radius: 0;
+  color: var(--cl-ink);
+  filter: none;
+  cursor: default;
+}
+:root[data-theme-pack="classic"] .guide__cell--blank {
+  color: var(--cl-ink-2);
+  font: 12px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .guide__cell-shine {
+  padding: 0 8px;
+}
+:root[data-theme-pack="classic"] .guide__cell-shine::after {
+  display: none;
+}
+:root[data-theme-pack="classic"] .guide__cell-title {
+  font: 12px var(--cl-font);
+  color: inherit;
+  text-overflow: ellipsis;
+}
+:root[data-theme-pack="classic"] .guide__cell-time {
+  display: none;
+}
+:root[data-theme-pack="classic"] .guide__cell:focus-visible {
+  outline: 1px dotted var(--cl-ink);
+  outline-offset: -3px;
+}
+/* The selected channel's airing programme: navy, with a dotted rectangle.
+ * The shadow fills the 8px the cell stops short by. */
+:root[data-theme-pack="classic"] .guide__row:has(.guide__channel--selected) .guide__cell--live {
+  background: var(--cl-sel);
+  color: var(--cl-sel-ink);
+  box-shadow: 8px 0 0 var(--cl-sel);
+  outline: 1px dotted var(--clg-focus);
+  outline-offset: -2px;
+}
+
+/* The now-line, red and square. */
+:root[data-theme-pack="classic"] .guide__nowline {
+  width: 2px;
+  border-radius: 0;
+  background: var(--clg-now);
+}
