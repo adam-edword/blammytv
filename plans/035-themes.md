@@ -259,3 +259,10 @@ too: Home, Discover, Settings, Ctrl+K, Player, a film with its sources (a
 ListView with quality badges, a Cached pill, filter pills and a sort), and
 a series (a season SelectorBar over episode rows with thumbnails, watched
 ticks and a progress bar).
+Fluent's nav reads Home | Live TV, Multi-View, Sports | Stream, Discover,
+Library ... Settings (a separator after Home too, Adam). Sports mirrors the
+Guide: a leagues column (Filter leagues, Following, All Sports, sports as
+caption headers with their leagues and today's counts) beside a day
+SelectorBar and game cards three across, grouped Live Now / Later Today /
+Final, the away team first, the loser dimmed on finals, status in accent
+with a live dot, "Live on N channels" as a hyperlink button.
