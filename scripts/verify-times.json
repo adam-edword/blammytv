@@ -18,6 +18,7 @@
  "verify-classic-discover": 40,
  "verify-discover-search": 22,
  "verify-fetchvulkan": 1,
+ "verify-fluent-lists": 60,
  "verify-genrerows": 41,
  "verify-glass": 19,
  "verify-guide-dups": 10,

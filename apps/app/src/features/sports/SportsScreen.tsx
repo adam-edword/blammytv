@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { MultiviewIcon, PlayIcon } from "../../ui/icons";
 import { RowScroller } from "../../ui/RowScroller";
+import { FluentSports } from "../fluent/lists/FluentSports";
+import { useFluent } from "../fluent/useFluent";
 import {
   loadCompactResults,
   saveCompactResults,
@@ -96,6 +98,7 @@ export function SportsScreen({ home }: { home?: number } = {}) {
   const classic = useClassic();
   // A day's wrapper: a section, or Classic's group box.
   const Wrap = classic ? "fieldset" : "section";
+  const fluent = useFluent();
   /**
    * What you follow, and therefore what the board FETCHES and then shows.
    *
@@ -436,6 +439,14 @@ export function SportsScreen({ home }: { home?: number } = {}) {
     );
   }, [today]);
 
+  // Fluent's leagues column counts today's games per league, ahead of the
+  // follow filter, so a league you are not narrowed to still shows its day.
+  const fluentCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const g of raw[0]?.games ?? []) m.set(g.leagueKey, (m.get(g.leagueKey) ?? 0) + 1);
+    return m;
+  }, [raw]);
+
   const live = today.some((g) => g.state === "live");
   /**
    * What the ROW carries, which is not everything today has.
@@ -749,6 +760,45 @@ export function SportsScreen({ home }: { home?: number } = {}) {
       />
     );
   }
+
+  if (fluent)
+    return (
+      <FluentSports
+        clubPool={clubPool}
+        follows={follows}
+        onFollows={setFollows}
+        picked={picked}
+        onPick={(path) =>
+          setPicked((was) => (was.includes(path) ? was.filter((p) => p !== path) : [...was, path]))
+        }
+        onClearPicks={() => setPicked([])}
+        reveal={reveal}
+        rankedOnly={rankedOnly}
+        onToggleRanked={toggleRanked}
+        counts={fluentCounts}
+        days={allDays}
+        state={state}
+        compact={compact}
+        onToggleCompact={toggleCompact}
+        onOpenGame={openGame}
+        onOpenTournament={openTournament}
+        cardWhen={cardWhen}
+        multiview={allowedSizes(cap, recording).length > 0}
+        redzone={redzone}
+        unlinked={unlinked}
+        earlier={{ show: state === "ready" && !earlierDone, state: earlierState, load: () => void loadEarlier() }}
+        more={{ show: state === "ready", state: moreState, load: () => void loadMore() }}
+        empty={{
+          anything,
+          narrowed,
+          names: followedNames,
+          count: followedCount,
+          teams: shown.teams.length,
+          reachFailed,
+          onReveal: () => setReveal((n) => n + 1),
+        }}
+      />
+    );
 
   return (
     <div className={"sportsboard" + (classic ? " cl-sports" : "")}>

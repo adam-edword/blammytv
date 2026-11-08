@@ -70,6 +70,10 @@ import { useConnections } from "./connections";
 import { splitTitleEmoji } from "./emoji";
 import { loadFavorites, toggleFavorite } from "./favorites";
 import { Hint } from "../../ui/Hint";
+import { FluentFolders } from "../fluent/lists/FluentFolders";
+import { FluentHero } from "../fluent/lists/FluentHero";
+import { FluentLiveHead } from "../fluent/lists/FluentLiveHead";
+import { useFluent } from "../fluent/useFluent";
 import { Guide } from "./Guide";
 import { Hero } from "./Hero";
 import type { MiniGuideData } from "./miniGuideModel";
@@ -288,6 +292,9 @@ const SidebarSources = memo(function SidebarSources({
 
 export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
   const classic = useClassic();
+  const fluent = useFluent();
+  // Fluent's header Now button: the Guide hands its jump over.
+  const jumpNow = useRef<(() => void) | null>(null);
   const [mode, setMode] = useState<Mode>("playlist");
   const [collapsed, setCollapsed] = useState(false);
   const collapsedRef = useRef(collapsed);
@@ -761,6 +768,18 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
     const f = ready?.groups.flatMap((g) => g.folders).find((x) => x.id === id);
     return f ? splitTitleEmoji(f.name).label : undefined;
   }, [ready, preview, heroChannel]);
+  // Fluent's header line and the folder a channel is filed under, read off the
+  // same catalog the sidebar draws.
+  const fluentFolderName = (c: Channel | undefined) => {
+    const f = c && ready?.groups.flatMap((g) => g.folders).find((x) => x.id === c.folderId);
+    return f ? splitTitleEmoji(f.name).label : undefined;
+  };
+  const fluentList =
+    mode === "playlist" ? miniGuide.listName : (MODES.find((m) => m.key === mode)?.label ?? "");
+  const fluentSubtitle =
+    mode === "recordings"
+      ? "Recordings"
+      : `${fluentList === "Playlist" ? "All Channels" : fluentList} · ${visible.length} ${visible.length === 1 ? "channel" : "channels"}`;
   // A hover preview shows that channel's own listings, so the hero can
   // find its airing programme when the cursor is on the card (no cell).
   const shownChannel = preview?.channel ?? heroChannel;
@@ -1086,6 +1105,26 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           onPickFolder={pickTreeFolder}
           onFolderMenu={openFolderMenu}
         />
+      ) : fluent ? (
+        <aside className="live-sidebar fl-aside">
+          {ready && (
+            <FluentFolders
+              groups={visibleGroups ?? ready.groups}
+              channels={ready.channels}
+              conns={conns}
+              mode={mode}
+              folder={folder}
+              favorites={favorites.length}
+              recents={recents.length}
+              onMode={setMode}
+              onFolder={(id) => {
+                setMode("playlist");
+                setFolder(id);
+              }}
+              onFolderMenu={openFolderMenu}
+            />
+          )}
+        </aside>
       ) : (
       <aside
         className={"live-sidebar" + (collapsed ? " live-sidebar--collapsed" : "")}
@@ -1240,6 +1279,12 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           * the file plays all the same. Only the channel parts wait for it. */}
         {(recId || (ready && shownChannel)) && (
           <>
+            {fluent && ready && (
+              <FluentLiveHead
+                subtitle={fluentSubtitle}
+                onNow={() => jumpNow.current?.()}
+              />
+            )}
             {(recHero || (ready && shownChannel)) && (
               classic ? (
                 <ClassicHero
@@ -1264,6 +1309,35 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                   }
                   onBackdropClick={
                     theater && !fullscreen ? () => setTheater(false) : undefined
+                  }
+                />
+              ) : fluent ? (
+                <FluentHero
+                  channel={(recHero?.channel ?? shownChannel)!}
+                  folderName={fluentFolderName(recHero?.channel ?? shownChannel)}
+                  programmes={recHero ? NO_PROGRAMMES : shownProgrammes}
+                  programme={recHero?.programme ?? preview?.programme ?? undefined}
+                  onBackdropClick={
+                    theater && !fullscreen ? () => setTheater(false) : undefined
+                  }
+                  actions={
+                    !recHero && heroChannel
+                      ? {
+                          favorite: favorites.includes(heroChannel.id),
+                          onWatch: () => selectChannel(heroChannel.id),
+                          onToggleFavorite: () => handleToggleFavorite(heroChannel.id),
+                          record: (
+                            <RecordButton
+                              playlistId={playlistOf(heroChannel.id)}
+                              channel={heroChannel.name}
+                              programme={playMeta?.title}
+                              resolve={resolveRecordTarget}
+                              line={conns.get(playlistOf(heroChannel.id)) ?? null}
+                              className="fl-rec"
+                            />
+                          ),
+                        }
+                      : undefined
                   }
                 />
               ) : (
@@ -1390,6 +1464,7 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
                 guideLists={guideLists}
                 onNotice={notice}
                 lineFor={lineFor}
+                nowRef={jumpNow}
               />
             )}
             {/* The catalog no longer waits on the guide (a big provider's

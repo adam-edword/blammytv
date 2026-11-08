@@ -114,6 +114,7 @@
 @import "./classic-sports.css" layer(app);
 @import "./classic-title.css" layer(app);
 @import "./fluent-tokens.css" layer(app);
+@import "./fluent-lists.css" layer(app);
 @import "./base.css" layer(app);
 @import "./ui.css" layer(app);
 @import "./settings.css" layer(app);

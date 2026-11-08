@@ -1,0 +1,815 @@
+/* Fluent's lists (plan 035, "Fluent to tier 3"): the Live TV guide and the
+ * Sports board, WinUI's list/details pattern. A folders (or leagues) column
+ * beside a header, a preview or day bar, and cards. Built on fluent-tokens.css;
+ * the only tokens of its own are the --fll-* ones below. Every rule is scoped
+ * to the Fluent pack, in both faces, so Default and the other packs are
+ * untouched. The markup is features/fluent/lists/, plus a few Fluent-only
+ * spans and classes in Guide.tsx. */
+
+:root[data-theme-pack="fluent"] {
+  /* A card's fill and a programme tile's, opaque so the Guide's sticky ruler
+   * and channel column can cover what scrolls under them. */
+  --fll-card: color-mix(in srgb, var(--fl-base) 95%, white);
+  --fll-tile: color-mix(in srgb, var(--fl-base) 88%, white);
+  --fll-tile-hover: color-mix(in srgb, var(--fl-base) 82%, white);
+  --fll-select: color-mix(in srgb, var(--fl-ink) 9%, transparent);
+  --fll-red: #e5484d;
+}
+:root[data-theme-pack="fluent"][data-theme="light"] {
+  --fll-card: color-mix(in srgb, var(--fl-base) 35%, white);
+  --fll-tile: color-mix(in srgb, var(--fl-base) 20%, white);
+  --fll-tile-hover: color-mix(in srgb, var(--fl-base) 60%, white);
+  --fll-red: #c42b1c;
+}
+
+/* ---------------------------------------------------------- the column */
+
+:root[data-theme-pack="fluent"] .fl-aside {
+  flex: 0 0 240px;
+  max-width: 240px;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  background: none;
+  border: 0;
+  border-right: 1px solid var(--fl-stroke);
+  border-radius: 0;
+  overflow: hidden;
+  font-family: var(--fl-font);
+}
+:root[data-theme-pack="fluent"] .fl-folders {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding-top: 8px;
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-filter {
+  position: relative;
+  display: block;
+  margin: 0 8px 8px;
+}
+:root[data-theme-pack="fluent"] .fl-filter input {
+  width: 100%;
+  height: 32px;
+  padding: 0 30px 0 10px;
+  font: 13px/20px var(--fl-font);
+  color: var(--fl-ink);
+  background: var(--fl-fill);
+  border: 1px solid var(--fl-stroke);
+  border-bottom-color: var(--fl-stroke-bt);
+  border-radius: var(--fl-r-control);
+  outline: none;
+  appearance: none;
+}
+:root[data-theme-pack="fluent"] .fl-filter input::placeholder {
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .fl-filter input::-webkit-search-cancel-button {
+  display: none;
+}
+:root[data-theme-pack="fluent"] .fl-filter input:focus {
+  border-bottom: 2px solid var(--fl-accent);
+  padding-bottom: 0;
+}
+:root[data-theme-pack="fluent"] .fl-filter__icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fl-ink-3);
+  pointer-events: none;
+}
+:root[data-theme-pack="fluent"] .fl-folders__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 12px;
+  scrollbar-width: thin;
+}
+:root[data-theme-pack="fluent"] .fl-folders__group {
+  display: block;
+}
+:root[data-theme-pack="fluent"] .fl-caption {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 18px 10px 6px;
+  font: 600 12px/16px var(--fl-font);
+  letter-spacing: 0;
+  text-align: left;
+  color: var(--fl-ink-3);
+  background: none;
+  border: 0;
+}
+:root[data-theme-pack="fluent"] .fl-caption--toggle {
+  cursor: pointer;
+  border-radius: var(--fl-r-control);
+}
+:root[data-theme-pack="fluent"] .fl-caption--toggle::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 0 2px 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+:root[data-theme-pack="fluent"] .fl-caption--toggle[aria-expanded="true"]::after {
+  transform: rotate(225deg);
+  margin-bottom: -2px;
+}
+:root[data-theme-pack="fluent"] .fl-folders__list > .fl-nav:first-child {
+  margin-top: 2px;
+}
+:root[data-theme-pack="fluent"] .fl-folders__error {
+  margin: 0 10px 6px;
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .fl-folders__pills {
+  display: flex;
+  gap: 6px;
+  padding: 2px 10px 6px;
+}
+
+/* A row: WinUI's ListViewItem, 34px, with the accent pill when selected. */
+:root[data-theme-pack="fluent"] .fl-nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  font: 13px/20px var(--fl-font);
+  text-align: left;
+  color: var(--fl-ink);
+  background: none;
+  border: 0;
+  border-radius: var(--fl-r-control);
+  cursor: pointer;
+}
+:root[data-theme-pack="fluent"] .fl-nav:hover {
+  background: var(--fl-sub);
+}
+:root[data-theme-pack="fluent"] .fl-nav[aria-current="true"],
+:root[data-theme-pack="fluent"] .fl-nav[aria-pressed="true"] {
+  background: var(--fll-select);
+}
+:root[data-theme-pack="fluent"] .fl-nav[aria-current="true"]::before,
+:root[data-theme-pack="fluent"] .fl-nav[aria-pressed="true"]:not(.fl-nav--flag)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 16px;
+  margin-top: -8px;
+  border-radius: 2px;
+  background: var(--fl-accent);
+}
+:root[data-theme-pack="fluent"] .fl-nav__glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--fl-ink-2);
+}
+:root[data-theme-pack="fluent"] .fl-nav__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-theme-pack="fluent"] .fl-nav__count {
+  flex: none;
+  font-size: 12px;
+  color: var(--fl-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-theme-pack="fluent"] .fl-nav__flag {
+  flex: none;
+  color: var(--fl-accent);
+}
+:root[data-theme-pack="fluent"] .fl-folders__rec {
+  color: var(--fll-red);
+}
+
+/* The sports' rows: a colour square, and a star that shows on hover or focus. */
+:root[data-theme-pack="fluent"] .fl-swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+:root[data-theme-pack="fluent"] .fl-leaguerow {
+  position: relative;
+}
+:root[data-theme-pack="fluent"] .fl-leaguerow .fl-nav {
+  padding-right: 34px;
+}
+:root[data-theme-pack="fluent"] .fl-leaguerow__star {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  padding: 0 4px;
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink-3);
+  background: none;
+  border: 0;
+  border-radius: var(--fl-r-control);
+  opacity: 0;
+  cursor: pointer;
+}
+:root[data-theme-pack="fluent"] .fl-leaguerow.is-followed .fl-leaguerow__star {
+  opacity: 1;
+  color: var(--fl-accent);
+}
+:root[data-theme-pack="fluent"] .fl-leaguerow:hover .fl-leaguerow__star,
+:root[data-theme-pack="fluent"] .fl-leaguerow:focus-within .fl-leaguerow__star {
+  opacity: 1;
+}
+:root[data-theme-pack="fluent"] .fl-leaguerow__star:hover {
+  background: var(--fl-sub);
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-leaguerow.is-armed .fl-leaguerow__star {
+  color: var(--fll-red);
+}
+:root[data-theme-pack="fluent"] .fl-leaguerow.is-armed .fl-leaguerow__star,
+:root[data-theme-pack="fluent"] .fl-leaguerow.is-armed .fl-nav__count {
+  opacity: 1;
+}
+
+/* ------------------------------------------------- shared controls */
+
+:root[data-theme-pack="fluent"] .fl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  font: 14px/20px var(--fl-font);
+  color: var(--fl-ink);
+  background: var(--fl-fill);
+  border: 1px solid var(--fl-stroke);
+  border-bottom-color: var(--fl-stroke-bt);
+  border-radius: var(--fl-r-control);
+  cursor: pointer;
+  white-space: nowrap;
+}
+:root[data-theme-pack="fluent"] .fl-btn:hover {
+  background: var(--fl-sub);
+}
+:root[data-theme-pack="fluent"] .fl-btn:active {
+  color: var(--fl-ink-2);
+  border-bottom-color: var(--fl-stroke);
+}
+:root[data-theme-pack="fluent"] .fl-btn--icon {
+  width: 32px;
+  padding: 0;
+}
+:root[data-theme-pack="fluent"] .fl-btn--accent {
+  color: var(--fl-on-accent);
+  background: var(--fl-accent);
+  border-color: rgba(255, 255, 255, 0.12);
+  border-bottom-color: rgba(0, 0, 0, 0.3);
+}
+:root[data-theme-pack="fluent"] .fl-btn--accent:hover {
+  background: color-mix(in srgb, var(--fl-accent) 90%, var(--fl-on-accent));
+}
+:root[data-theme-pack="fluent"] .fl-btn--accent:active {
+  color: var(--fl-on-accent);
+  background: color-mix(in srgb, var(--fl-accent) 80%, var(--fl-on-accent));
+}
+:root[data-theme-pack="fluent"] .fl-btn[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--fl-accent) 22%, transparent);
+  border-color: color-mix(in srgb, var(--fl-accent) 55%, transparent);
+}
+:root[data-theme-pack="fluent"] .fl-chip {
+  height: 26px;
+  padding: 0 10px;
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink);
+  background: var(--fl-fill);
+  border: 1px solid var(--fl-stroke);
+  border-radius: 13px;
+  cursor: pointer;
+}
+:root[data-theme-pack="fluent"] .fl-chip[aria-pressed="true"] {
+  color: var(--fl-on-accent);
+  background: var(--fl-accent);
+  border-color: transparent;
+}
+:root[data-theme-pack="fluent"] .fl-link {
+  padding: 2px 6px;
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-accent);
+  background: none;
+  border: 0;
+  border-radius: var(--fl-r-control);
+  cursor: pointer;
+  white-space: nowrap;
+}
+:root[data-theme-pack="fluent"] .fl-link:hover:not(:disabled) {
+  background: var(--fl-sub);
+}
+:root[data-theme-pack="fluent"] .fl-link:disabled {
+  color: var(--fl-ink-3);
+  cursor: default;
+}
+
+/* WinUI's focus visual: a 2px outer ring over a 1px inner one. */
+:root[data-theme-pack="fluent"] .fl-nav:focus-visible,
+:root[data-theme-pack="fluent"] .fl-btn:focus-visible,
+:root[data-theme-pack="fluent"] .fl-chip:focus-visible,
+:root[data-theme-pack="fluent"] .fl-link:focus-visible,
+:root[data-theme-pack="fluent"] .fl-tab:focus-visible,
+:root[data-theme-pack="fluent"] .fl-caption--toggle:focus-visible,
+:root[data-theme-pack="fluent"] .fl-leaguerow__star:focus-visible,
+:root[data-theme-pack="fluent"] .fl-game__main:focus-visible,
+:root[data-theme-pack="fluent"] .guide__card:focus-visible,
+:root[data-theme-pack="fluent"] .guide__cell:focus-visible {
+  outline: 2px solid var(--fl-focus-out);
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 1px var(--fl-focus-in);
+}
+
+/* ------------------------------------------------------- page header */
+
+:root[data-theme-pack="fluent"] .fl-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0 14px;
+  font-family: var(--fl-font);
+}
+:root[data-theme-pack="fluent"] .fl-head__title {
+  margin: 0;
+  font: 600 28px/36px var(--fl-font-display);
+  letter-spacing: 0;
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-head__sub {
+  margin: 2px 0 0;
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .fl-head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------- Live TV */
+
+:root[data-theme-pack="fluent"] .live {
+  gap: 0;
+}
+:root[data-theme-pack="fluent"] .live:not(.live--theater):not(.live--fullscreen) .live-main {
+  padding: 0 20px 16px 20px;
+  min-height: 0;
+}
+:root[data-theme-pack="fluent"] .live--theater .fl-head,
+:root[data-theme-pack="fluent"] .live--fullscreen .fl-head {
+  display: none;
+}
+
+/* The preview card. The slot keeps its id and its radius (the player cuts its
+ * hole to that number); only its box moves. */
+:root[data-theme-pack="fluent"] .live:not(.live--theater):not(.live--fullscreen) .fl-hero {
+  height: auto;
+  gap: 18px;
+  padding: 12px;
+  align-items: stretch;
+  background: var(--fll-card);
+  border: 1px solid var(--fl-layer-stroke);
+  border-radius: var(--fl-r-card);
+  font-family: var(--fl-font);
+}
+:root[data-theme-pack="fluent"] .live:not(.live--theater):not(.live--fullscreen) .fl-hero .hero__preview {
+  width: 360px;
+  max-width: 42%;
+  align-self: flex-start;
+}
+:root[data-theme-pack="fluent"] .fl-hero__details {
+  justify-content: flex-start;
+  gap: 0;
+  padding: 2px 4px 0 0;
+  overflow: hidden;
+}
+:root[data-theme-pack="fluent"] .fl-hero__who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+:root[data-theme-pack="fluent"] .fl-hero__logo {
+  flex: none;
+  border-radius: 6px;
+}
+:root[data-theme-pack="fluent"] .fl-hero__name {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 20px/28px var(--fl-font-display);
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-hero__where {
+  margin: 4px 0 0;
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .fl-hero__now {
+  margin: 10px 0 0;
+  font: 14px/20px var(--fl-font);
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-hero__now strong,
+:root[data-theme-pack="fluent"] .fl-hero__next strong {
+  font-weight: 600;
+}
+:root[data-theme-pack="fluent"] .fl-hero__synopsis {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  margin: 6px 0 0;
+  font: 13px/18px var(--fl-font);
+  color: var(--fl-ink-2);
+}
+:root[data-theme-pack="fluent"] .fl-hero__next {
+  margin: 8px 0 0;
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .fl-progress {
+  width: 100%;
+  max-width: 360px;
+  height: 3px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--fl-sub);
+}
+:root[data-theme-pack="fluent"] .fl-progress__fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--fl-accent);
+}
+:root[data-theme-pack="fluent"] .fl-hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+:root[data-theme-pack="fluent"] .fl-hero__actions .rec-btn {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+/* Record in Fluent paint: the existing button, drawn as a labelled Fluent
+ * button. Its icon stays; the word rides beside it while idle. */
+/* !important only on the three the Button's own utilities (size-10,
+ * rounded-full) would otherwise win: they load after this layer. */
+:root[data-theme-pack="fluent"] .fl-hero__actions .fl-rec {
+  width: auto !important;
+  height: 32px !important;
+  gap: 8px;
+  padding: 0 12px;
+  font: 14px/20px var(--fl-font);
+  color: var(--fl-ink);
+  background: var(--fl-fill);
+  border: 1px solid var(--fl-stroke);
+  border-bottom-color: var(--fl-stroke-bt);
+  border-radius: var(--fl-r-control) !important;
+  box-shadow: none;
+}
+:root[data-theme-pack="fluent"] .fl-hero__actions .fl-rec:hover {
+  background: var(--fl-sub);
+}
+:root[data-theme-pack="fluent"] .fl-hero__actions .fl-rec svg {
+  width: 14px;
+  height: 14px;
+  color: var(--fll-red);
+}
+:root[data-theme-pack="fluent"] .fl-hero__actions .fl-rec:not(.rec-btn--on)::after {
+  content: "Record";
+}
+:root[data-theme-pack="fluent"] .fl-hero__actions .fl-rec.rec-btn--on {
+  color: var(--fll-red);
+}
+
+/* ----------------------------------------------------- the guide grid */
+
+:root[data-theme-pack="fluent"] .live:not(.live--theater):not(.live--fullscreen) .guide-wrap {
+  margin-top: 12px;
+  background: var(--fll-card);
+  border: 1px solid var(--fl-layer-stroke);
+  border-radius: var(--fl-r-card);
+  overflow: hidden;
+}
+:root[data-theme-pack="fluent"] .guide__ruler,
+:root[data-theme-pack="fluent"] .guide__corner {
+  background: var(--fll-card);
+}
+:root[data-theme-pack="fluent"] .guide__tick {
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .guide__tick::before {
+  display: none;
+}
+:root[data-theme-pack="fluent"] .guide__tick {
+  padding-left: 0;
+}
+:root[data-theme-pack="fluent"] .guide__jump {
+  background: none;
+  border: 0;
+  color: var(--fl-ink-3);
+}
+/* Now is the page header's button here. !important: the Button's own
+ * inline-flex utility loads after this layer. */
+:root[data-theme-pack="fluent"] .guide__jump button[aria-label="Back to now"] {
+  display: none !important;
+}
+:root[data-theme-pack="fluent"] .guide__channel {
+  background: var(--fll-card);
+}
+:root[data-theme-pack="fluent"] .guide__card {
+  margin-left: 8px;
+  gap: 10px;
+  padding: 0 8px;
+  background: none;
+  border-color: transparent;
+  border-radius: var(--fl-r-control);
+  font-family: var(--fl-font);
+}
+:root[data-theme-pack="fluent"] .guide__card:hover {
+  background: var(--fl-sub);
+}
+:root[data-theme-pack="fluent"] .guide__card .chlogo {
+  border-radius: 6px;
+}
+:root[data-theme-pack="fluent"] .guide__card-name {
+  font: 13px/18px var(--fl-font);
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .guide__card-num {
+  display: block;
+  font: 11px/14px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .guide__cell {
+  padding: 0 10px;
+  background: var(--fll-tile);
+  border: 1px solid var(--fl-stroke);
+  border-radius: var(--fl-r-control);
+  font-family: var(--fl-font);
+}
+:root[data-theme-pack="fluent"] .guide__cell:hover {
+  filter: none;
+  background: var(--fll-tile-hover);
+}
+:root[data-theme-pack="fluent"] .guide__cell--live {
+  background: var(--fll-tile);
+  border: 1px solid var(--fl-stroke);
+}
+:root[data-theme-pack="fluent"] .guide__cell--selected,
+:root[data-theme-pack="fluent"] .guide__cell--selected:hover {
+  border-color: var(--fl-accent);
+  background: color-mix(in srgb, var(--fl-accent) 14%, var(--fll-tile));
+}
+:root[data-theme-pack="fluent"] .guide__cell-title {
+  font: 600 12px/16px var(--fl-font);
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .guide__cell-time {
+  font: 10px/14px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .guide__cell-shine::after {
+  display: none;
+}
+:root[data-theme-pack="fluent"] .guide__cell--blank {
+  background: none;
+  border: 1px dashed var(--fl-stroke);
+  font: 13px/18px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .guide__cell-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--fl-accent);
+  pointer-events: none;
+}
+:root[data-theme-pack="fluent"] .guide__nowline {
+  width: 2px;
+  background: var(--fl-accent);
+}
+:root[data-theme-pack="fluent"] .guide__nowline::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--fl-accent);
+}
+
+/* ------------------------------------------------------------ Sports */
+
+:root[data-theme-pack="fluent"] .fl-sports {
+  padding-left: 28px;
+  font-family: var(--fl-font);
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-tabbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--fl-stroke);
+}
+:root[data-theme-pack="fluent"] .fl-tabs {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+:root[data-theme-pack="fluent"] .fl-tab {
+  position: relative;
+  flex: none;
+  height: 36px;
+  padding: 0 12px;
+  font: 14px/20px var(--fl-font);
+  color: var(--fl-ink-2);
+  background: none;
+  border: 0;
+  border-radius: var(--fl-r-control);
+  cursor: pointer;
+}
+:root[data-theme-pack="fluent"] .fl-tab:hover {
+  background: var(--fl-sub);
+}
+:root[data-theme-pack="fluent"] .fl-tab[aria-selected="true"] {
+  font-weight: 600;
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--fl-accent);
+}
+:root[data-theme-pack="fluent"] .fl-group__title {
+  padding: 16px 0 8px;
+}
+:root[data-theme-pack="fluent"] .sports__grid.fl-grid {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  padding: 0 0 4px;
+  /* The shared cards below (race, golf, tournament, weekend, compact) take
+   * Fluent's card corners and fill from the tokens they already read. */
+  --radius-card: var(--fl-r-card);
+  --card-bg: var(--fll-card);
+}
+
+:root[data-theme-pack="fluent"] .fl-game {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  background: var(--fll-card);
+  border: 1px solid var(--fl-layer-stroke);
+  border-radius: var(--fl-r-card);
+}
+:root[data-theme-pack="fluent"] .fl-game:hover,
+:root[data-theme-pack="fluent"] .fl-game:has(.fl-game__main:focus-visible) {
+  border-color: var(--fl-accent);
+}
+:root[data-theme-pack="fluent"] .fl-game__main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+:root[data-theme-pack="fluent"] .fl-game__main:disabled {
+  cursor: default;
+}
+:root[data-theme-pack="fluent"] .fl-game__main:focus-visible {
+  outline-offset: 4px;
+  border-radius: var(--fl-r-control);
+}
+:root[data-theme-pack="fluent"] .fl-game__team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+:root[data-theme-pack="fluent"] .fl-game__mark {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--fl-sub);
+}
+:root[data-theme-pack="fluent"] .fl-game__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 14px/20px var(--fl-font);
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-game__record {
+  flex: none;
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .fl-game__score {
+  flex: none;
+  margin-left: auto;
+  font: 600 22px/28px var(--fl-font-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--fl-ink);
+}
+:root[data-theme-pack="fluent"] .fl-game__team.is-lost .fl-game__name,
+:root[data-theme-pack="fluent"] .fl-game__team.is-lost .fl-game__score {
+  font-weight: 400;
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .fl-game__team.is-lost .fl-game__mark {
+  opacity: 0.45;
+}
+:root[data-theme-pack="fluent"] .fl-game__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  padding-top: 8px;
+  border-top: 1px solid var(--fl-stroke);
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink-2);
+}
+:root[data-theme-pack="fluent"] .fl-game__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+:root[data-theme-pack="fluent"] .fl-game__status.is-live {
+  font-weight: 600;
+  color: var(--fl-accent);
+}
+:root[data-theme-pack="fluent"] .fl-game__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fl-live);
+}
+:root[data-theme-pack="fluent"] .fl-game__carry {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fl-ink-3);
+}
+:root[data-theme-pack="fluent"] .fl-sports .sports__unlinked {
+  margin: 12px 0 0;
+  color: var(--fl-ink-3);
+}

@@ -41,6 +41,8 @@ import {
   onClockFormatChange,
 } from "../settings/clockFormat";
 import { ChannelLogo } from "../../ui/ChannelLogo";
+import { useFluent } from "../fluent/useFluent";
+import { loadShowChannelNumber, onShowChannelNumberChange } from "../settings/channelNumber";
 import { isTauri } from "../../lib/tauri";
 import { useClassic } from "../classic/useClassic";
 import { cancelProgramme, isStarting, recordProgramme } from "../recordings/recordProgramme";
@@ -225,6 +227,7 @@ export const Guide = memo(function Guide({
   guideLists,
   onNotice,
   lineFor,
+  nowRef,
 }: {
   channels: Array<{ channel: Channel; programmes: Programme[] }>;
   selectedId: string;
@@ -255,7 +258,12 @@ export const Guide = memo(function Guide({
    * programme's connections against. Read when the menu is used, not drawn,
    * so a new reading never renders the Guide. */
   lineFor?: (playlistId: string) => { max: number } | null;
+  /** Fluent's header Now button takes the jump from here. */
+  nowRef?: { current: (() => void) | null };
 }) {
+  const fluent = useFluent();
+  const [showNumber, setShowNumber] = useState(loadShowChannelNumber);
+  useEffect(() => onShowChannelNumberChange(setShowNumber), []);
   // Channels with a recording running (plan 029): a dot on the card. The set
   // is the same object until one starts or ends, so size updates do not
   // re-render the guide.
@@ -367,6 +375,13 @@ export const Guide = memo(function Guide({
   };
   const jumpNow = () =>
     scrollRef.current?.scrollTo({ left: 0, behavior });
+  useEffect(() => {
+    if (!nowRef) return;
+    nowRef.current = () => scrollRef.current?.scrollTo({ left: 0, behavior });
+    return () => {
+      nowRef.current = null;
+    };
+  }, [nowRef, behavior]);
 
   /* The window moves 30 minutes on every half hour (`start`), which moves
    * every cell 285px left under a viewer who has scrolled ahead. Moving
@@ -878,6 +893,9 @@ export const Guide = memo(function Guide({
                   <ChannelLogo name={channel.name} logo={channel.logo} size={logoSize} lazy className="guide__logo" />
                   <span className="guide__card-meta">
                     <span className="guide__card-name">{channel.name}</span>
+                    {fluent && showNumber && channel.number != null && (
+                      <span className="guide__card-num">Channel {channel.number}</span>
+                    )}
                     {channel.quality && (
                       <QualityBadge quality={channel.quality} />
                     )}
@@ -946,7 +964,9 @@ export const Guide = memo(function Guide({
                       data-left={b.left}
                       data-width={b.width}
                       data-clip={b.clip ? "1" : undefined}
-                      className={cellClass(b)}
+                      className={
+                        cellClass(b) + (fluent && selected && b.live ? " guide__cell--selected" : "")
+                      }
                       style={{ left: b.left, width: b.width }}
                       data-hint={b.p.title}
                       aria-label={`${channel.name}, ${b.p.title}, ${b.range}${b.live ? ", on now" : ""}${plannedHere(b) ? ", scheduled to record" : ""}`}
@@ -956,6 +976,15 @@ export const Guide = memo(function Guide({
                       }
                     >
                       {cellBody(b)}
+                      {fluent && b.live && (
+                        <span
+                          className="guide__cell-bar"
+                          aria-hidden
+                          style={{
+                            width: `${Math.min(100, Math.max(0, ((now.getTime() - b.p.start.getTime()) / (b.p.end.getTime() - b.p.start.getTime())) * 100)).toFixed(1)}%`,
+                          }}
+                        />
+                      )}
                       {plannedHere(b) && <span className="guide__rec guide__rec--sched" aria-hidden />}
                     </button>
                   ))
