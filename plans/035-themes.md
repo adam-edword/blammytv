@@ -205,4 +205,7 @@ score in a sunken green LED display; Discover's genres as raised buttons and
 posters in Explorer's Thumbnails view; Settings as Display Properties
 (property-sheet tabs, a Theme combo over a Sample box, radio buttons, square
 swatches, checkboxes for toggles, one Close button because changes save as
-you go). Multi-View follows the same parts and needs no mock.
+you go). Its "?" button shows a yellow balloon tip ("Appearance Help: help
+for these settings is in the BlammyTV docs, in your browser") with an "Open
+Help in Browser" link; only the link leaves the app (Adam: "clicking the
+question mark shouldn't automatically take you to the docs"). Multi-View follows the same parts and needs no mock.
