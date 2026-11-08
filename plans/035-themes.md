@@ -159,3 +159,18 @@ but not from a layout check (a card's box and position stay as Default's).
 
 Classic (Windows 2000, from Adam's screenshot of XP's Classic look) is in
 the mock: grey bevels, square corners, a navy title bar, Tahoma.
+
+### Classic's chrome (Adam, 2026-11-08)
+
+Tier 3 lets Classic restructure the header (Adam: "you can change the
+layout or padding if it makes sense"). Settled in the mock:
+- A thin top bar with the BlammyTV mark and name only.
+- One toolbar row of flat icon-and-label buttons that raise on hover:
+  Back, Forward | Live TV, Multi-View, Sports | Home (the mark) | Stream,
+  Discover, Library ... Search, Settings on the right. The tab you're on is
+  pressed in with the checkered fill. (Adam: "<live tv row | home | stream
+  row>".)
+- An address bar ("BlammyTV › Stream › Home") and a status bar along the
+  bottom ("Ready", what's live, games on now, the clock).
+- The chrome is solid grey, so pages scroll behind it; content starts lower.
+Open: whether the address bar is display-only or takes typing.
