@@ -447,6 +447,20 @@ const CONTRAST = `(() => {
   check(`player: the progress fill (${fr.toFixed(1)}) and its track (${kr.toFixed(1)}) show against black`, fr >= 4.5 && kr >= 3 && t.fill !== t.track, `${t.fill} / ${t.track}`);
   check("player: the theater is square (no rounded wedges, no radius)", t.corners === "none" && t.radius === "0px" && t.shell === "0px", JSON.stringify({ c: t.corners, r: t.radius, s: t.shell }));
   await shot(page, "theater");
+  // A wide, short window (Adam's, 1.2.9): the slot is the largest 16:9 box that fits under the toolbar,
+  // not the frame's 100% width, which spilled a 16:9 player over the toolbar and past the controls.
+  const fits = async () => page.evaluate(() => {
+    const r = document.querySelector("#player-slot").getBoundingClientRect();
+    const head = document.querySelector(".cl-header").getBoundingClientRect().bottom;
+    const foot = document.querySelector(".cl-status")?.getBoundingClientRect().top ?? innerHeight;
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height), head: Math.round(head), foot: Math.round(foot) };
+  });
+  for (const [w, h] of [[1440, 900], [2000, 800], [1600, 640]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(400);
+    const f = await fits();
+    check(`player: at ${w}x${h} the theater fits between the toolbar and the status bar, 16:9`, f.top >= f.head && f.bottom <= f.foot && Math.abs(f.w / f.h - 16 / 9) < 0.02, JSON.stringify(f));
+  }
   await ctx.close();
 }
 

@@ -21,7 +21,6 @@
   --flc-title-h: 32px;
   --flc-pane-w: 280px;
   --flc-hover: color-mix(in srgb, var(--fl-ink) 5%, transparent);
-  --flc-edge: var(--fl-stroke-bt);
   --flc-blur: blur(30px) saturate(1.6);
   --focus-ring: var(--fl-focus-out);
 }
@@ -119,7 +118,7 @@
   border-radius: 999px;
   background: var(--fl-fill);
   border: 1px solid var(--fl-stroke);
-  border-bottom-color: var(--fl-stroke-bt);
+  border-bottom-color: var(--fl-field-bt);
   color: var(--fl-ink-3);
   font: 13px var(--fl-font);
   text-align: left;
@@ -412,7 +411,7 @@
   margin-bottom: 8px;
   padding: 0 10px 0 12px;
   border: 1px solid var(--fl-stroke);
-  border-bottom-color: var(--fl-stroke-bt);
+  border-bottom-color: var(--fl-field-bt);
   border-radius: var(--fl-r-control);
   background: var(--fl-fill);
   color: var(--fl-ink-3);
@@ -614,6 +613,10 @@
   height: 32px !important;
   padding-inline: 16px !important;
 }
+/* Windows 11's Settings and Store buttons are never narrower than 120px. */
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-size="default"]) {
+  min-width: 120px !important;
+}
 :where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-size="icon"], :is([data-slot="button"], button[data-variant][data-size])[data-size="icon-lg"], :is([data-slot="button"], button[data-variant][data-size])[data-size="icon-sm"]) {
   width: 32px !important;
   height: 32px !important;
@@ -654,7 +657,7 @@
 :where(:root[data-theme-pack="fluent"]) :where([data-slot="input"], [data-slot="input-group"], .settings-input) {
   height: 32px !important;
   border: 1px solid var(--fl-stroke) !important;
-  border-bottom-color: var(--fl-stroke-bt) !important;
+  border-bottom-color: var(--fl-field-bt) !important;
   border-radius: var(--fl-r-control) !important;
   background: var(--fl-fill) !important;
   color: var(--fl-ink) !important;
@@ -671,7 +674,7 @@
   min-height: 32px !important;
   padding-block: 3px !important;
   border: 1px solid var(--fl-stroke) !important;
-  border-bottom-color: var(--fl-stroke-bt) !important;
+  border-bottom-color: var(--fl-field-bt) !important;
   border-radius: var(--fl-r-control) !important;
   background: var(--fl-fill) !important;
   color: var(--fl-ink) !important;

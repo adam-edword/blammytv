@@ -871,7 +871,7 @@
     height: 32px;
     padding: 0 12px;
     border: 1px solid var(--fl-stroke);
-    border-bottom-color: var(--fl-stroke-bt);
+    border-bottom-color: var(--fl-field-bt);
     border-radius: var(--fl-r-control);
     background: var(--fl-fill);
     backdrop-filter: none;

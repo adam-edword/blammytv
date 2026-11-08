@@ -58,7 +58,7 @@
   color: var(--fl-ink);
   background: var(--fl-fill);
   border: 1px solid var(--fl-stroke);
-  border-bottom-color: var(--fl-stroke-bt);
+  border-bottom-color: var(--fl-field-bt);
   border-radius: var(--fl-r-control);
   outline: none;
   appearance: none;

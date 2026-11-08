@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.9: Classic's theater fits, Fluent's buttons look like Windows'
+
+- **Classic:** in a wide window, the theater player no longer runs over the
+  toolbar and past its own controls. It's the largest picture that fits.
+- **Fluent:** buttons have Windows 11's faint edges and are at least 120px
+  wide, and text boxes have Windows 11's underline.
+
 ## 1.2.8: Accent colours show again
 
 - In Classic and Fluent, Settings → Appearance's accent swatches showed no

@@ -251,6 +251,7 @@
   background: var(--fl-fill) !important;
   color: var(--fl-ink) !important;
   font-size: 12px !important;
+  min-width: 0 !important;
 }
 :root[data-theme-pack="fluent"] [data-picker="theme"][aria-pressed="true"] {
   border: 2px solid var(--accent) !important;

@@ -220,9 +220,14 @@
 /* The slot keeps its 10px corner: the native hole and mpv's rect are cut to
  * it, and black on the frame's black reads square. */
 :root[data-theme-pack="classic"] .cl-pv .hero__preview {
-  width: 100%;
   background: #000;
   cursor: default;
+}
+/* Only in the frame. In theater the slot is Default's largest 16:9 box that
+ * fits (live.css); a width of 100% there made a wide window's player taller
+ * than the space under the toolbar, spilling over it and the controls. */
+:root[data-theme-pack="classic"] .live:not(.live--theater):not(.live--fullscreen) .cl-pv .hero__preview {
+  width: 100%;
 }
 /* Theater and fullscreen use the slot alone, as Hero's: the frame and the
  * text step aside. */

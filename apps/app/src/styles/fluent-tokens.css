@@ -15,7 +15,11 @@
   --fl-fill: rgba(255, 255, 255, 0.05);
   --fl-sub: rgba(255, 255, 255, 0.06);
   --fl-stroke: rgba(255, 255, 255, 0.08);
-  --fl-stroke-bt: rgba(0, 0, 0, 0.35);
+  /* The elevation edge under a button or combo box: in dark, a faint white
+   * line like the rest of the stroke (WinUI's ControlStrokeColorDefault),
+   * never a dark one. A text field's underline is the strong stroke. */
+  --fl-stroke-bt: rgba(255, 255, 255, 0.07);
+  --fl-field-bt: rgba(255, 255, 255, 0.54);
   --fl-layer: rgba(255, 255, 255, 0.035);
   --fl-layer-stroke: rgba(255, 255, 255, 0.08);
   --fl-fly: rgba(44, 44, 44, 0.86);
@@ -35,6 +39,7 @@
   --fl-sub: rgba(0, 0, 0, 0.045);
   --fl-stroke: rgba(0, 0, 0, 0.06);
   --fl-stroke-bt: rgba(0, 0, 0, 0.16);
+  --fl-field-bt: rgba(0, 0, 0, 0.45);
   --fl-layer: rgba(255, 255, 255, 0.55);
   --fl-layer-stroke: rgba(0, 0, 0, 0.07);
   --fl-fly: rgba(252, 252, 252, 0.86);

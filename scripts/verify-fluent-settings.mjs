@@ -244,6 +244,18 @@ const survey = (page) =>
     cards: [...document.querySelectorAll('[data-picker="theme"]')].map((e) => Math.round(e.getBoundingClientRect().height)),
   }));
   check("Appearance: every accent swatch shows its own colour and every theme card its preview", pick.swatches.length >= 8 && pick.swatches.every(([bg, img, want]) => want.startsWith("#") ? bg === `rgb(${parseInt(want.slice(1, 3), 16)}, ${parseInt(want.slice(3, 5), 16)}, ${parseInt(want.slice(5, 7), 16)})` : img.includes("gradient")) && pick.cards.length >= 6 && pick.cards.every((h) => h > 60), JSON.stringify(pick));
+  // A standard button as Windows 11 draws one (Adam, 1.2.9: "the bottom of our button is weird"): at least
+  // 120px wide, and in dark its bottom edge a faint white line, not a dark one under a light button.
+  await page.locator(`.flc-sx [data-rail="app"]`).click();
+  await page.waitForTimeout(500);
+  const std = await page.evaluate(() => {
+    const b = [...document.querySelectorAll("button")].find((e) => e.textContent.trim() === "Open");
+    const cs = getComputedStyle(b);
+    return { w: b.getBoundingClientRect().width, bottom: cs.borderBottomColor, top: cs.borderTopColor };
+  });
+  check("a standard button is at least 120px wide, and its bottom edge is a faint white line in dark", std.w >= 120 && /^rgba\(255, 255, 255, 0\.0\d+\)$/.test(std.bottom), JSON.stringify(std));
+  const field = await page.evaluate(() => getComputedStyle(document.querySelector(".flc-find")).borderBottomColor);
+  check("a text field's underline is the strong stroke, not the button's", field === "rgba(255, 255, 255, 0.54)", field);
   check("every page's cards are the same card", sigs.size === 1, JSON.stringify([...sigs]));
   const off = ends.filter((e) => Math.abs(e.inset - 17) > 1);
   check("every row's controls end on one right edge (the card's inset)", ends.length >= 20 && off.length === 0, `${ends.length} rows${off.length ? `, off: ${JSON.stringify(off)}` : ""}`);
