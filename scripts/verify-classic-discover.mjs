@@ -4,7 +4,8 @@
 // header and the app-wide paint; this file owns the page body: By Genre as
 // an etched box of raised buttons, the poster grid as Explorer's Thumbnails
 // view, and REC as the Windows wizard. The harness sets the attribute
-// itself, so it needs none of phase 1.
+// itself, which also brings phase 1's header: REC is reached from its band's
+// Find Something to Watch button, not the capsule's chip.
 //
 // Both ways round: Default first (the normal rail, grid and wall), then
 // Classic (every interaction), then Default again to show it comes back.
@@ -151,20 +152,20 @@ check("classic: pressing it again clears the genre",
 
 // Open: a click hands off to Stream, as a card does.
 await page.locator(".cl-disc-thumb", { hasText: "Fake Movie Two" }).first().click();
-await page.waitForSelector(".vod-source", { timeout: 15_000 }).catch(() => {});
-check("classic: a click opens the title in Stream", (await page.locator(".vod-source").count()) === 2);
+await page.waitForSelector(".clt-srcs .clt-lr", { timeout: 15_000 }).catch(() => {});
+check("classic: a click opens the title in Stream", (await page.locator(".clt-srcs .clt-lr").count()) === 2);
 await page.getByRole("button", { name: /back/i }).first().click();
 await page.waitForSelector(".cl-disc-thumbs", { timeout: 10_000 });
 // Enter on the focused one opens it too.
 await page.locator('.cl-disc-thumbs [role="option"]').first().focus();
 await page.keyboard.press("Enter");
-await page.waitForSelector(".vod-source", { timeout: 15_000 }).catch(() => {});
-check("classic: Enter opens the focused title", (await page.locator(".vod-source").count()) >= 1);
+await page.waitForSelector(".clt-srcs .clt-lr", { timeout: 15_000 }).catch(() => {});
+check("classic: Enter opens the focused title", (await page.locator(".clt-srcs .clt-lr").count()) >= 1);
 await page.getByRole("button", { name: /back/i }).first().click();
 await page.waitForSelector(".cl-disc-thumbs", { timeout: 10_000 });
 
 // ---- Classic: REC ------------------------------------------------------
-await page.locator('.navcap__row--sub [data-key="rec"]').click();
+await page.locator(".cl-band .cl-rec").click();
 await page.waitForSelector(".cl-rec-wiz", { timeout: 8000 });
 check("classic: REC is the wizard, with no drifting wall",
   (await page.locator(".rec__wall, .rec__stage").count()) === 0);
@@ -219,20 +220,20 @@ check("classic: the TMDB credit stays", /TMDB API but is not endorsed/.test(awai
 // Watch Now opens the pick in Stream. (Back from Stream lands on the grid,
 // as it does in Default: a tab flip does not keep the recommender.)
 await page.getByRole("button", { name: "Watch Now" }).click();
-await page.waitForSelector(".vod-source", { timeout: 15_000 }).catch(() => {});
-check("classic: Watch Now opens the pick in Stream", (await page.locator(".vod-source").count()) >= 1);
+await page.waitForSelector(".clt-srcs .clt-lr", { timeout: 15_000 }).catch(() => {});
+check("classic: Watch Now opens the pick in Stream", (await page.locator(".clt-srcs .clt-lr").count()) >= 1);
 await page.getByRole("button", { name: /back/i }).first().click();
 await page.waitForSelector(".cl-disc-thumbs, .cl-rec-wiz", { timeout: 10_000 });
 
 // Close leaves REC for the grid beneath it.
 if ((await page.locator(".cl-rec-wiz").count()) === 0) {
-  await page.locator('.navcap__row--sub [data-key="rec"]').click();
+  await page.locator(".cl-band .cl-rec").click();
   await page.waitForSelector(".cl-rec-wiz", { timeout: 8000 });
 }
 await page.getByRole("button", { name: "Close", exact: true }).last().click();
 await page.waitForSelector(".cl-disc-thumbs", { timeout: 10_000 });
 check("classic: Close returns to the poster grid", (await page.locator(".cl-rec-wiz").count()) === 0);
-await page.locator('.navcap__row--sub [data-key="rec"]').click();
+await page.locator(".cl-band .cl-rec").click();
 await page.waitForSelector(".cl-rec-wiz", { timeout: 8000 });
 await page.getByRole("button", { name: "Close", exact: true }).first().click();
 await page.waitForSelector(".cl-disc-thumbs", { timeout: 10_000 });

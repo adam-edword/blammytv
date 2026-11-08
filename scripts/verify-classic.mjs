@@ -60,7 +60,8 @@ async function open({ store = {}, scheme = "dark", live = true } = {}) {
     { store, live, PLAYLISTS, AIO },
   );
   await page.goto(APP, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".navcap, .cl-header", { timeout: 20_000 });
+  // Each pack's nav: the capsule, Classic's toolbar or Fluent's title bar.
+  await page.waitForSelector(".navcap, .cl-header, .flc-title", { timeout: 20_000 });
   return { ctx, page, errors };
 }
 
@@ -219,8 +220,8 @@ const address = (page) => page.locator("[data-cl=address]").innerText().then((t)
   // The search field searches the catalog.
   await page.locator("#cl-search").fill("fake");
   await page.waitForTimeout(1500);
-  const found = await page.evaluate(() => [...document.querySelectorAll(".disc-grid .stream-card__name")].map((e) => e.textContent.trim()));
-  check("band: the search field searches (the catalog's own results come up)", found.length > 0 && found.every((t) => /fake/i.test(t) || true) && (await page.locator("#cl-search").inputValue()) === "fake", JSON.stringify(found));
+  const found = await page.evaluate(() => [...document.querySelectorAll(".cl-disc-thumb__cap b")].map((e) => e.textContent.trim()));
+  check("band: the search field searches (the catalog's own results come up)", found.length > 0 && found.every((t) => /fake/i.test(t)) && (await page.locator("#cl-search").inputValue()) === "fake", JSON.stringify(found));
   await ctx.close();
 }
 
@@ -319,9 +320,12 @@ const address = (page) => page.locator("[data-cl=address]").innerText().then((t)
   check("one face: in Light the header, the page and the font are the same", light.theme === "light" && light.bg === "rgb(212, 208, 200)" && light.page === "rgb(212, 208, 200)" && light.font === "Tahoma", JSON.stringify(light));
   await ctx.close();
 }
+// Fluent is tier 3 too and draws its own frame (verify-fluent-chrome); here
+// it only has to be free of Classic's.
 for (const pack of ["prism", "velvet", "lagoon", "fluent"]) {
   const { ctx, page } = await open({ store: { themePack: pack } });
-  check(`${pack}: keeps today's header`, (await page.locator(".navcap").count()) === 1 && (await page.locator(".cl-header, .cl-status").count()) === 0);
+  const own = pack === "fluent" ? ".flc-title" : ".navcap";
+  check(`${pack}: keeps its own header, none of Classic's`, (await page.locator(own).count()) === 1 && (await page.locator(".cl-header, .cl-status").count()) === 0);
   await ctx.close();
 }
 {

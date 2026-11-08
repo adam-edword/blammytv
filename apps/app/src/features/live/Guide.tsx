@@ -405,6 +405,8 @@ export const Guide = memo(function Guide({
    * re-renders when the visible row range actually changes — a 68px step —
    * so horizontal scrubbing (which never changes it) stays render-free. */
   const [rowWin, setRowWin] = useState({ from: 0, to: 36 });
+  const rowWinRef = useRef(rowWin);
+  rowWinRef.current = rowWin;
   const renderFrom = Math.max(0, Math.min(rowWin.from, channels.length));
   const renderTo = Math.max(renderFrom, Math.min(rowWin.to, channels.length));
 
@@ -414,7 +416,13 @@ export const Guide = memo(function Guide({
     const top = el.scrollTop - RULER_H;
     const from = Math.max(0, Math.floor(top / ROW_STEP) - OVERSCAN);
     const to = Math.ceil((top + el.clientHeight) / ROW_STEP) + OVERSCAN;
-    setRowWin((w) => (w.from === from && w.to === to ? w : { from, to }));
+    // Not a functional updater that hands back the same state: this runs in a
+    // layout effect on every commit, and a setState there that cannot change
+    // anything still re-renders, so a window that moved with the container
+    // (the theme swap that adds or drops the status bar's 26px) never settled
+    // and React stopped at "Maximum update depth exceeded".
+    if (rowWinRef.current.from === from && rowWinRef.current.to === to) return;
+    setRowWin({ from, to });
   }, []);
 
   // Lay the windowed lanes out once; only the pinned cell depends on scroll.

@@ -8,7 +8,8 @@
   min-height: 0;
   display: flex;
   gap: 10px;
-  padding: 10px;
+  /* .stream--full pads nothing, so the page clears the header itself. */
+  padding: calc(var(--header-h, 76px) + 10px) 10px 10px;
   background: var(--cl-face);
   color: var(--cl-ink);
   font: 13px var(--cl-font);

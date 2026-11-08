@@ -472,6 +472,16 @@
 :root[data-theme-pack="classic"] .discover {
   padding-top: calc(var(--header-h, 76px) + 36px + 8px);
 }
+/* The status bar is chrome, not an overlay: every screen ends above it, or
+ * its bottom row (a Clear Filter button, a list's last line) sits under it. */
+:root[data-theme-pack="classic"] .app-main {
+  padding-bottom: 26px;
+}
+/* Sports is the one screen that is fixed to the window, so main's padding
+ * does not reach it. */
+:root[data-theme-pack="classic"] .sportsboard {
+  bottom: 26px;
+}
 :root[data-theme-pack="classic"] .cl-status {
   position: absolute;
   left: 0;
