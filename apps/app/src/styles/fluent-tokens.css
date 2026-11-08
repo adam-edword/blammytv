@@ -1,0 +1,46 @@
+/* Fluent as a tier-3 theme (plan 035, "Fluent to tier 3"): BlammyTV as a
+ * Windows 11 WinUI app. The shared contract every Fluent stylesheet builds
+ * on, both faces. Values are the approved mock's (scratchpad aero/more.html).
+ * Light is the face under data-theme="light"; Dark everywhere else. */
+:root[data-theme-pack="fluent"] {
+  --fl-font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", var(--font-text);
+  --fl-font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", var(--font-headline);
+  --fl-r-control: 4px;
+  --fl-r-card: 8px;
+  --fl-ink: #ffffff;
+  --fl-ink-2: rgba(255, 255, 255, 0.79);
+  --fl-ink-3: rgba(255, 255, 255, 0.54);
+  --fl-accent: #60cdff;
+  --fl-on-accent: #000000;
+  --fl-fill: rgba(255, 255, 255, 0.05);
+  --fl-sub: rgba(255, 255, 255, 0.06);
+  --fl-stroke: rgba(255, 255, 255, 0.08);
+  --fl-stroke-bt: rgba(0, 0, 0, 0.35);
+  --fl-layer: rgba(255, 255, 255, 0.035);
+  --fl-layer-stroke: rgba(255, 255, 255, 0.08);
+  --fl-fly: rgba(44, 44, 44, 0.86);
+  --fl-base: #202020;
+  --fl-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --fl-focus-in: #000000;
+  --fl-focus-out: #ffffff;
+  --fl-live: #6ccb5f;
+}
+:root[data-theme-pack="fluent"][data-theme="light"] {
+  --fl-ink: #1a1a1a;
+  --fl-ink-2: rgba(0, 0, 0, 0.72);
+  --fl-ink-3: rgba(0, 0, 0, 0.56);
+  --fl-accent: #0067c0;
+  --fl-on-accent: #ffffff;
+  --fl-fill: rgba(255, 255, 255, 0.7);
+  --fl-sub: rgba(0, 0, 0, 0.045);
+  --fl-stroke: rgba(0, 0, 0, 0.06);
+  --fl-stroke-bt: rgba(0, 0, 0, 0.16);
+  --fl-layer: rgba(255, 255, 255, 0.55);
+  --fl-layer-stroke: rgba(0, 0, 0, 0.07);
+  --fl-fly: rgba(252, 252, 252, 0.86);
+  --fl-base: #f3f3f3;
+  --fl-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  --fl-focus-in: #ffffff;
+  --fl-focus-out: #000000;
+  --fl-live: #0f7b0f;
+}
