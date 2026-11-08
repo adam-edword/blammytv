@@ -123,3 +123,12 @@ bubbly theme". Mock: https://claude.ai/artifact/GKVDu66CSS3Hetg5U95c8c.
 - Calls made here: bubbles are a composited transform on one layer, still
   under reduced motion and hidden while a player hole is cut, as Prism's
   light is. Cards get the glass wash without a blur (Lagoon's reason).
+
+## The rule for era themes (Adam, 2026-11-08)
+
+"The theme should make the app feel like it's a part of that era/os. Like
+styling the app to fit snow leopard or windows fluent etc." So a theme
+dresses BlammyTV as an app of that system (its toolbars, controls,
+selection, type, materials), not the system's wallpaper behind the app.
+Mock of the next candidates (Snow Leopard, Yosemite, Phosphor):
+https://claude.ai/artifact/9HwDXazCP9e3P4hGm7tsc4
