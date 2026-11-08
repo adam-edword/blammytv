@@ -176,7 +176,8 @@ async function suite(face) {
     return { focused: a === i, ph: i?.placeholder, head: h && { x: h.x, y: h.y, w: h.width, h: h.height } };
   });
   check(T("Ctrl+K opens the search with its field focused, Search channels, films and settings"), fo.focused && fo.ph === "Search channels, films and settings", JSON.stringify(fo));
-  check(T("the field is laid over the pill: same place, centred"), fo.head && Math.abs(fo.head.y - pill.y) < 4 && Math.abs(fo.head.x + fo.head.w / 2 - 720) < 4 && Math.round(fo.head.h) === 28, JSON.stringify({ head: fo.head, pill }));
+  // 32px: WinUI's title bar AutoSuggestBox is a TextBox, like every other field (plan 035, "the same piece looks the same everywhere").
+  check(T("the field is laid over the pill: same place, centred"), fo.head && Math.abs(fo.head.y - pill.y) < 4 && Math.abs(fo.head.x + fo.head.w / 2 - 720) < 4 && Math.round(fo.head.h) === 32, JSON.stringify({ head: fo.head, pill }));
   const body = await css(page, ".mvpick__body", ["border-top-left-radius", "box-shadow", "background-color"]);
   check(T("the results are a flyout: 8px corners, the flyout fill and the shadow"), body["border-top-left-radius"] === "8px" && body["box-shadow"] !== "none" && body["background-color"] !== "rgba(0, 0, 0, 0)", JSON.stringify(body));
   // Go To is what a bare field lists; type for the groups.

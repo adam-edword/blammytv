@@ -59,19 +59,6 @@
 :root[data-theme-pack="classic"] .settings--classic .cl-foot {
   flex: none;
 }
-:root[data-theme-pack="classic"] .settings--classic > .cl-title {
-  height: 18px;
-  padding: 0 2px 0 4px;
-}
-:root[data-theme-pack="classic"] .settings--classic .cl-title__text {
-  font: 700 12px var(--cl-font);
-}
-:root[data-theme-pack="classic"] .settings--classic .cl-x {
-  width: 16px;
-  height: 14px;
-  font-size: 10px;
-  line-height: 1;
-}
 :root[data-theme-pack="classic"] .settings--classic .cl-tabs .rail__opt {
   font: 12px var(--cl-font);
 }
@@ -169,13 +156,19 @@
   font-size: 12px !important;
   line-height: 14px !important;
   min-height: 23px;
-  padding: 0 10px !important;
+  padding: 0 12px !important;
   border-radius: 0 !important;
 }
 :root[data-theme-pack="classic"] .settings--classic button[data-variant]:not([data-slot^="combobox"], [data-slot^="input-group"])[class*="hover:bg-tint-hover"]:hover:not([aria-pressed="true"]) {
   box-shadow: var(--cl-raised) !important;
 }
 :root[data-theme-pack="classic"] .settings--classic button[data-variant]:not([data-slot^="combobox"], [data-slot^="input-group"]):not([class*="underline-offset"]):active:not(:disabled) {
+  box-shadow: var(--cl-pressed) !important;
+}
+/* A toggle that is on (the Appearance chips) is pushed in with the checkered
+ * fill, as Sports' Compact Results is. */
+:root[data-theme-pack="classic"] .settings--classic button[data-variant]:not([data-slot^="combobox"], [data-slot^="input-group"]):not([class*="underline-offset"])[aria-pressed="true"] {
+  background: var(--cl-checker) !important;
   box-shadow: var(--cl-pressed) !important;
 }
 :root[data-theme-pack="classic"] .settings--classic button[data-variant]:not([data-slot^="combobox"], [data-slot^="input-group"])[class*="underline-offset"] {
@@ -230,6 +223,8 @@
   border-radius: 0 !important;
   background: var(--cl-field) !important;
   box-shadow: var(--cl-sunken) !important;
+  color: var(--cl-ink) !important;
+  font: 12px var(--cl-font) !important;
 }
 :root[data-theme-pack="classic"] .settings--classic [data-slot="input-group"] input {
   height: 100% !important;
@@ -267,6 +262,8 @@
   border-radius: 0 !important;
   background: var(--cl-field) !important;
   box-shadow: var(--cl-sunken) !important;
+  color: var(--cl-ink) !important;
+  font: 12px var(--cl-font) !important;
 }
 :root[data-theme-pack="classic"] .settings--classic [data-slot="combobox-chips"] input {
   height: 18px;
@@ -470,71 +467,84 @@
 /* --------------------------------------------------------- a dialog's frame */
 /* The shared dialog (shadcn's DialogContent) with a title: a navy gradient
  * bar over the title, a bevelled close button in it, and the rest inset.
- * Opt in with .cl-dlg (the Fix Guide dialog); the frame, the face and the
- * raised edge are classic.css's [data-slot="dialog-content"] rule. */
-:root[data-theme-pack="classic"] .cl-dlg {
+ * Every shared dialog with a visible title gets it (DialogContent holding a
+ * DialogTitle that isn't sr-only), so a new dialog needs nothing; .cl-dlg
+ * still forces it. The frame, the face and the raised edge are classic.css's
+ * [data-slot="dialog-content"] rule. The caption is the same 18px bar as
+ * Settings' (classic.css .cl-title); the close button's room on the right is
+ * a transparent border, so the bar's padding reads the same everywhere. */
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) {
   padding: 3px !important;
   gap: 8px !important;
   font: 12px var(--cl-font);
   color: var(--cl-ink);
 }
-:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-header"] {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) [data-slot="dialog-header"] {
   gap: 0 !important;
   text-align: left;
 }
-:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-title"] {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) [data-slot="dialog-title"] {
   display: block;
+  box-sizing: border-box;
   height: 18px;
-  padding: 0 24px 0 4px !important;
+  margin: 0;
+  padding: 0 2px 0 4px !important;
+  border-right: 20px solid transparent;
   background: var(--cl-title);
+  background-origin: border-box;
   color: #fff;
   font: 700 12px/18px var(--cl-font) !important;
+  letter-spacing: normal !important;
+  text-transform: none;
 }
-:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-description"] {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) [data-slot="dialog-description"] {
   padding: 8px 8px 0;
   font: 12px var(--cl-font);
   color: var(--cl-ink);
 }
-:root[data-theme-pack="classic"] .cl-dlg > :not([data-slot="dialog-header"], [data-slot="dialog-close"]) {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) > :not([data-slot="dialog-header"], [data-slot="dialog-title"], [data-slot="dialog-close"]) {
   margin-inline: 8px;
 }
-:root[data-theme-pack="classic"] .cl-dlg > :nth-last-child(2) {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) > :nth-last-child(2) {
   margin-bottom: 8px;
 }
-:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-close"] {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) [data-slot="dialog-close"] {
   top: 5px !important;
   right: 5px !important;
   width: 16px;
   height: 14px;
   display: grid;
   place-items: center;
+  padding: 0;
+  font-size: 10px;
+  line-height: 1;
   border-radius: 0 !important;
   opacity: 1 !important;
   background: var(--cl-face);
   color: var(--cl-ink);
   box-shadow: var(--cl-raised-thin);
 }
-:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-close"]:active {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) [data-slot="dialog-close"]:active {
   box-shadow: var(--cl-pressed);
 }
-:root[data-theme-pack="classic"] .cl-dlg [data-slot="dialog-close"] svg {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) [data-slot="dialog-close"] svg {
   width: 8px;
   height: 8px;
 }
-:root[data-theme-pack="classic"] .cl-dlg [data-slot="input"] {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) [data-slot="input"] {
   width: calc(100% - 16px) !important;
   height: 22px;
   padding: 2px 4px;
   border-radius: 0;
   font: 12px var(--cl-font);
 }
-:root[data-theme-pack="classic"] .cl-dlg [data-slot="button"] {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) [data-slot="button"] {
   font-size: 12px !important;
   min-height: 23px;
   padding: 0 12px !important;
   border-radius: 0 !important;
 }
-:root[data-theme-pack="classic"] .cl-dlg .mvpick__body {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) .mvpick__body {
   max-height: 240px;
   padding: 3px;
   border: 0;
@@ -542,28 +552,49 @@
   background: var(--cl-field);
   box-shadow: var(--cl-sunken);
 }
-:root[data-theme-pack="classic"] .cl-dlg .mvpick__row {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) .mvpick__row {
   color: var(--cl-ink);
   background: none;
   border-radius: 0;
 }
-:root[data-theme-pack="classic"] .cl-dlg .mvpick__row[data-highlighted] {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) .mvpick__row[data-highlighted] {
   background: var(--cl-sel);
   color: var(--cl-sel-ink);
   outline: 1px dotted #ffff00 !important;
   outline-offset: -1px;
 }
-:root[data-theme-pack="classic"] .cl-dlg .mvpick__row .mvpick__sub {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) .mvpick__row .mvpick__sub {
   color: var(--cl-lo);
 }
-:root[data-theme-pack="classic"] .cl-dlg .mvpick__row[data-highlighted] .mvpick__name,
-:root[data-theme-pack="classic"] .cl-dlg .mvpick__row[data-highlighted] .mvpick__nametext,
-:root[data-theme-pack="classic"] .cl-dlg .mvpick__row[data-highlighted] .mvpick__sub {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) .mvpick__row[data-highlighted] .mvpick__name,
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) .mvpick__row[data-highlighted] .mvpick__nametext,
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) .mvpick__row[data-highlighted] .mvpick__sub {
   color: var(--cl-sel-ink);
 }
-:root[data-theme-pack="classic"] .cl-dlg p {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) p {
   font-size: 12px;
   color: var(--cl-ink);
+}
+
+:root[data-theme-pack="classic"] [data-slot="dialog-content"] > textarea {
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+}
+
+/* The Multi-View notice has no header: its title leads, as the caption. */
+:root[data-theme-pack="classic"] .mvnotice > [data-slot="dialog-title"] {
+  order: -1;
+  align-self: stretch;
+  text-align: left;
+}
+:root[data-theme-pack="classic"] .mvnotice > :last-child {
+  margin-bottom: 8px;
+}
+:root[data-theme-pack="classic"] .mvnotice__list {
+  width: auto;
+}
+:root[data-theme-pack="classic"] .mvnotice__accept {
+  width: calc(100% - 16px) !important;
 }
 
 /* --------------------------------------------------------- the folder menu */
@@ -603,4 +634,11 @@
   margin: 2px 8px 4px;
   font: 11px var(--cl-font);
   color: var(--cl-ink);
+}
+
+/* A Home row's name is renamable in place, the way Explorer renames a file:
+ * plain text until it's being edited, then the sunken white field. */
+:root[data-theme-pack="classic"] .homerows__title:not(:focus) {
+  background: transparent !important;
+  box-shadow: none !important;
 }

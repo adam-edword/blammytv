@@ -292,7 +292,7 @@
 :root[data-theme-pack="classic"] .cl-btn {
   position: relative;
   min-width: 84px;
-  height: 24px;
+  height: 23px;
   padding: 0 12px;
   display: inline-flex;
   align-items: center;

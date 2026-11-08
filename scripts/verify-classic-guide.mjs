@@ -214,7 +214,7 @@ await settle();
 const first = (await names())[0];
 check("Preview: the channel's name and its channel and folder", (await heroName()) === first && /^Channel \d+ · \S/.test(await page.locator(".cl-hero__dim").first().innerText()), await page.locator(".cl-hero__dim").first().innerText());
 const info = await page.locator(".cl-hero__info").innerText();
-check("Preview: Now with its times, and Next", /Now: .+/.test(info) && /\d:\d\d [AP]M – \d:\d\d [AP]M \(\d+ min\)/.test(info) && /Next: .+ at \d:\d\d [AP]M/.test(info), info.replace(/\n+/g, " | "));
+check("Preview: Now with its times, and Next", /Now: .+/.test(info) && /\d:\d\d [AP]M – \d{1,2}:\d\d [AP]M \(\d+ min\)/.test(info) && /Next: .+ at \d{1,2}:\d\d [AP]M/.test(info), info.replace(/\n+/g, " | "));
 const slot = await page.locator("#player-slot").boundingBox();
 const frame = await page.locator(".cl-pv").boundingBox();
 check("Preview: the slot is 16:9 and sits in a 3px black frame", Math.abs(slot.width / slot.height - 16 / 9) < 0.01 && Math.abs(slot.x - frame.x - 3) < 1 && Math.abs(slot.y - frame.y - 3) < 1 && (await css(".cl-pv", "backgroundColor")) === rgb(0, 0, 0) && (await css(".cl-pv", "boxShadow")) !== "none", `${slot.width}x${slot.height}`);
@@ -290,7 +290,7 @@ check("Grid: programmes are white with thin grey lines", (await plain.evaluate((
 const sel = page.locator(".guide__row:has(.guide__channel--selected) .guide__cell--live").first();
 check("Grid: the selected cell is navy with a dotted focus rectangle", (await sel.evaluate((e) => getComputedStyle(e).backgroundColor)) === rgb(10, 36, 106) && (await sel.evaluate((e) => getComputedStyle(e).outlineStyle)) === "dotted");
 check("Grid: the now-line is red and 2px", g.nowW === 2 && (await css(".guide__nowline", "backgroundColor")) === rgb(224, 0, 0));
-check("Grid: cell times are hidden (the aria-label still has them)", (await css(".guide__cell-time", "display")) === "none" && /\d:\d\d [AP]M – \d:\d\d [AP]M/.test((await plain.getAttribute("aria-label")) ?? ""));
+check("Grid: cell times are hidden (the aria-label still has them)", (await css(".guide__cell-time", "display")) === "none" && /\d:\d\d [AP]M – \d{1,2}:\d\d [AP]M/.test((await plain.getAttribute("aria-label")) ?? ""));
 
 // Selecting and scrolling work as they did: a cell click selects its channel,
 // and the row window follows the scroll.

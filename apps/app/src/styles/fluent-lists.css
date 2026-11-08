@@ -54,7 +54,7 @@
   width: 100%;
   height: 32px;
   padding: 0 30px 0 10px;
-  font: 13px/20px var(--fl-font);
+  font: 14px/20px var(--fl-font);
   color: var(--fl-ink);
   background: var(--fl-fill);
   border: 1px solid var(--fl-stroke);
@@ -135,7 +135,9 @@
   padding: 2px 10px 6px;
 }
 
-/* A row: WinUI's ListViewItem, 34px, with the accent pill when selected. */
+/* A row: WinUI's ListViewItem, 34px, with the accent pill when selected. The
+ * right 34px are the follow star's on the Sports list; the Guide's folders
+ * keep them too, so both lists draw a row the same and the counts line up. */
 :root[data-theme-pack="fluent"] .fl-nav {
   position: relative;
   display: flex;
@@ -143,7 +145,7 @@
   gap: 10px;
   width: 100%;
   height: 34px;
-  padding: 0 10px;
+  padding: 0 34px 0 10px;
   font: 13px/20px var(--fl-font);
   text-align: left;
   color: var(--fl-ink);
@@ -211,9 +213,6 @@
 }
 :root[data-theme-pack="fluent"] .fl-leaguerow {
   position: relative;
-}
-:root[data-theme-pack="fluent"] .fl-leaguerow .fl-nav {
-  padding-right: 34px;
 }
 :root[data-theme-pack="fluent"] .fl-leaguerow__star {
   position: absolute;
@@ -285,8 +284,10 @@
 :root[data-theme-pack="fluent"] .fl-btn--accent {
   color: var(--fl-on-accent);
   background: var(--fl-accent);
-  border-color: rgba(255, 255, 255, 0.12);
-  border-bottom-color: rgba(0, 0, 0, 0.3);
+  border-color: transparent;
+  box-shadow:
+    inset 0 -1px 0 rgb(0 0 0 / 0.22),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
 }
 :root[data-theme-pack="fluent"] .fl-btn--accent:hover {
   background: color-mix(in srgb, var(--fl-accent) 90%, var(--fl-on-accent));
@@ -356,7 +357,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 0 14px;
+  padding: 24px 0 14px;
   font-family: var(--fl-font);
 }
 :root[data-theme-pack="fluent"] .fl-head__title {
@@ -643,6 +644,10 @@
 
 /* ------------------------------------------------------------ Sports */
 
+/* The board's 12px under the header band is the title's: .fl-head pads 24px. */
+:root[data-theme-pack="fluent"] .fl-sportsboard {
+  padding-top: var(--header-h, 76px);
+}
 :root[data-theme-pack="fluent"] .fl-sports {
   padding-left: 28px;
   font-family: var(--fl-font);

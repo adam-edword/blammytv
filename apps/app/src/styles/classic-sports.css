@@ -56,7 +56,7 @@
 }
 :root[data-theme-pack="classic"] .cl-tv ul {
   margin-left: 4px;
-  padding-left: 14px;
+  padding-left: 12px;
 }
 :root[data-theme-pack="classic"] .cl-tv li {
   position: relative;
@@ -65,7 +65,7 @@
 :root[data-theme-pack="classic"] .cl-tv ul > li::before {
   content: "";
   position: absolute;
-  left: -14px;
+  left: -12px;
   top: 0;
   height: 100%;
   border-left: 1px dotted var(--cl-lo);
@@ -80,19 +80,20 @@
   gap: 4px;
   height: 18px;
   padding-left: 14px;
+  font: 12px var(--cl-font);
   white-space: nowrap;
   cursor: default;
 }
 :root[data-theme-pack="classic"] .cl-tv ul > li > .cl-tv__n::before {
   content: "";
   position: absolute;
-  left: -14px;
+  left: -12px;
   top: 9px;
-  width: 14px;
+  width: 12px;
   border-top: 1px dotted var(--cl-lo);
 }
 :root[data-theme-pack="classic"] .cl-tv ul > li > .cl-tv__n--leaf::before {
-  width: 28px;
+  width: 26px;
 }
 /* The +/- box: a minus, and a plus when the folder is closed. */
 :root[data-theme-pack="classic"] .cl-tv__bx {
@@ -167,14 +168,14 @@
   flex: none;
   align-self: flex-start;
   min-width: 84px;
-  height: 24px;
+  height: 23px;
   padding: 0 12px;
   border: 0;
   border-radius: 0;
   background: var(--cl-face);
   box-shadow: var(--cl-raised);
   color: var(--cl-ink);
-  font: inherit;
+  font: 12px var(--cl-font);
   cursor: default;
 }
 :root[data-theme-pack="classic"] .cl-sports__clear:active {
@@ -202,7 +203,8 @@
 }
 :root[data-theme-pack="classic"] .cl-sports__day > legend {
   padding: 0 4px;
-  line-height: 15px;
+  font: 12px/15px var(--cl-font);
+  color: var(--cl-ink);
 }
 :root[data-theme-pack="classic"] .cl-sports__day .sports__head {
   justify-content: flex-end;

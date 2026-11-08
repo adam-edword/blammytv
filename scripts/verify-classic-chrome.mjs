@@ -125,6 +125,8 @@ const isMark = (m, size) => m.found && m.size === size && m.path && m.ring && m.
   await page.keyboard.press("Control+k");
   const box = page.locator(".palette--classic");
   await box.waitFor();
+  // The box zooms in as it opens; a hit test mid-animation can miss the ring.
+  await page.waitForFunction(() => document.querySelector(".palette--classic")?.getAnimations({ subtree: true }).every((a) => a.playState !== "running"));
   const goto = await markShape(page, ".palette--classic .brand-mark");
   check("the logo: the Go To box's mark is the real path, 34px", isMark(goto, 34), JSON.stringify(goto));
   await shot(page, "goto");
@@ -228,7 +230,8 @@ const isMark = (m, size) => m.found && m.size === size && m.path && m.ring && m.
     const s = getComputedStyle(el);
     return { w: s.minWidth, h: s.height, shadow: s.boxShadow.includes("inset") };
   });
-  check("pressed: the Guide's push buttons are still push buttons (84px, 24px, raised)", cs.w === "84px" && cs.h === "24px" && cs.shadow, JSON.stringify(cs));
+  // 23px: Windows 2000's push button, the one every Classic screen draws (plan 035, "the same piece looks the same everywhere").
+  check("pressed: the Guide's push buttons are still push buttons (84px, 23px, raised)", cs.w === "84px" && cs.h === "23px" && cs.shadow, JSON.stringify(cs));
   await ctx.close();
 }
 

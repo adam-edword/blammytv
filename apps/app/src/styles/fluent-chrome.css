@@ -274,20 +274,25 @@
 :root[data-theme-pack="fluent"]:has(.flc-flyout) .flc-search {
   visibility: hidden;
 }
+/* WinUI's title bar AutoSuggestBox is a TextBox: 32px, 4px corners, the
+ * control fill and stroke, the accent line under it as it is focused. */
 .flc-flyout .mvpick__head {
-  height: 28px;
+  height: 32px;
   margin: 0;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--fl-r-control);
   border: 1px solid var(--fl-stroke);
   border-bottom: 2px solid var(--accent);
-  background: var(--fl-fly);
-  backdrop-filter: var(--flc-blur);
+  background: var(--fl-fill);
+  backdrop-filter: none;
+  color: var(--fl-ink);
+  font: 14px var(--fl-font);
+}
+.flc-flyout .mvpick__head > svg {
   color: var(--fl-ink-3);
-  font-family: var(--fl-font);
 }
 .flc-flyout .mvpick__input {
-  font: 13px var(--fl-font);
+  font: 14px var(--fl-font);
   color: var(--fl-ink);
 }
 .flc-flyout .mvpick__body {
@@ -509,7 +514,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 22px 28px 0;
+  padding: 24px 28px 0;
 }
 /* "Settings › Appearance". */
 .flc-sx__title {
@@ -542,6 +547,7 @@
   margin: 12px 0 0;
   font-size: 14px !important;
   font-weight: 600 !important;
+  line-height: 20px;
   letter-spacing: 0 !important;
   text-transform: none !important;
   color: var(--fl-ink) !important;
@@ -656,10 +662,22 @@
   font-family: var(--fl-font) !important;
   font-size: 14px !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="input"]:focus, [data-slot="input-group"]:focus-within, .settings-input:focus) {
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="input"]:focus, [data-slot="input-group"]:focus-within, [data-slot="combobox-chips"]:focus-within, .settings-input:focus) {
   border-bottom: 2px solid var(--accent) !important;
-  background: var(--fl-fly) !important;
   outline: none !important;
+}
+/* The chips box (Carousel Catalogs) is the same field, taller as chips wrap. */
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="combobox-chips"]) {
+  min-height: 32px !important;
+  padding-block: 3px !important;
+  border: 1px solid var(--fl-stroke) !important;
+  border-bottom-color: var(--fl-stroke-bt) !important;
+  border-radius: var(--fl-r-control) !important;
+  background: var(--fl-fill) !important;
+  color: var(--fl-ink) !important;
+  box-shadow: none !important;
+  font-family: var(--fl-font) !important;
+  font-size: 14px !important;
 }
 :where(:root[data-theme-pack="fluent"]) :where([data-slot="input-group-control"]) {
   box-shadow: none !important;
@@ -874,4 +892,37 @@
 }
 :where(:root[data-theme-pack="fluent"]) * {
   scrollbar-width: thin;
+}
+
+/* ------------------------------------------------------ ContentDialog
+ * One WinUI ContentDialog for every shared dialog with a visible title (a
+ * DialogContent holding a DialogTitle that isn't sr-only): 8px corners, 24px
+ * of padding, the layer fill and stroke, a 20px semibold title on a 28px
+ * line. The Dialog and the Multi-View notice bring Tailwind sizes from a
+ * later layer, hence the !important. */
+:root[data-theme-pack="fluent"] [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only)) {
+  padding: 24px !important;
+  border: 1px solid var(--fl-stroke) !important;
+  border-radius: var(--fl-r-card) !important;
+  background: var(--fl-base) !important;
+  color: var(--fl-ink);
+  box-shadow: var(--fl-shadow) !important;
+  backdrop-filter: none !important;
+  font-family: var(--fl-font);
+  text-align: left;
+}
+:root[data-theme-pack="fluent"] [data-slot="dialog-content"] > [data-slot="dialog-title"]:not(.sr-only),
+:root[data-theme-pack="fluent"] [data-slot="dialog-content"] > [data-slot="dialog-header"] > [data-slot="dialog-title"] {
+  margin: 0;
+  font: 600 20px/28px var(--fl-font-display) !important;
+  letter-spacing: normal !important;
+  color: var(--fl-ink);
+}
+/* The Multi-View notice is centred in Default: a ContentDialog reads from the left. */
+:root[data-theme-pack="fluent"] .mvnotice {
+  align-items: stretch !important;
+  text-align: left !important;
+}
+:root[data-theme-pack="fluent"] .mvnotice__badge {
+  align-self: flex-start;
 }

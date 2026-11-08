@@ -24,14 +24,14 @@
 /* Buttons */
 :root[data-theme-pack="classic"] .clt-b {
   min-width: 84px;
-  height: 24px;
+  height: 23px;
   padding: 0 12px;
   display: grid;
   place-items: center;
   background: var(--cl-face);
   color: var(--cl-ink);
   border: 0;
-  font: inherit;
+  font: 12px var(--cl-font);
   box-shadow: var(--cl-raised);
   cursor: default;
 }
@@ -54,7 +54,7 @@
 :root[data-theme-pack="classic"] .clt-kvrow dt { color: var(--cl-ink-2); }
 :root[data-theme-pack="classic"] .clt-kvrow dd { margin: 0; }
 :root[data-theme-pack="classic"] .clt-gb { position: relative; margin: 0; min-width: 0; border: 1px solid var(--cl-lo); box-shadow: 1px 1px 0 var(--cl-hi), inset 1px 1px 0 var(--cl-hi); padding: 18px 12px 12px; }
-:root[data-theme-pack="classic"] .clt-gb > legend { position: absolute; top: -8px; left: 9px; padding: 0 4px; background: var(--cl-face); line-height: 15px; }
+:root[data-theme-pack="classic"] .clt-gb > legend { position: absolute; top: -8px; left: 9px; padding: 0 4px; background: var(--cl-face); font: 12px/15px var(--cl-font); color: var(--cl-ink); }
 :root[data-theme-pack="classic"] .clt-gb p { margin: 0; line-height: 1.45; }
 :root[data-theme-pack="classic"] .clt-grow { flex: 1; }
 :root[data-theme-pack="classic"] .clt-cast { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; }

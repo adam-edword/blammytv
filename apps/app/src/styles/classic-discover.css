@@ -26,7 +26,8 @@
   left: 9px;
   padding: 0 4px;
   background: var(--cl-face);
-  line-height: 15px;
+  font: 12px/15px var(--cl-font);
+  color: var(--cl-ink);
 }
 :root[data-theme-pack="classic"] .cl-disc-genres {
   display: flex;
@@ -36,7 +37,7 @@
 :root[data-theme-pack="classic"] .cl-disc-gbtn {
   flex: 1 0 auto;
   min-width: 110px;
-  height: 30px;
+  height: 23px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -45,8 +46,8 @@
   border-radius: 0;
   background: var(--cl-face);
   color: var(--cl-ink);
-  font: 13px var(--cl-font);
-  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-hi), inset -2px -2px var(--cl-lo);
+  font: 12px var(--cl-font);
+  box-shadow: var(--cl-raised);
   cursor: default;
 }
 :root[data-theme-pack="classic"] .cl-disc-gbtn i {
@@ -174,30 +175,6 @@
   background: var(--cl-face);
   box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-light), inset -2px -2px var(--cl-lo), inset 2px 2px var(--cl-hi), 2px 2px 0 rgba(0, 0, 0, 0.3);
 }
-:root[data-theme-pack="classic"] .cl-rec-title {
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 3px 0 6px;
-  color: #fff;
-  font-weight: 700;
-  background: var(--cl-title);
-}
-:root[data-theme-pack="classic"] .cl-rec-x {
-  width: 18px;
-  height: 16px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: var(--cl-face);
-  color: var(--cl-ink);
-  font: 11px var(--cl-font);
-  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-hi);
-  cursor: default;
-}
 :root[data-theme-pack="classic"] .cl-rec-main {
   display: flex;
   min-height: 360px;
@@ -242,26 +219,26 @@
 :root[data-theme-pack="classic"] .cl-rec-field {
   flex: 1;
   min-width: 0;
-  height: 24px;
+  height: 22px;
   padding: 2px 4px;
   border: 0;
   border-radius: 0;
   background: var(--cl-field);
   color: var(--cl-ink);
-  font: 13px var(--cl-font);
+  font: 12px var(--cl-font);
   box-shadow: var(--cl-sunken);
   outline: none;
 }
 :root[data-theme-pack="classic"] .cl-rec-btn {
   min-width: 84px;
-  height: 24px;
+  height: 23px;
   padding: 0 12px;
   border: 0;
   border-radius: 0;
   background: var(--cl-face);
   color: var(--cl-ink);
-  font: 13px var(--cl-font);
-  box-shadow: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-hi), inset -2px -2px var(--cl-lo);
+  font: 12px var(--cl-font);
+  box-shadow: var(--cl-raised);
   cursor: default;
 }
 :root[data-theme-pack="classic"] .cl-rec-btn:active:not(:disabled) {

@@ -174,6 +174,15 @@ const contrast = (a, b) => {
     return { imp, xShadow: x?.boxShadow, xBg: x?.backgroundColor, xSize: r ? [r.width, r.height] : null, radius: x?.borderRadius };
   });
   check("Home: Import Layout and Add Row are bevelled push buttons", home.imp.length === 2 && home.imp.every((s) => s.includes("inset") && s.includes("rgb(64, 64, 64)")), JSON.stringify(home.imp));
+  const rename = async () => page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector(".homerows__title"));
+    return [cs.backgroundColor, cs.boxShadow];
+  });
+  const idle = await rename();
+  await page.locator(".homerows__title").first().focus();
+  const editing = await rename();
+  await page.locator(".homerows__title").first().blur();
+  check("Home: a row's name reads as plain text until it's being renamed, then a sunken white field", idle[0] === "rgba(0, 0, 0, 0)" && idle[1] === "none" && editing[0] === "rgb(255, 255, 255)" && editing[1].includes("inset"), JSON.stringify({ idle, editing }));
   check("Home: a row's x is a small bevelled button on the face", home.xShadow?.includes("inset") && home.xBg === "rgb(212, 208, 200)" && home.xSize?.join() === "18,16" && home.radius === "0px", JSON.stringify(home));
 
   const src = await probe("Sources", () => {

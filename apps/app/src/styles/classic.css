@@ -175,6 +175,34 @@
   opacity: 1 !important;
 }
 
+/* A Button that opens a dialog or a menu takes the trigger's data-slot, not
+ * "button", so the rules above miss it: the same raised face for those. */
+:root[data-theme-pack="classic"] button[data-variant][data-size]:not([data-slot="button"], [data-slot^="combobox"], [data-slot^="input-group"], [data-variant="ghost"], [data-variant="link"], [data-variant="chip"], [role="combobox"], [role="radio"], [role="tab"]):not([data-size^="icon"]) {
+  background: var(--cl-face) !important;
+  color: var(--cl-ink) !important;
+  border: 0 !important;
+  box-shadow: var(--cl-raised) !important;
+  font-family: var(--cl-font) !important;
+  font-weight: 400 !important;
+}
+:root[data-theme-pack="classic"] button[data-variant][data-size]:not([data-slot="button"], [data-slot^="combobox"], [data-slot^="input-group"]):is([aria-expanded="true"], :active):not(:disabled) {
+  box-shadow: var(--cl-pressed) !important;
+}
+
+/* One push button size everywhere: Windows 2000's 23px, 12px Tahoma. The
+ * Button's own sizes (h-10, h-8, h-12) are the Default look; icon, ghost,
+ * link and chip buttons, the tabs and radios, comboboxes and tall tiles keep
+ * theirs. The pack's own buttons (.cl-b, .cl-btn, .clt-b, .cl-tog, .cl-go,
+ * .cl-rec-btn, .cl-disc-gbtn, .cl-sports__clear) say the same in their rules. */
+:root[data-theme-pack="classic"] button[data-variant][data-size]:not([data-size^="icon"], [data-variant="ghost"], [data-variant="link"], [data-variant="chip"], [role="combobox"], [role="radio"], [role="tab"], [class*="h-auto"], :has(+ [data-size="icon"])) {
+  height: 23px !important;
+  min-height: 23px !important;
+  padding: 0 12px !important;
+  border-radius: 0 !important;
+  font-size: 12px !important;
+  line-height: 14px !important;
+}
+
 /* ------------------------------------------------------------- fields */
 :root[data-theme-pack="classic"] input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
 :root[data-theme-pack="classic"] textarea,
@@ -186,6 +214,14 @@
   box-shadow: var(--cl-sunken) !important;
   font-family: var(--cl-font);
   backdrop-filter: none !important;
+}
+/* One text field: 22px, 12px Tahoma, sunken. The shared Input brings its own
+ * h-9 and text-base from a later layer, hence the !important. */
+:root[data-theme-pack="classic"] [data-slot="input"] {
+  height: 22px !important;
+  padding: 2px 4px !important;
+  border-radius: 0 !important;
+  font-size: 12px !important;
 }
 :root[data-theme-pack="classic"] ::placeholder {
   color: var(--cl-lo);
@@ -367,6 +403,7 @@
   padding: 0 6px;
   background: var(--cl-field);
   box-shadow: var(--cl-sunken);
+  font: 12px var(--cl-font);
   min-width: 0;
 }
 :root[data-theme-pack="classic"] .cl-field input {
@@ -377,14 +414,14 @@
   background: transparent !important;
   box-shadow: none !important;
   outline: none !important;
-  font: 13px var(--cl-font);
+  font: 12px var(--cl-font);
 }
 :root[data-theme-pack="classic"] .cl-field input::-webkit-search-cancel-button {
   display: none;
 }
 :root[data-theme-pack="classic"] .cl-go,
 :root[data-theme-pack="classic"] .cl-tog {
-  height: 22px;
+  height: 23px;
   padding: 0 12px;
   display: flex;
   align-items: center;
@@ -392,10 +429,7 @@
   background: var(--cl-face);
   color: var(--cl-ink);
   box-shadow: var(--cl-raised);
-  font: 13px var(--cl-font);
-}
-:root[data-theme-pack="classic"] .cl-tog {
-  height: 26px;
+  font: 12px var(--cl-font);
 }
 :root[data-theme-pack="classic"] .cl-go:active,
 :root[data-theme-pack="classic"] .cl-tog:active,
@@ -431,6 +465,8 @@
   height: 22px;
   background: var(--cl-field);
   box-shadow: var(--cl-sunken);
+  color: var(--cl-ink);
+  font: 12px var(--cl-font);
 }
 :root[data-theme-pack="classic"] .cl-combo select {
   appearance: none;
@@ -439,7 +475,7 @@
   padding: 0 24px 0 6px;
   background: transparent !important;
   box-shadow: none !important;
-  font: 13px var(--cl-font);
+  font: 12px var(--cl-font);
 }
 :root[data-theme-pack="classic"] .cl-combo b {
   position: absolute;
@@ -495,49 +531,56 @@
 }
 
 /* ------------------------------------------- dialogs: title and buttons */
-:root[data-theme-pack="classic"] .cl-title {
-  height: 24px;
+:root[data-theme-pack="classic"] .cl-title,
+:root[data-theme-pack="classic"] .cl-rec-title {
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 3px 0 6px;
+  padding: 0 2px 0 4px;
   color: #fff;
   background: var(--cl-title);
-  font: 700 13px var(--cl-font);
+  font: 700 12px/18px var(--cl-font);
 }
 :root[data-theme-pack="classic"] .cl-title__text {
   margin: 0;
   color: #fff;
-  font: 700 13px var(--cl-font);
+  font: 700 12px/18px var(--cl-font);
 }
 :root[data-theme-pack="classic"] .cl-title__btns {
   display: flex;
   gap: 2px;
 }
-:root[data-theme-pack="classic"] .cl-x {
-  width: 18px;
-  height: 16px;
+:root[data-theme-pack="classic"] .cl-x,
+:root[data-theme-pack="classic"] .cl-rec-x {
+  width: 16px;
+  height: 14px;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   background: var(--cl-face);
   color: var(--cl-ink);
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1;
   box-shadow: var(--cl-raised-thin);
 }
 :root[data-theme-pack="classic"] .cl-x:active,
+:root[data-theme-pack="classic"] .cl-rec-x:active,
 :root[data-theme-pack="classic"] .cl-x[aria-expanded="true"] {
   box-shadow: var(--cl-pressed);
 }
 :root[data-theme-pack="classic"] .cl-b {
   min-width: 76px;
-  height: 24px;
+  height: 23px;
   padding: 0 12px;
   display: grid;
   place-items: center;
   background: var(--cl-face);
   color: var(--cl-ink);
   box-shadow: var(--cl-raised);
-  font: 13px var(--cl-font);
+  font: 12px var(--cl-font);
 }
 :root[data-theme-pack="classic"] .cl-b--def {
   outline: 1px solid #000;
@@ -585,6 +628,7 @@
   height: 22px;
   padding: 0 6px;
   color: var(--cl-ink) !important;
+  font-size: 12px;
 }
 :root[data-theme-pack="classic"] .palette--classic .mvpick__body {
   margin: 12px 14px 0;

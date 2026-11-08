@@ -203,7 +203,11 @@ function measureInPage({ scope, sel, props, split, rel, fn }) {
         const box = (rel ? el.closest(rel) : null) ?? root;
         const inner = box.getBoundingClientRect().left + box.clientLeft + box.clientWidth;
         out[p] = Math.round((inner - el.getBoundingClientRect().right) * 2) / 2;
-      } else out[p] = getComputedStyle(el, pseudo).getPropertyValue(name);
+      } else {
+        out[p] = getComputedStyle(el, pseudo).getPropertyValue(name);
+        // In a left-to-right page "start" is "left": one value, not two.
+        if (name === "text-align" && out[p] === "start") out[p] = "left";
+      }
     }
     return out;
   };
@@ -220,8 +224,12 @@ function measureInPage({ scope, sel, props, split, rel, fn }) {
     const k =
       split === "@tag"
         ? el.tagName.toLowerCase() + (el.type && el.tagName === "INPUT" ? `:${el.type}` : "")
+        : split === "@press"
+          ? el.getAttribute("aria-pressed") === "true" || /--on\b/.test(el.className)
+            ? "pressed in"
+            : "raised"
         : split === "@kind"
-          ? `${el.getAttribute("data-size") ?? "-"}/${el.getAttribute("data-variant") ?? (/--?(accent|def)\b/.test(el.className) ? "accent" : "plain")}`
+          ? `${el.getAttribute("data-size") ?? "-"}/${el.getAttribute("data-variant") ?? (/--?(accent|def)\b/.test(el.className) ? "accent" : "plain")}${el.getAttribute("aria-pressed") === "true" ? "/on" : ""}`
           : (el.getAttribute(split) ?? "-");
     if (!(k in out)) out[k] = read(el);
   }
@@ -409,7 +417,7 @@ const TOP = "[role=dialog]|last";
 piece("dialog title bar", {
   props: [...TEXT, "@h", "padding", "background-image", "background-color"],
   places: {
-    classic: [...at(SET, ".cl-title", "section.settings"), ["Go To", ".cl-title", ".palette--classic"], ["REC wizard", ".cl-rec-title", ".cl-rec-wiz"], ...at(DIALOGS, ".cl-title, .cl-rec-title", TOP)],
+    classic: [...at(SET, ".cl-title", "section.settings"), ["Go To", ".cl-title", ".palette--classic"], ["REC wizard", ".cl-rec-title", ".cl-rec-wiz"], ...at(DIALOGS, '.cl-title, .cl-rec-title, [data-slot="dialog-title"]', TOP)],
     fluent: [],
   },
 });
@@ -423,7 +431,8 @@ piece("dialog title", {
 piece("dialog close and help buttons", {
   props: ["@w", "@h", "font-size", "color", "background-color", "box-shadow", "border-top-width"],
   places: {
-    classic: [...at(SET, '.cl-x[aria-label="Close settings"]', "section.settings"), ["Go To", ".cl-x", ".palette--classic"], ["REC wizard", ".cl-rec-x", ".cl-rec-wiz"]],
+    classic: [...at(SET, '.cl-x[aria-label="Close settings"]', "section.settings"), ["Go To", ".cl-x", ".palette--classic"], ["REC wizard", ".cl-rec-x", ".cl-rec-wiz"], ...at(["Import Layout", "Fix Guide"], '[data-slot="dialog-close"]', TOP)],
+    // The Multi-View intro has none: only Got It dismisses it.
     fluent: [],
   },
 });
@@ -442,22 +451,34 @@ piece("settings tab strip", {
   props: ["@x", "@y", "@w", "@h"],
   places: { classic: at(SET, ".cl-tabs", "section.settings"), fluent: at(SET, ".flc-sx__cats", ".flc-sx") },
 });
+// A selected tab is taller than the others (Windows draws it so), so each is
+// compared with the same kind: the selected ones together, the rest together.
 piece("settings tab", {
   props: [...TEXT, "@h", "padding"],
+  split: "aria-selected",
   places: { classic: at(SET, '[role="tab"]', ".cl-tabs"), fluent: at(SET, '[role="tab"]', ".flc-sx__cats") },
 });
 
 // ---- settings content -----------------------------------------------------
 piece("section heading", {
+  optional: true,
   props: [...TEXT, "margin-bottom"],
   places: {
     classic: [
-      ...at(SET, ".settings__group", BODY.classic),
+      ...at(SET, ".cl-group > legend", BODY.classic),
       ["Discover", ".cl-disc-gb > legend", "main.app-main"],
       ["Sports", ".cl-sports__day > legend", "main.app-main"],
       ["Film", ".clt-gb > legend", "main.app-main"],
     ],
-    fluent: at(SET, ".settings__group", BODY.fluent),
+    // Fluent hides the h3 that repeats the breadcrumb: only a heading that
+    // is drawn counts. Home's is the Home Rows editor's own.
+    fluent: [
+      ...at(SET, ".settings__group", BODY.fluent),
+      ["Settings/Home", ".homerows .xtedit__minehead .customize-row__title", BODY.fluent],
+      // Sources and Accounts head their groups with a section's own title.
+      ["Settings/Sources", ".settings-section__list-title", BODY.fluent],
+      ["Settings/Accounts", ".settings-section__list-title", BODY.fluent],
+    ],
   },
 });
 piece("section frame", {
@@ -465,7 +486,7 @@ piece("section frame", {
   props: FRAME,
   places: {
     classic: [
-      ...at(SET, ".settings-section", BODY.classic),
+      ...at(SET, "fieldset.cl-group", BODY.classic),
       ["Discover", "fieldset.cl-disc-gb", "main.app-main"],
       ["Sports", "fieldset.cl-sports__day", "main.app-main"],
       ["Film", "fieldset.clt-gb", "main.app-main"],
@@ -473,10 +494,16 @@ piece("section frame", {
     fluent: at(SET, ".settings-section", BODY.fluent),
   },
 });
+// Home lists its rows in the Home Rows editor (.xtrow); "Home Rows" above them
+// is a heading, and is measured with the section headings.
+const NOT_HOME = SET.filter((r) => r !== "Settings/Home");
 piece("setting row title", {
   optional: true,
   props: TEXT,
-  places: setting(".customize-row__title"),
+  places: {
+    classic: at(SET, ".customize-row__title", BODY.classic),
+    fluent: [...at(NOT_HOME, ".customize-row__title", BODY.fluent), ["Settings/Home", ".homerows .xtrow__name", BODY.fluent]],
+  },
 });
 piece("setting row description", {
   optional: true,
@@ -493,7 +520,7 @@ piece("setting row card", {
   props: [...FRAME, "padding"],
   places: {
     classic: [],
-    fluent: [["Settings/Home", ".homerows"], ...at(["Settings/Playback", "Settings/Appearance", "Settings/App"], ".customize-row[data-setting], .customize-stack[data-setting]")].map(([r, s]) => [r, s, BODY.fluent]),
+    fluent: [["Settings/Home", ".homerows .xtrow"], ...at(["Settings/Playback", "Settings/Appearance", "Settings/App"], ".customize-row[data-setting], .customize-stack[data-setting]")].map(([r, s]) => [r, s, BODY.fluent]),
   },
 });
 
@@ -504,7 +531,7 @@ const BTN_EXCL = ':not([data-size^="icon"]):not([data-variant="ghost"]):not([dat
 // Left out: the Theme cards (tall tiles, h-auto) and a split button's main half
 // (its other corners are square on purpose).
 const BTN = {
-  classic: `button[data-size][data-variant]${BTN_EXCL}, .cl-b, .clt-b, .cl-tog:not(.cl-rec), .cl-hero__btns .cl-btn, .cl-disc-gbtn`,
+  classic: `button[data-size][data-variant]${BTN_EXCL}, .cl-b, .clt-b, .cl-tog:not(.cl-rec), .cl-hero__btns .cl-btn, .cl-disc-gbtn, .cl-rec-btn, .cl-sports__clear`,
   fluent: `button[data-size][data-variant]${BTN_EXCL}, .fls-btn:not(.fls-btn--icon), .fl-btn:not(.fl-btn--icon)`,
   // Classic's Discover search sits in the address bar, with its own Go button.
   extra: { classic: [["Discover", ".cl-go", ".cl-header"]] },
@@ -516,7 +543,9 @@ const where = (sel) => ({
 piece("push button", {
   optional: true,
   props: ["@h", "font-size", "font-weight", "font-family", "border-radius", "border-top-width", "border-top-style", "box-shadow", "text-transform"],
-  split: "@kind",
+  // Classic ignores size and variant (one push button, raised or pressed in);
+  // Fluent keeps a look per variant.
+  split: { classic: "@press", fluent: "@kind" },
   places: where(BTN),
 });
 piece("push button shape", {
@@ -537,11 +566,11 @@ piece("text field", {
       ["Go To", ".mvpick__input", ".palette--classic"],
       ["REC wizard", ".cl-rec-field", ".cl-rec-wiz"],
       ["Fix Guide", FIELD, TOP],
-      ["Discover", ".cl-header input"],
+      ["Discover", ".cl-header .cl-field:has(input)"],
     ],
     fluent: [
       ...at(SET, ".settings-input", BODY.fluent),
-      ["Go To", ".mvpick__input", ".flc-flyout"],
+      ["Go To", ".mvpick__head", ".flc-flyout"],
       ["Fix Guide", FIELD, TOP],
       ["Discover", ".fls-search", "main.app-main"],
       ["Sports", ".fl-filter input", "main.app-main"],
@@ -556,7 +585,7 @@ piece("combo box", {
   optional: true,
   props: ["@h", "font-size", "font-family", "color", "border-radius", "border-top-width", "box-shadow", "background-color"],
   places: {
-    classic: [...at(SET, COMBO, BODY.classic), ["Discover", ".cl-combo", "main.app-main"]],
+    classic: [...at(SET, COMBO, BODY.classic), ["Discover", ".cl-combo", ".cl-header"]],
     fluent: [...at(SET, COMBO, BODY.fluent), ["Discover", ".fls-combo", "main.app-main"]],
   },
 });
@@ -614,7 +643,7 @@ piece("page title", {
       ["Home screen", ".fls-page-title", "main.app-main"],
       ["Stream screen", ".fls-page-title", "main.app-main"],
       ["Discover", ".fls-page-title", "main.app-main"],
-      ["Library", ".library__lists .media-row__title", "main.app-main"],
+      ["Library", ".fls-page-title", "main.app-main"],
       ["Sports", ".fl-head__title", "main.app-main"],
       ["Guide", ".fl-head__title", "main.app-main"],
       ["Settings/Home", ".flc-sx__title", ".flc-sx"],
@@ -678,7 +707,7 @@ for (const P of PACKS) {
     }
     for (const [pname, d] of wanted) {
       for (const [r, sel, scope, label] of d.places[family].filter(([r]) => r === rname)) {
-        const got = await page.evaluate(measureInPage, { scope, sel, props: d.props, split: d.split, rel: d.rel, fn: d.fn });
+        const got = await page.evaluate(measureInPage, { scope, sel, props: d.props, split: d.split?.[family] ?? d.split, rel: d.rel, fn: d.fn });
         const into = ((seen[pname] ??= {})[label ?? r] ??= {});
         if (!got.__scope) for (const [k, v] of Object.entries(got)) into[k] ??= v;
       }

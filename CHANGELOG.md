@@ -2,6 +2,22 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.7: Classic and Fluent, consistent everywhere
+
+- **The BlammyTV logo** is the real one in every theme. Classic and Fluent
+  drew a square in its place.
+- **Classic:** the toolbar shows which page you're on; the player's text
+  reads on video; Multi-View's bar sits under the toolbar; the Go To box's
+  close button works; the address names the open film or Settings page.
+  Settings holds one size on every tab, with group boxes, a scrollbar and
+  Windows 2000 buttons, fields and combo boxes. In the Guide and Sports
+  trees, clicking a folder selects it and the +/− box opens it. Every
+  dialog has the same title bar.
+- **Fluent:** every Settings page uses the same cards, buttons and
+  headings; Multi-View has Windows 11 controls; the pane folds to icons in
+  a narrow window; page titles line up on every page; menus are Windows 11
+  menus.
+
 ## 1.2.6: Classic, and Fluent as a real Windows 11 app
 
 - **Classic**, a new theme in Settings → Appearance: BlammyTV as a Windows
