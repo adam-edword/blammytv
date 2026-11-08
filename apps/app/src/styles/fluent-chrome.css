@@ -106,7 +106,7 @@
   align-items: center;
 }
 .flc-title__right .update-chip {
-  height: 24px;
+  height: 24px !important;
 }
 
 /* The pill that IS Ctrl+K: centred on the window, a Windows 11 Settings

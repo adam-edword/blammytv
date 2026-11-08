@@ -648,8 +648,13 @@ check(
         return cls.length && cls.every((c) => onButton.has(c));
       });
       if (allMine) {
+        // An `!important` declaration beats the utilities layer, so it is not
+        // dead. The theme packs restyle shared Buttons this way (Classic and
+        // Fluent, 1.2.6) because a pack can't change the JSX; the default
+        // theme still never does.
         const props = m[2]
           .split(";")
+          .filter((d) => !/!important\s*$/.test(d.trim()))
           .map((d) => d.trim().split(":")[0].trim())
           .filter((p) => OWNED.has(p));
         if (props.length) dead.push(`${f} ${arms[0]} { ${props.join(", ")} }`);

@@ -145,7 +145,11 @@ check("classic: a genre button opens that genre's rows",
   rows.includes("Fake Movie Two") && !rows.includes("Fake Movie One"), rows.join(", "));
 check("classic: and shows pressed", (await page.locator(".cl-disc-gbtn[aria-pressed=true]").textContent()) === "Comedy");
 await page.locator(".cl-disc-gbtn", { hasText: "Comedy" }).click();
-await page.waitForSelector(".cl-disc-thumbs", { timeout: 10_000 });
+// The grid mounts before its catalog fills on a slow runner (CI, 1.2.6):
+// wait for the titles, not just the container.
+await page.waitForFunction(
+  (n) => document.querySelectorAll('.cl-disc-thumbs [role="option"]').length >= n,
+  defTitles.length, { timeout: 10_000 }).catch(() => {});
 check("classic: pressing it again clears the genre",
   (await page.locator(".cl-disc-gbtn[aria-pressed=true]").count()) === 0 &&
   (await page.locator('.cl-disc-thumbs [role="option"]').count()) >= defTitles.length);

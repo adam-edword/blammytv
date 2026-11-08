@@ -113,8 +113,8 @@
   width: 6px;
   height: 6px;
   margin: 0 0 2px 8px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
   transform: rotate(45deg);
 }
 :root[data-theme-pack="fluent"] .fl-caption--toggle[aria-expanded="true"]::after {

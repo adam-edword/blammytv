@@ -889,7 +889,7 @@
   .fls-rec .rec__chip {
     height: 32px !important;
     padding: 0 16px !important;
-    gap: 8px;
+    gap: 8px !important;
     border: 1px solid var(--fl-stroke) !important;
     border-bottom-color: var(--fl-stroke-bt) !important;
     border-radius: var(--fl-r-control) !important;
