@@ -243,6 +243,12 @@ const contrast = (a, b) => {
   }, shot);
   check("Appearance: Titles per Row is a trackbar: no platform slider, a sunken groove and a raised thumb drawn in the bevel greys", app.hasSlider && app.appearance === "none" && app.sliderH === 24 && px.dk >= 30 && px.lo >= 30, JSON.stringify({ ...app, ...px }));
   check("Appearance: the catalogs field is one sunken white box, not a field inside a field", app.chipsBg === "rgb(255, 255, 255)" && app.chipsShadow.includes("inset") && app.innerShadow === "none", JSON.stringify(app));
+  // Pickers are content: each swatch shows its own colour, each theme card its preview (1.2.7 painted them over).
+  const pick = await page.evaluate(() => ({
+    swatches: [...document.querySelectorAll('[data-picker="swatch"]')].map((e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e).backgroundImage, e.style.getPropertyValue("--swatch")]),
+    cards: [...document.querySelectorAll('[data-picker="theme"]')].map((e) => Math.round(e.getBoundingClientRect().height)),
+  }));
+  check("Appearance: every accent swatch shows its own colour and every theme card its preview", pick.swatches.length >= 8 && pick.swatches.every(([bg, img, want]) => want.startsWith("#") ? bg === `rgb(${parseInt(want.slice(1, 3), 16)}, ${parseInt(want.slice(3, 5), 16)}, ${parseInt(want.slice(5, 7), 16)})` : img.includes("gradient")) && pick.cards.length >= 6 && pick.cards.every((h) => h > 60), JSON.stringify(pick));
 
   const appTab = await probe("App", () => {
     const b = [...document.querySelectorAll("button")].find((e) => e.textContent.includes("Licenses and Source Code"));

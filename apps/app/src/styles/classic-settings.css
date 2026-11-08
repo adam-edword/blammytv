@@ -642,3 +642,11 @@
   background: transparent !important;
   box-shadow: none !important;
 }
+
+/* The accent swatches keep their colour: the push-button face above would
+ * paint over the inline one. */
+/* As specific as the Settings button rules above (their :not()s count), and
+ * later, so it wins on and off. */
+:root[data-theme-pack="classic"] .settings--classic button[data-variant][data-picker="swatch"][aria-pressed]:not([data-slot^="combobox"]):not([class*="underline-offset"]) {
+  background: var(--swatch) !important;
+}

@@ -237,3 +237,21 @@
 .flc-sx .meta-pick__chip[aria-pressed="false"]:hover {
   background: color-mix(in srgb, var(--fl-ink) 6%, var(--fl-fill)) !important;
 }
+
+/* Pickers are content, not buttons: the swatches keep their colour (a
+ * rounded square, as Windows' own accent swatches) and a theme card keeps
+ * its preview, with the accent as its border when chosen, not its fill. */
+:root[data-theme-pack="fluent"] [data-picker="swatch"] {
+  background: var(--swatch) !important;
+  border-color: transparent !important;
+}
+:root[data-theme-pack="fluent"] [data-picker="theme"] {
+  height: auto !important;
+  padding: 8px !important;
+  background: var(--fl-fill) !important;
+  color: var(--fl-ink) !important;
+  font-size: 12px !important;
+}
+:root[data-theme-pack="fluent"] [data-picker="theme"][aria-pressed="true"] {
+  border: 2px solid var(--accent) !important;
+}

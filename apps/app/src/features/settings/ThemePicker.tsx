@@ -34,6 +34,7 @@ export function ThemePicker({
             type="button"
             aria-pressed={on}
             aria-label={p.label}
+            data-picker="theme"
             className={"h-auto w-[116px] flex-col items-stretch gap-2 rounded-xl p-2" + (on ? ` ${ON_RING}` : "")}
             onClick={() => onChange(p.key)}
           >

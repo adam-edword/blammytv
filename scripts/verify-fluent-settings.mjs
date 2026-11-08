@@ -236,6 +236,14 @@ const survey = (page) =>
       await page.locator('[data-setting="shortcuts"] button').click();
     }
   }
+  await page.locator(`.flc-sx [data-rail="appearance"]`).click();
+  await page.waitForTimeout(500);
+  // Pickers are content: each swatch shows its own colour, each theme card its preview (1.2.7 painted them over).
+  const pick = await page.evaluate(() => ({
+    swatches: [...document.querySelectorAll('[data-picker="swatch"]')].map((e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e).backgroundImage, e.style.getPropertyValue("--swatch")]),
+    cards: [...document.querySelectorAll('[data-picker="theme"]')].map((e) => Math.round(e.getBoundingClientRect().height)),
+  }));
+  check("Appearance: every accent swatch shows its own colour and every theme card its preview", pick.swatches.length >= 8 && pick.swatches.every(([bg, img, want]) => want.startsWith("#") ? bg === `rgb(${parseInt(want.slice(1, 3), 16)}, ${parseInt(want.slice(3, 5), 16)}, ${parseInt(want.slice(5, 7), 16)})` : img.includes("gradient")) && pick.cards.length >= 6 && pick.cards.every((h) => h > 60), JSON.stringify(pick));
   check("every page's cards are the same card", sigs.size === 1, JSON.stringify([...sigs]));
   const off = ends.filter((e) => Math.abs(e.inset - 17) > 1);
   check("every row's controls end on one right edge (the card's inset)", ends.length >= 20 && off.length === 0, `${ends.length} rows${off.length ? `, off: ${JSON.stringify(off)}` : ""}`);

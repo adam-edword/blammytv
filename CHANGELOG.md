@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.8: Accent colours show again
+
+- In Classic and Fluent, Settings → Appearance's accent swatches showed no
+  colour, and in Fluent the theme cards lost their previews. Both are back.
+
 ## 1.2.7: Classic and Fluent, consistent everywhere
 
 - **The BlammyTV logo** is the real one in every theme. Classic and Fluent

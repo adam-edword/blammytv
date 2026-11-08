@@ -142,8 +142,13 @@ export function AccentPicker({
         // Half each theme's ink, because the default is not a colour: it is
         // near-white on dark and near-black on light, and a single fill
         // would claim otherwise.
+        data-picker="swatch"
         style={{
           background: theme
+            ? theme.hex
+            : "linear-gradient(135deg, var(--color-foreground) 50%, var(--color-background) 50%)",
+          // The theme packs paint every Button's face; this gives the swatch back.
+          ["--swatch" as string]: theme
             ? theme.hex
             : "linear-gradient(135deg, var(--color-foreground) 50%, var(--color-background) 50%)",
         }}
@@ -176,10 +181,12 @@ export function AccentPicker({
             // cannot repaint the swatch: an inline value outranks every
             // utility. `color` is the tick, in whichever of black or white
             // reads on this swatch (the same rule `--accent-ink` uses).
+            data-picker="swatch"
             style={{
               backgroundColor: p.hex,
               borderColor: p.hex,
               color: inkFor(p.hex),
+              ["--swatch" as string]: p.hex,
             }}
             onClick={() => pick(p.hex)}
           >
