@@ -86,6 +86,11 @@ import { useTraktRows } from "../home/useTraktRows";
 import { hasLivePlaylist } from "../settings/startupSources";
 import { loadAiojf, AIOJF_SYNCED } from "../aiojf/store";
 import { SaveButton } from "./SaveButton";
+import { useFluent } from "../fluent/useFluent";
+import { FlPageTitle } from "../fluent/stream/controls";
+import { FluentEpisodes } from "../fluent/stream/FluentEpisodes";
+import { FluentHero } from "../fluent/stream/FluentHero";
+import { FluentTitle } from "../fluent/stream/FluentTitle";
 import { isOut, nextEpisode, nextUpEpisode, openingSeason, pickCachedIndex, pickResumeIndex } from "./mapper";
 import { dropPrefetch, prefetchSources, takePrefetched } from "./prefetch";
 import type { SkipRange } from "./aniskip";
@@ -2363,7 +2368,9 @@ interface RowData {
 /** The carousel, in the style Appearance picks. Whether it is wanted at all is
  * the caller's: Stream's Featured Carousel switch, Home's row switch. */
 function CarouselRow({ d }: { d: RowData }) {
+  const fluent = useFluent();
   if (d.featured.length === 0) return null;
+  if (fluent) return <FluentHero items={d.featured} onOpen={d.onOpen} onWatchNow={d.onWatchNow} />;
   return loadHeroStyle() === "large" ? (
     <LargeHero items={d.featured} onOpen={d.onOpen} onWatchNow={d.onWatchNow} />
   ) : (
@@ -2462,6 +2469,7 @@ function Home({
   onSourcesWatching: (e: WatchEntry) => void;
   onRetry: () => void;
 }) {
+  const fluent = useFluent();
   // Read during render rather than into state: App owns the Settings
   // modal, so closing it re-renders this tree and the change lands then.
   // Not live WHILE Settings is open, unlike cardMeta below — the modal is
@@ -2697,6 +2705,7 @@ function Home({
       );
     return (
       <>
+        {fluent && <FlPageTitle>Home</FlPageTitle>}
         {/* Pinned to the top, outside the rows, as on Stream. */}
         {drawn.some((r) => r.kind === "carousel") && <CarouselRow d={d} />}
         <div className="stream__rows">
@@ -2773,6 +2782,7 @@ function Home({
     );
   return (
     <>
+      {fluent && <FlPageTitle>Stream</FlPageTitle>}
       {/* Entirely, and with no gap: the rows are the next element, so
         * turning it off just lets them start at the top. */}
       {showHero && <CarouselRow d={d} />}
@@ -3866,6 +3876,7 @@ function Detail({
     };
   }, [item.id, item.kind, item.from, moreGenre, episodeId, onOpenItem]);
   const [sourcesTick, setSourcesTick] = useState(0);
+  const fluent = useFluent();
   useEffect(() => {
     let stale = false;
     setSources(null);
@@ -3883,6 +3894,28 @@ function Detail({
     };
   }, [item.kind, item.id, item.from, episodeId, sourcesTick]);
 
+  if (fluent)
+    return (
+      <FluentTitle
+        item={item}
+        meta={[
+          item.year,
+          item.runtimeMin ? `${item.runtimeMin} min` : null,
+          item.rating ? `★ ${item.rating.toFixed(1)}` : null,
+          item.kind === "movie" ? watchedOn(item.id) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        episodeLabel={episodeLabel}
+        sources={sources}
+        notices={notices}
+        onRetry={() => setSourcesTick((t) => t + 1)}
+        onBack={onBack}
+        onPlaySource={onPlaySource}
+        more={more}
+        onOpenItem={onOpenItem}
+      />
+    );
   if (classic)
     return (
       <ClassicTitle
@@ -4115,6 +4148,42 @@ function Episodes({
   const season =
     item.seasons[Math.min(seasonIdx, Math.max(0, item.seasons.length - 1))];
   const now = Date.now();
+  const fluent = useFluent();
+  if (fluent)
+    return (
+      <FluentEpisodes
+        item={item}
+        meta={[
+          item.year,
+          item.seasons.filter((s) => s.number > 0).length
+            ? `${item.seasons.filter((s) => s.number > 0).length} seasons`
+            : null,
+          item.rating ? `★ ${item.rating.toFixed(1)}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        metaState={metaState}
+        onRetryMeta={onRetryMeta}
+        onBack={onBack}
+        seasonIdx={seasonIdx}
+        onSeason={(i) => {
+          pickedSeasonRef.current = true; // user override wins
+          setSeasonIdx(i);
+        }}
+        season={season}
+        watched={watched}
+        entry={entry}
+        nextUp={nextUp}
+        now={now}
+        onPick={(s, e) =>
+          onPick(e.id, `S${s.number} · E${e.number}: ${e.title}`, {
+            season: s.number,
+            episode: e.number,
+            title: e.title,
+          })
+        }
+      />
+    );
   if (classic)
     return (
       <ClassicEpisodes

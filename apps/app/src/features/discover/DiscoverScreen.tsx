@@ -84,6 +84,8 @@ import { onPlaylistsChange } from "../settings/playlists";
 import { XT_CHANGED } from "../xtvod/store";
 import { XT_LOADED, xtDiscoverKey } from "../xtvod/vod";
 import { readDiscoverSession, saveDiscoverSession } from "./session";
+import { useFluent } from "../fluent/useFluent";
+import { FluentDiscoverBar } from "../fluent/stream/FluentDiscoverBar";
 
 /**
  * Discover: search-free exploration of the addon's catalogs. A pill
@@ -117,6 +119,7 @@ type Cfg =
   | { status: "error"; message: string };
 
 export function DiscoverScreen({ home }: { home?: number } = {}) {
+  const fluent = useFluent();
   // Where this tab was when it was last unmounted (a tab flip). Read once,
   // at mount: everything below seeds from it instead of starting over.
   const classic = useClassic();
@@ -701,6 +704,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         posters={items.map((i) => i.poster ?? "").filter(Boolean).slice(0, 12)}
         onOpen={open}
         onClose={goBack}
+        onBack={goBack}
       />
     );
 
@@ -746,6 +750,15 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
         lastScroll.current = e.currentTarget.scrollTop;
       }}
     >
+      {fluent && (
+        <FluentDiscoverBar
+          filter={filter}
+          genre={genre}
+          genres={cfg.status === "ready" ? cfg.cfg.genres : []}
+          onGenre={setGenre}
+          query={query}
+        />
+      )}
       {searching ? (
         <section className="discover__gridwrap">
           <h3 className="media-row__title">Results for “{q}”</h3>
@@ -795,7 +808,7 @@ export function DiscoverScreen({ home }: { home?: number } = {}) {
           onPick={(g) => setGenre(g)}
         />
       )}
-      {cfg.status === "ready" && cfg.cfg.genres.length > 0 && !classic && (
+      {!fluent && cfg.status === "ready" && cfg.cfg.genres.length > 0 && !classic && (
         <section className="media-row discover__genres">
           <h3 className="media-row__title">By Genre</h3>
           <RowScroller>

@@ -20,6 +20,7 @@
  "verify-fetchvulkan": 1,
  "verify-fluent-lists": 60,
  "verify-fluent-chrome": 60,
+ "verify-fluent-stream": 200,
  "verify-genrerows": 41,
  "verify-glass": 19,
  "verify-guide-dups": 10,

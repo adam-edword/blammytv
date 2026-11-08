@@ -150,7 +150,7 @@ export function SourceList({
  * which is plain text and can't draw that, says "½". */
 const HALF_STARS = /[\u2BE8-\u2BEB]/g;
 
-function Line({ text }: { text: string }) {
+export function Line({ text }: { text: string }) {
   const parts = text.split(/([\u2BE8-\u2BEB])/);
   if (parts.length === 1) return text;
   return parts.map((p, i) => {

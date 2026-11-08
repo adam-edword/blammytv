@@ -1,0 +1,959 @@
+/* Fluent's Stream screens (plan 035, "Fluent to tier 3"): Home's body, Stream's
+ * home, a film's page and its sources, a series' episodes, Discover's body
+ * and the recommender. Windows 11's WinUI 3 look, on the --fl-* tokens
+ * (fluent-tokens.css) in both faces: nothing here names a colour, so Light
+ * needs no rules of its own.
+ *
+ * Every rule sits under :root[data-theme-pack="fluent"], which is what makes
+ * this a no-op for every other theme. The classes are `fls-` (Fluent Stream)
+ * so they can't meet the chrome's or another screen's `fl-` ones.
+ *
+ * Specificity does the work, not order: this sheet is imported before
+ * stream.css and discover.css, so each selector is written heavier than the
+ * rule it paints over. The shadcn Buttons that Stream's screens still draw
+ * (the Save split button, the recommender's) carry utility classes, which
+ * outrank the app layer, so the handful of properties they set are said
+ * again with !important. That is the only !important here besides the lean
+ * the poster cards switch off (react-parallax-tilt writes it inline). */
+
+:root[data-theme-pack="fluent"] {
+  --fls-gut: 32px;
+
+  /* The page's frame: the chrome's layer holds the page, so the screens pad
+   * themselves, not clear of a floating header. */
+  .stream:not(.stream--full),
+  .discover {
+    --gut: var(--fls-gut);
+    padding: 24px var(--fls-gut) 40px;
+    color: var(--fl-ink);
+    font-family: var(--fl-font);
+  }
+  .stream--full {
+    color: var(--fl-ink);
+    font-family: var(--fl-font);
+  }
+
+  /* .stream is a flex column that scrolls: its children keep their size. */
+  .fls-page-title {
+    flex: none;
+    margin: 0 0 18px;
+    font: 600 28px/36px var(--fl-font-display);
+    color: var(--fl-ink);
+  }
+
+  /* ---- Standard and accent buttons: the WinUI elevation border (the bottom
+   * edge a shade darker), 4px corners, 32px tall. ---- */
+  .fls-btn,
+  .fls-search,
+  .fls-combo {
+    border: 1px solid var(--fl-stroke);
+    border-bottom-color: var(--fl-stroke-bt);
+    border-radius: var(--fl-r-control);
+    background: var(--fl-fill);
+    color: var(--fl-ink);
+    font: 400 14px/20px var(--fl-font);
+  }
+  .fls-btn {
+    height: 32px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .fls-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--fl-ink) 10%, var(--fl-base));
+  }
+  .fls-btn:active:not(:disabled) {
+    background: var(--fl-sub);
+    color: var(--fl-ink-2);
+  }
+  .fls-btn:disabled {
+    background: var(--fl-sub);
+    color: var(--fl-ink-3);
+    border-bottom-color: var(--fl-stroke);
+    cursor: default;
+  }
+  .fls-btn--accent {
+    background: var(--fl-accent);
+    color: var(--fl-on-accent);
+    border-color: transparent;
+    box-shadow:
+      inset 0 -1px 0 rgb(0 0 0 / 0.22),
+      inset 0 1px 0 rgb(255 255 255 / 0.12);
+  }
+  .fls-btn--accent:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--fl-accent) 90%, var(--fl-base));
+  }
+  .fls-btn--accent:active:not(:disabled) {
+    background: color-mix(in srgb, var(--fl-accent) 80%, var(--fl-base));
+    color: color-mix(in srgb, var(--fl-on-accent) 70%, transparent);
+  }
+  .fls-btn--accent:disabled {
+    background: var(--fl-sub);
+    box-shadow: none;
+  }
+
+  /* The double focus ring: 2px outside, 1px inside. */
+  :is(
+      .fls-btn,
+      .fls-back,
+      .fls-chip,
+      .fls-pill,
+      .fls-pip,
+      .fls-src,
+      .fls-ep,
+      .fls-selector .seg__opt,
+      .vod-save,
+      .rec__chip,
+      .rec__go,
+      .rec__again,
+      .rec__card
+    ):focus-visible,
+  .fls-combo:has(.fls-combo__select:focus-visible),
+  .fls-eps .fls-ep:focus-visible {
+    outline: 2px solid var(--fl-focus-out);
+    outline-offset: 0;
+    box-shadow: inset 0 0 0 1px var(--fl-focus-in);
+  }
+  .fls-src:focus-visible {
+    outline-offset: -2px;
+  }
+
+  /* ---- ComboBox: "Label: Value" and a chevron, over a native select. ---- */
+  .fls-combo {
+    position: relative;
+    height: 32px;
+    min-width: 150px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .fls-combo__label {
+    color: var(--fl-ink-3);
+  }
+  .fls-combo__select {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0 20px 0 0;
+    border: 0;
+    outline: none;
+    appearance: none;
+    background: none;
+    color: var(--fl-ink);
+    font: inherit;
+    cursor: pointer;
+  }
+  .fls-combo__select option {
+    background: var(--fl-base);
+    color: var(--fl-ink);
+  }
+  .fls-combo__chev {
+    position: absolute;
+    right: 12px;
+    color: var(--fl-ink-2);
+    pointer-events: none;
+  }
+
+  /* ---- SelectorBar: text options, the chosen one in full ink with the
+   * accent underline. It is Segmented (so its keys, its scroll and its thumb
+   * come with it), repainted: no glass, the thumb a 3px line under the
+   * option, drawn narrower than it by a transparent border. ---- */
+  .seg.fls-selector {
+    padding: 0;
+    gap: 4px;
+    border-radius: 0;
+    background: none;
+    backdrop-filter: none;
+  }
+  .seg.fls-selector .seg__thumb {
+    top: auto;
+    bottom: 2px;
+    height: 3px;
+    box-sizing: border-box;
+    border-inline: 12px solid transparent;
+    border-radius: 2px;
+    background: var(--fl-accent);
+    background-clip: content-box;
+  }
+  .seg.fls-selector .seg__opt {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: var(--fl-r-control);
+    color: var(--fl-ink-3);
+    font: 400 14px/20px var(--fl-font);
+  }
+  .seg.fls-selector .seg__opt:hover {
+    background: var(--fl-sub);
+    color: var(--fl-ink);
+  }
+  .seg.fls-selector .seg__opt.is-on {
+    color: var(--fl-ink);
+    font-weight: 600;
+  }
+  .seg.season-bar.fls-selector {
+    width: 100%;
+    margin: 16px 0 8px;
+    border-bottom: 1px solid var(--fl-stroke);
+  }
+
+  /* ---- Home: the banner ---- */
+  .fls-banner {
+    position: relative;
+    flex: none;
+    height: clamp(260px, 40vh, 360px);
+    margin-bottom: 24px;
+    border: 1px solid var(--fl-stroke);
+    border-radius: var(--fl-r-card);
+    overflow: hidden;
+    background: var(--fl-fill);
+    color: #fff;
+  }
+  .fls-banner__art {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .fls-banner__scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgb(0 0 0 / 0.62), transparent 62%);
+  }
+  .fls-banner__text {
+    position: absolute;
+    left: 36px;
+    right: 36px;
+    bottom: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .fls-banner__title {
+    margin: 0;
+    max-width: 14em;
+    font: 600 clamp(32px, 4vw, 48px) / 1.05 var(--fl-font-display);
+  }
+  .fls-banner__meta {
+    margin: 0;
+    font-size: 14px;
+    opacity: 0.9;
+  }
+  .fls-banner__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  /* A standard button over a picture is the glass one. */
+  .fls-banner .fls-btn:not(.fls-btn--accent) {
+    background: rgb(255 255 255 / 0.22);
+    border-color: rgb(255 255 255 / 0.3);
+    color: #fff;
+    backdrop-filter: blur(16px);
+  }
+  .fls-banner__pips {
+    position: absolute;
+    right: 20px;
+    bottom: 16px;
+    display: flex;
+  }
+  .fls-pip {
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+  }
+  .fls-pip::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 0.55);
+  }
+  .fls-pip[aria-pressed="true"]::before {
+    width: 8px;
+    height: 8px;
+    background: var(--fl-accent);
+  }
+  .fls-pip:focus-visible {
+    outline: 2px solid #fff;
+    box-shadow: inset 0 0 0 1px #000;
+    border-radius: 50%;
+  }
+
+  /* ---- Rows (Home, Stream's home, More Like This) and the poster cards
+   * everywhere: caption-strong row titles, 8px pictures, no lean. ---- */
+  :is(.stream, .discover) .media-row__title {
+    margin-bottom: 0;
+    font: 600 18px/24px var(--fl-font-display);
+    letter-spacing: 0;
+    color: var(--fl-ink);
+  }
+  .stream-card__tilt,
+  .stream-card__poster,
+  .stream-card__mono,
+  .continue-card__tilt,
+  .continue-card .tile__pic,
+  .disc-skel {
+    border-radius: var(--fl-r-card);
+  }
+  /* react-parallax-tilt writes the lean inline; the cards stay flat. */
+  .stream-card__tilt,
+  .continue-card__tilt {
+    transform: none !important;
+    box-shadow: none;
+  }
+  .stream-card__tilt .glare-wrapper,
+  .continue-card__tilt .glare-wrapper {
+    display: none;
+  }
+  .stream-card:hover .stream-card__tilt,
+  .continue-card:hover .continue-card__tilt {
+    box-shadow: 0 0 0 1px var(--fl-stroke);
+  }
+  .stream-card__poster,
+  .stream-card__mono {
+    border: 1px solid var(--fl-stroke);
+    box-sizing: border-box;
+  }
+  .stream-card .stream-card__name,
+  .continue-card .stream-card__name {
+    font: 600 14px/20px var(--fl-font);
+    color: var(--fl-ink);
+  }
+  .stream-card .stream-card__meta,
+  .continue-card .stream-card__meta {
+    font: 400 12px/16px var(--fl-font);
+    color: var(--fl-ink-3);
+  }
+  .continue-card .tile__track {
+    height: 3px;
+    background: color-mix(in srgb, var(--fl-ink) 20%, transparent);
+  }
+  .continue-card .tile__track > i {
+    background: var(--fl-accent);
+  }
+  .continue-card__ep {
+    color: var(--fl-ink-3);
+  }
+
+  /* ---- A film's page and a series' page: the header ---- */
+  .fls-title {
+    flex: none;
+    width: 100%;
+    padding: 0 var(--fls-gut) 40px;
+    color: var(--fl-ink);
+    font-family: var(--fl-font);
+  }
+  .fls-head {
+    position: relative;
+    margin: 0 calc(var(--fls-gut) * -1);
+    padding: 56px var(--fls-gut) 20px;
+  }
+  .fls-head__bg,
+  .fls-head__fade {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 380px;
+    -webkit-mask-image: linear-gradient(180deg, #000 35%, transparent);
+    mask-image: linear-gradient(180deg, #000 35%, transparent);
+    pointer-events: none;
+  }
+  .fls-head__bg {
+    object-fit: cover;
+    opacity: 0.38;
+  }
+  .fls-head__fade {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--fl-base) 65%, transparent), transparent 70%);
+  }
+  .fls-back {
+    position: absolute;
+    top: 12px;
+    left: var(--fls-gut);
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--fl-stroke);
+    border-bottom-color: var(--fl-stroke-bt);
+    border-radius: var(--fl-r-control);
+    background: var(--fl-fill);
+    color: var(--fl-ink);
+  }
+  .fls-back:hover {
+    background: color-mix(in srgb, var(--fl-ink) 10%, var(--fl-base));
+  }
+  .fls-head__row {
+    position: relative;
+    display: flex;
+    gap: 28px;
+    align-items: stretch;
+  }
+  .fls-head__poster {
+    flex: none;
+    width: 144px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border: 1px solid var(--fl-stroke);
+    border-radius: var(--fl-r-card);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+    background: var(--fl-sub);
+  }
+  .fls-head__info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+  }
+  .fls-head__title {
+    margin: 0;
+    font: 600 32px/40px var(--fl-font-display);
+  }
+  .fls-head__episode {
+    margin: 0;
+    font: 600 18px/24px var(--fl-font-display);
+    color: var(--fl-ink-2);
+  }
+  .fls-head__meta {
+    margin: 0;
+    color: var(--fl-ink-2);
+  }
+  .fls-head__synopsis {
+    max-width: 680px;
+    margin: 0;
+    line-height: 1.45;
+    color: var(--fl-ink-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .fls-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .fls-chip,
+  .fls-pill {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--fl-stroke);
+    background: var(--fl-fill);
+    color: var(--fl-ink);
+    cursor: pointer;
+  }
+  .fls-chip {
+    height: 24px;
+    padding: 0 12px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+  .fls-chip:hover,
+  .fls-pill:hover {
+    background: color-mix(in srgb, var(--fl-ink) 10%, var(--fl-base));
+  }
+  .fls-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 12px;
+  }
+  /* The Save split button (SaveButton, shadcn Buttons) as two WinUI halves. */
+  .fls-actions .vod-save {
+    height: 32px !important;
+    padding: 0 16px !important;
+    border: 1px solid var(--fl-stroke) !important;
+    border-bottom-color: var(--fl-stroke-bt) !important;
+    border-radius: var(--fl-r-control) !important;
+    background: var(--fl-fill) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    color: var(--fl-ink) !important;
+    font: 400 14px/20px var(--fl-font) !important;
+  }
+  .fls-actions .vod-save:hover {
+    background: color-mix(in srgb, var(--fl-ink) 10%, var(--fl-base)) !important;
+  }
+  .fls-actions .vod-save:not(.vod-save__more) {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+  .fls-actions .vod-save__more {
+    width: 32px;
+    padding: 0 !important;
+    border-left: 0 !important;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+  }
+
+  /* ---- Sources: the heading with its pills and Sort, and the ListView ---- */
+  .fls-sources {
+    position: relative;
+    margin-top: 16px;
+  }
+  .fls-sources__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    margin-bottom: 10px;
+  }
+  .fls-sources__title {
+    margin: 0;
+    font: 600 18px/24px var(--fl-font-display);
+  }
+  .fls-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .fls-pill {
+    height: 28px;
+    padding: 0 14px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+  .fls-pill[aria-pressed="true"] {
+    background: var(--fl-accent);
+    border-color: transparent;
+    color: var(--fl-on-accent);
+  }
+  .fls-sources__sort {
+    margin-left: auto;
+  }
+  .fls-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid var(--fl-layer-stroke);
+    border-radius: var(--fl-r-card);
+    background: var(--fl-fill);
+  }
+  .fls-src {
+    position: relative;
+    min-height: 46px;
+    padding: 6px 12px 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-radius: var(--fl-r-control);
+    cursor: default;
+  }
+  .fls-src:hover,
+  .fls-src[aria-selected="true"] {
+    background: var(--fl-sub);
+  }
+  /* WinUI's selection pill. */
+  .fls-src[aria-selected="true"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 14px;
+    bottom: 14px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--fl-accent);
+  }
+  .fls-badge {
+    flex: none;
+    width: 58px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--fl-stroke);
+    border-radius: var(--fl-r-control);
+    background: var(--fl-sub);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .fls-badge--hi {
+    color: var(--fl-accent);
+  }
+  .fls-src__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+  }
+  .fls-src__name,
+  .fls-src__sub {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .fls-src__sub {
+    font-size: 12px;
+    color: var(--fl-ink-3);
+  }
+  .fls-cached {
+    flex: none;
+    height: 22px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--fl-live) 16%, transparent);
+    color: var(--fl-live);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .fls-src__play {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--fl-stroke);
+    border-bottom-color: var(--fl-stroke-bt);
+    border-radius: var(--fl-r-control);
+    background: var(--fl-fill);
+    cursor: pointer;
+  }
+  .fls-src__play:hover {
+    background: color-mix(in srgb, var(--fl-ink) 10%, var(--fl-base));
+  }
+  .fls-title .state {
+    color: var(--fl-ink);
+  }
+  .fls-more {
+    margin: 24px calc(var(--fls-gut) * -1) 0;
+    padding: 0 var(--fls-gut);
+  }
+
+  /* ---- Episodes: card rows ---- */
+  .fls-eps {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .fls-ep {
+    position: relative;
+    width: 100%;
+    min-height: 80px;
+    padding: 8px 48px 8px 8px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid var(--fl-stroke);
+    border-radius: var(--fl-r-card);
+    background: var(--fl-fill);
+    color: var(--fl-ink);
+    text-align: left;
+    cursor: pointer;
+  }
+  .fls-ep:hover:not(:disabled) {
+    background: var(--fl-sub);
+  }
+  .fls-ep.is-next {
+    background: var(--fl-sub);
+  }
+  .fls-ep.is-next::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: 28px;
+    bottom: 28px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--fl-accent);
+  }
+  .fls-ep:disabled {
+    color: var(--fl-ink-3);
+    cursor: default;
+  }
+  .fls-ep:disabled .fls-ep__pic {
+    filter: grayscale(1);
+    opacity: 0.5;
+  }
+  .fls-ep__pic {
+    position: relative;
+    flex: none;
+    width: 112px;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--fl-r-card);
+    overflow: hidden;
+    background: var(--fl-sub);
+  }
+  .fls-ep__pic img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .fls-ep__mono {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font: 600 22px var(--fl-font-display);
+    color: var(--fl-ink-3);
+  }
+  .fls-ep__bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: rgb(255 255 255 / 0.4);
+  }
+  .fls-ep__bar > i {
+    display: block;
+    height: 100%;
+    background: var(--fl-accent);
+  }
+  .fls-ep__text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .fls-ep__title {
+    font-weight: 600;
+  }
+  .fls-ep__sub {
+    font-size: 12px;
+    color: var(--fl-ink-3);
+  }
+  .fls-ep__seen {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    width: 20px;
+    height: 20px;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--fl-accent);
+    color: var(--fl-on-accent);
+  }
+
+  /* ---- Discover: the command row and the grid ---- */
+  .fls-cmd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 14px;
+    margin-bottom: 16px;
+  }
+  .fls-cmd__gap {
+    flex: 1;
+  }
+  .fls-search {
+    position: relative;
+    width: 300px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .fls-search input {
+    width: 100%;
+    height: 100%;
+    padding: 0 34px 0 12px;
+    border: 0;
+    background: none;
+    color: var(--fl-ink);
+    font: inherit;
+  }
+  .fls-search input::placeholder {
+    color: var(--fl-ink-3);
+  }
+  .fls-search input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .fls-search svg {
+    position: absolute;
+    right: 12px;
+    color: var(--fl-ink-2);
+    pointer-events: none;
+  }
+  /* WinUI's text box: the focused one draws its accent along the bottom. */
+  .fls-search:focus-within {
+    border-bottom: 2px solid var(--fl-accent);
+  }
+  .discover .disc-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px 16px;
+    padding-top: 0;
+  }
+  .discover .disc-grid .stream-card {
+    min-width: 0;
+    gap: 6px;
+  }
+  .discover .disc-grid .stream-card__poster,
+  .discover .disc-grid .stream-card__mono,
+  .discover .disc-skel {
+    width: 100%;
+  }
+  .discover .disc-grid .stream-card__name,
+  .discover .disc-grid .stream-card__meta {
+    max-width: none;
+  }
+  .discover .disc-grid .stream-card__name {
+    -webkit-line-clamp: 1;
+  }
+  /* GridView's selection: the focused poster gets the accent border and a
+   * check badge. The ring is that, so the card's own outline goes. */
+  .discover .disc-grid .stream-card:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+  .discover .disc-grid .stream-card__tilt {
+    position: relative;
+  }
+  .discover .disc-grid .stream-card:focus-visible .stream-card__tilt {
+    box-shadow: 0 0 0 2px var(--fl-accent);
+  }
+  .discover .disc-grid .stream-card:focus-visible .stream-card__tilt::after {
+    content: "✓";
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--fl-accent);
+    color: var(--fl-on-accent);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* ---- The recommender: a WinUI page, a card, no wall ---- */
+  .fls-rec {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0;
+    padding: 24px var(--fls-gut) 56px;
+    overflow-y: auto;
+    color: var(--fl-ink);
+    font-family: var(--fl-font);
+  }
+  .fls-rec__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .fls-rec__head .fls-page-title {
+    margin: 0;
+  }
+  .fls-rec .fls-back {
+    position: static;
+  }
+  .fls-rec .rec__stage {
+    width: min(640px, 100%);
+    align-items: stretch;
+    padding: 20px;
+    border: 1px solid var(--fl-layer-stroke);
+    border-radius: var(--fl-r-card);
+    background: var(--fl-fill);
+    text-align: left;
+  }
+  .fls-rec .rec__chips {
+    justify-content: flex-start;
+  }
+  .fls-rec .rec__input {
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--fl-stroke);
+    border-bottom-color: var(--fl-stroke-bt);
+    border-radius: var(--fl-r-control);
+    background: var(--fl-fill);
+    backdrop-filter: none;
+    color: var(--fl-ink);
+    font: 400 14px/20px var(--fl-font);
+  }
+  .fls-rec .rec__input::placeholder {
+    color: var(--fl-ink-3);
+  }
+  .fls-rec .rec__input:focus {
+    border-bottom: 2px solid var(--fl-accent);
+  }
+  .fls-rec .rec__go,
+  .fls-rec .rec__again,
+  .fls-rec .rec__chip {
+    height: 32px !important;
+    padding: 0 16px !important;
+    gap: 8px;
+    border: 1px solid var(--fl-stroke) !important;
+    border-bottom-color: var(--fl-stroke-bt) !important;
+    border-radius: var(--fl-r-control) !important;
+    background: var(--fl-fill) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    color: var(--fl-ink) !important;
+    font: 400 14px/20px var(--fl-font) !important;
+  }
+  .fls-rec .rec__chip {
+    height: 28px !important;
+    padding: 0 12px !important;
+    border-radius: 14px !important;
+  }
+  .fls-rec .rec__go {
+    border-color: transparent !important;
+    background: var(--fl-accent) !important;
+    color: var(--fl-on-accent) !important;
+  }
+  .fls-rec .rec__go:disabled {
+    background: var(--fl-sub) !important;
+    color: var(--fl-ink-3) !important;
+  }
+  .fls-rec .rec__note {
+    color: var(--fl-ink-2);
+    font: 400 13px/1.5 var(--fl-font);
+  }
+  .fls-rec .rec__note--bad {
+    color: var(--danger);
+  }
+  .fls-rec .rec__pick {
+    align-items: stretch;
+  }
+  .fls-rec .rec__card {
+    flex-direction: row;
+    gap: 14px;
+    padding: 8px;
+    border: 1px solid var(--fl-stroke);
+    border-radius: var(--fl-r-card);
+    background: var(--fl-sub);
+    color: var(--fl-ink);
+    text-align: left;
+    transition: none;
+  }
+  .fls-rec .rec__card:hover {
+    transform: none;
+    background: color-mix(in srgb, var(--fl-ink) 10%, var(--fl-base));
+  }
+  .fls-rec .rec__card img {
+    width: 72px;
+    border-radius: var(--fl-r-control);
+    box-shadow: none;
+  }
+  .fls-rec .rec__cardname {
+    font: 600 16px/24px var(--fl-font);
+  }
+  .fls-rec .rec__again {
+    align-self: flex-start;
+  }
+  .fls-rec .rec__credit {
+    position: static;
+    margin-top: 16px;
+    transform: none;
+    color: var(--fl-ink-3);
+    text-align: left;
+  }
+}

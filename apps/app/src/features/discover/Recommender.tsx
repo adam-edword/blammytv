@@ -5,9 +5,10 @@ import { pick, remember } from "./pick";
 import { findByWords, imdbIdFor, tmdbEnabled } from "./tmdb";
 import { resolveVodItem } from "../stream/source";
 import type { VodItem } from "../stream/model";
-import { CloseIcon, SparkleIcon } from "../../ui/icons";
+import { BackArrowIcon, CloseIcon, SparkleIcon } from "../../ui/icons";
 import { useClassic } from "../classic/useClassic";
 import { ClassicRecommender } from "../classic/discover/ClassicRecommender";
+import { useFluent } from "../fluent/useFluent";
 
 /**
  * "Give me something to watch."
@@ -49,6 +50,7 @@ export function Recommender({
   posters,
   onOpen,
   onClose,
+  onBack,
 }: {
   /** Follows the header's type filter: "Any" searches films. */
   kind: "movie" | "series";
@@ -59,8 +61,11 @@ export function Recommender({
   onOpen: (item: VodItem) => void;
   /** Classic's wizard has a Close; the normal page leaves by Back. */
   onClose?: () => void;
+  /** Fluent's page has its own way out; the header's chips are the others. */
+  onBack?: () => void;
 }) {
   const classic = useClassic();
+  const fluent = useFluent();
   const [words, setWords] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [state, setState] = useState<State>({ at: "idle" });
@@ -173,10 +178,19 @@ export function Recommender({
     );
 
   return (
-    <div className="rec">
+    <div className={"rec" + (fluent ? " fls-rec" : "")}>
+      {/* Fluent's page is a WinUI page: a back button and a title, no wall. */}
+      {fluent && (
+        <div className="fls-rec__head">
+          <button type="button" className="fls-back" aria-label="Back" onClick={onBack}>
+            <BackArrowIcon size={16} />
+          </button>
+          <h1 className="fls-page-title">Find Something to Watch</h1>
+        </div>
+      )}
       {/* THE WALL. aria-hidden and pointer-events:none in CSS — it is
         * wallpaper, and every poster in it is a link to nothing. */}
-      <div className="rec__wall" aria-hidden>
+      {!fluent && <div className="rec__wall" aria-hidden>
         {[0, 1, 2].map((row) => {
           const twelve = wall.slice(row * 12, row * 12 + 12);
           // TWICE, and the CSS depends on it: the drift ends at
@@ -192,7 +206,7 @@ export function Recommender({
             </div>
           );
         })}
-      </div>
+      </div>}
 
       <div className="rec__stage">
         {words.length > 0 && (
@@ -241,6 +255,7 @@ export function Recommender({
             onClick={() => void find()}
           >
             <SparkleIcon className="size-5" />
+            {fluent && "Find"}
           </Button>
         </div>
 
