@@ -5,6 +5,16 @@
 // Run: node scripts/fake-aio.mjs; pnpm build + preview (:4173);
 //      PW_FROM=<dir>/x.js node scripts/verify-stream.mjs
 import { createRequire } from "node:module";
+import { goTo, settleNav } from "./nav-settle.mjs";
+/** Onto Stream, without pressing it if the app opened there: with only a
+ * Stream source it does, and pressing the pill you are on goes home, a scroll
+ * to the top that could land after a check had scrolled (CI run 42411439265,
+ * "the header takes the picture's ink"). */
+const toStream = async (p) => {
+  await settleNav(p, "home");
+  const on = await p.locator('[data-dest="home"]').getAttribute("aria-current");
+  if (on !== "page") await goTo(p, "home");
+};
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
 
@@ -22,7 +32,7 @@ await page.addInitScript(() => {
   sessionStorage.setItem("btv:welcome-played", "1");
 });
 await page.goto("http://localhost:4173/");
-await page.getByRole("button", { name: "Stream" }).click();
+await toStream(page);
 await page.waitForFunction(() => document.body.innerText.includes("Top Movies"), null, { timeout: 30_000 }).catch(() => {});
 let text = await page.evaluate(() => document.body.innerText);
 
@@ -175,7 +185,7 @@ const quietContext = async () => {
 const openStream = async (p) => {
   await p.addInitScript(seed);
   await p.goto("http://localhost:4173/");
-  await p.getByRole("button", { name: "Stream" }).click();
+  await toStream(p);
 };
 
 // On a picture, the dark theme's ink in both themes (plan 022). In light,
@@ -366,7 +376,7 @@ const openStream = async (p) => {
     await r.continue();
   });
   await p.reload();
-  await p.getByRole("button", { name: "Stream" }).click();
+  await toStream(p);
   await p.waitForSelector(".shero__card", { timeout: 10_000 });
   const shown = await titles(p);
   const oldPicks = (await mirror()).featured.join();
