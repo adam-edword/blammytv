@@ -1,0 +1,31 @@
+/* Classic (Windows 2000), a tier-3 theme pack (plan 035, "Tiers").
+ *
+ * The shared contract every Classic stylesheet builds on: one set of
+ * tokens and bevels, so the header, the dialogs and each screen agree.
+ * Values are the approved mock's (scratchpad aero/more.html). Nothing here
+ * applies until the root carries data-theme-pack="classic". */
+:root[data-theme-pack="classic"] {
+  --cl-face: #d4d0c8;
+  --cl-hi: #ffffff;
+  --cl-light: #ece9d8;
+  --cl-lo: #808080;
+  --cl-dk: #404040;
+  --cl-ink: #000000;
+  --cl-ink-2: #404040;
+  --cl-field: #ffffff;
+  --cl-sel: #0a246a;
+  --cl-sel-ink: #ffffff;
+  --cl-title: linear-gradient(90deg, #0a246a, #a6caf0);
+  --cl-tip: #ffffe1;
+  --cl-led: #00ff40;
+  --cl-font: Tahoma, "Segoe UI", var(--font-text);
+
+  /* Bevels, as box-shadows so they never change a box's size. */
+  --cl-raised: inset -1px -1px var(--cl-dk), inset 1px 1px var(--cl-light), inset -2px -2px var(--cl-lo), inset 2px 2px var(--cl-hi);
+  --cl-raised-thin: inset -1px -1px var(--cl-lo), inset 1px 1px var(--cl-hi);
+  --cl-pressed: inset 1px 1px var(--cl-dk), inset -1px -1px var(--cl-hi), inset 2px 2px var(--cl-lo);
+  --cl-sunken: inset 1px 1px var(--cl-lo), inset -1px -1px var(--cl-hi), inset 2px 2px var(--cl-dk);
+  --cl-etched: inset 1px 1px var(--cl-lo), inset -1px -1px var(--cl-hi), inset 2px 2px var(--cl-hi), inset -2px -2px var(--cl-lo);
+  /* A toggled toolbar button's checkered fill. */
+  --cl-checker: repeating-conic-gradient(var(--cl-hi) 0 25%, var(--cl-face) 0 50%) 0 0 / 2px 2px;
+}

@@ -107,6 +107,7 @@
  * first, and no attribute means this file's palette. The file sits after
  * tokens.css only so its reading order is the cascade's. */
 @import "./packs.css" layer(app);
+@import "./classic-tokens.css" layer(app);
 @import "./base.css" layer(app);
 @import "./ui.css" layer(app);
 @import "./settings.css" layer(app);
