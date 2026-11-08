@@ -1,5 +1,6 @@
 import { useFitText } from "../../lib/fitText";
 import { Badge } from "./Badge";
+import { inReadingOrder } from "./order";
 import type { Fixture } from "./model";
 
 /**
@@ -22,7 +23,8 @@ import type { Fixture } from "./model";
  * copy would get wrong.
  */
 export function Matchup({ game }: { game: Fixture }) {
-  const { home, away } = game;
+  // The visitors first where the sport reads them so (order.ts).
+  const { home, away } = inReadingOrder(game);
   // In line, the two names share one row instead of owning a whole one
   // each, so the long pairings are much tighter than on any card:
   // "Golden Knights" against "Diamondbacks" is the worst the five leagues

@@ -6,6 +6,7 @@ import { useTooEarly } from "./useTooEarly";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
+import { inReadingOrder } from "./order";
 import { givenName, isMatch, setColumns, surname } from "./sets";
 import { CardFoot } from "./CardFoot";
 import { carriageText, carriageUnlinked } from "./carriage";
@@ -35,7 +36,9 @@ function GameCardImpl({
   game: Fixture;
   onOpen?: (game: Game) => void;
 }) {
-  const { home, away } = game;
+  // Display order: the visitors first where the sport reads them so (order.ts).
+  const shown = inReadingOrder(game);
+  const { home, away } = shown;
   // The broadcast name, as on the small card: "Seahawks" is what a screen
   // full of games should say, and the full club name only ever pushed the
   // score around. The tooltip still carries both in full.
@@ -48,7 +51,7 @@ function GameCardImpl({
   // Roomier than the small card, so this rarely fires, but a long name
   // still must not take room from the score.
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
-  const lost = loser(game);
+  const lost = loser(shown);
   // Where to watch it, for the label below. The foot draws its own copy;
   // this one is only so the accessible name carries it too. The pill goes
   // in as words for the same reason: it is drawn as an icon and a 11px

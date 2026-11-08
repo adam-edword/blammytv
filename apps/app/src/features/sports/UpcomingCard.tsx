@@ -6,6 +6,7 @@ import { useTooEarly } from "./useTooEarly";
 import { Badge } from "./Badge";
 import { Wash, WashVeil } from "./Wash";
 import { loser } from "./result";
+import { inReadingOrder } from "./order";
 import { givenName, isMatch, setColumns, surname } from "./sets";
 import type { Competitor, Fixture, Game } from "./model";
 
@@ -17,8 +18,9 @@ import type { Competitor, Fixture, Game } from "./model";
  * it never carries is the "live on" line: this card is for reading a day,
  * and the wide card in the row above is where a game is chosen.
  *
- * A fixture is STAGGERED, home to the top left and away to the bottom
- * right, rather than split down the middle. Two reasons, and the first is
+ * A fixture is STAGGERED, the first side to the top left and the second to
+ * the bottom right, rather than split down the middle. First is the away
+ * side where the sport says "at" and the home side elsewhere (order.ts). Two reasons, and the first is
  * the one that matters: split, each name got 123px and the long ones had to
  * be shrunk to fit. Staggered, each gets the card less one badge, about
  * 210px, and "Wolverhampton" measures 211px at full size. The fit is back
@@ -55,7 +57,9 @@ function UpcomingCardImpl({
    */
   when?: string;
 }) {
-  const { home, away } = game;
+  // Display order: the visitors first where the sport reads them so (order.ts).
+  const shown = inReadingOrder(game);
+  const { home, away } = shown;
   /**
    * A tennis match keeps its SURNAME on the big line and its given name on
    * the small one, where a club keeps its short name and its abbreviation.
@@ -69,7 +73,7 @@ function UpcomingCardImpl({
   const homeText = sets ? surname(home) : (home.shortName ?? home.name);
   const awayText = sets ? surname(away) : (away.shortName ?? away.name);
   const [homeName, awayName] = useFitText<HTMLSpanElement>(homeText, awayText);
-  const lost = loser(game);
+  const lost = loser(shown);
   // Live or finished: there is a score, so the card squares up.
   const scored = game.state !== "pre" || sets;
   const early = useTooEarly(game);

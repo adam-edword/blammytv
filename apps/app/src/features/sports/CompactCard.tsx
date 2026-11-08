@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Badge } from "./Badge";
 import { Wash } from "./Wash";
 import { loser } from "./result";
+import { inReadingOrder } from "./order";
 import type { Fixture, Game } from "./model";
 
 /**
@@ -37,8 +38,10 @@ function CompactCardImpl({
   game: Fixture;
   onOpen?: (game: Game) => void;
 }) {
-  const { home, away } = game;
-  const lost = loser(game);
+  // Display order: the visitors first where the sport reads them so (order.ts).
+  const shown = inReadingOrder(game);
+  const { home, away } = shown;
+  const lost = loser(shown);
   return (
     <button
       type="button"
@@ -52,7 +55,7 @@ function CompactCardImpl({
 
       data-game={game.id}
 
-      aria-label={`${game.home.name} ${game.home.score ?? 0}, ${game.away.name} ${game.away.score ?? 0}. ${game.status}. ${game.league}.`}
+      aria-label={`${home.name} ${home.score ?? 0}, ${away.name} ${away.score ?? 0}. ${game.status}. ${game.league}.`}
       onClick={() => onOpen?.(game)}
     >
       <Wash side="home" team={home} lost={lost === "home"} />
