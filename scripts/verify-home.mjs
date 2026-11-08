@@ -830,7 +830,8 @@ const GAMES = [["g1", "live"], ["g2", "final"], ["g3", "pre"]];
   await page.locator(".homegames .gamecard").first().waitFor({ timeout: 20_000 });
   const cards = await page.locator(".homegames .gamecard").evaluateAll((els) => els.map((e) => e.dataset.game));
   check("Today's Games draws the Sports board's own cards for the leagues you follow", cards.length === 3 && (await liveTitles(page)).join() === "Today\u2019s Games", JSON.stringify({ cards, titles: await titles(page) }));
-  check("  a live one with its score, a finished one as Final, one to come with its time", /3\s*-\s*1/.test(await page.locator(".gamecard[data-game='baseball/mlb:g1'], .gamecard").first().innerText()) && (await page.locator(".homegames").innerText()).includes("Final") && /7:00\s?PM/.test(await page.locator(".homegames").innerText()), (await page.locator(".homegames").innerText()).replace(/\s+/g, " ").slice(0, 160));
+  // MLB reads the visitors first (order.ts): away's 1 before home's 3, and AWY above HOM.
+check("  a live one with its score, the visitors first, a finished one as Final, one to come with its time", /AWY[\s\S]*1\s*-\s*3[\s\S]*HOM/.test(await page.locator(".gamecard[data-game='baseball/mlb:g1'], .gamecard").first().innerText()) && (await page.locator(".homegames").innerText()).includes("Final") && /7:00\s?PM/.test(await page.locator(".homegames").innerText()), (await page.locator(".homegames").innerText()).replace(/\s+/g, " ").slice(0, 160));
   check("  asked ESPN for it", asked.espn > 0, String(asked.espn));
 
   // A click opens it the way the board does: the Sports tab, with the theater up.

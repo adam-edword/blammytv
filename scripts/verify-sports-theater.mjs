@@ -723,7 +723,8 @@ async function open(pos, fixture, win, reading) {
   await fold.click();
   await page.waitForTimeout(300);
   const wasOpen = await fold.getAttribute("aria-expanded");
-  await page.getByRole("button", { name: /^Detroit/ }).click();
+  // NFL reads away first: Chicago at Detroit's card begins with Chicago (order.ts).
+  await page.getByRole("button", { name: /^Chicago/ }).click();
   await page.waitForTimeout(1500);
   check(
     "the next game's guesses start folded",

@@ -389,7 +389,8 @@ check(
   "taking the feed adds the game, and the row marks it on the grid (and nothing else)",
   tiles.includes("Bills at Chiefs") &&
     marks.filter((c) => c.on).length === 1 &&
-    /Chiefs.*Bills/.test(marks.find((c) => c.on)?.game ?? ""),
+    // The card reads the visitors first in the NFL, as the tile does (order.ts).
+    /Bills.*Chiefs/.test(marks.find((c) => c.on)?.game ?? ""),
   JSON.stringify({ tiles, on: marks.filter((c) => c.on) }),
 );
 
