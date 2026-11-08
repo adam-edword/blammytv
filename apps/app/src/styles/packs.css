@@ -444,17 +444,9 @@
   --glass-lift:
     inset 0 1px 0 rgb(255 255 255 / 0.06), 0 8px 16px rgb(0 0 0 / 0.26), 0 0 2px rgb(0 0 0 / 0.24);
 
-  /* The focus visual: a 2px white ring over a 1px black one. The colour is
-   * the hook; the black inner ring is the rule below. */
+  /* The focus visual's outer ring. The inner ring is fluent-chrome.css's,
+   * which draws the double ring in both faces from the --fl-focus tokens. */
   --focus-ring: #ffffff;
-}
-
-/* The black inner ring, directly under the white one (the offset closes to
- * 1px). The inset ones keep their white ring alone: they sit inside a clip
- * the shadow would not clear. */
-:root[data-theme-pack="fluent"]:not([data-theme="light"]) :focus-visible:not(.row, .guide-resize, .sportstheater__edge) {
-  outline-offset: 1px;
-  box-shadow: 0 0 0 1px #000000;
 }
 
 /* MICA SHOWS: native has put it behind the window (data-mica, themePack.ts),

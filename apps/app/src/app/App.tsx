@@ -47,6 +47,9 @@ import { setModalOpen } from "../lib/modalOpen";
 import { setFullscreenChecked } from "../lib/fullscreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
 import { PrismGlow } from "../ui/PrismGlow";
+import { useFluent } from "../features/fluent/useFluent";
+import { FluentChrome } from "../features/fluent/chrome/FluentChrome";
+import { FluentSettings } from "../features/fluent/chrome/FluentSettings";
 import { settingById, type SettingsFind } from "../features/settings/settingsIndex";
 import { effectiveStartupTab, hasLivePlaylist, hasStreamSource } from "../features/settings/startupSources";
 import {
@@ -179,6 +182,8 @@ export function App() {
    */
   const [streamHome, setStreamHome] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Fluent (plan 035): its own frame, and Settings as a page beside the pane.
+  const fluent = useFluent();
   // Where Settings hands focus back when the palette opened it: the element
   // the palette was opened from. From the gear, Settings finds its own.
   const [settingsFrom, setSettingsFrom] = useState<HTMLElement | null>(null);
@@ -188,6 +193,10 @@ export function App() {
   // twice a new request.
   const [settingsFind, setSettingsFind] = useState<SettingsFind | null>(null);
   const findCount = useRef(0);
+  const closeSettings = () => {
+    setSettingsOpen(false);
+    setSettingsFind(null);
+  };
   // The app palette (plan 019, K11): Ctrl+K anywhere, or the search button
   // beside Settings. Not over onboarding, and not over Settings, which is
   // its own modal (Ctrl+K there closes Settings' way first).
@@ -239,13 +248,14 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
       if (e.key.toLowerCase() !== "k") return;
-      if (onboarding || settingsOpen || whatsNew) return;
+      // Fluent's Settings is a page, and the title-bar search works over it.
+      if (onboarding || (settingsOpen && !fluent) || whatsNew) return;
       e.preventDefault();
       setPaletteOpen((o) => !o);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onboarding, settingsOpen, whatsNew]);
+  }, [onboarding, settingsOpen, whatsNew, fluent]);
 
   // Section switches are instant: leaving Live unmounts LiveScreen, whose
   // InvertedPlayer cleanup heals the shell's clip hole SYNCHRONOUSLY (before
@@ -559,10 +569,33 @@ export function App() {
   }, [view]);
 
   return (
-    <div className="app-shell">
+    <div className={"app-shell" + (fluent ? " app-shell--fluent" : "")}>
       {/* Inside the shell on purpose: the video hole cuts it (PrismGlow.tsx). */}
       <PrismGlow />
-      <AppHeader
+      {fluent && (
+        <FluentChrome
+          section={section}
+          showLive={hasLiveSource}
+          streamTab={streamTab}
+          liveTab={liveTab}
+          onSection={setSection}
+          onStreamTab={setStreamTab}
+          onStreamHome={() => setStreamHome((n) => n + 1)}
+          onLiveTab={(t) => {
+            if (t === "sports") setSportsHome((n) => n + 1);
+            setLiveTab(t);
+          }}
+          settingsOpen={settingsOpen}
+          onOpenSettings={() => {
+            setSettingsFrom(null);
+            setSettingsFind(null);
+            setSettingsOpen(true);
+          }}
+          onCloseSettings={closeSettings}
+          onOpenSearch={() => setPaletteOpen(true)}
+        />
+      )}
+      {!fluent && <AppHeader
         section={section}
         showLive={hasLiveSource}
         streamTab={streamTab}
@@ -580,7 +613,7 @@ export function App() {
           setSettingsOpen(true);
         }}
         onOpenSearch={() => setPaletteOpen(true)}
-      />
+      />}
       {/* data-screen: which screen is mounted, which trails the nav by
         * NAV_SETTLE_MS. The harnesses' goTo waits on it; a click aimed at
         * the new screen used to land on the old one still showing. */}
@@ -613,29 +646,30 @@ export function App() {
           <StreamScreen key="stream" home={streamHome} />
         )}
       </main>
-      {settingsOpen && (
-        <SettingsModal
-          returnTo={settingsFrom}
-          find={settingsFind ?? undefined}
-          onClose={() => {
-            setSettingsOpen(false);
-            setSettingsFind(null);
-          }}
-        />
-      )}
+      {settingsOpen &&
+        (fluent ? (
+          <FluentSettings returnTo={settingsFrom} find={settingsFind ?? undefined} onClose={closeSettings} />
+        ) : (
+          <SettingsModal returnTo={settingsFrom} find={settingsFind ?? undefined} onClose={closeSettings} />
+        ))}
       <Palette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
         hasLive={hasLiveSource}
         hasStream={hasStreamSource()}
         // Found, not played full-screen: the Guide tunes it in its preview.
-        onChannel={(id) => requestWatchInPlayer(id, false)}
+        onChannel={(id) => {
+          closeSettings();
+          requestWatchInPlayer(id, false);
+        }}
         // Backing out of it returns to the grid it was found over, like a
         // pick made in that grid; from anywhere else, Stream's own rows.
-        onTitle={(item) =>
-          requestOpenInStream(item, dest === "discover" || dest === "mylist" || dest === "hub" ? dest : "home")
-        }
+        onTitle={(item) => {
+          closeSettings();
+          requestOpenInStream(item, dest === "discover" || dest === "mylist" || dest === "hub" ? dest : "home");
+        }}
         onGo={(to: GoTarget, from) => {
+          if (to.kind !== "settings") closeSettings();
           if (to.kind === "live") {
             setSection("live");
             setLiveTab(to.tab);

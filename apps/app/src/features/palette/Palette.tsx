@@ -33,6 +33,7 @@ import { itemKey } from "../discover/data";
 import { setSearchQuery } from "../discover/searchQuery";
 import { useClassic } from "../classic/useClassic";
 import { pickTitles, TITLE_MIN, useTitleSearch } from "./titleSearch";
+import { useFluent } from "../fluent/useFluent";
 
 /**
  * The app's palette (plan 019, K11): multi-view's channel picker, grown to
@@ -147,6 +148,7 @@ export function Palette({
 }) {
   const [query, setQuery] = useState("");
   const classic = useClassic();
+  const fluent = useFluent();
   // Mounted for the app's life, so it hears a change rather than reading
   // the setting once: 12h to 24h in Settings reached the header and not
   // the "until 9:00 PM" here.
@@ -392,8 +394,13 @@ export function Palette({
         // 448px wide, no shadow. The rest of the look is player.css
         // `.mvpick__*`, which Multi-view's picker wears too.
         className={
-          "mvpick palette top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl border-float-border bg-popover p-1 text-popover-foreground shadow-(--float-shadow) [backdrop-filter:var(--float-blur)] sm:max-w-md" +
-          (classic ? " palette--classic" : "")
+          fluent
+            ? // Fluent: the title bar's search box, open (plan 035). The field
+              // sits where the pill is and the results hang under it as a
+              // flyout: fluent-chrome.css draws both.
+              "mvpick palette flc-flyout top-0.5 translate-y-0 gap-0 overflow-visible rounded-none border-0 bg-transparent p-0 text-popover-foreground shadow-none [backdrop-filter:none] w-[640px] sm:max-w-[640px]"
+            : "mvpick palette top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl border-float-border bg-popover p-1 text-popover-foreground shadow-(--float-shadow) [backdrop-filter:var(--float-blur)] sm:max-w-md" +
+            (classic ? " palette--classic" : "")
         }
         style={instant ? { animation: "none" } : undefined}
         onCloseAutoFocus={closed}
@@ -429,7 +436,7 @@ export function Palette({
             <SearchIcon size={16} className="shrink-0 opacity-50" aria-hidden />
             <Autocomplete.Input
               className="mvpick__input"
-              placeholder="Channels, Films and Series, Places"
+              placeholder={fluent ? "Search channels, films and settings" : "Channels, Films and Series, Places"}
               aria-label="Search BlammyTV"
             />
           </div>

@@ -1,0 +1,806 @@
+/* Fluent's frame and controls (plan 035, "Fluent to tier 3"): the title bar,
+ * the NavigationView, the page's rounded layer, the Ctrl+K flyout, Settings
+ * as the Windows 11 Settings app, and WinUI's paint on the shared primitives.
+ * Built on fluent-tokens.css; both faces (Light is data-theme="light").
+ *
+ * The app-wide variable bridge (--bg, --text, --surface...) stays in
+ * packs.css, where verify-themes pins its values. What this file took over
+ * from that block is the focus visual, below.
+ *
+ * !IMPORTANT, ON PURPOSE, ONLY IN "WinUI control paint". The primitives are
+ * Tailwind utilities (button.tsx's `rounded-full h-10`, the menus'
+ * `rounded-md`), and the utilities layer outranks `app` whatever the
+ * specificity. An important declaration in an earlier layer beats a normal one
+ * in a later layer, so that is the way past them. The selectors there are
+ * wrapped in :where() so they weigh nothing: another Fluent sheet that needs a
+ * primitive its own way writes an important declaration of its own and wins.
+ *
+ * The prefix is flc- (Fluent chrome). */
+
+:root[data-theme-pack="fluent"] {
+  --flc-title-h: 32px;
+  --flc-pane-w: 280px;
+  --flc-hover: color-mix(in srgb, var(--fl-ink) 5%, transparent);
+  --flc-edge: var(--fl-stroke-bt);
+  --flc-blur: blur(30px) saturate(1.6);
+  --focus-ring: var(--fl-focus-out);
+}
+:root[data-theme-pack="fluent"][data-fl-rail] {
+  --flc-pane-w: 88px;
+}
+
+/* ------------------------------------------------------- the focus visual
+ * The 2px double ring: --fl-focus-out outside, --fl-focus-in inside (a 2px
+ * outline one pixel off the edge, over a 1px inner ring). The inset ones keep
+ * the outline alone: they sit inside a clip the shadow would not clear. A text
+ * box says focus with its accent line instead (below). */
+:root[data-theme-pack="fluent"] :focus-visible:not(.row, .guide-resize, .sportstheater__edge, [data-slot="input"], [data-slot="input-group-control"], .flc-find__input, .mvpick__input) {
+  outline-offset: 1px;
+  box-shadow: 0 0 0 1px var(--fl-focus-in);
+}
+
+/* ------------------------------------------------------------ the frame
+ * The shell becomes a grid: the title bar across the top, the pane down the
+ * left, the page in the rest. The page sits on a rounded layer. */
+:root[data-theme-pack="fluent"] .app-shell--fluent {
+  display: grid;
+  grid-template-columns: var(--flc-pane-w) minmax(0, 1fr);
+  grid-template-rows: var(--flc-title-h) minmax(0, 1fr);
+  color: var(--fl-ink);
+  font-family: var(--fl-font);
+}
+:root[data-theme-pack="fluent"] .app-shell--fluent > .app-main {
+  grid-area: 2 / 2;
+  min-width: 0;
+  background: var(--fl-layer);
+  border-top: 1px solid var(--fl-layer-stroke);
+  border-left: 1px solid var(--fl-layer-stroke);
+  border-top-left-radius: var(--fl-r-card);
+  /* The page's own fixed parts (the Sports and Guide sidebars, a draw, a
+   * theater) are laid against the window, and would run under the pane.
+   * Containing layout makes the layer their containing block, so they sit in
+   * it. A player that wants the whole window opts out of this for itself. */
+  contain: layout;
+}
+
+/* ------------------------------------------------------------- title bar */
+.flc-title {
+  grid-area: 1 / 1 / 2 / 3;
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  font: 12px var(--fl-font);
+  color: var(--fl-ink);
+}
+.flc-title__back {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--fl-r-control);
+  background: transparent;
+  color: var(--fl-ink-2);
+}
+.flc-title__back:hover {
+  background: var(--flc-hover);
+  color: var(--fl-ink);
+}
+.flc-title__mark {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: conic-gradient(from 200deg, #5ad1ff, #8af07a, #ffe36b, #ff8bd1, #8f8cff, #5ad1ff);
+}
+.flc-title__name {
+  white-space: nowrap;
+}
+.flc-title__right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+.flc-title__right .update-chip {
+  height: 24px;
+}
+
+/* The pill that IS Ctrl+K: centred on the window, a Windows 11 Settings
+ * title-bar search. The palette opens over it (below). */
+.flc-search {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  transform: translateX(-50%);
+  width: min(440px, calc(100% - 440px));
+  height: 28px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  background: var(--fl-fill);
+  border: 1px solid var(--fl-stroke);
+  border-bottom-color: var(--fl-stroke-bt);
+  color: var(--fl-ink-3);
+  font: 13px var(--fl-font);
+  text-align: left;
+}
+.flc-search:hover {
+  background: color-mix(in srgb, var(--fl-ink) 4%, var(--fl-fill));
+}
+.flc-search__ph {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flc-search__hint {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--fl-sub);
+  font: 11px var(--fl-font);
+  color: var(--fl-ink-3);
+}
+
+/* ------------------------------------------------- NavigationView, pane */
+.flc-pane {
+  grid-area: 2 / 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 4px 8px;
+  overflow-y: auto;
+  font-family: var(--fl-font);
+}
+.flc-burger,
+.flc-ni {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 0;
+  border-radius: var(--fl-r-control);
+  background: transparent;
+  color: var(--fl-ink);
+}
+.flc-burger {
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin: 0 0 6px;
+  padding: 0;
+}
+.flc-ni {
+  flex: none;
+  width: 100%;
+  height: 40px;
+  margin: 2px 0;
+  padding: 0 12px;
+  gap: 16px;
+  font: 14px var(--fl-font);
+  text-align: left;
+}
+.flc-ni svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.flc-ni__lbl {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flc-burger:hover,
+.flc-ni:hover {
+  background: var(--flc-hover);
+}
+.flc-ni[aria-current="page"] {
+  background: var(--fl-sub);
+}
+/* WinUI's selection indicator: 3px, accent, on the leading edge. */
+.flc-ni[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.flc-ni--bottom {
+  margin-top: auto;
+}
+.flc-sep {
+  flex: none;
+  height: 1px;
+  margin: 6px 12px;
+  background: var(--fl-stroke);
+}
+/* The rail: icon over a small label, centred. */
+.flc-pane--rail {
+  padding: 4px 6px 8px;
+  align-items: stretch;
+}
+.flc-pane--rail .flc-burger {
+  width: auto;
+}
+.flc-pane--rail .flc-ni {
+  height: 64px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  font-size: 11px;
+  text-align: center;
+}
+.flc-pane--rail .flc-ni svg {
+  width: 22px;
+  height: 22px;
+}
+.flc-pane--rail .flc-ni[aria-current="page"]::before {
+  top: 24px;
+}
+.flc-pane--rail .flc-sep {
+  margin: 6px 10px;
+}
+
+/* ------------------------------------------- Ctrl+K: an AutoSuggestBox
+ * The palette is the same dialog, its field laid over the title bar's pill
+ * and its results hanging under it as a flyout (Palette.tsx's flc-flyout). No
+ * dim: a click outside still closes it, through the overlay. */
+:root[data-theme-pack="fluent"]:has(.flc-flyout) [data-slot="dialog-overlay"] {
+  background: transparent !important;
+}
+/* The field takes the pill's place, so the pill steps aside. */
+:root[data-theme-pack="fluent"]:has(.flc-flyout) .flc-search {
+  visibility: hidden;
+}
+.flc-flyout .mvpick__head {
+  height: 28px;
+  margin: 0;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--fl-stroke);
+  border-bottom: 2px solid var(--accent);
+  background: var(--fl-fly);
+  backdrop-filter: var(--flc-blur);
+  color: var(--fl-ink-3);
+  font-family: var(--fl-font);
+}
+.flc-flyout .mvpick__input {
+  font: 13px var(--fl-font);
+  color: var(--fl-ink);
+}
+.flc-flyout .mvpick__body {
+  margin-top: 6px;
+  max-height: min(520px, calc(100vh - 80px));
+  padding: 6px;
+  border-radius: var(--fl-r-card);
+  border: 1px solid var(--fl-stroke);
+  background: var(--fl-fly);
+  backdrop-filter: var(--flc-blur);
+  box-shadow: var(--fl-shadow);
+  font-family: var(--fl-font);
+  color: var(--fl-ink);
+}
+.flc-flyout .mvpick__body:not(:has(.mvpick__group, .mvpick__empty)) {
+  display: none;
+}
+.flc-flyout .mvpick__group {
+  padding: 0;
+}
+/* A small caption over each group. */
+.flc-flyout .mvpick__sec {
+  padding: 10px 12px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fl-ink-3);
+}
+.flc-flyout .mvpick__row {
+  position: relative;
+  min-height: 52px;
+  padding: 0 12px;
+  gap: 14px;
+  border-radius: var(--fl-r-control);
+  font-size: 14px;
+  color: var(--fl-ink);
+}
+/* The highlighted result: the subtle fill and the accent pill. */
+:root[data-theme-pack="fluent"] .flc-flyout .mvpick__row[data-highlighted] {
+  background: var(--fl-sub);
+  color: var(--fl-ink);
+}
+.flc-flyout .mvpick__row[data-highlighted]:not([data-disabled])::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 17px;
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+/* A title over its secondary line, not beside it. */
+.flc-flyout .mvpick__meta {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  line-height: 1.25;
+}
+.flc-flyout .mvpick__sub,
+:root[data-theme-pack="fluent"] .flc-flyout .mvpick__row[data-highlighted]:not([data-disabled]) .mvpick__sub {
+  flex: none;
+  max-width: 100%;
+  margin-left: 0;
+  font-size: 12px;
+  color: var(--fl-ink-3);
+}
+.flc-flyout .mvpick__fillicon,
+.flc-flyout .palette__poster {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--fl-r-control);
+  background: var(--fl-sub);
+  color: var(--fl-ink-2);
+}
+.flc-flyout .mvpick__empty {
+  color: var(--fl-ink-2);
+}
+
+/* ------------------------------------- Settings, as the Windows 11 app
+ * A page in the content area (FluentSettings), right of the pane and under
+ * the title bar: the layer's own fill and corner, a column of pages with a
+ * find box, and the page's rows as SettingsCards. */
+.flc-sx {
+  position: fixed;
+  top: var(--flc-title-h);
+  left: var(--flc-pane-w);
+  right: 0;
+  bottom: 0;
+  /* Over the shell (a clip-path hole is cut through it while a player
+   * shows), under the dialogs (--z-sheet) and the menus (--z-popover). */
+  z-index: var(--z-toast);
+  display: flex;
+  background: linear-gradient(var(--fl-layer), var(--fl-layer)), var(--fl-base);
+  border-top: 1px solid var(--fl-layer-stroke);
+  border-left: 1px solid var(--fl-layer-stroke);
+  border-top-left-radius: var(--fl-r-card);
+  color: var(--fl-ink);
+  font-family: var(--fl-font);
+  outline: none;
+}
+.flc-sx__cats {
+  flex: none;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 8px 0;
+  border-right: 1px solid var(--fl-layer-stroke);
+  overflow-y: auto;
+}
+.flc-find {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  margin-bottom: 8px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--fl-stroke);
+  border-bottom-color: var(--fl-stroke-bt);
+  border-radius: var(--fl-r-control);
+  background: var(--fl-fill);
+  color: var(--fl-ink-3);
+}
+.flc-find:focus-within {
+  border-bottom: 2px solid var(--accent);
+  background: var(--fl-fly);
+}
+.flc-find__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fl-ink);
+  font: 14px var(--fl-font);
+}
+.flc-find__input::placeholder {
+  color: var(--fl-ink-3);
+}
+.flc-find__input::-webkit-search-cancel-button {
+  display: none;
+}
+/* The pages: Rail's own list, laid as WinUI's. Its thumb is the selected
+ * fill, and the pill rides on it. */
+.flc-rail {
+  gap: 2px;
+}
+.flc-rail .rail__thumb {
+  border-radius: var(--fl-r-control);
+  background: var(--fl-sub);
+}
+.flc-rail .rail__thumb::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: calc(50% - 8px);
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.flc-rail .rail__opt {
+  align-items: center;
+  height: 36px;
+  padding: 0 10px;
+  gap: 12px;
+  border-radius: var(--fl-r-control);
+  color: var(--fl-ink);
+}
+.flc-rail .rail__opt:not(.is-on):hover {
+  background: var(--flc-hover);
+}
+.flc-rail .rail__icon {
+  height: 16px;
+  color: var(--fl-ink-2);
+}
+.flc-rail .rail__name {
+  font-size: 14px;
+  font-weight: 400;
+}
+/* What the box found. */
+.flc-found {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.flc-found__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--fl-r-control);
+  background: transparent;
+  color: var(--fl-ink);
+  font: 14px var(--fl-font);
+  text-align: left;
+}
+.flc-found__row:hover {
+  background: var(--flc-hover);
+}
+.flc-found__row small {
+  flex: none;
+  font-size: 12px;
+  color: var(--fl-ink-3);
+}
+.flc-found__none {
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--fl-ink-3);
+}
+.flc-sx__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 28px 0;
+}
+/* "Settings › Appearance". */
+.flc-sx__title {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  margin: 0 0 18px;
+  font: 600 28px/36px var(--fl-font-display);
+  color: var(--fl-ink);
+}
+.flc-sx__title > :not(:last-child) {
+  font-weight: 400;
+  color: var(--fl-ink-3);
+}
+.flc-sx__page {
+  flex: 1;
+  min-height: 0;
+  max-width: 1000px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  /* Room for a focus ring either side, as the sheet's body leaves. */
+  margin-inline: -4px;
+  padding: 4px 4px 32px;
+}
+/* A run's heading: a plain semibold line, not the eyebrow (its type is
+ * utilities, so this is important). */
+.flc-sx__page .settings__group {
+  margin: 12px 0 0;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--fl-ink) !important;
+}
+.flc-sx__page .settings__group:first-child {
+  margin-top: 0;
+}
+
+/* SettingsCards: a row is a rounded card, the words on the left and the
+ * control on the right. The rows are the sheet's own (.customize-row, a
+ * stacked one for a control too wide to sit beside its label). */
+.flc-sx .settings-section {
+  align-items: stretch;
+  gap: 4px;
+  border-top: 0;
+  padding-top: 0;
+}
+.flc-sx .customize-row,
+.flc-sx .customize-stack {
+  min-height: 68px;
+  padding: 12px 16px;
+  border: 1px solid var(--fl-stroke);
+  border-radius: var(--fl-r-control);
+  background: var(--fl-fill);
+}
+.flc-sx .customize-row {
+  gap: 16px;
+}
+.flc-sx .customize-stack {
+  justify-content: center;
+  gap: 12px;
+}
+.flc-sx .customize-row__title {
+  margin: 0;
+  font: 400 14px/20px var(--fl-font);
+  color: var(--fl-ink);
+}
+.flc-sx .settings__section-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fl-ink-3);
+}
+.flc-sx .setting--found {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* -------------------------------------------------- WinUI control paint
+ * Zero specificity, important: see the head of the file. */
+
+/* Buttons: standard (fill, stroke, the elevation border: the bottom edge
+ * darker) and accent. */
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"]:not([data-variant="link"])) {
+  border-radius: var(--fl-r-control) !important;
+  font-family: var(--fl-font) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  backdrop-filter: none !important;
+  box-shadow: none;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-size="default"], [data-slot="button"][data-size="lg"], [data-slot="button"][data-size="sm"]) {
+  height: 32px !important;
+  padding-inline: 16px !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-size="icon"], [data-slot="button"][data-size="icon-lg"], [data-slot="button"][data-size="icon-sm"]) {
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="secondary"], [data-slot="button"][data-variant="outline"]) {
+  background: var(--fl-fill) !important;
+  color: var(--fl-ink) !important;
+  border: 1px solid var(--fl-stroke) !important;
+  border-bottom-color: var(--fl-stroke-bt) !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="secondary"], [data-slot="button"][data-variant="outline"]):hover {
+  background: color-mix(in srgb, var(--fl-ink) 6%, var(--fl-fill)) !important;
+}
+/* The accent button: the app's "bright thing", one a screen. */
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="default"], [data-slot="button"][aria-pressed="true"]) {
+  background: var(--accent) !important;
+  color: var(--accent-ink) !important;
+  border: 1px solid transparent !important;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="default"], [data-slot="button"][aria-pressed="true"]):hover {
+  background: color-mix(in srgb, var(--accent) 88%, var(--fl-ink)) !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="ghost"]) {
+  background: transparent !important;
+  color: var(--fl-ink) !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"][data-variant="ghost"]):hover {
+  background: var(--flc-hover) !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="button"]:disabled, [data-slot="button"][aria-disabled="true"]) {
+  opacity: 0.45 !important;
+}
+
+/* Text boxes and ComboBoxes: the fill, the stroke, and a bottom accent line
+ * when focused. A ComboBox is the same field with its chevron. */
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="input"], [data-slot="input-group"], .settings-input) {
+  height: 32px !important;
+  border: 1px solid var(--fl-stroke) !important;
+  border-bottom-color: var(--fl-stroke-bt) !important;
+  border-radius: var(--fl-r-control) !important;
+  background: var(--fl-fill) !important;
+  color: var(--fl-ink) !important;
+  box-shadow: none !important;
+  font-family: var(--fl-font) !important;
+  font-size: 14px !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="input"]:focus, [data-slot="input-group"]:focus-within, .settings-input:focus) {
+  border-bottom: 2px solid var(--accent) !important;
+  background: var(--fl-fly) !important;
+  outline: none !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="input-group-control"]) {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Menus, flyouts and the ComboBox's list: 8px, the flyout fill, a stroke
+ * and the shadow. Their items are 4px, with the subtle fill when they are
+ * the one in hand. */
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="context-menu-content"], [data-slot="context-menu-sub-content"], [data-slot="popover-content"], [data-slot="combobox-content"]) {
+  border: 1px solid var(--fl-stroke) !important;
+  border-radius: var(--fl-r-card) !important;
+  background: var(--fl-fly) !important;
+  color: var(--fl-ink) !important;
+  box-shadow: var(--fl-shadow) !important;
+  backdrop-filter: var(--flc-blur) !important;
+  font-family: var(--fl-font) !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot$="-menu-item"], [data-slot$="-menu-checkbox-item"], [data-slot$="-menu-radio-item"], [data-slot$="-menu-sub-trigger"], [data-slot="combobox-item"]) {
+  border-radius: var(--fl-r-control) !important;
+  font-size: 14px !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where([data-slot$="-menu-item"], [data-slot$="-menu-checkbox-item"], [data-slot$="-menu-radio-item"], [data-slot$="-menu-sub-trigger"], [data-slot="combobox-item"])[data-highlighted] {
+  background: var(--fl-sub) !important;
+  color: var(--fl-ink) !important;
+}
+
+/* Tooltips: small, 4px, the flyout's fill. */
+:where(:root[data-theme-pack="fluent"]) :where([data-slot="tooltip-content"]) {
+  border: 1px solid var(--fl-stroke) !important;
+  border-radius: var(--fl-r-control) !important;
+  background: var(--fl-fly) !important;
+  color: var(--fl-ink) !important;
+  box-shadow: var(--fl-shadow) !important;
+  backdrop-filter: var(--flc-blur) !important;
+  font-family: var(--fl-font) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+
+/* The segmented control (Settings' Appearance, Startup Tab and the rest):
+ * WinUI's, a 4px track with a 4px thumb and plain type, not the capsule. */
+:root[data-theme-pack="fluent"] .seg {
+  padding: 3px;
+  border: 1px solid var(--fl-stroke);
+  border-radius: var(--fl-r-control);
+  background: var(--fl-fill);
+  backdrop-filter: none;
+}
+:root[data-theme-pack="fluent"] .seg__thumb {
+  top: 3px;
+  bottom: 3px;
+  border-radius: 3px;
+  background: var(--fl-sub);
+}
+:root[data-theme-pack="fluent"] .seg__opt {
+  border-radius: 3px;
+  font-weight: 400;
+  color: var(--fl-ink-2);
+}
+:root[data-theme-pack="fluent"] .seg__opt:hover,
+:root[data-theme-pack="fluent"] .seg__opt.is-on {
+  color: var(--fl-ink);
+}
+
+/* ToggleSwitch: a 40x20 track, an outline while off and the accent on, with
+ * a small thumb. (ui/Toggle: plain CSS, so specificity is enough.) */
+:root[data-theme-pack="fluent"] .toggle:not(.toggle--sm),
+:root[data-theme-pack="fluent"] .toggle:not(.toggle--on):not(.toggle--sm) {
+  width: 40px;
+  height: 20px;
+}
+:root[data-theme-pack="fluent"] .toggle,
+:root[data-theme-pack="fluent"] .toggle:not(.toggle--on) {
+  border: 1px solid var(--fl-ink-3);
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+}
+:root[data-theme-pack="fluent"] .toggle .toggle__thumb {
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  background: var(--fl-ink-2);
+}
+:root[data-theme-pack="fluent"] .toggle--on,
+:root[data-theme-pack="fluent"] .toggle.toggle--on {
+  border-color: transparent;
+  background: var(--accent);
+}
+:root[data-theme-pack="fluent"] .toggle--on .toggle__thumb {
+  transform: translateX(20px);
+  background: var(--accent-ink);
+}
+:root[data-theme-pack="fluent"] .toggle--sm {
+  width: 32px;
+  height: 16px;
+}
+:root[data-theme-pack="fluent"] .toggle--sm .toggle__thumb {
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+}
+:root[data-theme-pack="fluent"] .toggle--sm.toggle--on .toggle__thumb {
+  transform: translateX(16px);
+}
+
+/* Checkboxes and radios: 20px, a 1px outline, the accent when on. */
+:root[data-theme-pack="fluent"] input[type="checkbox"],
+:root[data-theme-pack="fluent"] input[type="radio"] {
+  appearance: none;
+  flex: none;
+  display: inline-grid;
+  place-content: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border: 1px solid var(--fl-ink-3);
+  border-radius: var(--fl-r-control);
+  background: var(--fl-fill);
+}
+:root[data-theme-pack="fluent"] input[type="radio"] {
+  border-radius: 50%;
+}
+:root[data-theme-pack="fluent"] input[type="checkbox"]:checked,
+:root[data-theme-pack="fluent"] input[type="radio"]:checked {
+  border-color: transparent;
+  background: var(--accent);
+}
+:root[data-theme-pack="fluent"] input[type="checkbox"]:checked::after {
+  content: "";
+  width: 11px;
+  height: 11px;
+  background: var(--accent-ink);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3.2L13 4.8' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3.2L13 4.8' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+:root[data-theme-pack="fluent"] input[type="radio"]:checked::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-ink);
+}
+
+/* Scrollbars: thin, and WinUI's: a quiet thumb on no track. Zero
+ * specificity, so a list that hides its own (scrollbar-width: none) still
+ * does. */
+:root[data-theme-pack="fluent"] {
+  scrollbar-color: color-mix(in srgb, var(--fl-ink) 45%, transparent) transparent;
+}
+:where(:root[data-theme-pack="fluent"]) * {
+  scrollbar-width: thin;
+}

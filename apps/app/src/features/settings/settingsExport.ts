@@ -73,6 +73,8 @@ export const KEY_GROUPS = {
     // Theme packs (plan 035): the pack, and the accent each remembers.
     "themePack",
     "themeAccents",
+    // Fluent's navigation pane: full, or the rail.
+    "fluentNavRail",
     "clockFormat",
     "startupTab",
     "showChannelNumber",
