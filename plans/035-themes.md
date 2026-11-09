@@ -290,3 +290,25 @@ font, weight, colour, padding and radius, on every tab, dialog and screen.
 `scripts/verify-theme-consistency.mjs` measures each piece across every
 place it shows up, per theme, and fails on any difference. A new screen or
 dialog in a themed pack gets added to it in the same change.
+
+## Rule: a pack paints only what it has designed (2026-11-09)
+
+Found by the second QA sweep, after 1.2.7's fix pass made Classic and
+Fluent paint every shadcn Button with `!important`: seven places where text
+could not be read, and the accent swatches before them. Two surfaces are
+never a pack's to paint unless the pack has a design for them:
+
+- **Brand screens.** The boot scene, onboarding and What's New look as they
+  do in Default dark under every pack and in both faces, like the logo.
+- **On-picture controls.** Anything drawn over video (the theater, the mini
+  player, Multi-View tiles, the mini-guide, the film player) keeps light ink
+  on dark glass whether Appearance is Dark or Light. A pack may restyle
+  them (Classic's bevelled bars) but must then cover hover, focus and Light.
+
+And a control that is content, not a button (an accent swatch, a theme
+card), carries `data-picker` and keeps its own look.
+
+`scripts/verify-theme-contrast.mjs` measures every control's ink against
+what is behind it, per pack and face, hover included, and fails under
+WCAG's ratios. With the consistency check it is the gate for a themed pack.
+
