@@ -125,8 +125,10 @@ const isMark = (m, size) => m.found && m.size === size && m.path && m.ring && m.
   await page.keyboard.press("Control+k");
   const box = page.locator(".palette--classic");
   await box.waitFor();
-  // The box zooms in as it opens; a hit test mid-animation can miss the ring.
-  await page.waitForFunction(() => document.querySelector(".palette--classic")?.getAnimations({ subtree: true }).every((a) => a.playState !== "running"));
+  // For a frame after it mounts the dialog is still pointer-events: none (Radix turns it on in an effect),
+  // and a hit test goes through it to the dim layer. Measured 1.2.9: 5 of 60 opens under load, each with
+  // no animation running and no transform. The mark's test below is a hit test, so wait for that.
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".palette--classic")).pointerEvents !== "none");
   const goto = await markShape(page, ".palette--classic .brand-mark");
   check("the logo: the Go To box's mark is the real path, 34px", isMark(goto, 34), JSON.stringify(goto));
   await shot(page, "goto");

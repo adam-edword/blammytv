@@ -4541,6 +4541,8 @@ mod tests {
         assert_eq!((done.status, done.job), (Status::Done, Some(Job::Remux)));
         let ts = PathBuf::from(&done.path);
         let r = wait_idle(&b, &done.id);
+        // The .ts goes after the row says idle (the index is saved first).
+        wait_worker(&b);
         let mkv = PathBuf::from(&r.path);
         assert!(r.path.ends_with(".mkv"), "{r:?}");
         assert_eq!(
@@ -4584,6 +4586,9 @@ mod tests {
         b.wait_still(&id);
         b.stop(&id);
         let r = wait_idle(&b, &id);
+        // The .ts goes after the row says idle (the index is saved first):
+        // Windows' CI listed the folder in between (1.2.9, two files).
+        wait_worker(&b);
         assert!(r.path.ends_with(".mkv"), "{r:?}");
         near(&check(Path::new(&r.path)), 6.0);
         assert_eq!(listing(&b.out).len(), 1);
