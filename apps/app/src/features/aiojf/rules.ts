@@ -14,7 +14,7 @@
 
 import type { SkipRange } from "../stream/aniskip";
 import type { VodFrom } from "../stream/model";
-import type { WatchEntry } from "../stream/watching";
+import { isFinished, retiredFromContinue, type WatchEntry } from "../stream/watching";
 import { blammyId, unpack } from "./ids";
 
 /** A Jellyfin tick is 100 ns. */
@@ -396,6 +396,10 @@ export interface UpNextCard {
   imagePath?: string;
   /** Epoch ms of the episode's premiere. */
   airsAt?: number;
+  /** The episode's numbers and title, so Continue Watching can move to it. */
+  season: number;
+  episode: number;
+  epTitle?: string;
 }
 
 /**
@@ -417,6 +421,9 @@ export function upNextFrom(items: readonly BaseItem[]): UpNextCard[] {
       episodeId: ep.episodeId,
       seriesTitle: item.SeriesName,
       label: episodeLabel(ep.season, ep.episode, item.Name),
+      season: ep.season,
+      episode: ep.episode,
+      ...(item.Name ? { epTitle: item.Name } : {}),
       ...(item.SeriesId && tag
         ? { imagePath: `/Items/${item.SeriesId}/Images/Primary?tag=${encodeURIComponent(tag)}` }
         : {}),
@@ -424,6 +431,69 @@ export function upNextFrom(items: readonly BaseItem[]): UpNextCard[] {
     });
   }
   return out;
+}
+
+/**
+ * A sync found an episode played on the service that Continue Watching still
+ * holds part way through (it was finished on another device). That card moves
+ * to the next episode from its start, or leaves when the service names none.
+ * Films that are played there leave. An entry the service still has a resume
+ * point for is left alone: a rewatch started here is reported to it.
+ *
+ * `inResume` holds `${id}|${episodeId ?? ""}` for each resume point this pass
+ * read (jellyfin/rules.ts `resumeKey`). `isMine` picks the entries this
+ * service owns. `moved` and `left` are the entries as they were, for the
+ * caller to clear their paused position on Trakt. Pure.
+ *
+ * shortcut: Resume is read with a limit of 20, so a part-way episode past the
+ * 20th reads as not in Resume, upgrade if the limit is ever raised for it.
+ * shortcut: a rewatch started here that the service does not list in Resume
+ * yet (Jellyfin lists one past 5%) reads as finished elsewhere, upgrade by
+ * passing in what is playing now if a card ever moves under a rewatch.
+ */
+export function retirePlayed(
+  entries: readonly WatchEntry[],
+  played: { episodes: Record<string, string[]>; films: readonly string[] },
+  inResume: ReadonlySet<string>,
+  nextUp: readonly UpNextCard[],
+  now: number,
+  isMine: (e: WatchEntry) => boolean,
+): { entries: WatchEntry[]; moved: WatchEntry[]; left: WatchEntry[] } {
+  const moved: WatchEntry[] = [];
+  const left: WatchEntry[] = [];
+  const out: WatchEntry[] = [];
+  for (const e of entries) {
+    if (!isMine(e) || inResume.has(`${e.id}|${e.episodeId ?? ""}`)) {
+      out.push(e);
+    } else if (e.episodeId) {
+      if (isFinished(e) || !(played.episodes[e.id] ?? []).includes(e.episodeId)) {
+        out.push(e);
+        continue;
+      }
+      const card = nextUp.find((c) => c.seriesId === e.id);
+      if (!card) {
+        left.push(e);
+        continue;
+      }
+      // The old episode's position, file and Trakt id do not carry over.
+      const { posSec: _p, durSec: _d, fileName: _f, trakt: _t, epTitle: _e, ...rest } = e;
+      moved.push(e);
+      out.push({
+        ...rest,
+        episodeId: card.episodeId,
+        label: card.label,
+        season: card.season,
+        episode: card.episode,
+        ...(card.epTitle ? { epTitle: card.epTitle } : {}),
+        at: now,
+      });
+    } else if (!retiredFromContinue(e) && played.films.includes(e.id)) {
+      left.push(e);
+    } else {
+      out.push(e);
+    }
+  }
+  return { entries: out.sort((a, b) => b.at - a.at), moved, left };
 }
 
 /** AIOStreams' segment types to the overlay's skip types (aniskip.ts). Preview

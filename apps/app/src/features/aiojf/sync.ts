@@ -15,18 +15,21 @@
  *  3. the played list, read a page at a time, replaces `aioWatched`, the
  *     AIOStreams ticks (D3);
  *  4. Next Up and Upcoming are stored for the rows under Continue Watching;
- *  5. one log line: counts, and how many items did not decode.
+ *  5. a card for an episode the played list has, with no resume point left,
+ *     was finished elsewhere: it moves to the next episode (rules.ts `retirePlayed`);
+ *  6. one log line: counts, and how many items did not decode.
  */
 
 import { useEffect } from "react";
 import { isFinished, loadWatching, onWatchingCleared, replaceWatching, type WatchEntry } from "../stream/watching";
 import { loadAioWatched, replaceAioWatched } from "../stream/watched";
+import { forgetPaused } from "../trakt/sync";
 import { TRAKT_SYNCED } from "../trakt/store";
 import { scrubbedMessage } from "../../lib/errors";
 import { aioCall, readSignIn } from "./account";
 import { aiojfStatus } from "./client";
 import { packedFor } from "./report";
-import { itemRef, mergeAioProgress, playedFrom, resumeFrom, upNextFrom, type BaseItem } from "./rules";
+import { itemRef, mergeAioProgress, playedFrom, resumeFrom, retirePlayed, upNextFrom, type BaseItem, type Resume, type UpNextCard } from "./rules";
 import {
   AIOJF_SYNCED,
   dropFromQueue,
@@ -170,8 +173,9 @@ async function pass(): Promise<SyncResult> {
     if (resume.status === 401) return fail("Signed out of AIOStreams");
     let skipped = 0;
     let resumed = 0;
+    let points: Resume[] | undefined;
     if (resume.items) {
-      const points = resumeFrom(resume.items, Date.now());
+      points = resumeFrom(resume.items, Date.now());
       resumed = points.length;
       skipped += undecoded(resume.items);
       const now = loadWatching();
@@ -199,8 +203,10 @@ async function pass(): Promise<SyncResult> {
     if (played.status === 401) return fail("Signed out of AIOStreams");
     let ticks = 0;
     let films = 0;
+    let ledger: { episodes: Record<string, string[]>; films: string[] } | undefined;
     if (played.items) {
       const p = playedFrom(played.items);
+      ledger = { episodes: p.episodes, films: p.films };
       skipped += p.skipped;
       films = p.films.length;
       ticks = Object.values(p.episodes).reduce((n, l) => n + l.length, 0);
@@ -219,8 +225,10 @@ async function pass(): Promise<SyncResult> {
     if (nextUp.status === 401 || upcoming.status === 401) return fail("Signed out of AIOStreams");
     const patch: Partial<AiojfLocal> = {};
     let ups = 0;
+    let upNext: UpNextCard[] | undefined;
     if (nextUp.items) {
-      patch.nextUp = upNextFrom(nextUp.items);
+      upNext = upNextFrom(nextUp.items);
+      patch.nextUp = upNext;
       ups += patch.nextUp.length;
       skipped += undecoded(nextUp.items);
     } else note("Next Up", nextUp.status);
@@ -237,7 +245,29 @@ async function pass(): Promise<SyncResult> {
     if (rows({ ...prev, ...patch }) !== rows(prev)) changed = true;
     saveAiojf({ ...patch, lastSync: Date.now(), problem });
 
-    // 5. What it did, for a first run to read: how many items AIOStreams had
+    // 5. Finished elsewhere: only when Resume, the played list and Next Up all
+    // read in this pass.
+    if (points && ledger && nextUp.items && upNext) {
+      const now = loadWatching();
+      const r = retirePlayed(
+        now,
+        ledger,
+        new Set(points.map((p) => `${p.id}|${p.episodeId ?? ""}`)),
+        upNext,
+        Date.now(),
+        (e) => e.from !== "jf",
+      );
+      if (JSON.stringify(r.entries) !== JSON.stringify(now)) {
+        replaceWatching(r.entries);
+        watchingChanged = true;
+        changed = true;
+        // Or the next Trakt sync brings the old position back.
+        const old = [...r.moved, ...r.left].filter((e) => e.trakt);
+        if (old.length) void forgetPaused(old).catch(() => {});
+      }
+    }
+
+    // 6. What it did, for a first run to read: how many items AIOStreams had
     // that this app has no id for, and how many plays could not be reported.
     console.info(
       `[aiojf] sync: ${resumed} resume, ${ticks} episodes and ${films} films played, ${ups} next up and upcoming; ` +

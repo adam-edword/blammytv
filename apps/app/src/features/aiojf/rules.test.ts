@@ -10,12 +10,14 @@ import {
   playedFrom,
   reportBody,
   resumeFrom,
+  retirePlayed,
   secToTicks,
   skipsFrom,
   ticksToSec,
   upNextFrom,
   type BaseItem,
   type Resume,
+  type UpNextCard,
 } from "./rules";
 
 const T = (iso: string) => Date.parse(iso);
@@ -676,6 +678,9 @@ describe("upNextFrom", () => {
         episodeId: "tt0903747:3:7",
         seriesTitle: "Breaking Bad",
         label: "S3 · E7: Fly",
+        season: 3,
+        episode: 7,
+        epTitle: "Fly",
         imagePath: `/Items/${series}/Images/Primary?tag=abcdefghijk1aHR0cHM6Ly9leGFtcGxlLmNvbS9wLmpwZw`,
         airsAt: T("2010-05-09T00:00:00Z"),
       },
@@ -827,5 +832,134 @@ describe("skipsFrom", () => {
     expect(skipsFrom(undefined)).toEqual([]);
     expect(skipsFrom("Intro")).toEqual([]);
     expect(skipsFrom(42)).toEqual([]);
+  });
+});
+
+describe("retirePlayed (an episode finished on another device)", () => {
+  const NOW = 5_000_000;
+  const mine = () => true;
+  const BB = "tt0903747";
+  const entry = (over: Partial<WatchEntry> = {}): WatchEntry => ({
+    id: BB,
+    title: "Breaking Bad",
+    kind: "series",
+    episodeId: `${BB}:3:7`,
+    season: 3,
+    episode: 7,
+    epTitle: "Fly",
+    label: "S3 · E7: Fly",
+    posSec: 600,
+    durSec: 2700,
+    fileName: "fly.mkv",
+    bingeGroup: "grp",
+    trakt: 99,
+    art: "a.jpg",
+    from: "jf",
+    at: 1000,
+    ...over,
+  });
+  const card: UpNextCard = {
+    seriesId: BB,
+    episodeId: `${BB}:3:8`,
+    seriesTitle: "Breaking Bad",
+    label: "S3 · E8: Abiquiu",
+    season: 3,
+    episode: 8,
+    epTitle: "Abiquiu",
+  };
+  const playedEps = { episodes: { [BB]: [`${BB}:3:7`] }, films: [] as string[] };
+  const none = new Set<string>();
+
+  it("moves a card to the next episode from its start, keeping the title's own fields", () => {
+    const r = retirePlayed([entry()], playedEps, none, [card], NOW, mine);
+    const [e] = r.entries;
+    expect(e).toMatchObject({
+      id: BB,
+      episodeId: `${BB}:3:8`,
+      label: "S3 · E8: Abiquiu",
+      season: 3,
+      episode: 8,
+      epTitle: "Abiquiu",
+      art: "a.jpg",
+      from: "jf",
+      bingeGroup: "grp",
+      at: NOW,
+    });
+    for (const k of ["posSec", "durSec", "fileName", "trakt"]) expect(e).not.toHaveProperty(k);
+    expect(r.moved).toEqual([entry()]);
+    expect(r.left).toEqual([]);
+  });
+
+  it("drops the old episode's title when the next has none", () => {
+    const { epTitle: _t, ...bare } = card;
+    const [e] = retirePlayed([entry()], playedEps, none, [{ ...bare, label: "S3 · E8" }], NOW, mine).entries;
+    expect(e).not.toHaveProperty("epTitle");
+  });
+
+  it("takes the card of its own series, not another's", () => {
+    const other = { ...card, seriesId: "tt1", episodeId: "tt1:1:1" };
+    const r = retirePlayed([entry()], playedEps, none, [other], NOW, mine);
+    expect(r.entries).toEqual([]);
+    expect(r.left).toEqual([entry()]);
+  });
+
+  it("leaves the list when the service names no next episode", () => {
+    const r = retirePlayed([entry()], playedEps, none, [], NOW, mine);
+    expect(r.entries).toEqual([]);
+    expect(r.left).toEqual([entry()]);
+    expect(r.moved).toEqual([]);
+  });
+
+  it("leaves an episode alone while the service still has a resume point for it (a rewatch started here)", () => {
+    const r = retirePlayed([entry()], playedEps, new Set([`${BB}|${BB}:3:7`]), [card], NOW, mine);
+    expect(r.entries).toEqual([entry()]);
+    expect(r.moved).toEqual([]);
+    expect(r.left).toEqual([]);
+  });
+
+  it("leaves an episode the service does not have as played", () => {
+    const r = retirePlayed([entry()], { episodes: { [BB]: [`${BB}:3:6`] }, films: [] }, none, [card], NOW, mine);
+    expect(r.entries).toEqual([entry()]);
+  });
+
+  it("leaves a card finished here: a click rolls it forward", () => {
+    const done = entry({ posSec: 2600 });
+    expect(retirePlayed([done], playedEps, none, [card], NOW, mine).entries).toEqual([done]);
+  });
+
+  it("leaves an entry the service does not own", () => {
+    const r = retirePlayed([entry()], playedEps, none, [card], NOW, () => false);
+    expect(r.entries).toEqual([entry()]);
+  });
+
+  const movie = (over: Partial<WatchEntry> = {}): WatchEntry => ({
+    id: "tt0111161",
+    title: "The Shawshank Redemption",
+    kind: "movie",
+    posSec: 1200,
+    durSec: 8000,
+    at: 500,
+    ...over,
+  });
+
+  it("drops a film the service has as played and has no resume point for", () => {
+    const r = retirePlayed([movie()], { episodes: {}, films: ["tt0111161"] }, none, [], NOW, mine);
+    expect(r.entries).toEqual([]);
+    expect(r.left).toEqual([movie()]);
+  });
+
+  it("keeps a film that is part way and in Resume", () => {
+    const r = retirePlayed([movie()], { episodes: {}, films: ["tt0111161"] }, new Set(["tt0111161|"]), [], NOW, mine);
+    expect(r.entries).toEqual([movie()]);
+  });
+
+  it("keeps a film the service has not played", () => {
+    expect(retirePlayed([movie()], { episodes: {}, films: [] }, none, [], NOW, mine).entries).toEqual([movie()]);
+  });
+
+  it("puts the moved card first and keeps the rest in order", () => {
+    const m = movie({ at: 3000 });
+    const r = retirePlayed([m, entry()], playedEps, none, [card], NOW, mine);
+    expect(r.entries.map((e) => e.id)).toEqual([BB, "tt0111161"]);
   });
 });

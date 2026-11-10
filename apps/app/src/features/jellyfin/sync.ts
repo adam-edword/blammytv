@@ -15,7 +15,9 @@
  *  4. the played list replaces `jfWatched` (stream/watched.ts), so un-marking
  *     it on the server un-ticks here too;
  *  5. Next Up is stored for the row on the Stream home;
- *  6. one log line: counts, and how many items did not decode.
+ *  6. a card for an episode the server has played, with no resume point left,
+ *     was finished elsewhere: it moves to the next episode (aiojf/rules.ts `retirePlayed`);
+ *  7. one log line: counts, and how many items did not decode.
  *
  * What it never does: send anything to Trakt or MAL. `jfWatched` is read by the
  * ticks and by nothing that pushes (trakt/sync.ts pushes the local ledger and
@@ -26,10 +28,11 @@
 
 import { useEffect } from "react";
 import { scrubbedMessage } from "../../lib/errors";
-import { mergeAioProgress, type UpNextCard } from "../aiojf/rules";
+import { mergeAioProgress, retirePlayed, type Resume, type UpNextCard } from "../aiojf/rules";
 import { readPlayed, type Listed } from "../aiojf/sync";
 import { loadJfWatched, replaceJfWatched } from "../stream/watched";
 import { isFinished, loadWatching, onWatchingCleared, replaceWatching, type WatchEntry } from "../stream/watching";
+import { forgetPaused } from "../trakt/sync";
 import { TRAKT_SYNCED } from "../trakt/store";
 import { jfCall, readSignIn } from "./account";
 import { rememberJfIds } from "./idmap";
@@ -146,6 +149,7 @@ async function pass(): Promise<SyncResult> {
     // 3. Where you left off.
     let resumed = 0;
     let jids: Record<string, string> | undefined;
+    let points: Resume[] | undefined;
     if (resume.items) {
       const r = resumeFrom(resume.items, keyOf, Date.now());
       resumed = r.points.length;
@@ -160,9 +164,12 @@ async function pass(): Promise<SyncResult> {
           return k && i.Id ? [[k, i.Id]] : [];
         }),
       );
-      const points = r.points.map((p) => ({ ...p, from: "jf" as const }));
+      points = r.points;
       const now = loadWatching();
-      const next = mergeAioProgress(now, points);
+      const next = mergeAioProgress(
+        now,
+        r.points.map((p) => ({ ...p, from: "jf" as const })),
+      );
       if (JSON.stringify(next) !== JSON.stringify(now)) {
         replaceWatching(next);
         watchingChanged = true;
@@ -173,8 +180,10 @@ async function pass(): Promise<SyncResult> {
     // 4. What was watched. Replaced whole, so un-marking elsewhere un-ticks.
     let ticks = 0;
     let films = 0;
+    let ledger: { episodes: Record<string, string[]>; films: string[] } | undefined;
     if (played.items && showsRead) {
       const p = playedFrom(played.items, keyOf);
+      ledger = { episodes: p.episodes, films: p.films };
       skipped += p.skipped;
       films = p.films.length;
       ticks = Object.values(p.episodes).reduce((n, l) => n + l.length, 0);
@@ -202,7 +211,29 @@ async function pass(): Promise<SyncResult> {
       problem,
     });
 
-    // 6. What it did, for a first run to read.
+    // 6. Finished elsewhere: only when Resume, the played list and Next Up
+    // all read in this pass.
+    if (points && ledger && cards) {
+      const now = loadWatching();
+      const out = retirePlayed(
+        now,
+        ledger,
+        new Set(points.map((p) => resumeKey(p.id, p.episodeId))),
+        cards,
+        Date.now(),
+        (e) => e.from === "jf",
+      );
+      if (JSON.stringify(out.entries) !== JSON.stringify(now)) {
+        replaceWatching(out.entries);
+        watchingChanged = true;
+        changed = true;
+        // Or the next Trakt sync brings the old position back.
+        const old = [...out.moved, ...out.left].filter((e) => e.trakt);
+        if (old.length) void forgetPaused(old).catch(() => {});
+      }
+    }
+
+    // 7. What it did, for a first run to read.
     console.info(
       `[jellyfin] sync: ${resumed} resume, ${ticks} episodes and ${films} films played, ${cards?.length ?? 0} next up; ` +
         `${skipped} didn't decode`,

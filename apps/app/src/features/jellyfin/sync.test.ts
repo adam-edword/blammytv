@@ -269,6 +269,70 @@ describe("two sources, one watch (plan 027, D5)", () => {
   });
 });
 
+describe("syncJf: an episode finished on another device", () => {
+  const stale: WatchEntry = {
+    id: SEV,
+    kind: "series",
+    title: "Severance",
+    from: "jf",
+    episodeId: `${SEV}:1:1`,
+    season: 1,
+    episode: 1,
+    label: "S1 · E1: Good News About Hell",
+    posSec: 40,
+    durSec: 3000,
+    at: 1000,
+  };
+  beforeEach(() => {
+    replaceWatching([stale]);
+    srv.played = [withData(item(EP1), { Played: true })];
+    srv.next = [item(EP2)];
+  });
+
+  it("moves the stale card to the next episode from its start", async () => {
+    await syncJf();
+    const [e] = loadWatching();
+    expect(e).toMatchObject({ id: SEV, from: "jf", episodeId: `${SEV}:1:2`, season: 1, episode: 2 });
+    expect(e.posSec).toBeUndefined();
+    expect(e.durSec).toBeUndefined();
+    expect(e.at).toBeGreaterThan(1000);
+  });
+
+  it("drops the card when the server names no next episode", async () => {
+    srv.next = [];
+    await syncJf();
+    expect(loadWatching()).toEqual([]);
+  });
+
+  it("leaves a rewatch started here alone: the episode is still in Resume", async () => {
+    srv.resume = [withData(item(EP1), { PlaybackPositionTicks: 40 * TICKS, LastPlayedDate: "1970-01-01T00:00:00Z" })];
+    await syncJf();
+    expect(loadWatching()).toEqual([stale]);
+  });
+
+  it("changes nothing when the played list could not be read", async () => {
+    // The stored ticks say played: a failed read must not fall back to them.
+    replaceJfWatched({ episodes: { [SEV]: [`${SEV}:1:1`] }, films: [] });
+    srv.fail["/Items"] = 500;
+    await syncJf();
+    expect(loadWatching()).toEqual([stale]);
+  });
+
+  it("changes nothing when Resume could not be read: the card would look finished elsewhere", async () => {
+    srv.fail["/UserItems/Resume"] = 500;
+    await syncJf();
+    expect(loadWatching()).toEqual([stale]);
+  });
+
+  it("leaves a card that is not this server's", async () => {
+    const other = { ...stale };
+    delete other.from;
+    replaceWatching([other]);
+    await syncJf();
+    expect(loadWatching()).toEqual([other]);
+  });
+});
+
 describe("forgetResume", () => {
   const card = (over: Partial<WatchEntry> = {}): WatchEntry => ({
     id: SEV,

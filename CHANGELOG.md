@@ -2,6 +2,16 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.11: Continue Watching moves on when you finish elsewhere
+
+- **Finish an episode on another device and its Continue Watching card
+  moves to the next one.** When AIOStreams or your Jellyfin says the
+  episode you stopped part way through here is watched, the card becomes
+  the next episode from its start. With nothing next, or for a film, the
+  card leaves. An episode you're still part way through there stays put.
+- **Fluent:** the Guide's Record button has its padding and fill back. The
+  word sat against the button's right edge.
+
 ## 1.2.10: Fluent in Light, and both Windows themes easier to read
 
 - **Fluent has a Light face.** Set Appearance to Light or Match Windows and

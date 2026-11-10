@@ -20,7 +20,9 @@ vi.stubGlobal("localStorage", {
   clear: () => mem.clear(),
 });
 
-import { forgetResume, PLAYED_MAX, readPlayed, sendQueued } from "./sync";
+import { readSignIn } from "./account";
+import { loadWatching, replaceWatching } from "../stream/watching";
+import { forgetResume, PLAYED_MAX, readPlayed, sendQueued, syncAiojf } from "./sync";
 
 describe("sendQueued", () => {
   it("answers the marks AIOStreams settled, and leaves the rest", async () => {
@@ -225,5 +227,98 @@ describe("forgetResume (a card cleared here clears its resume point on AIOStream
     replaceAioWatched({ episodes: { tt0903747: ["tt0903747:3:7"] }, films: ["tt0111161"] });
     await forgetResume([film(), episode(), episode({ episodeId: "tt0903747:3:8", episode: 8 })]);
     expect(posts().map((c) => c[1])).toEqual([`/UserItems/${packEpisode("tt0903747:3:8")}/UserData`]);
+  });
+});
+
+describe("syncAiojf: an episode finished on another device", () => {
+  const BB = "tt0903747";
+  const BASE = "https://aio.example.com/jellyfin";
+  const ep = (n: number, ud: Record<string, unknown>): BaseItem => ({
+    Id: packEpisode(`${BB}:3:${n}`) as string,
+    Type: "Episode",
+    Name: `Ep ${n}`,
+    SeriesId: "",
+    SeriesName: "Breaking Bad",
+    IndexNumber: n,
+    ParentIndexNumber: 3,
+    UserData: ud,
+  });
+  const stale: WatchEntry = {
+    id: BB,
+    title: "Breaking Bad",
+    kind: "series",
+    episodeId: `${BB}:3:7`,
+    season: 3,
+    episode: 7,
+    label: "S3 · E7: Ep 7",
+    posSec: 600,
+    durSec: 2700,
+    at: 1000,
+  };
+  const srv = { resume: [] as BaseItem[], played: [] as BaseItem[], next: [] as BaseItem[], fail: new Set<string>() };
+  const reply = (status: number, data: unknown) => ({ status, data, reply: { status, body: "" } });
+  const serve = (_m: string, path: string, opts: { query?: Record<string, string> } = {}) => {
+    if (srv.fail.has(path)) return Promise.resolve(reply(500, null));
+    const list = path === "/UserItems/Resume" ? srv.resume : path === "/Shows/NextUp" ? srv.next : path === "/Items" ? srv.played : [];
+    const start = Number(opts.query?.StartIndex ?? 0);
+    return Promise.resolve(reply(200, { Items: list.slice(start), TotalRecordCount: list.length }));
+  };
+
+  beforeEach(() => {
+    mem.clear();
+    vi.stubGlobal("window", new EventTarget());
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    Object.assign(srv, { resume: [], played: [], next: [], fail: new Set<string>() });
+    call.mockReset().mockImplementation(serve);
+    vi.mocked(readSignIn).mockResolvedValue({ supported: true, connected: true, base: BASE } as never);
+    replaceWatching([stale]);
+    srv.played = [ep(7, { Played: true })];
+    srv.next = [ep(8, { Played: false })];
+  });
+
+  it("moves the stale card to the next episode from its start", async () => {
+    await syncAiojf();
+    const [e] = loadWatching();
+    expect(e).toMatchObject({ id: BB, episodeId: `${BB}:3:8`, season: 3, episode: 8, label: "S3 · E8: Ep 8" });
+    expect(e.posSec).toBeUndefined();
+    expect(e.at).toBeGreaterThan(1000);
+  });
+
+  it("drops the card when there is no next episode", async () => {
+    srv.next = [];
+    await syncAiojf();
+    expect(loadWatching()).toEqual([]);
+  });
+
+  it("leaves a rewatch started here alone: the episode is still in Resume", async () => {
+    srv.resume = [ep(7, { PlaybackPositionTicks: 600 * 10_000_000, LastPlayedDate: "1970-01-01T00:00:00Z" })];
+    await syncAiojf();
+    expect(loadWatching()).toEqual([stale]);
+  });
+
+  it("changes nothing when the played list could not be read", async () => {
+    // The stored ticks say played: a failed read must not fall back to them.
+    replaceAioWatched({ episodes: { [BB]: [`${BB}:3:7`] }, films: [] });
+    srv.fail.add("/Items");
+    await syncAiojf();
+    expect(loadWatching()).toEqual([stale]);
+  });
+
+  it("changes nothing when Resume could not be read: the card would look finished elsewhere", async () => {
+    srv.fail.add("/UserItems/Resume");
+    await syncAiojf();
+    expect(loadWatching()).toEqual([stale]);
+  });
+
+  it("changes nothing when Next Up could not be read", async () => {
+    srv.fail.add("/Shows/NextUp");
+    await syncAiojf();
+    expect(loadWatching()).toEqual([stale]);
+  });
+
+  it("leaves a card from a Jellyfin server of the user's own", async () => {
+    replaceWatching([{ ...stale, from: "jf" }]);
+    await syncAiojf();
+    expect(loadWatching()).toEqual([{ ...stale, from: "jf" }]);
   });
 });

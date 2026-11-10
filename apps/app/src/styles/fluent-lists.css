@@ -535,23 +535,25 @@
 }
 /* Record in Fluent paint: the existing button, drawn as a labelled Fluent
  * button. Its icon stays; the word rides beside it while idle. */
-/* !important only on the three the Button's own utilities (size-10,
- * rounded-full) would otherwise win: they load after this layer. */
+/* !important where the Button's own utilities (size-10, rounded-full) or
+ * the pack's Button paint (fluent-chrome.css: an icon button has no padding,
+ * a ghost one no fill) would otherwise win. Without it on the padding and the
+ * fill, the word sat against the button's right edge on a clear face. */
 :root[data-theme-pack="fluent"] .fl-hero__actions .fl-rec {
   width: auto !important;
   height: 32px !important;
   gap: 8px;
-  padding: 0 12px;
+  padding: 0 12px !important;
   font: 14px/20px var(--fl-font);
   color: var(--fl-ink);
-  background: var(--fl-fill);
+  background: var(--fl-fill) !important;
   border: 1px solid var(--fl-stroke);
   border-bottom-color: var(--fl-stroke-bt);
   border-radius: var(--fl-r-control) !important;
   box-shadow: none;
 }
 :root[data-theme-pack="fluent"] .fl-hero__actions .fl-rec:hover {
-  background: var(--fl-sub);
+  background: color-mix(in srgb, var(--fl-ink) 6%, var(--fl-fill)) !important;
 }
 :root[data-theme-pack="fluent"] .fl-hero__actions .fl-rec svg {
   width: 14px;

@@ -164,6 +164,9 @@ export function upNextFrom(items: readonly JfItem[], seriesKeyOf: SeriesKeyOf): 
       episodeId: ref.episodeId,
       seriesTitle: item.SeriesName,
       label: episodeLabel(ref.season, ref.episode, item.Name),
+      season: ref.season,
+      episode: ref.episode,
+      ...(item.Name ? { epTitle: item.Name } : {}),
       ...(item.SeriesId && tag
         ? { imagePath: `/Items/${item.SeriesId}/Images/Primary?tag=${encodeURIComponent(tag)}` }
         : {}),

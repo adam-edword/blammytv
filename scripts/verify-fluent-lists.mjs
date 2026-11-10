@@ -248,6 +248,15 @@ async function live(face) {
   check(`${tag}: Record is the existing RecordButton in Fluent paint`,
     (await page.locator('.fl-hero .rec-btn button[aria-label="Record"]').count()) === 1 &&
       (await style(page, ".fl-hero .rec-btn button", "borderRadius")) === "4px");
+  // The pack's own Button paint (an icon button has no padding, a ghost one no
+  // fill) took both from it: "Record" sat against the right edge (Adam, 1.2.10).
+  const rec = await page.evaluate(() => {
+    const cs = (sel) => getComputedStyle(document.querySelector(sel));
+    const [r, w] = [cs(".fl-hero .rec-btn button"), cs(".fl-hero .fl-btn--accent")];
+    return { pad: r.paddingLeft + " " + r.paddingRight, watchPad: w.paddingLeft + " " + w.paddingRight, h: r.height, watchH: w.height, bg: r.backgroundColor };
+  });
+  check(`${tag}: Record has Watch's padding and height, on a standard button's fill`,
+    rec.pad === "12px 12px" && rec.pad === rec.watchPad && rec.h === rec.watchH && rec.bg !== "rgba(0, 0, 0, 0)", JSON.stringify(rec));
 
   // The grid.
   check(`${tag}: the grid is one 8px card`, (await style(page, ".guide-wrap", "borderRadius")) === "8px");
