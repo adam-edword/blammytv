@@ -653,7 +653,9 @@
 }
 :root[data-theme-pack="fluent"] .guide__cell-time {
   font: 10px/14px var(--fl-font);
-  color: var(--fl-ink-3);
+  /* The second tier, not the third: at 10px on the selected cell's accent
+   * tint the third read 4.7:1 here and under 4.5 on CI's fonts (1.2.10). */
+  color: var(--fl-ink-2);
 }
 :root[data-theme-pack="fluent"] .guide__cell-shine::after {
   display: none;

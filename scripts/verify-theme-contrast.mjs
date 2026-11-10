@@ -547,7 +547,7 @@ async function look(page, tally, { tag = "", hover = [], cap = 60 } = {}) {
   if (process.env.SHOT) (await import("node:fs")).writeFileSync(`${process.env.SHOT}/${CUR.replace(/[^a-z0-9]+/gi, "-")}${tag ? "-" + tag.replace(/\W+/g, "") : ""}.png`, png);
   const list = await page.evaluate(inPage, { mode: "all", b64: shot, scopes: hover, grayText: page.__classic });
   tally.add(list, tag);
-  if (process.env.DUMP) for (const m of list) console.log(`    ${m.status.padEnd(8)} ${m.ratio?.toFixed(2) ?? "-"} "${m.label}" ${m.hint}`);
+  if (process.env.DUMP) for (const m of list) console.log(`    ${m.status.padEnd(8)} ${m.ratio?.toFixed(2) ?? "-"} "${m.label}"${m.part ? ` (${m.part})` : ""} ${m.hint}${m.ink ? ` ${m.ink} on ${m.bg}` : ""}`);
   if (!hover.length) return list;
   const targets = list.filter((m) => m.status === "ok" && m.scopes.length).slice(0, cap);
   for (const t of targets) {
@@ -586,7 +586,10 @@ function verdict(face, scene, tally) {
   if (tally.measured < (MIN[scene] ?? 3)) return check(name, false, `only ${tally.measured} controls found${skipped ? ` (${skipped})` : ""}`);
   if (tally.failing.length) {
     const under3 = tally.failing.filter((f) => f.ratio < 3).length;
-    check(name, false, `${tally.failing.length} below the bar (${under3} of them under 3:1) of ${detail}`);
+    // The worst one rides on the FAIL line itself: the board (and so CI's log)
+    // prints that line and none of the notes under it.
+    const w = [...tally.failing].sort((a, b) => a.ratio / a.need - b.ratio / b.need)[0];
+    check(name, false, `${tally.failing.length} below the bar (${under3} of them under 3:1) of ${detail}; worst "${w.label}"${w.part && w.part !== w.label ? ` (${w.part})` : ""} ${w.hint} ${w.ratio.toFixed(2)}`);
     const seen = new Set();
     for (const f of tally.failing) {
       const k = `${f.tag}|${f.label}|${f.part}|${f.hint}|${f.ink}|${f.bg}`;

@@ -452,6 +452,11 @@ div.sports__bar:not(.sports__head *) {
 :root[data-theme="light"] .compactcard__abbr {
   color: rgba(var(--card-ink), 0.72);
 }
+/* The beaten side's code is the thin weight, and thin strokes draw lighter:
+ * at 0.72 it sat exactly on 4.5:1. */
+:root[data-theme="light"] .compactcard .compactcard__abbr.is-lost {
+  color: rgba(var(--card-ink), 0.85);
+}
 
 :root[data-theme="light"] .sports,
 :root[data-theme="light"] .homegames,

@@ -2,6 +2,13 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.12: Small print that reads a little easier
+
+- **Fluent:** programme times in the Guide and the quality badge on a
+  source are a step stronger. In Light, the beaten team's code on a final
+  score is darker.
+- **Every theme:** the mini-guide's "22 min left" line is brighter again.
+
 ## 1.2.11: Continue Watching moves on when you finish elsewhere
 
 - **Finish an episode on another device and its Continue Watching card

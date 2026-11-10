@@ -582,7 +582,8 @@
     font-weight: 600;
   }
   .fls-badge--hi {
-    color: var(--fl-accent);
+    /* A step toward the ink: Light's accent on the badge's grey was 4.6:1. */
+    color: color-mix(in srgb, var(--fl-accent) 80%, var(--fl-ink));
   }
   .fls-src__text {
     flex: 1;
@@ -610,7 +611,7 @@
     border-radius: 11px;
     background: color-mix(in srgb, var(--fl-live) 16%, transparent);
     /* The green on its own 16% tint was 3.9:1; mixed toward the ink it is over 5:1. */
-    color: color-mix(in srgb, var(--fl-live) 60%, var(--fl-ink));
+    color: color-mix(in srgb, var(--fl-live) 50%, var(--fl-ink));
     font-size: 12px;
     font-weight: 600;
   }
