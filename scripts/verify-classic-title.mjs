@@ -105,7 +105,7 @@ const look = await page.evaluate(() => {
 check("  the selected row is navy with white text and a dotted focus rectangle", look.bg === "rgb(10, 36, 106)" && look.ink === "rgb(255, 255, 255)" && look.outline === "dotted", JSON.stringify(look));
 check("  Tahoma, square corners, raised headers", /Tahoma/.test(look.font) && look.radius === "0px" && look.headShadow, JSON.stringify(look));
 const play = page.locator(".clt-btns .clt-def");
-check("  Play is the default button, beside Add to Library", (await play.innerText()) === "Play" && (await page.locator(".clt-btns .clt-b").nth(1).innerText()) === "Add to Library");
+check("  Play is the default button, beside Add to Library", (await play.innerText()) === "Play" && (await page.locator(".clt-btns .vod-save:not(.vod-save__more)").innerText()).includes("Add to Library"));
 
 // Sorting by a header.
 const addon = await texts();
@@ -157,13 +157,14 @@ check("  the Play button plays the selected (first) source", btn.length > 0 && b
 await reopen();
 
 // Add to Library.
-const lib = page.locator(".clt-btns .clt-b").nth(1);
+// Default's split button now (SaveButton): its words are Default's ("In Library" once saved).
+const lib = page.locator(".clt-btns .vod-save:not(.vod-save__more)");
 await lib.click();
-check("  Add to Library saves it, and the button says how to undo it", (await lib.innerText()) === "Remove from Library");
+check("  Add to Library saves it, and the button says how to undo it", /^\s*In /.test(await lib.innerText()));
 const saved = await page.evaluate(() => Object.keys(localStorage).some((k) => /list/i.test(k) && localStorage.getItem(k).includes("tt100001")));
 check("  and it is in a list", saved);
 await lib.click();
-check("  pressed again it comes out", (await lib.innerText()) === "Add to Library");
+check("  pressed again it comes out", (await lib.innerText()).includes("Add to Library"));
 
 // Default again.
 await classic(false);

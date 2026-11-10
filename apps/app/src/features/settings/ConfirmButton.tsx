@@ -46,6 +46,8 @@ export function ConfirmButton({
     <Button
       variant="destructive"
       type="button"
+      // Always destructive, so the variant cannot say which state it is in.
+      data-armed={armed}
       className={armed ? "ring-[3px] ring-destructive/50" : undefined}
       onClick={press}
     >

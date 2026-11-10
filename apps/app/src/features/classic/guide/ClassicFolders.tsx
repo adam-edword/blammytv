@@ -128,10 +128,12 @@ export const ClassicFolders = memo(function ClassicFolders({
     if (n.id === "root") setRootOpen((o) => !o);
     else if (n.group) onToggleGroup(n.group);
   };
+  // What a click on a label does, and so what Enter and Space do: a source and
+  // the root hold nothing to pick, so for them neither does anything. The
+  // arrows fold and unfold.
   const activate = (n: TNode) => {
     if (n.mode) onPickMode(n.mode);
     else if (n.folder) onPickFolder(n.folder.folderId);
-    else toggle(n);
   };
   const focusRow = (id: string | undefined) => {
     if (id) treeRef.current?.querySelector<HTMLElement>(`[data-node="${CSS.escape(id)}"]`)?.focus();
@@ -182,15 +184,13 @@ export const ClassicFolders = memo(function ClassicFolders({
                 aria-setsize={size}
                 aria-expanded={expandable ? !!node.open : undefined}
                 aria-selected={selected}
-                title={node.title}
+                title={node.title ?? node.label}
                 tabIndex={node.id === tabId ? 0 : -1}
                 onFocus={() => setFocusId(node.id)}
                 // Explorer's rule: a click on a label selects it, and only the box
                 // or a double-click opens a folder. A source and the root hold
                 // nothing to pick, so a single click leaves them as they are.
-                onClick={() => {
-                  if (node.mode || node.folder) activate(node);
-                }}
+                onClick={() => activate(node)}
                 onDoubleClick={() => {
                   if (expandable) toggle(node);
                 }}

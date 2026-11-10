@@ -537,6 +537,19 @@
   --accent-ink: oklch(0.205 0 0);
 }
 
+/* A BRAND SCREEN IN FLUENT AND CLASSIC (.onb: onboarding, What's New; the boot
+ * scene). fluent-chrome.css and classic.css restate the rest of Default dark's
+ * palette there; the glass recipe is typed out here and nowhere else
+ * (verify-kit holds that). */
+:root[data-theme-pack="fluent"] .onb,
+:root[data-theme-pack="classic"] :is(.onb, .boot-scene) {
+  --glass: color-mix(in srgb, var(--text) 10%, transparent);
+}
+/* Classic turns the blur off at the root, so it gets that back too. */
+:root[data-theme-pack="classic"] :is(.onb, .boot-scene) {
+  --glass-fx: blur(5px) saturate(1.4);
+}
+
 /* SOLID GLASS. Windows' "Transparency effects" off (Settings → Accessibility
  * → Visual effects), which WebView2 reports as prefers-reduced-transparency:
  * every tier is the plain card colour. The theme blocks above declare none

@@ -207,6 +207,15 @@ export function FluentSports(p: Props) {
           )}
         </div>
 
+        {(p.earlier.state === "error" || p.more.state === "error") && (
+          <p className="fl-tabbar__err" role="alert">
+            {p.earlier.state === "error" ? "Couldn’t load that." : "Couldn’t load those."}
+            <button type="button" className="fl-link" onClick={p.earlier.state === "error" ? p.earlier.load : p.more.load}>
+              Try Again
+            </button>
+          </p>
+        )}
+
         {p.unlinked && (
           <p className="sports__unlinked" role="status">
             {p.unlinked === "no-playlist"

@@ -16,6 +16,13 @@
 //   ROUTES  where you can go: a name and how to get there.
 //   PIECES  what to measure: the metrics to compare, and for each theme the
 //           [route, selector, scope] places where the piece shows up.
+// EVERY drawn element of a piece is measured in every place (not the first one
+// per place), and all are compared; a difference prints the groups with counts.
+// A variant seen in one place is compared within it, and if it is a single
+// element it FAILS unless the piece's `single` table gives the reason. A piece
+// that must be present everywhere lists the places that legitimately have none
+// in `exempt`, with the reason, and prints it. The run ends with a coverage
+// line per piece: places and elements measured.
 // A piece found in fewer than two places is a FAILED check, not a pass. A
 // route that cannot be reached here (real video, a Windows build) is declared
 // with `skip` and printed, never dropped. The app is only looked at: nothing
@@ -172,9 +179,11 @@ const TEXT = ["font-size", "font-weight", "font-family", "color", "line-height",
 const FRAME = ["border-top-width", "border-top-style", "border-top-color", "border-radius", "box-shadow", "background-color"];
 const TOL = { "@x": 1, "@y": 1, "@rr": 1 };
 
-/** Runs in the page: the first drawn match of `sel` (one per value of `split`
- * when given) inside the first drawn `scope`, and the metrics asked for. A
- * scope ending in "|last" takes the last drawn one (the top dialog). */
+/** Runs in the page: EVERY drawn match of `sel` inside the first drawn `scope`
+ * (grouped by value of `split` when given), and the metrics asked for on each:
+ * { key: [metrics, ...] }. A scope ending in "|last" takes the last drawn one
+ * (the top dialog). It used to keep only the first match per key, so a second
+ * button that missed a rule was never looked at. */
 function measureInPage({ scope, sel, props, split, rel, fn }) {
   const drawn = (e) => {
     const r = e.getBoundingClientRect();
@@ -215,7 +224,8 @@ function measureInPage({ scope, sel, props, split, rel, fn }) {
   if (root.matches?.(sel)) all.unshift(root);
   const els = all.filter(drawn);
   if (!els.length) return {};
-  if (!split) return { "": read(els[0]) };
+  if (fn) return { "": [read(els[0])] };
+  if (!split) return { "": els.map(read) };
   const out = {};
   for (const el of els) {
     // @tag: the element (and an input's type). @kind: a button's size and its
@@ -231,7 +241,7 @@ function measureInPage({ scope, sel, props, split, rel, fn }) {
         : split === "@kind"
           ? `${el.getAttribute("data-size") ?? "-"}/${el.getAttribute("data-variant") ?? (/--?(accent|def)\b/.test(el.className) ? "accent" : "plain")}${el.getAttribute("aria-pressed") === "true" ? "/on" : ""}`
           : (el.getAttribute(split) ?? "-");
-    if (!(k in out)) out[k] = read(el);
+    (out[k] ??= []).push(read(el));
   }
   return out;
 }
@@ -460,8 +470,16 @@ piece("settings tab", {
 });
 
 // ---- settings content -----------------------------------------------------
+// Which pages must show a heading, and which legitimately show none, is
+// written out per place in `exempt` (place -> the reason it has none). Every
+// other place MUST have one: a page that loses its headings fails here.
+const NO_HEADING = {
+  fluent: {
+    "Settings/Accounts": "one group, and Fluent drops the first heading of Accounts because it repeats the breadcrumb (fluent-settings.css, top)",
+  },
+};
 piece("section heading", {
-  optional: true,
+  exempt: NO_HEADING,
   props: [...TEXT, "margin-bottom"],
   places: {
     classic: [
@@ -482,7 +500,7 @@ piece("section heading", {
   },
 });
 piece("section frame", {
-  optional: true,
+  exempt: { fluent: { "Settings/Accounts": "Accounts is one bare group with no section card in Fluent" } },
   props: FRAME,
   places: {
     classic: [
@@ -546,6 +564,13 @@ piece("push button", {
   // Classic ignores size and variant (one push button, raised or pressed in);
   // Fluent keeps a look per variant.
   split: { classic: "@press", fluent: "@kind" },
+  // A variant only one button in the app wears, so it has nothing to be
+  // compared with. Anything not listed here and seen once fails.
+  single: {
+    "sm/outline": "Appearance's Custom button is the app's only small outline button",
+    "lg/default": "Got It on the Multi-View intro is the app's only large button",
+    "-/plain/on": "Sports' Compact Results toggle is the only .fl-btn left pressed on this screen",
+  },
   places: where(BTN),
 });
 piece("push button shape", {
@@ -687,7 +712,7 @@ for (const P of PACKS) {
   console.log(`\n== ${P.id} ==`);
   const { ctx, page } = await open(P);
   const family = P.pack;
-  // piece -> place label -> { key: metrics } ({} when nothing matched)
+  // piece -> place label -> { key: [metrics, ...] } ({} when nothing matched)
   const seen = {};
   for (const [rname, R] of Object.entries(ROUTES)) {
     const wanted = Object.entries(PIECES).filter(([, d]) => (d.places[family] ?? []).some(([r]) => r === rname));
@@ -714,6 +739,7 @@ for (const P of PACKS) {
     }
   }
 
+  const coverage = [];
   for (const [pname, d] of Object.entries(PIECES)) {
     if (!(d.places[family] ?? []).length) continue;
     const all = seen[pname] ?? {};
@@ -727,38 +753,64 @@ for (const P of PACKS) {
       check(`${P.id}: ${pname}`, false, `only found in ${found.length} places${lost.length ? `, missing in ${lost.join(", ")}` : ""}${skipped}`);
       continue;
     }
+    // A piece with `exempt` is strict: every place must have it, bar the ones
+    // listed here with the reason they legitimately have none.
+    const exempt = d.exempt?.[family] ?? {};
     const keys = [...new Set(found.flatMap((r) => Object.keys(at[r])))];
+    const elements = found.reduce((n, r) => n + Object.values(at[r]).reduce((m, a) => m + a.length, 0), 0);
+    coverage.push(`${pname}: ${found.length} places, ${elements} elements`);
     const lines = [];
     const summary = [];
-    const props = d.fn ? Object.keys(at[found[0]][Object.keys(at[found[0]])[0]]) : d.props;
+    const props = d.fn ? Object.keys(at[found[0]][Object.keys(at[found[0]])[0]][0]) : d.props;
+    for (const r of found) if (r in exempt) (lines.push(`${r} is exempt (${exempt[r]}) but has the piece: take the exemption out`), summary.push(`stale exemption ${r}`));
     for (const k of keys) {
-      const byPlace = {};
+      // Every drawn element of this key, in every place.
+      const entries = [];
+      const withKey = new Set();
       for (const r of visited) {
-        if (at[r][k]) byPlace[r] = at[r][k];
-        else if (!d.split && !d.optional) byPlace[r] = "absent";
+        if (at[r][k]) {
+          withKey.add(r);
+          for (const m of at[r][k]) entries.push({ place: r, m });
+        } else if (!d.split && !d.optional && !(r in exempt)) entries.push({ place: r, m: "absent" });
       }
-      if (Object.keys(byPlace).length < 2) continue; // a variant seen once says nothing
+      if (withKey.size === 1) {
+        const [only] = withKey;
+        if (entries.length === 1) {
+          const why = d.single?.[k];
+          if (why) note(`${keyOf(k)}seen once, in ${only}: ${why}`);
+          else (lines.push(`${keyOf(k)}seen in 1 place only (${only}), 1 element: nothing to compare it with`), summary.push(`${keyOf(k)}seen once`));
+          continue;
+        }
+        note(`${keyOf(k)}seen in 1 place only (${only}): its ${entries.length} elements are compared with each other`);
+      }
       for (const p of props) {
         const groups = [];
-        for (const [place, v] of Object.entries(byPlace)) {
-          const val = v === "absent" ? "absent" : v[p];
+        for (const { place, m } of entries) {
+          const val = m === "absent" ? "absent" : m[p];
           const g = groups.find((g) => same(g.val, val, TOL[p.replace(/^::[a-z-]+:/, "")] ?? 0));
-          if (g) g.at.push(place);
-          else groups.push({ val, at: [place] });
+          if (g) g.at[place] = (g.at[place] ?? 0) + 1;
+          else groups.push({ val, at: { [place]: 1 } });
         }
         if (groups.length > 1) {
-          lines.push(`${keyOf(k)}${p}: ${groups.map((g) => `${short(g.val)} (${g.at.join(", ")})`).join(" | ")}`);
+          const nums = groups.map((g) => g.val).filter((v) => typeof v === "number");
+          const range = nums.length === groups.length ? ` [min ${Math.min(...nums)}, max ${Math.max(...nums)}]` : "";
+          const fmt = (g) => `${short(g.val)} (${Object.entries(g.at).map(([pl, n]) => (n > 1 ? `${n}x ${pl}` : pl)).join(", ")})`;
+          lines.push(`${keyOf(k)}${p}${range}: ${groups.map(fmt).join(" | ")}`);
           summary.push(`${keyOf(k)}${p}`);
         }
       }
     }
-    const count = `${found.length} places`;
-    const absent = () => d.optional && lost.length && note(`not present in: ${lost.join(", ")}`);
+    const count = `${found.length} places, ${elements} elements`;
+    const absent = () => {
+      const gone = lost.filter((r) => !(r in exempt));
+      if (d.optional && gone.length) note(`not present in: ${gone.join(", ")}`);
+      for (const r of lost.filter((r) => r in exempt)) note(`none in ${r}, on purpose: ${exempt[r]}`);
+    };
     if (!lines.length) {
       check(`${P.id}: ${pname}, same in ${count}${skipped}`, true);
       absent();
       for (const k of keys.slice(0, 4)) {
-        const v = at[found[0]][k] ?? Object.values(at).map((x) => x[k]).find(Boolean);
+        const v = at[found[0]][k]?.[0] ?? Object.values(at).map((x) => x[k]?.[0]).find(Boolean);
         if (v) note(`${keyOf(k)}${Object.entries(v).map(([m, x]) => `${m}=${short(x)}`).join("; ")}`.slice(0, 220));
       }
     } else {
@@ -767,6 +819,8 @@ for (const P of PACKS) {
       for (const l of lines) note(l);
     }
   }
+  console.log(`coverage (${P.id}), places and elements measured per piece:`);
+  for (const c of coverage) note(c);
   console.log(`(${P.id} took ${((Date.now() - t0) / 1000).toFixed(1)}s)`);
   await ctx.close();
 }

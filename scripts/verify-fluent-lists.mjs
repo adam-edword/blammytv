@@ -25,6 +25,7 @@ import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
 import { goTo } from "./nav-settle.mjs";
+import { openApp, openTheater, startProxy, wake } from "./fluent-native.mjs";
 
 const SPORTS_SRC = new URL("../apps/app/src/features/sports/fixtures/", import.meta.url);
 
@@ -429,6 +430,8 @@ async function sports(face) {
   await page.getByRole("button", { name: "Compact Results" }).click();
   await settle(page);
   check(`${tag}: Compact Results folds the finals`, (await page.locator(".compactcard").count()) >= 1 && (await page.locator(".fl-group[aria-label=Final] .fl-game").count()) === 0);
+  // A pill in Default (100px); WinUI has no pills for rows.
+  check(`${tag}: the compact final line has Fluent's 4px corners, not Default's pill`, (await style(page, ".compactcard", "borderRadius")) === "4px", await style(page, ".compactcard", "borderRadius"));
   await page.getByRole("button", { name: "Compact Results" }).click();
   await settle(page);
 
@@ -503,11 +506,38 @@ async function sports(face) {
       bar.steps[0].name === "Show Earlier Days" && bar.steps[0].before && bar.steps[1].name === "Show More Days" && bar.steps[1].after && bar.rule === "0px",
     JSON.stringify(bar));
 
+  // A day bar that cannot load says so in words and offers the way out; the
+  // chevron's colour alone says nothing to anyone who can't see it.
+  let down = true;
+  await page.route(/site\.api\.espn\.com/, (r) => (down ? r.fulfill({ status: 500, body: "no" }) : r.fallback()));
+  await page.getByRole("button", { name: "Show More Days" }).click();
+  await page.locator(".fl-tabbar__err").waitFor({ timeout: 10_000 }).catch(() => {});
+  const err = await page.evaluate(() => {
+    const e = document.querySelector(".fl-tabbar__err");
+    return e && { text: e.firstChild?.textContent, button: e.querySelector("button")?.textContent, role: e.getAttribute("role"), chevron: document.querySelector(".fl-tabbar__step--more")?.dataset.state };
+  });
+  check(`${tag}: a day bar that cannot load more days says so, with Try Again`, err && err.text === "Couldn’t load those." && err.button === "Try Again" && err.role === "alert" && err.chevron === "error", JSON.stringify(err));
+  down = false;
+  // Try Again is the chevron's own click: the day bar goes to "loading" for it.
+  // (The board's 30 second cache holds the failure, so it may fail again at
+  // once; that is the cache's, as Default's button has it.)
+  await page.evaluate(() => {
+    window.__states = [];
+    new MutationObserver(() => window.__states.push(document.querySelector(".fl-tabbar__step--more")?.dataset.state)).observe(document.querySelector(".fl-tabbar__step--more"), { attributes: true, attributeFilter: ["data-state"] });
+  });
+  await page.getByRole("button", { name: "Try Again", exact: true }).click();
+  await page.waitForTimeout(500);
+  const states = await page.evaluate(() => window.__states);
+  check(`${tag}: Try Again asks again (the bar goes to loading for it)`, states.includes("loading"), states.join(">"));
+
   // A click opens what it opens today.
   await page.getByRole("tab", { name: "Today" }).click();
   await settle(page);
   await page.locator('.fl-group[aria-label="Live Now"] .fl-game__main').click();
   check(`${tag}: a game opens the theater`, (await page.locator(".sportstheater").count()) === 1);
+  await page.locator(".sportsrail__tilt").first().waitFor({ timeout: 10_000 }).catch(() => {});
+  check(`${tag}: and its channel rows have Fluent's 4px corners, not Default's pills`,
+    (await page.locator(".sportsrail__tilt").count()) >= 1 && (await style(page, ".sportsrail__tilt", "borderRadius")) === "4px", `${await page.locator(".sportsrail__tilt").count()} rows, ${await style(page, ".sportsrail__tilt", "borderRadius")}`);
   await page.keyboard.press("Escape");
   await page.waitForSelector(".fl-game", { timeout: 10_000 });
 
@@ -585,11 +615,112 @@ async function others(face) {
   await ctx.close();
 }
 
+// ======================================================= NARROW AND THEATER
+// The Guide at 1100px: the folders column folds behind a Folders button and
+// opens over the grid (a choice, a click outside or Escape shuts it); a wide
+// window keeps the column. In the theater the mini-guide folds it too, so the
+// strip sits inside the frame with room for three cards. And with real
+// scrollbars (a browser that does not hide them), no sideways scroller of the
+// Guide shows a bar: Fluent's scrollbar is drawn with the pseudos Default's
+// hiding rule rides on, not scrollbar-width.
+const proxy = await startProxy();
+const browserSb = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", ignoreDefaultArgs: ["--hide-scrollbars"] });
+async function narrow(face) {
+  const light = face === "light";
+  const tag = `narrow ${face}`;
+  const { ctx, page } = await openApp(browser, { url: APP, panel: PANEL, proxy, light, w: 1100, h: 700 });
+  await page.waitForSelector(".guide__cell", { timeout: 30_000 });
+  await settle(page);
+  const side = () => page.evaluate(() => {
+    const a = document.querySelector(".fl-aside");
+    const r = a.getBoundingClientRect();
+    const g = document.querySelector(".live-main").getBoundingClientRect();
+    return { vis: getComputedStyle(a).visibility, x: Math.round(r.x), w: Math.round(r.width), top: Math.round(r.y), gx: Math.round(g.x), gw: Math.round(g.width) };
+  });
+  const closed = await side();
+  check(`${tag}: at 1100px the folders column is folded and the grid keeps the page's width`, closed.vis === "hidden" && closed.gw >= 700, JSON.stringify(closed));
+  const btn = page.getByRole("button", { name: "Folders" });
+  check(`${tag}: a Folders button heads the page`, (await btn.count()) === 1 && (await btn.getAttribute("aria-expanded")) === "false");
+  await btn.click();
+  await settle(page);
+  const open = await side();
+  check(`${tag}: it opens the column over the grid, which does not move`, open.vis === "visible" && open.w === 280 && open.x + open.w > open.gx + 100 && open.gx === closed.gx && open.gw === closed.gw && (await btn.getAttribute("aria-expanded")) === "true", JSON.stringify(open));
+  check(`${tag}: and puts the keyboard in its filter box`, await page.evaluate(() => document.activeElement?.closest(".fl-filter") !== null));
+  await page.locator(".fl-folders__list .fl-nav", { hasText: "News" }).first().click();
+  await settle(page);
+  check(`${tag}: choosing a folder closes it`, (await side()).vis === "hidden" && (await page.locator(".fl-hero, .fl-head__sub").first().innerText()).length > 0);
+  await btn.click();
+  await page.keyboard.press("Escape");
+  await settle(page);
+  check(`${tag}: Escape closes it and hands focus back to the button`, (await side()).vis === "hidden" && (await page.evaluate(() => document.activeElement?.classList.contains("fl-head__folders"))));
+  await btn.click();
+  await page.mouse.click(900, 600);
+  await settle(page);
+  check(`${tag}: so does a click outside`, (await side()).vis === "hidden");
+
+  await ctx.close();
+
+  // The theater's mini-guide, on a page of its own (the folder above narrowed
+  // the Guide to one channel). 1100px has the column as a flyout already; at
+  // 1200px it is in the page, and it is the fold that gives the strip its room.
+  for (const [tw, th] of [[1100, 700], [1200, 700]]) {
+    const t = await openApp(browser, { url: APP, panel: PANEL, proxy, light, w: tw, h: th });
+    await openTheater(t.page);
+    await t.page.getByRole("button", { name: "Mini-Guide" }).click();
+    await t.page.waitForSelector(".mg-card", { timeout: 5000 });
+    await wake(t.page);
+    const mg = await t.page.evaluate(() => {
+      const frame = document.querySelector(".theater-overlay").getBoundingClientRect();
+      const s = document.querySelector(".mg-strip").getBoundingClientRect();
+      const inside = [...document.querySelectorAll(".mg-card")].filter((c) => {
+        const b = c.getBoundingClientRect();
+        return b.left >= frame.left - 1 && b.right <= frame.right + 1 && b.top >= frame.top - 1 && b.bottom <= frame.bottom + 1;
+      }).length;
+      return { stripTop: Math.round(s.top), theaterTop: Math.round(frame.top), inside, folded: getComputedStyle(document.querySelector(".fl-aside")).display };
+    });
+    check(`${tag}: at ${tw}x${th} the mini-guide's strip sits inside the theater and three cards fit`, mg.stripTop >= mg.theaterTop && mg.inside >= 3, JSON.stringify(mg));
+    check(`${tag}: at ${tw}x${th} the folders column is folded while it is open`, mg.folded === "none", JSON.stringify(mg));
+    await t.page.keyboard.press("Escape");
+    await t.page.waitForTimeout(300);
+    check(`${tag}: at ${tw}x${th} it comes back when the mini-guide shuts`, (await t.page.locator(".fl-aside--folded").count()) === 0);
+    await t.ctx.close();
+  }
+
+  // Wide: the column stays where it was, and there is no Folders button.
+  const wide = await openApp(browser, { url: APP, panel: PANEL, proxy, light, w: 1440, h: 900 });
+  await wide.page.waitForSelector(".guide__cell", { timeout: 30_000 });
+  await settle(wide.page);
+  const w = await wide.page.evaluate(() => ({ vis: getComputedStyle(document.querySelector(".fl-aside")).visibility, w: Math.round(document.querySelector(".fl-aside").getBoundingClientRect().width), folders: getComputedStyle(document.querySelector(".fl-head__folders")).display }));
+  check(`${tag}: at 1440px the column is in the page and there is no Folders button`, w.vis === "visible" && w.w === 240 && w.folders === "none", JSON.stringify(w));
+  await wide.ctx.close();
+
+  // Real scrollbars.
+  const sb = await openApp(browserSb, { url: APP, panel: PANEL, proxy, light, w: 1440, h: 900, native: false });
+  await sb.page.waitForSelector(".guide__cell", { timeout: 30_000 });
+  await settle(sb.page);
+  const bars = await sb.page.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll("body *")) {
+      const cs = getComputedStyle(el);
+      if (!/auto|scroll/.test(cs.overflowX)) continue;
+      const g = el.offsetHeight - el.clientHeight - parseFloat(cs.borderTopWidth) - parseFloat(cs.borderBottomWidth);
+      if (g > 0) out.push(`${el.className} ${g}px`);
+    }
+    return { out, vertical: [...document.querySelectorAll("body *")].filter((el) => /auto|scroll/.test(getComputedStyle(el).overflowY) && el.offsetWidth - el.clientWidth > 0).length };
+  });
+  check(`${tag}: with real scrollbars the Guide shows no sideways bar`, bars.out.length === 0, bars.out.join(", "));
+  check(`${tag}: and its vertical ones are still drawn`, bars.vertical >= 1, String(bars.vertical));
+  await sb.ctx.close();
+}
+
 for (const face of ["dark", "light"]) {
   await live(face);
   await sports(face);
   await others(face);
+  await narrow(face);
 }
+proxy.close();
+await browserSb.close();
 await browser.close();
 console.log(fail ? `\n${fail} FAILED` : "\nall ok");
 process.exit(fail ? 1 : 0);

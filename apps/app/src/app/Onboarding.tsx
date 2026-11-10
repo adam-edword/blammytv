@@ -48,7 +48,7 @@ import { discoverEndpoint } from "../data/stalker";
 import { httpGetText } from "../lib/http";
 import { scrubbedMessage } from "../lib/errors";
 import { AccentPicker } from "../features/settings/AccentPicker";
-import { loadThemePack, packInfo, packShowing, themeAccentStore } from "../features/settings/themePack";
+import { faceAccent, loadThemePack, packInfo, packShowing, themeAccentStore } from "../features/settings/themePack";
 import { TraktSection } from "../features/settings/TraktSection";
 import { MalSection } from "../features/settings/MalSection";
 import { readSignIn } from "../features/aiojf/account";
@@ -714,6 +714,8 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
   // picker then writes that theme's store, as Appearance's does, and a theme
   // with no accent of its own (Prism) has no picker. Read when the step shows.
   const themed = step === STEP.look && packShowing(loadThemePack()) ? packInfo(loadThemePack()) : null;
+  const themedLight = document.documentElement.dataset.theme === "light";
+  const themedHex = themed ? faceAccent(themed, themedLight) : null;
 
   // --- Startup tab step ---------------------------------------------------
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
@@ -1113,8 +1115,8 @@ export function Onboarding({ onDone, onFinish }: { onDone: () => void; onFinish?
               <span className="onb-chips__label">Accent</span>
               <AccentPicker
                 portalContainer={root}
-                store={themed ? themeAccentStore(themed.key) : undefined}
-                theme={themed?.accent ? { name: themed.label, hex: themed.accent } : undefined}
+                store={themed ? themeAccentStore(themed.key, themedLight) : undefined}
+                theme={themed && themedHex ? { name: themed.label, hex: themedHex } : undefined}
               />
             </>
           )}

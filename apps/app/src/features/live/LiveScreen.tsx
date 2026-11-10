@@ -311,6 +311,27 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
       setCollapsed(false);
     }
   }, []);
+  // Fluent, narrow: the folders column folds away and Folders opens it over the
+  // grid (fluent-lists.css); a choice, a click outside or Escape shuts it.
+  const [foldersOpen, setFoldersOpen] = useState(false);
+  useEffect(() => {
+    if (!foldersOpen) return;
+    const away = (e: Event) => {
+      if (e.target instanceof Element && !e.target.closest(".fl-aside, .fl-head__folders")) setFoldersOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      setFoldersOpen(false);
+      document.querySelector<HTMLElement>(".fl-head__folders")?.focus();
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [foldersOpen]);
   const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
   const [folder, setFolder] = useState<string | null>(null);
   /** Source-name tooltip for the folded rail (fixed-position so the
@@ -1106,7 +1127,10 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
           onFolderMenu={openFolderMenu}
         />
       ) : fluent ? (
-        <aside className="live-sidebar fl-aside">
+        <aside
+          id="fl-folders-pane"
+          className={"live-sidebar fl-aside" + (collapsed ? " fl-aside--folded" : "") + (foldersOpen ? " fl-aside--open" : "")}
+        >
           {ready && (
             <FluentFolders
               groups={visibleGroups ?? ready.groups}
@@ -1116,10 +1140,14 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               folder={folder}
               favorites={favorites.length}
               recents={recents.length}
-              onMode={setMode}
+              onMode={(m) => {
+                setMode(m);
+                setFoldersOpen(false);
+              }}
               onFolder={(id) => {
                 setMode("playlist");
                 setFolder(id);
+                setFoldersOpen(false);
               }}
               onFolderMenu={openFolderMenu}
             />
@@ -1283,6 +1311,11 @@ export function LiveScreen({ modalOpen = false }: { modalOpen?: boolean }) {
               <FluentLiveHead
                 subtitle={fluentSubtitle}
                 onNow={() => jumpNow.current?.()}
+                foldersOpen={foldersOpen}
+                onFolders={() => {
+                  setFoldersOpen((o) => !o);
+                  requestAnimationFrame(() => document.querySelector<HTMLInputElement>(".fl-aside--open .fl-filter input")?.focus());
+                }}
               />
             )}
             {(recHero || (ready && shownChannel)) && (

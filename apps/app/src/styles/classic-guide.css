@@ -55,7 +55,7 @@
 :root[data-theme-pack="classic"] .cl-folders__box {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden auto;
   padding: 4px;
   background: var(--cl-field);
   box-shadow: var(--cl-sunken);
@@ -66,7 +66,7 @@
   white-space: normal;
 }
 :root[data-theme-pack="classic"] .cl-tv {
-  min-width: max-content;
+  min-width: 0;
 }
 :root[data-theme-pack="classic"] .cl-tv__row {
   display: flex;
@@ -178,6 +178,9 @@
   background: var(--clg-folder-open);
 }
 :root[data-theme-pack="classic"] .cl-folders .cl-tv__lb {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   height: 18px;
   padding: 0 3px;
   font-size: 12px;
@@ -506,4 +509,12 @@
   width: 2px;
   border-radius: 0;
   background: var(--clg-now);
+}
+
+/* The Guide's favourite star is an icon you toggle, not a push button: no
+ * box, on or off, and no checker when it is on (the filled star says so). */
+:root[data-theme-pack="classic"] .guide__fav[data-slot="button"][data-variant="ghost"],
+:root[data-theme-pack="classic"] .guide__fav[data-slot="button"][data-variant="ghost"]:is(:hover, :active, [aria-pressed="true"]) {
+  background: transparent !important;
+  box-shadow: none !important;
 }

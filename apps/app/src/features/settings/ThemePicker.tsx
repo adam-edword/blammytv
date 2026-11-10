@@ -1,5 +1,6 @@
+import { useSyncExternalStore } from "react";
 import { Button } from "../../components/ui/button";
-import { THEME_PACKS, type ThemePack } from "./themePack";
+import { THEME_PACKS, subscribeShowing, type ThemePack } from "./themePack";
 
 /** Prism's card: the logo's ramp, small (its stops, left to right), over the
  * dither's dots, brighter than the page's so they read at card size. */
@@ -22,11 +23,17 @@ export function ThemePicker({
   value: ThemePack;
   onChange: (pack: ThemePack) => void;
 }) {
+  // A pack with a face for Light draws that face while the app is Light.
+  const light = useSyncExternalStore(
+    subscribeShowing,
+    () => document.documentElement.dataset.theme === "light",
+  );
   return (
     <div className="flex flex-wrap gap-2.5" role="group" aria-label="Theme">
       {THEME_PACKS.map((p) => {
         const on = value === p.key;
         const prism = p.key === "prism";
+        const swatch = light && p.light ? p.light.swatch : p.swatch;
         return (
           <Button
             key={p.key}
@@ -43,18 +50,18 @@ export function ThemePicker({
               className="relative block h-12 overflow-hidden rounded-md border border-border"
               data-swatch={p.key}
               style={{
-                background: p.swatch.bg,
+                background: swatch.bg,
                 ...(prism ? { backgroundImage: DOTS, backgroundSize: "4px 4px" } : {}),
               }}
             >
               <span
                 className="absolute inset-x-2 bottom-2 h-4 rounded-sm"
-                style={{ background: p.swatch.surface }}
+                style={{ background: swatch.surface }}
               />
               <span
                 className={prism ? "absolute top-2 left-2 h-2 w-10 rounded-full" : "absolute top-2 left-2 size-3 rounded-full"}
                 data-ramp={prism ? "" : undefined}
-                style={{ background: prism ? RAMP : p.swatch.accent }}
+                style={{ background: prism ? RAMP : swatch.accent }}
               />
             </span>
             <span className="text-center text-xs">{p.label}</span>

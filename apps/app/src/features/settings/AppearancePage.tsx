@@ -46,7 +46,9 @@ import { ThemePicker } from "./ThemePicker";
 import {
   applyThemePack,
   loadThemePack,
+  faceAccent,
   packInfo,
+  packShowingIn,
   resetThemeAccents,
   saveThemePack,
   subscribeShowing,
@@ -102,9 +104,10 @@ export function AppearancePage({
     applyThemePref(next);
   };
 
-  // Theme (plan 035): Default or a pack, dark only. The pack's own accent
-  // picker is the Accent row under Velvet and Lagoon, and gone under Prism,
-  // whose ramp is its accent. Read from the root, so Match Windows counts.
+  // Theme (plan 035): Default or a pack, dark only bar Fluent, which has a
+  // Light face too. The pack's own accent picker is the Accent row under
+  // Velvet, Lagoon and Fluent, and gone under Prism, whose ramp is its accent.
+  // Read from the root, so Match Windows counts.
   const [pack, setPack] = useState<ThemePack>(loadThemePack);
   const pickPack = (next: ThemePack) => {
     setPack(next);
@@ -117,7 +120,8 @@ export function AppearancePage({
     subscribeShowing,
     () => document.documentElement.dataset.theme === "light",
   );
-  const themed = pack !== "none" && (!light || packInfo(pack).tier === 3) ? packInfo(pack) : null;
+  const themed = packShowingIn(pack, light) ? packInfo(pack) : null;
+  const themedHex = themed ? faceAccent(themed, light) : null;
 
   const [startup, setStartup] = useState<StartupTab>(loadStartupTab);
   const pickStartup = (next: StartupTab) => {
@@ -242,9 +246,9 @@ export function AppearancePage({
               <h4 className="customize-row__title">Accent Color</h4>
             </div>
             <AccentPicker
-              key={`${accentKey}:${themed ? themed.key : "base"}`}
-              store={themed ? themeAccentStore(themed.key) : undefined}
-              theme={themed?.accent ? { name: themed.label, hex: themed.accent } : undefined}
+              key={`${accentKey}:${themed ? themed.key + (light ? ":light" : "") : "base"}`}
+              store={themed ? themeAccentStore(themed.key, light) : undefined}
+              theme={themed && themedHex ? { name: themed.label, hex: themedHex } : undefined}
             />
           </div>
         )}
@@ -262,9 +266,11 @@ export function AppearancePage({
         <div className="customize-stack" data-setting="theme-pack">
           <div>
             <h4 className="customize-row__title">Theme</h4>
-            {light && (
+            {/* Only for a chosen pack with no Light face: Fluent and Classic
+              * show in Light, so "themes are dark only" stopped being true. */}
+            {light && !themed && pack !== "none" && (
               <p className="settings__section-note settings__section-note--dim">
-                Themes are dark only.
+                {packInfo(pack).label} is dark only.
               </p>
             )}
           </div>

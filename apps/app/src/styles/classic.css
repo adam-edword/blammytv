@@ -77,10 +77,56 @@
   --font-text: Tahoma, "Segoe UI", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* BRAND SCREENS ARE NEVER THEMED. Onboarding, What's New (both .onb) and the
+ * boot scene are the same in every pack, so the tokens the pack moved at the
+ * root (corners, type, the hairline) go back to the base palette's values,
+ * and the Button, field, shape and focus rules below skip them. */
+:root[data-theme-pack="classic"] :is(.onb, .boot-scene) {
+  --radius: 0.625rem;
+  --radius-card: calc(var(--radius) + 4px);
+  --radius-chip: calc(var(--radius) - 2px);
+  --radius-track: var(--radius);
+  --radius-pic: var(--radius);
+  --radius-pill: 999px;
+  --border: oklch(1 0 0 / 10%);
+  --border-input: oklch(1 0 0 / 15%);
+  --bg: oklch(0.145 0 0);
+  --surface: oklch(0.205 0 0);
+  --surface-raised: oklch(0.269 0 0);
+  --text: oklch(0.985 0 0);
+  --text-muted: oklch(0.708 0 0);
+  --text-dim: oklch(0.6 0 0);
+  --text-ghost: oklch(0.556 0 0);
+  --text-faint: color-mix(in srgb, var(--text) 35%, var(--bg));
+  --accent: oklch(0.922 0 0);
+  --accent-ink: oklch(0.205 0 0);
+  --ring: oklch(0.556 0 0);
+  --tint-hover: color-mix(in srgb, var(--text) 9%, transparent);
+  --tint-on: color-mix(in srgb, var(--text) 16%, transparent);
+  /* --glass and --glass-fx are restated in tokens.css, the one place that
+   * recipe is typed. A secondary Button here (Connect) was the grey face with
+   * white ink. */
+  --surface-track: oklch(0.145 0 0);
+  --surface-puck: oklch(0.205 0 0);
+  --border-strong: oklch(1 0 0 / 10%);
+  --border-raised: oklch(1 0 0 / 10%);
+  --card-glass: linear-gradient(oklch(0.205 0 0), oklch(0.205 0 0));
+  --mix-base: #000000;
+  --danger: oklch(0.704 0.191 22.216);
+  --danger-text: oklch(0.704 0.191 22.216);
+  --ok: #2cad57;
+  --focus-ring: var(--text);
+  --plate: var(--surface-raised);
+  --plate-ink: var(--text);
+  --font-headline: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-text: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-text);
+}
+
 /* ------------------------------------------------------------- shapes */
-:root[data-theme-pack="classic"] :not(.brand-mark, .brand-mark *, .boot-scene, .boot-scene *, .onb-mark, .onb-mark *),
-:root[data-theme-pack="classic"] :not(.brand-mark, .brand-mark *, .boot-scene, .boot-scene *, .onb-mark, .onb-mark *)::before,
-:root[data-theme-pack="classic"] :not(.brand-mark, .brand-mark *, .boot-scene, .boot-scene *, .onb-mark, .onb-mark *)::after {
+:root[data-theme-pack="classic"] :not(.brand-mark, .brand-mark *, .boot-scene, .boot-scene *, .onb, .onb *),
+:root[data-theme-pack="classic"] :not(.brand-mark, .brand-mark *, .boot-scene, .boot-scene *, .onb, .onb *)::before,
+:root[data-theme-pack="classic"] :not(.brand-mark, .brand-mark *, .boot-scene, .boot-scene *, .onb, .onb *)::after {
   border-radius: 0 !important;
 }
 /* Radios stay round. */
@@ -93,7 +139,7 @@
   background: var(--cl-sel);
   color: var(--cl-sel-ink);
 }
-:root[data-theme-pack="classic"] :focus-visible {
+:root[data-theme-pack="classic"] :focus-visible:not(.onb *, .boot-scene *) {
   outline: 1px dotted var(--cl-ink) !important;
   outline-offset: -3px;
   box-shadow: none;
@@ -139,7 +185,12 @@
 }
 
 /* ------------------------------------------------------------ buttons */
-:root[data-theme-pack="classic"] [data-slot="button"] {
+/* Two places are never painted, so the Buttons in them keep the look they
+ * were built with: the brand screens (onboarding, What's New, the boot scene
+ * are the same in every pack) and the player's own chrome, which sits over
+ * video in light ink on dark glass (classic-chrome.css). Every Button rule
+ * below says so with the same :not(). */
+:root[data-theme-pack="classic"] [data-slot="button"]:not(.onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *) {
   background: var(--cl-face) !important;
   color: var(--cl-ink) !important;
   border: 0 !important;
@@ -149,35 +200,45 @@
   font-weight: 400 !important;
   text-shadow: none;
 }
-:root[data-theme-pack="classic"] [data-slot="button"]:active:not(:disabled),
-:root[data-theme-pack="classic"] [data-slot="button"][aria-pressed="true"],
-:root[data-theme-pack="classic"] [data-slot="button"][aria-expanded="true"] {
+:root[data-theme-pack="classic"] [data-slot="button"]:not(.onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *):is(:active:not(:disabled), [aria-pressed="true"], [aria-expanded="true"]) {
   box-shadow: var(--cl-pressed) !important;
 }
-:root[data-theme-pack="classic"] [data-slot="button"][aria-pressed="true"] {
+:root[data-theme-pack="classic"] [data-slot="button"]:not(.onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *)[aria-pressed="true"] {
   background: var(--cl-checker) !important;
 }
-:root[data-theme-pack="classic"] [data-slot="button"][class*="bg-foreground"] {
+:root[data-theme-pack="classic"] [data-slot="button"]:not(.onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *)[class*="bg-foreground"] {
   outline: 1px solid var(--cl-ink);
   outline-offset: -1px;
 }
-:root[data-theme-pack="classic"] [data-slot="button"][class*="hover:bg-tint-hover"]:not([aria-pressed="true"]) {
+/* A ghost Button is flat until you point at it, whatever hover class its call
+ * site gave it (keying on the class lost the track menus' items and the LIVE
+ * chip as soon as a call site passed its own). */
+:root[data-theme-pack="classic"] [data-slot="button"][data-variant="ghost"]:not(.onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *):not([aria-pressed="true"]) {
   background: transparent !important;
   box-shadow: none !important;
 }
-:root[data-theme-pack="classic"] [data-slot="button"][class*="hover:bg-tint-hover"]:hover:not([aria-pressed="true"]) {
+:root[data-theme-pack="classic"] [data-slot="button"][data-variant="ghost"]:not(.onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *):hover:not([aria-pressed="true"]) {
   box-shadow: var(--cl-raised-thin) !important;
 }
-:root[data-theme-pack="classic"] [data-slot="button"]:disabled,
-:root[data-theme-pack="classic"] [data-slot="button"][aria-disabled="true"] {
+:root[data-theme-pack="classic"] [data-slot="button"]:not(.onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *):is(:disabled, [aria-disabled="true"]) {
   color: var(--cl-lo) !important;
   text-shadow: 1px 1px 0 var(--cl-hi);
   opacity: 1 !important;
 }
 
+/* "Click Again to Confirm": a Button armed to delete (the destructive
+ * variant, which the others only take while armed, and ConfirmButton's
+ * data-armed) is bold with the dotted focus rectangle, as a default button
+ * was drawn. A plain grey one gave no sign it was waiting. */
+:root[data-theme-pack="classic"] [data-slot="button"][data-variant="destructive"]:not([data-armed="false"], .onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  font-weight: 700 !important;
+  outline: 1px dotted var(--cl-ink);
+  outline-offset: -4px;
+}
+
 /* A Button that opens a dialog or a menu takes the trigger's data-slot, not
  * "button", so the rules above miss it: the same raised face for those. */
-:root[data-theme-pack="classic"] button[data-variant][data-size]:not([data-slot="button"], [data-slot^="combobox"], [data-slot^="input-group"], [data-variant="ghost"], [data-variant="link"], [data-variant="chip"], [role="combobox"], [role="radio"], [role="tab"]):not([data-size^="icon"]) {
+:root[data-theme-pack="classic"] button[data-variant][data-size]:not([data-slot="button"], [data-slot^="combobox"], [data-slot^="input-group"], [data-variant="ghost"], [data-variant="link"], [data-variant="chip"], [role="combobox"], [role="radio"], [role="tab"], [data-size^="icon"], .onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *) {
   background: var(--cl-face) !important;
   color: var(--cl-ink) !important;
   border: 0 !important;
@@ -185,7 +246,7 @@
   font-family: var(--cl-font) !important;
   font-weight: 400 !important;
 }
-:root[data-theme-pack="classic"] button[data-variant][data-size]:not([data-slot="button"], [data-slot^="combobox"], [data-slot^="input-group"]):is([aria-expanded="true"], :active):not(:disabled) {
+:root[data-theme-pack="classic"] button[data-variant][data-size]:not([data-slot="button"], [data-slot^="combobox"], [data-slot^="input-group"], .onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *):is([aria-expanded="true"], :active):not(:disabled) {
   box-shadow: var(--cl-pressed) !important;
 }
 
@@ -194,7 +255,7 @@
  * link and chip buttons, the tabs and radios, comboboxes and tall tiles keep
  * theirs. The pack's own buttons (.cl-b, .cl-btn, .clt-b, .cl-tog, .cl-go,
  * .cl-rec-btn, .cl-disc-gbtn, .cl-sports__clear) say the same in their rules. */
-:root[data-theme-pack="classic"] button[data-variant][data-size]:not([data-size^="icon"], [data-variant="ghost"], [data-variant="link"], [data-variant="chip"], [role="combobox"], [role="radio"], [role="tab"], [class*="h-auto"], :has(+ [data-size="icon"])) {
+:root[data-theme-pack="classic"] button[data-variant][data-size]:not([data-size^="icon"], [data-variant="ghost"], [data-variant="link"], [data-variant="chip"], [role="combobox"], [role="radio"], [role="tab"], [class*="h-auto"], :has(+ [data-size="icon"]), .onb *, .boot-scene *, .theater-overlay *, .mini-overlay *, .mvtile *) {
   height: 23px !important;
   min-height: 23px !important;
   padding: 0 12px !important;
@@ -204,10 +265,10 @@
 }
 
 /* ------------------------------------------------------------- fields */
-:root[data-theme-pack="classic"] input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
-:root[data-theme-pack="classic"] textarea,
-:root[data-theme-pack="classic"] select,
-:root[data-theme-pack="classic"] [data-slot="input"] {
+:root[data-theme-pack="classic"] input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], .onb *, .boot-scene *),
+:root[data-theme-pack="classic"] textarea:not(.onb *, .boot-scene *),
+:root[data-theme-pack="classic"] select:not(.onb *, .boot-scene *),
+:root[data-theme-pack="classic"] [data-slot="input"]:not(.onb *, .boot-scene *) {
   background: var(--cl-field) !important;
   color: var(--cl-ink) !important;
   border: 0 !important;
@@ -217,11 +278,19 @@
 }
 /* One text field: 22px, 12px Tahoma, sunken. The shared Input brings its own
  * h-9 and text-base from a later layer, hence the !important. */
-:root[data-theme-pack="classic"] [data-slot="input"] {
+:root[data-theme-pack="classic"] [data-slot="input"]:not(.onb *, .boot-scene *) {
   height: 22px !important;
-  padding: 2px 4px !important;
+  padding-block: 2px !important;
   border-radius: 0 !important;
   font-size: 12px !important;
+}
+/* The sides are the field's own when it carries a pl-* or pr-* to clear an
+ * icon or a prefix (the accent's #, the search icon). */
+:root[data-theme-pack="classic"] [data-slot="input"]:not(.onb *, .boot-scene *, [class*="pl-"]) {
+  padding-left: 4px !important;
+}
+:root[data-theme-pack="classic"] [data-slot="input"]:not(.onb *, .boot-scene *, [class*="pr-"]) {
+  padding-right: 4px !important;
 }
 :root[data-theme-pack="classic"] ::placeholder {
   color: var(--cl-lo);

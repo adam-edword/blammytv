@@ -446,6 +446,12 @@ div.sports__bar:not(.sports__head *) {
 :root[data-theme="light"] .gamecard__foot {
   color: rgba(var(--card-ink), 0.72);
 }
+/* The team codes, the 4.23 in the table above: 3.8 on a card tinted with a
+ * team's colour. */
+:root[data-theme="light"] .gamecard__abbr,
+:root[data-theme="light"] .compactcard__abbr {
+  color: rgba(var(--card-ink), 0.72);
+}
 
 :root[data-theme="light"] .sports,
 :root[data-theme="light"] .homegames,

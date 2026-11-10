@@ -53,7 +53,7 @@ function Arrow({ dir }: { dir: "back" | "forward" }) {
 /** Where you are, as the address bar says it. */
 function addressOf(p: Pick<HeaderProps, "section" | "liveTab" | "streamTab"> & Address): string {
   if (p.settings) return `BlammyTV › Settings › ${p.settings}`;
-  if (p.section === "home") return "BlammyTV › Home";
+  if (p.section === "home") return p.title ? `BlammyTV › Home › ${p.title}` : "BlammyTV › Home";
   if (p.title && p.section === "stream" && p.streamTab === "home") return `BlammyTV › Stream › ${p.title}`;
   const d = DESTS.find((x) => x.key === (p.section === "live" ? p.liveTab : p.streamTab));
   const label = d?.key === "home" ? "Home" : (d?.label ?? "");
@@ -101,7 +101,15 @@ export function ClassicHeader(props: HeaderProps) {
     publish();
     const ro = new ResizeObserver(publish);
     ro.observe(el);
-    return () => ro.disconnect();
+    // The header does not resize when the row inside it grows: the update
+    // chip mounting, or its words changing, pushes Go To and Settings off the
+    // edge with no resize to say so.
+    const mo = new MutationObserver(publish);
+    mo.observe(tools, { childList: true, subtree: true, characterData: true });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
   }, [showLive]);
 
   const shown = DESTS.filter((d) => showLive || d.side !== "live");

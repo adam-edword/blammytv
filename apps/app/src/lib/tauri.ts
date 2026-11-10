@@ -38,14 +38,15 @@ export function openExternal(url: string): void {
   }
 }
 
-/** Mica behind the window for the Fluent theme (lib.rs window_mica). Resolves
+/** Mica behind the window for the Fluent theme (lib.rs window_mica), in the
+ * face the page is in (`dark` false is Light Mica and a light title bar). Resolves
  * true when the window now has it. False is Windows 10, an older build, a
  * failed call, or no native side at all (the browser build): the page keeps a
  * solid base then. Never rejects: a native build from before the command
  * answers as a no. */
-export function tauriMica(on: boolean): Promise<boolean> {
+export function tauriMica(on: boolean, dark: boolean): Promise<boolean> {
   if (typeof window === "undefined" || !isTauri()) return Promise.resolve(false);
-  return invoke<boolean>("window_mica", { on }).then(
+  return invoke<boolean>("window_mica", { on, dark }).then(
     (applied) => applied === true,
     () => false,
   );

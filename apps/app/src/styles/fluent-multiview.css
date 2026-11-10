@@ -62,3 +62,10 @@
   outline: none;
   box-shadow: none;
 }
+
+/* The Sound badge sits over the tile's own layers. Under them it was drawn
+ * through the shade a tuning tile wears: black on 60% of Windows' blue,
+ * 4.4:1. (Default's near-white accent clears the bar even shaded.) */
+:root[data-theme-pack="fluent"] .mvtile__badge {
+  z-index: 1;
+}

@@ -21,12 +21,14 @@ export function setAddress(part: Partial<Address>): void {
   for (const l of listeners) l();
 }
 
+// Module level, so a re-render does not resubscribe (a new function each time
+// did, on every clock tick of the header).
+function subscribe(l: () => void): () => void {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+const peek = (): Address => now;
+
 export function useAddress(): Address {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => now,
-  );
+  return useSyncExternalStore(subscribe, peek);
 }

@@ -147,6 +147,9 @@
   background: #fbe8a0;
 }
 :root[data-theme-pack="classic"] .cl-tv__lb {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 1px 3px;
   font-size: 12px;
   line-height: 16px;

@@ -241,11 +241,11 @@
 /* Pickers are content, not buttons: the swatches keep their colour (a
  * rounded square, as Windows' own accent swatches) and a theme card keeps
  * its preview, with the accent as its border when chosen, not its fill. */
-:root[data-theme-pack="fluent"] [data-picker="swatch"] {
+:root[data-theme-pack="fluent"] [data-picker="swatch"]:not(:where(.onb) *) {
   background: var(--swatch) !important;
   border-color: transparent !important;
 }
-:root[data-theme-pack="fluent"] [data-picker="theme"] {
+:root[data-theme-pack="fluent"] [data-picker="theme"]:not(:where(.onb) *) {
   height: auto !important;
   padding: 8px !important;
   background: var(--fl-fill) !important;
@@ -253,6 +253,15 @@
   font-size: 12px !important;
   min-width: 0 !important;
 }
-:root[data-theme-pack="fluent"] [data-picker="theme"][aria-pressed="true"] {
+:root[data-theme-pack="fluent"] [data-picker="theme"][aria-pressed="true"]:not(:where(.onb) *) {
   border: 2px solid var(--accent) !important;
+}
+/* The chosen swatch and card wear Tailwind's ring (ring-2 ring-offset-2),
+ * which is a box-shadow and so replaced the focus ring's inner line. Both
+ * stay: the line first, then the ring that says "chosen". */
+:root[data-theme-pack="fluent"] [data-picker]:focus-visible:not(:where(.onb) *) {
+  box-shadow:
+    0 0 0 1px var(--fl-focus-in),
+    var(--tw-ring-offset-shadow, 0 0 #0000),
+    var(--tw-ring-shadow, 0 0 #0000) !important;
 }

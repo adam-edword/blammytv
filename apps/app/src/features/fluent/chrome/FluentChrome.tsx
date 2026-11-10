@@ -125,15 +125,25 @@ export function FluentChrome(p: FluentChromeProps) {
     const away = (e: Event) => {
       if (e.target instanceof Element && !e.target.closest(".flc-pane")) setPeek(false);
     };
+    // Focus leaving the pane (Tab out) shuts it too: left open it would sit over
+    // the page's left 280px with the keyboard somewhere else.
+    const left = (e: FocusEvent) => {
+      if (e.target instanceof Element && !e.target.closest(".flc-pane")) setPeek(false);
+    };
+    // One Escape closes one thing, the topmost first: a palette or a menu that
+    // took it has marked it (defaultPrevented), and Settings stands down while
+    // this is open (FluentSettings).
     const esc = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || e.defaultPrevented) return;
       e.preventDefault();
       setPeek(false);
     };
     document.addEventListener("pointerdown", away);
+    document.addEventListener("focusin", left);
     document.addEventListener("keydown", esc);
     return () => {
       document.removeEventListener("pointerdown", away);
+      document.removeEventListener("focusin", left);
       document.removeEventListener("keydown", esc);
     };
   }, [open]);
@@ -147,7 +157,11 @@ export function FluentChrome(p: FluentChromeProps) {
   }, [folded]);
   // Whether the last input was the keyboard: a ring that has no business
   // showing for a click or a script's focus() (the Multi-View bar's) waits
-  // on this (fluent-multiview.css).
+  // on this (fluent-multiview.css). Not mvMotion's lastInputWasKey(): that
+  // counts a Ctrl/Alt/Meta chord as the keyboard, and here a chord (Ctrl+K,
+  // then the palette hands focus back) must not light a ring on a control the
+  // person never tabbed to; and CSS needs an attribute to read, which a
+  // function is not.
   useEffect(() => {
     const root = document.documentElement;
     const key = (e: KeyboardEvent) => {

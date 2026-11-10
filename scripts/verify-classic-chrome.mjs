@@ -45,7 +45,7 @@ const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromi
 const errors = [];
 
 /** A page that reaches nothing but this machine. */
-async function open({ store = CLASSIC, width = 1440, scheme = "dark", version } = {}) {
+async function open({ store = CLASSIC, width = 1440, scheme = "dark", version, query = "" } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
   await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
   if (version)
@@ -68,7 +68,7 @@ async function open({ store = CLASSIC, width = 1440, scheme = "dark", version } 
     },
     { store, PLAYLISTS, AIO, whats: version ? "1.0" : "999.0" },
   );
-  await page.goto(APP, { waitUntil: "domcontentloaded" });
+  await page.goto(APP + query, { waitUntil: "domcontentloaded" });
   return { ctx, page };
 }
 const shot = async (page, name) => {
@@ -128,7 +128,13 @@ const isMark = (m, size) => m.found && m.size === size && m.path && m.ring && m.
   // For a frame after it mounts the dialog is still pointer-events: none (Radix turns it on in an effect),
   // and a hit test goes through it to the dim layer. Measured 1.2.9: 5 of 60 opens under load, each with
   // no animation running and no transform. The mark's test below is a hit test, so wait for that.
-  await page.waitForFunction(() => getComputedStyle(document.querySelector(".palette--classic")).pointerEvents !== "none");
+  // The real condition, not the style: pointer-events can read "auto" in the frame before Radix sets the body to none.
+  await page.waitForFunction(() => {
+    const d = document.querySelector(".palette--classic");
+    const r = d?.getBoundingClientRect();
+    const hit = r && document.elementFromPoint(r.left + r.width / 2, r.top + 12);
+    return !!hit && d.contains(hit);
+  });
   const goto = await markShape(page, ".palette--classic .brand-mark");
   check("the logo: the Go To box's mark is the real path, 34px", isMark(goto, 34), JSON.stringify(goto));
   await shot(page, "goto");
@@ -183,6 +189,58 @@ const isMark = (m, size) => m.found && m.size === size && m.path && m.ring && m.
   const c = await radii(CLASSIC);
   check("the logo: What's New's tile is rounded in Default", d.some((x) => !x.endsWith("=0px")), d.join(" "));
   check("the logo: and the same radii in Classic (the reset leaves the tile alone)", d.join() === c.join(), c.join(" "));
+}
+
+// ---------------------- 1b. brand screens are never themed (H5)
+// Onboarding and What's New look the same under every pack: each control's
+// computed face, size and type under Classic equal Default's.
+{
+  const faces = (sel) =>
+    [...document.querySelectorAll(sel)].map((b) => {
+      const s = getComputedStyle(b);
+      const r = b.getBoundingClientRect();
+      return [b.textContent.trim().slice(0, 24), s.color, s.backgroundColor, Math.round(r.height), Math.round(r.width), s.fontSize, s.fontFamily.slice(0, 20), s.borderRadius, s.boxShadow.slice(0, 40)].join("|");
+    });
+  const onboarding = async (pack) => {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "dark" });
+    await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+    const page = await ctx.newPage();
+    await page.addInitScript((pack) => {
+      localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
+      if (pack) localStorage.setItem("blammytv.themePack", JSON.stringify({ v: 1, data: pack }));
+    }, pack);
+    await page.goto(APP, { waitUntil: "domcontentloaded" });
+    await page.locator(".onb .onb-btn").first().waitFor({ timeout: 30_000 });
+    await page.waitForTimeout(3000);
+    const rows = await page.evaluate(`(${faces})(".onb button")`);
+    await shot(page, `onboarding-${pack ?? "default"}`);
+    // one step further, where the ghost buttons are
+    await page.locator(".onb .onb-btn").first().click();
+    await page.waitForTimeout(2500);
+    const next = await page.evaluate(`(${faces})(".onb button")`);
+    await ctx.close();
+    return [...rows, "--", ...next];
+  };
+  const d = await onboarding(null);
+  const c = await onboarding("classic");
+  check("brand screens: onboarding has buttons to compare", d.length > 2, d.join(" ; "));
+  check("brand screens: onboarding's buttons are the same under Classic as in Default", d.join("\n") === c.join("\n"), `default ${d.join(" ; ")}\nclassic ${c.join(" ; ")}`);
+  const wn = async (store) => {
+    const { ctx, page } = await open({ store, version: "1.2.0" });
+    await page.locator(".wn .boot-scene.is-settled").waitFor({ timeout: 25_000 }).catch(async () => {
+      await page.getByRole("button", { name: "Skip", exact: true }).click().catch(() => {});
+      await page.locator(".wn .boot-scene.is-settled").waitFor({ timeout: 15_000 });
+    });
+    await page.waitForTimeout(1500);
+    const rows = await page.evaluate(`(${faces})(".wn button")`);
+    await shot(page, `whatsnew-buttons-${store.themePack ?? "default"}`);
+    await ctx.close();
+    return rows;
+  };
+  const wd = await wn({});
+  const wc = await wn(CLASSIC);
+  check("brand screens: What's New has buttons to compare", wd.length >= 2, wd.join(" ; "));
+  check("brand screens: What's New's buttons are the same under Classic as in Default", wd.join("\n") === wc.join("\n"), `default ${wd.join(" ; ")}\nclassic ${wc.join(" ; ")}`);
 }
 
 // ------------------------------------------- 2. the tab you are on is pressed
@@ -251,6 +309,18 @@ const isMark = (m, size) => m.found && m.size === size && m.path && m.ring && m.
   const film = await address(page);
   check("address: a film's page reads BlammyTV › Stream › Fake Movie One", film === "BlammyTV › Stream › Fake Movie One", film);
   await shot(page, "film-address");
+  // M15b: Add to Library is Default's split button, its arrow a Classic menu of the lists.
+  const save = page.locator(".vod-save-split");
+  const half = await save.evaluate((e) => [...e.querySelectorAll("button")].map((b) => ({ h: Math.round(b.getBoundingClientRect().height), shadow: getComputedStyle(b).boxShadow.includes("inset") })));
+  check("film: Add to Library is a push button with a 23px arrow beside it", half.length === 2 && half.every((b) => b.h === 23 && b.shadow), JSON.stringify(half));
+  await page.locator(".vod-save__more").click();
+  const menu = page.locator('[data-slot="dropdown-menu-content"]');
+  await menu.waitFor({ timeout: 5000 });
+  const mm = await menu.evaluate((e) => ({ bg: getComputedStyle(e).backgroundColor, rows: e.querySelectorAll('[role="menuitemcheckbox"], [role="menuitem"]').length, radius: getComputedStyle(e).borderRadius }));
+  check("film: the arrow opens the lists as a Classic menu (grey, square, with New List in it)", mm.bg === "rgb(212, 208, 200)" && mm.radius === "0px" && mm.rows >= 1, JSON.stringify(mm));
+  await shot(page, "film-library-menu");
+  await page.keyboard.press("Escape");
+  await menu.waitFor({ state: "detached", timeout: 3000 });
   await page.locator('[data-cl="settings"]').click();
   const dlg = page.locator('[role="dialog"]').first();
   await dlg.waitFor();
@@ -266,6 +336,15 @@ const isMark = (m, size) => m.found && m.size === size && m.path && m.ring && m.
   await page.waitForTimeout(200);
   const back = await address(page);
   check("address: closing Settings gives the film's page back", back === "BlammyTV › Stream › Fake Movie One", back);
+  // R8: a title opened from Home still says where it was opened from.
+  await goTo(page, "hub");
+  await page.locator(".stream-card").first().waitFor({ timeout: 20_000 });
+  check("address: Home reads BlammyTV › Home", (await address(page)) === "BlammyTV › Home", await address(page));
+  await page.locator(".stream-card").first().click();
+  await page.locator(".vod-detail, .clt").first().waitFor({ timeout: 15_000 });
+  await page.waitForTimeout(400);
+  const fromHome = await address(page);
+  check("address: a title opened from Home reads BlammyTV › Home › <title> (R8)", /^BlammyTV › Home › .+/.test(fromHome), fromHome);
   await goTo(page, "discover");
   await page.waitForTimeout(300);
   check("address: Discover keeps its search band, not an address", (await page.locator("[data-cl=address]").count()) === 0 && (await page.locator("#cl-search").count()) === 1);
@@ -311,6 +390,92 @@ for (const width of [1100, 900]) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(500);
   check("narrow: widening the window brings the labels back", await page.evaluate(() => !document.querySelector(".cl-header").hasAttribute("data-compact") && getComputedStyle(document.querySelector(".cl-tb__t")).display !== "none"));
+  await ctx.close();
+}
+
+// R1: the update chip mounts after the header has measured. The window's
+// minimum is 1000px (tauri.conf); Go To and Settings must stay inside it.
+for (const [width, query] of [[1000, ""], [1000, "?update=9.9.9"], [1100, ""], [1100, "?update=9.9.9"]]) {
+  const { ctx, page } = await open({ width, query });
+  await page.waitForSelector(".cl-header", { timeout: 20_000 });
+  if (query) await page.locator(".update-chip").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(600);
+  const m = await page.evaluate(() => {
+    const edge = (s) => Math.round(document.querySelector(s).getBoundingClientRect().right);
+    const tools = document.querySelector(".cl-tools");
+    return { goto: edge("[data-cl=goto]"), settings: edge("[data-cl=settings]"), w: innerWidth, fits: tools.scrollWidth <= tools.clientWidth, compact: document.querySelector(".cl-header").hasAttribute("data-compact") };
+  });
+  const what = `narrow ${width}${query ? " with the update chip" : ""}`;
+  check(`${what}: Go To and Settings are inside the window`, m.goto <= m.w && m.settings <= m.w && m.fits, JSON.stringify(m));
+  // 1100px is where it matters: the row fits with its labels until the chip arrives, then must drop to icons.
+  if (width === 1100) check(`${what}: the labels ${query ? "have gone to icons" : "are still showing"}`, m.compact === !!query, JSON.stringify(m));
+  await shot(page, `narrow-${width}${query ? "-update" : ""}`);
+  await ctx.close();
+}
+
+// ------------------------------------------- 4b. Settings: place and Appearance
+for (const width of [1600, 1100]) {
+  const { ctx, page } = await open({ width });
+  await page.waitForSelector(".cl-header", { timeout: 20_000 });
+  await page.waitForTimeout(400);
+  await page.locator('[data-cl="settings"]').click();
+  const dlg = page.locator('[role="dialog"]').first();
+  await dlg.waitFor();
+  await page.waitForTimeout(400);
+  // M16: under the header, not over the address bar, on every tab alike.
+  const rects = [];
+  for (const tab of ["home", "appearance", "app"]) {
+    await dlg.locator(`.cl-tabs [data-rail="${tab}"]`).click();
+    await page.waitForTimeout(250);
+    rects.push(await page.evaluate(() => {
+      const r = document.querySelector('[role="dialog"] .settings--classic, .settings--classic').getBoundingClientRect();
+      return { top: Math.round(r.top), bottom: Math.round(r.bottom), headerBottom: Math.round(document.querySelector(".cl-header").getBoundingClientRect().bottom), status: Math.round(document.querySelector(".cl-status").getBoundingClientRect().top) };
+    }));
+  }
+  check(`settings ${width}: the dialog starts at or below the header's bottom edge, ends above the status bar (M16)`, rects.every((r) => r.top >= r.headerBottom && r.bottom <= r.status), JSON.stringify(rects[0]));
+  check(`settings ${width}: and sits in the same place on every tab`, new Set(rects.map((r) => `${r.top}/${r.bottom}`)).size === 1, JSON.stringify(rects));
+  if (width === 1600) {
+    await dlg.locator('.cl-tabs [data-rail="appearance"]').click();
+    await page.waitForTimeout(300);
+    // M9: theme cards
+    const cards = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-picker="theme"]')].map((c) => {
+        const cr = c.getBoundingClientRect();
+        const pr = c.querySelector("[data-swatch]").getBoundingClientRect();
+        const cs = getComputedStyle(c);
+        return { on: c.getAttribute("aria-pressed") === "true", pad: cs.paddingLeft, top: Math.round(pr.top - cr.top), side: Math.round(pr.left - cr.left), h: Math.round(cr.height), checker: cs.backgroundImage.includes("conic"), shadow: cs.boxShadow.slice(0, 22) };
+      }),
+    );
+    check("appearance: theme cards have 8px padding and the preview clear of the bevel (M9)", cards.length >= 4 && cards.every((c) => c.pad === "8px" && c.top >= 8 && c.side >= 8 && c.h > 72), JSON.stringify(cards[0]));
+    const chosen = cards.filter((c) => c.on);
+    check("appearance: the chosen card is pushed in, with no checker over its preview", chosen.length === 1 && !chosen[0].checker && chosen[0].shadow !== cards.find((c) => !c.on).shadow, JSON.stringify(chosen));
+    // M8: Card Details chips
+    const chips = await page.evaluate(() => [...document.querySelectorAll(".meta-pick__chip")].map((c) => ({ on: c.getAttribute("aria-pressed") === "true", h: Math.round(c.getBoundingClientRect().height), raised: getComputedStyle(c).boxShadow.startsWith("rgb(64, 64, 64) -1px") })));
+    check("appearance: every Card Details chip is 23px, pressed or not (M8)", chips.length > 1 && chips.every((c) => c.h === 23), JSON.stringify(chips));
+    check("appearance: and there are both kinds to compare", chips.some((c) => c.on) && chips.some((c) => !c.on));
+    // the value beside the slider
+    const val = await page.evaluate(() => {
+      const b = document.querySelector(".rowcap__value--btn");
+      if (!b) return null;
+      const s = getComputedStyle(b);
+      return { bg: s.backgroundColor, h: Math.round(b.getBoundingClientRect().height), raised: s.boxShadow.startsWith("rgb(64, 64, 64) -1px") };
+    });
+    check("appearance: Titles per Row's value is a sunken white field, not a raised button", !!val && val.bg === "rgb(255, 255, 255)" && val.h === 22 && !val.raised, JSON.stringify(val));
+    // R2: the accent's hex field starts right of its #
+    await page.getByRole("button", { name: "Custom" }).click();
+    const hex = page.locator('input[aria-label="Hex color"]');
+    await hex.waitFor({ timeout: 5000 });
+    const hx = await hex.evaluate((i) => {
+      const hash = [...i.parentElement.querySelectorAll("span")].find((s) => s.textContent.trim() === "#").getBoundingClientRect();
+      return { textStart: Math.round(i.getBoundingClientRect().left + parseFloat(getComputedStyle(i).paddingLeft)), hashRight: Math.round(hash.right), h: Math.round(i.getBoundingClientRect().height) };
+    });
+    check("appearance: the hex field's text starts right of the # (R2), at 22px", hx.textStart >= hx.hashRight && hx.h === 22, JSON.stringify(hx));
+    await shot(page, "accent-popover");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    await shot(page, "appearance");
+  }
+  if (width === 1100) await shot(page, "settings-1100");
   await ctx.close();
 }
 
@@ -466,6 +631,105 @@ const CONTRAST = `(() => {
   await ctx.close();
 }
 
+// ------------------------- 5b. on a picture, in both faces (H1, H2, H3, M10, M14)
+// Classic has one face, so the player's chrome is light ink on dark glass whether
+// Appearance is Dark or Light. Measured from computed colours, as above.
+for (const face of ["dark", "light"]) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.addInitScript(playerStub, [PANEL]);
+  await page.addInitScript((face) => localStorage.setItem("blammytv.theme", JSON.stringify({ v: 1, data: face })), face);
+  await page.addInitScript(() => document.addEventListener("DOMContentLoaded", () => {
+    const s = document.createElement("style");
+    s.textContent = "#inv-chrome{background:#000}";
+    document.head.append(s);
+  }));
+  await page.goto(APP, { waitUntil: "domcontentloaded" });
+  await page.locator(".guide__channel").first().waitFor({ timeout: 30_000 });
+  await page.evaluate(CONTRAST);
+  const ratioOf = (el) =>
+    el.evaluate((e) => {
+      const s = getComputedStyle(e);
+      return { fg: s.color, bg: s.backgroundColor };
+    }).then((c) => page.evaluate(([f, b]) => ({ r: window.__contrast(f, b), f, b }), [c.fg, c.bg]));
+  await page.waitForTimeout(500);
+  await page.locator(".guide__card").nth(2).click();
+  await page.locator(".mini-overlay").waitFor({ timeout: 10_000 });
+  await page.evaluate(() => (window.__presenting = true));
+  await page.locator(".mini-overlay .tune").waitFor({ state: "detached", timeout: 10_000 });
+  await page.mouse.move(300, 200);
+  await page.waitForTimeout(400);
+  const mini = await ratioOf(page.locator(".mini-overlay .overlay__btn").first());
+  check(`${face}: the mini player's buttons read (contrast ${mini.r.toFixed(1)} >= 4.5)`, mini.r >= 4.5, `${mini.f} on ${mini.b}`);
+  await page.locator(".mini-overlay").click({ position: { x: 200, y: 140 } });
+  await page.locator(".theater-overlay").waitFor({ timeout: 5000 });
+  await page.mouse.move(800, 300);
+  await page.mouse.move(820, 330);
+  await page.waitForTimeout(600);
+  const chip = page.locator(".theater-overlay [data-variant=chip]").first();
+  const c0 = await ratioOf(chip);
+  check(`${face}: a theater chip is light on dark (contrast ${c0.r.toFixed(1)} >= 4.5)`, c0.r >= 4.5, `${c0.f} on ${c0.b}`);
+  await chip.hover();
+  await page.waitForTimeout(300);
+  const c1 = await ratioOf(chip);
+  check(`${face}: and hovered it still reads (contrast ${c1.r.toFixed(1)} >= 4.5, H3)`, c1.r >= 4.5 && c1.b !== "rgb(212, 208, 200)", `${c1.f} on ${c1.b}`);
+  await shot(page, `theater-${face}`);
+  // keyboard focus on a control over the picture: a white dotted rectangle
+  await page.locator(".theater-controls__group button").first().focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  const ring = await page.evaluate(() => {
+    const e = document.activeElement;
+    const s = e && getComputedStyle(e);
+    return { ok: !!e?.closest(".theater-overlay"), c: s?.outlineColor, st: s?.outlineStyle, vis: e?.matches(":focus-visible") };
+  });
+  check(`${face}: keyboard focus on a player control is a white dotted rectangle (M14)`, ring.ok && ring.vis && ring.st === "dotted" && /^rgba?\(255, 255, 255/.test(ring.c), JSON.stringify(ring));
+  await shot(page, `theater-focus-${face}`);
+  // the LIVE chip sits in the capsule as the capsule draws it, not as a push button
+  const live = await page.locator(".theater-live").first().evaluate((e) => ({ h: e.getBoundingClientRect().height, bg: getComputedStyle(e).backgroundColor }));
+  check(`${face}: the LIVE chip is not a grey push button (M10)`, live.bg !== "rgb(212, 208, 200)" && live.h !== 23, JSON.stringify(live));
+  // R5: the shared dialog frame with no close button (Record's notice) keeps its bottom gap.
+  if (face === "dark") {
+    await page.evaluate(() => localStorage.setItem("blammytv.recordingNotice", JSON.stringify({ v: 1, data: true })));
+    const rec = page.locator('.theater-overlay [aria-label="Record"]');
+    if ((await rec.count()) === 0) check("record dialog: the theater has a Record button to reach it", false);
+    else {
+      await rec.first().click();
+      const d = page.locator('[role="dialog"]', { hasText: "Recording Uses a Connection" });
+      await d.waitFor({ timeout: 5000 });
+      await page.waitForTimeout(400);
+      const g = await d.evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const foot = e.querySelector('[data-slot="dialog-footer"]').getBoundingClientRect();
+        const lab = getComputedStyle(e.querySelector("label.settings-check"));
+        const title = getComputedStyle(e.querySelector('[data-slot="dialog-title"]'));
+        return { gap: Math.round(r.bottom - foot.bottom), labelMargin: lab.marginBottom, closeX: !!e.querySelector('[data-slot="dialog-close"]'), titleBorder: title.borderRightWidth };
+      });
+      check("record dialog: the footer keeps its bottom gap and the label has none (R5)", g.gap >= 11 && g.labelMargin === "0px", JSON.stringify(g));
+      check("record dialog: no close button, so the caption keeps no room for one", !g.closeX && g.titleBorder === "0px", JSON.stringify(g));
+      await shot(page, "record-dialog");
+      await page.keyboard.press("Escape");
+      await d.waitFor({ state: "detached", timeout: 3000 });
+    }
+  }
+  // the mini-guide
+  const mgBtn = page.locator('.theater-overlay [aria-label="Mini-Guide"]');
+  if (await mgBtn.count()) {
+    await mgBtn.click();
+    await page.locator(".mg-card.is-sel").waitFor({ timeout: 5000 });
+    await page.mouse.move(700, 120);
+    await page.waitForTimeout(500);
+    const sel = await ratioOf(page.locator(".mg-card.is-sel"));
+    check(`${face}: the mini-guide's selected card reads (contrast ${sel.r.toFixed(1)} >= 4.5, H2)`, sel.r >= 4.5, `${sel.f} on ${sel.b}`);
+    const card = await ratioOf(page.locator(".mg-card:not(.is-sel)").first());
+    check(`${face}: and so does another card (contrast ${card.r.toFixed(1)} >= 4.5, H1)`, card.r >= 4.5, `${card.f} on ${card.b}`);
+    await shot(page, `miniguide-${face}`);
+  } else check(`${face}: the Mini-Guide button is there`, false);
+  await ctx.close();
+}
+
 // -------------------------------------------- 6. Multi-View's bar and tiles
 {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -534,6 +798,105 @@ const CONTRAST = `(() => {
   const tr = await page.evaluate(([f, b]) => window.__contrast(f, b), [g.title, tileBg]);
   check(`multi-view: a tile's message is light on the dark tile (contrast ${tr.toFixed(1)} >= 4.5)`, tr >= 4.5, `${g.title} on ${tileBg}`);
   await shot(page, "multiview-tiles");
+  await ctx.close();
+}
+
+// ------------------------------- 6b. a game's theater: the channel rail (H4)
+{
+  const M3U = { v: 1, data: [{ kind: "m3u", id: "m1", name: "Test M3U", enabled: true, url: "http://localhost:8082/playlist.m3u" }] };
+  const GAME = {
+    game: { kind: "fixture", id: "g1", sport: "football", league: "NFL", leagueKey: "football/nfl", state: "live", start: new Date().toISOString(), status: "3rd 07:22", broadcasts: ["ESPN"], channels: [], home: { name: "Kansas City", abbr: "KC" }, away: { name: "Buffalo", abbr: "BUF" } },
+    others: [],
+  };
+  const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 2 });
+  await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
+  const page = await ctx.newPage();
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.addInitScript(
+    ([m3u, game]) => {
+      let cb = 0;
+      window.__TAURI_INTERNALS__ = {
+        transformCallback: (f) => {
+          const id = ++cb;
+          window["_" + id] = f;
+          return id;
+        },
+        convertFileSrc: (p) => p,
+        metadata: { currentWindow: { label: "main" }, currentWebview: { windowLabel: "main", label: "main" } },
+        invoke: (cmd, args) => {
+          if (cmd === "http_get") return fetch(args.url).then((r) => r.text());
+          if (cmd === "mpv_status") return Promise.resolve(JSON.stringify({ pos: 82, dur: 24.7, presenting: true, ended: false, buffering: false, seekable: true, cacheDur: 18, dvrStart: 0, dvrEnd: 100, audio: [], subs: [], chapters: [] }));
+          return Promise.resolve(undefined);
+        },
+      };
+      window.__sportsFixture = game;
+      localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
+      localStorage.setItem("blammytv.themePack", JSON.stringify({ v: 1, data: "classic" }));
+      localStorage.setItem("blammytv.playlists", JSON.stringify(m3u));
+    },
+    [M3U, GAME],
+  );
+  await page.goto(`${APP}?sportstheater=1`, { waitUntil: "domcontentloaded" });
+  await page.locator(".sportsrail").first().waitFor({ timeout: 30_000 });
+  await page.evaluate(CONTRAST);
+  await page.mouse.move(700, 800);
+  await page.waitForTimeout(500);
+  const inkOn = (sel) =>
+    page.evaluate(([sel]) => {
+      const e = document.querySelector(sel);
+      let b = e;
+      while (b && getComputedStyle(b).backgroundColor === "rgba(0, 0, 0, 0)") b = b.parentElement;
+      return window.__contrast(getComputedStyle(e).color, getComputedStyle(b).backgroundColor);
+    }, [sel]);
+  for (const [what, sel] of [["the matchup's name", ".matchup__name"], ["the Channels head", ".sportstheater__railname"], ["a channel's name", ".sportsrail__name"]]) {
+    const r = await inkOn(sel);
+    check(`sports theater: ${what} reads on Classic's face (contrast ${r.toFixed(1)} >= 4.5)`, r >= 4.5);
+  }
+  const head = await page.evaluate(() => {
+    const b = document.querySelector(".sportstheater__railhead");
+    const s = getComputedStyle(b);
+    return { bg: s.backgroundColor, shadow: s.boxShadow };
+  });
+  check("sports theater: the Channels head is flat, not a field", head.bg === "rgba(0, 0, 0, 0)" && head.shadow === "none", JSON.stringify(head));
+  const box = await page.evaluate(() => {
+    const s = getComputedStyle(document.querySelector(".sportstheater__rail"));
+    return { bg: s.backgroundColor, sunk: s.boxShadow.includes("inset") };
+  });
+  check("sports theater: the channels sit in a white sunken list", box.bg === "rgb(255, 255, 255)" && box.sunk, JSON.stringify(box));
+  await shot(page, "sports-theater");
+  await page.locator(".sportsrail").first().hover();
+  await page.waitForTimeout(300);
+  const hot = await page.evaluate(() => {
+    const s = getComputedStyle(document.querySelector(".sportsrail .sportsrail__tilt"));
+    return { bg: s.backgroundColor, fg: s.color };
+  });
+  check("sports theater: the channel you point at is the navy bar, white ink", hot.bg === "rgb(10, 36, 106)" && hot.fg === "rgb(255, 255, 255)", JSON.stringify(hot));
+  await ctx.close();
+}
+
+// --------------------------- 6c. the Sports tree takes the Folders' keys (R7, M17)
+{
+  const { ctx, page } = await open();
+  await page.waitForSelector(".cl-header", { timeout: 20_000 });
+  await goTo(page, "sports");
+  await page.locator(".cl-sports__tree [role=treeitem]").first().waitFor({ timeout: 20_000 });
+  const sport = page.locator('.cl-sports__tree [role=treeitem][data-id^="s:"]').first();
+  const root = page.locator('.cl-sports__tree [role=treeitem][data-id="root"]');
+  await sport.focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(200);
+  check("sports tree: Enter on a sport's label selects it, as a click does", (await page.locator(".cl-sports__clear").count()) === 1);
+  await page.keyboard.press("ArrowRight");
+  const open1 = await sport.getAttribute("aria-expanded");
+  await page.keyboard.press("ArrowLeft");
+  check("sports tree: the arrows fold and unfold", open1 === "true" && (await sport.getAttribute("aria-expanded")) === "false", String(open1));
+  await root.focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(200);
+  check("sports tree: Enter on Sports clears the filter, as a click does", (await page.locator(".cl-sports__clear").count()) === 0);
+  const tip = await sport.evaluate((e) => e.querySelector(".cl-tv__lb").getAttribute("title"));
+  check("sports tree: a sport's label has a tooltip, and ends in an ellipsis when long", !!tip && (await sport.evaluate((e) => getComputedStyle(e.querySelector(".cl-tv__lb")).textOverflow)) === "ellipsis", String(tip));
   await ctx.close();
 }
 

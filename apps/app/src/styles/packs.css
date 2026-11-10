@@ -450,9 +450,10 @@
 }
 
 /* MICA SHOWS: native has put it behind the window (data-mica, themePack.ts),
- * so the page's base goes see-through and the layers wash over it. Without
- * Mica the base stays the solid --bg above. The video is untouched: the page
- * is see-through only where no mpv is. */
+ * so the page's base goes see-through and the layers wash over it. Light's
+ * twin is in fluent-tokens.css. Without Mica the base stays the solid --bg
+ * above. The video is untouched: the page is see-through only where no mpv
+ * is. */
 :root[data-theme-pack="fluent"][data-mica="on"]:not([data-theme="light"]) body,
 :root[data-theme-pack="fluent"][data-mica="on"]:not([data-theme="light"]) .app-shell {
   background: transparent;

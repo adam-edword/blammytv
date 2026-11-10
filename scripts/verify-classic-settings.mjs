@@ -38,6 +38,10 @@ const PLAYLISTS = {
 };
 const AIO = { v: 1, data: "http://localhost:8084/manifest.json" };
 const TABS = ["Home", "Sources", "Playback", "Appearance", "Accounts", "App"];
+// Tabs that legitimately have no .customize-row__title or .settings-field__label.
+const NO_ROW_TITLES = {
+  Accounts: "Trakt and MAL draw only inside the desktop app (isTauri), so in a browser the page is its group box and nothing else",
+};
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", ignoreDefaultArgs: ["--hide-scrollbars"] });
 
@@ -109,6 +113,7 @@ const contrast = (a, b) => {
         face,
         noteColors: notes.map((e) => getComputedStyle(e).color),
         noteSizes: [...new Set(notes.map((e) => getComputedStyle(e).fontSize))],
+        titleCount: titles.length,
         titleSizes: [...new Set(titles.map((e) => getComputedStyle(e).fontSize))],
         titleWeights: [...new Set(titles.map((e) => getComputedStyle(e).fontWeight))],
         groups: groups.length,
@@ -125,11 +130,22 @@ const contrast = (a, b) => {
   check("the title bar is 18px, as Windows 2000's", rows.Home.title[3] === 18, String(rows.Home.title[3]));
   check("one frame: the tab strip's rect is identical on all six tabs", same("tabs"), JSON.stringify(TABS.map((t) => rows[t].tabs)));
   check("one frame: the page and the Close row are identical on all six tabs", same("body") && same("foot"));
+  // The label is a span inside the tab, with Default's 14px semibold of its
+  // own: measuring the tab said 12px while the words were drawn at 14.
+  const tabText = await page.evaluate(() => [...document.querySelectorAll('.cl-tabs [role="tab"]')].map((t) => {
+    const cs = getComputedStyle(t.querySelector("span") ?? t);
+    return `${cs.fontSize} ${cs.fontWeight}`;
+  }));
+  check("the tabs' labels are the dialog's 12px regular, as the rows under them", tabText.length === 6 && tabText.every((s) => s === "12px 400"), JSON.stringify(tabText));
 
   for (const tab of TABS) {
     const r = rows[tab];
     check(`${tab}: group boxes (fieldset and legend), no Default eyebrow headings`, r.groups >= 1 && r.eyebrows === 0 && r.legends.every((l) => l.length > 0) && r.groupBorder === "solid 1px" && r.groupRadius === "0px", JSON.stringify([r.groups, r.eyebrows, r.legends, r.groupBorder]));
-    check(`${tab}: row titles are 12px and regular`, r.titleSizes.every((s) => s === "12px") && r.titleWeights.every((w) => w === "400"), JSON.stringify([r.titleSizes, r.titleWeights]));
+    // `every` on an empty list is true, so a tab whose titles all vanished
+    // passed. A tab with rows must have measured some; the others are named.
+    const bare = NO_ROW_TITLES[tab];
+    if (bare) check(`${tab}: has no row titles, on purpose (${bare})`, r.titleCount === 0, `found ${r.titleCount}`);
+    else check(`${tab}: row titles are 12px and regular (${r.titleCount} measured)`, r.titleCount > 0 && r.titleSizes.every((s) => s === "12px") && r.titleWeights.every((w) => w === "400"), JSON.stringify([r.titleCount, r.titleSizes, r.titleWeights]));
     if (r.noteColors.length) {
       const worst = Math.min(...r.noteColors.map((c) => contrast(c, r.face)));
       check(`${tab}: descriptions are the dialog's ink, contrast at least 4.5 on the face`, worst >= 4.5 && r.noteSizes.every((s) => s === "11px"), `${worst.toFixed(1)} ${JSON.stringify(r.noteSizes)}`);
@@ -244,11 +260,34 @@ const contrast = (a, b) => {
   check("Appearance: Titles per Row is a trackbar: no platform slider, a sunken groove and a raised thumb drawn in the bevel greys", app.hasSlider && app.appearance === "none" && app.sliderH === 24 && px.dk >= 30 && px.lo >= 30, JSON.stringify({ ...app, ...px }));
   check("Appearance: the catalogs field is one sunken white box, not a field inside a field", app.chipsBg === "rgb(255, 255, 255)" && app.chipsShadow.includes("inset") && app.innerShadow === "none", JSON.stringify(app));
   // Pickers are content: each swatch shows its own colour, each theme card its preview (1.2.7 painted them over).
-  const pick = await page.evaluate(() => ({
-    swatches: [...document.querySelectorAll('[data-picker="swatch"]')].map((e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e).backgroundImage, e.style.getPropertyValue("--swatch")]),
-    cards: [...document.querySelectorAll('[data-picker="theme"]')].map((e) => Math.round(e.getBoundingClientRect().height)),
-  }));
-  check("Appearance: every accent swatch shows its own colour and every theme card its preview", pick.swatches.length >= 8 && pick.swatches.every(([bg, img, want]) => want.startsWith("#") ? bg === `rgb(${parseInt(want.slice(1, 3), 16)}, ${parseInt(want.slice(3, 5), 16)}, ${parseInt(want.slice(5, 7), 16)})` : img.includes("gradient")) && pick.cards.length >= 6 && pick.cards.every((h) => h > 60), JSON.stringify(pick));
+  const pick = await page.evaluate(() => {
+    const rect = (e) => e.getBoundingClientRect();
+    return {
+      swatches: [...document.querySelectorAll('[data-picker="swatch"]')].map((e) => [getComputedStyle(e).backgroundColor, getComputedStyle(e).backgroundImage, e.style.getPropertyValue("--swatch")]),
+      cards: [...document.querySelectorAll('[data-picker="theme"]')].map((e) => {
+        const c = rect(e);
+        const pv = e.querySelector("[data-swatch]");
+        const p = pv && rect(pv);
+        const cs = getComputedStyle(e);
+        return {
+          name: e.getAttribute("aria-label"),
+          h: Math.round(c.height),
+          chosen: e.getAttribute("aria-pressed") === "true",
+          // Room between the preview and the card's edge, on each side.
+          room: p ? [p.top - c.top, c.bottom - p.bottom, p.left - c.left, c.right - p.right].map((n) => Math.round(n * 10) / 10) : null,
+          img: cs.backgroundImage,
+        };
+      }),
+    };
+  });
+  check("Appearance: every accent swatch shows its own colour and every theme card its preview", pick.swatches.length >= 8 && pick.swatches.every(([bg, img, want]) => want.startsWith("#") ? bg === `rgb(${parseInt(want.slice(1, 3), 16)}, ${parseInt(want.slice(3, 5), 16)}, ${parseInt(want.slice(5, 7), 16)})` : img.includes("gradient")) && pick.cards.length >= 6 && pick.cards.every((c) => c.h > 60), JSON.stringify(pick.swatches.length) + JSON.stringify(pick.cards.map((c) => c.h)));
+  // A tall card is not a preview that fits it: the preview must sit inside the
+  // card with room on every side, and the chosen card must not wear a pattern
+  // (Classic's checker is a pressed button's face).
+  const tight = pick.cards.filter((c) => !c.room || c.room.some((n) => n < 4));
+  check("Appearance: each theme card's preview sits inside it with at least 4px on every side", pick.cards.length >= 6 && tight.length === 0, tight.map((c) => `${c.name} ${JSON.stringify(c.room)}`).join("; "));
+  const chosen = pick.cards.filter((c) => c.chosen);
+  check("Appearance: exactly one theme card is chosen, and its face is not a pattern", chosen.length === 1 && chosen[0].img === "none", JSON.stringify(chosen.map((c) => [c.name, c.img.slice(0, 80)])));
 
   const appTab = await probe("App", () => {
     const b = [...document.querySelectorAll("button")].find((e) => e.textContent.includes("Licenses and Source Code"));

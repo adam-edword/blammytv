@@ -24,20 +24,28 @@
 //     Ctrl+K all work from it;
 //   - controls: buttons 4px / 32px, text boxes with an accent line on focus,
 //     a 40x20 switch, a 20px checkbox, the double focus ring;
-//   - Default renders today's header and its Settings sheet.
+//   - Default renders today's header and its Settings sheet;
+//   - what is drawn over video (the theater's capsules, a mini-guide card, a
+//     Multi-View tile's chips) and the brand screens (onboarding, What's New)
+//     are never painted: in both faces they are Default dark's;
+//   - at 1000px the pane over the page closes by Escape (one thing at a time,
+//     the topmost first) and when focus leaves it.
 //
-// Offline: the fake M3U and AIOStreams, every other host aborted.
+// Offline: the fake M3U, AIOStreams and panel, every other host aborted.
 //
 //   node scripts/fake-m3u.mjs     # :8082
 //   node scripts/fake-aio.mjs     # :8084
+//   node scripts/fake-panel.mjs   # :8081  (PANEL_PORT to move it)
 //   (vite on :4173)
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-fluent-chrome.mjs
 import { createRequire } from "node:module";
 const req = createRequire(process.env.PW_FROM ?? import.meta.url);
 const { chromium } = req("playwright-core");
 import { goTo } from "./nav-settle.mjs";
+import { contrastOf, openApp, openTheater, startProxy, wake } from "./fluent-native.mjs";
 
 const APP = process.env.APP_URL ?? "http://localhost:4173/";
+const PANEL = `http://localhost:${process.env.PANEL_PORT ?? 8081}`;
 let fail = 0;
 const check = (n, ok, d = "") => {
   if (!ok) fail++;
@@ -296,7 +304,19 @@ async function suite(face) {
   const out = light ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)";
   const inn = light ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
   check(T("the focus ring is a 2px outer ring over a 1px inner one"), ring.vis && ring.w === "2px" && ring.c === out && ring.off === "1px" && ring.sh.includes(`${inn} 0px 0px 0px 1px`), JSON.stringify(ring));
-  check(T("scrollbars are thin"), await page.evaluate(() => getComputedStyle(document.querySelector(".flc-sx__page")).scrollbarWidth === "thin"));
+  // Drawn with the -webkit- pseudos Default draws, in the ink's colour: not
+  // scrollbar-width or scrollbar-color, which switch those pseudos off and
+  // with them Default's rule that hides a sideways scroller's bar.
+  const sb = await page.evaluate(() => {
+    const el = document.querySelector(".flc-sx__page");
+    return {
+      width: getComputedStyle(el, "::-webkit-scrollbar").width,
+      thumb: getComputedStyle(el, "::-webkit-scrollbar-thumb").backgroundColor,
+      std: getComputedStyle(el).scrollbarWidth + "/" + getComputedStyle(document.documentElement).scrollbarColor,
+    };
+  });
+  check(T("scrollbars are thin and quiet: a 7px thumb in the ink's colour, and no scrollbar-width on anything"),
+    parseFloat(sb.width) <= 8 && sb.thumb.includes("0.45") && /\b(1 1 1|255, 255, 255)\b/.test(sb.thumb) === !light && sb.std === "auto/auto", JSON.stringify(sb));
 
   // Ctrl+K over Settings, then Escape closes the palette and Settings stays.
   await page.keyboard.press("Control+k");
@@ -385,6 +405,145 @@ await suite("Light");
   await ctx.close();
 }
 
+// ------------------------------------------- on a picture: never painted
+// What is drawn over video keeps Default's light-on-dark controls in BOTH faces
+// (the Button paint left them out): in Light the paint's ink was #1a1a1a on a
+// capsule of rgba(20,20,20,.6). Every control on the theater's capsules, a
+// mini-guide card and a Multi-View tile's chip reads (4.5:1) in each face, and
+// is Default's size and ink, not Fluent's 32px / 4px.
+const proxy = await startProxy();
+for (const light of [false, true]) {
+  const face = light ? "Light" : "Dark";
+  const { ctx, page } = await openApp(browser, { url: APP, panel: PANEL, proxy, light });
+  await openTheater(page);
+  const bar = await contrastOf(page, ".theater-overlay button");
+  check(`${face}: every control on the theater's capsules reads on them (contrast >= 4.5)`, bar.length >= 12 && bar[0].ratio >= 4.5, JSON.stringify(bar.slice(0, 3)));
+  const rewind = await css(page, '.theater-overlay button[aria-label="Back 10 Seconds"]', ["height", "border-radius", "color"]);
+  check(`${face}: and they are Default's: 40px round, light ink, not Fluent's 32px square`, rewind.height === "40px" && parseFloat(rewind["border-radius"]) >= 20 && /oklab\(0\.99|rgb\(255, 255, 255/.test(rewind.color), JSON.stringify(rewind));
+  await page.getByRole("button", { name: "Mini-Guide" }).click();
+  await page.waitForSelector(".mg-card", { timeout: 5000 });
+  await wake(page);
+  const cards = await contrastOf(page, ".mg-card, .mg-card [class*='mg-row__name'], .mg-card [class*='mg-row__now']");
+  check(`${face}: the mini-guide's cards read (contrast >= 4.5)`, cards.length >= 6 && cards[0].ratio >= 4.5, JSON.stringify(cards.slice(0, 3)));
+  const miniBtns = await contrastOf(page, ".theater-overlay .mg-head button, .theater-overlay .mg-seg button");
+  check(`${face}: and so do its Strip and List`, miniBtns.length >= 2 && miniBtns[0].ratio >= 4.5, JSON.stringify(miniBtns));
+  await page.keyboard.press("Escape");
+  await goTo(page, "multiview");
+  await page.waitForSelector(".mvtile", { timeout: 10_000 });
+  await page.locator(".mvtile--empty").first().click().catch(() => page.locator(".mvbar__add").click());
+  await page.locator(".mvpick__input").fill("Pin");
+  await page.locator(".mvpick__row").first().click();
+  await page.waitForSelector(".mvtile:not(.mvtile--empty) .mvchip", { state: "attached", timeout: 10_000 });
+  await page.locator(".mvtile:not(.mvtile--empty)").first().hover();
+  await page.waitForTimeout(500);
+  const chips = await contrastOf(page, ".mvtile .mvchip");
+  check(`${face}: a Multi-View tile's chips read (contrast >= 4.5)`, chips.length >= 1 && chips[0].ratio >= 4.5, JSON.stringify(chips));
+  await ctx.close();
+}
+
+// ------------------------------------------------------- brand screens
+// Onboarding and What's New (and the boot scene under them) are BlammyTV's own
+// and look as Default's dark does under Fluent, in both faces: every button
+// computes the same colour, fill, height, radius and size.
+{
+  const pick = (page, root) =>
+    page.evaluate((root) => [...document.querySelectorAll(`${root} button`)].map((b) => {
+      const cs = getComputedStyle(b);
+      return [b.textContent.trim(), cs.color, cs.backgroundColor, cs.height, cs.borderRadius, cs.fontSize, cs.fontFamily].join(" | ");
+    }), root);
+  const shot = {};
+  for (const [name, pack, light] of [["Default dark", null, false], ["Fluent dark", "fluent", false], ["Fluent light", "fluent", true]]) {
+    const o = await openApp(browser, { url: APP, panel: PANEL, proxy, pack, light, native: false, onboarded: false });
+    await o.page.waitForSelector(".onb", { timeout: 20_000 });
+    await o.page.waitForSelector(".onb-btn--hero", { timeout: 20_000 });
+    await o.page.locator(".onb-btn--hero").click();
+    await o.page.waitForSelector(".onb-row .onb-ghost, .onb-btn:not(.onb-btn--hero)", { timeout: 10_000 });
+    await o.page.waitForTimeout(1200);
+    const onb = await pick(o.page, ".onb");
+    await o.ctx.close();
+    const w = await openApp(browser, { url: APP, panel: PANEL, proxy, pack, light, native: false, whats: "1.0", version: "1.2.0" });
+    await w.page.waitForSelector(".wn-stage.is-in", { timeout: 25_000 });
+    await w.page.waitForTimeout(500);
+    const wn = await pick(w.page, ".wn");
+    await w.page.getByRole("button", { name: "See Full Changelog" }).click();
+    await w.page.waitForSelector(".wn-back", { timeout: 10_000 });
+    await w.page.waitForTimeout(500);
+    wn.push(...(await pick(w.page, ".wn")));
+    await w.ctx.close();
+    shot[name] = { onb, wn };
+  }
+  for (const name of ["Fluent dark", "Fluent light"]) {
+    check(`${name}: onboarding's buttons are Default dark's, to the colour, fill, height, radius and font`,
+      shot[name].onb.length >= 3 && JSON.stringify(shot[name].onb) === JSON.stringify(shot["Default dark"].onb), JSON.stringify([shot["Default dark"].onb, shot[name].onb]));
+    check(`${name}: and so are What's New's (Continue, See Full Changelog, and the changelog's Back)`,
+      shot[name].wn.length >= 3 && JSON.stringify(shot[name].wn) === JSON.stringify(shot["Default dark"].wn), JSON.stringify([shot["Default dark"].wn, shot[name].wn]));
+  }
+}
+
+// ---------------------------------------------- the narrow pane: Escape, focus
+// At 1000px the hamburger opens the full pane over the page. One Escape closes
+// one thing, the topmost first; the pane also lets go when focus leaves it.
+{
+  const { ctx, page } = await open({ w: 1000, h: 700 });
+  const peek = () => page.locator(".flc-pane--peek").count();
+  await page.locator('.flc-pane [data-key="settings"]').click();
+  await page.waitForSelector(".flc-sx");
+  await page.locator(".flc-burger").click();
+  await page.waitForSelector(".flc-pane--peek");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  check("narrow: over Settings, one Escape closes the pane and Settings stays", (await peek()) === 0 && (await page.locator(".flc-sx").count()) === 1);
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".flc-sx", { state: "detached", timeout: 3000 }).catch(() => {});
+  check("narrow: the next Escape closes Settings", (await page.locator(".flc-sx").count()) === 0);
+
+  await page.locator('.flc-pane [data-key="settings"]').click();
+  await page.waitForSelector(".flc-sx");
+  await page.locator(".flc-burger").click();
+  await page.waitForSelector(".flc-pane--peek");
+  await page.keyboard.press("Control+k");
+  await page.waitForSelector(".palette", { timeout: 5000 });
+  // The palette's field takes focus a beat after it mounts.
+  await page.waitForSelector(".flc-pane--peek", { state: "detached", timeout: 3000 }).catch(() => {});
+  check("narrow: Ctrl+K takes focus off the pane, which lets go", (await peek()) === 0);
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".palette", { state: "detached", timeout: 3000 }).catch(() => {});
+  check("narrow: and its Escape closes the search only", (await page.locator(".palette").count()) === 0 && (await page.locator(".flc-sx").count()) === 1);
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".flc-sx", { state: "detached", timeout: 3000 }).catch(() => {});
+
+  // An Escape something else took (a menu, a dialog: they mark it) is not the
+  // pane's.
+  await page.locator(".flc-burger").click();
+  await page.waitForSelector(".flc-pane--peek");
+  await page.evaluate(() => {
+    // Capture, as Radix's own layers listen: ahead of the pane's.
+    window.__taker = (e) => e.key === "Escape" && e.preventDefault();
+    document.addEventListener("keydown", window.__taker, true);
+  });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  check("narrow: an Escape another layer already took leaves the pane open", (await peek()) === 1);
+  await page.evaluate(() => document.removeEventListener("keydown", window.__taker, true));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  check("narrow: and without one, Escape closes it", (await peek()) === 0);
+
+  // Focus: moving inside the pane keeps it, leaving it closes it.
+  await page.locator(".flc-burger").click();
+  await page.waitForSelector(".flc-pane--peek");
+  await page.locator('.flc-pane--peek [data-dest="hub"]').focus();
+  await page.keyboard.press("Tab");
+  await page.waitForTimeout(200);
+  check("narrow: Tab from one pane item to the next keeps the pane", (await peek()) === 1);
+  await page.locator('.flc-pane--peek [data-key="settings"]').focus();
+  await page.keyboard.press("Tab");
+  await page.waitForTimeout(300);
+  check("narrow: Tab out of the pane closes it", (await peek()) === 0 && (await page.evaluate(() => !document.activeElement?.closest(".flc-pane"))));
+  await ctx.close();
+}
+
 check("no page errors", errors.length === 0, errors.join(" | "));
+proxy.close();
 await browser.close();
 process.exit(fail ? 1 : 0);

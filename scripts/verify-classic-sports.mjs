@@ -127,13 +127,23 @@ await page.goto(process.env.APP_URL ?? "http://localhost:4173/", { waitUntil: "d
 await page.waitForSelector(".navcap", { timeout: 20_000 });
 await goTo(page, "sports");
 await page.waitForSelector(".sports__grid", { timeout: 20_000 });
-await page.waitForTimeout(1500);
+await page.waitForSelector(".upcard", { timeout: 20_000 }); // the board has loaded
 
 const setPack = (on) =>
   page.evaluate((on) => {
     if (on) document.documentElement.dataset.themePack = "classic";
     else delete document.documentElement.dataset.themePack;
   }, on);
+
+// The board re-filters when a tree pick lands, and a fixed sleep guessed how
+// long that takes. These wait for the board itself: the game panels drawn, or
+// the compact ones, are the count the pick should have made.
+const boardHas = (n) => page.waitForFunction((n) => document.querySelectorAll(".cl-game").length === n, n, { timeout: 10_000 });
+const compactHas = (n) => page.waitForFunction((n) => document.querySelectorAll(".cl-game--compact").length === n, n, { timeout: 10_000 });
+// What the seeded boards hold: NFL 3 today and 1 tomorrow, NBA 1 today.
+const ALL = 5;
+const NFL_ONLY = 4;
+const NBA_ONLY = 1;
 
 // ---------------------------------------------------------------- Default first
 check(
@@ -152,7 +162,7 @@ await page.waitForSelector(".cl-game", { timeout: 10_000 });
 const compactBtn = page.locator(".cl-sports__day .sports__toggle").first();
 const compactedFinal = await page.locator(".cl-game--compact").count();
 await compactBtn.click();
-await page.waitForTimeout(300);
+await compactHas(0);
 
 check(
   "Classic: the board is Classic's, with no Default card or row",
@@ -238,10 +248,10 @@ check(
 
 // Compact Results back on: the final is a one-line panel again.
 await compactBtn.click();
-await page.waitForTimeout(300);
+await compactHas(1);
 check("Compact Results still compacts the final", (await page.locator(".cl-game--compact").count()) === 1);
 await compactBtn.click();
-await page.waitForTimeout(300);
+await compactHas(0);
 
 // ---------------------------------------------------------------- the tree
 const tree = page.locator('[role="tree"]');
@@ -275,7 +285,7 @@ check("a double click on the label opens it too", (await page.locator('li[data-i
 await page.locator('li[data-id="s:soccer"] > .cl-tv__n .cl-tv__lb').dblclick();
 check("and closes it", (await page.locator('li[data-id="s:soccer"]').getAttribute("aria-expanded")) === "false");
 await page.locator('li[data-id="root"] > .cl-tv__n .cl-tv__lb').click(); // back to a clean filter: the dblclicks selected Soccer
-await page.waitForTimeout(1500);
+await boardHas(ALL);
 check(
   "tree labels are 12px on 18px rows",
   await page.evaluate(() => {
@@ -288,13 +298,13 @@ check(
 const games = () => page.locator(".cl-game").count();
 const before = await games();
 await page.locator('li[data-id="l:football/nfl"] > .cl-tv__n').click();
-await page.waitForTimeout(1200);
+await boardHas(NFL_ONLY);
 const nflSel = await page.locator('li[data-id="l:football/nfl"]').getAttribute("aria-selected");
 const namesAfter = await page.locator(".cl-game__name").allTextContents();
 check("a league click selects it", nflSel === "true");
 check(
   "and narrows the board to it: the NBA game is gone, the NFL's stay",
-  before === 5 && !namesAfter.includes("Heat") && namesAfter.includes("Bears"),
+  before === ALL && namesAfter.length > 0 && !namesAfter.includes("Heat") && namesAfter.includes("Bears"),
   `${before} -> ${await games()}: ${namesAfter.join(",")}`,
 );
 check(
@@ -306,7 +316,7 @@ check(
   }),
 );
 await page.getByRole("button", { name: /Clear Filter/ }).click();
-await page.waitForTimeout(1200);
+await boardHas(ALL);
 check(
   "Clear Filter brings the whole board back",
   (await games()) === before && (await page.locator('li[data-id="l:football/nfl"]').getAttribute("aria-selected")) === "false",
@@ -316,7 +326,7 @@ check(
 const games0 = await games();
 const open0 = await page.locator('li[data-id="s:basketball"]').getAttribute("aria-expanded");
 await page.locator('li[data-id="s:basketball"] > .cl-tv__n .cl-tv__lb').click();
-await page.waitForTimeout(1200);
+await boardHas(NBA_ONLY);
 const hoops = await page.locator(".cl-game__name").allTextContents();
 check(
   "a sport label selects it: aria-selected, navy, and the board narrows to that sport's leagues",
@@ -343,15 +353,21 @@ check(
 );
 await page.locator('li[data-id="s:basketball"] > .cl-tv__n > .cl-tv__bx').click(); // as it was
 await page.locator('li[data-id="s:football"] > .cl-tv__n .cl-tv__lb').click();
-await page.waitForTimeout(1200);
+await boardHas(NFL_ONLY);
+// "No Heat" also holds for an empty board, so the board must be the new
+// sport's: not empty, and a football game on it.
+const footNames = await page.locator(".cl-game__name").allTextContents();
 check(
   "another sport label replaces the selection",
   (await page.locator('li[data-id="s:basketball"]').getAttribute("aria-selected")) === "false" &&
     (await page.locator('li[data-id="s:football"]').getAttribute("aria-selected")) === "true" &&
-    !(await page.locator(".cl-game__name").allTextContents()).includes("Heat"),
+    footNames.length > 0 &&
+    footNames.includes("Bears") &&
+    !footNames.includes("Heat"),
+  footNames.join(),
 );
 await page.locator('li[data-id="root"] > .cl-tv__n .cl-tv__lb').click();
-await page.waitForTimeout(1200);
+await boardHas(ALL);
 check(
   "the Sports label clears the filter: everything is back and the root is the selection",
   (await games()) === games0 &&
@@ -364,7 +380,7 @@ check(
 );
 await page.locator('li[data-id="s:basketball"]').focus();
 await page.keyboard.press("Enter");
-await page.waitForTimeout(1200);
+await boardHas(NBA_ONLY);
 check(
   "Enter on a sport selects it",
   (await page.locator('li[data-id="s:basketball"]').getAttribute("aria-selected")) === "true" &&
@@ -372,7 +388,7 @@ check(
 );
 await page.locator('li[data-id="root"]').focus();
 await page.keyboard.press("Enter");
-await page.waitForTimeout(1200);
+await boardHas(ALL);
 check("and Enter on Sports clears it", (await games()) === games0);
 
 // Keyboard: the root takes the tab stop, arrows walk, Right opens, Enter picks.
@@ -397,12 +413,12 @@ const dotted = await page.evaluate(() => {
   return getComputedStyle(lb).outlineStyle;
 });
 await page.keyboard.press("Enter");
-await page.waitForTimeout(1200);
+await boardHas(NBA_ONLY);
 const nbaNames = await page.locator(".cl-game__name").allTextContents();
 check("Enter on a league picks it: only the Heat and Knicks show", nbaNames.join() === "Heat,Knicks", nbaNames.join());
 check("the row the keyboard is on has a dotted rectangle", dotted === "dotted", dotted);
 await page.keyboard.press("Enter");
-await page.waitForTimeout(1200);
+await boardHas(ALL);
 check("and Enter again lifts it", (await games()) === before);
 
 // ---------------------------------------------------------------- opening

@@ -179,6 +179,8 @@ export function FluentSettings({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;
       if (liftedRow() || document.querySelector("[data-slot=combobox-content][data-open]")) return;
+      // The narrow pane drawn over this page is above it: its Escape shuts it.
+      if (document.querySelector(".flc-pane--peek")) return;
       e.preventDefault();
       onClose();
     };

@@ -37,6 +37,45 @@
   overflow: hidden;
   font-family: var(--fl-font);
 }
+/* While the mini-guide is open the column folds away (Live TV's own sidebar
+ * does, v1.2.4), so the theater has the room its strip is laid out for. */
+:root[data-theme-pack="fluent"] .fl-aside--folded {
+  display: none;
+}
+/* Narrow (under ~1200px) the column is a flyout over the grid, opened by the
+ * header's Folders (WinUI's list/details pattern when the pane is short of
+ * room): the grid keeps the page's width. */
+:root[data-theme-pack="fluent"] .fl-btn.fl-head__folders {
+  display: none;
+}
+@media (max-width: 1199px) {
+  :root[data-theme-pack="fluent"] .live {
+    position: relative;
+  }
+  :root[data-theme-pack="fluent"] .fl-btn.fl-head__folders {
+    display: inline-flex;
+    margin-left: auto;
+  }
+  :root[data-theme-pack="fluent"] .live > .fl-aside {
+    position: absolute;
+    z-index: var(--z-panel);
+    top: var(--fl-head-h);
+    left: 0;
+    bottom: 12px;
+    flex: none;
+    width: 280px;
+    max-width: none;
+    visibility: hidden;
+    border: 1px solid var(--fl-stroke);
+    border-radius: var(--fl-r-card);
+    background: var(--fl-fly);
+    backdrop-filter: var(--flc-blur);
+    box-shadow: var(--fl-shadow);
+  }
+  :root[data-theme-pack="fluent"] .live > .fl-aside--open {
+    visibility: visible;
+  }
+}
 :root[data-theme-pack="fluent"] .fl-folders {
   display: flex;
   flex-direction: column;
@@ -352,7 +391,13 @@
 
 /* ------------------------------------------------------- page header */
 
+:root[data-theme-pack="fluent"] {
+  /* The header's height, which the folders flyout hangs from. */
+  --fl-head-h: 92px;
+}
 :root[data-theme-pack="fluent"] .fl-head {
+  box-sizing: border-box;
+  min-height: var(--fl-head-h);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -849,4 +894,24 @@
 :root[data-theme-pack="fluent"] .fl-sports .sports__unlinked {
   margin: 12px 0 0;
   color: var(--fl-ink-3);
+}
+
+/* Sports' two rows that are pills in Default: a finished game as one line
+ * (compact results) and a channel in the Sports theater's rail. WinUI has no
+ * pills for rows: 4px, as every other control here. */
+:root[data-theme-pack="fluent"] .compactcard,
+:root[data-theme-pack="fluent"] .sportsrail__tilt {
+  border-radius: var(--fl-r-control);
+}
+
+/* A day bar that could not load more days says so in words, with its way
+ * out, beside the chevron's colour (which says nothing to anyone who can't
+ * see it). */
+:root[data-theme-pack="fluent"] .fl-tabbar__err {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+  font: 12px/16px var(--fl-font);
+  color: var(--fl-ink-2);
 }

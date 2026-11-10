@@ -24,8 +24,10 @@
  * pack and wrong for a grey face: navy and black text on a dark scrim over
  * video. The player's overlays and Multi-View's tiles are always over video,
  * so they take the picture's own light ink back, and the panels that hang
- * from them (capsules, track menus) go dark with it. */
-:root[data-theme-pack="classic"]:not([data-theme="light"]) :is(.theater-overlay, .mini-overlay, .mvtile).on-picture {
+ * from them (capsules, track menus) go dark with it. Classic has one face, so
+ * this holds in Light as well. classic.css leaves the Buttons in these three
+ * unpainted for the same reason (it lists them in its :not()). */
+:root[data-theme-pack="classic"] :is(.theater-overlay, .mini-overlay, .mvtile).on-picture {
   --bg: #000000;
   --text: #ffffff;
   --text-muted: #e6e6e6;
@@ -34,6 +36,7 @@
   --accent-ink: #000000;
   --glass: #1c1c1c;
   --chip-bg: #1c1c1c;
+  --chip-bg-hover: #3a3a3a;
   --chip-edge: var(--cl-lo);
   --float-bg: #1c1c1c;
   --surface: #1c1c1c;
@@ -41,6 +44,23 @@
   --tint-hover: rgb(255 255 255 / 0.14);
   --tint-on: rgb(255 255 255 / 0.22);
   --focus-ring: #ffffff;
+}
+/* The dotted focus rectangle is white on dark glass (black on #1c1c1c was
+ * invisible). */
+:root[data-theme-pack="classic"] :is(.theater-overlay, .mini-overlay, .mvtile) :focus-visible {
+  outline-color: #ffffff !important;
+}
+/* The mini-guide's Strip and List switch: light ink on dark, the picked one
+ * pushed in and lighter. */
+:root[data-theme-pack="classic"] :is(.theater-overlay, .mini-overlay, .mvtile) .seg__opt {
+  background: #1c1c1c;
+  color: #ffffff;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #000;
+}
+:root[data-theme-pack="classic"] :is(.theater-overlay, .mini-overlay, .mvtile) .seg__opt:is(.is-on, [aria-selected="true"]) {
+  background: #4a4a4a;
+  box-shadow: inset 1px 1px #000, inset -1px -1px #808080;
+  color: #ffffff;
 }
 /* Square, as everything else is: the rounded wedges the windowed theater
  * paints over the picture's corners go. */
@@ -138,4 +158,60 @@
   border: 0;
   background: #1c1c1c;
   box-shadow: inset 1px 1px #808080, inset -1px -1px #000, 0 0 0 1px #000;
+}
+
+/* ------------------------------------------------- Sports: a game's theater */
+/* The channel rail beside the picture. The theater's ground is the grey face
+ * already; the names and the head took the card's white (--card-ink), so the
+ * ink is black here, and the channels are a Windows list: a sunken white box,
+ * a row per channel, the navy bar on the one you point at or are watching. */
+:root[data-theme-pack="classic"] .sportstheater {
+  --card-ink: 0, 0, 0;
+  color: var(--cl-ink);
+}
+:root[data-theme-pack="classic"] .sportstheater__rail {
+  gap: 0;
+  padding: 3px;
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+}
+:root[data-theme-pack="classic"] .sportstheater__guesses {
+  gap: 0;
+}
+:root[data-theme-pack="classic"] .sportstheater__railname {
+  font: 700 13px var(--cl-font);
+}
+:root[data-theme-pack="classic"] .sportstheater__railhead {
+  padding-block: 2px;
+}
+:root[data-theme-pack="classic"] .sportstheater .sportsrail__tilt {
+  --card-ink: 0, 0, 0;
+  --text: var(--cl-ink);
+  padding: 3px 6px;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--cl-ink);
+  font: 12px var(--cl-font);
+  transform: none !important;
+}
+:root[data-theme-pack="classic"] .sportstheater .sportsrail__tilt .glare-wrapper {
+  display: none;
+}
+:root[data-theme-pack="classic"] .sportstheater .sportsrail:hover .sportsrail__tilt,
+:root[data-theme-pack="classic"] .sportstheater .sportsrail.is-on .sportsrail__tilt {
+  --card-ink: 255, 255, 255;
+  border: 0;
+  background: var(--cl-sel);
+  color: var(--cl-sel-ink);
+}
+:root[data-theme-pack="classic"] .sportstheater .sportsrail__badge {
+  border-radius: 0;
+}
+:root[data-theme-pack="classic"] .sportstheater .sportsrail__wrong {
+  background: none;
+  color: var(--danger-text);
+}
+:root[data-theme-pack="classic"] .sportstheater .sportsrail:is(:hover, .is-on) .sportsrail__wrong {
+  color: #ffff00;
 }

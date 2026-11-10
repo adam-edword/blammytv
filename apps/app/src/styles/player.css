@@ -690,7 +690,9 @@
   min-height: 15px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: color-mix(in srgb, var(--on-image) 50%, transparent);
+  /* 60%, not the 50% of the quieter lines: this one is read ("22 min left",
+   * "Next 1:58 AM"), and at 50% it was 4.0:1 on a hovered card. */
+  color: color-mix(in srgb, var(--on-image) 60%, transparent);
 }
 
 .mg-prog {

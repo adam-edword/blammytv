@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { addToList, listsContaining, removeFromList } from "../../stream/lists";
+import { useState } from "react";
+import { SaveButton } from "../../stream/SaveButton";
 import type { StreamSource, VodItem } from "../../stream/model";
 import { ClassicList, type ClassicCol } from "./ClassicList";
 
@@ -12,28 +12,6 @@ const qualityRank = (q: string) => (/4k/i.test(q) ? 2160 : Number(/(\d{3,4})p/i.
 const cachedLabel = (s: StreamSource) => (s.cache === "cached" ? "Yes" : s.cache === "uncached" ? "No" : "Unknown");
 // The half stars no Windows font has, as the source list's hover says them.
 const nameOf = (s: StreamSource) => (s.lines.join(" · ") || s.fileName || s.quality).replace(/[⯨-⯫]/g, "½");
-
-/** Classic's Add to Library: SaveButton's one-click half. In two or more
- * lists it stands down rather than guess which to leave (the Library edits
- * those). */
-function AddToLibrary({ item }: { item: VodItem }) {
-  const [ids, setIds] = useState(() => listsContaining(item.id).map((l) => l.id));
-  useEffect(() => setIds(listsContaining(item.id).map((l) => l.id)), [item.id]);
-  return (
-    <button
-      type="button"
-      className="clt-b"
-      disabled={ids.length > 1}
-      onClick={() => {
-        if (ids.length === 0) addToList(null, item);
-        else removeFromList(ids[0], item.id);
-        setIds(listsContaining(item.id).map((l) => l.id));
-      }}
-    >
-      {ids.length === 0 ? "Add to Library" : ids.length === 1 ? "Remove from Library" : `In ${ids.length} Lists`}
-    </button>
-  );
-}
 
 /** A title's page in Classic (plan 035): a Properties sheet on the left, the
  * title's sources as a Details list on the right. Same data and the same
@@ -155,7 +133,7 @@ export function ClassicTitle({
           <button type="button" className="clt-b clt-def" disabled={!picked} onClick={() => picked && play(picked)}>
             Play
           </button>
-          <AddToLibrary item={item} />
+          <SaveButton key={item.id} item={item} />
         </div>
       </div>
     </div>

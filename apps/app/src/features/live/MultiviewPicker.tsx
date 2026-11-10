@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
+import { useClassic } from "../classic/useClassic";
 import { ChannelLogo } from "../../ui/ChannelLogo";
 import { EASE_OUT, lastInputWasKey } from "./mvMotion";
 import { REDUCED_MOTION } from "../../lib/reducedMotion";
@@ -301,6 +302,7 @@ export function MultiviewPicker({
   };
 
   const title = mode.kind === "replace" ? `Replace ${mode.name}` : "Add a Channel";
+  const classic = useClassic();
 
   return (
     <Dialog
@@ -312,7 +314,10 @@ export function MultiviewPicker({
         showCloseButton={false}
         aria-describedby={undefined}
         // The palette's frame (Palette.tsx): shadcn's Command in its dialog.
-        className="mvpick top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl border-float-border bg-popover p-1 text-popover-foreground shadow-(--float-shadow) [backdrop-filter:var(--float-blur)] sm:max-w-md"
+        className={
+          "mvpick top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl border-float-border bg-popover p-1 text-popover-foreground shadow-(--float-shadow) [backdrop-filter:var(--float-blur)] sm:max-w-md" +
+          (classic ? " palette--classic" : "")
+        }
         style={motion}
         onCloseAutoFocus={onCloseAutoFocus}
         // One layer at a time (the app's rule since v0.9.91): from a game's
@@ -324,6 +329,18 @@ export function MultiviewPicker({
         }}
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
+        {/* Classic: the Go To box's frame and caption (Palette.tsx), so the two
+          * pickers are one piece. The x is off the tab order, as there. */}
+        {classic && (
+          <div className="cl-title">
+            <span className="cl-title__text" aria-hidden>
+              {title}
+            </span>
+            <button type="button" className="cl-x" aria-label="Close" tabIndex={-1} onClick={() => onOpenChange(false)}>
+              ✕
+            </button>
+          </div>
+        )}
         <Autocomplete.Root
           open
           inline

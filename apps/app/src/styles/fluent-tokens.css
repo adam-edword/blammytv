@@ -9,9 +9,14 @@
   --fl-r-card: 8px;
   --fl-ink: #ffffff;
   --fl-ink-2: rgba(255, 255, 255, 0.79);
-  --fl-ink-3: rgba(255, 255, 255, 0.54);
-  --fl-accent: #60cdff;
-  --fl-on-accent: #000000;
+  /* Windows' tertiary is 0.54, which is 4.4:1 on a card: a count, a time or a
+   * key hint is text to read, so it is a step up (and a step down in Light). */
+  --fl-ink-3: rgba(255, 255, 255, 0.62);
+  /* One accent: the root's, which is Windows' blue (packs.css, or the user's
+   * pick) in Dark and Light's below, so a toggle, the nav pill, Watch and the
+   * now-line are one colour. */
+  --fl-accent: var(--accent);
+  --fl-on-accent: var(--accent-ink);
   --fl-fill: rgba(255, 255, 255, 0.05);
   --fl-sub: rgba(255, 255, 255, 0.06);
   --fl-stroke: rgba(255, 255, 255, 0.08);
@@ -32,9 +37,18 @@
 :root[data-theme-pack="fluent"][data-theme="light"] {
   --fl-ink: #1a1a1a;
   --fl-ink-2: rgba(0, 0, 0, 0.72);
-  --fl-ink-3: rgba(0, 0, 0, 0.56);
-  --fl-accent: #0067c0;
-  --fl-on-accent: #ffffff;
+  --fl-ink-3: rgba(0, 0, 0, 0.64);
+  /* The app's own text tiers, for the pieces Fluent leaves as they are (a
+   * game card, a rail's count): Default Light's are tuned for a white page
+   * and read 4.3:1 on this base. Solids, as Dark's are (packs.css). */
+  --text-muted: #5c5c5c;
+  --text-dim: #666666;
+  --text-ghost: #666666;
+  --text-faint: #666666;
+  /* Windows' default light accent; a pick inline on the root beats it
+   * (themePack.ts syncAccent). White ink reads on it at 5.9:1. */
+  --accent: #0067c0;
+  --accent-ink: #ffffff;
   --fl-fill: rgba(255, 255, 255, 0.7);
   --fl-sub: rgba(0, 0, 0, 0.045);
   --fl-stroke: rgba(0, 0, 0, 0.06);
@@ -48,4 +62,21 @@
   --fl-focus-in: #ffffff;
   --fl-focus-out: #000000;
   --fl-live: #0f7b0f;
+}
+
+/* MICA SHOWS, Light: the Dark rule's twin (packs.css). Native has put Light
+ * Mica behind the window (data-mica, themePack.ts), so the base goes
+ * see-through and Fluent's light layers wash over it. Without Mica the base is
+ * the solid light --bg. */
+:root[data-theme-pack="fluent"][data-theme="light"][data-mica="on"] body,
+:root[data-theme-pack="fluent"][data-theme="light"][data-mica="on"] .app-shell {
+  background: transparent;
+}
+/* With Windows' transparency effects off the OS draws Mica as a plain colour,
+ * so the base is Fluent's own solid again. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme-pack="fluent"][data-theme="light"][data-mica="on"] body,
+  :root[data-theme-pack="fluent"][data-theme="light"][data-mica="on"] .app-shell {
+    background: var(--fl-base);
+  }
 }

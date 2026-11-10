@@ -144,6 +144,53 @@ await page.locator(".cl-tv__row", { hasText: "Test" }).locator(".cl-tv__bx").cli
 await row("All Channels").click();
 await settle();
 
+// R7: Enter and Space do what a click on the label does, so on a row with nothing to select they do nothing.
+await srcRow().focus();
+await page.keyboard.press("Enter");
+await page.keyboard.press(" ");
+await settle();
+check("Keys: Enter and Space on a source leave it open and the selection alone (R7)", (await srcRow().getAttribute("aria-expanded")) === "true" && (await row("All Channels").getAttribute("aria-selected")) === "true");
+await row("Live TV").focus();
+await page.keyboard.press("Enter");
+await settle();
+check("Keys: Enter on Live TV does nothing either", (await row("Live TV").getAttribute("aria-expanded")) === "true" && (await row("All Channels").getAttribute("aria-selected")) === "true");
+await row("News").focus();
+await page.keyboard.press("Enter");
+await settle();
+check("Keys: Enter on a folder's label selects it, as a click does", (await row("News").getAttribute("aria-selected")) === "true");
+await row("All Channels").click();
+await settle();
+
+// M17: a long name ends in an ellipsis inside the box, and the row names itself in a tooltip.
+check("Tree: every row has a tooltip (M17)", await page.evaluate(() => [...document.querySelectorAll(".cl-tv__row")].every((r) => (r.getAttribute("title") ?? "").length > 0)));
+const long = await page.evaluate(() => {
+  const lb = document.querySelector(".cl-tv__row[data-node^='g:'] .cl-tv__lb");
+  const box = document.querySelector(".cl-folders__box");
+  lb.textContent = "A Playlist With A Remarkably Long Name That Cannot Possibly Fit";
+  const cs = getComputedStyle(lb);
+  return { clipped: lb.scrollWidth > lb.clientWidth, ellipsis: cs.textOverflow === "ellipsis" && cs.overflow === "hidden", noScroll: box.scrollWidth <= box.clientWidth };
+});
+check("Tree: a long name is cut with an ellipsis and does not scroll the box sideways", long.clipped && long.ellipsis && long.noScroll, JSON.stringify(long));
+
+// M12: the favourite star is a flat icon toggle, on or off.
+{
+  const star = page.locator(".guide__fav").first();
+  await star.scrollIntoViewIfNeeded();
+  const flat = () => star.evaluate((e) => {
+    const s = getComputedStyle(e);
+    return { on: e.getAttribute("aria-pressed") === "true", bg: s.backgroundColor, img: s.backgroundImage, shadow: s.boxShadow };
+  });
+  const off = await flat();
+  await star.click();
+  await settle();
+  const on = await flat();
+  await page.mouse.move(5, 5);
+  check("Star: off or on it has no box and no checker (M12)", off.bg === "rgba(0, 0, 0, 0)" && off.shadow === "none" && on.on && on.bg === "rgba(0, 0, 0, 0)" && on.img === "none" && on.shadow === "none", JSON.stringify({ off, on }));
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/guide-star.png` });
+  await star.click();
+  await settle();
+}
+
 // The folder's right-click menu is still there.
 await row("News").click({ button: "right" });
 check("Right-click a folder: the Hide menu opens", (await page.locator(".folder-menu").innerText()).includes("Hide “News”"));

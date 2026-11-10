@@ -118,3 +118,40 @@
 :root[data-theme-pack="classic"] .clt-fd.is-op { background: #fbe8a0; }
 :root[data-theme-pack="classic"] .clt-lb { padding: 1px 3px; line-height: 16px; }
 :root[data-theme-pack="classic"] .clt-lb.is-sel { background: var(--cl-sel); color: var(--cl-sel-ink); outline: 1px dotted var(--clt-focus); outline-offset: -1px; }
+
+/* Add to Library is Default's split button (SaveButton): a push button and a
+ * 23px arrow beside it that opens the lists as a Classic menu. */
+:root[data-theme-pack="classic"] .vod-save-split {
+  gap: 2px;
+}
+:root[data-theme-pack="classic"] .vod-save span {
+  font-size: 12px;
+}
+:root[data-theme-pack="classic"] .vod-save.vod-save__more {
+  width: 20px !important;
+  min-width: 0;
+  height: 23px !important;
+  padding: 0 !important;
+}
+:root[data-theme-pack="classic"] .vod-save--on svg {
+  color: var(--cl-ink);
+}
+
+/* A list with no art: its first letter on a sunken white tile, which is
+ * visible on the grey page (the grey --surface it takes elsewhere is the page). */
+:root[data-theme-pack="classic"] .stream-card__mono {
+  background: var(--cl-field);
+  box-shadow: var(--cl-sunken);
+  color: var(--cl-ink);
+}
+
+:root[data-theme-pack="classic"] .vod-save-split > .vod-save {
+  height: 23px !important;
+}
+:root[data-theme-pack="classic"] .vod-save-split > .vod-save__more {
+  background: var(--cl-face) !important;
+  box-shadow: var(--cl-raised) !important;
+}
+:root[data-theme-pack="classic"] .vod-save-split > .vod-save__more:is([aria-expanded="true"], :active) {
+  box-shadow: var(--cl-pressed) !important;
+}

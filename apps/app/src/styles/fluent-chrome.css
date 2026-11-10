@@ -33,9 +33,53 @@
  * outline one pixel off the edge, over a 1px inner ring). The inset ones keep
  * the outline alone: they sit inside a clip the shadow would not clear. A text
  * box says focus with its accent line instead (below). */
-:root[data-theme-pack="fluent"] :focus-visible:not(.row, .guide-resize, .sportstheater__edge, [data-slot="input"], [data-slot="input-group-control"], .flc-find__input, .mvpick__input) {
+:root[data-theme-pack="fluent"] :focus-visible:not(.row, .guide-resize, .sportstheater__edge, [data-slot="input"], [data-slot="input-group-control"], .flc-find__input, .mvpick__input, :where(.onb) *) {
   outline-offset: 1px;
   box-shadow: 0 0 0 1px var(--fl-focus-in);
+}
+
+/* ------------------------------------------------------ brand screens
+ * Onboarding, What's New and the boot scene (.onb) are BlammyTV's own and look
+ * as Default's dark does, in both faces: black, white type, Geist. A subtree
+ * can't reach back to the root's blocks, so the values the pack (and Light)
+ * change are restated here, Default dark's own (tokens.css); the tokens built
+ * on them are restated too, so they resolve on this element and not on the
+ * root (--glass is tokens.css's, the one place that recipe is typed). The
+ * accent is left alone: it is the person's pick. The Button paint
+ * leaves .onb out (WinUI control paint, below). */
+:root[data-theme-pack="fluent"] .onb {
+  --bg: oklch(0.145 0 0);
+  --surface: oklch(0.205 0 0);
+  --surface-track: oklch(0.145 0 0);
+  --surface-puck: oklch(0.205 0 0);
+  --surface-raised: oklch(0.269 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --color-border: var(--border);
+  --border-strong: oklch(1 0 0 / 10%);
+  --border-raised: oklch(1 0 0 / 10%);
+  --border-input: oklch(1 0 0 / 15%);
+  --text: oklch(0.985 0 0);
+  --text-muted: oklch(0.708 0 0);
+  --text-dim: oklch(0.6 0 0);
+  --text-ghost: oklch(0.556 0 0);
+  --text-faint: color-mix(in srgb, var(--text) 35%, var(--bg));
+  --tint-hover: color-mix(in srgb, var(--text) 9%, transparent);
+  --tint-on: color-mix(in srgb, var(--text) 16%, transparent);
+  --focus-ring: var(--text);
+  --ring: oklch(0.556 0 0);
+  --danger: oklch(0.704 0.191 22.216);
+  --danger-text: oklch(0.704 0.191 22.216);
+  --card-glass: linear-gradient(oklch(0.205 0 0), oklch(0.205 0 0));
+  --mix-base: #000000;
+  --plate: var(--surface-raised);
+  --float-bg: color-mix(in srgb, var(--surface) 72%, transparent);
+  --sheet-bg: color-mix(in srgb, var(--surface) 90%, transparent);
+  --menu-highlight: var(--surface-raised);
+  --glass-lift: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 28px rgba(0, 0, 0, 0.45);
+  --font-headline: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-text: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-text);
+  color-scheme: dark;
 }
 
 /* ------------------------------------------------------------ the frame
@@ -600,8 +644,17 @@
 /* Buttons: standard (fill, stroke, the elevation border: the bottom edge
  * darker) and accent. A Button a Radix trigger took with asChild loses its
  * data-slot to the trigger's ("dropdown-menu-trigger"), but keeps its
- * variant and size, so those are what find it. */
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not([data-variant="link"])) {
+ * variant and size, so those are what find it.
+ *
+ * Two surfaces are never painted, and :not(... *) keeps them out (it weighs
+ * nothing inside :where, so nothing else moves): the brand screens (.onb:
+ * onboarding, What's New and the boot scene), which look as Default's dark does
+ * in both faces, and what is drawn over video (the theater and the film
+ * player, the mini player, Multi-View's tiles; the mini-guide hangs from the
+ * theater), whose controls keep their light-on-dark look whatever the face.
+ * Their buttons bring their own classes. The paint's ink was dark on a dark
+ * capsule in Light. */
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *):not([data-variant="link"])) {
   border-radius: var(--fl-r-control) !important;
   font-family: var(--fl-font) !important;
   font-size: 14px !important;
@@ -609,52 +662,73 @@
   backdrop-filter: none !important;
   box-shadow: none;
 }
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-size="default"], :is([data-slot="button"], button[data-variant][data-size])[data-size="lg"], :is([data-slot="button"], button[data-variant][data-size])[data-size="sm"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-size="default"], :is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-size="lg"], :is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-size="sm"]) {
   height: 32px !important;
   padding-inline: 16px !important;
 }
-/* Windows 11's Settings and Store buttons are never narrower than 120px. */
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-size="default"]) {
+/* Windows 11's Settings and Store buttons are never narrower than 120px. A
+ * toggle (aria-pressed: a chip, a filter, a mode) is a small control that is
+ * as wide as its words. */
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-size="default"]:not([aria-pressed])) {
   min-width: 120px !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-size="icon"], :is([data-slot="button"], button[data-variant][data-size])[data-size="icon-lg"], :is([data-slot="button"], button[data-variant][data-size])[data-size="icon-sm"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-size="icon"], :is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-size="icon-lg"], :is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-size="icon-sm"]) {
   width: 32px !important;
   height: 32px !important;
   padding: 0 !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="secondary"], :is([data-slot="button"], button[data-variant][data-size])[data-variant="outline"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="secondary"], :is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="outline"]) {
   background: var(--fl-fill) !important;
   color: var(--fl-ink) !important;
   border: 1px solid var(--fl-stroke) !important;
   border-bottom-color: var(--fl-stroke-bt) !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="secondary"], :is([data-slot="button"], button[data-variant][data-size])[data-variant="outline"]):hover {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="secondary"], :is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="outline"]):hover {
   background: color-mix(in srgb, var(--fl-ink) 6%, var(--fl-fill)) !important;
 }
 /* The accent button: the app's "bright thing", one a screen. */
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="default"], :is([data-slot="button"], button[data-variant][data-size])[aria-pressed="true"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="default"], :is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[aria-pressed="true"]) {
   background: var(--accent) !important;
   color: var(--accent-ink) !important;
   border: 1px solid transparent !important;
   box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="default"], :is([data-slot="button"], button[data-variant][data-size])[aria-pressed="true"]):hover {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="default"], :is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[aria-pressed="true"]):hover {
   background: color-mix(in srgb, var(--accent) 88%, var(--fl-ink)) !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="ghost"]) {
+/* A button that deletes is a standard button until it is armed, as Windows'
+ * own Remove and Uninstall are, and Windows' critical red while it is ("Click
+ * Again to Confirm"). The others only take the destructive variant when
+ * armed; ConfirmButton always has it and says which with data-armed. The
+ * variant's own look was a borderless red pill at rest. */
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="destructive"]) {
+  background: #c42b1c !important;
+  color: #ffffff !important;
+  border: 1px solid transparent !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="destructive"][data-armed="false"]) {
+  background: var(--fl-fill) !important;
+  color: var(--fl-ink) !important;
+  border: 1px solid var(--fl-stroke) !important;
+  border-bottom-color: var(--fl-stroke-bt) !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="destructive"][data-armed="false"]):hover {
+  background: color-mix(in srgb, var(--fl-ink) 6%, var(--fl-fill)) !important;
+}
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="ghost"]) {
   background: transparent !important;
   color: var(--fl-ink) !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size])[data-variant="ghost"]):hover {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[data-variant="ghost"]):hover {
   background: var(--flc-hover) !important;
 }
-:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):disabled, :is([data-slot="button"], button[data-variant][data-size])[aria-disabled="true"]) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *):disabled, :is([data-slot="button"], button[data-variant][data-size]):not(:is(.onb, .theater-overlay, .mini-overlay, .mvtile) *)[aria-disabled="true"]) {
   opacity: 0.45 !important;
 }
 
 /* Text boxes and ComboBoxes: the fill, the stroke, and a bottom accent line
  * when focused. A ComboBox is the same field with its chevron. */
-:where(:root[data-theme-pack="fluent"]) :where([data-slot="input"], [data-slot="input-group"], .settings-input) {
+:where(:root[data-theme-pack="fluent"]) :where(:is([data-slot="input"], [data-slot="input-group"], .settings-input):not(:where(.onb) *)) {
   height: 32px !important;
   border: 1px solid var(--fl-stroke) !important;
   border-bottom-color: var(--fl-field-bt) !important;
@@ -782,76 +856,81 @@
 
 /* The segmented control (Settings' Appearance, Startup Tab and the rest):
  * WinUI's, a 4px track with a 4px thumb and plain type, not the capsule. */
-:root[data-theme-pack="fluent"] .seg {
+:root[data-theme-pack="fluent"] .seg:not(:where(.onb) *) {
   padding: 3px;
   border: 1px solid var(--fl-stroke);
   border-radius: var(--fl-r-control);
   background: var(--fl-fill);
   backdrop-filter: none;
 }
-:root[data-theme-pack="fluent"] .seg__thumb {
+:root[data-theme-pack="fluent"] .seg__thumb:not(:where(.onb) *) {
   top: 3px;
   bottom: 3px;
   border-radius: 3px;
   background: var(--fl-sub);
 }
-:root[data-theme-pack="fluent"] .seg__opt {
+:root[data-theme-pack="fluent"] .seg__opt:not(:where(.onb) *) {
   border-radius: 3px;
   font-weight: 400;
   color: var(--fl-ink-2);
 }
-:root[data-theme-pack="fluent"] .seg__opt:hover,
-:root[data-theme-pack="fluent"] .seg__opt.is-on {
+:root[data-theme-pack="fluent"] .seg__opt:hover:not(:where(.onb) *),
+:root[data-theme-pack="fluent"] .seg__opt.is-on:not(:where(.onb) *) {
   color: var(--fl-ink);
 }
 
 /* ToggleSwitch: a 40x20 track, an outline while off and the accent on, with
  * a small thumb. (ui/Toggle: plain CSS, so specificity is enough.) */
-:root[data-theme-pack="fluent"] .toggle:not(.toggle--sm),
-:root[data-theme-pack="fluent"] .toggle:not(.toggle--on):not(.toggle--sm) {
+:root[data-theme-pack="fluent"] .toggle:not(.toggle--sm):not(:where(.onb) *),
+:root[data-theme-pack="fluent"] .toggle:not(.toggle--on):not(.toggle--sm):not(:where(.onb) *) {
   width: 40px;
   height: 20px;
 }
-:root[data-theme-pack="fluent"] .toggle,
-:root[data-theme-pack="fluent"] .toggle:not(.toggle--on) {
+:root[data-theme-pack="fluent"] .toggle:not(:where(.onb) *),
+:root[data-theme-pack="fluent"] .toggle:not(.toggle--on):not(:where(.onb) *) {
   border: 1px solid var(--fl-ink-3);
   border-radius: 10px;
   background: transparent;
   box-shadow: none;
 }
-:root[data-theme-pack="fluent"] .toggle .toggle__thumb {
+:root[data-theme-pack="fluent"] .toggle .toggle__thumb:not(:where(.onb) *) {
   top: 3px;
   left: 3px;
   width: 12px;
   height: 12px;
   background: var(--fl-ink-2);
 }
-:root[data-theme-pack="fluent"] .toggle--on,
-:root[data-theme-pack="fluent"] .toggle.toggle--on {
+:root[data-theme-pack="fluent"] .toggle--on:not(:where(.onb) *),
+:root[data-theme-pack="fluent"] .toggle.toggle--on:not(:where(.onb) *) {
   border-color: transparent;
   background: var(--accent);
 }
-:root[data-theme-pack="fluent"] .toggle--on .toggle__thumb {
+:root[data-theme-pack="fluent"] .toggle--on .toggle__thumb:not(:where(.onb) *) {
   transform: translateX(20px);
   background: var(--accent-ink);
 }
-:root[data-theme-pack="fluent"] .toggle--sm {
+:root[data-theme-pack="fluent"] .toggle--sm:not(:where(.onb) *) {
   width: 32px;
   height: 16px;
 }
-:root[data-theme-pack="fluent"] .toggle--sm .toggle__thumb {
+:root[data-theme-pack="fluent"] .toggle--sm .toggle__thumb:not(:where(.onb) *) {
   top: 2px;
   left: 2px;
   width: 10px;
   height: 10px;
 }
-:root[data-theme-pack="fluent"] .toggle--sm.toggle--on .toggle__thumb {
+:root[data-theme-pack="fluent"] .toggle--sm.toggle--on .toggle__thumb:not(:where(.onb) *) {
   transform: translateX(16px);
+}
+/* The switch's rules above say box-shadow: none, which is the focus ring's
+ * inner line too: it comes back, a notch heavier than they are. */
+:root[data-theme-pack="fluent"] .toggle.toggle:focus-visible:not(:where(.onb) *) {
+  box-shadow: 0 0 0 1px var(--fl-focus-in);
 }
 
 /* Checkboxes and radios: 20px, a 1px outline, the accent when on. */
-:root[data-theme-pack="fluent"] input[type="checkbox"],
-:root[data-theme-pack="fluent"] input[type="radio"] {
+:root[data-theme-pack="fluent"] input[type="checkbox"]:not(:where(.onb) *),
+:root[data-theme-pack="fluent"] input[type="radio"]:not(:where(.onb) *) {
   appearance: none;
   flex: none;
   display: inline-grid;
@@ -863,15 +942,15 @@
   border-radius: var(--fl-r-control);
   background: var(--fl-fill);
 }
-:root[data-theme-pack="fluent"] input[type="radio"] {
+:root[data-theme-pack="fluent"] input[type="radio"]:not(:where(.onb) *) {
   border-radius: 50%;
 }
-:root[data-theme-pack="fluent"] input[type="checkbox"]:checked,
-:root[data-theme-pack="fluent"] input[type="radio"]:checked {
+:root[data-theme-pack="fluent"] input[type="checkbox"]:checked:not(:where(.onb) *),
+:root[data-theme-pack="fluent"] input[type="radio"]:checked:not(:where(.onb) *) {
   border-color: transparent;
   background: var(--accent);
 }
-:root[data-theme-pack="fluent"] input[type="checkbox"]:checked::after {
+:root[data-theme-pack="fluent"] input[type="checkbox"]:checked:not(:where(.onb) *)::after {
   content: "";
   width: 11px;
   height: 11px;
@@ -879,7 +958,7 @@
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3.2L13 4.8' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3.2L13 4.8' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
-:root[data-theme-pack="fluent"] input[type="radio"]:checked::after {
+:root[data-theme-pack="fluent"] input[type="radio"]:checked:not(:where(.onb) *)::after {
   content: "";
   width: 8px;
   height: 8px;
@@ -887,14 +966,18 @@
   background: var(--accent-ink);
 }
 
-/* Scrollbars: thin, and WinUI's: a quiet thumb on no track. Zero
- * specificity, so a list that hides its own (scrollbar-width: none) still
- * does. */
-:root[data-theme-pack="fluent"] {
-  scrollbar-color: color-mix(in srgb, var(--fl-ink) 45%, transparent) transparent;
+/* Scrollbars: WinUI's quiet thumb on no track, drawn with the -webkit-
+ * pseudos Default draws (base.css), only in the ink's colour. NOT
+ * scrollbar-width or scrollbar-color: either one, set on any element, turns
+ * those pseudos off for it and everything under it (scrollbar-color
+ * inherits), and with them Default's rule that hides a sideways scroller's bar
+ * (base.css, ::-webkit-scrollbar:horizontal). Under "thin" every poster row,
+ * the Guide's foot and the film page grew a bar. */
+:root[data-theme-pack="fluent"] ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fl-ink) 45%, transparent);
 }
-:where(:root[data-theme-pack="fluent"]) * {
-  scrollbar-width: thin;
+:root[data-theme-pack="fluent"] ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--fl-ink) 62%, transparent);
 }
 
 /* ------------------------------------------------------ ContentDialog

@@ -28,6 +28,8 @@ const check = (name, ok, extra = "") => {
 };
 
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+// One that keeps the scrollbars the others hide, to see the ones that are drawn.
+const browserSb = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", ignoreDefaultArgs: ["--hide-scrollbars"] });
 const errors = [];
 
 /** The film's stream list: Best Match (cached, then unmarked, then not
@@ -60,8 +62,8 @@ const entryOf = (id, title, n, over = {}) => ({
  * seen as the player being asked to open a file; `streams` routes the film's
  * stream list; `store` is written under blammytv.*.
  */
-async function open(face, { tauri = false, store = {}, streams = null, tmdb = false } = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: face });
+async function open(face, { tauri = false, store = {}, streams = null, tmdb = false, sb = false } = {}) {
+  const ctx = await (sb ? browserSb : browser).newContext({ viewport: { width: 1440, height: 900 }, colorScheme: face });
   await ctx.route((u) => !["localhost", "127.0.0.1"].includes(u.hostname), (r) => r.abort());
   if (tmdb) {
     await ctx.route(/api\.themoviedb\.org/, (route) => {
@@ -460,8 +462,55 @@ for (const face of ["dark", "light"]) {
   await ctx.close();
 }
 
+// ------------------------------------------- real scrollbars, no overflow
+// Fluent draws its scrollbar with the -webkit- pseudos Default draws, so
+// Default's rule that hides a sideways scroller's bar still holds: with the
+// scrollbars on, no poster row on Stream's home or a film's page grows a bar.
+// And the film page fits its window: its "More Like This" row bleeds by the
+// page's own gutter, not by Default's 3.3vw.
+for (const face of ["dark", "light"]) {
+  const { ctx, page } = await open(face, { tmdb: true, streams: STREAMS, sb: true });
+  const tag = `[${face}]`;
+  const bars = () =>
+    page.evaluate(() => {
+      const out = [];
+      for (const el of document.querySelectorAll("body *")) {
+        const cs = getComputedStyle(el);
+        if (!/auto|scroll/.test(cs.overflowX)) continue;
+        const g = el.offsetHeight - el.clientHeight - parseFloat(cs.borderTopWidth) - parseFloat(cs.borderBottomWidth);
+        if (g > 0) out.push(`${el.className} ${g}px`);
+      }
+      return { out, rows: document.querySelectorAll(".media-row__scroller").length };
+    });
+  await goTo(page, "home");
+  await page.locator(".stream-card").first().waitFor({ timeout: 15_000 });
+  const home = await bars();
+  check(`${tag} with real scrollbars, no poster row on Stream's home shows a sideways bar`, home.rows >= 1 && home.out.length === 0, JSON.stringify(home));
+  await page.locator(".stream-card", { hasText: "Fake Movie One" }).first().click();
+  await page.locator(".fls-src").first().waitFor({ timeout: 15_000 });
+  await page.locator(".fls-more .media-row__scroller").first().waitFor({ timeout: 15_000 });
+  const film = await bars();
+  check(`${tag} and neither does a film's page`, film.rows >= 1 && film.out.length === 0, JSON.stringify(film));
+  const fit = await page.evaluate(() => {
+    const el = document.querySelector(".stream.stream--full");
+    return { sw: el.scrollWidth, cw: el.clientWidth };
+  });
+  check(`${tag} the film page does not run past its window (scrollWidth == clientWidth)`, fit.sw === fit.cw, JSON.stringify(fit));
+  // Add to Library's focus ring has its inner line (its box-shadow: none took it).
+  await page.keyboard.press("Shift");
+  await page.locator(".vod-save:not(.vod-save__more)").focus();
+  await page.waitForTimeout(400);
+  const ring = await page.evaluate(() => {
+    const cs = getComputedStyle(document.activeElement);
+    return { w: cs.outlineWidth, sh: cs.boxShadow };
+  });
+  check(`${tag} Add to Library's focus ring has its inner line`, ring.w === "2px" && /inset/.test(ring.sh) && !/none/.test(ring.sh), JSON.stringify(ring));
+  await ctx.close();
+}
+
 check("no page errors", errors.length === 0, errors.slice(0, 3).join(" | "));
 await browser.close();
+await browserSb.close();
 const failed = results.filter(([, ok]) => !ok).length;
 console.log(`\n${results.length - failed}/${results.length} checks passed`);
 process.exit(failed ? 1 : 0);

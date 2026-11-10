@@ -191,7 +191,9 @@ export function ClassicLeagueTree({
                       >
                         {box(id, on)}
                         <i className={"cl-tv__fd" + (on ? " is-open" : "")} aria-hidden />
-                        <span className={"cl-tv__lb" + (chosen ? " is-sel" : "")}>{s.name}</span>
+                        <span className={"cl-tv__lb" + (chosen ? " is-sel" : "")} title={s.name}>
+                          {s.name}
+                        </span>
                       </div>
                       {on && (
                         <ul role="group">

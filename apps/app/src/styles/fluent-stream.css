@@ -481,6 +481,10 @@
     color: var(--fl-ink) !important;
     font: 400 14px/20px var(--fl-font) !important;
   }
+  /* Its box-shadow: none is the focus ring's inner line too. */
+  .fls-actions .vod-save:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--fl-focus-in) !important;
+  }
   .fls-actions .vod-save:hover {
     background: color-mix(in srgb, var(--fl-ink) 10%, var(--fl-base)) !important;
   }
@@ -605,7 +609,8 @@
     align-items: center;
     border-radius: 11px;
     background: color-mix(in srgb, var(--fl-live) 16%, transparent);
-    color: var(--fl-live);
+    /* The green on its own 16% tint was 3.9:1; mixed toward the ink it is over 5:1. */
+    color: color-mix(in srgb, var(--fl-live) 60%, var(--fl-ink));
     font-size: 12px;
     font-weight: 600;
   }
@@ -628,6 +633,10 @@
     color: var(--fl-ink);
   }
   .fls-more {
+    /* The row bleeds by --gut (max(28px, 3.3vw) in Default) to reach the
+     * page's edge; here the page's edge is --fls-gut in, so the row bleeds
+     * by that, not by 21px more at 1600 wide. */
+    --gut: var(--fls-gut);
     margin: 24px calc(var(--fls-gut) * -1) 0;
     padding: 0 var(--fls-gut);
   }

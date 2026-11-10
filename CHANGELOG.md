@@ -2,6 +2,30 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.10: Fluent in Light, and both Windows themes easier to read
+
+- **Fluent has a Light face.** Set Appearance to Light or Match Windows and
+  Fluent follows, with Windows 11's light Mica behind the window. Dark and
+  Light each keep their own accent colour.
+- **Onboarding, What's New and the startup screen are the same in every
+  theme.** Classic and Fluent repainted parts of them, down to a grey button
+  with white words on Classic's "Follow What You Watch" step.
+- **The player's controls stay light on dark** in Classic and in Fluent
+  Light, where some were dark on video: the theater, the mini player, the
+  mini-guide and Multi-View's tiles.
+- **Classic:** Settings opens under the toolbar and its tabs are the dialog's
+  own small type; the theme cards show their previews; Add to Library is a
+  button with a menu of your lists; a button waiting for "Click Again to
+  Confirm" is bold with a dotted box; the Guide's star is an icon, not a
+  button; the game theater's channels are a Windows list; a poster with no
+  art shows its letter dark enough to read.
+- **Fluent:** in a narrow window the Guide's folders fold away behind a
+  Folders button; a button that deletes looks like any other until it's
+  armed, then turns red; counts, times and key hints are a step brighter in
+  Dark and darker in Light; Cached reads on its green.
+- **Every theme:** the mini-guide's "22 min left" line is a little brighter,
+  and in Light the team codes on a game card are darker.
+
 ## 1.2.9: Classic's theater fits, Fluent's buttons look like Windows'
 
 - **Classic:** in a wide window, the theater player no longer runs over the

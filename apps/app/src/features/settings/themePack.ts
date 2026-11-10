@@ -9,11 +9,11 @@ import {
 import { tauriMica } from "../../lib/tauri";
 
 /**
- * Theme packs (plan 035): Prism, Velvet, Lagoon and Fluent, dark only. A pack
- * changes colour, type, texture, light and transparency, never a radius, a
- * shape or a layout (Adam, 1.3). The palettes are styles/packs.css; this is
- * the choice, which accent is on the root while it is made, and Fluent's
- * Mica.
+ * Theme packs (plan 035): Prism, Velvet and Lagoon, dark only, Fluent, which
+ * also has a face for Light, and Classic, one look in both. A pack changes
+ * colour, type, texture, light and transparency, never a radius, a shape or a
+ * layout (Adam, 1.3). The palettes are styles/packs.css; this is the choice,
+ * which accent is on the root while it is made, and Fluent's Mica.
  *
  * "none" is Default and the base palette: it removes `data-theme-pack`
  * rather than naming a pack (old/themes/README.md is why there is no default
@@ -30,10 +30,14 @@ export interface PackInfo {
    * Default, which has the Accent picker as it always did, and for Prism,
    * whose ramp is its accent and which has no picker. */
   accent: string | null;
+  /** Set on a pack that also has a face for Light (Fluent's): its card and its
+   * own accent there. A pack without it is inert in Light, bar a tier-3 one
+   * with one look (Classic). */
+  light?: { swatch: PackInfo["swatch"]; accent: string };
   /** How far a pack may go (plan 035, Tiers): 1 colours only, 2 colours,
    * effects and fonts with the radius rule, 3 a full overhaul of corners,
    * borders and bevels (layout moves only where the plan says). A tier-3
-   * pack looks the same in Light and Dark. */
+   * pack shows in Light too: Classic with the one look, Fluent with `light`. */
   tier: 1 | 2 | 3;
 }
 
@@ -68,12 +72,14 @@ export const THEME_PACKS: readonly PackInfo[] = [
   },
   {
     // Windows 11's dark layers on Mica (#202020 where Mica can't show), and
-    // Windows' default dark accent.
+    // Windows' default dark accent. Light is its light layers (#f3f3f3, white
+    // cards) and Windows' default light accent.
     key: "fluent",
     label: "Fluent",
     swatch: { bg: "#202020", surface: "#2b2b2b", accent: "#60cdff" },
     accent: "#60cdff",
-    tier: 2,
+    light: { swatch: { bg: "#f3f3f3", surface: "#ffffff", accent: "#0067c0" }, accent: "#0067c0" },
+    tier: 3,
   },
   {
     // Windows 2000: the grey face, the navy title bar (styles/classic.css).
@@ -106,7 +112,11 @@ export function saveThemePack(pack: ThemePack): void {
   save(KEY, VERSION, pack);
 }
 
-type Picks = Partial<Record<ThemePack, { accent: string; custom: string }>>;
+/** Keyed by pack, and `pack:light` for a pack's Light face. */
+type Picks = Record<string, { accent: string; custom: string }>;
+
+const pickKey = (pack: ThemePack, light: boolean): string =>
+  light && packInfo(pack).light ? `${pack}:light` : pack;
 
 /** Each pack's remembered pick, as stored. A bad shape or a bad colour reads
  * as "never picked". */
@@ -115,22 +125,26 @@ function loadPicks(): Picks {
   if (typeof stored !== "object" || stored === null || Array.isArray(stored)) return {};
   const out: Picks = {};
   for (const info of THEME_PACKS) {
-    const e = (stored as Record<string, { accent?: unknown; custom?: unknown } | null>)[info.key];
-    if (!info.accent || !e || typeof e !== "object") continue;
-    out[info.key] = {
-      accent: isValidHex(e.accent) ? (e.accent as string).toLowerCase() : "",
-      custom: isValidHex(e.custom) ? (e.custom as string).toLowerCase() : "",
-    };
+    for (const key of info.light ? [info.key, `${info.key}:light`] : [info.key]) {
+      const e = (stored as Record<string, { accent?: unknown; custom?: unknown } | null>)[key];
+      if (!info.accent || !e || typeof e !== "object") continue;
+      out[key] = {
+        accent: isValidHex(e.accent) ? (e.accent as string).toLowerCase() : "",
+        custom: isValidHex(e.custom) ? (e.custom as string).toLowerCase() : "",
+      };
+    }
   }
   return out;
 }
 
-/** The accent and custom slot a pack remembers for itself. An empty accent
- * means the pack's own colour, as the default store's means no accent. */
-export function themeAccentStore(pack: ThemePack): AccentStore {
-  const read = () => loadPicks()[pack] ?? { accent: "", custom: "" };
+/** The accent and custom slot a pack remembers for itself, one set per face
+ * for a pack that has a Light face. An empty accent means the pack's own
+ * colour, as the default store's means no accent. */
+export function themeAccentStore(pack: ThemePack, light = false): AccentStore {
+  const key = pickKey(pack, light);
+  const read = () => loadPicks()[key] ?? { accent: "", custom: "" };
   const write = (next: { accent: string; custom: string }) =>
-    save(ACCENTS_KEY, VERSION, { ...loadPicks(), [pack]: next });
+    save(ACCENTS_KEY, VERSION, { ...loadPicks(), [key]: next });
   return {
     get: () => read().accent,
     set: (hex) => write({ ...read(), accent: hex.toLowerCase() }),
@@ -144,13 +158,23 @@ export function resetThemeAccents(): void {
   save(ACCENTS_KEY, VERSION, {});
 }
 
-/** Whether a pack is showing: chosen, and the page is dark. A tier-3 pack has
- * one face and shows in Light too. */
+/** Whether a pack shows in a face: chosen, and the page is dark, or the pack
+ * has a look for Light (a tier-3 pack: Classic's one look, Fluent's own). */
+export function packShowingIn(pack: ThemePack, light: boolean): boolean {
+  return pack !== "none" && (!light || packInfo(pack).tier === 3 || !!packInfo(pack).light);
+}
+
+/** The accent a pack opens on in this face: Fluent's Light has its own. */
+export function faceAccent(info: PackInfo, light: boolean): string | null {
+  return light && info.light ? info.light.accent : info.accent;
+}
+
+/** Whether a pack is showing on the root's face. */
 export function packShowing(
   pack: ThemePack,
   root: { dataset: DOMStringMap } = document.documentElement,
 ): boolean {
-  return pack !== "none" && (root.dataset.theme !== "light" || packInfo(pack).tier === 3);
+  return packShowingIn(pack, root.dataset.theme === "light");
 }
 
 /**
@@ -158,14 +182,16 @@ export function packShowing(
  * own pick; under Prism, none (its ramp is the accent, so the pack's colour
  * shows); otherwise the default pick. Inline, as accent.ts always writes it,
  * because that is what beats the pack's stylesheet. Runs when the pack
- * changes and when light or dark does, so Light keeps the default pick.
+ * changes and when light or dark does, so Light keeps the default pick unless
+ * the pack has a face for it, which remembers its own. No pick leaves the
+ * accent to the stylesheet (fluent-tokens.css has Fluent's Light blue).
  */
 export function syncAccent(): void {
   const root = document.documentElement;
   const pack = isThemePack(root.dataset.themePack) ? root.dataset.themePack : "none";
   const hex = packShowing(pack, root)
     ? packInfo(pack).accent
-      ? themeAccentStore(pack).get()
+      ? themeAccentStore(pack, root.dataset.theme === "light").get()
       : ""
     : defaultAccentStore.get();
   if (hex) applyAccent(hex);
@@ -190,26 +216,33 @@ let watching = false;
 /** Whether the window was last asked to have Mica. Starts false: a window
  * opens without it, so a profile that never wore Fluent never calls native. */
 let micaAsked = false;
+/** The face it was last asked for. */
+let micaDark = true;
 /** Orders the answers: the last question decides the root, not the last reply. */
 let micaSeq = 0;
 
 /**
- * Fluent's Mica: asked for while Fluent is showing (chosen, and dark; the
- * packs are inert in Light), taken off the moment anything else is. Only a
- * change calls native. `data-mica="on"` goes on the root when native says the
- * window has it, and packs.css lets the page go see-through on that; without
- * it (Windows 10, a failed call, the browser build) Fluent's base stays a
- * solid #202020. Off is synchronous, so the base is solid before Mica goes.
+ * Fluent's Mica: asked for while Fluent is chosen, in either face, taken off
+ * the moment anything else is. Only a change calls native, and a flip between
+ * dark and light is one (the title bar follows the face). `data-mica="on"`
+ * goes on the root when native says the window has it, and packs.css (dark)
+ * and fluent-tokens.css (light) let the page go see-through on that; without
+ * it (Windows 10, a failed call, the browser build) Fluent's base stays solid.
+ * Off is synchronous, so the base is solid before Mica goes.
  */
 function syncMica(): void {
   const root = document.documentElement;
-  const want = root.dataset.themePack === "fluent" && root.dataset.theme !== "light";
+  const want = root.dataset.themePack === "fluent";
+  const dark = root.dataset.theme !== "light";
   if (!want) delete root.dataset.mica;
-  if (want === micaAsked) return;
+  if (want === micaAsked && (!want || dark === micaDark)) return;
   micaAsked = want;
+  micaDark = dark;
   const seq = ++micaSeq;
-  void tauriMica(want).then((applied) => {
-    if (seq === micaSeq && want && applied) root.dataset.mica = "on";
+  void tauriMica(want, dark).then((applied) => {
+    if (seq !== micaSeq || !want) return;
+    if (applied) root.dataset.mica = "on";
+    else delete root.dataset.mica;
   });
 }
 

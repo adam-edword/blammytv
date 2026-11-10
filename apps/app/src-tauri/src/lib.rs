@@ -276,14 +276,17 @@ fn inv_stop(window: tauri::WebviewWindow) -> Result<(), String> {
 /// when the window now has it, so the page can let it show; false when it
 /// could not (Windows 10 and builds before 22000 have no Mica, and a failed
 /// call is a no), and the page then keeps Fluent's solid base. `on: false`
-/// takes it off. The window is already transparent (tauri.conf), which Mica
+/// takes it off. `dark` is the page's face: Mica's dark or light material, and
+/// the title bar and caption buttons with it (apply_mica sets
+/// DWMWA_USE_IMMERSIVE_DARK_MODE to match; `Some(false)` is a light title
+/// bar). The window is already transparent (tauri.conf), which Mica
 /// needs. The mpv child (inv.rs) is untouched: the page is see-through only
 /// where no video is.
 ///
 /// window-vibrancy directly, not Window::set_effects: that discards the
 /// result, and the answer is the point.
 #[tauri::command]
-fn window_mica(window: tauri::WebviewWindow, on: bool) -> bool {
+fn window_mica(window: tauri::WebviewWindow, on: bool, dark: bool) -> bool {
     #[cfg(windows)]
     {
         let (tx, rx) = std::sync::mpsc::channel();
@@ -291,16 +294,16 @@ fn window_mica(window: tauri::WebviewWindow, on: bool) -> bool {
         if window
             .run_on_main_thread(move || {
                 let res = if on {
-                    window_vibrancy::apply_mica(&w, Some(true))
+                    window_vibrancy::apply_mica(&w, Some(dark))
                 } else {
-                    // apply_mica(Some(true)) also darkened the title bar;
+                    // apply_mica(Some(dark)) also set the title bar's face;
                     // hand it back to the system theme.
                     let r = window_vibrancy::clear_mica(&w);
                     let _ = w.set_theme(None);
                     r
                 };
                 if let Err(e) = &res {
-                    log::warn!("window_mica(on={on}): {e}");
+                    log::warn!("window_mica(on={on}, dark={dark}): {e}");
                 }
                 let _ = tx.send(on && res.is_ok());
             })
@@ -312,7 +315,7 @@ fn window_mica(window: tauri::WebviewWindow, on: bool) -> bool {
     }
     #[cfg(not(windows))]
     {
-        let _ = (window, on);
+        let _ = (window, on, dark);
         false
     }
 }

@@ -244,6 +244,39 @@ const survey = (page) =>
     cards: [...document.querySelectorAll('[data-picker="theme"]')].map((e) => Math.round(e.getBoundingClientRect().height)),
   }));
   check("Appearance: every accent swatch shows its own colour and every theme card its preview", pick.swatches.length >= 8 && pick.swatches.every(([bg, img, want]) => want.startsWith("#") ? bg === `rgb(${parseInt(want.slice(1, 3), 16)}, ${parseInt(want.slice(3, 5), 16)}, ${parseInt(want.slice(5, 7), 16)})` : img.includes("gradient")) && pick.cards.length >= 6 && pick.cards.every((h) => h > 60), JSON.stringify(pick));
+  // Windows' 120px floor is for a standard text button, not a toggle: Card
+  // Details' chips were eight 120px accent blocks in two rows (1.2.9).
+  const hug = await page.evaluate(() => ({
+    chips: [...document.querySelectorAll('[data-setting="card-details"] .meta-pick__chip')].map((e) => [getComputedStyle(e).minWidth, Math.round(e.getBoundingClientRect().width)]),
+    toggles: [...document.querySelectorAll("button[aria-pressed]")].map((e) => getComputedStyle(e).minWidth),
+    segs: [...document.querySelectorAll(".seg__opt")].map((e) => getComputedStyle(e).minWidth),
+  }));
+  check("Appearance: Card Details chips, every toggle button and every segmented option have no 120px floor",
+    hug.chips.length >= 4 && hug.toggles.length >= hug.chips.length && [...hug.chips.map((c) => c[0]), ...hug.toggles, ...hug.segs].every((m) => m !== "120px") && hug.chips.some(([, w]) => w < 120), JSON.stringify(hug.chips));
+  // One focus ring, the double one, on the controls that had lost its inner
+  // line: a chosen swatch and theme card (Tailwind's ring replaced the shadow)
+  // and an off switch (box-shadow: none).
+  const ring = async (sel) => {
+    await page.keyboard.press("Shift");
+    await page.locator(sel).first().focus();
+    // Buttons ride transition-all: the ring is drawn once it has finished.
+    await page.waitForTimeout(400);
+    return page.evaluate(() => {
+      const a = document.activeElement;
+      const cs = getComputedStyle(a);
+      return { tag: a.tagName + "." + String(a.className).slice(0, 30) + " " + a.getAttribute("data-picker"), vis: a.matches(":focus-visible"), w: cs.outlineWidth, off: cs.outlineOffset, inner: cs.boxShadow.startsWith("rgb(0, 0, 0) 0px 0px 0px 1px") };
+    });
+  };
+  for (const [what, sel] of [["the chosen accent swatch", '[data-picker="swatch"][aria-pressed="true"]'], ["the chosen theme card", '[data-picker="theme"][aria-pressed="true"]']]) {
+    const r = await ring(sel);
+    check(`Focus ring: ${what} shows the 2px ring over its inner line`, r.vis && r.w === "2px" && r.off === "1px" && r.inner, JSON.stringify(r));
+  }
+  await page.locator(`.flc-sx [data-rail="playback"]`).click();
+  await page.waitForTimeout(500);
+  const offRing = await ring(".toggle:not(.toggle--on)");
+  check("Focus ring: an off switch shows the 2px ring over its inner line", offRing.vis && offRing.w === "2px" && offRing.off === "1px" && offRing.inner, JSON.stringify(offRing));
+  await page.locator(`.flc-sx [data-rail="appearance"]`).click();
+  await page.waitForTimeout(500);
   // A standard button as Windows 11 draws one (Adam, 1.2.9: "the bottom of our button is weird"): at least
   // 120px wide, and in dark its bottom edge a faint white line, not a dark one under a light button.
   await page.locator(`.flc-sx [data-rail="app"]`).click();

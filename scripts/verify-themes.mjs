@@ -1,13 +1,14 @@
-// E2E: Settings → Appearance → Theme (plan 035). Four dark packs laid over the
-// app's palette: Prism, Velvet, Lagoon and Fluent. A pack changes colour, type,
+// E2E: Settings → Appearance → Theme (plan 035). Four packs laid over the
+// app's palette: Prism, Velvet and Lagoon (dark only), and Fluent (a Light face
+// too: the "Fluent has a face for Light" section below). A pack changes colour, type,
 // texture, light and transparency, and NEVER a radius, a shape or a layout
 // (Adam, 1.3): "no pack changes a radius" below is that rule, tested.
 //
 // What can go wrong here is quiet, and none of it throws:
 //   - a pack that leaks. No pack must be the base palette, token for token;
 //     choosing Default after a pack must give it back exactly.
-//   - a pack that wins in Light. They are dark palettes; in Light the
-//     attribute stays and nothing may match (the selector's :not).
+//   - a pack that wins in Light. Prism, Velvet and Lagoon are dark palettes; in
+//     Light the attribute stays and nothing may match (the selector's :not).
 //   - a hook that paints without a pack. Prism's three spots (the now-line,
 //     the progress fill and LIVE dot, the hero's halo) must draw what they
 //     always did when unset. The nav's pill and the focus ring are NOT among
@@ -629,6 +630,9 @@ async function nativePage({ store = {}, mica = true, scheme = "dark" } = {}) {
   return { ctx, page, errors };
 }
 const micaCalls = (page) => page.evaluate(() => window.__calls.filter((c) => c[0] === "window_mica").map((c) => c[1].on));
+/** The face each window_mica question named (dark: true is Dark). */
+const micaFaces = (page) => page.evaluate(() => window.__calls.filter((c) => c[0] === "window_mica").map((c) => c[1].dark));
+const micaCount = (page, n) => page.waitForFunction((n) => window.__calls.filter((c) => c[0] === "window_mica").length === n, n, { timeout: 5000 }).catch(() => {});
 const bodyBg = (page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 /** What paints the page's base: the body, or the shell where the inverted player is on (base.css). */
 const paintBg = (page) =>
@@ -671,7 +675,7 @@ const fontOf = (page, token) =>
     const got = await radii(page);
     // Fluent is the Windows 11 app now (8px cards, 4px controls): the plan
     // (035, "Tier 3") exempts a tier-3 pack from the corner check. Its tokens
-    // are still held to Default's below. themePack.ts still lists it as tier 2.
+    // are still held to Default's below. themePack.ts lists it as tier 3.
     if (key !== "fluent") check(`radii: ${key} leaves every corner as Default has it`, flatten(got) === flatten(want), JSON.stringify({ got, want }));
     const tok = await root(page, RADIUS_TOKENS);
     check(`radii: ${key} leaves the radius tokens alone`, JSON.stringify(tok) === JSON.stringify(wantTok), JSON.stringify({ tok, wantTok }));
@@ -945,11 +949,41 @@ const fontOf = (page, token) =>
     check(`${key}: native is never asked about Mica`, (await micaCalls(o.page)).length === 0, JSON.stringify(await micaCalls(o.page)));
     await o.ctx.close();
   }
-  // Light: the pack is inert, so no Mica either.
+  // Light: Fluent has a face for it, so Mica is asked for with dark: false,
+  // and the base is see-through there as in Dark.
   const l = await nativePage({ scheme: "light", store: { theme: { data: "light" }, themePack: { data: "fluent" } } });
-  await l.page.waitForTimeout(300);
-  check("light with Fluent stored: native is not asked for Mica, and the page is Light's own", (await micaCalls(l.page)).length === 0 && (await root(l.page, ["--bg"]))["--bg"] === "oklch(0.965 0 0)", JSON.stringify(await micaCalls(l.page)));
+  await l.page.waitForFunction(() => document.documentElement.dataset.mica === "on", null, { timeout: 5000 }).catch(() => {});
+  check(
+    "light with Fluent stored: native is asked for Mica in Light (dark: false), once, and the page is marked",
+    JSON.stringify(await micaCalls(l.page)) === "[true]" && JSON.stringify(await micaFaces(l.page)) === "[false]" && (await l.page.evaluate(() => document.documentElement.dataset.mica)) === "on",
+    JSON.stringify({ on: await micaCalls(l.page), dark: await micaFaces(l.page) }),
+  );
+  check("light Mica: the base is see-through (body and shell), so Mica shows", (await paintBg(l.page)) === "rgba(0, 0, 0, 0)", await paintBg(l.page));
   await l.ctx.close();
+  // Light without Mica (Windows 10, the browser build): a solid light base.
+  const nl = await nativePage({ scheme: "light", mica: false, store: { theme: { data: "light" }, themePack: { data: "fluent" } } });
+  await nl.page.waitForTimeout(300);
+  check("light, native says no Mica: the base is solid light and the page is not marked", (await paintBg(nl.page)) === "oklch(0.965 0 0)" && (await nl.page.evaluate(() => document.documentElement.dataset.mica)) === undefined, await paintBg(nl.page));
+  await nl.ctx.close();
+  // The face flips with the page open (Match Windows): native is asked again with the new face.
+  const fl = await nativePage({ store: { theme: { data: "system" }, themePack: { data: "fluent" } } });
+  await fl.page.waitForFunction(() => document.documentElement.dataset.mica === "on", null, { timeout: 5000 }).catch(() => {});
+  await fl.page.emulateMedia({ colorScheme: "light" });
+  await micaCount(fl.page, 2);
+  check("fluent: dark then Light asks native again, with dark: false", JSON.stringify(await micaFaces(fl.page)) === "[true,false]" && JSON.stringify(await micaCalls(fl.page)) === "[true,true]", JSON.stringify(await micaFaces(fl.page)));
+  await fl.page.emulateMedia({ colorScheme: "dark" });
+  await micaCount(fl.page, 3);
+  check("  and back to dark asks with dark: true", JSON.stringify(await micaFaces(fl.page)) === "[true,false,true]", JSON.stringify(await micaFaces(fl.page)));
+  await fl.page.emulateMedia({ colorScheme: "light" });
+  await micaCount(fl.page, 4);
+  // Leaving Fluent from Light takes Mica off.
+  await fl.page.locator("button[aria-label='Settings'], .flc-pane [data-key='settings']").first().click();
+  await fl.page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await fl.page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Velvet", exact: true }).click();
+  await micaCount(fl.page, 5);
+  const offs = await micaCalls(fl.page);
+  check("fluent in Light, then Velvet: native is asked to take Mica off, and the mark is gone", offs.length === 5 && offs[4] === false && (await fl.page.evaluate(() => document.documentElement.dataset.mica)) === undefined, JSON.stringify(offs));
+  await fl.ctx.close();
 }
 
 // ------------------------------------------------------------ Light ignores
@@ -980,7 +1014,7 @@ const fontOf = (page, token) =>
   await page.locator("button[aria-label='Settings']").click();
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await page.getByRole("group", { name: "Theme" }).waitFor({ timeout: 10_000 });
-  check("light: the Theme row says themes are dark only", await page.locator('[data-setting="theme-pack"]').getByText("Themes are dark only.", { exact: true }).isVisible());
+  check("light: the Theme row says Prism is dark only", await page.locator('[data-setting="theme-pack"]').getByText("Prism is dark only.", { exact: true }).isVisible());
   check("light: the Accent row is there, since the pack is not", await page.locator('[data-setting="accent"]').count() === 1 && await page.getByRole("button", { name: "Default, follows light and dark" }).count() === 1);
   // And back to Dark: the pack is showing, the note is gone.
   await page.getByRole("group", { name: "Appearance" }).getByRole("button", { name: "Dark", exact: true }).click();
@@ -988,10 +1022,71 @@ const fontOf = (page, token) =>
   check(
     "light then Dark: Prism is on, the note is gone and the Accent row is gone",
     (await root(page, ["--bg"]))["--bg"] === "#000000" &&
-      (await page.locator('[data-setting="theme-pack"]').getByText("Themes are dark only.").count()) === 0 &&
+      (await page.locator('[data-setting="theme-pack"]').getByText(/ is dark only\./).count()) === 0 &&
       (await page.locator('[data-setting="accent"]').count()) === 0,
   );
   check("light: no page errors", errors.length === 0, errors.join(" | "));
+  await ctx.close();
+}
+
+// ----------------------------------------------- Fluent has a face for Light
+// One accent: the root's, which is Windows' light blue until a pick, and a
+// toggle, the nav's pill and Watch all draw it. The note about dark-only
+// themes is Velvet's and the others', not Fluent's.
+{
+  const { ctx, page, errors } = await open({ scheme: "light", store: { theme: { data: "light" }, themePack: { data: "fluent" } } });
+  const BLUE = "rgb(0, 103, 192)";
+  const bg = (sel, pseudo) => page.evaluate(({ sel, pseudo }) => getComputedStyle(document.querySelector(sel), pseudo).backgroundColor, { sel, pseudo });
+  const tokens = await root(page, ["--accent", "--accent-ink", "--fl-accent", "--fl-on-accent"]);
+  check("fluent, Light: the root accent is Windows' light blue, white ink on it, and --fl-accent follows", JSON.stringify(tokens) === JSON.stringify({ "--accent": "#0067c0", "--accent-ink": "#ffffff", "--fl-accent": "#0067c0", "--fl-on-accent": "#ffffff" }), JSON.stringify(tokens));
+  await page.waitForSelector(".fl-btn--accent", { timeout: 20_000 });
+  const watch = await bg(".fl-btn--accent");
+  const pill = await bg('.flc-ni[aria-current="page"]', "::before");
+  check("fluent, Light: the nav pill and Watch are the one accent", watch === BLUE && pill === BLUE, JSON.stringify({ watch, pill }));
+  await page.locator("button[aria-label='Settings'], .flc-pane [data-key='settings']").first().click();
+  await page.getByRole("tab", { name: "Playback", exact: true }).click();
+  await page.locator(".toggle").first().waitFor({ timeout: 10_000 });
+  if ((await page.locator(".toggle--on").count()) === 0) await page.locator(".toggle").first().click();
+  await page.locator(".toggle--on").first().waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(600); // the track fades to its colour
+  const tog = await bg(".toggle--on");
+  check("fluent, Light: a toggle that is on is the same accent", tog === BLUE, tog);
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  const accent = page.locator('[data-setting="accent"]');
+  await accent.waitFor({ timeout: 10_000 });
+  const swatches = accent.getByRole("group", { name: "Accent color" }).locator("button");
+  check("fluent, Light: the Accent row leads with Fluent's own swatch, chosen", (await swatches.first().getAttribute("aria-label")) === "Fluent" && (await swatches.first().getAttribute("aria-pressed")) === "true", String(await swatches.first().getAttribute("aria-label")));
+  check("fluent, Light: no dark-only note", (await page.getByText(/ is dark only\./).count()) === 0);
+  const cardBg = await page.locator('[data-swatch="fluent"]').evaluate((e) => getComputedStyle(e).backgroundColor);
+  check("fluent, Light: its theme card draws the light layers", cardBg === "rgb(243, 243, 243)", cardBg);
+  // A pick in Light is Light's own: Dark keeps the blue it opens on.
+  await accent.getByRole("button", { name: "Green", exact: true }).click();
+  await page.waitForTimeout(150);
+  const picked = await root(page, ["--accent", "--fl-accent"]);
+  check("fluent, Light: picking Green changes the accent, and --fl-accent with it", picked["--accent"] !== "#0067c0" && picked["--fl-accent"] === picked["--accent"], JSON.stringify(picked));
+  await page.getByRole("group", { name: "Appearance" }).getByRole("button", { name: "Dark", exact: true }).click();
+  await page.waitForTimeout(250);
+  const dark = await root(page, ["--accent", "--fl-accent"]);
+  check("fluent: Dark still opens on its own blue after a pick in Light", dark["--accent"] === "#60cdff" && dark["--fl-accent"] === "#60cdff", JSON.stringify(dark));
+  check("fluent, Dark: the first swatch is Fluent's and is the one chosen", (await swatches.first().getAttribute("aria-label")) === "Fluent" && (await swatches.first().getAttribute("aria-pressed")) === "true");
+  await page.getByRole("group", { name: "Appearance" }).getByRole("button", { name: "Light", exact: true }).click();
+  await page.waitForTimeout(250);
+  const back = await root(page, ["--accent"]);
+  check("fluent: and back in Light, the Green pick is still there", back["--accent"] === picked["--accent"], JSON.stringify({ back, picked }));
+  check("fluent: the Default accent store is untouched", (await page.evaluate(() => localStorage.getItem("blammytv.accent"))) === null);
+  check("fluent, Light: no page errors", errors.length === 0, errors.join(" | "));
+  await ctx.close();
+}
+// Velvet in Light is as it was: the default accent, the note, Default's swatch.
+{
+  const { ctx, page } = await open({ scheme: "light", store: { theme: { data: "light" }, themePack: { data: "velvet" } } });
+  await page.locator("button[aria-label='Settings'], .flc-pane [data-key='settings']").first().click();
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await page.getByRole("group", { name: "Theme" }).waitFor({ timeout: 10_000 });
+  check("velvet, Light: the dark-only note shows", await page.locator('[data-setting="theme-pack"]').getByText("Velvet is dark only.", { exact: true }).isVisible());
+  check("velvet, Light: the accent is the default's, not a pack's", (await root(page, ["--accent"]))["--accent"] === "oklch(0.205 0 0)");
+  check("velvet, Light: its card is still Velvet's dark one", (await page.locator('[data-swatch="velvet"]').evaluate((e) => getComputedStyle(e).backgroundColor)) === "rgb(23, 13, 16)");
+  check("velvet, Light: the Accent row is the default one", /^Default/.test((await page.locator('[data-setting="accent"]').getByRole("group", { name: "Accent color" }).locator("button").first().getAttribute("aria-label")) ?? ""));
   await ctx.close();
 }
 
@@ -1148,15 +1243,15 @@ async function pickAndSave(page) {
   const accent = page.locator('[data-setting="accent"]');
   await accent.waitFor({ timeout: 10_000 });
   const firstSwatch = () => accent.getByRole("group", { name: "Accent color" }).locator("button").first().getAttribute("aria-label");
-  check("Match Windows, dark, Velvet: the Accent row leads with Velvet and there is no dark-only note", (await firstSwatch()) === "Velvet" && (await page.getByText("Themes are dark only.").count()) === 0);
+  check("Match Windows, dark, Velvet: the Accent row leads with Velvet and there is no dark-only note", (await firstSwatch()) === "Velvet" && (await page.getByText(/ is dark only\./).count()) === 0);
   await page.emulateMedia({ colorScheme: "light" });
   await page.waitForFunction(() => document.documentElement.dataset.theme === "light");
-  await page.getByText("Themes are dark only.").waitFor({ timeout: 3000 }).catch(() => {});
-  check("  Windows goes Light: the note shows without leaving the page", (await page.getByText("Themes are dark only.").count()) === 1);
+  await page.getByText("Velvet is dark only.").waitFor({ timeout: 3000 }).catch(() => {});
+  check("  Windows goes Light: the note shows without leaving the page", (await page.getByText("Velvet is dark only.").count()) === 1);
   check("  and the Accent row is the default one, not Velvet's", /^Default/.test((await firstSwatch()) ?? ""), String(await firstSwatch()));
   await page.emulateMedia({ colorScheme: "dark" });
-  await page.getByText("Themes are dark only.").waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
-  check("  and back to dark, Velvet's again", (await page.getByText("Themes are dark only.").count()) === 0 && (await firstSwatch()) === "Velvet");
+  await page.getByText("Velvet is dark only.").waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+  check("  and back to dark, Velvet's again", (await page.getByText(/ is dark only\./).count()) === 0 && (await firstSwatch()) === "Velvet");
   check("Match Windows: no page errors", errors.length === 0, errors.join(" | "));
   await ctx.close();
 }

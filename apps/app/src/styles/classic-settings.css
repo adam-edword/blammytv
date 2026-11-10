@@ -62,6 +62,10 @@
 :root[data-theme-pack="classic"] .settings--classic .cl-tabs .rail__opt {
   font: 12px var(--cl-font);
 }
+/* The label is a span with Default's 14px semibold of its own. */
+:root[data-theme-pack="classic"] .settings--classic .cl-tabs .rail__name {
+  font: inherit;
+}
 :root[data-theme-pack="classic"] .settings--classic .cl-b {
   font: 12px var(--cl-font);
 }
@@ -299,7 +303,9 @@
   height: 13px;
   margin: 1px 0 0;
   background: var(--cl-field);
-  box-shadow: var(--cl-sunken);
+  /* The bottom and right edge is the face's grey: white on a white row (a
+   * sunken box's usual --cl-hi) left the box open on two sides. */
+  box-shadow: inset 1px 1px var(--cl-lo), inset -1px -1px var(--cl-face), inset 2px 2px var(--cl-dk);
   border-radius: 0;
 }
 :root[data-theme-pack="classic"] .settings--classic input[type="checkbox"]:checked {
@@ -505,8 +511,13 @@
 :root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) > :not([data-slot="dialog-header"], [data-slot="dialog-title"], [data-slot="dialog-close"]) {
   margin-inline: 8px;
 }
-:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) > :nth-last-child(2) {
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) > :is(:last-child:not([data-slot="dialog-close"]), :has(+ [data-slot="dialog-close"])) {
   margin-bottom: 8px;
+}
+/* The caption keeps the close button's room only when there is one
+ * (RecordButton's dialog has none). */
+:root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))):not(:has(> [data-slot="dialog-close"])) [data-slot="dialog-title"] {
+  border-right-width: 0;
 }
 :root[data-theme-pack="classic"] :is(.cl-dlg, [data-slot="dialog-content"]:has(> [data-slot="dialog-header"] > [data-slot="dialog-title"], > [data-slot="dialog-title"]:not(.sr-only))) [data-slot="dialog-close"] {
   top: 5px !important;
@@ -649,4 +660,53 @@
  * later, so it wins on and off. */
 :root[data-theme-pack="classic"] .settings--classic button[data-variant][data-picker="swatch"][aria-pressed]:not([data-slot^="combobox"]):not([class*="underline-offset"]) {
   background: var(--swatch) !important;
+  /* The push button's 12px sides squeezed the tick's disc to 8px. */
+  padding: 0 !important;
+}
+
+/* ----------------------------------------------- Appearance: cards and chips */
+/* The Card Details chips are one height pressed or not (the unpressed one is
+ * a ghost Button, which classic.css keeps at its own size). */
+:root[data-theme-pack="classic"] .settings--classic button[data-variant].meta-pick__chip:not([data-slot^="combobox"]):not([class*="underline-offset"]) {
+  height: 23px !important;
+  min-height: 23px;
+}
+/* A theme card: its preview is the content, so it keeps the card's padding
+ * and its own height; the chosen one is pushed in on the plain face (the
+ * checker would sit under the preview). */
+:root[data-theme-pack="classic"] .settings--classic button[data-variant][data-picker="theme"]:not([data-slot^="combobox"]):not([class*="underline-offset"]) {
+  height: auto !important;
+  min-height: 0;
+  padding: 8px !important;
+  background: var(--cl-face) !important;
+  box-shadow: var(--cl-raised) !important;
+}
+:root[data-theme-pack="classic"] .settings--classic button[data-variant][data-picker="theme"][aria-pressed="true"]:not([data-slot^="combobox"]):not([class*="underline-offset"]) {
+  background: var(--cl-face) !important;
+  box-shadow: var(--cl-pressed) !important;
+}
+/* Titles per Row's number is a value you can click to type over: a sunken
+ * read-only field, not a push button. */
+:root[data-theme-pack="classic"] .settings--classic button[data-variant].rowcap__value--btn:not([data-slot^="combobox"]):not([class*="underline-offset"]) {
+  height: 22px !important;
+  min-height: 22px;
+  min-width: 40px;
+  padding: 0 4px !important;
+  background: var(--cl-field) !important;
+  box-shadow: var(--cl-sunken) !important;
+  cursor: text;
+}
+
+/* -------------------------------------------- the dialog sits under the header */
+/* Settings opens below the toolbar and the address bar, centred in the room
+ * between them and the status bar. The Default card hangs from --settings-top,
+ * which clears the capsule and not this header. The height is the same on
+ * every tab, so the rect is too. */
+:root[data-theme-pack="classic"] .modal-backdrop:has(> .settings--classic) {
+  align-items: center;
+  padding: var(--header-h, 104px) 48px 26px;
+}
+:root[data-theme-pack="classic"] .settings--classic {
+  height: min(640px, calc(100vh - var(--header-h, 104px) - 26px - 24px));
+  max-height: none;
 }

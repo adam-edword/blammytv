@@ -3,18 +3,22 @@ import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Native's Mica answer, set per test; the calls are kept to be counted.
-const mica = vi.hoisted(() => ({ answer: true, calls: [] as boolean[] }));
+const mica = vi.hoisted(() => ({ answer: true, calls: [] as boolean[], faces: [] as boolean[] }));
 vi.mock("../../lib/tauri", () => ({
-  tauriMica: (on: boolean) => {
+  tauriMica: (on: boolean, dark: boolean) => {
     mica.calls.push(on);
+    mica.faces.push(dark);
     return Promise.resolve(on && mica.answer);
   },
 }));
 import {
   THEME_PACKS,
   applyThemePack,
+  faceAccent,
   loadThemePack,
+  packInfo,
   packShowing,
+  packShowingIn,
   saveThemePack,
   syncAccent,
   themeAccentStore,
@@ -69,8 +73,8 @@ describe("themePack store", () => {
     expect(THEME_PACKS.map((p) => p.label)).toEqual(["Default", "Prism", "Velvet", "Lagoon", "Fluent", "Classic"]);
   });
 
-  it("gives each pack a tier, and only Classic is tier 3", () => {
-    expect(THEME_PACKS.map((p) => p.tier)).toEqual([1, 2, 2, 2, 2, 3]);
+  it("gives each pack a tier, and Fluent and Classic are tier 3", () => {
+    expect(THEME_PACKS.map((p) => p.tier)).toEqual([1, 2, 2, 2, 3, 3]);
   });
 
   it("shows a tier-3 pack in Light too, and the others only in Dark", () => {
@@ -81,6 +85,31 @@ describe("themePack store", () => {
     expect(packShowing("prism", light)).toBe(false);
     expect(packShowing("prism", dark)).toBe(true);
     expect(packShowing("none", dark)).toBe(false);
+  });
+
+  it("shows each pack in each face: only the dark-only ones sit out Light", () => {
+    const want: Record<ThemePack, [boolean, boolean]> = {
+      none: [false, false],
+      prism: [true, false],
+      velvet: [true, false],
+      lagoon: [true, false],
+      fluent: [true, true],
+      classic: [true, true],
+    };
+    for (const p of THEME_PACKS) {
+      expect(packShowingIn(p.key, false), `${p.key} dark`).toBe(want[p.key][0]);
+      expect(packShowingIn(p.key, true), `${p.key} light`).toBe(want[p.key][1]);
+    }
+  });
+
+  it("opens Fluent on Windows' light blue in Light, and every other pack on its one accent", () => {
+    expect(faceAccent(packInfo("fluent"), false)).toBe("#60cdff");
+    expect(faceAccent(packInfo("fluent"), true)).toBe("#0067c0");
+    expect(packInfo("fluent").light?.swatch.accent).toBe("#0067c0");
+    for (const k of ["none", "prism", "velvet", "lagoon", "classic"] as const)
+      expect(faceAccent(packInfo(k), true), k).toBe(packInfo(k).accent);
+    // Only Fluent has a Light face of its own.
+    expect(THEME_PACKS.filter((p) => p.light).map((p) => p.key)).toEqual(["fluent"]);
   });
 
   it("knows Fluent as a key, with Windows' own blue as its accent", () => {
@@ -131,6 +160,23 @@ describe("a theme's own accent", () => {
     fluent.set("#22C55E");
     expect(fluent.get()).toBe("#22c55e");
     expect(themeAccentStore("velvet").get()).toBe("");
+  });
+
+  it("is kept per face for Fluent: a pick in Light leaves Dark's alone, and back", () => {
+    themeAccentStore("fluent").set("#22C55E");
+    themeAccentStore("fluent", true).set("#AA00FF");
+    themeAccentStore("fluent", true).setCustom("#112233");
+    expect(themeAccentStore("fluent").get()).toBe("#22c55e");
+    expect(themeAccentStore("fluent", true).get()).toBe("#aa00ff");
+    expect(themeAccentStore("fluent").getCustom()).toBe("");
+    expect(themeAccentStore("fluent", true).getCustom()).toBe("#112233");
+    resetThemeAccents();
+    expect(themeAccentStore("fluent", true).get()).toBe("");
+  });
+
+  it("has one set of picks for a pack with no Light face, whichever face asks", () => {
+    themeAccentStore("velvet", true).set("#336699");
+    expect(themeAccentStore("velvet").get()).toBe("#336699");
   });
 
   it("is not kept for Prism or Default, which take none", () => {
@@ -190,6 +236,31 @@ describe("applying a pack at boot", () => {
     applyThemePack("none");
   });
 
+  it("puts Fluent's Light pick on the root in Light, and Dark's pick back in Dark", () => {
+    const { root, props } = fakeRoot();
+    themeAccentStore("fluent").set("#336699");
+    themeAccentStore("fluent", true).set("#aa0066");
+    applyThemePack("fluent");
+    expect(props.get("--accent")).toBe("#336699");
+    root.dataset.theme = "light";
+    syncAccent();
+    expect(props.get("--accent")).toBe("#aa0066");
+    delete root.dataset.theme;
+    syncAccent();
+    expect(props.get("--accent")).toBe("#336699");
+    applyThemePack("none");
+  });
+
+  it("leaves Fluent's Light accent to the stylesheet with no pick, and not the default's", () => {
+    const { root, props } = fakeRoot();
+    saveAccent("#ffd500");
+    applyThemePack("fluent");
+    root.dataset.theme = "light";
+    syncAccent();
+    expect(props.has("--accent")).toBe(false);
+    applyThemePack("none");
+  });
+
   it("sets the ink for the accent that is on", () => {
     const { props } = fakeRoot();
     themeAccentStore("velvet").set("#ffffff");
@@ -205,6 +276,7 @@ describe("Fluent's Mica", () => {
   beforeEach(() => {
     mica.answer = true;
     mica.calls.length = 0;
+    mica.faces.length = 0;
   });
   const settle = () => new Promise((r) => setTimeout(r, 0));
 
@@ -215,6 +287,40 @@ describe("Fluent's Mica", () => {
     await settle();
     expect(root.dataset.mica).toBe("on");
     applyThemePack("none");
+  });
+
+  it("asks again when the face flips, with the face, and not for a flip that changes nothing", async () => {
+    const { root } = fakeRoot();
+    applyThemePack("fluent");
+    await settle();
+    expect(mica.faces).toEqual([true]);
+    root.dataset.theme = "light";
+    syncAccent(); // not a Mica ask
+    expect(mica.calls).toEqual([true]);
+    // The observer is not real in this fake root, so apply stands in for it.
+    applyThemePack("fluent");
+    await settle();
+    expect(mica.calls).toEqual([true, true]);
+    expect(mica.faces).toEqual([true, false]);
+    expect(root.dataset.mica).toBe("on");
+    applyThemePack("fluent");
+    expect(mica.calls).toEqual([true, true]);
+    delete root.dataset.theme;
+    applyThemePack("fluent");
+    await settle();
+    expect(mica.faces).toEqual([true, false, true]);
+    applyThemePack("none");
+  });
+
+  it("takes it off from Light too", async () => {
+    const { root } = fakeRoot();
+    root.dataset.theme = "light";
+    applyThemePack("fluent");
+    await settle();
+    expect(mica.faces).toEqual([false]);
+    applyThemePack("lagoon");
+    expect(mica.calls).toEqual([true, false]);
+    expect(root.dataset.mica).toBeUndefined();
   });
 
   it("takes it off, and the mark with it, when any other pack is chosen", async () => {

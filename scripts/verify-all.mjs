@@ -201,7 +201,9 @@ const all = every
 const SHOT_DIR = path.join(ROOT, ".verify-shots");
 // The default is five minutes a harness. verify-home has grown past it under
 // a loaded board (plan 033's three phases and the 1.2 review: ~210 checks).
-const LONG = { "verify-home": 600_000 };
+// verify-theme-contrast tours 25 scenes in four faces and reads their pixels:
+// six minutes alone, more on a loaded board.
+const LONG = { "verify-home": 600_000, "verify-theme-contrast": 900_000 };
 const rows = [];
 console.log(`\nrunning ${all.length} harnesses${SHARD ? `, slice ${SHARD.k} of ${SHARD.n}` : ""}…\n`);
 for (const n of all) {
