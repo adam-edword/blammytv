@@ -17,7 +17,7 @@ vi.mock("../settings/playlists", () => ({
     {
       kind: "xtream",
       id: "pl1",
-      name: "Meteor",
+      name: "My Playlist",
       enabled: true,
       server: "http://tv.example.com",
       username: "u",

@@ -7,7 +7,7 @@ import type { Channel, Programme } from "./model";
 const PLAYLIST: XtreamPlaylist = {
   kind: "xtream",
   id: "pl1",
-  name: "Meteor",
+  name: "My Playlist",
   enabled: true,
   server: "http://tv.example.com:8080/",
   username: "u ser",
@@ -96,7 +96,7 @@ describe("buildMeta", () => {
       ch,
       prog("2026-07-08T20:00:00Z", "2026-07-08T21:00:00Z"),
       now,
-      "Meteor",
+      "My Playlist",
       true,
     );
     expect(m.live).toBe(true);
@@ -104,7 +104,7 @@ describe("buildMeta", () => {
     expect(m.title).toBe("News");
     expect(m.description).toBe("The day's headlines");
     expect(m.channelName).toBe("BBC One");
-    expect(m.sourceName).toBe("Meteor");
+    expect(m.sourceName).toBe("My Playlist");
     expect(m.favorite).toBe(true);
   });
 

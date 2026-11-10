@@ -12,7 +12,7 @@ import {
 const playlist = (over: Partial<XtreamPlaylist> = {}): XtreamPlaylist => ({
   kind: "xtream",
   id: "pl1",
-  name: "Meteor",
+  name: "My Playlist",
   enabled: true,
   server: "http://tv.example.com:8080",
   username: "u",
