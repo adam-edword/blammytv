@@ -124,6 +124,17 @@ bubbly theme". Mock: https://claude.ai/artifact/GKVDu66CSS3Hetg5U95c8c.
   under reduced motion and hidden while a player hole is cut, as Prism's
   light is. Cards get the glass wash without a blur (Lagoon's reason).
 
+**Loud beats legible, for this one (Adam, 2026-11-10).** The first build
+passed the contrast check by turning the glass nearly solid and the gloss
+down, and looked like a pale blue Default. Adam: "it kinda feels like its
+lacking", then "definitely need to fix aero to be like it's pulled straight
+out of that era. It's okay if contrast fails in some spots since it wasn't
+perfect back then either, the point is to be loud and nostalgic." So Aero is
+not on `verify-theme-contrast`'s tour (it runs on request,
+`FACES=aero-dark,aero-light`): see-through glass, two-tone gloss, hover
+glows, text halos, a real sky and aurora, bubbles you notice. Words people
+must read still have to be readable; 4.5:1 everywhere is not the bar here.
+
 ## The rule for era themes (Adam, 2026-11-08)
 
 "The theme should make the app feel like it's a part of that era/os. Like
