@@ -1897,7 +1897,9 @@ const dimmedText = () =>
   const field = await page.evaluate(() => {
     const i = document.querySelector(".settings .settings-input");
     const s = getComputedStyle(i);
-    return { h: i.getBoundingClientRect().height, edge: s.borderTopColor, r: s.borderTopLeftRadius };
+    // offsetHeight, the laid-out height: the sheet scales in as it opens, and a
+    // rect read during that was 39.99 on CI (1.2.12), 40 x 0.9998.
+    return { h: i.offsetHeight, edge: s.borderTopColor, r: s.borderTopLeftRadius };
   });
   check(
     "Settings: a field is 40px, the 10px corner, no edge (it measured 28px in its column)",
