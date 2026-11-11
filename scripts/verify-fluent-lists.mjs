@@ -197,6 +197,11 @@ async function live(face) {
   const tag = `live ${face}`;
   const { ctx, page, errors } = await open({ face, tab: "live" });
   await page.waitForSelector(".guide__cell", { timeout: 30_000 });
+  // The lanes draw before the guide's data lands, and the card says "No
+  // Information" until it does: CI read it in that window (1.2.13, light only,
+  // dark had passed seconds earlier on the same fake). The check below still
+  // fails if Now: never comes.
+  await page.waitForFunction(() => /Now:/.test(document.querySelector(".fl-hero__details")?.innerText ?? ""), null, { timeout: 15_000 }).catch(() => {});
   await settle(page);
   const acc = await accent(page);
 
