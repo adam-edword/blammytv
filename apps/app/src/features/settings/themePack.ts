@@ -9,17 +9,18 @@ import {
 import { tauriMica } from "../../lib/tauri";
 
 /**
- * Theme packs (plan 035): Prism, Velvet and Lagoon, dark only, Fluent, which
- * also has a face for Light, and Classic, one look in both. A pack changes
- * colour, type, texture, light and transparency, never a radius, a shape or a
- * layout (Adam, 1.3). The palettes are styles/packs.css; this is the choice,
- * which accent is on the root while it is made, and Fluent's Mica.
+ * Theme packs (plan 035): Prism, Velvet and Lagoon, dark only, Fluent and
+ * Frutiger Aero, which also have a face for Light, and Classic, one look in
+ * both. A pack changes colour, type, texture, light and transparency, never a
+ * radius, a shape or a layout (Adam, 1.3). The palettes are styles/packs.css;
+ * this is the choice, which accent is on the root while it is made, and
+ * Fluent's Mica.
  *
  * "none" is Default and the base palette: it removes `data-theme-pack`
  * rather than naming a pack (old/themes/README.md is why there is no default
  * pack). Stored like accent.ts, validated on the way in.
  */
-export type ThemePack = "none" | "prism" | "velvet" | "lagoon" | "fluent" | "classic";
+export type ThemePack = "none" | "prism" | "velvet" | "lagoon" | "fluent" | "classic" | "aero";
 
 export interface PackInfo {
   key: ThemePack;
@@ -88,6 +89,16 @@ export const THEME_PACKS: readonly PackInfo[] = [
     swatch: { bg: "#d4d0c8", surface: "#ffffff", accent: "#0a246a" },
     accent: "#0a246a",
     tier: 3,
+  },
+  {
+    // Night (Dark) is the entry itself, Daylight (Light) is `light`: aqua
+    // with a green second colour, a value per face that reads on it.
+    key: "aero",
+    label: "Frutiger Aero",
+    swatch: { bg: "#03304d", surface: "#154361", accent: "#3cc3ff" },
+    accent: "#3cc3ff",
+    light: { swatch: { bg: "#bfe6ff", surface: "#daf1ff", accent: "#0a8fdc" }, accent: "#0a8fdc" },
+    tier: 2,
   },
 ];
 
@@ -210,6 +221,8 @@ export function subscribeShowing(onChange: () => void): () => void {
 export const prismShowing = (): boolean =>
   document.documentElement.dataset.themePack === "prism" &&
   document.documentElement.dataset.theme !== "light";
+/** Frutiger Aero's bubbles: chosen, in either face. */
+export const aeroShowing = (): boolean => document.documentElement.dataset.themePack === "aero";
 
 let watching = false;
 

@@ -2,6 +2,15 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.13: Frutiger Aero
+
+- **A new theme: Frutiger Aero**, in Settings → Appearance → Theme. Glass
+  you can see through, glossy buttons, a sky behind everything and bubbles
+  drifting up it. Light is a blue sky over green hills and Dark is an
+  aurora over the sea.
+- It's loud on purpose. Some small print is harder to read than in the
+  other themes.
+
 ## 1.2.12: Small print that reads a little easier
 
 - **Fluent:** programme times in the Guide and the quality badge on a

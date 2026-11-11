@@ -1,5 +1,5 @@
 // E2E: every control's ink is readable against what is actually behind it, in
-// every themed face (Classic Dark and Light, Fluent Dark and Light).
+// every themed face (Classic and Fluent, each Dark and Light).
 //
 // Why this exists: twice the harnesses passed while the pictures were broken.
 // Accent swatches painted grey, and a QA sweep then found text unreadable
@@ -53,6 +53,16 @@
 //   (vite on :4173)
 //   PW_FROM=<dir-with-node_modules>/x.js node scripts/verify-theme-contrast.mjs
 //   FACES=classic-light SCENES=Theater node scripts/verify-theme-contrast.mjs   # a slice
+//
+// FRUTIGER AERO IS NOT GATED. Adam (1.2.12): "it's okay if contrast fails in
+// some spots since it wasn't perfect back then either, the point is to be loud
+// and nostalgic." So aero-dark and aero-light are off the tour and run only on
+// request (FACES=aero-dark,aero-light), as information, like the Default faces
+// (FACES=default-dark,default-light), which tell Aero's faults from the app's
+// own. Both are paint on Default's chrome (the capsule, the gear, Ctrl+K), and
+// the Film and Series pages count their controls over the picture as found
+// there, as Default draws them. A setting's label, a programme title and a
+// button's word still have to be readable: halos do that, not opaque panels.
 import { createRequire } from "node:module";
 import http from "node:http";
 import { goTo } from "./nav-settle.mjs";
@@ -157,9 +167,11 @@ const FACES = [
   { id: "classic-light", pack: "classic", light: true },
   { id: "fluent-dark", pack: "fluent", light: false },
   { id: "fluent-light", pack: "fluent", light: true },
-  // Default is not on the tour: the packs are the subject. FACES=default-dark
-  // asks for it, to tell a pack's fault from the app's own (its Settings and
-  // Go To scenes cannot be reached: they are entered from a pack's chrome).
+  // Not on the tour, on request only (see the header): Aero, a paint pack on
+  // Default's own chrome (the capsule), so its Settings and Go To scenes are
+  // entered from there, and Default itself, to tell a pack's fault from the
+  // app's own.
+  ...(process.env.FACES?.includes("aero") ? [{ id: "aero-dark", pack: "aero", light: false }, { id: "aero-light", pack: "aero", light: true }] : []),
   ...(process.env.FACES?.includes("default") ? [{ id: "default-dark", pack: null, light: false }, { id: "default-light", pack: null, light: true }] : []),
 ].filter((f) => !process.env.FACES || process.env.FACES.split(",").includes(f.id));
 const WANT_SCENE = (n) => !process.env.SCENES || process.env.SCENES.split(",").includes(n);
@@ -578,12 +590,18 @@ async function look(page, tally, { tag = "", hover = [], cap = 60 } = {}) {
 // What's New is a page of words with one button, and its changelog has one
 // more: two is all there is to find.
 const MIN = { "What's New": 2 };
+// Default's film and series pages are one picture (the backdrop) with the
+// controls drawn on it, which the rule above exempts, so there the controls
+// found count even when they are all over the picture. Classic and Fluent
+// draw those pages on a surface of their own and are held to the full count.
+const PICTURE_PAGES = new Set(["Film page", "Series page"]);
 /** Print one scene's verdict. */
 function verdict(face, scene, tally) {
   const name = `${face.id}: ${scene}`;
   const skipped = Object.entries(tally.skips).map(([k, v]) => `${v} ${k}`).join(", ");
   const detail = `${tally.measured} controls${tally.hovered ? ` + ${tally.hovered} hovered` : ""}${skipped ? ` (not measured: ${skipped})` : ""}`;
-  if (tally.measured < (MIN[scene] ?? 3)) return check(name, false, `only ${tally.measured} controls found${skipped ? ` (${skipped})` : ""}`);
+  const found = tally.measured + (PICTURE_PAGES.has(scene) && !["classic", "fluent"].includes(face.pack) ? (tally.skips.picture ?? 0) : 0);
+  if (found < (MIN[scene] ?? 3)) return check(name, false, `only ${tally.measured} controls found${skipped ? ` (${skipped})` : ""}`);
   if (tally.failing.length) {
     const under3 = tally.failing.filter((f) => f.ratio < 3).length;
     // The worst one rides on the FAIL line itself: the board (and so CI's log)
@@ -603,8 +621,12 @@ function verdict(face, scene, tally) {
 }
 
 // ------------------------------------------------------------------ scenes
-const bar = (face) => (face.pack === "classic" ? ".cl-tools" : ".flc-pane");
-const settingsBtn = (face) => (face.pack === "classic" ? '[data-cl="settings"]' : '.flc-pane [data-key="settings"]');
+// Classic and Fluent bring their own chrome; Default, and a paint pack on it
+// like Aero, has the header (the capsule and its two buttons).
+const bar = (face) => (face.pack === "classic" ? ".cl-tools" : face.pack === "fluent" ? ".flc-pane" : ".header");
+const settingsBtn = (face) =>
+  face.pack === "classic" ? '[data-cl="settings"]' : face.pack === "fluent" ? '.flc-pane [data-key="settings"]' : ".header__action[aria-label='Settings']";
+const GOTO_ROOT = (face) => (face.pack === "classic" ? ".palette--classic" : face.pack === "fluent" ? ".flc-flyout" : ".palette");
 const SETTINGS_ROOT = ".settings, .flc-sx";
 const TABS = ["home", "sources", "playback", "appearance", "accounts", "app"];
 const cap1 = (s) => s[0].toUpperCase() + s.slice(1);
@@ -612,7 +634,7 @@ const cap1 = (s) => s[0].toUpperCase() + s.slice(1);
 /** Close dialogs and menus, and be on the Home screen. */
 async function reset(page) {
   for (let i = 0; i < 3; i++) {
-    const up = await page.evaluate(() => !!document.querySelector('[role="dialog"], [role="menu"], .palette--classic, .flc-flyout'));
+    const up = await page.evaluate(() => !!document.querySelector('[role="dialog"], [role="menu"], .palette, .flc-flyout'));
     if (!up) break;
     await page.keyboard.press("Escape");
     await page.waitForTimeout(250);
@@ -725,7 +747,7 @@ scene("stream", "Settings App Replay Setup", async (page, face, t) => {
 });
 scene("stream", "Go To", async (page, face, t) => {
   await page.keyboard.press("Control+k");
-  await page.locator(face.pack === "classic" ? ".palette--classic" : ".flc-flyout").waitFor();
+  await page.locator(GOTO_ROOT(face)).waitFor();
   await page.keyboard.type("fake");
   await settle(page, 700);
   await look(page, t);

@@ -1,6 +1,6 @@
 /**
- * Theme packs (plan 035): four dark packs laid over tokens.css. A pack
- * changes colour, type, texture, light and transparency. It NEVER changes a
+ * Theme packs (plan 035): four dark packs and Frutiger Aero (dark and light)
+ * laid over tokens.css. A pack changes colour, type, texture, light and transparency. It NEVER changes a
  * border-radius, a shape, a layout, a spacing or a component's markup (Adam,
  * 1.3: "the themes should still be Shadcn at the core"); verify-themes
  * compares the computed radii of Default and every pack. Settings → Appearance → Theme sets `data-theme-pack` on the
@@ -15,10 +15,11 @@
  * `:root[data-theme-pack]:not([data-theme="light"])`, three attributes and
  * pseudo-classes deep, and only matches when a pack is chosen.
  *
- * DARK ONLY. tokens.css decides dark by the ABSENCE of data-theme="light"
- * (theme.ts writes no attribute for dark), so the `:not` here is the same
- * test. In Light a pack is inert: the attribute stays on the root and nothing
- * below matches.
+ * DARK ONLY, bar one. tokens.css decides dark by the ABSENCE of
+ * data-theme="light" (theme.ts writes no attribute for dark), so the `:not`
+ * here is the same test. In Light a pack is inert: the attribute stays on the
+ * root and nothing below matches. Frutiger Aero is the exception, with a
+ * block for Light of its own (`light` on its PackInfo, themePack.ts).
  *
  * Values are the canvas's tokens (plans/035-themes.md), every text tier
  * checked for contrast in themePack.test.ts. Lagoon's translucent surfaces
@@ -478,6 +479,792 @@
     --sheet-bg: #2b2b2b;
     --sheet-blur: none;
   }
+}
+
+/* ------------------------------------------------------------ Frutiger Aero
+ * Windows Vista and 7 (Aero Glass, the 7 taskbar, Explorer, Media Player),
+ * Mac OS X's Aqua gel and the 2004 to 2012 imagery around them, on shadcn's
+ * shapes (Adam, round 3, and again: "pulled straight out of that era"). It is
+ * LOUD on purpose, and it is all PAINT: no radius, no shape, no layout and
+ * never the logo. The only pack with a face for Light: Daylight (Appearance
+ * Light) is a summer sky over rolling green, Night (Dark) an ocean under an
+ * aurora. Both draw the same pieces: Aero glass, the standard button's
+ * two-tone, an Aqua gel for the primary button, the taskbar's lit tile,
+ * Explorer's selection, Vista's green bar, bubbles, and Segoe UI.
+ *
+ * Night and Daylight each have a token block. What both share is written once
+ * under `:root[data-theme-pack="aero"]`. Aero is not held to the contrast
+ * tour (Adam: "it's okay if contrast fails in some spots since it wasn't
+ * perfect back then either"), so halos (text-shadow) keep words readable over
+ * glass instead of opaque panels, and themePack.test.ts holds only that the
+ * ink tiers read on the face's page colour. */
+
+/* NIGHT */
+:root[data-theme-pack="aero"]:not([data-theme="light"]) {
+  --bg: #03304d;
+  /* CARDS: a wash of light and NO backdrop blur, for Lagoon's reason (rows
+   * hold hundreds of posters and WebView2 pays for every blurred layer while
+   * it scrolls). Only the floating layers below blur. */
+  --surface: rgb(150 210 245 / 0.12);
+  --surface-track: rgb(0 14 30 / 0.4);
+  --surface-puck: rgb(0 14 30 / 0.4);
+  --surface-raised: rgb(160 220 250 / 0.15);
+  --mix-base: #03304d;
+  --sidebar: rgb(80 150 205 / 0.24);
+  --sidebar-accent: rgb(60 195 255 / 0.32);
+  --sidebar-foreground: #f2f9ff;
+  --sidebar-accent-foreground: #f2f9ff;
+  --sidebar-border: rgb(190 235 255 / 0.4);
+  --border: rgb(190 235 255 / 0.32);
+  --border-strong: rgb(190 235 255 / 0.32);
+  --border-raised: rgb(190 235 255 / 0.32);
+  --border-input: rgb(190 235 255 / 0.45);
+  --text: #f2f9ff;
+  --text-muted: #d3e5f0;
+  --text-dim: #bfd6e5;
+  --text-ghost: #b9d2e2;
+  --text-faint: #b9d2e2;
+  --accent: #3cc3ff;
+  --accent-ink: #001a2b;
+  --accent-2: #3ddc5f;
+  --plate: #1b4a66;
+  /* Smoky blue glass, clearly see-through. */
+  --glass: rgb(70 130 180 / 0.34);
+  --focus-ring: var(--accent);
+  --tint-on: color-mix(in srgb, var(--accent) 30%, transparent);
+  --tint-hover: color-mix(in srgb, var(--accent) 16%, transparent);
+  /* The window frame: a bright inner top edge, a faint inner rim, a dark
+   * outer line, a cyan glow and the drop. */
+  --glass-lift:
+    inset 0 1px 0 rgb(220 245 255 / 0.65), inset 0 0 0 1px rgb(170 225 255 / 0.22), 0 0 0 1px rgb(0 20 40 / 0.55),
+    0 0 24px rgb(60 195 255 / 0.2), 0 14px 34px rgb(0 0 0 / 0.5);
+  --float-shadow: var(--glass-lift);
+
+  /* The floating layers: the header's capsule (--glass-fx), menus, popovers
+   * and Ctrl+K (--float-*), dialogs below, the settings sheet (--sheet-*). */
+  --float-bg: rgb(14 74 116 / 0.5);
+  --sheet-bg: rgb(12 66 106 / 0.6);
+  /* The settings sheet's content pane: calmer, so rows read. */
+  --pane: rgb(4 30 54 / 0.84);
+  --pane-edge: rgb(150 215 250 / 0.35);
+  /* A text field: deep navy, lit at the top edge. */
+  --field-bg: rgb(3 28 50 / 0.82);
+  --field-edge: rgb(120 200 245 / 0.55);
+
+  /* The world: an ocean, an aurora of green, teal and violet curtains over
+   * it, stars, a glow at the horizon, and one broad ribbon of light. Static. */
+  --aero-sky:
+    radial-gradient(1.5px 1.5px at 8% 6%, rgb(255 255 255 / 0.9), transparent),
+    radial-gradient(1px 1px at 17% 15%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 31% 4%, rgb(255 255 255 / 0.8), transparent),
+    radial-gradient(1px 1px at 44% 11%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 58% 5%, rgb(255 255 255 / 0.9), transparent),
+    radial-gradient(1px 1px at 71% 13%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 86% 7%, rgb(255 255 255 / 0.8), transparent),
+    radial-gradient(1px 1px at 93% 17%, rgb(255 255 255 / 0.6), transparent),
+    radial-gradient(150% 40% at 22% 112%, transparent 96.5%, rgb(150 240 255 / 0.55) 98%, transparent 100%),
+    radial-gradient(160% 46% at 70% 124%, transparent 94%, rgb(120 255 225 / 0.3) 97%, transparent 100%),
+    repeating-linear-gradient(96deg, transparent 0 38px, rgb(110 255 190 / 0.07) 38px 46px, transparent 46px 104px),
+    radial-gradient(70% 13% at 24% 24%, rgb(70 255 175 / 0.62), transparent 72%),
+    radial-gradient(55% 11% at 62% 18%, rgb(60 225 255 / 0.55), transparent 72%),
+    radial-gradient(45% 10% at 84% 31%, rgb(165 120 255 / 0.42), transparent 72%),
+    radial-gradient(85% 17% at 38% 37%, rgb(40 205 150 / 0.34), transparent 75%),
+    radial-gradient(38% 9% at 12% 12%, rgb(130 255 225 / 0.42), transparent 72%),
+    radial-gradient(120% 55% at 50% 122%, #0f9585 0%, #08665f 30%, transparent 62%),
+    linear-gradient(180deg, #03162e 0%, #03304d 50%, #06365a 100%);
+
+  --gloss:
+    linear-gradient(180deg, rgb(255 255 255 / 0.34) 0, rgb(255 255 255 / 0.12) 49.4%, rgb(0 30 60 / 0.22) 50%, rgb(0 30 60 / 0.06) 100%),
+    radial-gradient(100% 80% at 50% 135%, rgb(110 230 255 / 0.55), transparent 65%);
+  /* Vista's reflection: two faint soft-edged bands across big glass. */
+  --streaks: linear-gradient(118deg, transparent 14%, rgb(255 255 255 / 0.07) 24%, transparent 34% 38%, rgb(255 255 255 / 0.04) 42%, transparent 47%);
+  --halo: 0 0 6px rgb(0 18 36 / 0.9), 0 1px 2px rgb(0 18 36 / 0.8);
+  --halo-title: 0 0 14px rgb(0 18 36 / 0.85), 0 0 3px rgb(0 18 36 / 0.9);
+  /* The standard button, in smoked glass. */
+  --btn-1: rgb(255 255 255 / 0.3);
+  --btn-2: rgb(255 255 255 / 0.14);
+  --btn-3: rgb(0 15 32 / 0.5);
+  --btn-4: rgb(0 15 32 / 0.34);
+  --btn-edge: rgb(150 215 250 / 0.65);
+  --btn-inner: rgb(255 255 255 / 0.25);
+  --btn-h1: rgb(150 235 255 / 0.5);
+  --btn-h2: rgb(80 200 245 / 0.3);
+  --btn-h3: rgb(10 90 140 / 0.55);
+  --btn-h4: rgb(30 170 230 / 0.5);
+  --btn-hedge: rgb(130 235 255 / 0.95);
+  --btn-glow: rgb(60 210 255 / 0.65);
+  --btn-p1: rgb(80 190 235 / 0.5);
+  --btn-p2: rgb(40 150 205 / 0.4);
+  --btn-p3: rgb(0 90 150 / 0.6);
+  --btn-p4: rgb(20 140 200 / 0.55);
+  --btn-pedge: rgb(90 210 255 / 0.95);
+  /* Explorer's selection, glowing on dark glass. */
+  --sel-1: rgb(90 210 255 / 0.4);
+  --sel-2: rgb(40 150 215 / 0.28);
+  --sel-edge: rgb(130 225 255 / 0.85);
+  --tb-glow: rgb(70 215 255 / 0.75);
+  --bubble-fill: rgb(160 225 255 / 0.1);
+  --bubble-rim: rgb(200 245 255 / 0.7);
+  --bubble-glint: rgb(255 255 255 / 0.95);
+  --bubble-glint2: rgb(255 255 255 / 0.4);
+  --bubble-warm: rgb(255 150 215 / 0.4);
+  --bubble-cool: rgb(110 255 230 / 0.42);
+}
+
+/* DAYLIGHT, on the app's own Light tokens (tokens.css): what is not listed
+ * here is Light's. */
+:root[data-theme-pack="aero"][data-theme="light"] {
+  --bg: #bfe6ff;
+  --surface: rgb(255 255 255 / 0.42);
+  --surface-track: rgb(13 60 110 / 0.1);
+  --surface-puck: rgb(13 60 110 / 0.1);
+  --surface-raised: rgb(255 255 255 / 0.6);
+  --sidebar: rgb(116 184 252 / 0.34);
+  --sidebar-accent: rgb(10 143 220 / 0.22);
+  --sidebar-foreground: #0d2a46;
+  --sidebar-accent-foreground: #0d2a46;
+  --sidebar-border: rgb(255 255 255 / 0.8);
+  --border: rgb(255 255 255 / 0.8);
+  --border-strong: rgb(255 255 255 / 0.8);
+  --border-raised: rgb(255 255 255 / 0.8);
+  --border-input: rgb(13 42 70 / 0.35);
+  --card-glass: linear-gradient(var(--surface), var(--surface));
+  --text: #0d2a46;
+  --text-muted: #1a3a58;
+  --text-dim: #264665;
+  --text-ghost: #2a4967;
+  --text-faint: #2a4967;
+  --accent: #0a8fdc;
+  --accent-ink: #ffffff;
+  --accent-2: #2fb53a;
+  --plate: rgb(255 255 255 / 0.85);
+  --glass: rgb(116 184 252 / 0.4);
+  --focus-ring: var(--accent);
+  --tint-hover: color-mix(in srgb, var(--accent) 12%, transparent);
+  --tint-on: color-mix(in srgb, var(--accent) 22%, transparent);
+  --glass-lift:
+    inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 0 0 1px rgb(255 255 255 / 0.5), 0 0 0 1px rgb(30 80 130 / 0.45),
+    0 0 22px rgb(120 200 255 / 0.35), 0 12px 32px rgb(20 90 160 / 0.3);
+  --float-shadow: var(--glass-lift);
+  --float-bg: rgb(190 225 252 / 0.55);
+  --sheet-bg: rgb(180 220 250 / 0.6);
+  --pane: rgb(255 255 255 / 0.9);
+  --pane-edge: rgb(255 255 255 / 0.95);
+  --field-bg: #ffffff;
+  --field-edge: rgb(60 127 177 / 0.7);
+
+  /* A saturated sky, deep at the top and white at the horizon, rolling green
+   * along the bottom, the sun's flare and rays from the upper right, a few
+   * out-of-focus discs, and two broad ribbons of light. */
+  --aero-sky:
+    radial-gradient(150% 40% at 22% 112%, transparent 96%, rgb(255 255 255 / 0.85) 98%, transparent 100%),
+    radial-gradient(170% 52% at 72% 126%, transparent 92%, rgb(190 245 255 / 0.55) 96%, transparent 100%),
+    radial-gradient(120% 55% at 50% 122%, #b6f27e 0%, #7ccf4a 22%, #3aa83a 36%, transparent 56%),
+    radial-gradient(80% 38% at 8% 120%, #8be05a 0%, #2f9e2f 42%, transparent 66%),
+    radial-gradient(45% 32% at 84% 2%, #ffffff 0%, rgb(255 255 255 / 0.85) 10%, rgb(255 250 220 / 0.4) 32%, transparent 62%),
+    radial-gradient(circle 70px at 58% 24%, rgb(255 255 255 / 0.2), transparent),
+    radial-gradient(circle 34px at 45% 37%, rgb(255 244 205 / 0.28), transparent),
+    radial-gradient(circle 100px at 30% 54%, rgb(255 255 255 / 0.16), transparent),
+    radial-gradient(circle 22px at 70% 46%, rgb(255 255 255 / 0.3), transparent),
+    repeating-conic-gradient(from 168deg at 84% -6%, rgb(255 255 255 / 0.2) 0 3deg, transparent 3deg 9deg),
+    linear-gradient(180deg, #0a6fd0 0%, #3a9fe6 22%, #6cc8ff 46%, #bfe8ff 70%, #f0faff 82%);
+
+  --gloss:
+    linear-gradient(180deg, rgb(255 255 255 / 0.85) 0, rgb(255 255 255 / 0.38) 49.4%, rgb(0 80 160 / 0.1) 50%, rgb(0 80 160 / 0.02) 100%),
+    radial-gradient(100% 80% at 50% 135%, rgb(120 235 255 / 0.6), transparent 65%);
+  --streaks: linear-gradient(118deg, transparent 14%, rgb(255 255 255 / 0.18) 24%, transparent 34% 38%, rgb(255 255 255 / 0.1) 42%, transparent 47%);
+  --halo: 0 0 7px rgb(255 255 255 / 0.95), 0 0 2px rgb(255 255 255 / 0.9);
+  --halo-title: 0 0 16px rgb(255 255 255 / 0.95), 0 0 4px rgb(255 255 255 / 0.9);
+  /* Windows 7's standard button. */
+  --btn-1: #f2f2f2;
+  --btn-2: #ebebeb;
+  --btn-3: #dddddd;
+  --btn-4: #cfcfcf;
+  --btn-edge: #707070;
+  --btn-inner: rgb(255 255 255 / 0.9);
+  --btn-h1: #eaf6fd;
+  --btn-h2: #d9f0fc;
+  --btn-h3: #bee6fd;
+  --btn-h4: #a7d9f5;
+  --btn-hedge: #3c7fb1;
+  --btn-glow: rgb(60 160 230 / 0.6);
+  --btn-p1: #e5f4fc;
+  --btn-p2: #c4e5f6;
+  --btn-p3: #98d1ef;
+  --btn-p4: #68b3db;
+  --btn-pedge: #2c628b;
+  /* Explorer's selection. */
+  --sel-1: #dcebfc;
+  --sel-2: #c1dbfc;
+  --sel-edge: #7da2ce;
+  --tb-glow: rgb(60 190 255 / 0.8);
+  --bubble-fill: rgb(255 255 255 / 0.16);
+  --bubble-rim: rgb(255 255 255 / 0.95);
+  --bubble-glint: rgb(255 255 255 / 1);
+  --bubble-glint2: rgb(255 255 255 / 0.55);
+  --bubble-warm: rgb(255 140 210 / 0.5);
+  --bubble-cool: rgb(90 235 255 / 0.55);
+}
+
+/* BOTH FACES. */
+:root[data-theme-pack="aero"] {
+  /* Segoe UI, the face Vista and 7 used: a system font on Windows, so no file
+   * ships. Then the app's own stack. */
+  --font-headline: "Segoe UI", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-text: "Segoe UI", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --glass-fx: blur(16px) saturate(1.5);
+  --float-blur: blur(24px) saturate(1.6);
+  --sheet-blur: blur(24px) saturate(1.6);
+}
+
+/* Where the page paints: body in a browser, the shell in the app (the
+ * inverted player leaves body transparent, base.css). */
+:root[data-theme-pack="aero"]:not(.invert-player) body,
+:root.invert-player[data-theme-pack="aero"] .app-shell {
+  background: var(--aero-sky, none), var(--bg);
+}
+
+/* BRAND SCREENS ARE NEVER THEMED (plan 035). Onboarding, What's New (both
+ * .onb) and the boot scene look as Default's dark does in both faces: a
+ * subtree can't reach back to the root's blocks, so the values Aero moves are
+ * restated here, Default dark's own (tokens.css), as fluent-chrome.css does.
+ * The accent stays the person's pick; with none it is Default's near-white,
+ * not Aero's blue. --glass and --glass-fx are restated in tokens.css, the one
+ * place that recipe is typed. The sky is the page's and the bubbles sit under
+ * .onb's opaque black. */
+:root[data-theme-pack="aero"] :is(.onb, .boot-scene) {
+  --bg: oklch(0.145 0 0);
+  --surface: oklch(0.205 0 0);
+  --surface-track: oklch(0.145 0 0);
+  --surface-puck: oklch(0.205 0 0);
+  --surface-raised: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 10%);
+  --color-border: var(--border);
+  --border-strong: oklch(1 0 0 / 10%);
+  --border-raised: oklch(1 0 0 / 10%);
+  --border-input: oklch(1 0 0 / 15%);
+  --text: oklch(0.985 0 0);
+  --text-muted: oklch(0.708 0 0);
+  --text-dim: oklch(0.6 0 0);
+  --text-ghost: oklch(0.556 0 0);
+  --text-faint: color-mix(in srgb, var(--text) 35%, var(--bg));
+  --tint-hover: color-mix(in srgb, var(--text) 9%, transparent);
+  --tint-on: color-mix(in srgb, var(--text) 16%, transparent);
+  --focus-ring: var(--text);
+  --card-glass: linear-gradient(oklch(0.205 0 0), oklch(0.205 0 0));
+  --mix-base: #000000;
+  --plate: var(--surface-raised);
+  --float-bg: color-mix(in srgb, var(--surface) 72%, transparent);
+  --float-shadow: none;
+  --font-headline: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-text: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --gloss: none;
+  --halo: none;
+  --halo-title: none;
+}
+:root[data-theme-pack="aero"]:not([data-accent]) :is(.onb, .boot-scene) {
+  --accent: oklch(0.922 0 0);
+  --accent-ink: oklch(0.205 0 0);
+}
+
+/* ON-PICTURE CONTROLS stay as Default draws them in both faces (the theater,
+ * the mini player, Multi-View tiles): no gloss, no halo, no jelly. */
+:root[data-theme-pack="aero"] :is(.theater-overlay, .mini-overlay, .mvtile) {
+  --gloss: none;
+  --halo: none;
+  --halo-title: none;
+}
+
+/* The Sound badge sits over the tile's own layers: under them it was drawn
+ * through the shade a tuning tile wears (the accent is a saturated blue
+ * here, as Fluent's is, fluent-multiview.css). */
+:root[data-theme-pack="aero"] .mvtile__badge {
+  z-index: 1;
+}
+/* A field's hint in the face's own dim ink: the browser's grey was 2:1 on
+ * the glass. Fields that set their own hint colour keep it (utilities win). */
+:root[data-theme-pack="aero"] :is(input, textarea):not(.onb *)::placeholder {
+  color: var(--text-dim);
+}
+
+/* AERO GLASS: the nav capsule, the Guide's sidebar, menus, popovers, Ctrl+K,
+ * dialogs and the settings sheet. Translucent and blurred (their own
+ * backdrop-filter and --float-*, --sheet-*), with the frame's edge light and
+ * drop in --glass-lift and a halo under the ink so words hold over a busy sky.
+ * Vista's reflection is on the big panes only (the sidebar, the settings
+ * sheet, a dialog), soft-edged: hard bands on the capsule and on menus read
+ * as a glitch (Adam, 1.2.13: "the slanted white lines are a bit strange"). */
+:root[data-theme-pack="aero"] :is(
+  .navcap,
+  .live-sidebar,
+  .settings,
+  .palette,
+  [data-slot="dialog-content"],
+  [data-slot="popover-content"],
+  [data-slot="combobox-content"],
+  [data-slot$="menu-content"],
+  [data-slot$="sub-content"]
+) {
+  text-shadow: var(--halo);
+}
+:root[data-theme-pack="aero"] :is(.live-sidebar, .settings, [data-slot="dialog-content"]) {
+  background-image: var(--streaks);
+}
+:root[data-theme-pack="aero"] .navcap {
+  /* The capsule is glass with the gloss's hard line across it, as the 7
+   * taskbar had. */
+  background-image: var(--gloss);
+  box-shadow: var(--glass-lift);
+}
+:root[data-theme-pack="aero"] .live-sidebar {
+  box-shadow: var(--glass-lift);
+  -webkit-backdrop-filter: var(--glass-fx);
+  backdrop-filter: var(--glass-fx);
+}
+/* A dialog is bg-background, opaque, and a utility outranks this layer, so
+ * the ground is !important; here it is the same glass as a menu. */
+:root[data-theme-pack="aero"] [data-slot="dialog-content"] {
+  background-color: var(--float-bg) !important;
+  box-shadow: var(--glass-lift) !important;
+  -webkit-backdrop-filter: var(--float-blur);
+  backdrop-filter: var(--float-blur);
+}
+/* The settings sheet reads as an Aero window: glass round the edge, and the
+ * content a lighter, calmer pane. The pane is the layout box painted, with a
+ * spread ring around it (a shadow takes no room), so nothing moves. */
+:root[data-theme-pack="aero"] .settings__layout {
+  background: var(--pane);
+  box-shadow: 0 0 0 10px var(--pane);
+  outline: 1px solid var(--pane-edge);
+  outline-offset: 10px;
+  /* The layout runs to the sheet's bottom edge, so the ring stops there. */
+  clip-path: inset(-11px -11px 0 -11px);
+}
+/* Title text sits on glass: Segoe UI Light with a soft glow behind it. */
+:root[data-theme-pack="aero"] :is(.settings__title, .app-main h1) {
+  font-family: "Segoe UI Light", "Segoe UI", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 300;
+  text-shadow: var(--halo-title);
+}
+:root[data-theme-pack="aero"] :is(.app-main :is(h2, h3), .header__clock, .header__version):not(.on-picture *) {
+  text-shadow: var(--halo);
+}
+/* The header over a picture has the picture's ink: a white halo would blur it. */
+:root[data-theme-pack="aero"]:is([data-header-over="picture"], :has(.vod-detail)) .header :is(.header__clock, .header__version) {
+  text-shadow: none;
+}
+
+/* CARDS: glass tiles with the white inner edge and a sheen across the top
+ * third. No backdrop blur (the wash is --surface). */
+:root[data-theme-pack="aero"] :is(.upcard__tilt, .guide__card, [data-slot="card"]) {
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.3) 0, rgb(255 255 255 / 0.06) 33%, transparent 34%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.65), inset 0 0 0 1px rgb(255 255 255 / 0.14), 0 6px 18px rgb(0 20 50 / 0.18);
+}
+:root[data-theme-pack="aero"] :is(.upcard:hover .upcard__tilt, .guide__card:hover, [data-slot="card"]:hover) {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 0 0 1px var(--sel-edge), 0 0 20px var(--tb-glow);
+}
+:root[data-theme-pack="aero"] .stream-card:hover .stream-card__poster {
+  box-shadow: 0 0 0 2px var(--sel-edge), 0 0 24px var(--tb-glow);
+}
+/* The Guide's now line and live programmes glow. */
+:root[data-theme-pack="aero"] .guide__nowline {
+  box-shadow: 0 0 8px var(--accent), 0 0 18px var(--accent);
+}
+:root[data-theme-pack="aero"] .guide__cell--live {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6), 0 0 12px var(--tb-glow);
+}
+
+/* THE STANDARD BUTTON (secondary, outline): Windows 7's two-tone. A light
+ * top half, a crisp line at 50%, a darker lower half, a 1px edge (a shadow
+ * ring, so no layout moves) and a white inner edge. Hover goes blue with a
+ * glow, pressed goes deeper with an inner shadow. Night is the same in smoked
+ * glass with a cyan hover. The icon-only ones take the glass's gel instead.
+ * Not on a picture (a film page): the ink there is the picture's, white, and
+ * the day button's ground is too. */
+:root[data-theme-pack="aero"] [data-slot="button"]:is([data-variant="secondary"], [data-variant="outline"]):not([data-size^="icon"], [style*="background"], .on-picture *, .onb *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  background-image: linear-gradient(180deg, var(--btn-1) 0, var(--btn-2) 49.4%, var(--btn-3) 50%, var(--btn-4) 100%);
+  box-shadow: 0 0 0 1px var(--btn-edge), inset 0 0 0 1px var(--btn-inner);
+  text-shadow: var(--halo);
+}
+:root[data-theme-pack="aero"] [data-slot="button"]:is([data-variant="secondary"], [data-variant="outline"]):not([data-size^="icon"], [style*="background"], .on-picture *, .onb *, .theater-overlay *, .mini-overlay *, .mvtile *):hover {
+  background-image: linear-gradient(180deg, var(--btn-h1) 0, var(--btn-h2) 49.4%, var(--btn-h3) 50%, var(--btn-h4) 100%);
+  box-shadow: 0 0 0 1px var(--btn-hedge), inset 0 0 0 1px var(--btn-inner), 0 0 12px var(--btn-glow);
+}
+:root[data-theme-pack="aero"] [data-slot="button"]:is([data-variant="secondary"], [data-variant="outline"]):not([data-size^="icon"], [style*="background"], .on-picture *, .onb *, .theater-overlay *, .mini-overlay *, .mvtile *):is(:active, [aria-pressed="true"]) {
+  background-image: linear-gradient(180deg, var(--btn-p1) 0, var(--btn-p2) 49.4%, var(--btn-p3) 50%, var(--btn-p4) 100%);
+  box-shadow: 0 0 0 1px var(--btn-pedge), inset 0 2px 5px rgb(0 40 90 / 0.4), inset 0 0 0 1px rgb(255 255 255 / 0.3);
+}
+
+/* THE PRIMARY BUTTON (Watch, Continue, Add): an Aqua gel. A pale glossy cap
+ * over the top half, the deep colour below, a glow rising from the bottom
+ * edge, a darker rim and a white label with a faint dark halo. The ground and
+ * the ink are !important because the utilities (bg-foreground, text-background)
+ * outrank this layer. The picked accent is the colour. */
+:root[data-theme-pack="aero"] [data-slot="button"][data-variant="default"]:not([style*="background"], .onb *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  background-color: var(--accent) !important;
+  background-image:
+    radial-gradient(110% 70% at 50% 138%, rgb(255 255 255 / 0.8) 0, rgb(170 250 255 / 0.5) 26%, transparent 62%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.9) 0, rgb(255 255 255 / 0.4) 49.4%, rgb(255 255 255 / 0) 50%),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, white) 0, var(--accent) 50%, color-mix(in srgb, var(--accent) 72%, #00243f) 100%);
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgb(0 40 90 / 0.75), 0 0 6px rgb(0 40 90 / 0.4);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 55%, #001c33), inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 -1px 0 rgb(255 255 255 / 0.25),
+    0 3px 12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+:root[data-theme-pack="aero"] [data-slot="button"][data-variant="default"]:not([style*="background"], .onb *, .theater-overlay *, .mini-overlay *, .mvtile *):hover {
+  filter: brightness(1.08) saturate(1.25);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 55%, #001c33), inset 0 1px 0 rgb(255 255 255 / 0.95), 0 0 20px var(--accent),
+    0 3px 14px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+:root[data-theme-pack="aero"] [data-slot="button"][data-variant="default"]:not([style*="background"], .onb *, .theater-overlay *, .mini-overlay *, .mvtile *):active {
+  filter: brightness(0.92) saturate(1.2);
+}
+
+/* THE GEL, on the rest of the shared primitives and nowhere else: the nav's
+ * pill, chips, the icon buttons, the destructive button, the segmented
+ * control and its thumb, and the switch. A background-image over the colour
+ * each already has. */
+:root[data-theme-pack="aero"] :is(
+  .navcap__pill,
+  .seg,
+  .seg__thumb,
+  .toggle,
+  [data-slot="button"]:is([data-variant="destructive"], [data-variant="chip"]),
+  [data-slot="button"]:is([data-variant="secondary"], [data-variant="outline"])[data-size^="icon"]
+):not([style*="background"], .onb *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  background-image: var(--gloss);
+}
+:root[data-theme-pack="aero"] [data-slot="button"][data-size^="icon"]:not([data-variant="ghost"], [data-variant="link"], .onb *, .theater-overlay *, .mini-overlay *, .mvtile *):hover {
+  box-shadow: 0 0 0 1px var(--sel-edge), 0 0 14px var(--tb-glow);
+}
+
+/* THE 7 TASKBAR. An item under the pointer lights with a coloured radial glow
+ * that sits under the icon; the current one is a lit glass tile with an inner
+ * glow and the bright top edge. */
+:root[data-theme-pack="aero"] .navcap__item:hover {
+  background: radial-gradient(80% 110% at 50% 105%, var(--tb-glow), transparent 78%), linear-gradient(180deg, rgb(255 255 255 / 0.28) 0, rgb(255 255 255 / 0.06) 50%, transparent 51%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.45), inset 0 -10px 14px -8px var(--tb-glow), 0 0 18px var(--tb-glow);
+}
+:root[data-theme-pack="aero"] .navcap__pill {
+  background-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.85), inset 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent), 0 0 0 1px rgb(255 255 255 / 0.45), 0 0 16px var(--tb-glow);
+}
+/* Night's pill is a deep lit aqua, so light ink reads on it under the gloss. */
+:root[data-theme-pack="aero"]:not([data-theme="light"]) .navcap__pill {
+  background-color: color-mix(in srgb, color-mix(in srgb, var(--accent) 34%, #03223c) 88%, transparent);
+}
+/* The BETA badge sits on the pill. */
+:root[data-theme-pack="aero"] .navcap .chip-beta {
+  color: var(--text);
+}
+/* Segmented: the chosen option is lit aqua gel on a dark inset track. */
+:root[data-theme-pack="aero"] .seg:not(.onb *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  box-shadow: inset 0 1px 3px rgb(0 30 70 / 0.35), 0 0 0 1px var(--border);
+}
+:root[data-theme-pack="aero"]:not([data-theme="light"]) .seg__thumb:not(.onb *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  background-color: color-mix(in srgb, color-mix(in srgb, var(--accent) 42%, #03223c) 90%, transparent);
+}
+:root[data-theme-pack="aero"] .seg__thumb:not(.onb *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  background-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 0 10px var(--tb-glow);
+}
+/* The switch: a green gel when on, with a glossy white bead. */
+:root[data-theme-pack="aero"] .toggle--on:not(.onb *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  background-color: var(--accent-2);
+  box-shadow: inset 0 1px 2px rgb(0 40 20 / 0.35), 0 0 9px color-mix(in srgb, var(--accent-2) 70%, transparent);
+}
+:root[data-theme-pack="aero"] .toggle__thumb:not(.onb *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  background-image: radial-gradient(circle at 40% 28%, #ffffff 0, #f2fbff 45%, #bfdcec 100%);
+  box-shadow: 0 1px 3px rgb(0 30 60 / 0.5);
+}
+
+/* EXPLORER'S SELECTION: a row or a menu item under the pointer or chosen. By
+ * day pale blue with a 1px steel edge and a white inner edge, by night glowing
+ * cyan on dark glass. */
+:root[data-theme-pack="aero"] :is(
+  .row:hover,
+  .row[aria-selected="true"],
+  .row[aria-current],
+  [role="option"][data-highlighted],
+  [role="option"][aria-selected="true"],
+  [role="menuitem"][data-highlighted],
+  [role="menuitemradio"][data-highlighted],
+  [role="menuitemcheckbox"][data-highlighted]
+):not(.on-picture *, .onb *) {
+  background-image: linear-gradient(180deg, var(--sel-1) 0, var(--sel-2) 100%);
+  box-shadow: 0 0 0 1px var(--sel-edge), inset 0 0 0 1px rgb(255 255 255 / 0.55);
+}
+
+/* VISTA'S GREEN BAR: a glossy green with a lighter cap, and a highlight that
+ * sweeps across it (held still under reduced motion). */
+:root[data-theme-pack="aero"] .hero__bar {
+  height: 3px;
+  box-shadow: inset 0 1px 2px rgb(0 20 50 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.25);
+}
+:root[data-theme-pack="aero"] .hero__bar-fill {
+  background-color: #0aa51e;
+  background-image:
+    linear-gradient(100deg, transparent 0 38%, rgb(255 255 255 / 0.75) 50%, transparent 62% 100%),
+    linear-gradient(180deg, #4ee86a 0, #19c832 49.4%, #0aa51e 50%, #0c8f1c 100%);
+  background-size: 60px 100%, 100% 100%;
+  background-repeat: no-repeat;
+  background-position: -60px 0, 0 0;
+  box-shadow: 0 0 6px rgb(30 220 60 / 0.8);
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme-pack="aero"] .hero__bar-fill {
+    animation: aero-sweep 2.4s ease-in-out infinite;
+  }
+}
+@keyframes aero-sweep {
+  to {
+    background-position: 100% 0, 0 0;
+  }
+}
+
+/* TEXT FIELDS: white by day, deep navy by night, with an inset shadow on the
+ * top edge and a blue glow ring when focused, as Vista's. The ground is an
+ * image over the colour and the rings are !important, since the field's
+ * utilities (shadow, ring) outrank this layer. */
+:root[data-theme-pack="aero"] [data-slot="input"]:not(.onb *, .theater-overlay *, .mini-overlay *, .mvtile *) {
+  background-image: linear-gradient(var(--field-bg), var(--field-bg));
+  box-shadow: inset 0 2px 3px rgb(0 30 70 / 0.28), 0 0 0 1px var(--field-edge) !important;
+}
+:root[data-theme-pack="aero"] [data-slot="input"]:not(.onb *, .theater-overlay *, .mini-overlay *, .mvtile *):focus-visible {
+  box-shadow: inset 0 2px 3px rgb(0 30 70 / 0.22), 0 0 0 1px var(--accent), 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 14px var(--tb-glow) !important;
+}
+
+/* SCROLLBARS: a rounded glossy thumb on a faint track (the width is the
+ * app's own). */
+:root[data-theme-pack="aero"] :not(.onb, .onb *)::-webkit-scrollbar-track {
+  background: rgb(0 30 70 / 0.12);
+  border-radius: 50%;
+}
+:root[data-theme-pack="aero"] :not(.onb, .onb *)::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background-image: linear-gradient(90deg, rgb(255 255 255 / 0.65) 0, rgb(255 255 255 / 0.15) 50%, rgb(0 40 90 / 0.15) 51%, rgb(0 40 90 / 0.05) 100%);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.55);
+}
+
+/* THE BUBBLES (ui/AeroBubbles.tsx, mounted inside .app-shell): one frame and
+ * one tall tile of gradients, moved by a transform (the compositor's, never
+ * background-position). 22 bubbles from 20px to 140px, each a rim light, a
+ * specular spot, a dimmer one opposite and a faint rainbow on the rim. The
+ * tile is 1200px tall and repeats, so sliding it 1200px is the same picture
+ * and the loop has no seam; it sways a little as it rises. z-index -1 puts it
+ * behind the shell's content, over the page's sky. Still under reduced motion
+ * (it holds still), and hidden while a player is up: the shell is cut by a
+ * clip-path then (the hole), the same test Prism's light uses. */
+.aero-bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aero-bubbles__tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(100% + 1200px);
+  background-size: 1600px 1200px;
+  background-image:
+    radial-gradient(circle 14px at 712px 354px, var(--bubble-glint), transparent),
+    radial-gradient(circle 8px at 766px 414px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 70px at 744px 390px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 70px at 730px 375px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 70px at 737px 382px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 12px at 852px 139px, var(--bubble-glint), transparent),
+    radial-gradient(circle 7px at 900px 192px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 62px at 880px 171px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 62px at 868px 158px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 62px at 874px 164px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 11px at 187px 228px, var(--bubble-glint), transparent),
+    radial-gradient(circle 6px at 229px 274px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 54px at 211px 256px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 54px at 201px 245px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 54px at 206px 250px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 10px at 1074px 472px, var(--bubble-glint), transparent),
+    radial-gradient(circle 6px at 1111px 513px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 48px at 1096px 497px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 48px at 1086px 486px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 48px at 1091px 491px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 8px at 919px 885px, var(--bubble-glint), transparent),
+    radial-gradient(circle 5px at 952px 921px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 42px at 938px 907px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 42px at 930px 898px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 42px at 934px 902px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 8px at 171px 519px, var(--bubble-glint), transparent),
+    radial-gradient(circle 5px at 201px 551px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 38px at 189px 539px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 38px at 181px 530px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 38px at 185px 534px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 7px at 211px 893px, var(--bubble-glint), transparent),
+    radial-gradient(circle 4px at 237px 922px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 34px at 226px 911px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 34px at 220px 904px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 34px at 223px 907px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 6px at 480px 148px, var(--bubble-glint), transparent),
+    radial-gradient(circle 4px at 504px 174px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 30px at 494px 164px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 30px at 488px 157px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 30px at 491px 160px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 6px at 1203px 833px, var(--bubble-glint), transparent),
+    radial-gradient(circle 3px at 1225px 857px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 28px at 1216px 847px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 28px at 1210px 841px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 28px at 1213px 844px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 5px at 116px 1160px, var(--bubble-glint), transparent),
+    radial-gradient(circle 3px at 136px 1182px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 26px at 128px 1173px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 26px at 122px 1167px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 26px at 125px 1170px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 5px at 291px 611px, var(--bubble-glint), transparent),
+    radial-gradient(circle 3px at 310px 632px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 24px at 302px 624px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 24px at 298px 619px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 24px at 300px 621px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 4px at 876px 312px, var(--bubble-glint), transparent),
+    radial-gradient(circle 3px at 893px 331px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 22px at 886px 324px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 22px at 882px 319px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 22px at 884px 321px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 4px at 1124px 257px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 1139px 274px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 20px at 1133px 267px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 20px at 1129px 263px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 20px at 1131px 265px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 4px at 1185px 646px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 1199px 661px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 18px at 1193px 655px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 18px at 1189px 651px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 18px at 1191px 653px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 3px at 1161px 384px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 1174px 397px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 16px at 1169px 392px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 16px at 1165px 388px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 16px at 1167px 390px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 3px at 224px 396px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 235px 408px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 14px at 230px 404px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 14px at 228px 401px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 14px at 229px 402px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 3px at 775px 211px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 786px 223px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 14px at 781px 219px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 14px at 779px 216px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 14px at 780px 217px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 3px at 1133px 139px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 1142px 149px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 12px at 1138px 145px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 12px at 1136px 143px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 12px at 1137px 144px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 3px at 1279px 432px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 1288px 442px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 12px at 1284px 438px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 12px at 1282px 436px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 12px at 1283px 437px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 3px at 1026px 1098px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 1034px 1106px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 10px at 1030px 1102px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 3px at 885px 653px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 893px 662px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 10px at 889px 657px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 3px at 750px 623px, var(--bubble-glint), transparent),
+    radial-gradient(circle 2px at 758px 632px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 10px at 754px 627px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%);
+  will-change: transform;
+  animation: aero-rise 90s linear infinite;
+}
+@keyframes aero-rise {
+  25% {
+    transform: translate(16px, -300px);
+  }
+  50% {
+    transform: translate(0, -600px);
+  }
+  75% {
+    transform: translate(-16px, -900px);
+  }
+  to {
+    transform: translate(0, -1200px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aero-bubbles__tile {
+    animation: none;
+  }
+}
+:root:has(.app-shell[style*="clip-path"]) .aero-bubbles {
+  display: none;
+}
+
+/* Over the video there is nothing behind the page to see or blur (the hole,
+ * as tokens.css puts it): solid, as the app's own floats are. */
+:root[data-theme-pack="aero"]:not([data-theme="light"]):has(.app-shell[style*="clip-path"]) {
+  --float-bg: #0a3552;
+  --float-blur: none;
+}
+:root[data-theme-pack="aero"][data-theme="light"]:has(.app-shell[style*="clip-path"]) {
+  --float-bg: #eef8ff;
+  --float-blur: none;
+}
+
+/* OPAQUE AGAIN with Windows' transparency effects off: the card colours are
+ * the solids the translucent ones compose to over --bg, the floats are the
+ * card colour, and no blur is drawn. The sky stays (it is a picture, not a
+ * see-through layer). */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme-pack="aero"]:not([data-theme="light"]) {
+    --surface: #154361;
+    --surface-track: #022136;
+    --surface-puck: #022136;
+    --surface-raised: #184765;
+    --sidebar: #134462;
+    --sidebar-accent: #0e4d71;
+    --glass: #164766;
+    --glass-fx: none;
+    --float-bg: #154361;
+    --float-blur: none;
+    --sheet-bg: #154361;
+    --sheet-blur: none;
+    --pane: #0b3556;
+  }
+  :root[data-theme-pack="aero"][data-theme="light"] {
+    --surface: #e9f7ff;
+    --surface-track: #bee0f4;
+    --surface-puck: #bee0f4;
+    --surface-raised: #f3fbff;
+    --sidebar: #e4f6ff;
+    --sidebar-accent: #aed9f2;
+    --glass: #e4f6ff;
+    --glass-fx: none;
+    --float-bg: #e9f7ff;
+    --float-blur: none;
+    --sheet-bg: #e9f7ff;
+    --sheet-blur: none;
+    --pane: #f6fcff;
+  }
+}
+
+/* A PICTURE IN DAYLIGHT. tokens.css remaps the ink on a picture to dark's,
+ * which is right (a picture is dark), and its accent to near-white when none
+ * is picked. Daylight's accent is a deep blue that a dark picture would
+ * swallow, so a picture gets Night's aqua instead; a picked accent stays. */
+:root[data-theme-pack="aero"][data-theme="light"]:not([data-accent]) .on-picture,
+:root[data-theme-pack="aero"][data-theme="light"]:not([data-accent])[data-header-over="picture"] .header,
+:root[data-theme-pack="aero"][data-theme="light"]:not([data-accent]):has(.vod-detail) .header {
+  --accent: #3cc3ff;
+  --accent-ink: #001a2b;
 }
 
 /* A PICTURE IN A PACK. tokens.css remaps the page's ink to dark's on a

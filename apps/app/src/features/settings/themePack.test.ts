@@ -70,11 +70,11 @@ describe("themePack store", () => {
   });
 
   it("lists Default first, then the five packs", () => {
-    expect(THEME_PACKS.map((p) => p.label)).toEqual(["Default", "Prism", "Velvet", "Lagoon", "Fluent", "Classic"]);
+    expect(THEME_PACKS.map((p) => p.label)).toEqual(["Default", "Prism", "Velvet", "Lagoon", "Fluent", "Classic", "Frutiger Aero"]);
   });
 
   it("gives each pack a tier, and Fluent and Classic are tier 3", () => {
-    expect(THEME_PACKS.map((p) => p.tier)).toEqual([1, 2, 2, 2, 3, 3]);
+    expect(THEME_PACKS.map((p) => p.tier)).toEqual([1, 2, 2, 2, 3, 3, 2]);
   });
 
   it("shows a tier-3 pack in Light too, and the others only in Dark", () => {
@@ -95,6 +95,7 @@ describe("themePack store", () => {
       lagoon: [true, false],
       fluent: [true, true],
       classic: [true, true],
+      aero: [true, true],
     };
     for (const p of THEME_PACKS) {
       expect(packShowingIn(p.key, false), `${p.key} dark`).toBe(want[p.key][0]);
@@ -102,14 +103,17 @@ describe("themePack store", () => {
     }
   });
 
-  it("opens Fluent on Windows' light blue in Light, and every other pack on its one accent", () => {
+  it("opens Fluent and Aero on their own Light accent, and every other pack on its one", () => {
     expect(faceAccent(packInfo("fluent"), false)).toBe("#60cdff");
     expect(faceAccent(packInfo("fluent"), true)).toBe("#0067c0");
     expect(packInfo("fluent").light?.swatch.accent).toBe("#0067c0");
+    expect(faceAccent(packInfo("aero"), false)).toBe("#3cc3ff");
+    expect(faceAccent(packInfo("aero"), true)).toBe("#0a8fdc");
+    expect(packInfo("aero").light?.swatch.accent).toBe("#0a8fdc");
     for (const k of ["none", "prism", "velvet", "lagoon", "classic"] as const)
       expect(faceAccent(packInfo(k), true), k).toBe(packInfo(k).accent);
-    // Only Fluent has a Light face of its own.
-    expect(THEME_PACKS.filter((p) => p.light).map((p) => p.key)).toEqual(["fluent"]);
+    // Fluent and Aero have a Light face of their own.
+    expect(THEME_PACKS.filter((p) => p.light).map((p) => p.key)).toEqual(["fluent", "aero"]);
   });
 
   it("knows Fluent as a key, with Windows' own blue as its accent", () => {
@@ -118,6 +122,15 @@ describe("themePack store", () => {
     const fluent = THEME_PACKS.find((p) => p.key === "fluent")!;
     expect(fluent.accent).toBe("#60cdff");
     expect(fluent.swatch.accent).toBe("#60cdff");
+  });
+
+  it("knows Frutiger Aero as \"aero\", with an aqua accent", () => {
+    saveThemePack("aero");
+    expect(loadThemePack()).toBe("aero");
+    const aero = packInfo("aero");
+    expect(aero.label).toBe("Frutiger Aero");
+    expect(aero.accent).toBe("#3cc3ff");
+    expect(aero.swatch.accent).toBe("#3cc3ff");
   });
 });
 
@@ -213,6 +226,25 @@ describe("applying a pack at boot", () => {
     applyThemePack("prism");
     expect(props.has("--accent")).toBe(false);
     expect(props.has("--accent-ink")).toBe(false);
+  });
+
+  it("keeps one pick per face for Aero, and a face with none leaves the colour to the stylesheet", () => {
+    const { root, props } = fakeRoot();
+    saveAccent("#ffd500");
+    themeAccentStore("aero").set("#336699");
+    themeAccentStore("aero", true).set("#22c55e");
+    applyThemePack("aero");
+    expect(props.get("--accent")).toBe("#336699"); // Night's pick
+    root.dataset.theme = "light";
+    syncAccent();
+    expect(props.get("--accent")).toBe("#22c55e"); // Daylight's own
+    themeAccentStore("aero", true).set("");
+    syncAccent();
+    expect(props.has("--accent")).toBe(false); // none: the stylesheet's Daylight blue
+    delete root.dataset.theme;
+    syncAccent();
+    expect(props.get("--accent")).toBe("#336699"); // Night's pick was not touched
+    applyThemePack("none");
   });
 
   it("keeps the default pick in Light, where a pack does nothing", () => {
@@ -327,7 +359,7 @@ describe("Fluent's Mica", () => {
     const { root } = fakeRoot();
     applyThemePack("fluent");
     await settle();
-    for (const next of ["prism", "velvet", "lagoon", "none"] as const) {
+    for (const next of ["prism", "velvet", "lagoon", "aero", "none"] as const) {
       applyThemePack("fluent");
       await settle();
       mica.calls.length = 0;
@@ -349,7 +381,7 @@ describe("Fluent's Mica", () => {
 
   it("does not call native for a profile that never wore Fluent", () => {
     fakeRoot();
-    for (const p of ["none", "prism", "velvet", "lagoon", "none"] as const) applyThemePack(p);
+    for (const p of ["none", "prism", "velvet", "lagoon", "aero", "none"] as const) applyThemePack(p);
     expect(mica.calls).toEqual([]);
   });
 
@@ -375,9 +407,13 @@ describe("Fluent's Mica", () => {
 // ------------------------------------------------------------- the palettes
 const CSS = readFileSync(fileURLToPath(new URL("../../styles/packs.css", import.meta.url)), "utf8");
 
-/** The declarations of one pack's token block. */
-function pack(key: Exclude<ThemePack, "none">): Map<string, string> {
-  const head = `:root[data-theme-pack="${key}"]:not([data-theme="light"]) {`;
+/** The declarations of one pack's token block: its dark one, or its face for
+ * Light (a pack with `light` on its PackInfo has a block of its own). */
+function pack(key: Exclude<ThemePack, "none">, face: "dark" | "light" = "dark"): Map<string, string> {
+  const head =
+    face === "dark"
+      ? `:root[data-theme-pack="${key}"]:not([data-theme="light"]) {`
+      : `:root[data-theme-pack="${key}"][data-theme="light"] {`;
   const at = CSS.indexOf(`\n${head}`);
   if (at < 0) throw new Error(`no block "${head}"`);
   const open = CSS.indexOf("{", at);
@@ -407,7 +443,7 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const PACKS = ["prism", "velvet", "lagoon", "fluent"] as const;
+const PACKS = ["prism", "velvet", "lagoon", "fluent", "aero"] as const;
 const TEXT = ["--text", "--text-muted", "--text-dim", "--text-ghost", "--text-faint"];
 // Where words are set: the page, a card, a chip, the track a field sits in,
 // the sidebar. Hex, or a translucent rgb() composed over the pack's --bg.
@@ -457,12 +493,72 @@ describe("packs.css", () => {
     expect(contrast(t.get("--text")!, t.get("--plate")!)).toBeGreaterThanOrEqual(4.5);
   });
 
+  const faces = [
+    ["Night", "dark"],
+    ["Daylight", "light"],
+  ] as const;
+  for (const [name, face] of faces) {
+    const t = pack("aero", face);
+    const info = THEME_PACKS.find((p) => p.key === "aero")!;
+    const hex = (v: string, base: string) => {
+      const out = solid(t.get(v) ?? "", base);
+      expect(out, `${name} ${v}`).toMatch(/^#[0-9a-f]{6}$/i);
+      return out;
+    };
+
+    // Aero is not held to the contrast tour (Adam: "it's okay if contrast fails
+    // in some spots"): the sky is loud, halos keep words readable over it, and
+    // what is held here is the ink on the face's own page colour and cards.
+    it(`aero ${name}: every ink tier reads at 4.5:1 on the page colour and on its cards`, () => {
+      const stop = hex("--bg", "#000000");
+      const grounds = ["--surface", "--surface-raised", "--surface-track", "--sidebar"].map((g) => [g, hex(g, stop)]);
+      for (const ink of TEXT) {
+        expect(contrast(hex(ink, stop), stop), `${ink} on the page`).toBeGreaterThanOrEqual(4.5);
+        for (const [g, c] of grounds) expect(contrast(hex(ink, stop), c), `${ink} on ${g}`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it(`aero ${name}: the accent's ink reads on it`, () => {
+      const bg = hex("--bg", "#000000");
+      expect(contrast(hex("--accent-ink", bg), hex("--accent", bg))).toBeGreaterThanOrEqual(3);
+    });
+
+    it(`aero ${name}: the sidebar's rows and a logo's plate read at 4.5:1`, () => {
+      const bg = hex("--bg", "#000000");
+      expect(contrast(hex("--sidebar-foreground", bg), hex("--sidebar", bg))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(hex("--sidebar-accent-foreground", bg), hex("--sidebar-accent", bg))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(hex("--text", bg), hex("--plate", bg))).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`aero ${name}: its card shows the face's own page, surface and accent`, () => {
+      const bg = hex("--bg", "#000000");
+      const swatch = face === "dark" ? info.swatch : info.light!.swatch;
+      expect(swatch).toEqual({ bg, surface: hex("--surface", bg), accent: hex("--accent", bg) });
+      expect(face === "dark" ? info.accent : info.light!.accent).toBe(hex("--accent", bg));
+    });
+
+    it(`aero ${name}: it has a gloss and a sky of its own`, () => {
+      expect(t.get("--gloss"), "--gloss").toMatch(/^linear-gradient\(180deg/);
+      expect(t.get("--aero-sky"), "--aero-sky").toMatch(/gradient/);
+    });
+  }
+
+  it("aero: both faces share Segoe UI and the blur, written once", () => {
+    const head = ':root[data-theme-pack="aero"] {';
+    const at = CSS.indexOf(`\n${head}`);
+    expect(at).toBeGreaterThan(0);
+    const body = CSS.slice(CSS.indexOf("{", at) + 1, CSS.indexOf("\n}", at));
+    expect(body).toMatch(/--font-text:\s*"Segoe UI", "Geist Variable"/);
+    expect(body).toMatch(/--font-headline:\s*"Segoe UI", "Geist Variable"/);
+    expect(body).toMatch(/--float-blur:\s*blur\(24px\)/);
+  });
+
   it("only Prism, and only its block, carries the ramp's hooks", () => {
     const hooks = ["--pack-bg-image", "--dot-glow", "--hero-glow", "--nowline-fill", "--progress-fill"];
     for (const h of hooks) expect(pack("prism").has(h), h).toBe(true);
     // --hero-glow is also Velvet's footlight (a radial, not the ramp), so it
     // is left to Velvet below.
-    for (const key of ["velvet", "lagoon", "fluent"] as const)
+    for (const key of ["velvet", "lagoon", "fluent", "aero"] as const)
       for (const h of hooks.filter((h) => h !== "--hero-glow" || key !== "velvet"))
         expect(pack(key).has(h), `${key} ${h}`).toBe(false);
     expect(pack("velvet").get("--hero-glow")).toMatch(/^radial-gradient/);
@@ -478,9 +574,17 @@ describe("packs.css", () => {
     expect(radii.filter((r) => r !== "50%" && r !== "inherit")).toEqual([]);
   });
 
-  it("every selector is dark only", () => {
-    const heads = [...CSS.matchAll(/^:root\[data-theme-pack[^{]*\{/gm)].map((m) => m[0]);
+  it("every selector is dark only, bar Aero's, and only Aero has a block for Light", () => {
+    const heads = [...CSS.matchAll(/^:root[^{\n]*\[data-theme-pack[^{]*\{/gm)].map((m) => m[0]);
     expect(heads.length).toBeGreaterThan(0);
-    for (const h of heads) expect(h, h).toContain(':not([data-theme="light"])');
+    // Aero's section writes its faces apart and what both share once, so its
+    // heads are held by the block test above instead.
+    for (const h of heads.filter((h) => !h.includes('data-theme-pack="aero"')))
+      expect(h, h).toContain(':not([data-theme="light"])');
+    // Only a pack that says it has a face for Light has a block for it. Fluent's
+    // is in fluent-tokens.css, so packs.css holds Aero's alone.
+    const light = [...CSS.matchAll(/^:root[^{\n]*\[data-theme-pack="(\w+)"\]\[data-theme="light"\][^{]*\{/gm)].map((m) => m[1]);
+    expect([...new Set(light)]).toEqual(["aero"]);
+    expect(THEME_PACKS.find((p) => p.key === "aero")?.light).toBeTruthy();
   });
 });

@@ -182,7 +182,7 @@ export const SETTINGS_INDEX: readonly SettingRow[] = [
     id: "theme-pack",
     label: "Theme",
     page: "appearance",
-    keywords: ["prism", "velvet", "lagoon", "fluent", "mica", "palette", "colour", "color", "look", "skin", "dark"],
+    keywords: ["prism", "velvet", "lagoon", "fluent", "frutiger aero", "aero", "bubbles", "glass", "mica", "palette", "colour", "color", "look", "skin", "dark"],
   },
   {
     id: "accent",

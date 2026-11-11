@@ -104,9 +104,9 @@ export function AppearancePage({
     applyThemePref(next);
   };
 
-  // Theme (plan 035): Default or a pack, dark only bar Fluent, which has a
-  // Light face too. The pack's own accent picker is the Accent row under
-  // Velvet, Lagoon and Fluent, and gone under Prism, whose ramp is its accent.
+  // Theme (plan 035): Default or a pack, dark only bar Fluent and Frutiger
+  // Aero, which have a Light face too. The pack's own accent picker is the
+  // Accent row under Velvet, Lagoon, Fluent and Aero, and gone under Prism, whose ramp is its accent.
   // Read from the root, so Match Windows counts.
   const [pack, setPack] = useState<ThemePack>(loadThemePack);
   const pickPack = (next: ThemePack) => {

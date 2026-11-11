@@ -90,7 +90,7 @@
  "verify-tailwind": 3,
  "verify-theme-consistency": 95,
  "verify-theme-contrast": 450,
- "verify-themes": 110,
+ "verify-themes": 130,
  "verify-tilt": 11,
  "verify-track-prefs": 10,
  "verify-trakt": 38,

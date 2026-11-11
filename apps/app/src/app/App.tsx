@@ -46,6 +46,7 @@ import { DiscoverScreen } from "../features/discover/DiscoverScreen";
 import { setModalOpen } from "../lib/modalOpen";
 import { setFullscreenChecked } from "../lib/fullscreen";
 import { SettingsModal } from "../features/settings/SettingsModal";
+import { AeroBubbles } from "../ui/AeroBubbles";
 import { PrismGlow } from "../ui/PrismGlow";
 import { useFluent } from "../features/fluent/useFluent";
 import { FluentChrome } from "../features/fluent/chrome/FluentChrome";
@@ -572,6 +573,7 @@ export function App() {
     <div className={"app-shell" + (fluent ? " app-shell--fluent" : "")}>
       {/* Inside the shell on purpose: the video hole cuts it (PrismGlow.tsx). */}
       <PrismGlow />
+      <AeroBubbles />
       {fluent && (
         <FluentChrome
           section={section}

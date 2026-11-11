@@ -1,6 +1,7 @@
-// E2E: Settings → Appearance → Theme (plan 035). Four packs laid over the
-// app's palette: Prism, Velvet and Lagoon (dark only), and Fluent (a Light face
-// too: the "Fluent has a face for Light" section below). A pack changes colour, type,
+// E2E: Settings → Appearance → Theme (plan 035). Packs laid over the app's
+// palette: Prism, Velvet and Lagoon (dark only), Fluent (a Light face too: the
+// "Fluent has a face for Light" section below) and Frutiger Aero (both faces:
+// the Aero sections at the end). A pack changes colour, type,
 // texture, light and transparency, and NEVER a radius, a shape or a layout
 // (Adam, 1.3): "no pack changes a radius" below is that rule, tested.
 //
@@ -58,7 +59,7 @@ const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromi
 /** A page that reaches nothing but this machine, signed in to the two fakes.
  * `store` is written ONCE per tab (the first load), so a reload keeps what the
  * page itself saved. */
-async function open({ store = {}, scheme = "dark", reduced = false } = {}) {
+async function open({ store = {}, scheme = "dark", reduced = false, onboarded = true } = {}) {
   const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     colorScheme: scheme,
@@ -69,9 +70,10 @@ async function open({ store = {}, scheme = "dark", reduced = false } = {}) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript(
-    ({ store, PLAYLISTS, AIO }) => {
-      localStorage.setItem("btv:onboarded", "1"); localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
-      sessionStorage.setItem("btv:welcome-played", "1");
+    ({ store, PLAYLISTS, AIO, onboarded }) => {
+      if (onboarded) localStorage.setItem("btv:onboarded", "1");
+      localStorage.setItem("blammytv.whatsNewSeen", JSON.stringify({ v: 1, data: "999.0" }));
+      if (onboarded) sessionStorage.setItem("btv:welcome-played", "1");
       if (!sessionStorage.getItem("btv:themes-seeded")) {
         sessionStorage.setItem("btv:themes-seeded", "1");
         localStorage.setItem("blammytv.playlists", JSON.stringify(PLAYLISTS));
@@ -85,10 +87,10 @@ async function open({ store = {}, scheme = "dark", reduced = false } = {}) {
         if (document.getElementById("root")?.firstChild && !window.__t.mount) window.__t.mount = performance.now();
       }).observe(document, { attributes: true, childList: true, subtree: true });
     },
-    { store, PLAYLISTS, AIO },
+    { store, PLAYLISTS, AIO, onboarded },
   );
   await page.goto(APP, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".navcap, .flc-title", { timeout: 20_000 });
+  await page.waitForSelector(onboarded ? ".navcap, .flc-title" : ".onb-btn", { timeout: 20_000 });
   return { ctx, page, errors };
 }
 
@@ -171,6 +173,33 @@ async function hooks(page) {
   return { pills, ...probes };
 }
 
+/** The gloss, read on what carries it: the nav capsule, a primary and a standard
+ * button, a ghost one, a segmented track and a switch drawn as the app draws them. */
+async function glossOf(page) {
+  return page.evaluate(() => {
+    const host = document.createElement("div");
+    host.innerHTML =
+      '<button data-slot="button" data-variant="default" id="g-primary">Go</button>' +
+      '<button data-slot="button" data-variant="secondary" data-size="default" id="g-secondary">Go</button>' +
+      '<button data-slot="button" data-variant="ghost" id="g-ghost">Go</button>' +
+      '<div class="seg" id="g-seg"><span class="seg__thumb"></span></div>' +
+      '<button class="toggle toggle--on" id="g-toggle"><span class="toggle__thumb"></span></button>';
+    document.body.append(host);
+    const img = (el) => getComputedStyle(el).backgroundImage;
+    const out = {
+      capsule: img(document.querySelector(".navcap")),
+      primary: img(host.querySelector("#g-primary")),
+      secondary: img(host.querySelector("#g-secondary")),
+      ghost: img(host.querySelector("#g-ghost")),
+      seg: img(host.querySelector("#g-seg")),
+      toggle: img(host.querySelector("#g-toggle")),
+    };
+    host.remove();
+    return out;
+  });
+}
+const noGloss = (g) => Object.values(g).every((v) => v === "none");
+
 /** Nothing painted: no image and no colour. A glow that fell back to a solid would pass an image check alone. */
 const blank = (x) => x.image === "none" && x.color === "rgba(0, 0, 0, 0)";
 /** The dither field is the shell's ::before (base.css, fed by --pack-bg-*). */
@@ -234,6 +263,12 @@ const base = {};
     "no pack: the nav's pills have no image on them",
     h.pills.every((p) => p.image === "none"),
     JSON.stringify(h.pills),
+  );
+  const g0gloss = await glossOf(page);
+  check(
+    "no pack: the capsule, a button, a segmented track and a switch carry no gloss, and there is no bubble layer",
+    noGloss(g0gloss) && (await page.locator(".aero-bubbles").count()) === 0,
+    JSON.stringify(g0gloss),
   );
   await goTo(page, "home");
   await page.waitForSelector(".shero__glowbox", { state: "attached", timeout: 20_000 });
@@ -681,6 +716,20 @@ const fontOf = (page, token) =>
     check(`radii: ${key} leaves the radius tokens alone`, JSON.stringify(tok) === JSON.stringify(wantTok), JSON.stringify({ tok, wantTok }));
     await ctx.close();
   }
+  // Frutiger Aero, in both faces: Night (Dark) and Daylight (Light).
+  for (const [face, store, scheme] of [
+    ["Night", { themePack: { data: "aero" } }, "dark"],
+    ["Daylight", { theme: { data: "light" }, themePack: { data: "aero" } }, "light"],
+  ]) {
+    const { ctx, page } = await open({ store, scheme });
+    await goTo(page, "discover");
+    await page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
+    const got = await radii(page);
+    check(`radii: aero ${face} leaves every corner as Default has it`, flatten(got) === flatten(want), JSON.stringify({ got, want }));
+    const tok = await root(page, RADIUS_TOKENS);
+    check(`radii: aero ${face} leaves the radius tokens alone`, JSON.stringify(tok) === JSON.stringify(wantTok), JSON.stringify({ tok, wantTok }));
+    await ctx.close();
+  }
 }
 
 // ------------------------------------------------------------------ Velvet
@@ -726,7 +775,7 @@ const fontOf = (page, token) =>
   await ctx.close();
 
   // Only under Velvet: Default and the others draw no grain, no vignette, and fetch no font.
-  for (const key of ["none", "prism", "lagoon", "fluent"]) {
+  for (const key of ["none", "prism", "lagoon", "fluent", "aero"]) {
     const o = await open({ store: key === "none" ? {} : { themePack: { data: key } } });
     await goTo(o.page, "discover");
     await o.page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
@@ -916,7 +965,7 @@ const fontOf = (page, token) =>
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   const themes = page.getByRole("group", { name: "Theme" });
   await themes.waitFor({ timeout: 10_000 });
-  for (const other of ["Velvet", "Lagoon", "Prism", "Default"]) {
+  for (const other of ["Velvet", "Lagoon", "Prism", "Frutiger Aero", "Default"]) {
     await themes.getByRole("button", { name: "Fluent", exact: true }).click();
     await page.waitForFunction(() => document.documentElement.dataset.mica === "on", null, { timeout: 5000 });
     const before = (await micaCalls(page)).length;
@@ -943,7 +992,7 @@ const fontOf = (page, token) =>
   );
   await ctx.close();
   // A profile that never wears Fluent never calls native for Mica at all.
-  for (const key of ["none", "prism", "velvet", "lagoon"]) {
+  for (const key of ["none", "prism", "velvet", "lagoon", "aero"]) {
     const o = await nativePage({ store: key === "none" ? {} : { themePack: { data: key } } });
     await o.page.waitForTimeout(300);
     check(`${key}: native is never asked about Mica`, (await micaCalls(o.page)).length === 0, JSON.stringify(await micaCalls(o.page)));
@@ -984,6 +1033,449 @@ const fontOf = (page, token) =>
   const offs = await micaCalls(fl.page);
   check("fluent in Light, then Velvet: native is asked to take Mica off, and the mark is gone", offs.length === 5 && offs[4] === false && (await fl.page.evaluate(() => document.documentElement.dataset.mica)) === undefined, JSON.stringify(offs));
   await fl.ctx.close();
+}
+
+// ------------------------------------------------------------ Frutiger Aero
+// Round 3: two faces on one pack. Night is Dark, Daylight is Light, and the
+// effects (gloss, bubbles, glass, Segoe UI) are paint on shadcn's shapes. The
+// radius check above covers both faces; what is here is the rest.
+const AERO = {
+  night: { bg: "#03304d", surface: "rgb(150 210 245 / 0.12)", text: "#f2f9ff", accent: "#3cc3ff", gloss: "rgba(255, 255, 255, 0.34)" },
+  day: { bg: "#bfe6ff", surface: "rgb(255 255 255 / 0.42)", text: "#0d2a46", accent: "#0a8fdc", gloss: "rgba(255, 255, 255, 0.85)" },
+};
+const AERO_STORE = { themePack: { data: "aero" } };
+const AERO_DAY_STORE = { theme: { data: "light" }, themePack: { data: "aero" } };
+
+/** The bubble layer: how many nodes it is, where, and how it moves. */
+const bubblesOf = (page) =>
+  page.evaluate(() => {
+    const frame = document.querySelector(".aero-bubbles");
+    if (!frame) return { count: document.querySelectorAll(".aero-bubbles").length };
+    const tile = frame.querySelector(".aero-bubbles__tile");
+    const fcs = getComputedStyle(frame);
+    const tcs = getComputedStyle(tile);
+    const m = /matrix\(([^)]*)\)/.exec(tcs.transform);
+    return {
+      count: document.querySelectorAll(".aero-bubbles").length,
+      nodes: frame.querySelectorAll("*").length,
+      inShell: !!frame.closest(".app-shell"),
+      zIndex: fcs.zIndex,
+      display: fcs.display,
+      overflow: fcs.overflow,
+      pointer: fcs.pointerEvents,
+      animation: tcs.animationName,
+      duration: tcs.animationDuration,
+      timing: tcs.animationTimingFunction,
+      ty: m ? Number(m[1].split(",")[5]) : 0,
+      bgPos: tcs.backgroundPosition,
+      bgSize: tcs.backgroundSize,
+      gradients: (tcs.backgroundImage.match(/radial-gradient/g) ?? []).length,
+      tileHeight: tcs.height,
+      frameHeight: fcs.height,
+    };
+  });
+
+/** A comma list whose every entry is the same thing (one value per gradient layer). */
+const sameAll = (list, one) => list.split(", ").every((x) => x === one);
+
+/** How many pixels of a rect are not the stand-in magenta, and the rect's size. */
+async function notMagentaIn(page, r) {
+  const png = await page.screenshot({ clip: { x: r.l, y: r.t, width: r.r - r.l, height: r.b - r.t } });
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext("2d");
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let bad = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] !== 255 || d[i + 1] !== 0 || d[i + 2] !== 255) bad++;
+    return { bad, of: d.length / 4 };
+  }, png.toString("base64"));
+}
+
+for (const [face, want, store, scheme] of [
+  ["Night", AERO.night, AERO_STORE, "dark"],
+  ["Daylight", AERO.day, AERO_DAY_STORE, "light"],
+]) {
+  const { ctx, page, errors } = await open({ store, scheme });
+  const attr = await page.evaluate(() => document.documentElement.dataset.themePack);
+  const t0 = await page.evaluate(() => window.__t);
+  check(`aero ${face}: a stored pack is on the root before React draws`, attr === "aero" && t0.pack !== undefined && t0.mount !== undefined && t0.pack <= t0.mount, JSON.stringify(t0));
+  await goTo(page, "home");
+  await page.waitForSelector(".shero__glowbox", { state: "attached", timeout: 20_000 });
+  const t = await root(page, ["--bg", "--surface", "--text", "--accent"]);
+  const sky = await page.evaluate(() => {
+    const cs = getComputedStyle(document.body);
+    return { color: cs.backgroundColor, image: cs.backgroundImage };
+  });
+  check(
+    `aero ${face}: --bg, --surface, --text and --accent are the face's own, and the page is painted in them, under a sky`,
+    t["--bg"] === want.bg && t["--surface"] === want.surface && t["--text"] === want.text && t["--accent"] === want.accent &&
+      sky.color === rgb(want.bg) && (sky.image.match(/gradient/g) ?? []).length >= 4,
+    JSON.stringify({ t, sky: { color: sky.color, gradients: (sky.image.match(/gradient/g) ?? []).length } }),
+  );
+  if (face === "Daylight") {
+    // Built on the app's own Light tokens: what the pack does not set is Light's.
+    const l = await root(page, ["--ring", "--danger", "--ok"]);
+    check("aero Daylight: what it leaves alone is the app's own Light (the ring, danger and ok)", l["--ring"] === "oklch(0.708 0 0)" && l["--danger"] === "oklch(0.577 0.245 27.325)" && l["--ok"] === "#2cad57", JSON.stringify(l));
+  }
+  // Segoe UI for text and headings, then the app's own stack.
+  const text = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+  const head = await fontOf(page, "--font-headline");
+  check(
+    `aero ${face}: text and headings are Segoe UI, then the app's own stack`,
+    text.startsWith('"Segoe UI", "Geist Variable"') && head.startsWith('"Segoe UI", "Geist Variable"'),
+    JSON.stringify({ text, head }),
+  );
+  // The gloss: a bright top half with a hard line at 50% and a glow rising from
+  // the bottom edge, as an image over the colour each already has.
+  const g = await glossOf(page);
+  const topHalf = (v) => v.startsWith("linear-gradient(") && v.includes(want.gloss) && v.includes("49.4%") && v.includes("radial-gradient(");
+  check(
+    `aero ${face}: the capsule, a segmented track and a switch carry the gloss; a ghost button does not`,
+    topHalf(g.capsule) && topHalf(g.seg) && topHalf(g.toggle) && g.ghost === "none",
+    JSON.stringify(g),
+  );
+  // The primary button is an Aqua gel in the accent: a glow, a cap with a hard line at 50%, and the deep colour. The standard
+  // one is Windows 7's two-tone, a hard line at 50% between its halves.
+  const gel = await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.innerHTML = '<button data-slot="button" data-variant="default" id="p">Go</button><button data-slot="button" data-variant="secondary" data-size="default" id="s">Go</button>';
+    document.body.append(host);
+    const p = getComputedStyle(host.querySelector("#p"));
+    const s = getComputedStyle(host.querySelector("#s"));
+    const out = { pBg: p.backgroundColor, pInk: p.color, pImg: p.backgroundImage, sImg: s.backgroundImage };
+    host.remove();
+    return out;
+  });
+  check(
+    `aero ${face}: the primary button is a gel in the accent with a white label, and the standard one is two-tone with a line at 50%`,
+    gel.pBg === rgb(want.accent) && gel.pInk === "rgb(255, 255, 255)" && gel.pImg.startsWith("radial-gradient(") && (gel.pImg.match(/gradient\(/g) ?? []).length === 3 &&
+      gel.sImg.startsWith("linear-gradient(") && gel.sImg.includes("49.4%") && gel.sImg.includes(" 50%") && (face !== "Daylight" || gel.sImg.includes("rgb(242, 242, 242)") && gel.sImg.includes("rgb(207, 207, 207)")),
+    JSON.stringify(gel),
+  );
+  const pill = await page.evaluate(() => getComputedStyle(document.querySelector(".navcap__row--nav .navcap__pill")).backgroundColor);
+  const pa = Number(pill.match(/[\d.]+/g).map(Number)[3] ?? 1);
+  const pillOk = pa > 0.3 && pa < 1;
+  check(`aero ${face}: the capsule's pill is a lit tint of the accent, with the gloss over it`, pillOk && topHalf(await page.evaluate(() => getComputedStyle(document.querySelector(".navcap__row--nav .navcap__pill")).backgroundImage)), pill);
+  // Bubbles: one layer in the shell, one tile, a transform that moves, and never background-position.
+  const b1 = await bubblesOf(page);
+  check(
+    `aero ${face}: the bubbles are one frame and one tile inside .app-shell, behind the content, and take no click`,
+    b1.count === 1 && b1.nodes === 1 && b1.inShell && b1.zIndex === "-1" && b1.display === "block" && b1.overflow === "hidden" && b1.pointer === "none",
+    JSON.stringify(b1),
+  );
+  check(
+    `aero ${face}: the tile is a tall run of radial-gradient bubbles (taller than the frame by one 1200px tile)`,
+    b1.gradients >= 30 && sameAll(b1.bgSize, "1600px 1200px") && parseFloat(b1.tileHeight) === parseFloat(b1.frameHeight) + 1200,
+    JSON.stringify({ gradients: b1.gradients, bgSize: b1.bgSize, tile: b1.tileHeight, frame: b1.frameHeight }),
+  );
+  await page.waitForTimeout(1000);
+  const b2 = await bubblesOf(page);
+  check(
+    `aero ${face}: they rise on a transform loop (translateY, linear, infinite) and background-position never moves`,
+    b1.animation === "aero-rise" && b1.duration === "90s" && b1.timing === "linear" && b2.ty < b1.ty - 4 && b1.bgPos === b2.bgPos && sameAll(b1.bgPos, "0% 0%"),
+    JSON.stringify({ b1: [b1.animation, b1.duration, b1.ty, b1.bgPos], b2: [b2.ty, b2.bgPos] }),
+  );
+  check(
+    `aero ${face}: no film grain, no cursor light, no dither`,
+    (await style(page, ".app-shell", ["content"], "::after")).content === "none" && (await glowOf(page)).count === 0 && noDither(await dither(page)),
+  );
+  // Floating glass blurs 24px and cards do not blur at all.
+  await goTo(page, "discover");
+  await page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
+  const fx = (sel) => style(page, sel, ["backdrop-filter", "background-color"]);
+  const nav = await fx(".navcap");
+  await page.keyboard.press("Control+k");
+  await page.locator(".palette").waitFor({ timeout: 5000 });
+  const palette = await fx(".palette");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Settings", exact: true }).first().click();
+  await page.locator(".settings").waitFor({ timeout: 10_000 });
+  const sheet = await fx(".settings");
+  const dlg = await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.innerHTML = '<div data-slot="dialog-content" class="bg-background" id="d"></div>';
+    document.body.append(host);
+    const cs = getComputedStyle(host.querySelector("#d"));
+    const out = { filter: cs.backdropFilter, bg: cs.backgroundColor };
+    host.remove();
+    return out;
+  });
+  const GLASS = "blur(24px) saturate(1.6)";
+  check(
+    `aero ${face}: Ctrl+K's menu glass, the settings panel and a dialog blur 24px and saturate 1.6; the header's capsule blurs 16px`,
+    [palette["backdrop-filter"], sheet["backdrop-filter"], dlg.filter].every((f) => f === GLASS) && nav["backdrop-filter"] === "blur(16px) saturate(1.5)",
+    JSON.stringify({ nav, palette, sheet, dlg }),
+  );
+  const alpha = (c) => (/rgba\(.*,\s*([\d.]+)\)$/.exec(c) ? Number(/rgba\(.*,\s*([\d.]+)\)$/.exec(c)[1]) : c.startsWith("color(") ? Number(/\/\s*([\d.]+)\)/.exec(c)?.[1] ?? 1) : 1);
+  check(
+    `aero ${face}: those floats are see-through, the dialog's too`,
+    [palette["background-color"], sheet["background-color"], dlg.bg].every((c) => alpha(c) < 1),
+    JSON.stringify({ palette: palette["background-color"], sheet: sheet["background-color"], dialog: dlg.bg }),
+  );
+  // The Accent row and the Theme row, in this face.
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  const themes = page.getByRole("group", { name: "Theme" });
+  await themes.waitFor({ timeout: 10_000 });
+  const accentGroup = page.getByRole("group", { name: "Accent color" });
+  const first = accentGroup.locator("button").first();
+  check(
+    `aero ${face}: the Accent row leads with Frutiger Aero's own colour for the face, chosen`,
+    (await first.getAttribute("aria-label")) === "Frutiger Aero" && (await first.getAttribute("aria-pressed")) === "true" &&
+      (await first.evaluate((e) => getComputedStyle(e).backgroundColor)) === rgb(want.accent),
+    await first.evaluate((e) => getComputedStyle(e).backgroundColor),
+  );
+  check(
+    `aero ${face}: its card is drawn in the face's page colour`,
+    (await page.evaluate(() => getComputedStyle(document.querySelector("[data-swatch='aero']")).backgroundColor)) === rgb(want.bg),
+  );
+  check(`aero ${face}: no page errors`, errors.length === 0, errors.join(" | "));
+  await ctx.close();
+}
+
+{
+  // Cards: the glass wash, and NO backdrop blur (Lagoon's reason: rows hold
+  // hundreds of posters, and WebView2 pays for each blurred layer).
+  for (const [face, store, scheme] of [["Night", AERO_STORE, "dark"], ["Daylight", AERO_DAY_STORE, "light"]]) {
+    const { ctx, page } = await open({ store, scheme });
+    await goTo(page, "discover");
+    await page.locator(".stream-card__poster").first().waitFor({ timeout: 20_000 });
+    const rowsAny = await page.evaluate(() => [...document.querySelectorAll(".stream-card, .stream-card__tilt, .stream-card__poster")].filter((e) => getComputedStyle(e).backdropFilter !== "none").length);
+    const wash = await page.evaluate(() => getComputedStyle(document.querySelector(".stream-card__poster")).backgroundColor);
+    check(`aero ${face}: a card has no backdrop blur at all`, rowsAny === 0, String(rowsAny));
+    check(`aero ${face}: the page's cards read the glass wash token, a translucent colour`, (await tokenColor(page, "--surface", "backgroundColor"))[3] < 1, wash);
+    await ctx.close();
+  }
+}
+
+{
+  // The reduced-motion promise: the bubbles are still drawn, and still.
+  const { ctx, page } = await open({ store: AERO_STORE, reduced: true });
+  await page.waitForTimeout(1000);
+  const a = await bubblesOf(page);
+  await page.waitForTimeout(700);
+  const b = await bubblesOf(page);
+  check(
+    "aero with reduced motion: the bubbles are still on the page, and hold still",
+    a.count === 1 && a.display === "block" && a.gradients >= 30 && a.animation === "none" && b.animation === "none" && a.ty === 0 && b.ty === 0,
+    JSON.stringify({ a: [a.display, a.animation, a.ty], b: [b.animation, b.ty] }),
+  );
+  await ctx.close();
+}
+
+{
+  // The video's hole. The inverted player cuts a clip-path hole through
+  // .app-shell, and a layer outside the shell would paint over the video.
+  // The bubbles sit inside it, and the app's own rule hides them as well.
+  const { ctx, page } = await open({ store: AERO_STORE, reduced: true });
+  await page.addStyleTag({ content: ".app-shell > .header, .app-shell > .app-main { visibility: hidden !important; }" });
+  await page.evaluate(() => {
+    document.documentElement.classList.add("invert-player");
+    document.documentElement.style.background = "#ff00ff";
+  });
+  const inner = { l: 40, t: 40, r: 1400, b: 860 };
+  const before = await notMagentaIn(page, inner);
+  check("the hole check can see the page: the shell's sky is not the stand-in magenta, with no hole", before.bad === before.of, JSON.stringify(before));
+  // The layer forced on over the whole hole, so a clean hole is the shell's clip and not a layer that is simply off.
+  await page.addStyleTag({ content: ".aero-bubbles { display: block !important; }" });
+  await page.evaluate(({ l, t, r, b }) => {
+    const W = innerWidth;
+    const H = innerHeight;
+    document.querySelector(".app-shell").style.clipPath = `path("M0 0H${W}V${H}H0Z M${l} ${t}L${l} ${b}L${r} ${b}L${r} ${t}Z")`;
+  }, inner);
+  await page.waitForTimeout(150);
+  const hole = await notMagentaIn(page, { l: inner.l + 4, t: inner.t + 4, r: inner.r - 4, b: inner.b - 4 });
+  const forced = await bubblesOf(page);
+  check(
+    "aero: a player's hole is clean: no sky and no bubble over the video, with the layer forced on",
+    forced.display === "block" && hole.bad === 0 && hole.of > 1_000_000,
+    JSON.stringify({ forced: forced.display, hole }),
+  );
+  await page.evaluate(() => {
+    for (const s of [...document.querySelectorAll("style")]) if (s.textContent.includes(".aero-bubbles { display: block")) s.remove();
+  });
+  check("aero: and the bubbles are hidden by the app's own rule while a hole is cut", (await bubblesOf(page)).display === "none");
+  await page.evaluate(() => {
+    document.querySelector(".app-shell").style.clipPath = "";
+  });
+  await page.waitForTimeout(100);
+  check("aero: and are back when the hole closes", (await bubblesOf(page)).display === "block");
+  await ctx.close();
+}
+
+{
+  // Transparency effects off: the cards and floats go opaque, no blur.
+  const { ctx, page } = await open({ store: AERO_STORE });
+  const cdp = await ctx.newCDPSession(page);
+  await cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+  await page.waitForTimeout(100);
+  const t = await root(page, ["--surface", "--float-bg", "--float-blur", "--sheet-blur", "--glass-fx"]);
+  const nav = await style(page, ".navcap", ["backdrop-filter"]);
+  check(
+    "aero Night with transparency effects off: opaque cards and floats, and no blur anywhere",
+    t["--surface"] === "#154361" && t["--float-bg"] === "#154361" && t["--float-blur"] === "none" && t["--sheet-blur"] === "none" && t["--glass-fx"] === "none" && nav["backdrop-filter"] === "none",
+    JSON.stringify({ t, nav }),
+  );
+  await ctx.close();
+  const d = await open({ store: AERO_DAY_STORE, scheme: "light" });
+  const cdp2 = await d.ctx.newCDPSession(d.page);
+  await cdp2.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-transparency", value: "reduce" }] });
+  await d.page.waitForTimeout(100);
+  const u = await root(d.page, ["--surface", "--float-bg", "--float-blur", "--glass-fx"]);
+  check(
+    "aero Daylight with transparency effects off: opaque cards and floats, and no blur anywhere",
+    u["--surface"] === "#e9f7ff" && u["--float-bg"] === "#e9f7ff" && u["--float-blur"] === "none" && u["--glass-fx"] === "none",
+    JSON.stringify(u),
+  );
+  await d.ctx.close();
+}
+
+{
+  // The picker: Aero's card, no dark-only note, the accent per face, and
+  // leaving for Prism in Light, which is the app's own Light again.
+  const { ctx, page, errors } = await open({ store: AERO_DAY_STORE, scheme: "light" });
+  await page.locator("button[aria-label='Settings']").click();
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  const themes = page.getByRole("group", { name: "Theme" });
+  await themes.waitFor({ timeout: 10_000 });
+  check("aero in Light: Aero is the chosen card, and Settings does not call it dark only", (await themes.locator("button[aria-pressed='true']").getAttribute("aria-label")) === "Frutiger Aero" && (await page.locator('[data-setting="theme-pack"]').getByText(/ is dark only\./).count()) === 0);
+  const accentGroup = () => page.getByRole("group", { name: "Accent color" });
+  const live = () => root(page, ["--bg", "--accent", "--accent-ink"]);
+  await accentGroup().getByRole("button", { name: "Green", exact: true }).click();
+  await page.waitForTimeout(100);
+  check("aero in Light: a pick is Daylight's accent", (await live())["--accent"] === "#2cad57");
+  // Dark has a pick of its own (head's one store per face): Daylight's green stays in Light.
+  await page.getByRole("group", { name: "Appearance" }).getByRole("button", { name: "Dark", exact: true }).click();
+  await page.waitForTimeout(150);
+  check("aero: Dark is Night, in Night's own aqua, not Daylight's pick", (await live())["--accent"] === AERO.night.accent && (await live())["--bg"] === AERO.night.bg, JSON.stringify(await live()));
+  await accentGroup().getByRole("button", { name: "Pink", exact: true }).click();
+  await page.waitForTimeout(100);
+  check("aero: a pick in Night is Night's", (await live())["--accent"] !== AERO.night.accent);
+  await page.getByRole("group", { name: "Appearance" }).getByRole("button", { name: "Light", exact: true }).click();
+  await page.waitForTimeout(150);
+  const l = await live();
+  check("aero: and back in Light, Daylight's own pick is still there", l["--accent"] === "#2cad57" && l["--bg"] === AERO.day.bg, JSON.stringify(l));
+  await accentGroup().locator("button").first().click();
+  await page.waitForTimeout(100);
+  check("aero: the first swatch gives Daylight's blue back", (await live())["--accent"] === AERO.day.accent, JSON.stringify(await live()));
+  // Prism, chosen while Light: the app's own Light, nothing of Aero's.
+  await themes.getByRole("button", { name: "Prism", exact: true }).click();
+  await page.waitForTimeout(200);
+  const p = await live();
+  const gp = await glossOf(page);
+  check(
+    "switching to Prism in Light is the app's own Light: its palette, no gloss, no bubbles, no sky",
+    p["--bg"] === "oklch(0.965 0 0)" && noGloss(gp) && (await page.locator(".aero-bubbles").count()) === 0 &&
+      !/gradient/.test(await page.evaluate(() => getComputedStyle(document.body).backgroundImage)),
+    JSON.stringify({ p, gp }),
+  );
+  check("and Settings says Prism is dark only now", await page.locator('[data-setting="theme-pack"]').getByText("Prism is dark only.", { exact: true }).isVisible());
+  await themes.getByRole("button", { name: "Velvet", exact: true }).click();
+  await page.waitForTimeout(200);
+  check(
+    "and Velvet in Light is the app's own Light as well, with the default Accent row (a pack with no face for Light is not showing)",
+    (await live())["--bg"] === "oklch(0.965 0 0)" && noGloss(await glossOf(page)) &&
+      /^Default/.test((await accentGroup().locator("button").first().getAttribute("aria-label")) ?? ""),
+  );
+  check("aero: no page errors", errors.length === 0, errors.join(" | "));
+  await ctx.close();
+}
+
+{
+  // Brand screens (plan 035, "a pack paints only what it has designed"):
+  // onboarding looks as Default's dark does under Aero, in both faces, and
+  // the sky and the bubbles never show behind it.
+  const probe = (page) =>
+    page.evaluate(() => {
+      const onb = document.querySelector(".onb");
+      const cs = getComputedStyle(onb);
+      const btn = getComputedStyle(document.querySelector(".onb-btn"));
+      const title = document.querySelector(".onb-title, .onb-word");
+      const tcs = getComputedStyle(title);
+      let behind = 0;
+      let probed = 0;
+      for (let x = 40; x < innerWidth; x += 160)
+        for (let y = 40; y < innerHeight; y += 160) {
+          probed++;
+          const hit = document.elementFromPoint(x, y);
+          if (hit && !onb.contains(hit)) behind++;
+        }
+      const v = (n) => cs.getPropertyValue(n).trim();
+      // The pieces onboarding draws from the app's own kit (its chips are a
+      // segmented control), as a stand-in inside an .onb: none of Aero's paint.
+      const host = document.createElement("div");
+      host.className = "onb";
+      host.style.cssText = "position:static;inset:auto;overflow:visible;background:none";
+      host.innerHTML = '<div class="seg"><span class="seg__thumb"></span></div><button class="toggle toggle--on"><span class="toggle__thumb"></span></button><button data-slot="button" data-variant="secondary" data-size="default">Go</button>';
+      document.body.append(host);
+      const paint = (e) => {
+        const c = getComputedStyle(e);
+        return [c.backgroundColor, c.backgroundImage, c.boxShadow, c.textShadow];
+      };
+      const leak = [".seg", ".seg__thumb", ".toggle", "[data-slot=button]"].map((q) => paint(host.querySelector(q)));
+      host.remove();
+      return {
+        leak,
+        tokens: { bg: v("--bg"), text: v("--text"), surface: v("--surface"), accent: v("--accent"), gloss: v("--gloss"), fx: v("--glass-fx"), font: v("--font-text") },
+        btn: { bg: btn.backgroundColor, image: btn.backgroundImage, color: btn.color },
+        title: { color: tcs.color, font: tcs.fontFamily },
+        behind,
+        probed,
+        bubbles: document.querySelectorAll(".aero-bubbles").length,
+      };
+    });
+  const d = await open({ onboarded: false });
+  const want = await probe(d.page);
+  await d.ctx.close();
+  for (const [face, store, scheme] of [["Night", AERO_STORE, "dark"], ["Daylight", AERO_DAY_STORE, "light"]]) {
+    const { ctx, page, errors } = await open({ store, scheme, onboarded: false });
+    const got = await probe(page);
+    check(
+      `aero ${face}: onboarding's palette, type and button are Default dark's, with no gloss`,
+      JSON.stringify({ t: { ...got.tokens, gloss: "" }, b: got.btn, ti: got.title, l: got.leak }) === JSON.stringify({ t: { ...want.tokens, gloss: "" }, b: want.btn, ti: want.title, l: want.leak }) && got.tokens.gloss === "none" && got.btn.image === "none",
+      JSON.stringify({ got, want }),
+    );
+    check(
+      `aero ${face}: nothing of the page shows through onboarding, with the sky and the bubbles on`,
+      got.behind === 0 && got.probed > 20 && got.bubbles === 1,
+      JSON.stringify({ behind: got.behind, probed: got.probed, bubbles: got.bubbles }),
+    );
+    check(`aero ${face}: onboarding has no page errors`, errors.length === 0, errors.join(" | "));
+    await ctx.close();
+  }
+}
+
+{
+  // On-picture controls keep light ink on dark glass in Daylight, and carry no
+  // gloss: the theater, the mini player and a Multi-View tile (read on stand-ins,
+  // as glossOf does for the rest; verify-theme-contrast measures the real ones).
+  for (const [face, store, scheme] of [["Night", AERO_STORE, "dark"], ["Daylight", AERO_DAY_STORE, "light"]]) {
+    const { ctx, page } = await open({ store, scheme });
+    const got = await page.evaluate(() => {
+      const host = document.createElement("div");
+      host.innerHTML = ["theater-overlay", "mini-overlay", "mvtile"]
+        .map((c) => `<div class="${c} on-picture" id="p-${c}"><button data-slot="button" data-variant="default" id="b-${c}">Go</button><span id="t-${c}" style="color:var(--text)">x</span></div>`)
+        .join("");
+      document.body.append(host);
+      const out = {};
+      for (const c of ["theater-overlay", "mini-overlay", "mvtile"]) {
+        out[c] = { image: getComputedStyle(host.querySelector(`#b-${c}`)).backgroundImage, ink: getComputedStyle(host.querySelector(`#t-${c}`)).color };
+      }
+      host.remove();
+      return out;
+    });
+    check(
+      `aero ${face}: the theater, the mini player and a tile have light ink and no gloss`,
+      Object.values(got).every((x) => x.image === "none" && ["oklch(0.985 0 0)", "rgb(242, 249, 255)"].includes(x.ink)),
+      JSON.stringify(got),
+    );
+    await ctx.close();
+  }
 }
 
 // ------------------------------------------------------------ Light ignores
@@ -1098,7 +1590,7 @@ const fontOf = (page, token) =>
   const themes = page.getByRole("group", { name: "Theme" });
   await themes.waitFor({ timeout: 10_000 });
   const names = await themes.locator("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  check("the Theme row has six cards: Default, Prism, Velvet, Lagoon, Fluent, Classic", names.join() === "Default,Prism,Velvet,Lagoon,Fluent,Classic", names.join());
+  check("the Theme row has seven cards: Default, Prism, Velvet, Lagoon, Fluent, Classic, Frutiger Aero", names.join() === "Default,Prism,Velvet,Lagoon,Fluent,Classic,Frutiger Aero", names.join());
   check("Default is chosen on a fresh profile", (await themes.locator("button[aria-pressed='true']").getAttribute("aria-label")) === "Default");
   const swatches = await page.evaluate(() =>
     Object.fromEntries([...document.querySelectorAll("[data-swatch]")].map((e) => [e.getAttribute("data-swatch"), getComputedStyle(e).backgroundColor])),
