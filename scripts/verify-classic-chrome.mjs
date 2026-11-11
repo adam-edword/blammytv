@@ -461,13 +461,15 @@ for (const width of [1600, 1100]) {
       return { bg: s.backgroundColor, h: Math.round(b.getBoundingClientRect().height), raised: s.boxShadow.startsWith("rgb(64, 64, 64) -1px") };
     });
     check("appearance: Titles per Row's value is a sunken white field, not a raised button", !!val && val.bg === "rgb(255, 255, 255)" && val.h === 22 && !val.raised, JSON.stringify(val));
-    // R2: the accent's hex field starts right of its #
+    // R2: the accent's hex field starts right of its #. offsetHeight, not the
+    // rect: the popover zooms in from 0.95 and a rect read in that window is 21
+    // (CI, 1.2.13), the race verify-kit lost on 1.2.12.
     await page.getByRole("button", { name: "Custom" }).click();
     const hex = page.locator('input[aria-label="Hex color"]');
     await hex.waitFor({ timeout: 5000 });
     const hx = await hex.evaluate((i) => {
       const hash = [...i.parentElement.querySelectorAll("span")].find((s) => s.textContent.trim() === "#").getBoundingClientRect();
-      return { textStart: Math.round(i.getBoundingClientRect().left + parseFloat(getComputedStyle(i).paddingLeft)), hashRight: Math.round(hash.right), h: Math.round(i.getBoundingClientRect().height) };
+      return { textStart: Math.round(i.getBoundingClientRect().left + parseFloat(getComputedStyle(i).paddingLeft)), hashRight: Math.round(hash.right), h: i.offsetHeight };
     });
     check("appearance: the hex field's text starts right of the # (R2), at 22px", hx.textStart >= hx.hashRight && hx.h === 22, JSON.stringify(hx));
     await shot(page, "accent-popover");
