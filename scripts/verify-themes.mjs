@@ -1605,7 +1605,8 @@ for (const [face, want, store, scheme] of [
   const themes = page.getByRole("group", { name: "Theme" });
   await themes.waitFor({ timeout: 10_000 });
   const names = await themes.locator("button").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
-  check("the Theme row has seven cards: Default, Prism, Velvet, Lagoon, Fluent, Classic, Frutiger Aero", names.join() === "Default,Prism,Velvet,Lagoon,Fluent,Classic,Frutiger Aero", names.join());
+  // In tier order since 1.2.15 (the picker groups by tier), so Aero sits with the tier-2 packs.
+  check("the Theme row has seven cards, by tier: Default, Prism, Velvet, Lagoon, Frutiger Aero, Fluent, Classic", names.join() === "Default,Prism,Velvet,Lagoon,Frutiger Aero,Fluent,Classic", names.join());
   check("Default is chosen on a fresh profile", (await themes.locator("button[aria-pressed='true']").getAttribute("aria-label")) === "Default");
   const swatches = await page.evaluate(() =>
     Object.fromEntries([...document.querySelectorAll("[data-swatch]")].map((e) => [e.getAttribute("data-swatch"), getComputedStyle(e).backgroundColor])),
