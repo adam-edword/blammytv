@@ -102,6 +102,14 @@ export const THEME_PACKS: readonly PackInfo[] = [
   },
 ];
 
+/** The picker's groups, one per tier, in the words a user reads (Adam,
+ * 1.2.14: "group the themes by their tier"). */
+export const THEME_TIERS: readonly { tier: PackInfo["tier"]; label: string }[] = [
+  { tier: 1, label: "Colors" },
+  { tier: 2, label: "Colors and Effects" },
+  { tier: 3, label: "Redesigns" },
+];
+
 export function packInfo(key: ThemePack): PackInfo {
   return THEME_PACKS.find((p) => p.key === key) ?? THEME_PACKS[0];
 }

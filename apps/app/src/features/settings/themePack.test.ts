@@ -13,6 +13,7 @@ vi.mock("../../lib/tauri", () => ({
 }));
 import {
   THEME_PACKS,
+  THEME_TIERS,
   applyThemePack,
   faceAccent,
   loadThemePack,
@@ -75,6 +76,13 @@ describe("themePack store", () => {
 
   it("gives each pack a tier, and Fluent and Classic are tier 3", () => {
     expect(THEME_PACKS.map((p) => p.tier)).toEqual([1, 2, 2, 2, 3, 3, 2]);
+  });
+
+  it("has a group in the picker for every pack's tier, so none can go missing", () => {
+    const tiers = THEME_TIERS.map((t) => t.tier);
+    expect(tiers).toEqual([1, 2, 3]);
+    expect(THEME_PACKS.every((p) => tiers.includes(p.tier))).toBe(true);
+    expect(THEME_TIERS.map((t) => t.label)).toEqual(["Colors", "Colors and Effects", "Redesigns"]);
   });
 
   it("shows a tier-3 pack in Light too, and the others only in Dark", () => {

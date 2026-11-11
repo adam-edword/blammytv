@@ -68,6 +68,21 @@ check("a fresh profile opens dark", fresh.theme === "dark" && fresh.page === "ok
 
 await openAppearance();
 check("Dark is the chosen option on a fresh profile", (await pressed()) === "Dark");
+// Themes sit in three groups, by tier, and every theme is in one of them.
+const tiers = await page.evaluate(() =>
+  [...document.querySelectorAll("[data-theme-tier]")].map((g) => ({
+    label: g.querySelector("p")?.textContent,
+    named: g.getAttribute("aria-labelledby") === g.querySelector("p")?.id,
+    cards: [...g.querySelectorAll('[data-picker="theme"]')].map((c) => c.getAttribute("aria-label")),
+  })),
+);
+check(
+  "Theme groups its cards by tier: Colors, Colors and Effects, Redesigns",
+  JSON.stringify(tiers.map((t) => [t.label, ...t.cards])) ===
+    JSON.stringify([["Colors", "Default"], ["Colors and Effects", "Prism", "Velvet", "Lagoon", "Frutiger Aero"], ["Redesigns", "Fluent", "Classic"]]) &&
+    tiers.every((t) => t.named),
+  JSON.stringify(tiers),
+);
 await pick("Light");
 const light = await state();
 check(

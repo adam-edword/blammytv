@@ -2,6 +2,12 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.15: Themes in groups
+
+- **Settings → Appearance → Theme** sorts its cards into three groups:
+  Colors, Colors and Effects and Redesigns. A redesign changes the app's
+  shapes and layout too, as Fluent and Classic do.
+
 ## 1.2.14: A calmer night sky in Frutiger Aero
 
 - **Frutiger Aero, Dark:** the thin lines across the sky are gone. They cut
