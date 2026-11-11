@@ -1046,15 +1046,29 @@ const AERO = {
 const AERO_STORE = { themePack: { data: "aero" } };
 const AERO_DAY_STORE = { theme: { data: "light" }, themePack: { data: "aero" } };
 
-/** The bubble layer: how many nodes it is, where, and how it moves. */
+/** The bubbles: the frame, and each of its three tiles (far, mid, near), where they are and how each moves. */
 const bubblesOf = (page) =>
   page.evaluate(() => {
     const frame = document.querySelector(".aero-bubbles");
     if (!frame) return { count: document.querySelectorAll(".aero-bubbles").length };
-    const tile = frame.querySelector(".aero-bubbles__tile");
     const fcs = getComputedStyle(frame);
-    const tcs = getComputedStyle(tile);
-    const m = /matrix\(([^)]*)\)/.exec(tcs.transform);
+    const tiles = [...frame.children].map((tile) => {
+      const tcs = getComputedStyle(tile);
+      const m = /matrix\(([^)]*)\)/.exec(tcs.transform);
+      return {
+        name: [...tile.classList].find((c) => c.startsWith("aero-bubbles__tile--"))?.slice("aero-bubbles__tile--".length),
+        animation: tcs.animationName,
+        seconds: parseFloat(tcs.animationDuration),
+        timing: tcs.animationTimingFunction,
+        ty: m ? Number(m[1].split(",")[5]) : 0,
+        bgPos: tcs.backgroundPosition,
+        bgSize: tcs.backgroundSize,
+        gradients: (tcs.backgroundImage.match(/radial-gradient/g) ?? []).length,
+        filter: tcs.filter,
+        tileHeight: parseFloat(tcs.height),
+        own: parseFloat(tcs.getPropertyValue("--aero-tile")),
+      };
+    });
     return {
       count: document.querySelectorAll(".aero-bubbles").length,
       nodes: frame.querySelectorAll("*").length,
@@ -1063,17 +1077,11 @@ const bubblesOf = (page) =>
       display: fcs.display,
       overflow: fcs.overflow,
       pointer: fcs.pointerEvents,
-      animation: tcs.animationName,
-      duration: tcs.animationDuration,
-      timing: tcs.animationTimingFunction,
-      ty: m ? Number(m[1].split(",")[5]) : 0,
-      bgPos: tcs.backgroundPosition,
-      bgSize: tcs.backgroundSize,
-      gradients: (tcs.backgroundImage.match(/radial-gradient/g) ?? []).length,
-      tileHeight: tcs.height,
-      frameHeight: fcs.height,
+      frameHeight: parseFloat(fcs.height),
+      tiles,
     };
   });
+const tileNames = (b) => (b.tiles ?? []).map((t) => t.name).join();
 
 /** A comma list whose every entry is the same thing (one value per gradient layer). */
 const sameAll = (list, one) => list.split(", ").every((x) => x === one);
@@ -1162,24 +1170,31 @@ for (const [face, want, store, scheme] of [
   const pa = Number(pill.match(/[\d.]+/g).map(Number)[3] ?? 1);
   const pillOk = pa > 0.3 && pa < 1;
   check(`aero ${face}: the capsule's pill is a lit tint of the accent, with the gloss over it`, pillOk && topHalf(await page.evaluate(() => getComputedStyle(document.querySelector(".navcap__row--nav .navcap__pill")).backgroundImage)), pill);
-  // Bubbles: one layer in the shell, one tile, a transform that moves, and never background-position.
+  // Bubbles: one frame in the shell with three tiles (far, mid, near), each a transform that moves at its own rate, and never background-position.
   const b1 = await bubblesOf(page);
   check(
-    `aero ${face}: the bubbles are one frame and one tile inside .app-shell, behind the content, and take no click`,
-    b1.count === 1 && b1.nodes === 1 && b1.inShell && b1.zIndex === "-1" && b1.display === "block" && b1.overflow === "hidden" && b1.pointer === "none",
-    JSON.stringify(b1),
+    `aero ${face}: the bubbles are one frame and three tiles (far, mid, near) inside .app-shell, behind the content, and take no click`,
+    b1.count === 1 && b1.nodes === 3 && tileNames(b1) === "far,mid,near" && b1.inShell && b1.zIndex === "-1" && b1.display === "block" && b1.overflow === "hidden" && b1.pointer === "none",
+    JSON.stringify({ ...b1, tiles: tileNames(b1) }),
   );
+  const min = { far: 20, mid: 15, near: 10 };
   check(
-    `aero ${face}: the tile is a tall run of radial-gradient bubbles (taller than the frame by one 1200px tile)`,
-    b1.gradients >= 30 && sameAll(b1.bgSize, "1600px 1200px") && parseFloat(b1.tileHeight) === parseFloat(b1.frameHeight) + 1200,
-    JSON.stringify({ gradients: b1.gradients, bgSize: b1.bgSize, tile: b1.tileHeight, frame: b1.frameHeight }),
+    `aero ${face}: each tile is a tall run of radial-gradient bubbles, taller than the frame by its own tile height, with no filter`,
+    b1.tiles.every((t) => t.gradients >= min[t.name] && t.own > 0 && sameAll(t.bgSize, `1600px ${t.own}px`) && t.tileHeight === b1.frameHeight + t.own && t.filter === "none"),
+    JSON.stringify(b1.tiles.map((t) => [t.name, t.gradients, t.bgSize, t.own, t.tileHeight, b1.frameHeight, t.filter])),
+  );
+  const secs = Object.fromEntries(b1.tiles.map((t) => [t.name, t.seconds]));
+  check(
+    `aero ${face}: the three rates differ, near the shortest loop and far the longest`,
+    new Set(Object.values(secs)).size === 3 && secs.near < secs.mid && secs.mid < secs.far,
+    JSON.stringify(secs),
   );
   await page.waitForTimeout(1000);
   const b2 = await bubblesOf(page);
   check(
-    `aero ${face}: they rise on a transform loop (translateY, linear, infinite) and background-position never moves`,
-    b1.animation === "aero-rise" && b1.duration === "90s" && b1.timing === "linear" && b2.ty < b1.ty - 4 && b1.bgPos === b2.bgPos && sameAll(b1.bgPos, "0% 0%"),
-    JSON.stringify({ b1: [b1.animation, b1.duration, b1.ty, b1.bgPos], b2: [b2.ty, b2.bgPos] }),
+    `aero ${face}: they rise on a transform loop (translateY, linear, infinite), each its own, and background-position never moves`,
+    b1.tiles.every((t, i) => t.animation === `aero-rise-${t.name}` && t.timing === "linear" && b2.tiles[i].ty < t.ty - 3 && t.bgPos === b2.tiles[i].bgPos && sameAll(t.bgPos, "0% 0%")),
+    JSON.stringify({ b1: b1.tiles.map((t) => [t.animation, t.seconds, t.ty]), b2: b2.tiles.map((t) => t.ty) }),
   );
   check(
     `aero ${face}: no film grain, no cursor light, no dither`,
@@ -1261,9 +1276,9 @@ for (const [face, want, store, scheme] of [
   await page.waitForTimeout(700);
   const b = await bubblesOf(page);
   check(
-    "aero with reduced motion: the bubbles are still on the page, and hold still",
-    a.count === 1 && a.display === "block" && a.gradients >= 30 && a.animation === "none" && b.animation === "none" && a.ty === 0 && b.ty === 0,
-    JSON.stringify({ a: [a.display, a.animation, a.ty], b: [b.animation, b.ty] }),
+    "aero with reduced motion: all three bubble layers are still on the page, and hold still",
+    a.count === 1 && a.display === "block" && a.tiles.length === 3 && a.tiles.every((t, i) => t.gradients >= 10 && t.animation === "none" && b.tiles[i].animation === "none" && t.ty === 0 && b.tiles[i].ty === 0),
+    JSON.stringify({ a: a.tiles.map((t) => [t.name, t.gradients, t.animation, t.ty]), b: b.tiles.map((t) => [t.animation, t.ty]) }),
   );
   await ctx.close();
 }

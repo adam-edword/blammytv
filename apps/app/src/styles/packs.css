@@ -1054,14 +1054,19 @@
 }
 
 /* THE BUBBLES (ui/AeroBubbles.tsx, mounted inside .app-shell): one frame and
- * one tall tile of gradients, moved by a transform (the compositor's, never
- * background-position). 22 bubbles from 20px to 140px, each a rim light, a
- * specular spot, a dimmer one opposite and a faint rainbow on the rim. The
- * tile is 1200px tall and repeats, so sliding it 1200px is the same picture
- * and the loop has no seam; it sways a little as it rises. z-index -1 puts it
- * behind the shell's content, over the page's sky. Still under reduced motion
- * (it holds still), and hidden while a player is up: the shell is cut by a
- * clip-path then (the hole), the same test Prism's light uses. */
+ * three tiles of gradients, far, mid and near, each moved by a transform (the
+ * compositor's, never background-position) at its own rate, so they drift
+ * through one another and never line up again. 22 bubbles in all, most of them
+ * far. Depth reads four ways: size (far 10 to 30px, mid 30 to 70px, near 80 to
+ * 150px), brightness, rate (130s, 95s and 70s a loop) and focus. The focus is
+ * BAKED into the gradients, wide soft stops on the far ones and crisp rims on
+ * the near ones, and never a filter: a blur filter on a layer the size of the
+ * window is a GPU pass every frame, and the baked softness rasters once. Each
+ * tile has its own height and slides exactly that far, so its loop has no seam;
+ * each sways its own distance. z-index -1 puts them behind the shell's content,
+ * over the page's sky. Still under reduced motion (they hold still), and
+ * hidden while a player is up: the shell is cut by a clip-path then (the hole),
+ * the same test Prism's light uses. */
 .aero-bubbles {
   position: absolute;
   inset: 0;
@@ -1074,128 +1079,133 @@
   top: 0;
   left: 0;
   right: 0;
-  height: calc(100% + 1200px);
-  background-size: 1600px 1200px;
-  background-image:
-    radial-gradient(circle 14px at 712px 354px, var(--bubble-glint), transparent),
-    radial-gradient(circle 8px at 766px 414px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 70px at 744px 390px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 70px at 730px 375px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 70px at 737px 382px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 12px at 852px 139px, var(--bubble-glint), transparent),
-    radial-gradient(circle 7px at 900px 192px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 62px at 880px 171px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 62px at 868px 158px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 62px at 874px 164px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 11px at 187px 228px, var(--bubble-glint), transparent),
-    radial-gradient(circle 6px at 229px 274px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 54px at 211px 256px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 54px at 201px 245px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 54px at 206px 250px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 10px at 1074px 472px, var(--bubble-glint), transparent),
-    radial-gradient(circle 6px at 1111px 513px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 48px at 1096px 497px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 48px at 1086px 486px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 48px at 1091px 491px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 8px at 919px 885px, var(--bubble-glint), transparent),
-    radial-gradient(circle 5px at 952px 921px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 42px at 938px 907px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 42px at 930px 898px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 42px at 934px 902px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 8px at 171px 519px, var(--bubble-glint), transparent),
-    radial-gradient(circle 5px at 201px 551px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 38px at 189px 539px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 38px at 181px 530px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 38px at 185px 534px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 7px at 211px 893px, var(--bubble-glint), transparent),
-    radial-gradient(circle 4px at 237px 922px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 34px at 226px 911px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 34px at 220px 904px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 34px at 223px 907px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 6px at 480px 148px, var(--bubble-glint), transparent),
-    radial-gradient(circle 4px at 504px 174px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 30px at 494px 164px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 30px at 488px 157px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 30px at 491px 160px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 6px at 1203px 833px, var(--bubble-glint), transparent),
-    radial-gradient(circle 3px at 1225px 857px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 28px at 1216px 847px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 28px at 1210px 841px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 28px at 1213px 844px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 5px at 116px 1160px, var(--bubble-glint), transparent),
-    radial-gradient(circle 3px at 136px 1182px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 26px at 128px 1173px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 26px at 122px 1167px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 26px at 125px 1170px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 5px at 291px 611px, var(--bubble-glint), transparent),
-    radial-gradient(circle 3px at 310px 632px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 24px at 302px 624px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 24px at 298px 619px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 24px at 300px 621px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 4px at 876px 312px, var(--bubble-glint), transparent),
-    radial-gradient(circle 3px at 893px 331px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 22px at 886px 324px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 22px at 882px 319px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 22px at 884px 321px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 4px at 1124px 257px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 1139px 274px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 20px at 1133px 267px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 20px at 1129px 263px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 20px at 1131px 265px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 4px at 1185px 646px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 1199px 661px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 18px at 1193px 655px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 18px at 1189px 651px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 18px at 1191px 653px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 3px at 1161px 384px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 1174px 397px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 16px at 1169px 392px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 16px at 1165px 388px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 16px at 1167px 390px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 3px at 224px 396px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 235px 408px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 14px at 230px 404px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 14px at 228px 401px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 14px at 229px 402px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 3px at 775px 211px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 786px 223px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 14px at 781px 219px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 14px at 779px 216px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 14px at 780px 217px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 3px at 1133px 139px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 1142px 149px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 12px at 1138px 145px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 12px at 1136px 143px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 12px at 1137px 144px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 3px at 1279px 432px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 1288px 442px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 12px at 1284px 438px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
-    radial-gradient(circle 12px at 1282px 436px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
-    radial-gradient(circle 12px at 1283px 437px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 3px at 1026px 1098px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 1034px 1106px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 10px at 1030px 1102px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 3px at 885px 653px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 893px 662px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 10px at 889px 657px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
-    radial-gradient(circle 3px at 750px 623px, var(--bubble-glint), transparent),
-    radial-gradient(circle 2px at 758px 632px, var(--bubble-glint2), transparent),
-    radial-gradient(circle 10px at 754px 627px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%);
+  background-size: 1600px var(--aero-tile);
   will-change: transform;
-  animation: aero-rise 90s linear infinite;
+  height: calc(100% + var(--aero-tile));
 }
-@keyframes aero-rise {
+/* far: 28 gradients */
+.aero-bubbles__tile--far {
+  --aero-tile: 1000px;
+  background-image:
+    radial-gradient(circle 8px at 42px 496px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 15px at 46px 501px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 8px at 246px 798px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 14px at 250px 802px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 7px at 819px 159px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 13px at 823px 163px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 7px at 1414px 58px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 12px at 1418px 62px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 7px at 298px 129px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 12px at 302px 133px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 6px at 1110px 250px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 11px at 1113px 254px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 6px at 1470px 788px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 10px at 1473px 791px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 5px at 1528px 45px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 9px at 1531px 48px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 4px at 291px 247px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 8px at 293px 250px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 4px at 1109px 760px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 8px at 1111px 763px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 4px at 927px 549px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 7px at 929px 551px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 3px at 854px 219px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 6px at 856px 221px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 3px at 1224px 105px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 6px at 1226px 107px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%),
+    radial-gradient(circle 3px at 250px 29px, color-mix(in srgb, var(--bubble-glint) 42%, transparent), transparent),
+    radial-gradient(circle 5px at 252px 31px, transparent 0, color-mix(in srgb, var(--bubble-fill) 70%, transparent) 42%, color-mix(in srgb, var(--bubble-rim) 36%, transparent) 76%, transparent 100%);
+  animation: aero-rise-far 130s linear infinite;
+}
+/* mid: 25 gradients */
+.aero-bubbles__tile--mid {
+  --aero-tile: 1200px;
+  background-image:
+    radial-gradient(circle 9px at 1098px 876px, color-mix(in srgb, var(--bubble-glint) 80%, transparent), transparent),
+    radial-gradient(circle 5px at 1124px 904px, color-mix(in srgb, var(--bubble-glint2) 70%, transparent), transparent),
+    radial-gradient(circle 35px at 1113px 892px, transparent 68%, color-mix(in srgb, var(--bubble-warm) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 35px at 1107px 886px, transparent 68%, color-mix(in srgb, var(--bubble-cool) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 35px at 1110px 889px, transparent 0 40%, var(--bubble-fill) 68%, color-mix(in srgb, var(--bubble-rim) 78%, transparent) 90%, transparent 100%),
+    radial-gradient(circle 8px at 647px 773px, color-mix(in srgb, var(--bubble-glint) 80%, transparent), transparent),
+    radial-gradient(circle 4px at 669px 797px, color-mix(in srgb, var(--bubble-glint2) 70%, transparent), transparent),
+    radial-gradient(circle 30px at 659px 787px, transparent 68%, color-mix(in srgb, var(--bubble-warm) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 30px at 655px 782px, transparent 68%, color-mix(in srgb, var(--bubble-cool) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 30px at 657px 784px, transparent 0 40%, var(--bubble-fill) 68%, color-mix(in srgb, var(--bubble-rim) 78%, transparent) 90%, transparent 100%),
+    radial-gradient(circle 7px at 616px 379px, color-mix(in srgb, var(--bubble-glint) 80%, transparent), transparent),
+    radial-gradient(circle 4px at 635px 400px, color-mix(in srgb, var(--bubble-glint2) 70%, transparent), transparent),
+    radial-gradient(circle 26px at 627px 392px, transparent 68%, color-mix(in srgb, var(--bubble-warm) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 26px at 623px 387px, transparent 68%, color-mix(in srgb, var(--bubble-cool) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 26px at 625px 389px, transparent 0 40%, var(--bubble-fill) 68%, color-mix(in srgb, var(--bubble-rim) 78%, transparent) 90%, transparent 100%),
+    radial-gradient(circle 6px at 1465px 1126px, color-mix(in srgb, var(--bubble-glint) 80%, transparent), transparent),
+    radial-gradient(circle 3px at 1481px 1143px, color-mix(in srgb, var(--bubble-glint2) 70%, transparent), transparent),
+    radial-gradient(circle 22px at 1474px 1136px, transparent 68%, color-mix(in srgb, var(--bubble-warm) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 22px at 1470px 1132px, transparent 68%, color-mix(in srgb, var(--bubble-cool) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 22px at 1472px 1134px, transparent 0 40%, var(--bubble-fill) 68%, color-mix(in srgb, var(--bubble-rim) 78%, transparent) 90%, transparent 100%),
+    radial-gradient(circle 5px at 1372px 586px, color-mix(in srgb, var(--bubble-glint) 80%, transparent), transparent),
+    radial-gradient(circle 3px at 1385px 601px, color-mix(in srgb, var(--bubble-glint2) 70%, transparent), transparent),
+    radial-gradient(circle 18px at 1379px 595px, transparent 68%, color-mix(in srgb, var(--bubble-warm) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 18px at 1377px 592px, transparent 68%, color-mix(in srgb, var(--bubble-cool) 55%, transparent) 88%, transparent 100%),
+    radial-gradient(circle 18px at 1378px 593px, transparent 0 40%, var(--bubble-fill) 68%, color-mix(in srgb, var(--bubble-rim) 78%, transparent) 90%, transparent 100%);
+  animation: aero-rise-mid 95s linear infinite;
+}
+/* near: 15 gradients */
+.aero-bubbles__tile--near {
+  --aero-tile: 1400px;
+  background-image:
+    radial-gradient(circle 15px at 1329px 574px, var(--bubble-glint), transparent),
+    radial-gradient(circle 9px at 1388px 638px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 75px at 1364px 613px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 75px at 1348px 596px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 75px at 1356px 604px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 11px at 776px 1125px, var(--bubble-glint), transparent),
+    radial-gradient(circle 7px at 820px 1172px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 56px at 802px 1154px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 56px at 790px 1141px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 56px at 796px 1147px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%),
+    radial-gradient(circle 8px at 92px 984px, var(--bubble-glint), transparent),
+    radial-gradient(circle 5px at 125px 1020px, var(--bubble-glint2), transparent),
+    radial-gradient(circle 42px at 111px 1006px, transparent 76%, var(--bubble-warm) 91%, transparent 100%),
+    radial-gradient(circle 42px at 103px 997px, transparent 76%, var(--bubble-cool) 91%, transparent 100%),
+    radial-gradient(circle 42px at 107px 1001px, transparent 0 52%, var(--bubble-fill) 78%, var(--bubble-rim) 93%, transparent 100%);
+  animation: aero-rise-near 70s linear infinite;
+}
+@keyframes aero-rise-far {
   25% {
-    transform: translate(16px, -300px);
+    transform: translate(8px, -250px);
+  }
+  50% {
+    transform: translate(0, -500px);
+  }
+  75% {
+    transform: translate(-8px, -750px);
+  }
+  to {
+    transform: translate(0, -1000px);
+  }
+}
+@keyframes aero-rise-mid {
+  25% {
+    transform: translate(-16px, -300px);
   }
   50% {
     transform: translate(0, -600px);
   }
   75% {
-    transform: translate(-16px, -900px);
+    transform: translate(16px, -900px);
   }
   to {
     transform: translate(0, -1200px);
+  }
+}
+@keyframes aero-rise-near {
+  20% {
+    transform: translate(28px, -280px);
+  }
+  60% {
+    transform: translate(-28px, -840px);
+  }
+  to {
+    transform: translate(0, -1400px);
   }
 }
 @media (prefers-reduced-motion: reduce) {

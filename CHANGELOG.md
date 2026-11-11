@@ -2,6 +2,12 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.16: Bubbles with depth
+
+- **Frutiger Aero's bubbles sit at three distances.** The far ones are
+  small, faint and out of focus and rise slowly. The near ones are big and
+  sharp and rise faster, so they drift past each other.
+
 ## 1.2.15: Themes in groups
 
 - **Settings → Appearance → Theme** sorts its cards into three groups:
