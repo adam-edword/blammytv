@@ -2,6 +2,11 @@
 
 What's new in the BlammyTV desktop app, newest first.
 
+## 1.2.14: A calmer night sky in Frutiger Aero
+
+- **Frutiger Aero, Dark:** the thin lines across the sky are gone. They cut
+  through the Guide's rows.
+
 ## 1.2.13: Frutiger Aero
 
 - **A new theme: Frutiger Aero**, in Settings → Appearance → Theme. Glass
